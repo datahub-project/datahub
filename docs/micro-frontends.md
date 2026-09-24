@@ -104,32 +104,35 @@ microFrontends:
       showInNav: false
     placement:
       slot: entity.detail.tab
-      entityTypes: [dataset] # optional coarse filter; omit to appear on every entity type
-      tabName: "Access" # optional; defaults to label
+      contractVersion: "1.0.0" # required: the context shape this MFE was built against
+      entityTypes: [dataset] # required for entity slots; an entry listing none appears nowhere
+      visibleWhen: [physicalDataset] # optional host-side predicates; visible if any matches
 ```
 
-| Field                   | Required                | Notes                                                                                 |
-| ----------------------- | ----------------------- | ------------------------------------------------------------------------------------- |
-| `id`                    | yes                     | Unique identifier for the entry.                                                      |
-| `label`                 | yes                     | Navigation title; default tab name; used in error messages.                           |
-| `remoteEntry`           | yes                     | URL of the Module Federation `remoteEntry.js`.                                        |
-| `module`                | yes                     | `<remoteName>/<exposedModule>`, e.g. `accessMFE/mount`.                               |
-| `flags.enabled`         | yes                     | `false` hides the MFE everywhere; the remote is never fetched.                        |
-| `flags.showInNav`       | yes                     | Only meaningful for `nav.page`.                                                       |
-| `path`                  | `nav.page` only         | Route under `/mfe`, must start with `/`.                                              |
-| `navIcon`               | `nav.page` only         | Phosphor icon name. Optional icon for tabs.                                           |
-| `placement.slot`        | no (default `nav.page`) | `nav.page` or `entity.detail.tab`.                                                    |
-| `placement.entityTypes` | no                      | GraphQL entity type names (`dataset`, `chart`, `dashboard`, …), case-insensitive.     |
-| `placement.tabName`     | no                      | Tab label for `entity.detail.tab`. Shown as written; not translated.                  |
-| `topLevelMenuTitle`     | no (top level)          | Heading of the navigation group. Default: "MFE Apps".                                 |
-| `subNavigationMode`     | no (top level)          | `true` collapses navigation entries into one menu; `false` lists them in the sidebar. |
+| Field                       | Required                | Notes                                                                                                                       |
+| --------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `id`                        | yes                     | Unique identifier for the entry.                                                                                            |
+| `label`                     | yes                     | Navigation title; default tab name; used in error messages.                                                                 |
+| `remoteEntry`               | yes                     | URL of the Module Federation `remoteEntry.js`.                                                                              |
+| `module`                    | yes                     | `<remoteName>/<exposedModule>`, e.g. `accessMFE/mount`.                                                                     |
+| `flags.enabled`             | yes                     | `false` hides the MFE everywhere; the remote is never fetched.                                                              |
+| `flags.showInNav`           | yes                     | Only meaningful for `nav.page`.                                                                                             |
+| `path`                      | `nav.page` only         | Route under `/mfe`, must start with `/`.                                                                                    |
+| `navIcon`                   | `nav.page` only         | Phosphor icon name. Optional icon for tabs.                                                                                 |
+| `placement.slot`            | no (default `nav.page`) | `nav.page` or `entity.detail.tab`.                                                                                          |
+| `placement.contractVersion` | yes, with `placement`   | Which context shape the MFE was built against. An entry naming a version this DataHub cannot build is not rendered.         |
+| `placement.entityTypes`     | yes, for entity slots   | GraphQL entity type names (`dataset`, `chart`, `dashboard`, …), case-insensitive. An entry that lists none matches no page. |
+| `placement.visibleWhen`     | no                      | Names of host-registered visibility predicates; visible if any one matches. See below.                                      |
+| `topLevelMenuTitle`         | no (top level)          | Heading of the navigation group. Default: "MFE Apps".                                                                       |
+| `subNavigationMode`         | no (top level)          | `true` collapses navigation entries into one menu; `false` lists them in the sidebar.                                       |
 
 Entries that fail validation are skipped and reported in the browser console; the remaining entries still load.
 Keys that are not listed above are ignored. There is no feature flag: micro frontends are active whenever the file
 lists at least one enabled entry.
 
-Entity tabs are routed by name (`/dataset/<urn>/<tabName>`), so pick a `tabName` that does not collide with a built-in
-tab such as `Columns` or `Lineage`.
+The tab caption is the entry's `label`; `placement` deliberately carries no presentation fields so it can generalise to
+slots that are not tabs. Entity tabs are routed by that caption (`/dataset/<urn>/<label>`), so pick a `label` that does
+not collide with a built-in tab such as `Columns` or `Lineage`, and note that renaming it changes the tab's deep link.
 
 ### Deploying the config
 
@@ -169,7 +172,7 @@ so both sides compile against the same definition.
 ```ts
 type SlotBaseContext = {
   slot: "nav.page" | "entity.detail.tab";
-  version: string; // contract version, currently "1.0.0"
+  contractVersion: string; // mirrors the entry's placement.contractVersion
   principal?: { user: string }; // the viewer's urn, when known
 };
 
@@ -184,12 +187,20 @@ type EntityDetailTabContext = SlotBaseContext & {
 The base context is deliberately small and surface-agnostic. Anything else an MFE needs (schema, ownership, the
 viewer's groups) it fetches itself from DataHub's [GraphQL API](./api/graphql/overview.md) using the browser
 session, which is shared with the host. Per-slot context grows by extending that slot's type and bumping the
-contract version, never by adding surface-specific fields to the base.
+contract version, never by adding surface-specific fields to the base. Concretely: each entry declares the version it
+was built against, and the host keeps one context builder per slot per version. Adding a version is additive — a new
+versioned type plus a new builder — and a shipped version is never edited, so an MFE keeps receiving exactly the shape
+it expects. An entry naming a version the host does not know is dropped rather than handed a context it cannot read.
 
 Two gates decide whether an entity tab appears, and they are meant to be used together:
 
 - **`placement.entityTypes`** in YAML is the coarse, declarative gate: "does this tab belong on this class of page at
-  all?" It is evaluated before any remote code loads.
+  all?" It is evaluated before any remote code loads, and it fails closed — an entry that lists no entity types appears
+  nowhere, because putting a tab on every page in the catalogue is never a safe thing to infer from an omission.
+- **`placement.visibleWhen`** names host-registered predicates that run against the entity on screen, still before the
+  remote loads. The one shipped predicate, `physicalDataset`, keeps a tab off logical models, which are ordinary
+  datasets on a platform flagged `logical` and so cannot be told apart by `entityTypes` alone. An unknown predicate name
+  is logged and contributes no match, so a typo hides the tab rather than exposing it.
 - **Logic inside the MFE** is the fine gate: given the actual entity and viewer, render the workflow, a message, or
   nothing.
 

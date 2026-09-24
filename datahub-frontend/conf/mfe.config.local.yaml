@@ -16,7 +16,7 @@ microFrontends: []
 # A tab on entity profile pages (placement entity.detail.tab); mount(el, ctx) receives
 # ctx.entity = { urn, type } for the entity being viewed:
 #   - id: access-tab
-#     label: Access
+#     label: Access            # also the tab caption
 #     remoteEntry: http://localhost:3002/remoteEntry.js
 #     module: accessMFE/mount
 #     flags:
@@ -24,5 +24,6 @@ microFrontends: []
 #       showInNav: false
 #     placement:
 #       slot: entity.detail.tab
-#       entityTypes: [dataset]      # optional coarse filter; omit for every entity type
-#       tabName: "Access"           # optional; defaults to label
+#       contractVersion: "1.0.0"    # required: which context shape the MFE was built against
+#       entityTypes: [dataset]      # required for entity slots; an entry with none matches nothing
+#       visibleWhen: [physicalDataset]  # optional host-side predicates; any match wins

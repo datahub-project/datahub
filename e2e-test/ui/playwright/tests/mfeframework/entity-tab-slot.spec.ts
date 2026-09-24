@@ -17,11 +17,11 @@ test.use({ featureName: 'mfeframework' });
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,mfe_slot_test_dataset,PROD)';
 
 const TAB_ID = 'access-stub';
-const TAB_LABEL = 'Access Stub';
-const TAB_NAME = 'One Click Access';
+// The tab caption is the entry's `label`; `placement` carries no presentation fields.
+const TAB_LABEL = 'One Click Access';
 const NAV_LABEL = 'Nav Stub Playwright';
 const NAV_PATH = '/nav-stub-mfe';
-const SLOT_CONTRACT_VERSION = '1.0.0';
+const CONTRACT_VERSION = '1.0.0';
 
 const tabEntry = (overrides = '') => `
   - id: ${TAB_ID}
@@ -33,7 +33,7 @@ const tabEntry = (overrides = '') => `
       showInNav: false
     placement:
       slot: entity.detail.tab
-      tabName: "${TAB_NAME}"
+      contractVersion: "${CONTRACT_VERSION}"
 ${overrides}`;
 
 const NAV_ENTRY = `
@@ -49,11 +49,10 @@ const NAV_ENTRY = `
 
 const yaml = (...entries: string[]) => `subNavigationMode: false\nmicroFrontends:${entries.join('')}`;
 
-const TAB_MFE = yaml(tabEntry());
-const TAB_MFE_DATASET_ONLY = yaml(tabEntry('      entityTypes: [dataset]\n'));
+const TAB_MFE = yaml(tabEntry('      entityTypes: [dataset]\n'));
 const TAB_MFE_CHART_ONLY = yaml(tabEntry('      entityTypes: [chart]\n'));
-const TAB_MFE_DISABLED = yaml(tabEntry().replace('enabled: true', 'enabled: false'));
-const MIXED = yaml(NAV_ENTRY, tabEntry());
+const TAB_MFE_DISABLED = TAB_MFE.replace('enabled: true', 'enabled: false');
+const MIXED = yaml(NAV_ENTRY, tabEntry('      entityTypes: [dataset]\n'));
 
 /**
  * Stub remote in the same `window.<remoteName>` shape as a webpack Module Federation `var` remote.
@@ -84,13 +83,13 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     mfePage = new MFEFrameworkPage(page);
   });
 
-  test('renders the placed MFE as a tab named by placement.tabName', async () => {
+  test('renders the placed MFE as a tab captioned by the entry's label', async () => {
     await mfePage.mockFetchForMFEConfig(TAB_MFE);
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
     await mfePage.gotoDataset(DATASET_URN);
 
-    await expect(mfePage.entityTabHeader(TAB_NAME)).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(mfePage.entityTabHeader(TAB_NAME)).toContainText(TAB_NAME);
+    await expect(mfePage.entityTabHeader(TAB_LABEL)).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(mfePage.entityTabHeader(TAB_LABEL)).toContainText(TAB_LABEL);
   });
 
   test('passes a typed EntityDetailTabContext to mount(el, ctx)', async () => {
@@ -98,12 +97,12 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
     await mfePage.gotoDataset(DATASET_URN);
 
-    await mfePage.entityTabHeader(TAB_NAME).click();
+    await mfePage.entityTabHeader(TAB_LABEL).click();
     await expect(mfePage.slotContainer()).toBeVisible({ timeout: TIMEOUTS.LONG });
 
     const ctx = await mfePage.readSlotCtx();
     expect(ctx.slot).toBe('entity.detail.tab');
-    expect(ctx.version).toBe(SLOT_CONTRACT_VERSION);
+    expect(ctx.contractVersion).toBe(CONTRACT_VERSION);
     expect(ctx.entity).toEqual({ urn: DATASET_URN, type: 'DATASET' });
     // principal is optional in the base contract, but the host fills it for an authenticated session
     expect((ctx.principal as { user: string }).user).toMatch(/^urn:li:corpuser:/);
@@ -115,10 +114,10 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
     await mfePage.gotoDataset(DATASET_URN);
 
-    await expect(mfePage.entityTabHeader(TAB_NAME)).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(mfePage.entityTabHeader(TAB_LABEL)).toBeVisible({ timeout: TIMEOUTS.LONG });
     expect(requests()).toBe(0);
 
-    await mfePage.entityTabHeader(TAB_NAME).click();
+    await mfePage.entityTabHeader(TAB_LABEL).click();
     await expect(mfePage.slotCtx()).toBeVisible({ timeout: TIMEOUTS.LONG });
     expect(requests()).toBeGreaterThan(0);
   });
@@ -129,15 +128,32 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     await mfePage.mockFetchForMFEConfig(TAB_MFE_CHART_ONLY);
     await mfePage.gotoDataset(DATASET_URN);
     await expect(mfePage.entityHeader()).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(mfePage.entityTabHeader(TAB_NAME)).toHaveCount(0);
+    await expect(mfePage.entityTabHeader(TAB_LABEL)).toHaveCount(0);
   });
 
   test('matches placement.entityTypes case-insensitively against the entity type', async () => {
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
-    await mfePage.mockFetchForMFEConfig(TAB_MFE_DATASET_ONLY);
+    // YAML says [dataset]; the page reports DATASET
+    await mfePage.mockFetchForMFEConfig(TAB_MFE);
     await mfePage.gotoDataset(DATASET_URN);
 
-    await expect(mfePage.entityTabHeader(TAB_NAME)).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(mfePage.entityTabHeader(TAB_LABEL)).toBeVisible({ timeout: TIMEOUTS.LONG });
+  });
+
+  test('shows no tab when placement omits entityTypes, and none when the contract version is unknown', async () => {
+    await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
+
+    // entity-scoped placement fails closed: appearing on a page is an explicit opt-in
+    await mfePage.mockFetchForMFEConfig(yaml(tabEntry()));
+    await mfePage.gotoDataset(DATASET_URN);
+    await expect(mfePage.entityHeader()).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(mfePage.entityTabHeader(TAB_LABEL)).toHaveCount(0);
+
+    // a contract version this host has no builder for is dropped rather than guessed at
+    await mfePage.mockFetchForMFEConfig(TAB_MFE.replace(`"${CONTRACT_VERSION}"`, '"9.9.9"'));
+    await mfePage.gotoDataset(DATASET_URN);
+    await expect(mfePage.entityHeader()).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await expect(mfePage.entityTabHeader(TAB_LABEL)).toHaveCount(0);
   });
 
   test('hides the tab and never fetches the remote when flags.enabled is false', async () => {
@@ -147,7 +163,7 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     await mfePage.gotoDataset(DATASET_URN);
 
     await expect(mfePage.entityHeader()).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(mfePage.entityTabHeader(TAB_NAME)).toHaveCount(0);
+    await expect(mfePage.entityTabHeader(TAB_LABEL)).toHaveCount(0);
     expect(requests()).toBe(0);
   });
 
@@ -158,7 +174,7 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     await mfePage.mockRemoteEntry(503, 'Service Unavailable');
     await mfePage.gotoDataset(DATASET_URN);
 
-    await mfePage.entityTabHeader(TAB_NAME).click();
+    await mfePage.entityTabHeader(TAB_LABEL).click();
     await expect(mfePage.errorMessage(TAB_LABEL)).toBeVisible({ timeout: TIMEOUTS.LONG });
 
     // the failure stays inside the slot: the host's own tabs still render for this entity
@@ -170,7 +186,7 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
   test('deep-links to the slot tab by name', async () => {
     await mfePage.mockFetchForMFEConfig(TAB_MFE);
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
-    await mfePage.gotoDataset(DATASET_URN, TAB_NAME);
+    await mfePage.gotoDataset(DATASET_URN, TAB_LABEL);
 
     const ctx = await mfePage.readSlotCtx();
     expect((ctx.entity as { urn: string }).urn).toBe(DATASET_URN);
@@ -182,14 +198,14 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
 
     await expect(mfePage.navSidebar().getByText(NAV_LABEL)).toBeVisible({ timeout: TIMEOUTS.LONG });
     await expect(mfePage.navSidebar().getByText(TAB_LABEL)).toHaveCount(0);
-    await expect(mfePage.navSidebar().getByText(TAB_NAME)).toHaveCount(0);
+    await expect(mfePage.navSidebar().getByText(TAB_LABEL)).toHaveCount(0);
 
     // nav.page entries still route and mount, now with a nav.page context
     await mfePage.clickMFEItem(NAV_LABEL);
     await mfePage.waitForMFENavigation(NAV_PATH);
     const ctx = await mfePage.readSlotCtx();
     expect(ctx.slot).toBe('nav.page');
-    expect(ctx.version).toBe(SLOT_CONTRACT_VERSION);
+    expect(ctx.contractVersion).toBe(CONTRACT_VERSION);
 
     // a slot-placed entry has no /mfe route of its own
     await page.goto(`/mfe/${TAB_ID}`);
