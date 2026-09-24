@@ -227,6 +227,33 @@ class TestAutoMapping:
         # created_at has no same-named sink column.
         assert report.column_lineage_unmatched_columns == 1
 
+    def test_v2_source_field_paths_match_by_simple_name(self) -> None:
+        """A v2-encoded source fieldPath still matches a plain sink column."""
+        report = FabricDataFactorySourceReport()
+        _, resolve = _resolver(
+            {
+                SOURCE_URN: ["[version=2.0].[type=string].email", "id"],
+                SINK_URN: ["Email", "ID"],
+            }
+        )
+        extractor = CopyActivityColumnLineageExtractor(
+            report=report, columns_resolver=resolve
+        )
+        lineages = _extract(extractor, _copy_activity())
+        assert [(fgl.upstreams, fgl.downstreams) for fgl in lineages] == [
+            (
+                [
+                    f"urn:li:schemaField:({SOURCE_URN},[version=2.0].[type=string].email)"
+                ],
+                [f"urn:li:schemaField:({SINK_URN},Email)"],
+            ),
+            (
+                [f"urn:li:schemaField:({SOURCE_URN},id)"],
+                [f"urn:li:schemaField:({SINK_URN},ID)"],
+            ),
+        ]
+        assert report.column_lineage_unmatched_columns == 0
+
     def test_uses_inline_dataset_schema(self) -> None:
         lookups, resolve = _resolver({SINK_URN: ["id", "email"]})
         extractor = CopyActivityColumnLineageExtractor(

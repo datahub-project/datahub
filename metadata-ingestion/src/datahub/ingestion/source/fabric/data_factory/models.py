@@ -137,7 +137,14 @@ class DatasetColumns:
             self._by_lower_name.setdefault(simple_path.lower(), field_path)
 
     def lookup(self, column_name: str) -> Optional[str]:
-        return self._by_lower_name.get(column_name.lower())
+        """Return the stored field path matching a column name or field path.
+
+        The argument may itself be a v2-encoded fieldPath (e.g. a source
+        column from another dataset's schemaMetadata); it is compared by its
+        simple path.
+        """
+        simple_path = get_simple_field_path_from_v2_field_path(column_name)
+        return self._by_lower_name.get(simple_path.lower())
 
 
 @dataclass
