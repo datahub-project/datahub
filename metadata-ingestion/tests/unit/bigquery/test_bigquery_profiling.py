@@ -1318,3 +1318,64 @@ def test_test_date_candidate_untyped_component_scans_column():
         lambda q, j, c: [],
     )
     assert result == ["`month` IS NOT NULL"]
+
+
+def test_verify_partition_has_data_bounds_probe_with_fetch_config():
+    """The existence-check probe scans the whole table filtered only by the candidate
+    predicates, so it must carry partition_fetch_timeout / partition_fetch_max_bytes_billed
+    like every other fetch — a bare QueryJobConfig would let a broad filter blow past the
+    guardrails.
+    """
+    discovery = PartitionDiscovery(
+        make_config(partition_fetch_timeout=30, partition_fetch_max_bytes_billed=2048)
+    )
+    captured: Dict[str, Any] = {}
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        captured["job_config"] = job_config
+        return [SimpleNamespace(n=1)]
+
+    ok = discovery._verify_partition_has_data(
+        make_table(),
+        "test-project-123456",
+        "ds",
+        ["`event_date` = '2025-01-15'"],
+        execute,
+    )
+
+    assert ok is True
+    assert int(captured["job_config"].job_timeout_ms) == 30000
+    assert int(captured["job_config"].maximum_bytes_billed) == 2048
+
+
+def test_sampling_probe_bounds_job_config():
+    """LATEST_BY_DATE_SAMPLE does an ORDER BY date DESC that scans+sorts the whole table
+    before LIMIT, and this sampling path is the last resort after earlier discovery has
+    already timed out. It must honour the fetch timeout / byte cap rather than run
+    unbounded.
+    """
+    discovery = PartitionDiscovery(
+        make_config(partition_fetch_timeout=25, partition_fetch_max_bytes_billed=4096)
+    )
+    captured: Dict[str, Any] = {}
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        if context == "partition sampling":
+            captured["job_config"] = job_config
+            return [SimpleNamespace(event_date="2025-01-15")]
+        if context == "partition verification":
+            return [SimpleNamespace(n=1)]
+        return []  # INFORMATION_SCHEMA / DDL lookups find nothing
+
+    result = discovery._get_partitions_with_sampling(
+        make_table(name="sampled"),
+        "test-project-123456",
+        "ds",
+        execute,
+        known_columns=["event_date"],
+        known_column_types={"event_date": "DATE"},
+    )
+
+    assert result is not None
+    assert int(captured["job_config"].job_timeout_ms) == 25000
+    assert int(captured["job_config"].maximum_bytes_billed) == 4096

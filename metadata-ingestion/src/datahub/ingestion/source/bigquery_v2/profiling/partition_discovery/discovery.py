@@ -1208,7 +1208,12 @@ class PartitionDiscovery:
                     select_extra=select_extra,
                 )
 
-                job_config = QueryJobConfig(
+                # Route through _partition_fetch_job_config: LATEST_BY_DATE_SAMPLE does an
+                # ORDER BY date DESC that scans+sorts the whole table before LIMIT, so this
+                # last-resort probe must honour partition_fetch_timeout /
+                # partition_fetch_max_bytes_billed like every other fetch, or it can hang or
+                # over-bill once earlier discovery has already timed out into sampling.
+                job_config = self._partition_fetch_job_config(
                     query_parameters=[
                         ScalarQueryParameter(
                             "limit_rows", "INT64", TEST_QUERY_LIMIT_ROWS
@@ -1222,7 +1227,7 @@ class PartitionDiscovery:
                     select_extra=select_extra,
                 )
 
-                job_config = QueryJobConfig(
+                job_config = self._partition_fetch_job_config(
                     query_parameters=[
                         ScalarQueryParameter(
                             "limit_rows", "INT64", SAMPLING_LIMIT_ROWS
@@ -1308,8 +1313,11 @@ class PartitionDiscovery:
                 table_ref=safe_table_ref, where=where_clause
             )
 
+            # Bound the verification probe with the same timeout / byte cap: it runs a
+            # SELECT against the whole table filtered only by the candidate predicates, so
+            # an unbounded config lets a broad filter scan far beyond the guardrails.
             results = execute_query_func(
-                query, QueryJobConfig(), "partition verification"
+                query, self._partition_fetch_job_config(), "partition verification"
             )
             return bool(results)
         except Exception as e:
