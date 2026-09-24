@@ -63,6 +63,12 @@ QUERY_ID = f"auth-query-{_UNIQUE}"
 QUERY_ENTITY_URN = str(QueryUrn(QUERY_ID))
 SENSITIVE_SQL = "SELECT secret_col FROM sensitive_table"
 
+GET_SUBJECT_DATASET = """
+query dataset($urn: String!) {
+  dataset(urn: $urn) { urn }
+}
+"""
+
 GET_QUERY_ENTITY = """
 query entity($urn: String!) {
   entity(urn: $urn) {
@@ -162,6 +168,19 @@ def _fetch_query_entity(email: str, password: str) -> dict:
 
 
 @with_test_retry(max_attempts=10)
+def _wait_until_subject_dataset_visible():
+    """Proves a freshly granted VIEW_ENTITY_PAGE policy has reached the policy cache: under
+    view authorization the subject dataset itself is hidden until it does. Call this before a
+    negative assertion so "hidden" cannot be satisfied by a policy that isn't live yet."""
+    user_session = login_as(TEST_USER_EMAIL, TEST_USER_PASSWORD)
+    payload = {"query": GET_SUBJECT_DATASET, "variables": {"urn": SUBJECT_DATASET_URN}}
+    response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=payload)
+    response.raise_for_status()
+    res = response.json()
+    assert (res.get("data") or {}).get("dataset") is not None, res
+
+
+@with_test_retry(max_attempts=10)
 def _assert_query_sql_hidden():
     res = _fetch_query_entity(TEST_USER_EMAIL, TEST_USER_PASSWORD)
     entity = (res.get("data") or {}).get("entity")
@@ -200,6 +219,7 @@ def test_query_entity_hidden_with_only_view_entity_page_on_subject(auth_session)
         resource_urn=SUBJECT_DATASET_URN,
     )
     try:
+        _wait_until_subject_dataset_visible()
         _assert_query_sql_hidden()
     finally:
         remove_policy(policy_urn, admin_session)
