@@ -21,6 +21,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -274,13 +275,18 @@ public class DataHubUsageServiceTest {
   @Test
   public void testExternalAuditSearchUsesKeywordSubfieldWhenTypeIsMappedAsText()
       throws IOException {
-    // A usage index auto-created before its template existed maps type as text + .keyword
-    stubTypeFieldMapping("text");
+    // One backing index from the template, one auto-created with type as text + .keyword
+    stubTypeFieldMapping("keyword", "text");
 
     SearchSourceBuilder source = searchWithEventTypeFilter();
 
     assertEquals("type.keyword", ((FieldSortBuilder) source.sorts().get(1)).getFieldName());
     assertEquals("type.keyword", eventTypeTermsQuery(source).fieldName());
+    ArgumentCaptor<Request> mappingRequest = ArgumentCaptor.forClass(Request.class);
+    Mockito.verify(mockElasticClient).performLowLevelRequest(any(), mappingRequest.capture());
+    assertEquals("GET", mappingRequest.getValue().getMethod());
+    assertEquals(
+        "/" + TEST_INDEX_NAME + "/_mapping/field/type", mappingRequest.getValue().getEndpoint());
   }
 
   @Test
@@ -331,16 +337,20 @@ public class DataHubUsageServiceTest {
             .orElseThrow();
   }
 
-  private void stubTypeFieldMapping(String mappedType) throws IOException {
+  /** One backing index per mapped type, shaped like {@code GET <index>/_mapping/field/type}. */
+  private void stubTypeFieldMapping(String... mappedTypes) throws IOException {
+    List<String> indices = new ArrayList<>();
+    for (int i = 0; i < mappedTypes.length; i++) {
+      indices.add(
+          String.format(
+              "\"%s-%06d\":{\"mappings\":{\"type\":{\"full_name\":\"type\","
+                  + "\"mapping\":{\"type\":{\"type\":\"%s\"}}}}}",
+              TEST_INDEX_NAME, i + 1, mappedTypes[i]));
+    }
     RawResponse mappingResponse = Mockito.mock(RawResponse.class);
     when(mappingResponse.getEntity())
         .thenReturn(
-            new StringEntity(
-                String.format(
-                    "{\"%s\":{\"mappings\":{\"type\":{\"full_name\":\"type\","
-                        + "\"mapping\":{\"type\":{\"type\":\"%s\"}}}}}}",
-                    TEST_INDEX_NAME, mappedType),
-                ContentType.APPLICATION_JSON));
+            new StringEntity("{" + String.join(",", indices) + "}", ContentType.APPLICATION_JSON));
     when(mockElasticClient.performLowLevelRequest(any(), any(Request.class)))
         .thenReturn(mappingResponse);
   }

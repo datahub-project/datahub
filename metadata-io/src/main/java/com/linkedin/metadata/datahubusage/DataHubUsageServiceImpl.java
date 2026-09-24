@@ -205,12 +205,14 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
 
   /**
    * The field to filter and sort event types on. The index template maps {@code type} as {@code
-   * keyword}, but a usage index that was auto-created before its template existed maps it
-   * dynamically as {@code text} with a {@code .keyword} subfield. Sorting on that text field fails
-   * the whole search and term filters on it never match, so use the subfield there.
+   * keyword}, but a usage index that a write auto-created before its data stream or rollover alias
+   * existed maps it dynamically as {@code text} with a {@code .keyword} subfield. Sorting on that
+   * text field fails the whole search and term filters on it never match, so use the subfield
+   * there.
    */
   private String eventTypeField(OperationContext opContext, String usageIndexName) {
-    // One field-mapping lookup per call; cache it if this endpoint ever gets hot.
+    // One lookup per call; cache it if this endpoint ever gets hot. Field-scoped rather than the
+    // typed getIndexMapping so the response stays small however many backing indices there are.
     try {
       RawResponse response =
           elasticClient.performLowLevelRequest(
@@ -234,10 +236,10 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
       }
     } catch (IOException e) {
       log.warn(
-          "Could not read the {} field mapping of {}, treating it as keyword",
+          "Could not read the {} field mapping of {}, treating it as keyword: {}",
           DataHubUsageEventConstants.TYPE,
           usageIndexName,
-          e);
+          e.getMessage());
     }
     return DataHubUsageEventConstants.TYPE;
   }
