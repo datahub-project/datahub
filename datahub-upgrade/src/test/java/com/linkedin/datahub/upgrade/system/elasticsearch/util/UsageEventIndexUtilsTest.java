@@ -2293,6 +2293,58 @@ public class UsageEventIndexUtilsTest {
     Assert.assertFalse(calls.stream().anyMatch(call -> call.startsWith("PUT /_data_stream/")));
   }
 
+  @Test
+  public void testMigrateLegacyUsageEventIndex_DropsAnOldCloneLeftByAFailedAttempt()
+      throws Exception {
+    List<String> calls = new ArrayList<>();
+    long hourAgo = System.currentTimeMillis() - 3_600_000L;
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              String call = request.getMethod() + " " + request.getEndpoint();
+              calls.add(call);
+              if (call.equals("GET /_resolve/index/test_datahub_usage_event")) {
+                return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
+              }
+              if (call.equals("GET /_resolve/index/test_legacy_datahub_usage_event_*")) {
+                return jsonResponse(
+                    "{\"indices\":[{\"name\":\"test_legacy_datahub_usage_event_1\"}]}");
+              }
+              if (call.equals("GET /test_datahub_usage_event/_settings/index.creation_date")) {
+                return jsonResponse(
+                    "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                        + "{\"creation_date\":\"1000\"}}}}");
+              }
+              if (call.equals(
+                  "GET /test_legacy_datahub_usage_event_1/_settings/index.creation_date")) {
+                return jsonResponse(
+                    "{\"test_legacy_datahub_usage_event_1\":{\"settings\":{\"index\":"
+                        + "{\"creation_date\":\""
+                        + hourAgo
+                        + "\"}}}}");
+              }
+              if (call.contains("/_clone/")) {
+                return jsonResponse("{\"acknowledged\":true,\"shards_acknowledged\":false}");
+              }
+              if (call.endsWith("/_count")) {
+                return jsonResponse("{\"count\":3}");
+              }
+              return jsonResponse("{}");
+            });
+
+    Assert.assertThrows(
+        IOException.class,
+        () ->
+            UsageEventIndexUtils.migrateLegacyUsageEventIndex(
+                operationContext, esComponents, "test_", false));
+
+    // Cloned from the current index an hour ago and never copied: dropped before cloning again.
+    Assert.assertTrue(calls.contains("DELETE /test_legacy_datahub_usage_event_1"));
+  }
+
   private static RawResponse jsonResponse(String body) {
     RawResponse response = Mockito.mock(RawResponse.class);
     Mockito.when(response.getStatusLine())

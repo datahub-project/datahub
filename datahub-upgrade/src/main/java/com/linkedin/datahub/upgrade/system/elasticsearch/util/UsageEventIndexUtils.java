@@ -45,6 +45,8 @@ public class UsageEventIndexUtils {
   private static final String BACKFILL_WRITE_INDEX_META = "datahub_backfill_write_index";
   private static final Duration BACKFILL_POLL_INTERVAL = Duration.ofSeconds(2);
   private static final Duration BACKFILL_WAIT = Duration.ofMinutes(5);
+  // A younger backup may belong to a migration still running elsewhere, so it is left alone.
+  private static final Duration STALE_BACKUP_AGE = Duration.ofMinutes(10);
   // Data streams reject events without @timestamp. Older events may only carry timestamp; events
   // with neither cannot go into a data stream at all, so they are dropped there.
   private static final String BACKFILL_SCRIPT =
@@ -816,13 +818,18 @@ public class UsageEventIndexUtils {
     for (String backupName :
         resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
       if (backfillMeta(opContext, esComponents, backupName).path(BACKFILL_TASK_META).isMissingNode()
-          && creationDate(opContext, esComponents, backupName) > indexCreated
+          && isStaleClone(creationDate(opContext, esComponents, backupName), indexCreated)
           && resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
         log.info("Deleting {}, left by an earlier attempt to migrate {}", backupName, indexName);
         deleteIndex(opContext, esComponents, backupName);
       }
     }
     return true;
+  }
+
+  private static boolean isStaleClone(long backupCreated, long indexCreated) {
+    return backupCreated > indexCreated
+        && System.currentTimeMillis() - backupCreated > STALE_BACKUP_AGE.toMillis();
   }
 
   private static long creationDate(
@@ -899,8 +906,8 @@ public class UsageEventIndexUtils {
     } catch (IOException | RuntimeException e) {
       if (!originalDeleted
           && !IndexUtils.retryWithBackoff(
-              3,
-              1000,
+              5,
+              2000,
               () -> {
                 setWriteBlock(opContext, esComponents, indexName, false);
                 return true;
@@ -934,8 +941,14 @@ public class UsageEventIndexUtils {
     } catch (IOException e) {
       // The swap is atomic, so while the original is still a plain index it did not happen and
       // the new index is empty: drop it rather than leave it behind without its alias.
-      if (created && resolveIndices(opContext, esComponents, aliasName).contains(aliasName)) {
-        deleteIndex(opContext, esComponents, firstIndex);
+      try {
+        if (created
+            && resolveIndices(opContext, esComponents, aliasName).contains(aliasName)
+            && count(opContext, esComponents, firstIndex) == 0) {
+          deleteIndex(opContext, esComponents, firstIndex);
+        }
+      } catch (IOException | RuntimeException cleanupFailure) {
+        e.addSuppressed(cleanupFailure);
       }
       throw e;
     }

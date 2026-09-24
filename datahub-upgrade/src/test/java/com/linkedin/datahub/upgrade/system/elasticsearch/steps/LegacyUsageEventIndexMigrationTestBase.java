@@ -194,7 +194,7 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
   }
 
   @Test(timeOut = TEST_TIMEOUT_MS)
-  public void testCloneLeftByAFailedAttemptIsNotCopiedBackTwice() throws Exception {
+  public void testRecentCloneIsKeptBecauseItsMigrationMayStillBeRunning() throws Exception {
     String prefix = "retried_";
     String index = prefix + "datahub_usage_event";
     index(
@@ -203,14 +203,14 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
         "{\"type\":\"SearchEvent\",\"timestamp\":1756000000000,\"@timestamp\":1756000000000,"
             + "\"actorUrn\":\"urn:li:corpuser:a\"}");
     refresh(index);
-    // An earlier attempt cloned the index and then failed to replace it.
+    // A clone made moments ago, as by another migration that may still be running.
     request("PUT", "/" + index + "/_block/write", null);
     request(
         "POST",
         "/" + index + "/_clone/" + prefix + "legacy_datahub_usage_event_1",
         "{\"settings\":{\"index.blocks.write\":null}}");
     request("PUT", "/" + index + "/_settings", "{\"index.blocks.write\":false}");
-    // The index stays the source of truth: an event removed from it since is not copied back.
+    // An event only the clone still holds shows the clone was copied back, not dropped.
     request("DELETE", "/" + index + "/_doc/1?refresh=true", null);
     index(
         index,
@@ -223,7 +223,7 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
 
     assertEquals(legacyBackups(prefix), List.of());
     refresh(index);
-    assertEquals(searchIds(index, "{\"size\":10}"), Set.of("2"));
+    assertEquals(searchIds(index, "{\"size\":10}"), Set.of("1", "2"));
   }
 
   private void recordCopy(String backup, String task, String writeIndex) throws IOException {
