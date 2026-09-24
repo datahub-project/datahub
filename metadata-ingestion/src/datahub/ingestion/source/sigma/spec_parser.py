@@ -16,8 +16,6 @@ _ELEMENT_ID = "elementId"
 _DATA_MODEL_ID = "dataModelId"
 _CONNECTION_ID = "connectionId"
 _PATH = "path"
-# A side with no elementId is a warehouse table only if it says so.
-_WAREHOUSE_SIDE_KEYS = (_CONNECTION_ID, _PATH)
 _JOIN_KIND = "join"
 _UNION_KIND = "union"
 _MATCHES = "matches"
@@ -116,6 +114,9 @@ class DataModelSpecIndex:
     # kind. Every element Sigma stores has both, so a renamed key shows up here
     # instead of as an empty, clean-looking index.
     unrecognised_element_count: int = 0
+    # Every element seen. Zero, or no element with a source, is not a real Data
+    # Model -- a renamed `pages` or `source` key would otherwise read as empty.
+    element_count: int = 0
 
 
 # `relationships[]` is deliberately not read as lineage. A relationship is a
@@ -163,7 +164,9 @@ def _str_or_none(value: Any) -> Optional[str]:
     return value if isinstance(value, str) and value else None
 
 
-def _column_from_expression(expression: str) -> Optional[str]:
+def _column_from_expression(
+    expression: str, *, lone_parameter_is_column: bool
+) -> Optional[str]:
     """The one column a formula references, or None.
 
     Join sides and union branch columns are formulas, not identifiers:
@@ -171,14 +174,17 @@ def _column_from_expression(expression: str) -> Optional[str]:
     inside a function, and repeating it (``If(IsNull([K]), -1, [K])``) is still
     one. Two columns, a multi-segment ref, or none is refused.
 
-    A ``P_`` ref is a parameter only when a column ref sits beside it: a side
-    whose only ref is ``[P_KEY]`` would be joining on a constant, so it is read
-    as a column that happens to start with ``P_``.
+    A ``P_`` ref is a parameter. On a join side a lone ``[P_KEY]`` would mean
+    joining on a constant, so there it is read as a column that happens to
+    start with ``P_``; a union branch can contribute a parameter's value, so
+    there it stays a parameter.
     """
     refs = extract_bracket_refs(expression)
     if any(ref.column is not None for ref in refs):
         return None
-    columns = [ref for ref in refs if not ref.is_parameter] or refs
+    columns = [ref for ref in refs if not ref.is_parameter]
+    if not columns and lone_parameter_is_column:
+        columns = refs
     names = {ref.source for ref in columns}
     return names.pop() if len(names) == 1 else None
 
@@ -199,24 +205,27 @@ def _owner(descriptor: Any) -> Optional[_Owner]:
             element_id=element_id,
             data_model_id=_str_or_none(descriptor.get(_DATA_MODEL_ID)),
         )
-    if any(key in descriptor for key in _WAREHOUSE_SIDE_KEYS):
-        path = descriptor.get(_PATH)
-        return _Owner(
-            element_id=None,
-            connection_id=_str_or_none(descriptor.get(_CONNECTION_ID)),
-            path=(
-                tuple(path)
-                if isinstance(path, list) and all(isinstance(p, str) for p in path)
-                else ()
-            ),
-        )
-    return None
+    # A warehouse table needs both: the consumer builds its URN from them, so a
+    # side with only one, or a malformed path, is drift.
+    connection_id = _str_or_none(descriptor.get(_CONNECTION_ID))
+    path = descriptor.get(_PATH)
+    if (
+        connection_id is None
+        or not isinstance(path, list)
+        or not path
+        or not all(isinstance(p, str) and p for p in path)
+    ):
+        return None
+    return _Owner(element_id=None, connection_id=connection_id, path=tuple(path))
 
 
 def _column_ref(
     owner: _Owner, formula: str, *, source_index: Optional[int] = None
 ) -> Optional[SpecColumnRef]:
-    column = _column_from_expression(formula)
+    # Only join sides lack a source_index.
+    column = _column_from_expression(
+        formula, lone_parameter_is_column=source_index is None
+    )
     if column is None:
         return None
     return SpecColumnRef(
@@ -375,6 +384,7 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
         return index
 
     for element in _iter_spec_elements(spec):
+        index.element_count += 1
         source = element.get(_SOURCE)
         # An element with no source (a control, a text box) has no lineage.
         if not isinstance(source, dict):

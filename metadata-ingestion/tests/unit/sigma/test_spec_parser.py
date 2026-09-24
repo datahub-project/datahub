@@ -261,6 +261,38 @@ def test_only_equality_claims_a_key_edge(
     assert (index.unreadable_join_element_ids == []) is expect_readable
 
 
+@pytest.mark.parametrize(
+    "side",
+    [
+        {"connectionId": "c1", "kind": "warehouse-table"},
+        {"path": ["D", "S", "T"], "kind": "warehouse-table"},
+        {"connectionId": "c1", "path": "D.S.T"},
+        {"connectionId": "c1", "path": ["D", 1, "T"]},
+        {"connectionId": "c1", "path": ["D", "", "T"]},
+        {"connectionId": 42, "path": ["D", "S", "T"]},
+        {"connectionId": "c1", "path": []},
+    ],
+    ids=[
+        "connection-only",
+        "path-only",
+        "string-path",
+        "non-string-segment",
+        "empty-segment",
+        "non-string-connection",
+        "empty-path",
+    ],
+)
+def test_an_incomplete_warehouse_side_is_drift(side: Dict[str, Any]) -> None:
+    """The consumer needs both connection and path to name the table."""
+    join_index = _parse_join(
+        _one_join([{"left": "[X]", "right": _RIGHT_EXPR}], left=side)
+    )
+    assert join_index.unreadable_join_element_ids == ["el-x"]
+    union_index = _parse_union(_union([side, _el("el-b")], ["[X]", "[Y]"]))
+    assert _branches(union_index.unions[0]) == [("el-b", "Y")]
+    assert union_index.unreadable_union_element_ids == ["el-union"]
+
+
 def test_a_warehouse_side_is_read_but_yields_no_pair() -> None:
     index = _parse_join(
         _one_join([{"left": "[SOME_COL]", "right": _RIGHT_EXPR}], left=_WAREHOUSE_SIDE)
@@ -299,6 +331,15 @@ def test_a_self_join_on_one_column_is_not_an_edge() -> None:
     index = _parse_join(same)
     assert [(p.left.column, p.right.column) for p in index.pairs] == [("K", "J")]
     assert index.unreadable_join_element_ids == []
+
+
+def test_the_same_element_id_in_another_model_is_not_a_self_join() -> None:
+    """Element ids are not unique across Data Models."""
+    foreign_same_id = {**_ELEMENT_SIDE_L, "dataModelId": "dm-2"}
+    index = _parse_join(
+        _one_join([{"left": "[K]", "right": "[K]"}], right=foreign_same_id)
+    )
+    assert len(index.pairs) == 1
 
 
 def test_a_cross_model_side_keeps_its_data_model_id() -> None:
@@ -453,6 +494,15 @@ def test_missing_or_malformed_spec_is_inert(spec: Any) -> None:
     index = parse_data_model_spec(spec)
     assert index.pairs == []
     assert index.unions == []
+    assert index.element_count == 0
+
+
+def test_every_element_is_counted() -> None:
+    """A renamed `pages` or `source` key shows up as no elements, or none with a
+    source, instead of as a clean empty index."""
+    spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
+    spec["pages"][0]["elements"].append({"id": "ctrl-1", "kind": "control"})
+    assert parse_data_model_spec(spec).element_count == 4
 
 
 # --- Unions -------------------------------------------------------------------
@@ -487,6 +537,13 @@ def test_a_cross_model_union_branch_keeps_its_data_model_id() -> None:
     foreign = {"dataModelId": "dm-2", "elementId": "el-far", "kind": "table"}
     index = _parse_union(_union([_el("el-a"), foreign], ["[c-a]", "[c-far]"]))
     assert [b.data_model_id for b in index.unions[0].branches] == [None, "dm-2"]
+
+
+def test_a_lone_parameter_in_a_union_branch_stays_a_parameter() -> None:
+    """A branch can contribute a parameter's value; only a join key cannot."""
+    index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[P_Region]", "[r]"]))
+    assert _branches(index.unions[0]) == [("el-b", "r")]
+    assert index.unreadable_union_element_ids == []
 
 
 def test_two_warehouse_branches_stay_distinct() -> None:
