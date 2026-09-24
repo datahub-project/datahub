@@ -17,6 +17,7 @@ import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.elastic.ThreadSafePathStore;
 import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -63,7 +64,11 @@ public final class GraphQueryUtils {
       org.opensearch.index.query.BoolQueryBuilder rootQuery) {
     org.opensearch.index.query.BoolQueryBuilder orQuery =
         org.opensearch.index.query.QueryBuilders.boolQuery();
-    for (com.linkedin.metadata.query.filter.ConjunctiveCriterion conjunction : filter.getOr()) {
+    final ConjunctiveCriterionArray disjunction =
+            filter.getOr() != null
+            ? filter.getOr()
+                    : new ConjunctiveCriterionArray();
+    for (com.linkedin.metadata.query.filter.ConjunctiveCriterion conjunction : disjunction) {
       final org.opensearch.index.query.BoolQueryBuilder andQuery =
           org.opensearch.index.query.QueryBuilders.boolQuery();
       final List<com.linkedin.metadata.query.filter.Criterion> criterionArray =

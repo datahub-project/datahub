@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
@@ -22,9 +23,13 @@ import org.apache.commons.lang3.tuple.Pair;
 @AllArgsConstructor
 public class GraphFilters {
   public static RelationshipFilter OUTGOING_FILTER =
-      new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+      new RelationshipFilter()
+              .setDirection(RelationshipDirection.OUTGOING)
+              .setOr(new ConjunctiveCriterionArray());
   public static RelationshipFilter INCOMING_FILTER =
-      new RelationshipFilter().setDirection(RelationshipDirection.INCOMING);
+      new RelationshipFilter()
+              .setDirection(RelationshipDirection.INCOMING)
+              .setOr(new ConjunctiveCriterionArray());
 
   public static GraphFilters incomingFilter(Filter sourceEntityFilter) {
     return new GraphFilters(sourceEntityFilter, EMPTY_FILTER, null, null, null, INCOMING_FILTER);

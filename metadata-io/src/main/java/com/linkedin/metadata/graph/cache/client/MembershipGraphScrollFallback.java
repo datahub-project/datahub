@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.cache.client;
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_ROLE_ENTITY_NAME;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -75,11 +76,13 @@ public final class MembershipGraphScrollFallback {
         result =
             graphRetriever.scrollRelatedEntities(
                 scrollConfig.sourceEntityTypes(),
-                direction == TraversalDirection.FORWARD ? anchorFilter : null,
+                direction == TraversalDirection.FORWARD ? anchorFilter : EMPTY_FILTER,
                 scrollConfig.destinationEntityTypes(),
-                direction == TraversalDirection.REVERSE ? anchorFilter : null,
+                direction == TraversalDirection.REVERSE ? anchorFilter : EMPTY_FILTER,
                 relationshipTypes,
-                new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING),
+                new RelationshipFilter()
+                        .setDirection(RelationshipDirection.OUTGOING)
+                        .setOr(new ConjunctiveCriterionArray()),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,

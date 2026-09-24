@@ -28,11 +28,7 @@ import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.utils.QueryUtils;
@@ -427,7 +423,9 @@ public class EntityGraphSnapshotBuilder {
                 Set.of(destType),
                 QueryUtils.EMPTY_FILTER,
                 Set.of(relType),
-                new RelationshipFilter().setDirection(scrollDirection),
+                new RelationshipFilter()
+                        .setDirection(scrollDirection)
+                        .setOr(new ConjunctiveCriterionArray()),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
@@ -700,7 +698,9 @@ public class EntityGraphSnapshotBuilder {
                 Set.of(destType),
                 QueryUtils.EMPTY_FILTER,
                 Set.of(relType),
-                new RelationshipFilter().setDirection(resolved.getGraphDirection()),
+                new RelationshipFilter()
+                        .setDirection(resolved.getGraphDirection())
+                        .setOr(new ConjunctiveCriterionArray()),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,

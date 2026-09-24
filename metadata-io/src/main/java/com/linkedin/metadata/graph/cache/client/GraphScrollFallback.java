@@ -5,10 +5,7 @@ import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -96,7 +93,10 @@ public final class GraphScrollFallback {
                 spec.getScrollDestinationEntityTypes(),
                 destinationFilter,
                 Set.of(spec.getRelationshipType()),
-                new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING),
+                new RelationshipFilter()
+                        .setDirection(RelationshipDirection.OUTGOING)
+                        .setOr(new ConjunctiveCriterionArray(
+                                new ConjunctiveCriterion().setAnd(new CriterionArray()))),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
