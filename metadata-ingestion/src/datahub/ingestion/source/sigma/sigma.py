@@ -423,9 +423,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Merged at drain time so warehouse-resolved fields supplement
         # (not replace) formula-derived column entries.
         self._workbook_customsql_formula_fields: Dict[str, List[InputFieldClass]] = {}
-        # chart URN -> resolved-field count of the best InputFields emitted for
-        # it so far. See _chart_input_fields_mcp.
-        self._chart_best_input_fields: Dict[str, int] = {}
+        # chart or page-dashboard URN -> resolved-column count of the best
+        # InputFields emitted for it so far. See _guarded_input_fields_mcp.
+        self._best_input_fields_resolved: Dict[str, int] = {}
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -1924,7 +1924,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _chart_input_fields_mcp(
         self, chart_urn: str, fields: List[InputFieldClass]
     ) -> Optional[MetadataChangeProposalWrapper]:
-        """Build the InputFields MCP, or None if it would replace a richer one.
+        """Build a chart's InputFields MCP, or None if a richer one is emitted.
 
         Sigma element ids are not unique across workbooks -- a duplicated
         workbook reuses them -- and a chart URN is built from the element id
@@ -1939,24 +1939,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         the stashed per-element fields for every column its SQL lineage does
         not cover, so its column set is a superset of the element aspect's.
         """
-        resolved = self._resolved_field_count(chart_urn, fields)
-        best = self._chart_best_input_fields.get(chart_urn)
+        return self._guarded_input_fields_mcp(
+            chart_urn, fields, self._resolved_field_count(chart_urn, fields)
+        )
+
+    def _guarded_input_fields_mcp(
+        self, entity_urn: str, fields: List[InputFieldClass], resolved: int
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        """Emit unless a previous aspect for this URN resolved more columns.
+
+        The high-water mark only ever rises: a refused aspect must not lower
+        it, or a third, middling copy would displace the richest one.
+        """
+        best = self._best_input_fields_resolved.get(entity_urn)
         if best is not None and resolved < best:
-            self.reporter.chart_input_fields_regressive_emission_skipped += 1
-            self.reporter.chart_input_fields_regressive_emission_samples.append(
-                f"chart={chart_urn} kept={best} refused={resolved}"
+            self.reporter.input_fields_regressive_emission_skipped += 1
+            self.reporter.input_fields_regressive_emission_samples.append(
+                f"entity={entity_urn} kept={best} refused={resolved}"
             )
             logger.debug(
-                "chart %s: refusing InputFields with %d resolved column(s); an "
-                "aspect with %d is already emitted for this URN.",
-                chart_urn,
+                "%s: refusing InputFields with %d resolved column(s); an aspect "
+                "with %d is already emitted for this URN.",
+                entity_urn,
                 resolved,
                 best,
             )
             return None
-        self._chart_best_input_fields[chart_urn] = resolved
+        self._best_input_fields_resolved[entity_urn] = resolved
         return MetadataChangeProposalWrapper(
-            entityUrn=chart_urn,
+            entityUrn=entity_urn,
             aspect=InputFieldsClass(fields=fields),
         )
 
@@ -1969,6 +1980,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         Charts do not accept ``upstreamLineage``; this converts the aggregator
         output into the ``inputFields`` aspect that DataHub's chart entity accepts.
+
+        On a URN two workbooks claim, the parts of this aspect disagree about
+        which workbook they came from: the stashed fields are the richest
+        copy's, while the view definition and the passthrough mapping are still
+        the last registered one's.
         """
         input_fields: List[InputFieldClass] = []
         if aspect.fineGrainedLineages:
@@ -4233,9 +4249,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         wb_warehouse_table_index: Optional[_WorkbookWarehouseIndex],
         customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
+        chart_resolved_counts: Optional[List[int]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
+
+        ``chart_resolved_counts`` collects each chart's resolved-column count
+        so the caller can rank the page aspect; the union it is built from no
+        longer says which chart a field came from.
         """
         for element in elements:
             chart_urn = builder.make_chart_urn(
@@ -4420,10 +4441,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 yield chart_mcp.as_workunit()
 
+            if chart_resolved_counts is not None:
+                chart_resolved_counts.append(
+                    self._resolved_field_count(chart_urn, element_input_fields)
+                )
+
             # Unconditional: within one workbook the page aspect is a union over
-            # its charts, and a refusal is about one chart URN. Page ids collide
-            # across duplicated workbooks exactly as element ids do, which this
-            # PR does not address.
+            # its charts, and a refusal is about one chart URN. The page aspect
+            # has its own guard, since page ids collide across duplicated
+            # workbooks exactly as element ids do.
             all_input_fields.extend(element_input_fields)
 
     def _gen_pages_workunit(
@@ -4485,6 +4511,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     paths=paths + [workbook.name],
                 )
 
+            chart_resolved_counts: List[int] = []
             yield from self._gen_elements_workunit(
                 page.elements,
                 workbook,
@@ -4494,20 +4521,22 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_element_index,
                 wb_warehouse_table_index,
                 customsql_extra_inputs or {},
+                chart_resolved_counts,
             )
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dashboard_urn,
-                aspect=InputFieldsClass(
-                    fields=list(
-                        {
-                            (field.schemaFieldUrn, field.schemaField.fieldPath): field
-                            for field in all_input_fields
-                            if field.schemaField is not None
-                        }.values()
-                    )
+            page_mcp = self._guarded_input_fields_mcp(
+                dashboard_urn,
+                list(
+                    {
+                        (field.schemaFieldUrn, field.schemaField.fieldPath): field
+                        for field in all_input_fields
+                        if field.schemaField is not None
+                    }.values()
                 ),
-            ).as_workunit()
+                sum(chart_resolved_counts),
+            )
+            if page_mcp is not None:
+                yield page_mcp.as_workunit()
 
     def _process_workbook_customsql_lineage(
         self, workbook: Workbook
@@ -4684,7 +4713,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_extra_fgls.clear()
         self._workbook_customsql_registered_urns.clear()
         self._workbook_customsql_formula_fields.clear()
-        self._chart_best_input_fields.clear()
+        self._best_input_fields_resolved.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
