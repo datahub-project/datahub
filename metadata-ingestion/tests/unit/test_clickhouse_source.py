@@ -450,6 +450,23 @@ def _lineage_urns(source: ClickHouseSource) -> Set[Optional[str]]:
 _RAW_EVENTS = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.raw_events,PROD)"
 
 
+def test_query_log_fetch_failing_mid_stream_is_reported(monkeypatch):
+    # Rows are streamed, so a timeout on a large query_log lands on the cursor and
+    # not on execute(). It must fail the query log, not the whole ClickHouse run.
+    source = _query_log_source()
+
+    def rows():
+        yield _insert_row(query_id="q1")
+        raise RuntimeError("connection reset by peer")
+
+    monkeypatch.setattr(
+        clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows())
+    )
+
+    assert list(source._extract_query_log()) == []
+    assert len(source.report.failures) == 1
+
+
 def test_grouping_preserves_usage_counts(monkeypatch):
     # If grouping drops the occurrence count, totalSqlQueries silently collapses.
     source = _query_log_source()

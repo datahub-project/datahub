@@ -932,7 +932,24 @@ ORDER BY event_time ASC
         usage_queries: _DeduplicatedQueries[PreparsedQuery] = _DeduplicatedQueries()
         num_lineage = 0
         num_usage = 0
-        for row in result:
+        # Rows are streamed, not materialized, so the fetch is still in flight here:
+        # a timeout or a dropped connection part-way through a large query_log
+        # surfaces on the cursor, not on execute(). Only the cursor advance sits
+        # inside the try - a failure below it is a bug, not a fetch failure.
+        rows = iter(result)
+        while True:
+            try:
+                row = next(rows)
+            except StopIteration:
+                break
+            except Exception as e:
+                self.report.failure(
+                    message="Failed to fetch query log",
+                    context="query_log_extraction",
+                    exc=e,
+                )
+                return
+
             row_dict = dict(row._mapping)
 
             # A Select can only produce usage, and ClickHouse already resolved the
