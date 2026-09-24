@@ -1976,11 +1976,11 @@ requires-dist = [
     { name = "google-cloud-datacatalog", marker = "extra == 'dev'", specifier = ">=1.5.0,<4.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'docs'", specifier = ">=1.5.0,<4.0.0" },
     { name = "google-cloud-datacatalog", marker = "extra == 'fivetran'", specifier = ">=1.5.0,<4.0.0" },
-    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'all'", specifier = ">=0.5.0,<1.0.0" },
-    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'bigquery'", specifier = ">=0.5.0,<1.0.0" },
-    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'dataplex'", specifier = ">=0.5.0,<1.0.0" },
-    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'dev'", specifier = ">=0.5.0,<1.0.0" },
-    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'docs'", specifier = ">=0.5.0,<1.0.0" },
+    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'all'", specifier = ">=0.7.0,<1.0.0" },
+    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'bigquery'", specifier = ">=0.7.0,<1.0.0" },
+    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'dataplex'", specifier = ">=0.7.0,<1.0.0" },
+    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'dev'", specifier = ">=0.7.0,<1.0.0" },
+    { name = "google-cloud-datacatalog-lineage", marker = "extra == 'docs'", specifier = ">=0.7.0,<1.0.0" },
     { name = "google-cloud-dataplex", marker = "extra == 'all'", specifier = "<3.0.0" },
     { name = "google-cloud-dataplex", marker = "extra == 'dataplex'", specifier = "<3.0.0" },
     { name = "google-cloud-dataplex", marker = "extra == 'dev'", specifier = "<3.0.0" },
@@ -5609,7 +5609,7 @@ wheels = [
 
 [[package]]
 name = "google-cloud-datacatalog-lineage"
-version = "0.5.0"
+version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "google-api-core", extra = ["grpc"] },
@@ -5618,9 +5618,9 @@ dependencies = [
     { name = "proto-plus" },
     { name = "protobuf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/07/cc/8e3625848d290622fb257537fcbe2309d1666db164647a6c193da4a5f259/google_cloud_datacatalog_lineage-0.5.0.tar.gz", hash = "sha256:ef19ff6e4e0343b42882c83f2e100689e3575d5799f98412cfd5778fbba626f7", size = 108524, upload-time = "2026-01-15T13:15:12.79Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e7/e3/6dd6c47d3ebe70ad489983a6bd09d243192a4631b63d482819fd50edb421/google_cloud_datacatalog_lineage-0.7.0.tar.gz", hash = "sha256:e7709d8e8d6c2864885cddaa077a567525a7d0f1fb9a5512cddef1c13e3d6cff", size = 116654, upload-time = "2026-06-03T15:27:55.391Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/78/cd3fbca9ea9a397238386643888ad9ec9b60a5d454374fd4fba26918573f/google_cloud_datacatalog_lineage-0.5.0-py3-none-any.whl", hash = "sha256:aab111e6a4a87fc34f8550918399a7d9898ce1290e0525e5f4a40ad9198bd5ca", size = 82609, upload-time = "2026-01-15T13:13:23.159Z" },
+    { url = "https://files.pythonhosted.org/packages/24/de/65a935b959692bc38f518ffd41a7e06a93aec212f6aebef8769d627a754d/google_cloud_datacatalog_lineage-0.7.0-py3-none-any.whl", hash = "sha256:be20622685a84ac45a2c974b370d36c71b898a1cd7c18428c87e9a202154313e", size = 89021, upload-time = "2026-06-03T15:27:02.635Z" },
 ]
 
 [[package]]

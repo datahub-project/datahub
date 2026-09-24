@@ -474,7 +474,7 @@ google-cloud-core==2.5.0 ; python_full_version >= '3.11' and python_full_version
     #   google-cloud-storage
 google-cloud-datacatalog==3.29.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-google-cloud-datacatalog-lineage==0.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+google-cloud-datacatalog-lineage==0.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 google-cloud-dataplex==2.16.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
