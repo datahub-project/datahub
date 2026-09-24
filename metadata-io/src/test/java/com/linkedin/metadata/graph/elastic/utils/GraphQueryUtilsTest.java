@@ -93,6 +93,32 @@ public class GraphQueryUtilsTest {
     assertEquals(rootQuery.filter().size(), 1);
   }
 
+  @Test
+  public void testAddFilterToQueryBuilderNullOrDoesNotThrow() {
+    Filter filter = new Filter();
+    assertNull(filter.getOr());
+
+    BoolQueryBuilder rootQuery = new BoolQueryBuilder();
+
+    GraphQueryUtils.addFilterToQueryBuilder(filter, "testNode", rootQuery);
+
+    assertEquals(rootQuery.filter().size(), 1);
+    assertTrue(((BoolQueryBuilder) rootQuery.filter().get(0)).should().isEmpty());
+  }
+
+  public void testAddFilterToQueryBuilderNullAndDoesNotThrow() {
+    Filter filter = new Filter();
+    ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
+    assertNull(conjunctiveCriterion.getAnd());
+    filter.setOr(new ConjunctiveCriterionArray(conjunctiveCriterion));
+
+    BoolQueryBuilder rootQuery = new BoolQueryBuilder();
+
+    GraphQueryUtils.addFilterToQueryBuilder(filter, "testNode", rootQuery);
+
+    assertEquals(rootQuery.filter().size(), 1);
+  }
+
   @Test(expectedExceptions = RuntimeException.class)
   public void testAddFilterToQueryBuilderUnsupportedCondition() {
     Filter filter = new Filter();
