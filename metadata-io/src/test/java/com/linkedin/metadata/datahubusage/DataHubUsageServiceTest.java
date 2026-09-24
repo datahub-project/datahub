@@ -15,6 +15,7 @@ import com.linkedin.metadata.datahubusage.event.UpdatePolicyEvent;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -25,6 +26,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -32,9 +35,14 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.sort.FieldSortBuilder;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeMethod;
@@ -79,6 +87,7 @@ public class DataHubUsageServiceTest {
             any(OperationContext.class), any(SearchRequest.class), any(RequestOptions.class)))
         .thenReturn(mockSearchResponse);
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    stubTypeFieldMapping("keyword");
   }
 
   @AfterMethod
@@ -260,6 +269,80 @@ public class DataHubUsageServiceTest {
     ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
     Mockito.verify(mockElasticClient)
         .search(any(OperationContext.class), requestCaptor.capture(), any(RequestOptions.class));
+  }
+
+  @Test
+  public void testExternalAuditSearchUsesKeywordSubfieldWhenTypeIsMappedAsText()
+      throws IOException {
+    // A usage index auto-created before its template existed maps type as text + .keyword
+    stubTypeFieldMapping("text");
+
+    SearchSourceBuilder source = searchWithEventTypeFilter();
+
+    assertEquals("type.keyword", ((FieldSortBuilder) source.sorts().get(1)).getFieldName());
+    assertEquals("type.keyword", eventTypeTermsQuery(source).fieldName());
+  }
+
+  @Test
+  public void testExternalAuditSearchUsesTypeWhenMappedAsKeyword() throws IOException {
+    SearchSourceBuilder source = searchWithEventTypeFilter();
+
+    assertEquals("type", ((FieldSortBuilder) source.sorts().get(1)).getFieldName());
+    assertEquals("type", eventTypeTermsQuery(source).fieldName());
+  }
+
+  @Test
+  public void testExternalAuditSearchUsesTypeWhenMappingLookupFails() throws IOException {
+    when(mockElasticClient.performLowLevelRequest(any(), any(Request.class)))
+        .thenThrow(new IOException("mapping lookup failed"));
+
+    SearchSourceBuilder source = searchWithEventTypeFilter();
+
+    assertEquals("type", ((FieldSortBuilder) source.sorts().get(1)).getFieldName());
+    assertEquals("type", eventTypeTermsQuery(source).fieldName());
+  }
+
+  private SearchSourceBuilder searchWithEventTypeFilter() throws IOException {
+    when(mockSearchHits.getHits()).thenReturn(new SearchHit[0]);
+    when(mockSearchHits.getTotalHits()).thenReturn(new TotalHits(0, TotalHits.Relation.EQUAL_TO));
+
+    dataHubUsageService.externalAuditEventsSearch(
+        opContext,
+        ExternalAuditEventsSearchRequest.builder()
+            .size(10)
+            .eventTypes(List.of(DataHubUsageEventType.LOG_IN_EVENT.getType()))
+            .startTime(Instant.now().minus(7, ChronoUnit.DAYS).toEpochMilli())
+            .endTime(Instant.now().toEpochMilli())
+            .build());
+
+    ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+    Mockito.verify(mockElasticClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), any(RequestOptions.class));
+    return requestCaptor.getValue().source();
+  }
+
+  private static TermsQueryBuilder eventTypeTermsQuery(SearchSourceBuilder source) {
+    return ((BoolQueryBuilder) source.query())
+        .filter().stream()
+            .filter(TermsQueryBuilder.class::isInstance)
+            .map(TermsQueryBuilder.class::cast)
+            .filter(query -> query.values().contains(DataHubUsageEventType.LOG_IN_EVENT.getType()))
+            .findFirst()
+            .orElseThrow();
+  }
+
+  private void stubTypeFieldMapping(String mappedType) throws IOException {
+    RawResponse mappingResponse = Mockito.mock(RawResponse.class);
+    when(mappingResponse.getEntity())
+        .thenReturn(
+            new StringEntity(
+                String.format(
+                    "{\"%s\":{\"mappings\":{\"type\":{\"full_name\":\"type\","
+                        + "\"mapping\":{\"type\":{\"type\":\"%s\"}}}}}}",
+                    TEST_INDEX_NAME, mappedType),
+                ContentType.APPLICATION_JSON));
+    when(mockElasticClient.performLowLevelRequest(any(), any(Request.class)))
+        .thenReturn(mappingResponse);
   }
 
   private SearchHit createMockSearchHit(String eventType, String actorUrn, long timestamp) {

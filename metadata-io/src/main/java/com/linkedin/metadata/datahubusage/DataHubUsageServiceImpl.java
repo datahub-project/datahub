@@ -2,6 +2,7 @@ package com.linkedin.metadata.datahubusage;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.datahubusage.event.EventSource;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
@@ -9,7 +10,9 @@ import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -22,6 +25,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -55,13 +59,16 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
   public ExternalAuditEventsSearchResponse externalAuditEventsSearch(
       OperationContext opContext,
       ExternalAuditEventsSearchRequest externalAuditEventsSearchRequest) {
+    final String usageIndexName = getUsageIndexName(opContext);
+    final String eventTypeField = eventTypeField(opContext, usageIndexName);
     BoolQueryBuilder filterQuery = QueryBuilders.boolQuery();
     filterQuery.filter(
         dateRangeQuery(
             externalAuditEventsSearchRequest.getStartTime(),
             externalAuditEventsSearchRequest.getEndTime()));
     if (CollectionUtils.isNotEmpty(externalAuditEventsSearchRequest.getEventTypes())) {
-      filterQuery.filter(eventTypeFilterQuery(externalAuditEventsSearchRequest.getEventTypes()));
+      filterQuery.filter(
+          eventTypeFilterQuery(eventTypeField, externalAuditEventsSearchRequest.getEventTypes()));
     }
     if (CollectionUtils.isNotEmpty(externalAuditEventsSearchRequest.getAspectTypes())) {
       filterQuery.filter(aspectNameFilterQuery(externalAuditEventsSearchRequest.getAspectTypes()));
@@ -74,15 +81,14 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     }
     filterQuery.filter(getBackendOnlyEvents());
 
-    SearchRequest searchRequest = new SearchRequest(getUsageIndexName(opContext));
+    SearchRequest searchRequest = new SearchRequest(usageIndexName);
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(externalAuditEventsSearchRequest.getSize());
     searchSourceBuilder.query(filterQuery);
 
     searchSourceBuilder.sort(
         SortBuilders.fieldSort(DataHubUsageEventConstants.TIMESTAMP).order(SortOrder.DESC));
-    searchSourceBuilder.sort(
-        SortBuilders.fieldSort(DataHubUsageEventConstants.TYPE).order(SortOrder.ASC));
+    searchSourceBuilder.sort(SortBuilders.fieldSort(eventTypeField).order(SortOrder.ASC));
     searchSourceBuilder.sort(
         SortBuilders.fieldSort(keywordField(DataHubUsageEventConstants.ACTOR_URN))
             .order(SortOrder.ASC));
@@ -197,8 +203,47 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     return QueryBuilders.rangeQuery(DataHubUsageEventConstants.TIMESTAMP).gte(start).lt(end);
   }
 
-  private QueryBuilder eventTypeFilterQuery(List<String> eventTypes) {
-    return QueryBuilders.termsQuery(DataHubUsageEventConstants.TYPE, eventTypes);
+  /**
+   * The field to filter and sort event types on. The index template maps {@code type} as {@code
+   * keyword}, but a usage index that was auto-created before its template existed maps it
+   * dynamically as {@code text} with a {@code .keyword} subfield. Sorting on that text field fails
+   * the whole search and term filters on it never match, so use the subfield there.
+   */
+  private String eventTypeField(OperationContext opContext, String usageIndexName) {
+    // One field-mapping lookup per call; cache it if this endpoint ever gets hot.
+    try {
+      RawResponse response =
+          elasticClient.performLowLevelRequest(
+              opContext,
+              new Request(
+                  "GET",
+                  "/" + usageIndexName + "/_mapping/field/" + DataHubUsageEventConstants.TYPE));
+      JsonNode indices = opContext.getObjectMapper().readTree(response.getEntity().getContent());
+      for (JsonNode index : indices) {
+        String mappedType =
+            index
+                .path("mappings")
+                .path(DataHubUsageEventConstants.TYPE)
+                .path("mapping")
+                .path(DataHubUsageEventConstants.TYPE)
+                .path("type")
+                .asText();
+        if ("text".equals(mappedType)) {
+          return keywordField(DataHubUsageEventConstants.TYPE);
+        }
+      }
+    } catch (IOException e) {
+      log.warn(
+          "Could not read the {} field mapping of {}, treating it as keyword",
+          DataHubUsageEventConstants.TYPE,
+          usageIndexName,
+          e);
+    }
+    return DataHubUsageEventConstants.TYPE;
+  }
+
+  private QueryBuilder eventTypeFilterQuery(String eventTypeField, List<String> eventTypes) {
+    return QueryBuilders.termsQuery(eventTypeField, eventTypes);
   }
 
   private QueryBuilder aspectNameFilterQuery(List<String> aspectNames) {
