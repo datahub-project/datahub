@@ -26,7 +26,6 @@ from datahub.ingestion.source.bigquery_v2.profiling.constants import (
     PARTITION_GRANULARITY_DAY,
     PARTITION_GRANULARITY_HOUR,
     PSEUDO_PARTITION_COLUMN_TYPES,
-    SUBDAY_TEMPORAL_PARTITION_TYPES,
     TEMPORAL_PARTITION_TYPES,
     VALID_COLUMN_NAME_PATTERN,
 )
@@ -617,30 +616,28 @@ class PartitionDiscovery:
                 moment = val
             elif isinstance(val, date):
                 moment = datetime(val.year, val.month, val.day)
-            elif (
-                isinstance(val, str)
-                and col_type.upper() in SUBDAY_TEMPORAL_PARTITION_TYPES
-            ):
-                # A user-configured fallback for a DATETIME/TIMESTAMP partition arrives as
-                # an ISO string; normalize it to a datetime so it is widened to the whole
-                # partition instead of matching a single instant. DATE strings are left to
-                # create_safe_filter (a DATE equality already covers the whole-day
-                # partition), as are compact partition IDs (all-digit, e.g. "20240115") and
-                # unparseable strings, which return None from _parse_iso_temporal.
+            elif isinstance(val, str):
+                # A user-configured value (fallback or partition_datetime) arrives as an
+                # ISO string; normalize it to a datetime so it is widened to the whole
+                # partition instead of matching a single instant/day. This applies to DATE
+                # columns too: at MONTH/YEAR granularity a DATE equality would match only
+                # one day of a multi-day partition. Compact partition IDs (all-digit, e.g.
+                # "20240115") and unparseable strings return None from _parse_iso_temporal
+                # and defer to create_safe_filter's compact-id handling below.
                 moment = self._parse_iso_temporal(val)
-                if (
-                    moment is not None
-                    and col_type.upper() == "DATETIME"
-                    and moment.tzinfo is not None
-                ):
-                    # BigQuery DATETIME is timezone-naive; only TIMESTAMP is UTC-normalized
-                    # in create_partition_datetime_filter, so an offset-bearing DATETIME
-                    # literal would have its offset silently dropped and floor the wrong
-                    # wall clock (possibly the wrong partition). Reject it here (as
-                    # create_safe_filter's _format_date_value does) so it defers to
-                    # create_safe_filter rather than widening a mis-floored instant.
-                    moment = None
             else:
+                moment = None
+            if (
+                moment is not None
+                and col_type.upper() == "DATETIME"
+                and moment.tzinfo is not None
+            ):
+                # BigQuery DATETIME is timezone-naive; only TIMESTAMP is UTC-normalized in
+                # create_partition_datetime_filter, so an offset-bearing DATETIME literal
+                # would have its offset silently dropped and floor the wrong wall clock
+                # (possibly the wrong partition). Reject it here (as create_safe_filter's
+                # _format_date_value does) regardless of whether it came from a datetime
+                # object or a parsed string, so every caller agrees on the rule.
                 moment = None
             if moment is not None:
                 return FilterBuilder.create_partition_datetime_filter(
@@ -831,9 +828,17 @@ class PartitionDiscovery:
                         extra_where=" AND ".join(combined_filters),
                     )
 
-                    job_config = QueryJobConfig(
+                    # Clamp and route through _partition_fetch_job_config so this probe
+                    # gets the same job timeout / max-bytes-billed guardrails as the
+                    # unconstrained branch below (_create_partition_stats_query).
+                    safe_max_results = max(
+                        1, min(int(max_results), MAX_PARTITION_VALUES)
+                    )
+                    job_config = self._partition_fetch_job_config(
                         query_parameters=[
-                            ScalarQueryParameter("max_results", "INT64", max_results)
+                            ScalarQueryParameter(
+                                "max_results", "INT64", safe_max_results
+                            )
                         ]
                     )
                 else:
@@ -1316,6 +1321,12 @@ class PartitionDiscovery:
 
             component_value = self._date_component_value(col_name, fallback_date)
             if component_value is not None:
+                if not col_type:
+                    # A date-component column (year/month/day) with no known type can't get
+                    # a typed literal: create_safe_filter would emit e.g. year = '2026',
+                    # which BigQuery rejects against an INT64 column. Scan all partitions
+                    # instead (the caller warns the partition is unverified).
+                    return FilterBuilder.is_not_null(col_name)
                 if guessed_date_cols is not None:
                     guessed_date_cols.append(col_name)
                 return self._create_safe_filter(col_name, component_value, col_type)
@@ -1388,11 +1399,11 @@ class PartitionDiscovery:
             )
             return None
 
-        granularity = getattr(table.partition_info, "type", None)
         try:
-            partition_filter = FilterBuilder.create_partition_datetime_filter(
-                col_name, configured, col_type, granularity
-            )
+            # Route through _value_filter so the configured value gets the same
+            # granularity-aware widening, DATE+HOUR degrade, and offset-bearing-DATETIME
+            # rejection as a discovered value, instead of a divergent second code path.
+            partition_filter = self._value_filter(table, col_name, configured, col_type)
         except ValueError as e:
             warn(
                 self.report,
