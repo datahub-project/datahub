@@ -1487,6 +1487,40 @@ def test_unresolved_date_column_keeps_is_not_null_placeholder():
     assert any("fell back to full scan" in (w.title or "") for w in report.warnings)
 
 
+def test_enhance_infers_int64_for_untyped_discovered_component():
+    """A year/month/day component with no known type enters _enhance as an IS NOT NULL
+    placeholder and is resolved here by discovering its actual value. The discovered INT64
+    must be emitted as `month = 12`, not `month = '12'` (BigQuery rejects INT64 = STRING) —
+    the same inference _find_max_component_within_constraint applies.
+    """
+
+    class TypedDiscovery(PartitionDiscovery):
+        def _get_partition_column_types(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, str]:
+            return {"event_date": "DATE"}  # month has no known type
+
+    discovery = TypedDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        if context == "discover values for month":
+            return [SimpleNamespace(col_value=12, row_count=100)]
+        return []
+
+    result = discovery._enhance_partition_filters_with_actual_values(
+        make_table(name="date_components"),
+        "test-project-123456",
+        "ds",
+        ["event_date", "month"],
+        ["`event_date` = '2025-01-15'", "`month` IS NOT NULL"],
+        execute,
+    )
+
+    assert result is not None
+    assert "`month` = 12" in result
+    assert "`month` = '12'" not in result
+
+
 def test_partition_fetch_job_config_applies_timeout_and_byte_cap():
     """partition_fetch_timeout must actually reach the fetch jobs (as job_timeout_ms), and
     partition_fetch_max_bytes_billed must cap bytes billed only when configured.
