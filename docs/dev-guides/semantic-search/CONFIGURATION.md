@@ -183,6 +183,7 @@ public interface EmbeddingProvider {
 
 - `OpenAiEmbeddingProvider` - Uses OpenAI API (default)
 - `AwsBedrockEmbeddingProvider` - Uses AWS Bedrock
+- `AiGatewayEmbeddingProvider` - Uses an OAuth2-authenticated AI Gateway
 - `ClassicalEmbeddingProvider` - Deterministic in-process lexical hashing (no external service); CI and smoke tests only, gated by `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`
 - `NoOpEmbeddingProvider` - Throws exception if called (used when semantic search disabled)
 
@@ -256,6 +257,25 @@ COHERE_EMBEDDING_MODEL=embed-english-v3.0
 | ------------------------- | ---------- | ----------------- |
 | `embed-english-v3.0`      | 1024       | English optimized |
 | `embed-multilingual-v3.0` | 1024       | 100+ languages    |
+
+#### OAuth2-Authenticated AI Gateway
+
+If your organization fronts Bedrock, Azure OpenAI, or Google Vertex AI behind a proxy gateway authenticated with an OAuth2 `client_credentials` JWT, use the `ai-gateway` provider. A single HTTP contract supports multiple upstream platforms via routing parameters.
+
+```bash
+# Required
+EMBEDDING_PROVIDER_TYPE=ai-gateway
+AI_GATEWAY_BASE_URL=https://gateway.example.com
+AI_GATEWAY_PLATFORM=google-vertex # or azure-openai, amazon-bedrock
+AI_GATEWAY_TOKEN_URL=https://auth.example.com/oauth2/token
+AI_GATEWAY_CLIENT_ID=your-client-id
+AI_GATEWAY_CLIENT_SECRET=your-client-secret
+
+# Optional - defaults shown
+AI_GATEWAY_EMBEDDING_MODEL=gemini-embedding-001
+# Set to >0 to pass options.dimensions to the gateway; 0 uses model native dims
+AI_GATEWAY_EMBEDDING_DIMENSIONS=0
+```
 
 #### Classical (Deterministic Hashing, CI and smoke tests only)
 
@@ -452,7 +472,7 @@ models:
     m: 16
 ```
 
-When using multiple models, the configured provider model (`BEDROCK_EMBEDDING_MODEL`, `OPENAI_EMBEDDING_MODEL`, or `COHERE_EMBEDDING_MODEL`) determines which model is used for query embeddings at search time.
+When using multiple models, the configured provider model (`BEDROCK_EMBEDDING_MODEL`, `OPENAI_EMBEDDING_MODEL`, `COHERE_EMBEDDING_MODEL`, or `AI_GATEWAY_EMBEDDING_MODEL`) determines which model is used for query embeddings at search time.
 
 ## Query Configuration
 
