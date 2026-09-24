@@ -7,6 +7,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { getEntityEnvironment } from '@app/entityV2/shared/containers/profile/header/getEntityEnvironment';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import ColoredBackgroundPlatformIconGroup, {
     PlatformContentWrapper,
@@ -64,8 +65,6 @@ interface Props {
     health?: Health[];
     // eslint-disable-next-line react/no-unused-prop-types
     description?: string;
-    // eslint-disable-next-line react/no-unused-prop-types
-    qualifier?: string | null;
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
     actions?: EntityMenuActions;
@@ -104,6 +103,7 @@ export const CompactView = ({
     parentEntities,
     browsePaths,
 }: Props) => {
+    const environment = getEntityEnvironment(data);
     return (
         <>
             <RowContainer>
@@ -118,6 +118,7 @@ export const CompactView = ({
                     health={health}
                     degree={degree}
                     connectionName={previewData?.name}
+                    environment={environment}
                 />
                 <CompactActionsAndStatusSection>
                     <ViewInPlatform data={data} urn={urn} />

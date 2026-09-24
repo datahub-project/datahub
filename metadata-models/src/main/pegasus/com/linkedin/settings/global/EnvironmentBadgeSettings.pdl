@@ -1,0 +1,4 @@
+namespace com.linkedin.settings.global
+
+
+record EnvironmentBadgeSettings includes FeatureSettings {}

@@ -3,6 +3,7 @@ fragment recommendationEntityPreview on Entity {
     type
     ... on Dataset {
         name
+        origin
         platform {
             ...platformFields
         }
@@ -248,6 +249,9 @@ fragment recommendationEntityPreview on Entity {
     }
     ... on Container {
         ...entityContainer
+        properties {
+            origin
+        }
     }
     ... on DataProduct {
         ...dataProductFields

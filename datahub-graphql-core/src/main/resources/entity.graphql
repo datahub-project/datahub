@@ -3454,6 +3454,11 @@ type ContainerProperties {
   Fully-qualified name of the Container
   """
   qualifiedName: String
+
+  """
+  Environment (fabric) this Container belongs to, e.g. PROD, DEV, QA
+  """
+  origin: FabricType
 }
 
 """
