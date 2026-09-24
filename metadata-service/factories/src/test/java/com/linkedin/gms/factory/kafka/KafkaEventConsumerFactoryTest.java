@@ -113,16 +113,4 @@ public class KafkaEventConsumerFactoryTest {
         listenerFactory.isBatchListener() == null || !listenerFactory.isBatchListener(),
         "Standard MCL event consumer must not have batch listener enabled");
   }
-
-  @Test
-  void testAuthExceptionRetryIntervalOnDuheConsumer() {
-    var listenerFactory =
-        (ConcurrentKafkaListenerContainerFactory<?, ?>)
-            factory.duheKafkaEventConsumer(kafkaConsumerFactory);
-
-    assertEquals(
-        listenerFactory.getContainerProperties().getAuthExceptionRetryInterval(),
-        Duration.ofSeconds(10),
-        "DUHE consumer should retry on auth exceptions to survive MSK IAM credential rotation");
-  }
 }

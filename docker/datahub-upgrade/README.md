@@ -10,8 +10,8 @@ each time DataHub is deployed. More on this below. (TODO)
 
 The following jobs are supported:
 
-1. **SystemUpdate**: Performs any tasks required to update to a new version of DataHub. For example, applying new configurations to the search & graph indexes, ingesting default settings, and more. Once completed, emits a message to the DataHub Upgrade History Kafka (`DataHubUpgradeHistory_v1`) topic, which signals to other pods that DataHub is ready to start.
-   Note that this _must_ be executed any time the DataHub version is incremented before starting or restarting other system containers. Dependent services will wait until the Kafka message is emitted corresponding to the code they are running.
+1. **SystemUpdate**: Performs any tasks required to update to a new version of DataHub. For example, applying new configurations to the search & graph indexes, ingesting default settings, and more.
+   Note that this _must_ be executed any time the DataHub version is incremented before starting or restarting other system containers. Deploy ordering (Helm pre-install hooks / Compose `depends_on` for the blocking system-update job) is the gate; GMS, MAE, and MCE no longer wait on a Kafka upgrade-history message.
    A unique "version id" is generated based on a combination of the a) embedded git tag corresponding to the version of DataHub running and b) an optional revision number, provided via the `DATAHUB_REVISION` environment variable. Helm uses
    the latter to ensure that the system upgrade job is executed every single time a deployment of DataHub is performed, even if the container version has not changed.
    Important: This job runs as a pre-install hook via the DataHub Helm Charts, i.e. before deploying new version tags for each container.

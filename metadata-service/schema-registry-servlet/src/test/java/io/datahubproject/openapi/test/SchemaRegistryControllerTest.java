@@ -568,34 +568,6 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   }
 
   @KafkaListener(
-      id = "test-duhe-consumer",
-      topics = Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME,
-      containerFactory = DEFAULT_EVENT_CONSUMER_NAME,
-      properties = {
-        "auto.offset.reset:earliest",
-        "spring.kafka.listener.ack-mode:manual",
-        "spring.kafka.listener.ack-on-error:false",
-        "spring.kafka.listener.retry-after-error:false",
-        "spring.kafka.listener.fail-fast:false"
-      })
-  public void receiveDUHE(ConsumerRecord<String, GenericRecord> consumerRecord) {
-
-    final GenericRecord value = consumerRecord.value();
-    try {
-      String messageKey = consumerRecord.key();
-      getReference(messageKey).set(EventUtils.avroToPegasusDUHE(value));
-      getLatch(messageKey).countDown();
-    } catch (IOException e) {
-      log.error(
-          "Failed to deserialize DUHE message with key: {}, error: {}",
-          consumerRecord.key(),
-          e.getMessage(),
-          e);
-      // Continue processing other messages instead of stopping the consumer
-    }
-  }
-
-  @KafkaListener(
       id = "test-failed-mcp-consumer",
       topics = Topics.FAILED_METADATA_CHANGE_PROPOSAL,
       containerFactory = DEFAULT_EVENT_CONSUMER_NAME,

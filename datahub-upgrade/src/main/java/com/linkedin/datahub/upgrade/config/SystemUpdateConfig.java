@@ -8,7 +8,6 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCP;
-import com.linkedin.datahub.upgrade.system.elasticsearch.steps.DataHubStartupStep;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
@@ -32,7 +31,6 @@ import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.metadata.version.GitVersion;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -60,13 +58,11 @@ public class SystemUpdateConfig {
   public SystemUpdate systemUpdate(
       final List<BlockingSystemUpgrade> blockingSystemUpgrades,
       final List<NonBlockingSystemUpgrade> nonBlockingSystemUpgrades,
-      final DataHubStartupStep dataHubStartupStep,
       @Qualifier("bootstrapMCPBlocking") @NonNull final BootstrapMCP bootstrapMCPBlocking,
       @Qualifier("bootstrapMCPNonBlocking") @NonNull final BootstrapMCP bootstrapMCPNonBlocking) {
     return new SystemUpdate(
         blockingSystemUpgrades,
         nonBlockingSystemUpgrades,
-        dataHubStartupStep,
         bootstrapMCPBlocking,
         bootstrapMCPNonBlocking);
   }
@@ -74,10 +70,8 @@ public class SystemUpdateConfig {
   @Bean(name = "systemUpdateBlocking")
   public SystemUpdateBlocking systemUpdateBlocking(
       final List<BlockingSystemUpgrade> blockingSystemUpgrades,
-      final DataHubStartupStep dataHubStartupStep,
       @Qualifier("bootstrapMCPBlocking") @NonNull final BootstrapMCP bootstrapMCPBlocking) {
-    return new SystemUpdateBlocking(
-        blockingSystemUpgrades, dataHubStartupStep, bootstrapMCPBlocking);
+    return new SystemUpdateBlocking(blockingSystemUpgrades, bootstrapMCPBlocking);
   }
 
   @Bean(name = "systemUpdateNonBlocking")
@@ -131,15 +125,6 @@ public class SystemUpdateConfig {
   @Bean(name = "revision")
   public String getRevision() {
     return revision;
-  }
-
-  @Bean
-  public DataHubStartupStep dataHubStartupStep(
-      @Qualifier("duheKafkaEventProducer") final EventProducer kafkaEventProducer,
-      final GitVersion gitVersion,
-      @Qualifier("revision") String revision) {
-    return new DataHubStartupStep(
-        kafkaEventProducer, String.format("%s-%s", gitVersion.getVersion(), revision));
   }
 
   @Primary

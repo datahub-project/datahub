@@ -674,9 +674,6 @@ postgres:
       aggressiveRetention: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_AGGRESSIVE_RETENTION:false}
     # Per-topic overlays on kafka.topics.* (same logical keys). Prefer inheritKafkaTopics + kafka.topics for names/partitions/retention; use this block for pg-only limits or extra topics.
     topics:
-      datahubUpgradeHistory:
-        # Soft cap on completed upgrade-history rows (not expressible in Kafka topic config).
-        maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DATAHUB_UPGRADE_HISTORY_MAX_ROWS_PER_TOPIC:10}
       failedMetadataChangeProposal:
         maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_FAILED_MCP_MAX_ROWS_PER_TOPIC:100}
       metadataChangeProposal:
@@ -1228,14 +1225,6 @@ kafka:
       partitions: ${PLATFORM_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
       replicationFactor: ${PLATFORM_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
-    datahubUpgradeHistory:
-      name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
-      displayName: DataHubUpgradeHistory_v1
-      partitions: ${DATAHUB_UPGRADE_HISTORY_TOPIC_PARTITIONS:1}
-      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
-      configProperties:
-        retention.ms: -1
-
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
       displayName: DataHubUsageEvent_v1
@@ -1505,6 +1494,7 @@ systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
+  # Unused: GMS/MAE/MCE no longer wait on DataHubUpgradeHistory_v1. Binding kept so existing Helm values are no-ops.
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
   cdcMode: ${SYSTEM_UPDATE_CDC_MODE:false}
   bootstrap:
