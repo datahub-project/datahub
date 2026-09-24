@@ -2227,11 +2227,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self._sql_aggregators.items(),
             key=lambda kv: tuple(x or "" for x in kv[0]),
         ):
+            claimed_by = f"customsql-drain:{'/'.join(k or '' for k in cache_key)}"
             try:
                 for mcp in aggregator.gen_metadata():
-                    rewritten = self._rewrite_fgl_downstreams(
-                        mcp, f"customsql-drain:{'/'.join(k or '' for k in cache_key)}"
-                    )
+                    rewritten = self._rewrite_fgl_downstreams(mcp, claimed_by)
                     if rewritten is not None:
                         yield rewritten.as_workunit()
                 agg_report = aggregator.report
@@ -4287,7 +4286,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         ``chart_resolved_counts`` collects each chart's resolved-column count
         so the caller can rank the page aspect; the union it is built from no
-        longer says which chart a field came from.
+        longer says which chart a field came from. The sum is a ranking, not a
+        size: an edge several charts share is counted once per chart but kept
+        once in the page aspect, which is harmless between true copies.
         """
         for element in elements:
             chart_urn = builder.make_chart_urn(
