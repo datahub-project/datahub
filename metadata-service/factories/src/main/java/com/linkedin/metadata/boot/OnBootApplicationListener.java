@@ -1,5 +1,6 @@
 package com.linkedin.metadata.boot;
 
+import com.linkedin.gms.factory.kafka.common.KafkaInitializationManager;
 import com.linkedin.gms.factory.kafka.common.PgQueueConsumerInitializationManager;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
@@ -23,6 +24,8 @@ public class OnBootApplicationListener {
   @Autowired
   @Qualifier("systemOperationContext")
   private OperationContext systemOperationContext;
+
+  @Autowired private KafkaInitializationManager kafkaInitializationManager;
 
   @Autowired(required = false)
   private PgQueueConsumerInitializationManager pgQueueConsumerInitializationManager;
@@ -66,6 +69,7 @@ public class OnBootApplicationListener {
       }
 
       // Initialize consumers
+      kafkaInitializationManager.initialize(this.getClass().getSimpleName());
       if (pgQueueConsumerInitializationManager != null) {
         pgQueueConsumerInitializationManager.initialize(this.getClass().getSimpleName());
       }

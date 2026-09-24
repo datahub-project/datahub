@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
  * Starts pgQueue consumer pollers after Spring wiring. In GMS this is invoked from {@link
  * com.linkedin.metadata.boot.OnBootApplicationListener}; in standalone consumer pods (MCE/MAE) that
  * do not scan {@code com.linkedin.metadata.boot}, the {@link ReadinessState#ACCEPTING_TRAFFIC}
- * event serves as the fallback trigger.
+ * event serves as the fallback trigger, matching {@link KafkaInitializationManager}.
  */
 @Slf4j
 @Component
