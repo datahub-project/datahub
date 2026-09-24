@@ -21,7 +21,7 @@ from datahub.ingestion.source.cube.constants import (
 )
 from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 from datahub.testing import mce_helpers
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_4
 
@@ -100,7 +100,6 @@ def loaded_cube(docker_compose_runner, test_resources_dir: Path, cube_token: str
         cube_port = docker_services.port_for("test-cube", 4000)
         _wait_for_cube_model(f"http://localhost:{cube_port}/cubejs-api", cube_token)
         yield cube_port
-    cleanup_image("cubejs/cube")
 
 
 def test_cube_core_ingest(

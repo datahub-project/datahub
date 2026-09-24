@@ -328,7 +328,9 @@ snowflake_common = {
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
-    "snowflake-connector-python>=4.4.0,<5.0.0",
+    # >= 4.7.1 for CVE-2026-15925: the connector accepted a certificate signed by any
+    # trusted CA for any domain without matching the requested host. 4.7.0 was yanked.
+    "snowflake-connector-python>=4.7.1,<5.0.0",
     "pandas<3.0.0",
     # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
     # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
@@ -582,11 +584,17 @@ plugins: Dict[str, Set[str]] = {
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
+    # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
+    # in its own extra below.
     "datahub-lite": {
-        "duckdb>=1.0.0,<2.0.0",
         "fastapi<0.129.0",
         "uvicorn<0.41.0",
     },
+    # Alternative DataHub Lite storage engine, selected with `lite.type: duckdb`.
+    # The extra is named after the lite implementation key so that the plugin
+    # registry's "pip install acryl-datahub[duckdb]" hint is accurate.
+    "duckdb": {"duckdb>=1.0.0,<2.0.0"},
     # Integrations.
     "airbyte": {"requests"},
     "airflow": {
@@ -924,9 +932,12 @@ all_exclude_plugins: Set[str] = {
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
-    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
-    # simply exclude it.
+    # DataHub Lite is an opt-in local tool, and its `serve` command pulls in a
+    # whole web stack, so we keep it out of the default "all" installation.
     "datahub-lite",
+    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
+    # simply exclude it. DataHub Lite works without it, on sqlite.
+    "duckdb",
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
@@ -1071,6 +1082,7 @@ base_dev_requirements = {
             "kinesis",
             "datahub-rest",
             "datahub-lite",
+            "duckdb",
             "presto",
             "rdf",
             "redash",

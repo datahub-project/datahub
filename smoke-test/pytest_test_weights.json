@@ -1116,67 +1116,67 @@
     "duration": "56.222s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_add_group_members_adds_every_user_in_one_mutation",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestMembership::test_add_group_members_adds_every_user_in_one_mutation",
     "duration": "78.500s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_container_parent_containers_hierarchy",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestContainer::test_container_parent_containers_hierarchy",
     "duration": "19.857s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_container_relationships_direct_children",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestContainer::test_container_relationships_direct_children",
     "duration": "10.096s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_corp_group_incoming_members_after_native_add",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestMembership::test_corp_group_incoming_members_after_native_add",
     "duration": "41.665s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_corp_group_incoming_members_immediately_after_add_second_member",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestMembership::test_corp_group_incoming_members_immediately_after_add_second_member",
     "duration": "41.548s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_domain_cache_metrics_when_isolated",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_cache_metrics_when_isolated",
     "duration": "0.003s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_domain_parent_domains_hierarchy",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_parent_domains_hierarchy",
     "duration": "58.946s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_domain_sync_move_reflects_in_parent_domains",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestDomain::test_domain_sync_move_reflects_in_parent_domains",
     "duration": "69.820s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_glossary_cache_metrics_when_isolated",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_cache_metrics_when_isolated",
     "duration": "0.002s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_glossary_deep_hierarchy_within_bundled_max_depth",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_deep_hierarchy_within_bundled_max_depth",
     "duration": "19.902s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_glossary_parent_nodes_hierarchy",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_parent_nodes_hierarchy",
     "duration": "20.289s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_glossary_sync_reparent_reflects_in_parent_nodes",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestGlossary::test_glossary_sync_reparent_reflects_in_parent_nodes",
     "duration": "39.984s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_membership_relationships_idempotent_for_isolated_user",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestMembership::test_membership_relationships_idempotent_for_isolated_user",
     "duration": "169.994s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_migration_converts_existing_members_when_group_becomes_native",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestMembership::test_migration_converts_existing_members_when_group_becomes_native",
     "duration": "80.057s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_remove_group_members_revokes_legacy_membership",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestMembership::test_remove_group_members_revokes_legacy_membership",
     "duration": "59.897s"
   },
   {
-    "testId": "tests.entity_graph_cache.test_entity_graph_cache::test_session_user_dual_group_types_labeled_correctly",
+    "testId": "tests.entity_graph_cache.test_entity_graph_cache.TestMembership::test_session_user_dual_group_types_labeled_correctly",
     "duration": "112.920s"
   },
   {
