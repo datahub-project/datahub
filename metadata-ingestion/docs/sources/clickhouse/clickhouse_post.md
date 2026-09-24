@@ -15,7 +15,11 @@ Usage from `SELECT` queries is read from the `tables` and `columns` that ClickHo
 resolved, rather than from parsing the SQL. Two consequences:
 
 - Column counts cover every column the `SELECT` touched, including ones used only in `WHERE`,
-  `JOIN` or `GROUP BY`, and the expansion of `SELECT *`.
+  `JOIN` or `GROUP BY`, and the expansion of `SELECT *`. ClickHouse names some reads after a
+  subcolumn rather than a column — a `Map` key access is reported as `m.key_k`, an array length as
+  `arr.size0`. Those appear in the field counts as reported, so they will not match a field in the
+  table's schema, and repeated reads of different keys are all attributed to whichever key was seen
+  first.
 - A read through a view is counted against the view **and** its underlying tables, because
   ClickHouse reports both.
 

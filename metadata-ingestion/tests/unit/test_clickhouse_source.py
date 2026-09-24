@@ -617,6 +617,26 @@ def test_usage_credits_every_table_clickhouse_resolved(monkeypatch):
     assert _field_counts(by_urn[dim_users]) == {"col_c": 1}
 
 
+def test_usage_counts_nested_and_map_subcolumns(monkeypatch):
+    # ClickHouse stores Nested(a UInt8) on column n as a physical column named
+    # n.a, and reports it backtick-quoted, so the column name is itself dotted.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            columns=(
+                "my_db.raw_events.plain",
+                "my_db.raw_events.`n.a`",
+                "my_db.raw_events.`m.key_k`",
+            )
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert _field_counts(usage[0]) == {"plain": 1, "n.a": 1, "m.key_k": 1}
+
+
 def test_usage_counts_columns_the_parser_would_miss(monkeypatch):
     # ClickHouse's column list covers a filter-only column and the expansion of
     # a star; a parsed SELECT's column lineage covers neither.

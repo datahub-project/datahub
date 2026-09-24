@@ -1048,14 +1048,16 @@ ORDER BY event_time ASC
                 # using this same prefix list, so this should not be reachable.
                 return None
 
-            # And columns as db.table.column, so everything up to the last dot is
-            # the dataset name above.
+            # And columns as db.table.column - but a Nested or Map subcolumn is
+            # itself dotted and backtick-quoted (db.t.`n.a`), so split on the
+            # table names we already have rather than on the last dot.
             column_usage: Dict[str, Set[str]] = defaultdict(set)
             for qualified_column in _split_joined(row.get("columns_joined")):
-                dataset_name, _, column = qualified_column.rpartition(".")
-                urn = urn_by_dataset_name.get(dataset_name)
-                if urn:
-                    column_usage[urn].add(column)
+                for dataset_name, urn in urn_by_dataset_name.items():
+                    if qualified_column.startswith(f"{dataset_name}."):
+                        column = qualified_column[len(dataset_name) + 1 :]
+                        column_usage[urn].add(column.strip("`"))
+                        break
 
             user = row.get("user", "")
             return PreparsedQuery(
