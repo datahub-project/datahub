@@ -152,6 +152,9 @@ ext.jacksonVersion = '2.22.3'
 // fixed in 2.21.4+; https://github.com/apache/parquet-java/pull/3594).
 // App-classpath jackson-databind remains ext.jacksonVersion (2.22.3); that pin does not replace the shade.
 ext.parquetVersion = '1.18.1'
+// Latest JJWT on the 0.13 line (Java 7 compatible; 0.14+ not released). Deprecated
+// SigningKeyResolver still exists, which we need for issuer-based JWKS lookup.
+ext.jjwtVersion = '0.13.0'
 // Minor-only annotation line matches jackson-bom (e.g. 2.22 for jackson 2.22.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
@@ -266,6 +269,9 @@ project.ext.externalDependency = [
     'jsonSmart': 'net.minidev:json-smart:2.5.2',
     'json': 'org.json:json:20231013',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
+    'jjwtApi': "io.jsonwebtoken:jjwt-api:$jjwtVersion",
+    'jjwtImpl': "io.jsonwebtoken:jjwt-impl:$jjwtVersion",
+    'jjwtJackson': "io.jsonwebtoken:jjwt-jackson:$jjwtVersion",
     'junit': 'junit:junit:4.13.2',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
