@@ -1226,3 +1226,95 @@ def test_profiling_field_accepts_profiling_config_instance():
     assert isinstance(config.profiling, BigQueryProfilingConfig)
     assert config.profiling.enabled is True
     assert config.profiling.profile_table_level_only is True
+
+
+def test_infer_component_type_uses_int64_only_for_genuine_int():
+    """A discovered value with an unknown column type is typed from its Python type: a
+    genuine int is INT64 (so `col = 5`, not `col = '5'`), while a Hive-style string stays
+    unknown/quoted. bool is not INT64. A known type is passed through untouched.
+    """
+    infer = PartitionDiscovery._infer_component_type
+    assert infer("", 5) == "INT64"
+    assert infer(None, 5) == "INT64"
+    assert infer("", "12") == ""  # Hive-style string component stays quoted
+    assert infer("", True) == ""  # bool is not an INT64 column
+    assert infer("STRING", 5) == "STRING"  # known type wins
+
+
+def test_filters_from_partition_values_infers_int64_for_untyped_int():
+    """A discovered integer component with no entry in the type map must emit `col = 5`
+    (INT64), not `col = '5'` (BigQuery rejects INT64 = STRING). A string value stays
+    quoted.
+    """
+    discovery = PartitionDiscovery(make_config())
+    filters = discovery._filters_from_partition_values(
+        make_table(),
+        {"month": 5, "region": "emea"},
+        {},  # empty type map — forces inference
+    )
+    assert "`month` = 5" in filters
+    assert "`region` = 'emea'" in filters
+
+
+def test_find_max_component_orders_numerically_for_string_components():
+    """Unpadded Hive-style string components ('1'..'12') must be ordered numerically so the
+    max month is '12', not lexicographic '9'. The generated query casts to INT64 in ORDER
+    BY while the discovered value stays a quoted string.
+    """
+    discovery = PartitionDiscovery(make_config())
+    captured: Dict[str, str] = {}
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        captured["query"] = query
+        return [SimpleNamespace(val="12")]
+
+    result_values: Dict[str, Any] = {}
+    filters = discovery._find_max_component_within_constraint(
+        "month",
+        "`p`.`d`.`t`",
+        ["`year` = '2024'"],
+        execute,
+        result_values,
+        {},  # unknown component type
+        "year=2024",
+    )
+
+    assert "SAFE_CAST(`month` AS INT64) DESC" in captured["query"]
+    assert filters == ["`month` = '12'"]
+    assert result_values["month"] == "12"
+
+
+def test_test_date_candidate_untyped_component_scans_column():
+    """An untyped date component (e.g. `month` with no known type) must fall back to
+    IS NOT NULL rather than an unquoted/quoted-mismatch literal, matching the fallback
+    path (create_safe_filter would emit month = '03', rejected on an INT64 column).
+    """
+
+    class LiveProbe(PartitionDiscovery):
+        def _verify_partition_has_data(self, *args: Any, **kwargs: Any) -> bool:
+            return True
+
+        def _enhance_partition_filters_with_actual_values(
+            self,
+            table: BigqueryTable,
+            project: str,
+            schema: str,
+            required_columns: List[str],
+            initial_filters: List[str],
+            *args: Any,
+            **kwargs: Any,
+        ) -> Optional[List[str]]:
+            return initial_filters
+
+    discovery = LiveProbe(make_config())
+    result = discovery._test_date_candidate(
+        make_table(),
+        "test-project-123456",
+        "ds",
+        datetime(2024, 3, 9, tzinfo=timezone.utc),
+        "strategic candidate",
+        ["month"],
+        {},  # empty type map — month has no known type
+        lambda q, j, c: [],
+    )
+    assert result == ["`month` IS NOT NULL"]

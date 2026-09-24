@@ -607,6 +607,18 @@ class PartitionDiscovery:
 
         return latest_date_filters
 
+    @staticmethod
+    def _infer_component_type(col_type: Optional[str], value: PartitionValue) -> str:
+        # When the column type is unknown, infer it from the *discovered* value's Python
+        # type rather than quoting blindly: a genuine int (not bool) came from an INT64
+        # column, so the predicate must be `col = 5`, not `col = '5'` (BigQuery rejects
+        # INT64 = STRING). A str value (e.g. a Hive-style component) stays unknown so
+        # create_safe_filter quotes it. Only reliable for values read back from a query;
+        # a synthesized component (always str) can't be typed this way.
+        if col_type:
+            return col_type
+        return "INT64" if isinstance(value, int) and not isinstance(value, bool) else ""
+
     def _value_filter(
         self,
         table: BigqueryTable,
@@ -760,10 +772,16 @@ class PartitionDiscovery:
             # `col = 'value'`. Resolve the known type first, otherwise infer numeric vs
             # string from the discovered value below.
             col_type = column_types.get(component_col) if column_types else None
+            # Order by the numeric value, not the raw column: an unpadded Hive-style
+            # STRING component ("1".."12") sorts lexicographically, so a bare `col DESC`
+            # would pick month "9" over "12" (and day "9" over "31"). SAFE_CAST is a no-op
+            # for an INT64 column and a NULL for a genuinely non-numeric value (date
+            # components are always numeric), so it corrects the max without breaking
+            # either typed case.
             constrained_query = self._build_partition_stats_cte(
                 safe_table_ref,
                 component_col,
-                order_by=f"`{component_col}` DESC",
+                order_by=f"SAFE_CAST(`{component_col}` AS INT64) DESC",
                 limit_clause="1",
                 extra_where=" AND ".join(constraint_filters),
             )
@@ -775,20 +793,7 @@ class PartitionDiscovery:
             if partition_values_results and partition_values_results[0].val is not None:
                 max_value = partition_values_results[0].val
                 result_values[component_col] = max_value
-                resolved_type = col_type
-                if not resolved_type:
-                    # Infer the type from the value BigQuery returned, not from its string
-                    # shape: a Hive-style STRING component like "2024"/"01" is digit-looking
-                    # but must stay a quoted string, otherwise the predicate becomes
-                    # STRING = INT64 which BigQuery rejects. Only a genuine Python int
-                    # (excluding bool) is an INT64 column; anything else is left unknown so
-                    # create_safe_filter quotes it.
-                    resolved_type = (
-                        "INT64"
-                        if isinstance(max_value, int)
-                        and not isinstance(max_value, bool)
-                        else ""
-                    )
+                resolved_type = self._infer_component_type(col_type, max_value)
                 filter_expr = self._create_safe_filter(
                     component_col, max_value, resolved_type
                 )
@@ -1368,9 +1373,18 @@ class PartitionDiscovery:
 
                 component_value = self._date_component_value(col, test_date)
                 if component_value is not None:
-                    filters.append(
-                        self._create_safe_filter(col, component_value, col_data_type)
-                    )
+                    if not col_data_type:
+                        # An unknown-type date component can't get a typed literal:
+                        # create_safe_filter would emit e.g. year = '2024', which BigQuery
+                        # rejects on an INT64 column. Scan the column instead (matches
+                        # _create_fallback_filter_for_column).
+                        filters.append(FilterBuilder.is_not_null(col))
+                    else:
+                        filters.append(
+                            self._create_safe_filter(
+                                col, component_value, col_data_type
+                            )
+                        )
                 elif col in self.config.profiling.fallback_partition_values:
                     fallback_val = self.config.profiling.fallback_partition_values[col]
                     filters.append(
@@ -1424,7 +1438,11 @@ class PartitionDiscovery:
         actual_filters = []
         for col, val in actual_partition_values.items():
             try:
-                col_type = column_types.get(col, "")
+                # Infer INT64 from a genuine discovered int when the type map has no
+                # entry, otherwise _value_filter falls through to create_safe_filter and
+                # quotes it as `col = '5'` (INT64 = STRING, which BigQuery rejects) —
+                # dropping the numeric inference the hierarchy walk already applies.
+                col_type = self._infer_component_type(column_types.get(col, ""), val)
                 # A DATE/DATETIME/TIMESTAMP value discovered from the latest row is a
                 # single instant; _value_filter widens it to the granularity-aware
                 # half-open range covering the whole partition (equality would match only
