@@ -1520,3 +1520,156 @@ def test_profiling_field_accepts_profiling_config_instance():
     assert isinstance(config.profiling, BigQueryProfilingConfig)
     assert config.profiling.enabled is True
     assert config.profiling.profile_table_level_only is True
+
+
+def test_infer_component_type_uses_int64_only_for_genuine_int():
+    """A discovered value with an unknown column type is typed from its Python type: a
+    genuine int is INT64 (so `col = 5`, not `col = '5'`), while a Hive-style string stays
+    unknown/quoted. bool is not INT64. A known type is passed through untouched.
+    """
+    infer = PartitionDiscovery._infer_component_type
+    assert infer("", 5) == "INT64"
+    assert infer(None, 5) == "INT64"
+    assert infer("", "12") == ""  # Hive-style string component stays quoted
+    assert infer("", True) == ""  # bool is not an INT64 column
+    assert infer("STRING", 5) == "STRING"  # known type wins
+
+
+def test_filters_from_partition_values_infers_int64_for_untyped_int():
+    """A discovered integer component with no entry in the type map must emit `col = 5`
+    (INT64), not `col = '5'` (BigQuery rejects INT64 = STRING). A string value stays
+    quoted.
+    """
+    discovery = PartitionDiscovery(make_config())
+    filters = discovery._filters_from_partition_values(
+        make_table(),
+        {"month": 5, "region": "emea"},
+        {},  # empty type map — forces inference
+    )
+    assert "`month` = 5" in filters
+    assert "`region` = 'emea'" in filters
+
+
+def test_find_max_component_orders_numerically_for_string_components():
+    """Unpadded Hive-style string components ('1'..'12') must be ordered numerically so the
+    max month is '12', not lexicographic '9'. The generated query casts to INT64 in ORDER
+    BY while the discovered value stays a quoted string.
+    """
+    discovery = PartitionDiscovery(make_config())
+    captured: Dict[str, str] = {}
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        captured["query"] = query
+        return [SimpleNamespace(val="12")]
+
+    result_values: Dict[str, Any] = {}
+    filters = discovery._find_max_component_within_constraint(
+        "month",
+        "`p`.`d`.`t`",
+        ["`year` = '2024'"],
+        execute,
+        result_values,
+        {},  # unknown component type
+        "year=2024",
+    )
+
+    assert "SAFE_CAST(`month` AS INT64) DESC" in captured["query"]
+    assert filters == ["`month` = '12'"]
+    assert result_values["month"] == "12"
+
+
+def test_test_date_candidate_untyped_component_scans_column():
+    """An untyped date component (e.g. `month` with no known type) must fall back to
+    IS NOT NULL rather than an unquoted/quoted-mismatch literal, matching the fallback
+    path (create_safe_filter would emit month = '03', rejected on an INT64 column).
+    """
+
+    class LiveProbe(PartitionDiscovery):
+        def _verify_partition_has_data(self, *args: Any, **kwargs: Any) -> bool:
+            return True
+
+        def _enhance_partition_filters_with_actual_values(
+            self,
+            table: BigqueryTable,
+            project: str,
+            schema: str,
+            required_columns: List[str],
+            initial_filters: List[str],
+            *args: Any,
+            **kwargs: Any,
+        ) -> Optional[List[str]]:
+            return initial_filters
+
+    discovery = LiveProbe(make_config())
+    result = discovery._test_date_candidate(
+        make_table(),
+        "test-project-123456",
+        "ds",
+        datetime(2024, 3, 9, tzinfo=timezone.utc),
+        "strategic candidate",
+        ["month"],
+        {},  # empty type map — month has no known type
+        lambda q, j, c: [],
+    )
+    assert result == ["`month` IS NOT NULL"]
+
+
+def test_verify_partition_has_data_bounds_probe_with_fetch_config():
+    """The existence-check probe scans the whole table filtered only by the candidate
+    predicates, so it must carry partition_fetch_timeout / partition_fetch_max_bytes_billed
+    like every other fetch — a bare QueryJobConfig would let a broad filter blow past the
+    guardrails.
+    """
+    discovery = PartitionDiscovery(
+        make_config(partition_fetch_timeout=30, partition_fetch_max_bytes_billed=2048)
+    )
+    captured: Dict[str, Any] = {}
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        captured["job_config"] = job_config
+        return [SimpleNamespace(n=1)]
+
+    ok = discovery._verify_partition_has_data(
+        make_table(),
+        "test-project-123456",
+        "ds",
+        ["`event_date` = '2025-01-15'"],
+        execute,
+    )
+
+    assert ok is True
+    assert int(captured["job_config"].job_timeout_ms) == 30000
+    assert int(captured["job_config"].maximum_bytes_billed) == 2048
+
+
+def test_sampling_probe_bounds_job_config():
+    """LATEST_BY_DATE_SAMPLE does an ORDER BY date DESC that scans+sorts the whole table
+    before LIMIT, and this sampling path is the last resort after earlier discovery has
+    already timed out. It must honour the fetch timeout / byte cap rather than run
+    unbounded.
+    """
+    discovery = PartitionDiscovery(
+        make_config(partition_fetch_timeout=25, partition_fetch_max_bytes_billed=4096)
+    )
+    captured: Dict[str, Any] = {}
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        if context == "partition sampling":
+            captured["job_config"] = job_config
+            return [SimpleNamespace(event_date="2025-01-15")]
+        if context == "partition verification":
+            return [SimpleNamespace(n=1)]
+        return []  # INFORMATION_SCHEMA / DDL lookups find nothing
+
+    result = discovery._get_partitions_with_sampling(
+        make_table(name="sampled"),
+        "test-project-123456",
+        "ds",
+        execute,
+        known_columns=["event_date"],
+        known_column_types={"event_date": "DATE"},
+    )
+
+    assert result is not None
+    assert int(captured["job_config"].job_timeout_ms) == 25000
+    assert int(captured["job_config"].maximum_bytes_billed) == 4096
