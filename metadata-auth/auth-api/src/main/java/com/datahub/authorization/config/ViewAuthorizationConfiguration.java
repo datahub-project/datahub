@@ -64,18 +64,22 @@ public class ViewAuthorizationConfiguration {
     @Builder.Default private boolean enabled = true;
 
     /**
-     * Subject-match mode for query reads. {@code TRUE} requires {@code VIEW_ENTITY_QUERIES} on ALL
-     * of a query's subject datasets everywhere (a query's SQL reveals information about every
-     * dataset it touches). {@code FALSE} accepts the privilege on any single subject dataset
-     * everywhere. {@code COMPAT} (the default) requires all subjects only on the one query-read
-     * path actually gated by {@link ViewAuthorizationConfiguration#enabled} ({@code
-     * VIEW_AUTHORIZATION_ENABLED}) — the shared entity-VIEW evaluator's Query-entity branch, used
-     * by search-result masking and related-entity visibility, which is unreachable when that switch
-     * is off — and is any-subject on every other path (direct Query entity reads, {@code
-     * listQueries}, REST/OpenAPI, {@code topSqlQueries}), all of which are gated by the independent
-     * {@code QUERY_ENTITY_AUTHORIZATION_ENABLED} flag instead. This makes COMPAT a no-op relative
-     * to the old any-subject-everywhere default for deployments that never turn on {@code
-     * VIEW_AUTHORIZATION_ENABLED}.
+     * Subject-match mode for query reads. The three values differ on two things: how many of a
+     * query's subject datasets must grant the privilege, and how {@code topSqlQueries} (bare SQL
+     * strings with no per-statement subject list) is treated.
+     *
+     * <p>{@code TRUE}: every subject dataset must grant {@code VIEW_ENTITY_QUERIES}, and {@code
+     * topSqlQueries} is denied outright without {@code VIEW_ALL_QUERIES}. {@code FALSE}: any single
+     * subject dataset suffices, and {@code topSqlQueries} needs the privilege on that dataset.
+     * Neither is affected by {@link ViewAuthorizationConfiguration#enabled}.
+     *
+     * <p>{@code COMPAT} (the default) follows {@link ViewAuthorizationConfiguration#enabled}
+     * ({@code VIEW_AUTHORIZATION_ENABLED}) at runtime: it is {@code FALSE} while that is off (the
+     * pre-privilege behavior), and once it is on, every Query-entity read (direct reads, {@code
+     * listQueries}, REST/OpenAPI, search-result and related-entity masking) uses the {@code TRUE}
+     * rule — the require-all rule view authorization already applied to Query entities. {@code
+     * topSqlQueries} keeps the {@code FALSE} rule in both states, which is the one way
+     * COMPAT-with-view-authorization differs from {@code TRUE}.
      */
     @Builder.Default
     private RequireAllSubjectsMode requireAllSubjects = RequireAllSubjectsMode.COMPAT;
