@@ -13,6 +13,7 @@ import com.google.common.collect.Lists;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.IntegerArray;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.config.ConfigUtils;
@@ -777,7 +778,28 @@ public class LineageSearchService {
     return new LineageRelationshipArray(byUrn.values());
   }
 
+  /**
+   * Collapses two hops to the same parent. Keeps {@code min(degree)} so a later degree filter is
+   * independent of which schema field arrived first, and unions {@code degrees} the way graph walk
+   * merges do.
+   */
   private static void mergePaths(LineageRelationship into, LineageRelationship from) {
+    int intoDegree = into.getDegree();
+    int fromDegree = from.getDegree();
+    Set<Integer> degrees = new HashSet<>();
+    if (into.hasDegrees()) {
+      degrees.addAll(into.getDegrees());
+    } else {
+      degrees.add(intoDegree);
+    }
+    if (from.hasDegrees()) {
+      degrees.addAll(from.getDegrees());
+    } else {
+      degrees.add(fromDegree);
+    }
+    into.setDegree(Math.min(intoDegree, fromDegree));
+    into.setDegrees(new IntegerArray(degrees));
+
     if (!from.hasPaths() || from.getPaths().isEmpty()) {
       return;
     }

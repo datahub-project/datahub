@@ -1490,6 +1490,30 @@ public class LineageSearchServiceTest {
   }
 
   @Test
+  public void testConvertSchemaFieldRelationshipsKeepsMinDegreeRegardlessOfOrder() {
+    LineageRelationship farColumn = relationship(column(ORDERS, "order_id")).setDegree(3);
+    LineageRelationship nearColumn = relationship(column(ORDERS, "amount")).setDegree(1);
+
+    LineageRelationshipArray farFirst =
+        _lineageSearchService.convertSchemaFieldRelationships(
+            new EntityLineageResult()
+                .setRelationships(new LineageRelationshipArray(farColumn, nearColumn)));
+    LineageRelationshipArray nearFirst =
+        _lineageSearchService.convertSchemaFieldRelationships(
+            new EntityLineageResult()
+                .setRelationships(
+                    new LineageRelationshipArray(
+                        relationship(column(ORDERS, "amount")).setDegree(1),
+                        relationship(column(ORDERS, "order_id")).setDegree(3))));
+
+    assertEquals(farFirst.size(), 1);
+    assertEquals(farFirst.get(0).getDegree().intValue(), 1);
+    assertEquals(nearFirst.get(0).getDegree().intValue(), 1);
+    assertTrue(farFirst.get(0).getDegrees().contains(1));
+    assertTrue(farFirst.get(0).getDegrees().contains(3));
+  }
+
+  @Test
   public void testLightningCompactsMissingUrnsThenPagesWithoutOverlap() throws Exception {
     List<LineageRelationship> relationships = new ArrayList<>();
     Map<Urn, Boolean> exists = new HashMap<>();
