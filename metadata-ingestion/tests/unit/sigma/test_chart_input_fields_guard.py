@@ -495,7 +495,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         source: SigmaSource,
         chart_urn: str,
         upstream_column: Optional[str],
-        claimed_by: str = "customsql-drain:snowflake/PROD/None",
+        claimed_by: str = "customsql-drain:snowflake/PROD/inst",
     ) -> Optional[InputFieldsClass]:
         source._workbook_customsql_registered_urns.add(chart_urn)
         aspect = UpstreamLineage(
@@ -540,7 +540,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert [
             s
             for s in source.reporter.input_fields_regressive_emission_samples
-            if "refused_from=customsql-drain:snowflake/PROD/None" in s
+            if "refused_from=customsql-drain:snowflake/PROD/inst" in s
         ]
 
     def test_a_fallback_only_drain_is_not_counted_as_column_lineage(self) -> None:
@@ -569,8 +569,8 @@ class TestTheCustomSqlDrainIsGuardedToo:
         sample -- a drain-vs-drain refusal is the only entry there is."""
         source = _make_source()
         chart_urn = _chart_urn(CHART_ELEMENT_ID)
-        prod = "customsql-drain:snowflake/PROD/None"
-        dev = "customsql-drain:snowflake/DEV/None"
+        prod = "customsql-drain:snowflake/PROD/inst"
+        dev = "customsql-drain:snowflake/DEV/inst"
 
         assert self._drain_aspect(source, chart_urn, "col", prod) is not None
         assert self._drain_aspect(source, chart_urn, None, dev) is None
@@ -600,7 +600,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
             entityUrn=chart_urn,
             aspect=UpstreamLineage(upstreams=[], fineGrainedLineages=None),
         )
-        assert source._rewrite_fgl_downstreams(mcp) is None
+        assert source._rewrite_fgl_downstreams(mcp, "customsql-drain:test") is None
 
     def test_the_drain_skips_a_refused_aspect_and_keeps_draining(self) -> None:
         """A refusal must not abort the rest of the aggregator's drain.
@@ -636,7 +636,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         ]
         aggregator.report.views_parse_failures = {}
         aggregator.report.num_views_failed = 0
-        source._sql_aggregators = {("snowflake", "inst", None): aggregator}  # type: ignore[dict-item]
+        source._sql_aggregators = {("snowflake", "PROD", "inst"): aggregator}  # type: ignore[dict-item]
 
         emitted = [wu.metadata.entityUrn for wu in source._drain_sql_aggregators()]  # type: ignore[union-attr]
 
@@ -646,7 +646,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert [
             s
             for s in source.reporter.input_fields_regressive_emission_samples
-            if "refused_from=customsql-drain:snowflake/inst/None" in s
+            if "refused_from=customsql-drain:snowflake/PROD/inst" in s
         ]
         assert not [
             entry
