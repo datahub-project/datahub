@@ -20,12 +20,9 @@ https://learn.microsoft.com/en-us/analysis-services/tmdl/tmdl-overview
 """
 
 import base64
-import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
-
-logger = logging.getLogger(__name__)
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
 # Semantic model definition parts holding one table each.
 TMDL_TABLE_PART_PREFIX = "definition/tables/"
@@ -34,8 +31,9 @@ TMDL_FILE_SUFFIX = ".tmdl"
 # Column ``type`` values with no physical upstream column.
 _NON_DATA_COLUMN_TYPES = {"calculated", "calculatedtablecolumn", "rownumber"}
 
-_DECLARATION_RE = re.compile(r"^(table|column)\s+(.+)$")
-_PROPERTY_RE = re.compile(r"^(sourceColumn|type)\s*:\s*(.*)$")
+# TMDL keywords and property names are case-insensitive.
+_DECLARATION_RE = re.compile(r"^(table|column)\s+(.+)$", re.IGNORECASE)
+_PROPERTY_RE = re.compile(r"^(sourceColumn|type)\s*:\s*(.*)$", re.IGNORECASE)
 _FENCE = "```"
 
 
@@ -128,8 +126,10 @@ def parse_tmdl_table(text: str) -> Tuple[Optional[str], Dict[str, str]]:
             continue
         if not stripped or stripped.startswith("//"):
             continue
-        # A fenced (```) multi-line expression opens at the end of a line.
-        opens_fence = stripped.endswith(_FENCE) and stripped != _FENCE
+        # A fenced (```) multi-line expression opens at the end of a line and
+        # closes on a later line; a fence opened and closed on the same line
+        # (an even number of fences) leaves the parser outside any fence.
+        opens_fence = stripped.count(_FENCE) % 2 == 1
         if stripped == _FENCE:
             in_fence = True
             continue
@@ -142,8 +142,9 @@ def parse_tmdl_table(text: str) -> Tuple[Optional[str], Dict[str, str]]:
         if column is not None:
             prop = _PROPERTY_RE.match(stripped)
             if prop and not opens_fence:
-                key, value = prop.group(1), _parse_property_value(prop.group(2))
-                if key == "sourceColumn" and column.source_column is None:
+                key = prop.group(1).lower()
+                value = _parse_property_value(prop.group(2))
+                if key == "sourcecolumn" and column.source_column is None:
                     column.source_column = value or None
                 elif key == "type":
                     column.column_type = value
@@ -156,7 +157,7 @@ def parse_tmdl_table(text: str) -> Tuple[Optional[str], Dict[str, str]]:
 
         declaration = _DECLARATION_RE.match(stripped)
         if declaration:
-            keyword, rest = declaration.group(1), declaration.group(2)
+            keyword, rest = declaration.group(1).lower(), declaration.group(2)
             if keyword == "table" and table_name is None:
                 table_name, _ = parse_tmdl_name(rest)
                 table_indent = indent
@@ -178,18 +179,26 @@ def decode_definition_part(part: dict) -> str:
     payload_type = part.get("payloadType")
     if payload_type != "InlineBase64":
         raise TmdlParseError(f"Unsupported payloadType {payload_type!r}")
+    payload = part.get("payload") or ""
+    if not isinstance(payload, str):
+        raise TmdlParseError(f"Unexpected payload type {type(payload).__name__}")
     try:
-        return base64.b64decode(part.get("payload") or "", validate=True).decode(
-            "utf-8-sig"
-        )
+        return base64.b64decode(payload, validate=True).decode("utf-8-sig")
     except (ValueError, UnicodeDecodeError) as e:
         raise TmdlParseError(f"Cannot decode payload: {e}") from e
 
 
-def is_table_part(part: dict) -> bool:
-    path = part.get("path") or ""
-    return path.startswith(TMDL_TABLE_PART_PREFIX) and path.endswith(TMDL_FILE_SUFFIX)
+def is_table_part(part: object) -> bool:
+    if not isinstance(part, dict):
+        return False
+    path = part.get("path")
+    return (
+        isinstance(path, str)
+        and path.startswith(TMDL_TABLE_PART_PREFIX)
+        and path.endswith(TMDL_FILE_SUFFIX)
+    )
 
 
-def iter_table_parts(parts: Iterable[dict]) -> Iterable[dict]:
-    return (part for part in parts if is_table_part(part))
+def iter_table_parts(parts: Iterable[object]) -> Iterator[dict]:
+    """Definition parts holding one table each; malformed entries are skipped."""
+    return (part for part in parts if isinstance(part, dict) and is_table_part(part))

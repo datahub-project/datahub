@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Literal, MutableMapping, Optional, Set, cast
 
 import requests
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
@@ -124,6 +125,9 @@ class PowerBiAPI:
         self._directlake_source_columns_cache: Dict[
             str, Optional[Dict[str, Dict[str, str]]]
         ] = {}
+        # Set when no Fabric access token can be acquired: the failure is
+        # tenant-wide, so further definition requests are not attempted.
+        self._directlake_definition_disabled = False
 
     def close(self) -> None:
         self._file_backed_conn.close()
@@ -749,6 +753,21 @@ class PowerBiAPI:
                 dataset_id=dataset.id,
                 max_wait_seconds=self.__config.directlake_definition_timeout,
             )
+        except ConfigurationError as e:
+            # Raised when the Fabric access token cannot be acquired. This is
+            # not specific to one model, so stop requesting definitions.
+            self._directlake_definition_disabled = True
+            self.__reporter.directlake_definition_failures += 1
+            self.__reporter.warning(
+                title="DirectLake semantic model definitions unavailable",
+                message="Could not acquire a Fabric REST API access token, so no "
+                "semantic model definition is read in this run and renamed "
+                "DirectLake columns get no column-level lineage. Check that the "
+                "service principal can call Fabric Public APIs.",
+                context=context,
+                exc=e,
+            )
+            return None
         except requests.exceptions.HTTPError as e:
             self.__reporter.directlake_definition_failures += 1
             if data_resolver.is_permission_error(e):
@@ -810,31 +829,49 @@ class PowerBiAPI:
     ) -> None:
         """Fill ``Column.sourceColumn`` of DirectLake tables from the model's
         TMDL definition, where the scan did not provide it. One definition
-        request per DirectLake semantic model; other models are not called."""
+        request per DirectLake semantic model; other models are not called.
+
+        This runs while the scan result is parsed, where an unhandled exception
+        would drop the scan metadata of the whole workspace batch. The
+        definition is an optional enrichment of untrusted remote content, so any
+        failure is reported and the model falls back to name matching.
+        """
         directlake_tables = [
             table
             for table in dataset.tables
             if table.storage_mode == Constant.DIRECT_LAKE
         ]
-        if not directlake_tables:
+        if not directlake_tables or self._directlake_definition_disabled:
             return
 
-        if dataset.id not in self._directlake_source_columns_cache:
-            self._directlake_source_columns_cache[dataset.id] = (
-                self._get_directlake_source_columns(workspace, dataset)
+        try:
+            if dataset.id not in self._directlake_source_columns_cache:
+                self._directlake_source_columns_cache[dataset.id] = (
+                    self._get_directlake_source_columns(workspace, dataset)
+                )
+        except MemoryError:
+            raise
+        except Exception as e:
+            self._directlake_source_columns_cache[dataset.id] = None
+            self.__reporter.directlake_definition_failures += 1
+            self.__reporter.warning(
+                title="DirectLake semantic model definition processing failed",
+                message="An unexpected error occurred while reading the semantic "
+                "model definition; its DirectLake columns fall back to name "
+                "matching.",
+                context=f"workspace={workspace.name} dataset={dataset.name} "
+                f"id={dataset.id}",
+                exc=e,
             )
         source_columns = self._directlake_source_columns_cache[dataset.id]
         if source_columns is None:
             return
 
+        missing_tables: List[str] = []
         for table in directlake_tables:
             table_columns = source_columns.get(table.name)
             if table_columns is None:
-                logger.debug(
-                    "Table %s not found in the definition of semantic model %s",
-                    table.name,
-                    dataset.id,
-                )
+                missing_tables.append(table.name)
                 continue
             for column in table.columns or []:
                 if column.sourceColumn:
@@ -843,6 +880,16 @@ class PowerBiAPI:
                 if source_column:
                     column.sourceColumn = source_column
                     self.__reporter.directlake_source_columns_from_definition += 1
+
+        if missing_tables:
+            self.__reporter.directlake_definition_tables_missing += len(missing_tables)
+            self.__reporter.warning(
+                title="DirectLake tables missing from semantic model definition",
+                message="These DirectLake tables were not found in the semantic "
+                "model definition; their columns fall back to name matching.",
+                context=f"workspace={workspace.name} dataset={dataset.name} "
+                f"id={dataset.id}: {', '.join(missing_tables)}",
+            )
 
     def get_app(
         self,

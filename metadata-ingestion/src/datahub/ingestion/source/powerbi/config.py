@@ -295,6 +295,8 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     directlake_definition_parse_failures: int = 0
     # DirectLake columns whose ``sourceColumn`` came from the model definition.
     directlake_source_columns_from_definition: int = 0
+    # DirectLake tables of a fetched definition with no matching table part.
+    directlake_definition_tables_missing: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -794,7 +796,9 @@ class PowerBiDashboardSourceConfig(
         "`getDefinition`, TMDL format) to resolve the Delta column each DirectLake column "
         "is bound to (`sourceColumn`). The admin scan does not return this binding, so "
         "without it a column renamed in the semantic model gets no column-level lineage. "
-        "Makes one extra long-running API call per DirectLake semantic model. Requires "
+        "Makes one extra long-running API call per DirectLake semantic model; the calls "
+        "run sequentially during the scan phase, so each model can add up to "
+        "`directlake_definition_timeout` seconds to the run. Requires "
         "`extract_column_level_lineage`, the commercial `environment`, the tenant setting "
         "'Service principals can call Fabric Public APIs', and read and write permission on "
         "the semantic models (for example the Contributor workspace role). Models whose "

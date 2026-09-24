@@ -1,8 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from time import sleep
+from time import monotonic, sleep
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from urllib.parse import quote
 
 import msal
 import requests
@@ -263,8 +264,9 @@ class DataResolverBase(ABC):
     # Fabric long-running operation states:
     # https://learn.microsoft.com/en-us/rest/api/fabric/core/long-running-operations/get-operation-state
     _LRO_PENDING_STATES = {"notstarted", "running"}
-    _LRO_MIN_POLL_SECONDS = 1
-    _LRO_MAX_POLL_SECONDS = 10
+    # Poll delay when the response carries no usable ``Retry-After``; a
+    # server-provided delay is honoured but never exceeds the remaining budget.
+    _LRO_DEFAULT_POLL_SECONDS = 1
 
     def _is_fabric_url(self, url: Optional[str]) -> bool:
         # Only send the bearer token back to the Fabric API host.
@@ -276,8 +278,8 @@ class DataResolverBase(ABC):
         try:
             value = int(response.headers.get("Retry-After", ""))
         except ValueError:
-            value = self._LRO_MIN_POLL_SECONDS
-        return min(max(value, self._LRO_MIN_POLL_SECONDS), self._LRO_MAX_POLL_SECONDS)
+            value = self._LRO_DEFAULT_POLL_SECONDS
+        return max(value, self._LRO_DEFAULT_POLL_SECONDS)
 
     def get_semantic_model_definition(
         self, workspace_id: str, dataset_id: str, max_wait_seconds: int
@@ -288,22 +290,24 @@ class DataResolverBase(ABC):
         carries the definition, a 202 is polled via its ``Location`` header
         (Get Operation State) until it succeeds, then the result is read from
         Get Operation Result. The caller needs read and write permission on the
-        semantic model.
+        semantic model. The bearer token is only sent to the Fabric API host.
 
         Raises ``requests.HTTPError`` for HTTP failures (e.g. 401/403),
-        ``requests.Timeout`` for request timeouts, and
-        ``SemanticModelDefinitionError`` when the operation fails, does not
-        finish within ``max_wait_seconds``, or returns an unexpected body.
+        ``requests.Timeout`` for request timeouts, ``ConfigurationError`` when no
+        Fabric access token can be acquired, and ``SemanticModelDefinitionError``
+        when the operation fails, does not finish within ``max_wait_seconds``, or
+        returns an unexpected body.
         """
-        if self._fabric_api_url is None:
+        fabric_api_url = self._fabric_api_url
+        if fabric_api_url is None:
             raise ConfigurationError(
                 f"The Fabric REST API is not supported for the {self._environment} environment"
             )
         url = (
-            f"{self._fabric_api_url}/workspaces/{workspace_id}"
-            f"/semanticModels/{dataset_id}/getDefinition"
+            f"{fabric_api_url}/workspaces/{quote(workspace_id, safe='')}"
+            f"/semanticModels/{quote(dataset_id, safe='')}/getDefinition"
         )
-        logger.debug(f"Requesting semantic model definition: {url}")
+        logger.debug("Requesting semantic model definition: %s", url)
         response = self._request_session.post(
             url,
             params={"format": "TMDL"},
@@ -312,7 +316,9 @@ class DataResolverBase(ABC):
         response.raise_for_status()
 
         if response.status_code == 202:
-            response = self._wait_for_fabric_operation(response, max_wait_seconds)
+            response = self._wait_for_fabric_operation(
+                response, fabric_api_url, max_wait_seconds
+            )
 
         try:
             parts = response.json()["definition"]["parts"]
@@ -327,27 +333,35 @@ class DataResolverBase(ABC):
         return parts
 
     def _wait_for_fabric_operation(
-        self, accepted: Response, max_wait_seconds: int
+        self, accepted: Response, fabric_api_url: str, max_wait_seconds: int
     ) -> Response:
-        operation_url: Optional[str] = accepted.headers.get("Location")
-        if not self._is_fabric_url(operation_url):
+        location = accepted.headers.get("Location")
+        if location is not None and self._is_fabric_url(location):
+            operation_url = location
+        else:
             operation_id = accepted.headers.get("x-ms-operation-id")
             if not operation_id:
                 raise SemanticModelDefinitionError(
                     "getDefinition returned 202 without a Fabric operation location"
                 )
-            operation_url = f"{self._fabric_api_url}/operations/{operation_id}"
-        assert operation_url is not None
+            operation_url = (
+                f"{fabric_api_url}/operations/{quote(operation_id, safe='')}"
+            )
 
-        waited = 0
+        # The budget covers wall-clock time (including request latency), not
+        # only the time spent sleeping between polls.
+        started = monotonic()
+        slept = 0
         delay = self._retry_after_seconds(accepted)
         while True:
-            if waited + delay > max_wait_seconds:
+            remaining = max_wait_seconds - max(slept, int(monotonic() - started))
+            if remaining <= 0:
                 raise SemanticModelDefinitionError(
                     f"getDefinition did not finish within {max_wait_seconds} seconds"
                 )
+            delay = min(delay, remaining)
             sleep(delay)
-            waited += delay
+            slept += delay
 
             state_response = self._request_session.get(
                 operation_url, headers=self._get_fabric_authorization_header()
@@ -366,12 +380,12 @@ class DataResolverBase(ABC):
             status = str(state.get("status") or "").lower()
 
             if status == "succeeded":
-                location = state_response.headers.get("Location")
+                result_location = state_response.headers.get("Location")
                 result_url = (
-                    location
-                    if location is not None
-                    and self._is_fabric_url(location)
-                    and location != operation_url
+                    result_location
+                    if result_location is not None
+                    and self._is_fabric_url(result_location)
+                    and result_location != operation_url
                     else f"{operation_url}/result"
                 )
                 result = self._request_session.get(

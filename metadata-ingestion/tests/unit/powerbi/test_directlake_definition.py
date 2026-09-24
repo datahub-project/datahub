@@ -212,6 +212,42 @@ class TestTmdlParser:
         paths = [p["path"] for p in iter_table_parts(_parts({"A": "table A\n"}))]
         assert paths == ["definition/tables/A.tmdl"]
 
+    def test_malformed_parts_skipped(self) -> None:
+        parts: List[Any] = [
+            "not-a-dict",
+            None,
+            {"path": 42},
+            {"payload": _b64("table A\n")},
+            *_parts({"A": "table A\n"}),
+        ]
+        paths = [p["path"] for p in iter_table_parts(parts)]
+        assert paths == ["definition/tables/A.tmdl"]
+
+    def test_non_string_payload_raises_parse_error(self) -> None:
+        with pytest.raises(TmdlParseError):
+            decode_definition_part({"payload": 123, "payloadType": "InlineBase64"})
+
+    def test_keywords_case_insensitive(self) -> None:
+        text = (
+            "Table Sales\n"
+            "\tColumn 'Order Amount'\n"
+            "\t\tSourceColumn: order_amount\n"
+            "\tCOLUMN Region\n"
+            "\t\tTYPE: calculatedTableColumn\n"
+            "\t\tsourcecolumn: [Region]\n"
+        )
+        assert parse_tmdl_table(text) == ("Sales", {"Order Amount": "order_amount"})
+
+    def test_single_line_fence_does_not_swallow_rest_of_file(self) -> None:
+        text = (
+            "table Sales\n"
+            "\tmeasure Total = ```SUM(Sales[Amount])```\n"
+            "\t\tformatString: 0\n"
+            "\tcolumn Real\n"
+            "\t\tsourceColumn: real_col\n"
+        )
+        assert parse_tmdl_table(text) == ("Sales", {"Real": "real_col"})
+
 
 def _mock_msal_cca(*args: Any, **kwargs: Any) -> Any:
     client = mock.MagicMock()
@@ -349,7 +385,10 @@ class TestGetSemanticModelDefinition:
             )
 
     def test_operation_timeout(
-        self, resolver: AdminAPIResolver, requests_mock: Any
+        self,
+        resolver: AdminAPIResolver,
+        requests_mock: Any,
+        _patch_msal_and_sleep: mock.MagicMock,
     ) -> None:
         requests_mock.post(
             DEFINITION_URL,
@@ -363,8 +402,74 @@ class TestGetSemanticModelDefinition:
             resolver.get_semantic_model_definition(
                 WORKSPACE_ID, DATASET_ID, max_wait_seconds=12
             )
-        # Polled at 5s and 10s; the next poll would exceed the budget.
-        assert len([r for r in requests_mock.request_history if r.method == "GET"]) == 2
+        # Polled at 5s and 10s, then once more at the 12s budget (the server's
+        # Retry-After is capped at the remaining time).
+        assert len([r for r in requests_mock.request_history if r.method == "GET"]) == 3
+        assert [c.args[0] for c in _patch_msal_and_sleep.call_args_list] == [5, 5, 2]
+
+    def test_timeout_budget_counts_wall_clock_time(
+        self,
+        resolver: AdminAPIResolver,
+        requests_mock: Any,
+        _patch_msal_and_sleep: mock.MagicMock,
+    ) -> None:
+        """Slow poll requests count against the budget, not only the sleeps."""
+        requests_mock.post(
+            DEFINITION_URL,
+            status_code=202,
+            headers={"Location": OPERATION_URL, "Retry-After": "1"},
+        )
+        requests_mock.get(
+            OPERATION_URL, json={"status": "Running"}, headers={"Retry-After": "1"}
+        )
+        # Each monotonic() read advances 20s, as if every poll request were slow.
+        clock = iter(range(0, 10_000, 20))
+        with (
+            mock.patch.object(data_resolver, "monotonic", lambda: next(clock)),
+            pytest.raises(SemanticModelDefinitionError, match="within 60 seconds"),
+        ):
+            resolver.get_semantic_model_definition(
+                WORKSPACE_ID, DATASET_ID, max_wait_seconds=60
+            )
+        assert len([r for r in requests_mock.request_history if r.method == "GET"]) < 5
+
+    def test_long_retry_after_honoured(
+        self,
+        resolver: AdminAPIResolver,
+        requests_mock: Any,
+        _patch_msal_and_sleep: mock.MagicMock,
+    ) -> None:
+        requests_mock.post(
+            DEFINITION_URL,
+            status_code=202,
+            headers={"Location": OPERATION_URL, "Retry-After": "30"},
+        )
+        requests_mock.get(OPERATION_URL, json={"status": "Succeeded"})
+        requests_mock.get(f"{OPERATION_URL}/result", json={"definition": {"parts": []}})
+        resolver.get_semantic_model_definition(
+            WORKSPACE_ID, DATASET_ID, max_wait_seconds=120
+        )
+        assert [c.args[0] for c in _patch_msal_and_sleep.call_args_list] == [30]
+
+    def test_operation_id_is_url_quoted(
+        self, resolver: AdminAPIResolver, requests_mock: Any
+    ) -> None:
+        requests_mock.post(
+            DEFINITION_URL,
+            status_code=202,
+            headers={"x-ms-operation-id": "../../admin/x?y=1", "Retry-After": "1"},
+        )
+        quoted = f"{FABRIC}/operations/..%2F..%2Fadmin%2Fx%3Fy%3D1"
+        requests_mock.get(quoted, json={"status": "Succeeded"})
+        requests_mock.get(f"{quoted}/result", json={"definition": {"parts": []}})
+        resolver.get_semantic_model_definition(
+            WORKSPACE_ID, DATASET_ID, max_wait_seconds=60
+        )
+        assert all(
+            r.hostname == "api.fabric.microsoft.com"
+            and r.path.startswith("/v1/operations/")
+            for r in requests_mock.request_history[1:]
+        )
 
     def test_forbidden_raises_http_error(
         self, resolver: AdminAPIResolver, requests_mock: Any
@@ -538,6 +643,59 @@ class TestApplyDirectLakeDefinition:
 
         assert api.reporter.directlake_definition_parse_failures == 1
         assert api.reporter.directlake_source_columns_from_definition == 2
+
+    def test_token_failure_warns_once_and_stops_requesting(
+        self, requests_mock: Any
+    ) -> None:
+        api = _make_api()
+        resolver = api._get_resolver()
+        resolver._msal_client.acquire_token_for_client.return_value = {}
+        workspace, dataset = _workspace_and_dataset()
+        _, other = _workspace_and_dataset()
+        other.id = "77777777-7777-4777-8777-777777777777"
+
+        api._apply_directlake_definition(workspace, dataset)
+        api._apply_directlake_definition(workspace, other)
+
+        assert requests_mock.call_count == 0
+        assert api.reporter.directlake_definition_failures == 1
+        titles = [w.title for w in api.reporter.warnings]
+        assert titles.count("DirectLake semantic model definitions unavailable") == 1
+
+    def test_unexpected_error_isolated_to_model(self, requests_mock: Any) -> None:
+        """A bug or odd payload must not propagate into scan-result parsing,
+        where it would drop the scan metadata of the whole workspace batch."""
+        api = _make_api()
+        requests_mock.post(
+            DEFINITION_URL,
+            json={"definition": {"parts": _parts({"Customers": CUSTOMERS_TMDL})}},
+        )
+        workspace, dataset = _workspace_and_dataset()
+        with mock.patch(
+            "datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api.parse_tmdl_table",
+            side_effect=RuntimeError("boom"),
+        ):
+            api._apply_directlake_definition(workspace, dataset)
+
+        assert dataset.tables[0].columns is not None
+        assert dataset.tables[0].columns[1].sourceColumn is None
+        assert api.reporter.directlake_definition_failures == 1
+        titles = [w.title for w in api.reporter.warnings]
+        assert "DirectLake semantic model definition processing failed" in titles
+
+    def test_table_missing_from_definition_reported(self, requests_mock: Any) -> None:
+        api = _make_api()
+        requests_mock.post(
+            DEFINITION_URL,
+            json={"definition": {"parts": _parts({"Other": "table Other\n"})}},
+        )
+        workspace, dataset = _workspace_and_dataset()
+
+        api._apply_directlake_definition(workspace, dataset)
+
+        assert api.reporter.directlake_definition_tables_missing == 1
+        titles = [w.title for w in api.reporter.warnings]
+        assert "DirectLake tables missing from semantic model definition" in titles
 
 
 class TestConfig:
