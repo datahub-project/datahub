@@ -1044,6 +1044,9 @@ def _intersect_subschemas(
     declares Dict[str, Any] for its argument) -- a malformed non-dict,
     non-bool value on one side is discarded in favor of whichever side is
     a real schema, so a collision with junk never clobbers a good schema.
+    When BOTH sides are malformed (non-dict, non-bool) there is no real
+    schema to keep, so the slot falls back to a permissive empty schema
+    rather than storing one member's junk value.
     """
     if existing is False or incoming is False:
         return False
@@ -1055,7 +1058,15 @@ def _intersect_subschemas(
         return merge_allof_schemas(
             _combine_under_allof(existing, incoming), sw_dict, max_depth=max_depth
         )
-    return existing if isinstance(existing, dict) else incoming
+    if isinstance(existing, dict):
+        return existing
+    if isinstance(incoming, dict):
+        return incoming
+    # Two doubly-malformed colliding members (e.g. additionalProperties: "foo"
+    # vs additionalProperties: 5) have no real schema between them; returning
+    # either would store a non-dict into a map value slot. Fall back to {} so
+    # the slot stays a well-formed (allow-anything) schema for get_schema_metadata.
+    return {}
 
 
 def _merge_allof_map_keywords(

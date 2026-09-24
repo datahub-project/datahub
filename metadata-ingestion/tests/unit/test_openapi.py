@@ -2389,6 +2389,22 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
         )
         self.assertEqual(merged["patternProperties"]["^x"], {"type": "string"})
 
+    def test_merge_allof_map_double_malformed_falls_back_to_empty_schema(self):
+        # When BOTH colliding members contribute a non-dict, non-bool value to
+        # the same map slot, neither is a real schema -- the slot must fall back
+        # to a well-formed {} rather than storing one member's junk value.
+        merged = merge_allof_schemas(
+            {
+                "allOf": [
+                    {"additionalProperties": "not-a-schema"},
+                    {"additionalProperties": 5},
+                ]
+            },
+            _EMPTY_OPENAPI_SW,
+            max_depth=10,
+        )
+        self.assertEqual(merged["additionalProperties"], {})
+
     def test_merge_allof_identical_oneof_collapses_to_plain_keyword(self):
         # Two allOf members contributing the IDENTICAL oneOf list must
         # collapse to a plain top-level "oneOf", not be needlessly wrapped
