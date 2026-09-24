@@ -1967,7 +1967,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         The drain names its aggregator instead, since it has no workbook. Two
         drains cannot contest one URN -- the registered set is global, so a
-        chart registers with exactly one aggregator -- but a drain can be
+        chart registers with at most one aggregator -- but a drain can be
         refused against an element aspect whose workbook failed to register,
         and then the aggregator is what identifies the losing side.
         """
@@ -2230,7 +2230,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             try:
                 for mcp in aggregator.gen_metadata():
                     rewritten = self._rewrite_fgl_downstreams(
-                        mcp, f"customsql-drain:{'/'.join(str(k) for k in cache_key)}"
+                        mcp, f"customsql-drain:{'/'.join(k or '' for k in cache_key)}"
                     )
                     if rewritten is not None:
                         yield rewritten.as_workunit()
