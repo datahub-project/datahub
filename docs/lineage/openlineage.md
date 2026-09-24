@@ -295,7 +295,9 @@ Pass `fabricNotebookFlowNames=true` to key the DataFlow on the notebook item ins
 (`trident.artifact.name`), and job names drop the session prefix (for example
 `execute_merge_into_command.customers`), so all runs of a notebook land on the same entities. A
 configured `pipeline-name` still wins. Events without the `trident.artifact.*` Spark properties (the
-application-level start/end events, which carry no lineage) keep the session name. It is opt-in because it renames the DataFlow and DataJob URNs of existing notebook lineage.
+application-level start/end events, which carry no lineage) keep the session name. It is opt-in because it renames the DataFlow and DataJob URNs of existing notebook lineage. The
+[Fabric Data Factory source](https://docs.datahub.com/docs/generated/ingestion/sources/fabric-data-factory)
+ingests a pipeline's Notebook activity as its own DataJob; it isn't linked to these flows.
 
 ##### Request options
 
