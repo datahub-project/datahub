@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import sys
 from typing import Any, Optional
 from unittest.mock import Mock, patch
 
@@ -15,7 +14,7 @@ from datahub.ingestion.source.unstructured.event_consumer import (
     DocumentEventConsumer,
 )
 
-# Skip entire module if unstructured is not installed (requires Python 3.10+)
+# Skip entire module if unstructured is not installed (requires Python 3.11+)
 pytest.importorskip("unstructured")
 
 from datahub.ingestion.api.common import PipelineContext
@@ -59,10 +58,6 @@ def _mock_fetch(source, entities, urns=None):
 class TestTextPartitioner:
     """Test text partitioner."""
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_simple_markdown(self):
         """Test partitioning simple markdown text."""
         partitioner = TextPartitioner()
@@ -76,10 +71,6 @@ class TestTextPartitioner:
         element_types = {elem.get("type") for elem in elements}
         assert "Title" in element_types or "Header" in element_types
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_empty_text(self):
         """Test partitioning empty text."""
         partitioner = TextPartitioner()
@@ -89,10 +80,6 @@ class TestTextPartitioner:
 
         assert elements == []
 
-    @pytest.mark.skipif(
-        sys.version_info < (3, 10),
-        reason="unstructured requires Python 3.10+",
-    )
     def test_partition_single_character_falls_back(self):
         """A single-character document yields zero elements from the markdown
         partitioner; the fallback keeps it embeddable instead of silently
@@ -2459,6 +2446,61 @@ class TestPartialEntityHandling:
             workunits = list(source._process_single_event(event))
             assert len(workunits) == 0
 
+    def test_document_info_event_null_contents_falls_back_to_fetch(
+        self, ctx, config, mock_graph
+    ):
+        """A partial documentInfo event (null contents) falls back to fetching the full
+        aspect instead of dropping the event, so a document whose only event carried a
+        partial payload is still embedded."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:partial-event",
+                "aspectName": "documentInfo",
+                "aspect": json.dumps({"contents": None}),
+            }
+
+            with (
+                patch.object(
+                    source,
+                    "_fetch_document_info_dict",
+                    return_value={
+                        "source": {"sourceType": "NATIVE"},
+                        "contents": {"text": "full body from fetch"},
+                    },
+                ) as mock_fetch,
+                patch.object(source, "_fetch_semantic_text", return_value=None),
+                patch.object(
+                    source, "_process_document_with_throttle", return_value=iter([])
+                ) as mock_process,
+            ):
+                list(source._process_single_event(event))
+
+            mock_fetch.assert_called_once()
+            mock_process.assert_called_once()
+            doc = mock_process.call_args[0][0]
+            assert doc["text"] == "full body from fetch"
+
+    def test_document_info_event_null_contents_and_unreadable_fallback_skips(
+        self, ctx, config, mock_graph
+    ):
+        """When the fetch fallback is also unreadable, the event is skipped without
+        stamping a skip marker from content that was never readable."""
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+
+            event: dict[str, Any] = {
+                "entityUrn": "urn:li:document:unreadable",
+                "aspectName": "documentInfo",
+                "aspect": json.dumps({"contents": None}),
+            }
+
+            with patch.object(source, "_fetch_document_info_dict", return_value=None):
+                workunits = list(source._process_single_event(event))
+
+        assert workunits == []
+
     def test_fetch_documents_mixed_null_and_valid(self, ctx, config, mock_graph):
         """Test batch mode with a mix of null-info, null-contents, and valid entities."""
         with mock_graph:
@@ -4560,10 +4602,10 @@ class TestOrphanedDocumentResilience:
             for f in source.report.failures
         )
 
-    def test_all_null_batch_fails_but_does_not_abort(self, ctx, config):
-        # Right length, every slot null. Unlike a length mismatch this is
-        # interpretable, and the rest of the catalog may be healthy — so the run
-        # goes red without one drifted page taking down the whole run.
+    def test_all_null_batch_warns_and_does_not_abort(self, ctx, config):
+        # Right length, every slot null, but a later batch resolves: the live
+        # catalog is being served, so the null batch is orphan drift. Warn, skip
+        # it, and keep the run green.
         source = self._make_source(ctx, config)
         urns = [f"urn:li:document:doc-{i}" for i in range(150)]
         batch1 = {"entities": [None] * 100}
@@ -4572,11 +4614,58 @@ class TestOrphanedDocumentResilience:
 
         hydrated = list(source._hydrate_documents(urns))
 
-        # Second batch still hydrated: the failure did not abort the run.
         assert len(hydrated) == 50
         assert source.report.num_documents_skipped_orphaned == 100
         assert any(
-            "resolved nothing" in (f.title or "").lower()
+            "resolved nothing in a batch" in (w.title or "").lower()
+            for w in source.report.warnings
+        )
+        assert not source.report.failures
+
+    def test_clustered_orphans_spanning_batches_do_not_fail(self, ctx, config):
+        # Enumeration is URN-ordered, so orphans sharing a prefix are contiguous.
+        # 250 of them between live documents fill two whole hydration batches;
+        # that is drift, not a serving problem, and must not fail the run.
+        source = self._make_source(ctx, config)
+        live_before = [f"urn:li:document:a-{i:03d}" for i in range(50)]
+        orphans = [f"urn:li:document:proposed-{i:03d}" for i in range(250)]
+        live_after = [f"urn:li:document:z-{i:03d}" for i in range(100)]
+        urns = live_before + orphans + live_after
+        resolvable = set(live_before + live_after)
+
+        def hydrate(_query, variables):
+            return {
+                "entities": [
+                    self._native_notion_doc(u) if u in resolvable else None
+                    for u in variables["urns"]
+                ]
+            }
+
+        source.graph.execute_graphql.side_effect = hydrate
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert len(hydrated) == 150
+        assert source.report.num_documents_skipped_orphaned == 250
+        assert not source.report.failures
+
+    def test_nothing_resolved_in_any_batch_fails(self, ctx, config):
+        # Every batch null across the whole run: nothing in the catalog is being
+        # served, which is a serving problem, not orphans. The run must go red
+        # rather than finish green having embedded nothing.
+        source = self._make_source(ctx, config)
+        urns = [f"urn:li:document:doc-{i}" for i in range(150)]
+        source.graph.execute_graphql.side_effect = [
+            {"entities": [None] * 100},
+            {"entities": [None] * 50},
+        ]
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert hydrated == []
+        assert source.report.num_documents_skipped_orphaned == 150
+        assert any(
+            (f.title or "") == "Document hydration resolved nothing"
             for f in source.report.failures
         )
 
@@ -4753,3 +4842,29 @@ class TestTotalProcessingFailure:
             source = self._run(ctx, failed=2, processed=5)
 
         assert not source.report.failures
+
+
+def test_datahub_documents_does_not_embed_when_only_v3_enabled():
+    """V3 on with semantic search off must not start embedding generation."""
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        DocumentChunkingSource,
+    )
+
+    fake_graph = Mock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": False,
+                "enabledEntities": ["document"],
+                "embeddingConfig": None,
+            },
+            "entityIndexV3": {"enabled": True},
+        }
+    }
+    resolved = DocumentChunkingSource.resolve_embedding_config(
+        EmbeddingConfig(), graph=fake_graph
+    )
+    assert resolved.provider is None
+    query = fake_graph.execute_graphql.call_args.kwargs["query"]
+    assert "entityIndexV3" in query

@@ -23,6 +23,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
+    CorpGroupInfoClass,
     CorpUserInfoClass,
     DomainPropertiesClass,
     GlossaryNodeInfoClass,
@@ -473,11 +474,7 @@ def query_parent_container_urns_on_container(
     return [entry["urn"] for entry in parents["containers"]]
 
 
-@with_test_retry()
-def query_container_child_urns(auth_session, container_urn: str) -> List[str]:
-    result = execute_graphql(
-        auth_session, CONTAINER_CHILD_RELATIONSHIPS_QUERY, {"urn": container_urn}
-    )
+def _parse_container_child_urns(result: dict) -> List[str]:
     relationships = result["data"]["container"]["relationships"]
     assert relationships is not None
     return [
@@ -485,6 +482,47 @@ def query_container_child_urns(auth_session, container_urn: str) -> List[str]:
         for entry in relationships["relationships"]
         if entry.get("entity") and entry["entity"].get("urn")
     ]
+
+
+@with_test_retry()
+def query_container_child_urns(auth_session, container_urn: str) -> List[str]:
+    result = execute_graphql(
+        auth_session, CONTAINER_CHILD_RELATIONSHIPS_QUERY, {"urn": container_urn}
+    )
+    return _parse_container_child_urns(result)
+
+
+def query_container_child_urns_immediate(auth_session, container_urn: str) -> List[str]:
+    """Single-shot incoming IsPartOf children — no retry, no post-query sync wait."""
+    result = execute_graphql_no_sync_wait(
+        auth_session, CONTAINER_CHILD_RELATIONSHIPS_QUERY, {"urn": container_urn}
+    )
+    return _parse_container_child_urns(result)
+
+
+def wait_for_container_child(
+    auth_session,
+    parent_urn: str,
+    child_urn: str,
+    timeout_seconds: float = 60.0,
+    poll_interval_seconds: float = 1.0,
+) -> List[str]:
+    """Poll incoming IsPartOf until ``child_urn`` is listed under ``parent_urn``.
+
+    GraphQL ``relationships`` is graph-index backed. ``wait_for_writes_to_sync``
+    reaching lag zero does not mean the edge is queryable yet.
+    """
+    deadline = time.monotonic() + timeout_seconds
+    last: List[str] = []
+    while time.monotonic() < deadline:
+        last = query_container_child_urns_immediate(auth_session, parent_urn)
+        if child_urn in last:
+            return last
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        "Timed out waiting for container child relationship: "
+        f"parent={parent_urn}, expected_child={child_urn}, last={last}"
+    )
 
 
 @with_test_retry()
@@ -600,6 +638,54 @@ def create_native_group(auth_session, group_id: str) -> str:
     return group_urn
 
 
+def create_group_without_origin(graph_client: DataHubGraph, group_id: str) -> str:
+    """Emit a corpGroup with no ``origin`` aspect, i.e. a legacy/SSO-ingested group.
+
+    ``createGroup`` always writes ``origin=NATIVE``, which disables the resolvers'
+    migration guard. Without it, the next member mutation runs the inline migration.
+    """
+    urn = corp_group_urn(group_id)
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=CorpGroupInfoClass(
+                admins=[],
+                members=[],
+                groups=[],
+                displayName=group_id,
+                description="Origin-less group for migration coverage",
+            ),
+        )
+    )
+    wait_for_writes_to_sync()
+    return urn
+
+
+def wait_for_corp_group_members_absent(
+    auth_session,
+    group_urn: str,
+    absent_member_urns: List[str],
+    timeout_seconds: float = 25.0,
+    poll_interval_seconds: float = 1.0,
+) -> List[str]:
+    """Poll corpGroup INCOMING membership until the given members are gone.
+
+    A single read could pass simply because the write had not landed yet.
+    """
+    absent = set(absent_member_urns)
+    deadline = time.monotonic() + timeout_seconds
+    last: List[str] = []
+    while time.monotonic() < deadline:
+        last = query_corp_group_incoming_member_urns(auth_session, group_urn)
+        if not absent & set(last):
+            return last
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        "Timed out waiting for corpGroup members to be removed: "
+        f"still_present={sorted(absent & set(last))}, last={last}"
+    )
+
+
 def create_test_corp_user(graph_client: DataHubGraph, username: str) -> str:
     """Emit a fresh corpUser so a test owns an isolated user whose group
     memberships no other suite mutates. Returns the user URN."""
@@ -683,6 +769,41 @@ def remove_corp_group_membership(
         )
     )
     wait_for_writes_to_sync()
+
+
+def cleanup_group_and_users(
+    auth_session,
+    graph_client: DataHubGraph,
+    group_urn: Optional[str],
+    user_urns: List[str],
+) -> None:
+    """Best-effort teardown for group-membership tests.
+
+    Setup can fail partway, so each step is isolated and only warns — a raising
+    ``finally`` would mask the original failure and leak the remaining users.
+    """
+    if skip_cleanup_enabled():
+        logger.info(
+            "DATAHUB_SKIP_CLEANUP=true — leaving group %s and users %s",
+            group_urn,
+            user_urns,
+        )
+        return
+    if group_urn is not None:
+        if user_urns:
+            try:
+                remove_users_from_native_group(auth_session, group_urn, user_urns)
+            except Exception as exc:
+                logger.warning("Member removal failed for %s: %s", group_urn, exc)
+        try:
+            delete_native_group(auth_session, group_urn)
+        except Exception as exc:
+            logger.warning("Group delete failed for %s: %s", group_urn, exc)
+    for user_urn in user_urns:
+        try:
+            graph_client.hard_delete_entity(user_urn)
+        except Exception as exc:
+            logger.warning("User delete failed for %s: %s", user_urn, exc)
 
 
 def cleanup_domains(auth_session, urns: List[str]) -> None:

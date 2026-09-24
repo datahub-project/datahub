@@ -97,7 +97,7 @@ public class ProductUpdateResolverTest {
     assertEquals(result.getTitle(), "What's New");
     assertNull(result.getDescription());
     assertNull(result.getImage());
-    assertEquals(result.getCtaText(), "Learn more"); // default value
+    assertEquals(result.getCtaText(), "");
     assertEquals(result.getCtaLink(), ""); // default value
   }
 
@@ -173,7 +173,10 @@ public class ProductUpdateResolverTest {
     ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
 
     // Verify
-    assertNull(result);
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "");
+    assertEquals(result.getCtaText(), "");
+    assertEquals(result.getCtaLink(), "");
   }
 
   @Test
@@ -426,5 +429,29 @@ public class ProductUpdateResolverTest {
     assertNotNull(result);
     assertEquals(result.getId(), "v1.0.0");
     assertEquals(result.getCtaLink(), "https://example.com");
+  }
+
+  @Test
+  public void testGetProductUpdateOverlaysLocale() throws Exception {
+    when(mockFeatureFlags.isShowProductUpdates()).thenReturn(true);
+    when(mockDataFetchingEnvironment.getArgument("locale")).thenReturn("ja");
+
+    String jsonString =
+        "{"
+            + "\"enabled\": true,"
+            + "\"id\": \"v1.0.0\","
+            + "\"title\": \"What's New\","
+            + "\"description\": \"New features\","
+            + "\"i18n\": { \"ja\": { \"title\": \"新着情報\", \"description\": \"新機能\" } }"
+            + "}";
+    JsonNode jsonNode = objectMapper.readTree(jsonString);
+    when(mockProductUpdateService.getLatestProductUpdate()).thenReturn(Optional.of(jsonNode));
+
+    ProductUpdate result = resolver.get(mockDataFetchingEnvironment).get();
+
+    assertNotNull(result);
+    assertEquals(result.getTitle(), "新着情報");
+    assertEquals(result.getDescription(), "新機能");
+    assertEquals(result.getId(), "v1.0.0");
   }
 }

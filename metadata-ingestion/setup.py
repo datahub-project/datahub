@@ -38,11 +38,8 @@ base_requirements = {
     "sentry-sdk>=1.33.1,<3.0.0",
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
-    # setuptools 82.0.0 deprecated pkg_resource
-    # CVE-2025-47273 floor (>=78.1.1) is enforced for Docker via
-    # docker/snippets/ingestion/constraints.txt only — avoid a lower bound here so
-    # installs alongside Airflow constraints remain satisfiable.
-    "setuptools<82.0.0",
+    # No setuptools bound: Airflow constraint files pin it, so a floor here would
+    # break those installs. The CVE-2026-59890 floor lives in the Docker snippet.
     # Floor at 2.5.0 — the highest the airflow-plugin CI
     # tolerates (Airflow 3.0.x/3.1.x pin urllib3==2.5.0, 3.2.x pins 2.6.3). The stronger
     # >=2.7.0 floor for the remaining CVEs is applied at lock time via pyproject
@@ -56,6 +53,9 @@ gcp_sm_common = {
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
+    # Floor stays Airflow-satisfiable: 3.0.x/3.1.x constraints pin click==8.2.1,
+    # 3.2.x pins 8.3.1. CVE-2026-7246 (>=8.3.3) is applied at lock time via
+    # pyproject [tool.uv] constraint-dependencies.
     "click>=7.1.2,!=8.2.0,<9.0.0",
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
@@ -80,7 +80,7 @@ framework_common = {
     # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
     # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
     # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
-    # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
+    # airflow-plugin CI installs with -c constraints-3.11.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
     # 3.2.0 is the first release with ijson.parse(use_float=...), which the JSON
@@ -112,7 +112,11 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    "anyio>=3.0.0,<5.0.0",
+    # Floor 4.10.0 — the highest the airflow-plugin CI tolerates (Airflow 3.0.x
+    # constraints pin anyio==4.10.0; 3.1.x pins 4.11.0; 3.2.x pins 4.13.0).
+    # CVE-2026-64847 (>=4.14.2) is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies.
+    "anyio>=4.10.0,<5.0.0",
 }
 
 rest_common = {
@@ -132,8 +136,7 @@ kafka_common = {
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
     # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
-    # 2.13.0 introduced some breaking changes that require some development
-    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
+    "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -146,7 +149,7 @@ kafka_protobuf = {
     "networkx>=2.6.2,<4.0.0",
     # Required to generate protobuf python modules from the schema downloaded from the schema registry
     # NOTE: potential conflict with feast also depending on grpcio
-    "grpcio>=1.44.0,<2.0.0",
+    "grpcio>=1.84.0,<2.0.0",
     # grpcio-tools>=1.63 requires protobuf>=5. We intentionally allow that range.
     "grpcio-tools>=1.44.0,<2.0.0",
 }
@@ -193,7 +196,10 @@ pyarrow_common = {
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
-    # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
+    # <2 held by databricks-sql-connector (sqlalchemy-redshift
+    # >=1.0.0 now supports SQLAlchemy 2). Lifting this cap unblocks pkg_resources-free
+    # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb), then delete the
+    # pkg_resources shim; test_sqlalchemy_stays_below_2_until_shim_removed enforces it.
     "sqlalchemy>=1.4.39,<2",
     # greenlet is imported directly by
     # datahub.ingestion.source.sqlalchemy_profiler.query_combiner, which is used
@@ -278,6 +284,8 @@ bigquery_sharing_common = {
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
     "google-cloud-resource-manager<2.0.0",
+    # Reads metadata EXPORT job output (extraction_method: export) from GCS.
+    "google-cloud-storage>=2.10.0,<4.0.0",
     *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }
@@ -296,8 +304,9 @@ snowflake_common = {
     # Original lower bound 1.4.3 was due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     #
     # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
-    # table column name reflection for non-uppercase table names. While we do not
-    # use this method directly, it is used by great-expectations during profiling.
+    # table column name reflection for non-uppercase table names. The original reason for
+    # this cap was the (now removed) Great Expectations profiler, which relied on that
+    # reflection. Re-validate against the SQLAlchemy profiler before lifting the cap.
     #
     # See: https://github.com/snowflakedb/snowflake-sqlalchemy/compare/v1.7.3...v1.7.4
     #
@@ -319,7 +328,9 @@ snowflake_common = {
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
-    "snowflake-connector-python>=4.4.0,<5.0.0",
+    # >= 4.7.1 for CVE-2026-15925: the connector accepted a certificate signed by any
+    # trusted CA for any domain without matching the requested host. 4.7.0 was yanked.
+    "snowflake-connector-python>=4.7.1,<5.0.0",
     "pandas<3.0.0",
     # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
     # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
@@ -407,13 +418,6 @@ s3_base = {
     *cachetools_lib,
 }
 
-threading_timeout_common = {
-    "stopit==1.1.2",
-    # stopit uses pkg_resources internally, which means there's an implied
-    # dependency on setuptools.
-    # setuptools 82 removed pkg_resources.
-    "setuptools<82",
-}
 
 abs_base = {
     # CVE-2025-36068: azure-core <1.34.0 has Server-Side Request Forgery via
@@ -511,11 +515,25 @@ embedding_common = {
     "google-auth>=2.0.0,<3.0.0",
 }
 
+# In-process ONNX document embedding (mirrors the GMS built-in query-side
+# provider). Kept as a separate extra so the common embedding path doesn't pull
+# onnxruntime for users who embed via a cloud provider. `tokenizers` gives the
+# same HuggingFace tokenizer the Java side uses via DJL, for token-level parity.
+# onnxruntime capped below 1.24: 1.24+ dropped cp310 wheels, and ingestion
+# still supports Python 3.10. The library version is independent of the Java
+# query-side onnxruntime; vector parity comes from the shared model + tokenizer,
+# not the runtime version (inference is deterministic across versions).
+onnx_embeddings = {
+    "onnxruntime>=1.19.0,<1.24",
+    "tokenizers>=0.20.0,<1.0.0",
+}
+
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    "unstructured[md]==0.18.24",
-    # Unstructured ingest framework for pipeline orchestration
-    "unstructured-ingest==0.7.2",
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
+    "unstructured[md]==0.24.1",
+    # unstructured 0.24.x requires ingest >=1.4.0
+    "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
     # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
@@ -534,12 +552,12 @@ unstructured_lib = {
 
 notion_common = {
     # Notion-specific connector adds notion-client and related dependencies
-    "unstructured-ingest[notion]==0.7.2",
+    "unstructured-ingest[notion]==1.4.28",
 } | unstructured_lib
 
 confluence_common = {
     # Confluence-specific connector adds atlassian-python-api and related dependencies
-    "unstructured-ingest[confluence]==0.7.2",
+    "unstructured-ingest[confluence]==1.4.28",
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
     # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
     "markdownify>=0.14.1,<2.0.0",
@@ -745,6 +763,10 @@ plugins: Dict[str, Set[str]] = {
     "datahub-debug": {"dnspython==2.7.0", "requests<3.0.0"},
     "datahub-gc": set(),
     "datahub-documents": unstructured_lib,
+    # Optional add-on: embed documents in-process with ONNX instead of a cloud
+    # provider, matching the GMS built-in query-side provider. Install alongside
+    # datahub-documents (e.g. acryl-datahub[datahub-documents,onnx-embeddings]).
+    "onnx-embeddings": onnx_embeddings,
     "mode": {"requests<3.0.0", "python-liquid>=2.0.0,<3.0.0", "tenacity>=8.0.1,<9.0.0"}
     | sqlglot_lib
     | cachetools_lib,
@@ -779,7 +801,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
-    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
+    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common (urllib3 1.x lock-in).
     "redshift-slim": redshift_common
     | usage_common
     | sqlglot_lib
@@ -839,7 +861,6 @@ plugins: Dict[str, Set[str]] = {
         microsoft_common
         | {"sqlparse>=0.6.0,<1.0.0", "more-itertools<11.0.0", "mini-racer==0.14.1"}
         | sqlglot_lib
-        | threading_timeout_common
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
@@ -916,6 +937,19 @@ all_exclude_plugins: Set[str] = {
     "sqlmesh",
     # Debug recording is an optional debugging tool.
     "debug-recording",
+    # onnxruntime is a large native binary; in-process ONNX embedding is a niche
+    # opt-in feature, so keep it out of "all" (and the bundled ingestion image).
+    # Install explicitly with acryl-datahub[onnx-embeddings].
+    "onnx-embeddings",
+    # unstructured 0.24.x / unstructured-ingest 1.4.x require Python 3.11+. Keep
+    # them out of "all" so uv can lock acryl-datahub for requires-python >=3.10.
+    # Install explicitly: acryl-datahub[datahub-documents], [notion], [confluence],
+    # or [unstructured]. Managed ingestion still maps source type to those extras.
+    # The full ingestion image re-adds them: [all,datahub-documents,notion,confluence].
+    "datahub-documents",
+    "unstructured",
+    "notion",
+    "confluence",
 }
 
 mypy_stubs = {
@@ -955,8 +989,9 @@ test_api_requirements = {
     # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0,<9.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    # 8.0.0 is also excluded (missing numpy requirement).
+    "deepdiff>=8.6.2,<9.0.0",
     "orderly-set!=5.4.0,<6.0.0",  # 5.4.0 uses invalid types on older Python versions
     "PyYAML<7.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
@@ -1090,7 +1125,7 @@ dev_requirements = {
 }
 
 # Documentation generation requirements
-# Includes datahub-documents which requires Python 3.10+ (due to unstructured library)
+# Includes datahub-documents which requires Python 3.11+ (due to unstructured library)
 docs_requirements = {
     *base_dev_requirements,
     *plugins["datahub-documents"],
@@ -1421,7 +1456,7 @@ setuptools.setup(
         "dev": list(dev_requirements),
         "docs": list(
             docs_requirements
-        ),  # For documentation generation (requires Python 3.10+)
+        ),  # For documentation generation (requires Python 3.11+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),

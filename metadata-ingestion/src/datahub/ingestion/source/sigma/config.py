@@ -429,6 +429,64 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # emitting a malformed URN.
     dm_element_warehouse_table_entry_incomplete: int = 0
 
+    # --- Sigma Dataset -> warehouse table, via /datasets/{id}/sources ---
+    # Replaces the SQL-name match that Sigma's 2026-09-15 dataset deprecation
+    # broke (a dataset-backed element's /query now returns 200 with no SQL).
+    # The dataset_* counters below are per Sigma Dataset, never per
+    # referencing element. connection_path_* are per warehouse table, and
+    # dataset_sources_endpoint_removed is effectively once per run.
+    #
+    # Datasets whose warehouse table(s) were recovered through this route.
+    dataset_warehouse_upstream_from_inode: int = 0
+    # Datasets whose /sources listed no type=table entry: a CSV upload, a
+    # dataset-on-dataset, or a custom-SQL dataset. Not an error.
+    dataset_warehouse_no_table_sources: int = 0
+    # A /sources entry named a table but could not be used: not a JSON object,
+    # or a type=table entry with no inodeId. Mirrors
+    # dm_element_warehouse_table_entry_incomplete. Counted per entry, and kept
+    # out of no_table_sources, which is documented as the benign case.
+    dataset_warehouse_table_entry_incomplete: int = 0
+    # /datasets/{id}/sources returned non-200, raised, or was not a JSON list.
+    dataset_sources_lookup_failed: int = 0
+    # Sub-bucket of the above: 429 after retries.
+    dataset_sources_lookup_rate_limited: int = 0
+    # Sub-bucket of dataset_sources_lookup_failed: /sources could not resolve one
+    # dataset (404, or the 409 inode_archived Sigma actually returns), i.e. it was
+    # deleted, archived or re-permissioned after the listing.
+    dataset_sources_not_found: int = 0
+    # 1 once the endpoint is concluded to be removed: a 410, or a 404/409 that a
+    # re-probe confirms (of a known-good dataset, or of the dataset API itself
+    # before anything has succeeded). Set at most once per run.
+    dataset_sources_endpoint_removed: int = 0
+    # Datasets skipped without a request because the endpoint was already
+    # latched as removed. Shows how much lineage the latch cost.
+    dataset_sources_skipped_endpoint_gone: int = 0
+    # /connections/paths/{inodeId} failed or returned an unusable body, so the
+    # table could not be tied to a connection.
+    connection_path_lookup_failed: int = 0
+    # Sub-bucket of the above: 429 after retries.
+    connection_path_lookup_rate_limited: int = 0
+    # The table's connectionId is absent from the connection registry or is
+    # not mappable to a DataHub platform. Mirrors
+    # dm_element_warehouse_unknown_connection for this route.
+    dataset_warehouse_unknown_connection: int = 0
+    # An element reads a Sigma Dataset that /v2/datasets did not return, so its
+    # datasetId is unknown and /sources cannot be called. Usually
+    # workspace_pattern excludes that dataset's workspace -- unless
+    # datasets_listing_failed is also set, in which case the listing itself
+    # failed and every referenced dataset lands here.
+    dataset_warehouse_unlisted_dataset: int = 0
+    # /v2/datasets could not be listed (or was cut short mid-pagination). Set
+    # because the dataset API is deprecated: its removal is a likely cause, and
+    # without this the resulting lineage loss looks like a workspace_pattern
+    # choice rather than the endpoint going away.
+    datasets_listing_failed: int = 0
+    # Datasets present in the listing but dropped because /files metadata was
+    # missing for them. _get_files_metadata returning {} drops every dataset
+    # without raising, so this distinguishes that from a workspace_pattern
+    # exclusion when a dataset later turns out to be unresolvable.
+    datasets_dropped_missing_file_metadata: int = 0
+
 
 class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     """Per-connection env / platform_instance overrides for warehouse URN construction.

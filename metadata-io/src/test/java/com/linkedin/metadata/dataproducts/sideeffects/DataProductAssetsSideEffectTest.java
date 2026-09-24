@@ -241,7 +241,6 @@ public class DataProductAssetsSideEffectTest {
     scrollResult.setEntities(searchEntities);
     scrollResult.setNumEntities(1);
     scrollResult.setPageSize(1);
-    scrollResult.setScrollId(null);
     when(mockSearchRetriever.scroll(any(), any(), any(), any(), any(), any()))
         .thenReturn(scrollResult);
 

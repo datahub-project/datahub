@@ -6,7 +6,7 @@ import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContai
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-export interface MFEFlags {
+interface MFEFlags {
     enabled: boolean;
     showInNav: boolean;
 }

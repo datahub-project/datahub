@@ -1,6 +1,6 @@
 import { FilterOutlined } from '@ant-design/icons';
 import { Button, Typography, message } from 'antd';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
@@ -33,7 +33,7 @@ const SearchBarContainer = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SEARCH_BAR_STYLE = {

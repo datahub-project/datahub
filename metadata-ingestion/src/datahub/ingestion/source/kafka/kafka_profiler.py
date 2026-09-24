@@ -558,9 +558,7 @@ class KafkaProfiler:
         elif isinstance(sample_value, (int, float)):
             return ProfilerFieldType.NUMERIC
         elif isinstance(sample_value, (dict, list)):
-            return (
-                ProfilerFieldType.UNKNOWN
-            )  # Complex types -> UNKNOWN (aligned with GE)
+            return ProfilerFieldType.UNKNOWN  # Complex types -> UNKNOWN
         return default_type
 
     def _should_skip_field_processing(self) -> bool:

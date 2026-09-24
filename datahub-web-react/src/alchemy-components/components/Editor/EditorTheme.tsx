@@ -82,7 +82,13 @@ export const EditorContainer = styled.div<{
         flex: 1 1 100%;
         border: 0;
         font-size: 14px;
-        padding: ${(props) => (props.$compact ? '12px 16px 0 16px' : '16px')};
+        /* Editable editors need inset from the border; read-only viewers (sidebar,
+         * search cards, CompactMarkdownViewer) should sit flush with surrounding text. */
+        padding: ${(props) => {
+            if (props.$compact) return '12px 16px 0 16px';
+            if (props.$readOnly) return '0';
+            return '16px';
+        }};
         position: relative;
         outline: 0;
         line-height: ${(props) => (props.$compact ? '20px' : '1.5')};

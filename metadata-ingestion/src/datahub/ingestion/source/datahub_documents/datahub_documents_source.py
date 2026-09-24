@@ -50,6 +50,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.unstructured.chunking_config import (
+    DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
     DataHubConnectionConfig,
     DocumentChunkingSourceConfig,
 )
@@ -95,6 +96,9 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     embedding_failures: list[str] = field(default_factory=list)
     processing_errors: list[str] = []
     num_documents_limit_reached: bool = False
+    # Documents whose semanticContent was truncated/dropped to fit the size floor
+    num_documents_truncated_oversized: int = 0
+    num_documents_dropped_oversized: int = 0
 
     def report_document_fetched(self) -> None:
         self.num_documents_fetched += 1
@@ -141,6 +145,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
 
     Supports batch mode (GraphQL) and event-driven mode (Kafka MCL) with incremental processing.
     Automatically fetches embedding configuration from server to ensure alignment.
+
+    Embedding generation is gated on the server's semanticSearchConfig, not on Search V3.
+    When both semantic search and V3 are enabled, GMS dual-writes embeddings onto
+    documentindex_v3; this source still only emits SemanticContent via MCP.
     """
 
     def __init__(self, ctx: PipelineContext, config: DataHubDocumentsSourceConfig):
@@ -518,12 +526,21 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # semanticText aspect, so fetch it.
             raw_contents = aspect_dict.get("contents")
             if raw_contents is None:
-                # Partial aspect with no contents: skip silently (mirroring batch mode)
-                # rather than stamping a skip marker from content we could not read.
-                logger.debug(
-                    f"documentInfo event for {entity_urn} has null contents, skipping"
-                )
-                return
+                # Partial event payload with no contents: fall back to fetching the full
+                # aspect (mirroring the semanticText branch) so a document whose only
+                # event was partial is not silently dropped until some later event.
+                info_dict = self._fetch_document_info_dict(entity_urn)
+                raw_contents = info_dict.get("contents") if info_dict else None
+                if info_dict is None or raw_contents is None:
+                    # Genuinely unreadable body: skip without stamping a skip marker from
+                    # content we could not read.
+                    logger.debug(
+                        f"documentInfo event for {entity_urn} has null contents and no "
+                        f"readable fallback, skipping"
+                    )
+                    return
+                # Downstream source-type filtering reads from the documentInfo shape.
+                aspect_dict = info_dict
             contents = dict(raw_contents)
             contents["semanticText"] = self._fetch_semantic_text(entity_urn)
 
@@ -1205,6 +1222,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         }
         """
         urn_iter = iter(urns)
+        # Whether an all-null batch means a serving problem or just orphans can
+        # only be judged across the whole run, so track both run-wide.
+        resolved_any = False
+        first_all_null_urn: Optional[str] = None
         while True:
             # islice pulls one window from the enumerator, so scrolling and
             # hydration interleave instead of enumerating everything up front.
@@ -1231,6 +1252,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 hydrated_any = False
                 for entity in self._hydrate_individually(query, batch):
                     hydrated_any = True
+                    resolved_any = True
                     yield entity
                 if not hydrated_any:
                     # Every URN in the batch failed the same way — a systemic
@@ -1277,17 +1299,22 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 for entity in entities
                 if entity and entity.get("urn")
             }
-            if not entities_by_urn:
-                # Right length, but every slot came back null. Unlike a length
-                # mismatch this is interpretable — every requested URN was
-                # unresolvable — and the rest of the catalog may be healthy, so
-                # fail the run without aborting it. A page of index drift must not
-                # take down a run that can still embed everything else.
-                self.report.failure(
+            if entities_by_urn:
+                resolved_any = True
+            else:
+                # Right length, but every slot came back null. On its own this is
+                # orphan drift, not a serving problem: enumeration is ordered by
+                # URN, so orphans sharing a prefix (e.g. a family of documents
+                # hard-deleted together) are contiguous and can fill whole
+                # batches. Warn and keep going; whether it was really a serving
+                # problem is decided once the run has seen every batch, below.
+                if first_all_null_urn is None:
+                    first_all_null_urn = batch[0]
+                self.report.warning(
                     title="Document hydration resolved nothing in a batch",
-                    message="Every URN in a hydration batch resolved to null, which "
-                    "is usually a serving problem rather than that many orphans; "
-                    "the batch was skipped and the run continues.",
+                    message="Every URN in a hydration batch resolved to null "
+                    "(a contiguous run of orphaned index entries); the batch was "
+                    "skipped and the run continues.",
                     context=batch[0],
                 )
             for urn in batch:
@@ -1296,6 +1323,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                     self._skip_orphaned(urn)
                     continue
                 yield hydrated
+
+        if first_all_null_urn is not None and not resolved_any:
+            # Nothing resolved anywhere in the run. A healthy catalog with orphan
+            # drift still resolves its live documents, so this is a serving
+            # problem, not orphans, and the run must not finish green having
+            # embedded nothing.
+            self.report.failure(
+                title="Document hydration resolved nothing",
+                message="Every enumerated document URN resolved to null, which is "
+                "usually a serving problem rather than every document being "
+                "orphaned; nothing was embedded.",
+                context=first_all_null_urn,
+            )
 
     def _hydrate_individually(
         self, query: str, urns: list[str]
@@ -1371,7 +1411,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Chunking/embedding is enabled when embedding provider is configured
         embedding_enabled = self.config.embedding.provider is not None
 
-        return {
+        fingerprint: Dict[str, Any] = {
             # Chunking affects chunk boundaries and structure
             "chunking_enabled": embedding_enabled,
             "chunking_strategy": self.config.chunking.strategy
@@ -1397,6 +1437,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # Partitioning affects how text is extracted
             "partition_strategy": self.config.partition_strategy,
         }
+        # Only fingerprint the chunk cap when non-default, so upgrading to a build that
+        # adds the knob does not re-hash (and re-embed) every already-processed document;
+        # a tuned cap changes emitted output and must re-hash.
+        if (
+            embedding_enabled
+            and self.config.chunking.max_chunks_per_document
+            != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+        ):
+            fingerprint["chunking_max_chunks_per_document"] = (
+                self.config.chunking.max_chunks_per_document
+            )
+        return fingerprint
 
     @staticmethod
     def _resolve_embed_text(contents: Dict[str, Any]) -> str:
@@ -1658,6 +1710,12 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         )
         self.report.processing_errors = list(
             self.chunking_source.report.processing_errors
+        )
+        self.report.num_documents_truncated_oversized = (
+            self.chunking_source.report.num_documents_truncated_oversized
+        )
+        self.report.num_documents_dropped_oversized = (
+            self.chunking_source.report.num_documents_dropped_oversized
         )
         return self.report
 
