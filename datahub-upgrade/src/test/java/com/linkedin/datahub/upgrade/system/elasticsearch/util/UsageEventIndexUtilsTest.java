@@ -2267,6 +2267,11 @@ public class UsageEventIndexUtilsTest {
               if (call.contains("/_clone/")) {
                 return jsonResponse("{\"acknowledged\":true,\"shards_acknowledged\":false}");
               }
+              if (call.equals("GET /test_datahub_usage_event/_settings/index.creation_date")) {
+                return jsonResponse(
+                    "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                        + "{\"creation_date\":\"1000\"}}}}");
+              }
               if (call.endsWith("/_count")) {
                 return jsonResponse("{\"count\":3}");
               }

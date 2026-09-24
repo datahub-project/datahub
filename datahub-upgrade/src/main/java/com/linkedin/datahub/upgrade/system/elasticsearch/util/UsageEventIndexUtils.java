@@ -772,8 +772,9 @@ public class UsageEventIndexUtils {
       boolean useOpenSearch)
       throws IOException, InterruptedException {
     String indexName = prefix + "datahub_usage_event";
-    if (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
-      dropStaleBackups(opContext, esComponents, prefix, indexName);
+    // Nothing locks against two system-update runs at once; each could leave a backup behind.
+    if (resolveIndices(opContext, esComponents, indexName).contains(indexName)
+        && dropStaleBackups(opContext, esComponents, prefix, indexName)) {
       replaceLegacyIndex(
           opContext,
           esComponents,
@@ -801,7 +802,7 @@ public class UsageEventIndexUtils {
    * no copy task and are younger than the index, so the index still holds all their events. Without
    * this, retried attempts pile up overlapping backups that are each copied back.
    */
-  private static void dropStaleBackups(
+  private static boolean dropStaleBackups(
       OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String prefix,
@@ -810,7 +811,7 @@ public class UsageEventIndexUtils {
     long indexCreated = creationDate(opContext, esComponents, indexName);
     if (indexCreated <= 0) {
       // No longer a plain index, so another run has migrated it meanwhile.
-      return;
+      return false;
     }
     for (String backupName :
         resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
@@ -821,6 +822,7 @@ public class UsageEventIndexUtils {
         deleteIndex(opContext, esComponents, backupName);
       }
     }
+    return true;
   }
 
   private static long creationDate(
@@ -915,18 +917,28 @@ public class UsageEventIndexUtils {
       String aliasName)
       throws IOException {
     String firstIndex = aliasName + "-000001";
-    if (!resolveIndices(opContext, esComponents, firstIndex).contains(firstIndex)) {
+    boolean created = !resolveIndices(opContext, esComponents, firstIndex).contains(firstIndex);
+    if (created) {
       IndexUtils.performPutRequest(opContext, esComponents, "/" + firstIndex, "{}");
     }
-    // One cluster state update, so no usage event write can recreate a bare index in between.
-    IndexUtils.performPostRequest(
-        opContext,
-        esComponents,
-        "/_aliases",
-        String.format(
-            "{\"actions\":[{\"add\":{\"index\":\"%s\",\"alias\":\"%s\",\"is_write_index\":true}},"
-                + "{\"remove_index\":{\"index\":\"%s\"}}]}",
-            firstIndex, aliasName, aliasName));
+    try {
+      // One cluster state update, so no usage event write can recreate a bare index in between.
+      IndexUtils.performPostRequest(
+          opContext,
+          esComponents,
+          "/_aliases",
+          String.format(
+              "{\"actions\":[{\"add\":{\"index\":\"%s\",\"alias\":\"%s\",\"is_write_index\":true}},"
+                  + "{\"remove_index\":{\"index\":\"%s\"}}]}",
+              firstIndex, aliasName, aliasName));
+    } catch (IOException e) {
+      // The swap is atomic, so while the original is still a plain index it did not happen and
+      // the new index is empty: drop it rather than leave it behind without its alias.
+      if (created && resolveIndices(opContext, esComponents, aliasName).contains(aliasName)) {
+        deleteIndex(opContext, esComponents, firstIndex);
+      }
+      throw e;
+    }
   }
 
   private static void backfillFromBackup(
@@ -963,6 +975,9 @@ public class UsageEventIndexUtils {
       taskId = "";
     }
     if (taskId.isEmpty()) {
+      if (writeIndex.isEmpty()) {
+        throw new IOException("Could not find the write index behind " + indexName);
+      }
       recordCopy(opContext, esComponents, backupName, "", writeIndex);
       String reindex =
           String.format(
