@@ -36,14 +36,17 @@ public class UsageEventIndexUtils {
 
   // Outside the PREFIXdatahub_usage_event* template patterns, so no template applies to backups.
   private static final String LEGACY_BACKUP_INFIX = "legacy_datahub_usage_event_";
+  // Recorded on the backup, so a later run checks the same copy instead of starting another one.
+  private static final String BACKFILL_TASK_META = "datahub_backfill_task";
   private static final Duration BACKFILL_POLL_INTERVAL = Duration.ofSeconds(2);
-  private static final Duration BACKFILL_TIMEOUT = Duration.ofMinutes(30);
+  private static final Duration BACKFILL_WAIT = Duration.ofMinutes(5);
   // Data streams reject events without @timestamp. Older events may only carry timestamp; events
-  // with neither cannot be placed in any time range, so they are dropped.
+  // with neither cannot go into a data stream at all, so they are dropped there.
   private static final String BACKFILL_SCRIPT =
       "if (ctx._source['@timestamp'] == null) {"
-          + " if (ctx._source['timestamp'] == null) { ctx.op = 'noop' }"
-          + " else { ctx._source['@timestamp'] = ctx._source['timestamp'] } }";
+          + " if (ctx._source['timestamp'] != null) {"
+          + " ctx._source['@timestamp'] = ctx._source['timestamp'] }"
+          + " else if (params.dataStream) { ctx.op = 'noop' } }";
 
   /**
    * Creates an Index Lifecycle Management (ILM) policy for Elasticsearch usage events.
@@ -744,11 +747,15 @@ public class UsageEventIndexUtils {
    * stream or alias name and dynamic mappings: {@code type} becomes {@code text}, so sorting and
    * term filters on it fail, and the managed layout can never be created next to it.
    *
-   * <p>The index is write-blocked, cloned to a {@code <prefix>legacy_datahub_usage_event_<millis>}
-   * backup, and replaced by the managed layout, then its events are reindexed back in. Usage events
-   * written during the few seconds the block is in place are rejected. A backup is deleted once
-   * every event in it is accounted for, and kept otherwise; backups left by an earlier run are
-   * backfilled again, so an interrupted migration completes on the next run.
+   * <p>The index is write-blocked and cloned to a {@code
+   * <prefix>legacy_datahub_usage_event_<millis>} backup. Only once the backup is started and holds
+   * every event is the index replaced by the managed layout, and then the backup is reindexed into
+   * it. Usage events written during the few seconds the block is in place are rejected.
+   *
+   * <p>Each backup is copied back by a single reindex task that is recorded on the backup and never
+   * started again, because a second copy would duplicate events once the layout has rolled over.
+   * The backup is deleted when that task accounts for every event in it and kept otherwise; a task
+   * still running after a few minutes is checked again on the next run.
    *
    * @param prefix the index prefix (e.g., "prod_")
    * @param useOpenSearch whether to build the OpenSearch layout instead of a data stream
@@ -761,36 +768,80 @@ public class UsageEventIndexUtils {
       throws IOException, InterruptedException {
     String indexName = prefix + "datahub_usage_event";
     if (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
-      String backupName = prefix + LEGACY_BACKUP_INFIX + System.currentTimeMillis();
-      log.warn(
-          "Usage event index {} was created without its index template; moving it to {} and"
-              + " recreating it from the template",
+      replaceLegacyIndex(
+          opContext,
+          esComponents,
           indexName,
-          backupName);
-      setWriteBlock(opContext, esComponents, indexName, true);
-      try {
-        IndexUtils.performPostRequest(
-            opContext, esComponents, "/" + indexName + "/_clone/" + backupName, "{}");
-        if (useOpenSearch) {
-          replaceWithRolloverAlias(opContext, esComponents, indexName);
-        } else {
-          deleteIndex(opContext, esComponents, indexName);
-          createDataStream(opContext, esComponents, indexName);
-        }
-      } catch (IOException e) {
-        try {
-          if (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
-            setWriteBlock(opContext, esComponents, indexName, false);
-          }
-        } catch (IOException unblockFailure) {
-          e.addSuppressed(unblockFailure);
-        }
-        throw e;
-      }
+          prefix + LEGACY_BACKUP_INFIX + System.currentTimeMillis(),
+          useOpenSearch);
     }
     for (String backupName :
         resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
-      backfillFromBackup(opContext, esComponents, backupName, indexName);
+      try {
+        backfillFromBackup(opContext, esComponents, backupName, indexName, !useOpenSearch);
+      } catch (IOException e) {
+        log.error(
+            "Could not copy usage events from {} back into {}; keeping {}",
+            backupName,
+            indexName,
+            backupName,
+            e);
+      }
+    }
+  }
+
+  private static void replaceLegacyIndex(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName,
+      String backupName,
+      boolean useOpenSearch)
+      throws IOException {
+    log.warn(
+        "Usage event index {} was created without its index template; moving it to {} and"
+            + " recreating it from the template",
+        indexName,
+        backupName);
+    boolean originalDeleted = false;
+    try {
+      // Unlike the index setting, the block API waits for in-flight writes to finish.
+      IndexUtils.performPutRequest(opContext, esComponents, "/" + indexName + "/_block/write", "");
+      // The backup only serves reads from here on, so it does not keep the block.
+      JsonNode clone =
+          readJson(
+              opContext,
+              IndexUtils.performPostRequest(
+                  opContext,
+                  esComponents,
+                  "/" + indexName + "/_clone/" + backupName,
+                  String.format(
+                      "{\"settings\":{\"%s\":null}}", IndexUtils.INDEX_BLOCKS_WRITE_SETTING)));
+      long events = count(opContext, esComponents, indexName);
+      if (!clone.path("shards_acknowledged").asBoolean()
+          || count(opContext, esComponents, backupName) != events) {
+        // The original is untouched and still holds every event, so drop the incomplete copy.
+        deleteIndex(opContext, esComponents, backupName);
+        throw new IOException(
+            String.format(
+                "Backup %s of %s did not start with all %d events", backupName, indexName, events));
+      }
+      if (useOpenSearch) {
+        replaceWithRolloverAlias(opContext, esComponents, indexName);
+      } else {
+        deleteIndex(opContext, esComponents, indexName);
+        originalDeleted = true;
+        createDataStream(opContext, esComponents, indexName);
+      }
+    } catch (IOException | RuntimeException e) {
+      try {
+        if (!originalDeleted
+            && resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
+          setWriteBlock(opContext, esComponents, indexName, false);
+        }
+      } catch (IOException | RuntimeException unblockFailure) {
+        e.addSuppressed(unblockFailure);
+      }
+      throw e;
     }
   }
 
@@ -818,39 +869,54 @@ public class UsageEventIndexUtils {
       OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String backupName,
-      String indexName)
+      String indexName,
+      boolean dataStream)
       throws IOException, InterruptedException {
-    long expected =
-        readJson(
-                opContext,
-                IndexUtils.performGetRequest(opContext, esComponents, "/" + backupName + "/_count"))
-            .path("count")
-            .asLong();
-    String reindex =
-        String.format(
-            "{\"conflicts\":\"proceed\",\"source\":{\"index\":\"%s\"},"
-                + "\"dest\":{\"index\":\"%s\",\"op_type\":\"create\"},"
-                + "\"script\":{\"lang\":\"painless\",\"source\":\"%s\"}}",
-            backupName, indexName, BACKFILL_SCRIPT);
     String taskId =
         readJson(
                 opContext,
-                IndexUtils.performPostRequest(
-                    opContext, esComponents, "/_reindex?wait_for_completion=false", reindex))
-            .path("task")
+                IndexUtils.performGetRequest(
+                    opContext, esComponents, "/" + backupName + "/_mapping"))
+            .path(backupName)
+            .path("mappings")
+            .path("_meta")
+            .path(BACKFILL_TASK_META)
             .asText();
+    if (taskId.isEmpty()) {
+      String reindex =
+          String.format(
+              "{\"conflicts\":\"proceed\",\"source\":{\"index\":\"%s\"},"
+                  + "\"dest\":{\"index\":\"%s\",\"op_type\":\"create\"},"
+                  + "\"script\":{\"lang\":\"painless\",\"source\":\"%s\","
+                  + "\"params\":{\"dataStream\":%s}}}",
+              backupName, indexName, BACKFILL_SCRIPT, dataStream);
+      taskId =
+          readJson(
+                  opContext,
+                  IndexUtils.performPostRequest(
+                      opContext, esComponents, "/_reindex?wait_for_completion=false", reindex))
+              .path("task")
+              .asText();
+      if (taskId.isEmpty()) {
+        throw new IOException("Reindex from " + backupName + " did not return a task id");
+      }
+      IndexUtils.performPutRequest(
+          opContext,
+          esComponents,
+          "/" + backupName + "/_mapping",
+          String.format("{\"_meta\":{\"%s\":\"%s\"}}", BACKFILL_TASK_META, taskId));
+    }
     JsonNode task = waitForTask(opContext, esComponents, taskId);
     if (task == null) {
-      log.error(
-          "Backfill of usage events from {} into {} (task {}) did not finish within {}; keeping"
-              + " {} so the next run completes it",
+      log.info(
+          "Copying usage events from {} back into {} (task {}) is still running; the next run"
+              + " checks it again",
           backupName,
           indexName,
-          taskId,
-          BACKFILL_TIMEOUT,
-          backupName);
+          taskId);
       return;
     }
+    long expected = count(opContext, esComponents, backupName);
     JsonNode result = task.path("response");
     long total = result.path("total").asLong();
     long created = result.path("created").asLong();
@@ -862,10 +928,13 @@ public class UsageEventIndexUtils {
         || total != expected
         || created + present + dropped != total) {
       log.error(
-          "Backfill of usage events from {} into {} is incomplete: {} of {} copied, first error:"
-              + " {}. Keeping {} so the next run retries it",
+          "Copying usage events from {} back into {} (task {}) is incomplete: {} of {} copied,"
+              + " first error: {}. {} is kept and not copied again, because a second copy can"
+              + " duplicate events once the index has rolled over; copy the remaining events"
+              + " yourself, then delete it",
           backupName,
           indexName,
+          taskId,
           created + present,
           expected,
           task.has("error") ? task.path("error") : failures.path(0),
@@ -874,7 +943,7 @@ public class UsageEventIndexUtils {
     }
     deleteIndex(opContext, esComponents, backupName);
     log.info(
-        "Backfilled {} usage events from {} into {} ({} already present, {} without a timestamp"
+        "Copied {} usage events from {} back into {} ({} already present, {} without a timestamp"
             + " dropped) and deleted {}",
         created,
         backupName,
@@ -890,7 +959,7 @@ public class UsageEventIndexUtils {
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String taskId)
       throws IOException, InterruptedException {
-    long deadline = System.currentTimeMillis() + BACKFILL_TIMEOUT.toMillis();
+    long deadline = System.currentTimeMillis() + BACKFILL_WAIT.toMillis();
     while (true) {
       JsonNode task =
           readJson(
@@ -926,6 +995,19 @@ public class UsageEventIndexUtils {
           .forEach(index -> names.add(index.path("name").asText()));
     }
     return names;
+  }
+
+  private static long count(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName)
+      throws IOException {
+    IndexUtils.performPostRequest(opContext, esComponents, "/" + indexName + "/_refresh", "");
+    return readJson(
+            opContext,
+            IndexUtils.performGetRequest(opContext, esComponents, "/" + indexName + "/_count"))
+        .path("count")
+        .asLong();
   }
 
   private static void setWriteBlock(

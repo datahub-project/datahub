@@ -186,10 +186,9 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       Thread.currentThread().interrupt();
       log.error("Interrupted while migrating the legacy usage event index for '{}'", prefix, e);
     } catch (Exception e) {
-      // Usage events only back analytics, so leave the index as it is and continue the setup.
+      // Usage events only back analytics, so continue the setup and let a later run try again.
       log.error(
-          "Failed to migrate the legacy usage event index for '{}'; audit event search and"
-              + " event type analytics stay broken for it until a later run migrates it",
+          "Failed to migrate the legacy usage event index for '{}'; a later run tries again",
           prefix,
           e);
     }

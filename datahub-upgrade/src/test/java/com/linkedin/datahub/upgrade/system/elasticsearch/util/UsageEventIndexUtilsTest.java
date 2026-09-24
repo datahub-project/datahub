@@ -6,6 +6,12 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.http.HttpVersion;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.message.BasicStatusLine;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -2241,5 +2247,53 @@ public class UsageEventIndexUtilsTest {
     Mockito.verify(searchClient, Mockito.times(2))
         .performLowLevelRequest(
             Mockito.any(OperationFingerprint.class), Mockito.any(Request.class));
+  }
+
+  @Test
+  public void testMigrateLegacyUsageEventIndex_KeepsOriginalWhenBackupDoesNotStart()
+      throws Exception {
+    List<String> calls = new ArrayList<>();
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              String call = request.getMethod() + " " + request.getEndpoint();
+              calls.add(call);
+              if (call.equals("GET /_resolve/index/test_datahub_usage_event")) {
+                return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
+              }
+              if (call.contains("/_clone/")) {
+                return jsonResponse("{\"acknowledged\":true,\"shards_acknowledged\":false}");
+              }
+              if (call.endsWith("/_count")) {
+                return jsonResponse("{\"count\":3}");
+              }
+              return jsonResponse("{}");
+            });
+
+    Assert.assertThrows(
+        IOException.class,
+        () ->
+            UsageEventIndexUtils.migrateLegacyUsageEventIndex(
+                operationContext, esComponents, "test_", false));
+
+    // The backup that never started is dropped and the original is unblocked, not deleted.
+    Assert.assertTrue(
+        calls.stream()
+            .anyMatch(call -> call.startsWith("DELETE /test_legacy_datahub_usage_event_")));
+    Assert.assertTrue(calls.contains("PUT /test_datahub_usage_event/_settings"));
+    Assert.assertFalse(calls.contains("DELETE /test_datahub_usage_event"));
+    Assert.assertFalse(calls.stream().anyMatch(call -> call.startsWith("PUT /_data_stream/")));
+  }
+
+  private static RawResponse jsonResponse(String body) {
+    RawResponse response = Mockito.mock(RawResponse.class);
+    Mockito.when(response.getStatusLine())
+        .thenReturn(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"));
+    Mockito.when(response.getEntity())
+        .thenReturn(new StringEntity(body, ContentType.APPLICATION_JSON));
+    return response;
   }
 }

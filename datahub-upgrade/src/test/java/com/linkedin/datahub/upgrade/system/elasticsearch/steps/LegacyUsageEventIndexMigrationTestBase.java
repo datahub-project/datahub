@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -40,6 +41,7 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
   private static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final long TEST_TIMEOUT_MS = 180_000;
   private static final String AUDIT_SORT =
       "[{\"timestamp\":\"desc\"},{\"type\":\"asc\"},{\"actorUrn.keyword\":\"asc\"}]";
 
@@ -77,7 +79,7 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
     }
   }
 
-  @Test
+  @Test(timeOut = TEST_TIMEOUT_MS)
   public void testLegacyIndexIsMovedOntoTheTemplateLayout() throws Exception {
     String prefix = "migrate_";
     String index = prefix + "datahub_usage_event";
@@ -100,20 +102,23 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
     JsonNode resolved = request("GET", "/_resolve/index/" + index, null);
     assertEquals(resolved.path("indices").size(), 0);
     assertTrue(names(resolved.path(managedLayoutField())).contains(index));
-    assertTrue(typeMappings(index).stream().allMatch("keyword"::equals));
+    List<String> typeMappings = typeMappings(index);
+    assertFalse(typeMappings.isEmpty());
+    assertTrue(typeMappings.stream().allMatch("keyword"::equals));
     refresh(index);
-    // The event with no timestamp at all cannot be placed in any time range, so it is dropped.
-    assertEquals(searchIds(index, "{\"size\":10,\"sort\":" + AUDIT_SORT + "}"), Set.of("1", "2"));
+    // A data stream cannot take the event with no timestamp at all, so it is dropped there.
+    Set<String> expectedIds = isDataStream() ? Set.of("1", "2") : Set.of("1", "2", "3");
+    assertEquals(searchIds(index, "{\"size\":10,\"sort\":" + AUDIT_SORT + "}"), expectedIds);
     assertEquals(
         searchIds(index, "{\"query\":{\"term\":{\"type\":\"SearchEvent\"}}}"), Set.of("1"));
     assertEquals(legacyBackups(prefix), List.of());
 
     assertEquals(runStep(prefix), DataHubUpgradeState.SUCCEEDED);
     refresh(index);
-    assertEquals(searchIds(index, "{\"size\":10}"), Set.of("1", "2"));
+    assertEquals(searchIds(index, "{\"size\":10}"), expectedIds);
   }
 
-  @Test
+  @Test(timeOut = TEST_TIMEOUT_MS)
   public void testLeftoverBackupIsBackfilled() throws Exception {
     String prefix = "resume_";
     String index = prefix + "datahub_usage_event";
@@ -134,7 +139,7 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
     assertEquals(legacyBackups(prefix), List.of());
   }
 
-  @Test
+  @Test(timeOut = TEST_TIMEOUT_MS)
   public void testBackupIsKeptWhenEventsCannotBeCopiedBack() throws Exception {
     String prefix = "partial_";
     String index = prefix + "datahub_usage_event";
@@ -149,7 +154,15 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
     assertEquals(runStep(prefix), DataHubUpgradeState.SUCCEEDED);
 
     assertEquals(request("GET", "/_resolve/index/" + index, null).path("indices").size(), 0);
-    assertEquals(legacyBackups(prefix).size(), 1);
+    List<String> backups = legacyBackups(prefix);
+    assertEquals(backups.size(), 1);
+    String task = recordedBackfillTask(backups.get(0));
+    assertFalse(task.isEmpty());
+
+    // A later run checks the recorded copy instead of copying the backup again.
+    assertEquals(runStep(prefix), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(legacyBackups(prefix), backups);
+    assertEquals(recordedBackfillTask(backups.get(0)), task);
   }
 
   private DataHubUpgradeState runStep(String prefix) {
@@ -194,6 +207,19 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
                         .path("type")
                         .asText()));
     return types;
+  }
+
+  private boolean isDataStream() {
+    return "data_streams".equals(managedLayoutField());
+  }
+
+  private String recordedBackfillTask(String backup) throws IOException {
+    return request("GET", "/" + backup + "/_mapping", null)
+        .path(backup)
+        .path("mappings")
+        .path("_meta")
+        .path("datahub_backfill_task")
+        .asText();
   }
 
   private List<String> legacyBackups(String prefix) throws IOException {
