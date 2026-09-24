@@ -109,7 +109,7 @@ public class GraphFiltersTest {
 
     GraphFilters filters = GraphFilters.from(EMPTY_FILTER, Set.of("HAS"), unsetOrFilter);
 
-    assertNull(filters.getRelationshipFilter().getOr());
+    assertNotNull(filters.getRelationshipFilter().getOr());
     assertTrue(filters.getRelationshipFilter().getOr().isEmpty());
     assertEquals(filters.getRelationshipFilter().getDirection(), RelationshipDirection.OUTGOING);
   }
