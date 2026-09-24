@@ -122,6 +122,7 @@ interface Props {
     onBlur?: () => void;
     showViewAllResults?: boolean;
     searchInputRef?: MutableRefObject<any>;
+    dataTestId?: string;
 }
 
 const defaultProps = {
@@ -151,6 +152,7 @@ export const SearchBar = ({
     onFocus,
     onBlur,
     showViewAllResults = false,
+    dataTestId,
     ...props
 }: Props) => {
     const { t } = useTranslation('search');
@@ -254,7 +256,7 @@ export const SearchBar = ({
         if (searchQuery && selectedQuickFilter?.value !== previousSelectedQuickFilterValue) {
             onQueryChange(searchQuery);
         }
-    });
+    }, [searchQuery, selectedQuickFilter, previousSelectedQuickFilterValue, onQueryChange]);
 
     // clear quick filters when this search bar is unmounted (ie. going from search results to home page)
     useEffect(() => {
@@ -324,9 +326,14 @@ export const SearchBar = ({
     useEffect(() => {
         if (showCommandK) {
             const handleKeyDown = (event) => {
-                // Support command-k to select the search bar.
+                const isMac = (navigator as any).userAgentData
+                    ? (navigator as any).userAgentData.platform.toLowerCase().includes('mac')
+                    : navigator.userAgent.toLowerCase().includes('mac');
+
+                // Support command-k to select the search bar on all platforms
+                // Support ctrl-k to select the search bar on non-Mac platforms
                 // 75 is the keyCode for 'k'
-                if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
+                if ((event.metaKey || (!isMac && event.ctrlKey)) && event.keyCode === 75) {
                     searchInputRef.current?.focus();
                 }
             };
@@ -408,7 +415,7 @@ export const SearchBar = ({
                     style={{ ...inputStyle, color: 'red' }}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    data-testid="search-input"
+                    data-testid={dataTestId || 'search-input'}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
                     allowClear={(isFocused && { clearIcon: <ClearIcon data-testid="button-clear" /> }) || false}

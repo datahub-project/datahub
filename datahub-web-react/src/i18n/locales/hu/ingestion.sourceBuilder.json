@@ -235,6 +235,7 @@
     "secret.notFound": "Nem található secret",
     "selectTemplate.noResults": "A(z) \"{{searchFilter}}\" nevű adatforrás nem található.",
     "selectTemplate.searchPlaceholder": "Adatforrások keresése...",
+    "snowflake.passwordAuthDeprecation.message": "A Snowflake a Strong Authentication bevezetésének részeként kivezeti a felhasználónév + jelszó hitelesítést (DEFAULT_AUTHENTICATOR). A jelszavas hitelesítés a 3. fázisban (Aug-Okt 2026) egy fiókspecifikus érvényesítési napon fog megszűnni működni. Váltsd át ezt a receptet kulcspár hitelesítésre (KEY_PAIR_AUTHENTICATOR) a fiókod érvényesítési napja előtt. Lásd a <anchor>migrációs útmutató</anchor>.",
     "steps.titles.createSchedule": "Szinkronizálási ütemezés",
     "steps.titles.defineRecipe": "Kapcsolat konfigurálása",
     "steps.titles.nameSource": "Befejezés",

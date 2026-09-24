@@ -77,8 +77,7 @@ class PostgresAdapter(PlatformAdapter):
         """
         PostgreSQL quantiles via PERCENTILE_DISC.
 
-        Matches GE behavior (sqlalchemy_dataset.py:_get_column_quantiles_generic_sqlalchemy)
-        which uses PERCENTILE_DISC(q) WITHIN GROUP (ORDER BY col ASC). The base adapter's
+        Uses PERCENTILE_DISC(q) WITHIN GROUP (ORDER BY col ASC). The base adapter's
         PERCENTILE_CONT interpolates between values; PERCENTILE_DISC returns the actual
         value at the discrete percentile. These return different values for sparse data.
         """

@@ -42,9 +42,8 @@ class SnowflakeAdapter(PlatformAdapter):
                 f"Cannot profile {context.pretty_name}: table name required"
             )
 
-        # custom_sql is only set on the GE profiler path (snowflake_profiler.py
-        # gates it behind `method == "ge"`). The SQLAlchemy adapter should never
-        # receive it — if it does, something upstream changed without updating this code.
+        # custom_sql is not supported on the SQLAlchemy profiler path.
+        # If it arrives here, something upstream changed without updating this code.
         assert not context.custom_sql, (
             f"custom_sql is not supported on the SQLAlchemy profiler path "
             f"(table: {context.pretty_name})"

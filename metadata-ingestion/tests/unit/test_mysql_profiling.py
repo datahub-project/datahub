@@ -5,7 +5,7 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.doris.doris_source import DorisConfig, DorisSource
 from datahub.ingestion.source.sql.mysql import (
     MySQLConfig,
@@ -435,9 +435,11 @@ def test_generate_profile_candidates_retains_table_absent_from_cache() -> None:
 
 def test_mysql_profiling_config_override_set_pinned() -> None:
     """Pin the MySQLProfilingConfig override set so a new override forces an update here."""
-    ge = {name: fi.default for name, fi in GEProfilingConfig.model_fields.items()}
+    base = {name: fi.default for name, fi in ProfilingConfig.model_fields.items()}
     mysql = {name: fi.default for name, fi in MySQLProfilingConfig.model_fields.items()}
-    mysql_overrides = {name for name in mysql if name in ge and mysql[name] != ge[name]}
+    mysql_overrides = {
+        name for name in mysql if name in base and mysql[name] != base[name]
+    }
 
     assert mysql_overrides == {
         "profile_table_row_limit",

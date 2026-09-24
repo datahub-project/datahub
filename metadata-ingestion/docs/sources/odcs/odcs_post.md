@@ -95,6 +95,52 @@ not exist in DataHub are left unbound with a warning instead of creating stub da
 Two schema entries binding the same physical dataset warn: `logicalParent` is
 single-valued, so the last writer wins.
 
+#### Data product output ports
+
+In the Bitol model a data product is authored separately (ODPS) and lists its contracts
+under `outputPorts` — the interfaces it promises to consumers. ODCS carries only the
+back-reference, a free-text `dataProduct` field. With
+`emit_data_product_association: true` the source follows that back-reference: the dataset
+each contract governs is added to the named Data Product **as an output port**
+(`outputPort: true`), which is what the product page's Output Ports module, the lineage
+"output ports only" filter, and the search-preview pill read.
+
+The asset added is the **physical dataset** when the contract binds to one — that is the
+table consumers actually query, and it renders without the Logical Models beta flag. An
+unbound contract contributes its logical `odcs` dataset instead. The DataContract entity
+itself is never the asset: DataHub's `DataProductContains` relationship accepts datasets,
+jobs, dashboards and the like, not contracts.
+
+The product is expected to exist already, so the `dataProduct` value is resolved against
+DataHub in order:
+
+1. a full `urn:li:dataProduct:...` value, used verbatim;
+2. `urn:li:dataProduct:<value>`, when a product exists under that id;
+3. an exact, case-insensitive match on a product's **display name** — ODCS documents the
+   field as the product's name, and a name like `Orders, Retail (EU)` can never be an id
+   because commas and parens are structural in DataHub urns.
+
+A value matching nothing is reported (`report.data_products_unresolved`) and skipped rather
+than turned into a stub product. A name carried by more than one product is ambiguous and
+also skipped — set `dataProduct` to the intended product's id. Values resolved by name are
+counted in `report.data_products_resolved_by_name`; with a file sink there is no graph to
+resolve against, so the id-derived urn is used unverified.
+
+Set `verify_data_product_exists: false` for a contract-first workflow, where ODCS creates
+the product at `urn:li:dataProduct:<value>`, names it after the value, and marks it not
+removed. The id is the value itself rather than a generated guid, exactly as
+`datahub dataproduct upsert` derives a urn from a product's `id` — so a product ODCS
+created can later be taken over from a DataProduct yaml, and a product created that way is
+found by ODCS. The name is written only for a product this run creates; on a product that
+already exists ODCS never touches its display name.
+
+Every contract naming the same product contributes to one patch per run, so a product
+assembled from several contracts gets a single update. Because the patch is additive, ODCS
+never clears assets it did not add and the product is never stale-removed — dropping the
+`dataProduct` field, or a whole contract, leaves the port in place; remove it in the UI or
+via the DataProduct SDK. An asset the product already carries is promoted to an output port
+in place.
+
 ### Limitations
 
 - ODCS v3.0 and v3.1 only. Contracts reporting v2.x in `apiVersion` are skipped with a
@@ -117,12 +163,15 @@ single-valued, so the last writer wins.
   subset is emitted), `classification` → `GlossaryTerm` linking, schemaField-level
   `logicalParent` column links, and ODCS export. Spec-valid-but-unmapped fields are
   reported once per file via `report.spec_fields_ignored`. These may land in a follow-up.
-- **Data products / output ports (ODPS) are not modeled.** The contract-level
-  `dataProduct` field is emitted only as the `odcs.dataProduct` custom property — it is
-  **not** linked to a DataHub `DataProduct` entity, and ODPS output ports are not read at
-  all. "One contract across several output ports" and "several contracts on one port" are
-  therefore not representable today. Dataset-level contracts (via the logical dataset and
-  its `logicalParent` link) are the supported unit.
+- **ODPS documents are not read.** `emit_data_product_association` marks the datasets a
+  contract governs as output ports of the product the contract names, but the product side
+  of the Bitol model is not ingested: no ODPS file is parsed, so port names, port versions,
+  `type`, `sbom`, `inputContracts`, input ports, and management ports are all unavailable,
+  and a product's own metadata (description, owners, domain) is never written. Port identity
+  is therefore the dataset, not the ODPS `name`/`version` pair, so "one contract across
+  several output ports" and "several contracts on one port" remain unrepresentable. A
+  contract listed under a product's `inputPorts` rather than `outputPorts` cannot be
+  distinguished from ODCS alone; it would be marked as an output port too.
 - **Schema validation depends on the bundled JSON Schemas.** The v3.0.2 / v3.1.0 schemas
   are vendored with the plugin, so `strict_validation` normally works out of the box. If a
   contract declares a supported `apiVersion` for which no validator is available (e.g. a

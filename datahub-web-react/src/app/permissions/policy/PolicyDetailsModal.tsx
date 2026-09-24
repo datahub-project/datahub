@@ -5,8 +5,13 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { extractTypeFromUrn } from '@app/entity/shared/utils';
+import {
+    getDisplayName as getStructuredPropertyDisplayName,
+    isStructuredProperty,
+} from '@app/govern/structuredProperties/utils';
 import AvatarsGroup from '@app/permissions/AvatarsGroup';
-import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
+import { FIELD_TYPES, RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
+import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import {
     convertLegacyResourceFilter,
     getFieldCondition,
@@ -15,9 +20,10 @@ import {
 } from '@app/permissions/policy/policyUtils';
 import { CompactEntityNameComponent } from '@app/recommendations/renderer/component/CompactEntityNameComponent';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
-import { useAppConfig } from '@app/useAppConfig';
+import { useIsStructuredPropertiesInPoliciesEnabled } from '@app/shared/hooks/useIsStructuredPropertiesInPoliciesEnabled';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
+import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { useGetIngestionSourceNamesLazyQuery } from '@graphql/ingestion.generated';
 import { Entity, EntityType, Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
@@ -31,6 +37,7 @@ type Props = {
     open: boolean;
     onClose: () => void;
     privileges: PrivilegeOptionType[] | undefined;
+    resourcePrivileges?: PolicyPrivilegesConfig['resourcePrivileges'];
 };
 
 const PolicyContainer = styled.div`
@@ -59,14 +66,31 @@ const FieldHeaderContainer = styled.div`
     margin-bottom: 8px;
 `;
 
+const PropertyRow = styled.div`
+    margin-bottom: 16px;
+`;
+
+const ValueLabelAndValuesContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+`;
+
+const ValueLabel = styled.span`
+    white-space: nowrap;
+`;
+
 /**
  * Component used for displaying the details about an existing Policy.
  */
-export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
+export default function PolicyDetailsModal({ policy, open, onClose, privileges, resourcePrivileges }: Props) {
     const { t } = useTranslation('settings.permissions');
     const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistryV2();
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
+    const isStructuredPropertiesInPoliciesEnabled = useIsStructuredPropertiesInPoliciesEnabled();
 
     const isActive = policy?.state === PolicyState.Active;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
@@ -90,10 +114,14 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const tagCondition = getFieldCondition(resources?.filter, 'TAG') || PolicyMatchCondition.Equals;
     const glossaryEntities = getFieldValues(resources?.filter, 'GLOSSARY') || [];
     const glossaryCondition = getFieldCondition(resources?.filter, 'GLOSSARY') || PolicyMatchCondition.Equals;
-
-    const {
-        config: { policiesConfig },
-    } = useAppConfig();
+    const structuredPropertyCondition =
+        getFieldCondition(resources?.filter, 'STRUCTURED_PROPERTY') || PolicyMatchCondition.Equals;
+    const structuredProperties = useMemo(
+        () =>
+            resources?.filter?.criteria?.find((c) => c.field === FIELD_TYPES.STRUCTURED_PROPERTY)
+                ?.structuredPropertyValues || [],
+        [resources?.filter?.criteria],
+    );
 
     // Ingestion sources aren't in the entity registry and the policy query doesn't resolve
     // them into entities, so look their names up directly (same as the policy edit form).
@@ -116,6 +144,62 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         const sources = sourceNamesData?.listIngestionSources?.ingestionSources || [];
         return new Map(sources.map((source) => [source.urn, source.name]));
     }, [sourceNamesData]);
+
+    // Extract property URNs for fetching property definitions
+    const propertyUrns = useMemo(() => {
+        return (structuredProperties?.map((prop) => prop?.propertyUrn).filter(Boolean) as string[]) || [];
+    }, [structuredProperties]);
+
+    // Fetch only the structured properties used in this policy
+    const { data: structuredPropertiesData } = useGetEntitiesQuery({
+        skip: propertyUrns.length === 0,
+        variables: { urns: propertyUrns },
+    });
+
+    const structuredPropertyNames = useMemo(() => {
+        const nameMap = new Map<string, string>();
+        if (!structuredPropertiesData?.entities) return nameMap;
+
+        structuredPropertiesData.entities.filter(isStructuredProperty).forEach((entity) => {
+            nameMap.set(entity.urn, getStructuredPropertyDisplayName(entity));
+        });
+
+        return nameMap;
+    }, [structuredPropertiesData]);
+
+    // Extract URNs from structured property values that might be entity references with proper type safety
+    const propertyValueUrns = useMemo(() => {
+        const urns = new Set<string>();
+        structuredProperties?.forEach((prop) => {
+            const values = prop?.values;
+            if (Array.isArray(values)) {
+                values.forEach((value) => {
+                    if (typeof value === 'string' && value.startsWith('urn:li:')) {
+                        urns.add(value);
+                    }
+                });
+            }
+        });
+        return Array.from(urns);
+    }, [structuredProperties]);
+
+    const { data: entityData } = useGetEntitiesQuery({
+        skip: propertyValueUrns.length === 0,
+        variables: { urns: propertyValueUrns },
+    });
+
+    const entityValueMap = useMemo(() => {
+        const valueMap = new Map<string, any>();
+        if (!entityData?.entities) return valueMap;
+
+        entityData.entities
+            .filter((entity): entity is NonNullable<typeof entity> => entity != null)
+            .forEach((entity) => {
+                valueMap.set(entity.urn, entity);
+            });
+
+        return valueMap;
+    }, [entityData]);
 
     const modalButtons = [
         {
@@ -219,10 +303,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                             {(resourceTypes?.length &&
                                 resourceTypes.map((value) =>
                                     renderValueDisplay(
-                                        mapResourceTypeToDisplayName(
-                                            value.value,
-                                            policiesConfig?.resourcePrivileges || [],
-                                        ) || '',
+                                        mapResourceTypeToDisplayName(value.value, resourcePrivileges || []) || '',
                                         resourceTypeCondition,
                                     ),
                                 )) || <Pill label={t('details.tagAll')} size="md" />}
@@ -305,6 +386,62 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                             value.entity,
                                         ),
                                     )) || <Pill label={t('details.tagAll')} size="md" />}
+                            </div>
+                        )}
+                        {isStructuredPropertiesInPoliciesEnabled && (
+                            <div>
+                                {renderFieldWithCondition(
+                                    t('details.structuredPropertiesLabel'),
+                                    structuredPropertyCondition,
+                                )}
+                                <ThinDivider />
+                                {(structuredProperties?.length > 0 && (
+                                    <>
+                                        {structuredProperties.map((prop, index) => {
+                                            // Use index as key since same property can appear multiple times with different values
+                                            const rowKey = `structured-property-${index}`;
+                                            return (
+                                                <PropertyRow key={rowKey}>
+                                                    <Text type="span" color="textSecondary">
+                                                        <strong>{t('details.structuredPropertyLabel')}:</strong>{' '}
+                                                        {structuredPropertyNames.get(prop?.propertyUrn) ||
+                                                            prop?.propertyUrn}
+                                                    </Text>
+                                                    <ValueLabelAndValuesContainer>
+                                                        <ValueLabel>
+                                                            <Text type="span" color="textSecondary">
+                                                                <strong>
+                                                                    {t('details.structuredPropertyValuesLabel')}:
+                                                                </strong>
+                                                            </Text>
+                                                        </ValueLabel>
+                                                        {prop?.values?.map((value, valueIndex) => {
+                                                            const isEntityUrn = value?.startsWith('urn:li:');
+                                                            const entity = isEntityUrn
+                                                                ? entityValueMap.get(value)
+                                                                : null;
+                                                            // Combine property row index, value, and value index for uniqueness
+                                                            const valueKey = `structured-property-${index}-${value}-${valueIndex}`;
+
+                                                            if (entity) {
+                                                                return (
+                                                                    <CompactEntityNameComponent
+                                                                        key={valueKey}
+                                                                        entity={entity}
+                                                                        showFullTooltip
+                                                                        showMargin={false}
+                                                                    />
+                                                                );
+                                                            }
+
+                                                            return <Pill key={valueKey} label={value} size="md" />;
+                                                        })}
+                                                    </ValueLabelAndValuesContainer>
+                                                </PropertyRow>
+                                            );
+                                        })}
+                                    </>
+                                )) || <Text>-</Text>}
                             </div>
                         )}
                     </>

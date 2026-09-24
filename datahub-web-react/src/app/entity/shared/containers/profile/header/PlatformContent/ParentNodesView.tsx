@@ -1,11 +1,9 @@
 import { RightOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-
 export const StyledRightOutlined = styled(RightOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 8px;
     margin: 0 10px;
 `;
@@ -21,7 +19,7 @@ export const ParentNodesWrapper = styled.div`
 `;
 
 export const Ellipsis = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-right: 2px;
 `;
 

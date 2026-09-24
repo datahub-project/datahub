@@ -75,11 +75,12 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(
+                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+            mockClient);
     browseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -175,7 +176,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // Create a new browse DAO with our test configuration
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -234,7 +234,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // Create a new browse DAO with our test configuration
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -280,7 +279,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     ESBrowseDAO v3ReadBrowseDao =
         new ESBrowseDAO(
-            mockClient,
             v3KeywordReadConfig(),
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -308,7 +306,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     ESBrowseDAO v3ReadBrowseDao =
         new ESBrowseDAO(
-            mockClient,
             v3KeywordReadConfig(),
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,

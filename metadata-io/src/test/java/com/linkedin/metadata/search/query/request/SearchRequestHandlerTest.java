@@ -148,7 +148,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .bulkDelete(TEST_ES_SEARCH_CONFIG.getBulkDelete())
             .bulkProcessor(TEST_ES_SEARCH_CONFIG.getBulkProcessor())
             .buildIndices(TEST_ES_SEARCH_CONFIG.getBuildIndices())
-            .idHashAlgo(TEST_ES_SEARCH_CONFIG.getIdHashAlgo())
+            // idHashAlgo now travels with entityIndex.v2, preserved above
             .index(TEST_ES_SEARCH_CONFIG.getIndex())
             .scroll(TEST_ES_SEARCH_CONFIG.getScroll())
             .build();

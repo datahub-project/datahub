@@ -82,6 +82,7 @@ public class BuildIndicesIncrementalStepTest {
     ReindexConfig reindexConfig = mockReindexConfig(INDEX_NAME, true);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(reindexConfig));
     when(indexedService.getIndexBuilder()).thenReturn(indexBuilder);
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(indexBuilder);
     when(indexBuilder.getBackingIndices(any(OperationContext.class), anyString()))
         .thenReturn(Set.of("datasetindex_v2_old"));
     when(indexBuilder.validateAndSwapAlias(
@@ -349,6 +350,22 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
+  public void testReindexConfigsAreCollectedOnlyOnceForMultipleIndices() throws Throwable {
+    ReindexConfig first = mockReindexConfig("datasetindex_v2", false);
+    ReindexConfig second = mockReindexConfig("chartindex_v2", false);
+    when(first.exists()).thenReturn(false);
+    when(second.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(first, second));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexedService, times(1)).buildReindexConfigs(any(), any());
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(first));
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(second));
+  }
+
+  @Test
   public void testPollTimeoutReturnsFailed() throws Throwable {
     IncrementalReindexResult incrementalResult =
         new IncrementalReindexResult(
@@ -522,6 +539,7 @@ public class BuildIndicesIncrementalStepTest {
     // Return a reindex config for an index that no service provides a builder for
     ReindexConfig unknownConfig = mockReindexConfig("unknown_index", true);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(unknownConfig));
+    when(indexedService.getIndexBuilder(anyString())).thenReturn(null);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
@@ -529,12 +547,10 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
-  public void testLookupSkipsThrowingServiceAndFindsBuilderInNextService() throws Throwable {
-    // The index-builder lookup catches per-service exceptions (e.g. the message-less
-    // UnsupportedOperationException from the structured-property merge) and keeps checking the
-    // remaining services. A throwing service placed before the good one must be skipped, not
-    // abort the lookup: were the catch removed, the exception would escape to the executable's
-    // outer catch, the step would FAIL, and the builder below would never be invoked.
+  public void testCachedBuilderAvoidsRepeatingConfigDiscovery() throws Throwable {
+    // Config discovery succeeds once. A second call would throw, proving the execution loop uses
+    // the builder cache populated by getAllReindexConfigs instead of rebuilding every service's
+    // configs for every index.
     ElasticSearchIndexed throwingService = mock(ElasticSearchIndexed.class);
     when(throwingService.buildReindexConfigs(any(), any()))
         .thenReturn(List.of())
@@ -569,6 +585,8 @@ public class BuildIndicesIncrementalStepTest {
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(throwingService, times(1)).buildReindexConfigs(any(), any());
+    verify(indexedService, times(1)).buildReindexConfigs(any(), any());
     verify(indexBuilder)
         .buildIndexIncremental(any(OperationContext.class), any(), eq(UPGRADE_VERSION));
   }
