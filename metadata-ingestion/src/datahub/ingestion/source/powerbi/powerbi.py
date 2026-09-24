@@ -208,8 +208,9 @@ class Mapper:
                     # convert_lineage_urns_to_lowercase lowercases only the dataset
                     # portion of the upstream schemaField URN — matching sources'
                     # lowercase_dataset_urns, which never touches the field path.
-                    # Lowercasing the column too would drop the column-level edge
-                    # against warehouses that store columns in their original casing.
+                    # Per-upstream column lowercasing (for sources ingested with
+                    # convert_column_urns_to_lowercase) is applied earlier, at
+                    # resolution, via server_to_platform_instance.
                     self.lineage_urn_to_lowercase(column_ref.table),
                     column_ref.column,
                 )

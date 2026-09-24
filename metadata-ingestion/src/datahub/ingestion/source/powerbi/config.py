@@ -297,7 +297,21 @@ def default_for_dataset_type_mapping() -> Dict[str, str]:
     }
 
 
-class DataBricksPlatformDetail(PlatformDetail):
+class PowerBIServerPlatformDetail(PlatformDetail):
+    """Base for ``server_to_platform_instance`` entries; adds PowerBI-specific
+    per-upstream knobs on top of the shared platform_instance/env."""
+
+    convert_column_urns_to_lowercase: bool = pydantic.Field(
+        default=False,
+        description="Lowercase the column (field path) portion of column-level lineage "
+        "URNs for upstreams from this server. PowerBI reports columns in their original "
+        "casing; set this when this source was ingested with "
+        "convert_column_urns_to_lowercase: true so the column-level edges resolve against "
+        "its lowercased schema fields.",
+    )
+
+
+class DataBricksPlatformDetail(PowerBIServerPlatformDetail):
     """
     metastore is an additional field used in Databricks connector to generate the dataset urn
     """
@@ -316,7 +330,7 @@ def _strip_and_reject_blank(value: Optional[str]) -> Optional[str]:
     return stripped
 
 
-class OraclePlatformDetail(PlatformDetail):
+class OraclePlatformDetail(PowerBIServerPlatformDetail):
     default_schema: Optional[str] = pydantic.Field(
         default=None,
         description=(
@@ -561,7 +575,10 @@ class PowerBiDashboardSourceConfig(
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
-        str, Union[OraclePlatformDetail, DataBricksPlatformDetail, PlatformDetail]
+        str,
+        Union[
+            OraclePlatformDetail, DataBricksPlatformDetail, PowerBIServerPlatformDetail
+        ],
     ] = pydantic.Field(
         default={},
         description="Mapping from a PowerBI datasource server to the DataHub platform instance "
