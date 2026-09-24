@@ -10,6 +10,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.GetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
@@ -106,10 +107,11 @@ public class GraphQueryUtilsTest {
     assertTrue(((BoolQueryBuilder) rootQuery.filter().get(0)).should().isEmpty());
   }
 
+  @Test
   public void testAddFilterToQueryBuilderNullAndDoesNotThrow() {
     Filter filter = new Filter();
     ConjunctiveCriterion conjunctiveCriterion = new ConjunctiveCriterion();
-    assertNull(conjunctiveCriterion.getAnd());
+    assertNull(conjunctiveCriterion.getAnd(GetMode.NULL));
     filter.setOr(new ConjunctiveCriterionArray(conjunctiveCriterion));
 
     BoolQueryBuilder rootQuery = new BoolQueryBuilder();
