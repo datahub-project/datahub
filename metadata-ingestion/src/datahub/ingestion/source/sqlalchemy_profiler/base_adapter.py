@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Union, cast
 
 import sqlalchemy as sa
+from sqlalchemy import Select
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
@@ -76,7 +77,7 @@ class ProfilingConnection:
         nothing can tell `MEDIAN(v)` from `v` -- so pass
         literal_is_aggregate=True to assert that yours collapses to one row.
         """
-        query = sa.select([expr]).select_from(table)
+        query = sa.select(expr).select_from(table)
 
         inner = expr.element if isinstance(expr, Label) else expr
         # None: a function, which returns one row by construction.
@@ -418,7 +419,7 @@ class PlatformAdapter(ABC):
         if sample_clause:
             # The sample clause must survive, so this one cannot be flattened.
             query = (
-                sa.select([sa.func.count()])
+                sa.select(sa.func.count())
                 .select_from(table)
                 .suffix_with(sample_clause)
             )
@@ -609,8 +610,8 @@ class PlatformAdapter(ABC):
         if non_null_count == 0:
             return None
         offset = max(non_null_count // 2 - 1, 0)
-        middle_query = (
-            sa.select([sa.column(column)])
+        middle_query: Select = (
+            sa.select(sa.column(column))
             .select_from(table)
             .where(sa.column(column).is_not(None))
             .order_by(sa.column(column))
@@ -684,7 +685,7 @@ class PlatformAdapter(ABC):
                 percentile_expr = sa.literal_column(
                     f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
                 ).label("percentile")
-                query = sa.select([percentile_expr]).select_from(table)
+                query = sa.select(percentile_expr).select_from(table)
                 result = conn.execute_rows(query).scalar()
                 logger.debug(
                     f"Quantile {q} for {column}: result type={type(result)}, value={result}"
@@ -748,34 +749,30 @@ class PlatformAdapter(ABC):
             # Create case expression for this bucket
             if i < num_buckets - 1:
                 bucket_case_expr: Any = sa.case(
-                    [
-                        (
-                            sa.and_(
-                                sa.column(column) >= bucket_start,
-                                sa.column(column) < bucket_end,
-                            ),
-                            1,
-                        )
-                    ],
+                    (
+                        sa.and_(
+                            sa.column(column) >= bucket_start,
+                            sa.column(column) < bucket_end,
+                        ),
+                        1,
+                    ),
                     else_=0,
                 )
             else:
                 # Last bucket includes the max value
                 bucket_case_expr = sa.case(
-                    [
-                        (
-                            sa.and_(
-                                sa.column(column) >= bucket_start,
-                                sa.column(column) <= bucket_end,
-                            ),
-                            1,
-                        )
-                    ],
+                    (
+                        sa.and_(
+                            sa.column(column) >= bucket_start,
+                            sa.column(column) <= bucket_end,
+                        ),
+                        1,
+                    ),
                     else_=0,
                 )
             buckets.append(sa.func.sum(bucket_case_expr).label(f"bucket_{i}"))
 
-        query = sa.select(buckets).select_from(table)
+        query = sa.select(*buckets).select_from(table)
         # Single-row, but on the main greenlet, so not batchable regardless --
         # see ProfilingConnection.execute_rows.
         result = conn.execute_rows(query).fetchone()
@@ -811,8 +808,8 @@ class PlatformAdapter(ABC):
             List of (value, count) tuples, sorted by count descending
         """
         count_expr = sa.func.count().label("count")
-        query = (
-            sa.select([sa.column(column), count_expr])
+        query: Select = (
+            sa.select(sa.column(column), count_expr)
             .select_from(table)
             .group_by(sa.column(column))
             .order_by(count_expr.desc())
@@ -852,8 +849,8 @@ class PlatformAdapter(ABC):
             (Trino/Athena JSON) are orderable in SQL.
         """
         count_expr = sa.func.count(sa.column(column)).label("count")
-        query = (
-            sa.select([sa.column(column), count_expr])
+        query: Select = (
+            sa.select(sa.column(column), count_expr)
             .select_from(table)
             .where(sa.column(column).is_not(None))
             .group_by(sa.column(column))
@@ -899,8 +896,8 @@ class PlatformAdapter(ABC):
         Returns:
             List of sample values (may contain duplicates)
         """
-        query = (
-            sa.select([sa.column(column)])
+        query: Select = (
+            sa.select(sa.column(column))
             .select_from(table)
             .where(sa.column(column).isnot(None))
             .limit(limit)

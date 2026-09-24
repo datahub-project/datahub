@@ -436,7 +436,7 @@ class TestPostgresLineageIntegration:
         mock_conn.execute.side_effect = [
             mock_extension_result,
             mock_permission_result,
-            OperationalError("connection lost", None, None),
+            OperationalError("connection lost", None, Exception("connection lost")),
         ]
 
         extractor = PostgresLineageExtractor(

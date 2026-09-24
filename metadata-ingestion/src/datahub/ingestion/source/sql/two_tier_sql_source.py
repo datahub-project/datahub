@@ -54,7 +54,9 @@ class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):
                 database=current_db or parsed_url.path.lstrip("/"),
                 query=urllib.parse.parse_qs(parsed_url.query),
             ).update_query_dict(uri_opts or {})
-            return str(url)
+            # render_as_string(hide_password=False): str(URL) masks the password as
+            # "***" on SQLAlchemy 2.0, which would break the create_engine() connection.
+            return url.render_as_string(hide_password=False)
         else:
             return make_sqlalchemy_uri(
                 self.scheme,

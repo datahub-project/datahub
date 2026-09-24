@@ -5,12 +5,23 @@ import re
 import typing
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import pydantic
 from pyathena.common import BaseCursor
 from pyathena.model import AthenaTableMetadata
-from pyathena.sqlalchemy_athena import AthenaRestDialect
+from pyathena.sqlalchemy.rest import AthenaRestDialect
 from pydantic import model_validator
 from sqlalchemy import create_engine, exc, inspect, text, types
 from sqlalchemy.engine import reflection
@@ -909,9 +920,9 @@ class AthenaSource(SQLAlchemySource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: Dict,
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:

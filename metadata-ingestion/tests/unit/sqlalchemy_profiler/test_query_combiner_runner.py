@@ -1,5 +1,6 @@
 """Unit tests for QueryCombinerRunner - focuses on query combining behavior."""
 
+import logging
 import math
 from unittest.mock import MagicMock
 

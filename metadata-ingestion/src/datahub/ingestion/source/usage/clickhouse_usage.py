@@ -175,7 +175,10 @@ class ClickHouseUsageSource(Source):
 
     def _get_observed_queries(self) -> Iterable[ObservedQuery]:
         engine = self._make_sql_engine()
-        results = engine.execute(text(self._make_usage_query()))
+        # SA 2.0 removed Engine.execute(); run on a connection and materialize the
+        # rows before it closes so the generator below can keep yielding.
+        with engine.connect() as conn:
+            results = conn.execute(text(self._make_usage_query())).fetchall()
         for row in results:
             row_dict = dict(row._mapping)
 
