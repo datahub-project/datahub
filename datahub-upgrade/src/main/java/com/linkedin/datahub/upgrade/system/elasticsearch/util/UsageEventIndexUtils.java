@@ -8,7 +8,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchStatusException;
@@ -38,6 +40,9 @@ public class UsageEventIndexUtils {
   private static final String LEGACY_BACKUP_INFIX = "legacy_datahub_usage_event_";
   // Recorded on the backup, so a later run checks the same copy instead of starting another one.
   private static final String BACKFILL_TASK_META = "datahub_backfill_task";
+  // The write index that copy went into: copying again only skips the events already copied, and
+  // so only avoids duplicates, while that is still the write index.
+  private static final String BACKFILL_WRITE_INDEX_META = "datahub_backfill_write_index";
   private static final Duration BACKFILL_POLL_INTERVAL = Duration.ofSeconds(2);
   private static final Duration BACKFILL_WAIT = Duration.ofMinutes(5);
   // Data streams reject events without @timestamp. Older events may only carry timestamp; events
@@ -872,16 +877,35 @@ public class UsageEventIndexUtils {
       String indexName,
       boolean dataStream)
       throws IOException, InterruptedException {
-    String taskId =
+    JsonNode meta =
         readJson(
                 opContext,
                 IndexUtils.performGetRequest(
                     opContext, esComponents, "/" + backupName + "/_mapping"))
             .path(backupName)
             .path("mappings")
-            .path("_meta")
-            .path(BACKFILL_TASK_META)
-            .asText();
+            .path("_meta");
+    String taskId = meta.path(BACKFILL_TASK_META).asText();
+    String writeIndex = writeIndex(opContext, esComponents, indexName, dataStream);
+    if (!taskId.isEmpty() && getTask(opContext, esComponents, taskId) == null) {
+      // The cluster forgot the copy, for example after a restart; it may have stopped part way.
+      if (!writeIndex.equals(meta.path(BACKFILL_WRITE_INDEX_META).asText())) {
+        log.error(
+            "Copy task {} for {} is gone and {} has rolled over since, so copying again could"
+                + " duplicate events. {} is kept; copy the remaining events yourself, then delete it",
+            taskId,
+            backupName,
+            indexName,
+            backupName);
+        return;
+      }
+      log.warn(
+          "Copy task {} for {} is gone; copying it again into {}, which skips events already there",
+          taskId,
+          backupName,
+          writeIndex);
+      taskId = "";
+    }
     if (taskId.isEmpty()) {
       String reindex =
           String.format(
@@ -904,7 +928,9 @@ public class UsageEventIndexUtils {
           opContext,
           esComponents,
           "/" + backupName + "/_mapping",
-          String.format("{\"_meta\":{\"%s\":\"%s\"}}", BACKFILL_TASK_META, taskId));
+          String.format(
+              "{\"_meta\":{\"%s\":\"%s\",\"%s\":\"%s\"}}",
+              BACKFILL_TASK_META, taskId, BACKFILL_WRITE_INDEX_META, writeIndex));
     }
     JsonNode task = waitForTask(opContext, esComponents, taskId);
     if (task == null) {
@@ -961,20 +987,65 @@ public class UsageEventIndexUtils {
       throws IOException, InterruptedException {
     long deadline = System.currentTimeMillis() + BACKFILL_WAIT.toMillis();
     while (true) {
-      JsonNode task =
-          readJson(
-              opContext,
-              esComponents
-                  .getSearchClient()
-                  .performLowLevelRequest(opContext, new Request("GET", "/_tasks/" + taskId)));
-      if (task.path("completed").asBoolean()) {
+      JsonNode task = getTask(opContext, esComponents, taskId);
+      if (task != null && task.path("completed").asBoolean()) {
         return task;
       }
-      if (System.currentTimeMillis() >= deadline) {
+      // A task that disappears meanwhile is handled like one still running: the next run sees it
+      // is gone.
+      if (task == null || System.currentTimeMillis() >= deadline) {
         return null;
       }
       Thread.sleep(BACKFILL_POLL_INTERVAL.toMillis());
     }
+  }
+
+  /**
+   * The task's status, or null when the cluster no longer knows it (for example after a restart).
+   */
+  @Nullable
+  private static JsonNode getTask(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String taskId)
+      throws IOException {
+    Request request = new Request("GET", "/_tasks/" + taskId);
+    request.addParameter("ignore", "404");
+    RawResponse response =
+        esComponents.getSearchClient().performLowLevelRequest(opContext, request);
+    return response.getStatusLine().getStatusCode() == 404 ? null : readJson(opContext, response);
+  }
+
+  /** The index new usage events currently go to, behind the data stream or rollover alias. */
+  private static String writeIndex(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName,
+      boolean dataStream)
+      throws IOException {
+    if (dataStream) {
+      JsonNode backingIndices =
+          readJson(
+                  opContext,
+                  IndexUtils.performGetRequest(
+                      opContext, esComponents, "/_data_stream/" + indexName))
+              .path("data_streams")
+              .path(0)
+              .path("indices");
+      return backingIndices.path(backingIndices.size() - 1).path("index_name").asText();
+    }
+    JsonNode indices =
+        readJson(
+            opContext,
+            IndexUtils.performGetRequest(opContext, esComponents, "/_alias/" + indexName));
+    Iterator<Map.Entry<String, JsonNode>> it = indices.fields();
+    while (it.hasNext()) {
+      Map.Entry<String, JsonNode> index = it.next();
+      if (index.getValue().path("aliases").path(indexName).path("is_write_index").asBoolean()) {
+        return index.getKey();
+      }
+    }
+    return "";
   }
 
   /** Concrete indices matching the expression; aliases and data streams are not included. */

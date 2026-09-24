@@ -165,6 +165,52 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
     assertEquals(recordedBackfillTask(backups.get(0)), task);
   }
 
+  @Test(timeOut = TEST_TIMEOUT_MS)
+  public void testBackupWithAForgottenCopyIsCopiedAgainOnlyIntoTheSameWriteIndex()
+      throws Exception {
+    String prefix = "vanished_";
+    String index = prefix + "datahub_usage_event";
+    assertEquals(runStep(prefix), DataHubUpgradeState.SUCCEEDED);
+    String backup = prefix + "legacy_datahub_usage_event_1";
+    index(
+        backup,
+        "8",
+        "{\"type\":\"SearchEvent\",\"timestamp\":1756000008000,\"@timestamp\":1756000008000,"
+            + "\"actorUrn\":\"urn:li:corpuser:d\"}");
+    refresh(backup);
+
+    // The cluster no longer knows the recorded copy, and the index it went into has rolled over
+    // since, so copying again could duplicate events: the backup is left alone.
+    recordCopy(backup, "nonexistentnode:1", "rolled-over-index");
+    assertEquals(runStep(prefix), DataHubUpgradeState.SUCCEEDED);
+    assertEquals(legacyBackups(prefix), List.of(backup));
+
+    // Recorded against the current write index, the copy is started again.
+    recordCopy(backup, "nonexistentnode:1", writeIndex(index));
+    assertEquals(runStep(prefix), DataHubUpgradeState.SUCCEEDED);
+    refresh(index);
+    assertEquals(searchIds(index, "{\"size\":10}"), Set.of("8"));
+    assertEquals(legacyBackups(prefix), List.of());
+  }
+
+  private void recordCopy(String backup, String task, String writeIndex) throws IOException {
+    request(
+        "PUT",
+        "/" + backup + "/_mapping",
+        String.format(
+            "{\"_meta\":{\"datahub_backfill_task\":\"%s\",\"datahub_backfill_write_index\":\"%s\"}}",
+            task, writeIndex));
+  }
+
+  private String writeIndex(String index) throws IOException {
+    if (!isDataStream()) {
+      return index + "-000001";
+    }
+    JsonNode backing =
+        request("GET", "/_data_stream/" + index, null).path("data_streams").path(0).path("indices");
+    return backing.path(backing.size() - 1).path("index_name").asText();
+  }
+
   private DataHubUpgradeState runStep(String prefix) {
     IndexConfiguration indexConfig = Mockito.mock(IndexConfiguration.class);
     Mockito.when(indexConfig.getFinalPrefix()).thenReturn(prefix);
