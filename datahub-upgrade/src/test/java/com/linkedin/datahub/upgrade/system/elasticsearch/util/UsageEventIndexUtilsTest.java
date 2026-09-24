@@ -6,8 +6,11 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.LongSupplier;
 import org.apache.http.HttpVersion;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
@@ -2343,6 +2346,92 @@ public class UsageEventIndexUtilsTest {
 
     // Cloned from the current index an hour ago and never copied: dropped before cloning again.
     Assert.assertTrue(calls.contains("DELETE /test_legacy_datahub_usage_event_1"));
+  }
+
+  @Test
+  public void testMigrateLegacyUsageEventIndex_MigratesABlockedIndexOnceItsCloneGoesStale()
+      throws Exception {
+    List<String> calls = new ArrayList<>();
+    AtomicInteger cloneAges = new AtomicInteger();
+    long now = System.currentTimeMillis();
+    stubBlockedLegacyIndex(
+        calls,
+        // The clone of an attempt that died after blocking writes: young, then stale.
+        () -> cloneAges.getAndIncrement() == 0 ? now - 60_000L : now - 3_600_000L);
+    UsageEventIndexUtils.setBlockedIndexWaitForTesting(Duration.ofMillis(1), Duration.ofMinutes(1));
+    try {
+      // The fresh clone this attempt makes never starts, which ends the test there.
+      Assert.assertThrows(
+          IOException.class,
+          () ->
+              UsageEventIndexUtils.migrateLegacyUsageEventIndex(
+                  operationContext, esComponents, "test_", false));
+    } finally {
+      UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
+    }
+
+    int dropped = calls.indexOf("DELETE /test_legacy_datahub_usage_event_1");
+    Assert.assertTrue(dropped >= 0);
+    Assert.assertTrue(calls.indexOf("PUT /test_datahub_usage_event/_block/write") > dropped);
+  }
+
+  @Test
+  public void testMigrateLegacyUsageEventIndex_LiftsTheBlockWhenARecentCloneOutlastsTheWait()
+      throws Exception {
+    List<String> calls = new ArrayList<>();
+    long now = System.currentTimeMillis();
+    stubBlockedLegacyIndex(calls, () -> now);
+    UsageEventIndexUtils.setBlockedIndexWaitForTesting(Duration.ofMillis(1), Duration.ofMillis(5));
+    try {
+      UsageEventIndexUtils.migrateLegacyUsageEventIndex(
+          operationContext, esComponents, "test_", false);
+    } finally {
+      UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
+    }
+
+    Assert.assertTrue(calls.contains("PUT /test_datahub_usage_event/_settings"));
+    Assert.assertFalse(calls.contains("DELETE /test_legacy_datahub_usage_event_1"));
+    Assert.assertFalse(calls.contains("PUT /test_datahub_usage_event/_block/write"));
+  }
+
+  /** A write-blocked legacy index with one unrecorded clone whose creation date is supplied. */
+  private void stubBlockedLegacyIndex(List<String> calls, LongSupplier cloneCreated)
+      throws IOException {
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              String call = request.getMethod() + " " + request.getEndpoint();
+              calls.add(call);
+              switch (call) {
+                case "GET /_resolve/index/test_datahub_usage_event":
+                  return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
+                case "GET /_resolve/index/test_legacy_datahub_usage_event_*":
+                  return jsonResponse(
+                      "{\"indices\":[{\"name\":\"test_legacy_datahub_usage_event_1\"}]}");
+                case "GET /test_datahub_usage_event/_settings/index.creation_date":
+                  return jsonResponse(
+                      "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                          + "{\"creation_date\":\"1000\"}}}}");
+                case "GET /test_legacy_datahub_usage_event_1/_settings/index.creation_date":
+                  return jsonResponse(
+                      "{\"test_legacy_datahub_usage_event_1\":{\"settings\":{\"index\":"
+                          + "{\"creation_date\":\""
+                          + cloneCreated.getAsLong()
+                          + "\"}}}}");
+                case "GET /test_datahub_usage_event/_settings/index.blocks.write":
+                  return jsonResponse(
+                      "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                          + "{\"blocks\":{\"write\":\"true\"}}}}}");
+                default:
+                  if (call.contains("/_clone/")) {
+                    return jsonResponse("{\"acknowledged\":true,\"shards_acknowledged\":false}");
+                  }
+                  return jsonResponse(call.endsWith("/_count") ? "{\"count\":3}" : "{}");
+              }
+            });
   }
 
   private static RawResponse jsonResponse(String body) {

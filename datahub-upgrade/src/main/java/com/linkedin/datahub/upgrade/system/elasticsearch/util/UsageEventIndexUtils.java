@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -48,6 +49,23 @@ public class UsageEventIndexUtils {
   // A younger backup may belong to a migration still running elsewhere, so it is left alone.
   private static final Duration STALE_BACKUP_AGE = Duration.ofMinutes(10);
   private static final Duration BLOCKED_INDEX_POLL_INTERVAL = Duration.ofSeconds(30);
+  // How long a write-blocked legacy index may wait on a recent clone before its block is lifted.
+  private static final Duration BLOCKED_INDEX_MAX_WAIT = STALE_BACKUP_AGE.plusMinutes(1);
+  private static Duration blockedIndexPollInterval = BLOCKED_INDEX_POLL_INTERVAL;
+  private static Duration blockedIndexMaxWait = BLOCKED_INDEX_MAX_WAIT;
+
+  @VisibleForTesting
+  static void setBlockedIndexWaitForTesting(Duration pollInterval, Duration maxWait) {
+    blockedIndexPollInterval = pollInterval;
+    blockedIndexMaxWait = maxWait;
+  }
+
+  @VisibleForTesting
+  static void clearBlockedIndexWaitForTesting() {
+    blockedIndexPollInterval = BLOCKED_INDEX_POLL_INTERVAL;
+    blockedIndexMaxWait = BLOCKED_INDEX_MAX_WAIT;
+  }
+
   // Data streams reject events without @timestamp. Older events may only carry timestamp; events
   // with neither cannot go into a data stream at all, so they are dropped there.
   private static final String BACKFILL_SCRIPT =
@@ -776,7 +794,7 @@ public class UsageEventIndexUtils {
       throws IOException, InterruptedException {
     String indexName = prefix + "datahub_usage_event";
     // Nothing locks against two system-update runs at once; each could leave a backup behind.
-    long waitUntil = System.currentTimeMillis() + STALE_BACKUP_AGE.plusMinutes(1).toMillis();
+    long waitUntil = System.currentTimeMillis() + blockedIndexMaxWait.toMillis();
     while (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
       if (dropStaleBackups(opContext, esComponents, prefix, indexName)) {
         replaceLegacyIndex(
@@ -789,16 +807,28 @@ public class UsageEventIndexUtils {
       }
       // A recent clone blocks a new attempt. If its attempt died after blocking writes, nothing
       // else lifts the block, so wait for that clone to go stale or its migration to finish.
-      if (!isWriteBlocked(opContext, esComponents, indexName)
-          || System.currentTimeMillis() >= waitUntil) {
+      if (!isWriteBlocked(opContext, esComponents, indexName)) {
         return;
       }
-      Thread.sleep(BLOCKED_INDEX_POLL_INTERVAL.toMillis());
+      if (System.currentTimeMillis() >= waitUntil) {
+        // Clones keep appearing, or the index cannot be dated; rather than leave every usage event
+        // rejected, lift the block and let a later run migrate.
+        log.error(
+            "{} stayed write-blocked for {} while a recent clone held off its migration; lifting"
+                + " the block",
+            indexName,
+            blockedIndexMaxWait);
+        setWriteBlock(opContext, esComponents, indexName, false);
+        return;
+      }
+      Thread.sleep(blockedIndexPollInterval.toMillis());
     }
     for (String backupName :
         resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
       try {
         backfillFromBackup(opContext, esComponents, backupName, indexName, !useOpenSearch);
+      } catch (TaskApiForbiddenException e) {
+        log.error("{}; keeping {}", e.getMessage(), backupName);
       } catch (IOException | RuntimeException e) {
         log.error(
             "Could not copy usage events from {} back into {}; keeping {}",
@@ -1146,10 +1176,25 @@ public class UsageEventIndexUtils {
       String taskId)
       throws IOException {
     Request request = new Request("GET", "/_tasks/" + taskId);
-    request.addParameter("ignore", "404");
+    request.addParameter("ignore", "403,404");
     RawResponse response =
         esComponents.getSearchClient().performLowLevelRequest(opContext, request);
-    return response.getStatusLine().getStatusCode() == 404 ? null : readJson(opContext, response);
+    int status = response.getStatusLine().getStatusCode();
+    if (status == 403) {
+      throw new TaskApiForbiddenException(
+          "System update may not read copy task "
+              + taskId
+              + " (403), so it cannot tell when the copy back finishes; copy the remaining events"
+              + " yourself as the upgrade notes describe, then delete the backup");
+    }
+    return status == 404 ? null : readJson(opContext, response);
+  }
+
+  /** The cluster forbids the tasks API to these credentials, so no run can finish the copy. */
+  private static class TaskApiForbiddenException extends IOException {
+    TaskApiForbiddenException(String message) {
+      super(message);
+    }
   }
 
   /** The index new usage events currently go to, behind the data stream or rollover alias. */
