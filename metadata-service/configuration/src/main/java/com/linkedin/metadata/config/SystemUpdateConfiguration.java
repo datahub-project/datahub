@@ -10,8 +10,10 @@ public class SystemUpdateConfiguration {
   private String initialBackOffMs;
   private String maxBackOffs;
   private String backOffFactor;
+
   /** Unused no-op. Startup no longer waits on DataHubUpgradeHistory_v1. */
   private boolean waitForSystemUpdate;
+
   private boolean cdcMode;
 
   /** Entity consistency checking configuration */
