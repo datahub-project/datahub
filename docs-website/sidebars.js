@@ -1016,6 +1016,9 @@ module.exports = {
           ],
         },
         {
+          "Microsoft Fabric": ["docs/quick-ingestion-guides/fabric/overview"],
+        },
+        {
           Looker: [
             "docs/quick-ingestion-guides/looker/overview",
             "docs/quick-ingestion-guides/looker/setup",
