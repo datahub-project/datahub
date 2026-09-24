@@ -76,18 +76,29 @@ def request_call(
     verify_ssl: bool = True,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
+    timeout = _REQUEST_TIMEOUT_SECONDS
     if username is not None and password is not None:
         return requests.get(
             url,
             headers=headers,
             auth=HTTPBasicAuth(username, password),
+            proxies=proxies,
             verify=verify_ssl,
+            timeout=timeout,
         )
     elif token is not None:
         headers["Authorization"] = f"{token}"
-        return requests.get(url, proxies=proxies, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url,
+            proxies=proxies,
+            headers=headers,
+            verify=verify_ssl,
+            timeout=timeout,
+        )
     else:
-        return requests.get(url, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url, headers=headers, proxies=proxies, verify=verify_ssl, timeout=timeout
+        )
 
 
 def get_swag_json(
@@ -99,7 +110,7 @@ def get_swag_json(
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> Dict:
-    tot_url = url + swagger_file
+    tot_url = _join_url(url, swagger_file)
     response = request_call(
         url=tot_url,
         token=token,
@@ -112,10 +123,29 @@ def get_swag_json(
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
     try:
-        dict_data = json.loads(response.content)
-    except json.JSONDecodeError:  # it's not a JSON!
-        dict_data = yaml.safe_load(response.content)
-    return dict_data
+        parsed = json.loads(response.content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # UnicodeDecodeError alongside JSONDecodeError: json.loads on non-UTF-8
+        # bytes raises the former, which isn't a JSONDecodeError subclass, and
+        # would otherwise skip the YAML fallback and this function's own
+        # clear error message in favor of a raw decode error propagating up.
+        try:
+            parsed = yaml.safe_load(response.content)
+        except (yaml.YAMLError, UnicodeDecodeError) as e:
+            raise ValueError(
+                f"Unable to parse OpenAPI spec from {tot_url} as JSON or YAML"
+            ) from e
+    if not isinstance(parsed, dict):
+        # A valid JSON/YAML document (e.g. a bare list, string, or number) is
+        # not a valid OpenAPI/Swagger spec -- every downstream parsing
+        # function this feeds (get_endpoints, get_url_basepath, ...) assumes
+        # a dict, so fail clearly here instead of a confusing TypeError/
+        # KeyError deep in one of them.
+        raise ValueError(
+            f"OpenAPI spec at {tot_url} did not parse to a JSON/YAML object "
+            f"(got {type(parsed).__name__})"
+        )
+    return parsed
 
 
 def get_url_basepath(sw_dict: dict) -> str:
@@ -905,7 +935,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 return resolved_referenced
 
     # Recursively resolve references in properties
-    if "properties" in resolved_schema:
+    if isinstance(resolved_schema.get("properties"), dict):
         for prop_name, prop_schema in resolved_schema["properties"].items():
             resolved_schema["properties"][prop_name] = resolve_schema_references(
                 prop_schema, sw_dict, max_depth=max_depth - 1
@@ -946,9 +976,12 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
             resolved_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
 
-    # Handle union types (oneOf, anyOf) - allOf is already handled above
+    # Handle union types (oneOf, anyOf) - allOf is already handled above.
+    # Guard on list-ness: a malformed spec may set oneOf/anyOf to a non-list
+    # (e.g. a single inline schema object), which would otherwise iterate its
+    # keys and raise deep in resolution instead of being left untouched.
     for union_key in ["oneOf", "anyOf"]:
-        if union_key in resolved_schema:
+        if isinstance(resolved_schema.get(union_key), list):
             resolved_schema[union_key] = [
                 resolve_schema_references(
                     union_schema, sw_dict, max_depth=max_depth - 1
