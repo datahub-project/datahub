@@ -965,6 +965,53 @@ def test_configured_iso_string_fallback_widens_temporal_partition():
     assert "IS NOT NULL" in tz_result
 
 
+def test_value_filter_widens_date_string_at_month_granularity():
+    """A DATE partition column on a MONTH-granularity table holds whole-month partitions,
+    so a configured DATE string must be widened to the month's half-open range rather than
+    emitted as a single-day equality that matches only one day of the partition.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(partition_info=PartitionInfo(fields=("d",), type="MONTH"))
+
+    result = discovery._value_filter(table, "d", "2025-01-15", "DATE")
+
+    assert result == "`d` >= '2025-01-01' AND `d` < '2025-02-01'"
+
+
+def test_partition_datetime_override_rejects_offset_bearing_datetime():
+    """A configured partition_datetime carrying a UTC offset can't be expressed on a
+    timezone-naive DATETIME column without silently dropping the offset (and flooring the
+    wrong wall clock). The override must route through _value_filter's shared rejection so
+    it is ignored with a warning instead of producing a mis-floored range.
+    """
+    report = BigQueryV2Report()
+    offset_dt = datetime(2025, 1, 15, 10, 0, 0, tzinfo=timezone(timedelta(hours=5)))
+    discovery = PartitionDiscovery(make_config(partition_datetime=offset_dt), report)
+
+    filters = discovery._get_partition_datetime_override_filters(
+        make_table(name="tz_override"), ["dt"], {"dt": "DATETIME"}
+    )
+
+    assert filters is None
+    assert any(
+        (w.title or "") == "partition_datetime not applied" for w in report.warnings
+    )
+
+
+def test_fallback_date_component_unknown_type_scans_all():
+    """A date-component column (e.g. `year`) with no known type can't be given a typed
+    literal — an untyped `year = '2026'` string is rejected against an INT64 column — so
+    the fallback must degrade to a full scan (IS NOT NULL) rather than emit that literal.
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    result = discovery._create_fallback_filter_for_column(
+        make_table(name="component_no_type"), "year", datetime(2026, 3, 1), ""
+    )
+
+    assert result == "`year` IS NOT NULL"
+
+
 def test_partition_column_types_backfills_pseudo_columns():
     """INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns, so
     get_partition_column_types must backfill their fixed BigQuery types
