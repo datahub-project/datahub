@@ -49,10 +49,12 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     const existingFilters = (state.definition?.filter?.filters || []) as ViewFilter[];
     const existingOperator = state.definition?.filter?.operator;
 
-    const [activeTab, setActiveTab] = useState(() => getInitialTabKey(existingFilters));
+    const [activeTab, setActiveTab] = useState(() => getInitialTabKey(existingFilters, state.definition?.filter?.json));
 
     // State for Select Assets tab
-    const [selectedUrns, setSelectedUrns] = useState<string[]>(() => filtersToSelectedUrns(existingFilters));
+    const [selectedUrns, setSelectedUrns] = useState<string[]>(() =>
+        filtersToSelectedUrns(existingFilters, state.definition?.filter?.json),
+    );
 
     // State for Build Filters tab. Seeded regardless of the active tab: a view with
     // pinned assets opens on Select Assets, and switching tabs serializes this state —
@@ -95,7 +97,11 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
         (newUrns: string[]) => {
             setSelectedUrns(newUrns);
             const filters = selectedUrnsToFilters(newUrns);
-            updateState({ ...stateRef.current, definition: toDefinition(LogicalOperator.Or, filters) });
+            const logicalPredicate = filtersToLogicalPredicate(LogicalOperator.Or, filters);
+            updateState({
+                ...stateRef.current,
+                definition: toDefinition(LogicalOperator.Or, filters, logicalPredicate),
+            });
         },
         [toDefinition, updateState],
     );
@@ -119,7 +125,11 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
             setActiveTab(newTabKey);
             if (newTabKey === SELECT_ASSETS_TAB_KEY) {
                 const filters = selectedUrnsToFilters(selectedUrns);
-                updateState({ ...stateRef.current, definition: toDefinition(LogicalOperator.Or, filters) });
+                const logicalPredicate = filtersToLogicalPredicate(LogicalOperator.Or, filters);
+                updateState({
+                    ...stateRef.current,
+                    definition: toDefinition(LogicalOperator.Or, filters, logicalPredicate),
+                });
             } else {
                 const { operator, filters } = logicalPredicateToFilters(dynamicFilter);
                 updateState({ ...stateRef.current, definition: toDefinition(operator, filters, dynamicFilter) });

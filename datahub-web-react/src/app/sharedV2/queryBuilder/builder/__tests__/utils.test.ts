@@ -55,7 +55,7 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
             expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.In);
         });
 
-        it('should map is_true operator to Exists', () => {
+        it('should map is_true operator to Equal with value "true"', () => {
             const predicate: PropertyPredicate = {
                 type: 'property',
                 property: 'hasSchema',
@@ -63,10 +63,11 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
                 values: [],
             };
             const orFilters = convertLogicalPredicateToOrFilters(predicate);
-            expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.Exists);
+            expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.Equal);
+            expect(orFilters?.[0].and?.[0].values).toEqual(['true']);
         });
 
-        it('should map is_false operator to Exists with negated flag', () => {
+        it('should map is_false operator to Equal with value "false"', () => {
             const predicate: PropertyPredicate = {
                 type: 'property',
                 property: 'hasOwner',
@@ -74,9 +75,8 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
                 values: [],
             };
             const orFilters = convertLogicalPredicateToOrFilters(predicate);
-            // is_false maps to Exists with negated: true
-            expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.Exists);
-            expect(orFilters?.[0].and?.[0].negated).toBe(true);
+            expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.Equal);
+            expect(orFilters?.[0].and?.[0].values).toEqual(['false']);
         });
 
         it('should map within operator to DescendantsIncl', () => {
@@ -361,11 +361,12 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
                 ],
             };
             const orFilters = convertLogicalPredicateToOrFilters(predicate);
-            // is_false: EXISTS with negated=true (field does not exist)
-            // NOT(is_false): inverts the negation via XOR logic
-            // Result: EXISTS with negated=false (field exists)
-            expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.Exists);
-            expect(orFilters?.[0].and?.[0].negated).toBe(false);
+            // is_false maps to EQUAL "false"
+            // NOT(is_false): flips negation via isNegated parameter
+            // Result: EQUAL "false" with negated=true
+            expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.Equal);
+            expect(orFilters?.[0].and?.[0].values).toEqual(['false']);
+            expect(orFilters?.[0].and?.[0].negated).toBe(true);
         });
 
         it('should handle multiple operands in OR', () => {
@@ -654,9 +655,12 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
                 operator: 'is_false',
                 values: [],
             };
-            // is_false already applies negation
+            // is_false maps to EQUAL "false" without automatic negation
+            // Only apply negation if isNegated=true parameter
             const orFilters = convertLogicalPredicateToOrFilters(predicate, false);
-            expect(orFilters?.[0].and?.[0].negated).toBe(true);
+            expect(orFilters?.[0].and?.[0].condition).toBe(FilterOperator.Equal);
+            expect(orFilters?.[0].and?.[0].values).toEqual(['false']);
+            expect(orFilters?.[0].and?.[0].negated).toBeUndefined();
         });
 
         it('should XOR negation flags for is_false operator', () => {
@@ -666,13 +670,16 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
                 operator: 'is_false',
                 values: [],
             };
-            // is_false flips the negation flag via XOR logic
-            // isNegated=false: negated=true (is_false: field does not exist)
-            // isNegated=true: negated=false (NOT(is_false): field exists)
+            // is_false maps to EQUAL "false"
+            // negation is applied via isNegated parameter
             const orFilters1 = convertLogicalPredicateToOrFilters(predicate, false);
             const orFilters2 = convertLogicalPredicateToOrFilters(predicate, true);
-            expect(orFilters1?.[0].and?.[0].negated).toBe(true);
-            expect(orFilters2?.[0].and?.[0].negated).toBe(false);
+            expect(orFilters1?.[0].and?.[0].condition).toBe(FilterOperator.Equal);
+            expect(orFilters1?.[0].and?.[0].values).toEqual(['false']);
+            expect(orFilters1?.[0].and?.[0].negated).toBeUndefined();
+            expect(orFilters2?.[0].and?.[0].condition).toBe(FilterOperator.Equal);
+            expect(orFilters2?.[0].and?.[0].values).toEqual(['false']);
+            expect(orFilters2?.[0].and?.[0].negated).toBe(true);
         });
 
         it('should preserve negation through nested operators', () => {

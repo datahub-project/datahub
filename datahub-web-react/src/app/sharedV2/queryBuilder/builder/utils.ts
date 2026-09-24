@@ -1,3 +1,4 @@
+import { resolveFilterValues } from '@app/entityV2/view/builder/utils';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
 import { AndFilterInput, FilterOperator } from '@src/types.generated';
@@ -27,8 +28,8 @@ function mapOperator(operator: string): FilterOperator {
         greaterthan: FilterOperator.GreaterThan,
         lessthan: FilterOperator.LessThan,
         exists: FilterOperator.Exists,
-        istrue: FilterOperator.Exists,
-        isfalse: FilterOperator.Exists, // is_false mapped to Exists with negated: true (handled in caller)
+        istrue: FilterOperator.Equal,
+        isfalse: FilterOperator.Equal,
         within: FilterOperator.DescendantsIncl,
         // Legacy/shorthand forms
         descendantsincl: FilterOperator.DescendantsIncl,
@@ -60,17 +61,14 @@ export function convertLogicalPredicateToOrFilters(
         if (!pred.property) return undefined;
 
         // it's a PropertyPredicate
-        const hasIsFalseOperator = pred.operator === 'is_false' || pred.operator === 'isfalse';
-        const operatorIsNegated = hasIsFalseOperator ? !isNegated : isNegated;
         return [
             {
                 and: [
                     {
                         field: pred.property,
-                        values: pred.values || [],
+                        values: resolveFilterValues(pred),
                         condition: pred.operator ? mapOperator(pred.operator) : undefined,
-                        ...(hasIsFalseOperator && { negated: operatorIsNegated }),
-                        ...(operatorIsNegated && !hasIsFalseOperator && { negated: true }),
+                        ...(isNegated && { negated: true }),
                     },
                 ],
             },
