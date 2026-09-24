@@ -660,7 +660,7 @@ class TestFglRewrite:
                 ],
             ),
         )
-        result = source._rewrite_fgl_downstreams(mcp)
+        result = source._rewrite_fgl_downstreams(mcp, "customsql-drain:test")
         assert result is not None
         aspect = cast(UpstreamLineage, result.aspect)
         fgls = aspect.fineGrainedLineages or []

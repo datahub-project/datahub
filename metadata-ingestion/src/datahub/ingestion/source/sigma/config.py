@@ -219,8 +219,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # workbooks claim one entity -- element ids and page ids repeat across
     # duplicated workbooks, and both URNs are built from that id alone.
     input_fields_regressive_emission_skipped: int = 0
-    # Which entities those were; the URN says chart or dashboard. Capped, and
-    # the count above is the total. Without it the names exist only on DEBUG
+    # Which entities those were; the URN says chart or dashboard. Each names
+    # the workbook kept and the workbook refused, or, for the customSQL drain,
+    # its aggregator as platform/env/platform_instance. Capped, and the count
+    # above is the total. Without it the names exist only on DEBUG
     # lines, which a default INFO run never wrote.
     input_fields_regressive_emission_samples: LossyList[str] = field(
         default_factory=LossyList

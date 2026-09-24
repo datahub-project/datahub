@@ -1961,8 +1961,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         ``claimed_by`` names the workbook, so a refusal points at the two
         workbooks to reconcile rather than at an element id nobody can search
-        for. It is space-free so the sample parses as key=value, and an
-        accepted tie moves it: the label must name whoever wrote what is there.
+        for. It avoids whitespace where it can, so the sample mostly parses as
+        key=value; a platform_instance is user config and may not. An accepted
+        tie moves it: the label must name whoever wrote what is there.
 
         The drain names its aggregator instead. A customSQL chart's columns
         reference its own SQL output, so both copies' element aspects resolve
@@ -2082,7 +2083,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def _rewrite_fgl_downstreams(
-        self, mcp: MetadataChangeProposalWrapper, claimed_by: str = "customsql-drain"
+        self, mcp: MetadataChangeProposalWrapper, claimed_by: str
     ) -> Optional[MetadataChangeProposalWrapper]:
         """Rewrite FGL downstream schemaField URNs to use Sigma column names.
 
