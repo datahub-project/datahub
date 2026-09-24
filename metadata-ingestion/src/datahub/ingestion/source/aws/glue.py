@@ -2080,19 +2080,19 @@ class GlueSource(StatefulIngestionSourceBase):
     def gen_database_containers(
         self, database: Mapping[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        container_tags: Optional[List] = None
+        database_lf_tags: List[LakeFormationTag] = []
         if self.source_config.extract_lakeformation_tags:
             try:
-                tags = self.get_database_lf_tags(
+                for tag in self.get_database_lf_tags(
                     catalog_id=database["CatalogId"], database_name=database["Name"]
-                )
-                container_tags = []
-                for tag in tags:
+                ):
                     try:
-                        container_tags.append(tag.to_datahub_tag_urn().name)
-                        yield from self.gen_platform_resource(tag)
+                        # Validate the tag maps to a well-formed URN before keeping it.
+                        tag.to_datahub_tag_urn()
                     except InvalidUrnError:
                         continue
+                    database_lf_tags.append(tag)
+                    yield from self.gen_platform_resource(tag)
             except Exception:
                 self.report.warning(
                     "Failed to extract Lake Formation tags for database",
@@ -2116,9 +2116,20 @@ class GlueSource(StatefulIngestionSourceBase):
             qualified_name=self.get_glue_arn(
                 account_id=database["CatalogId"], database=database["Name"]
             ),
-            tags=container_tags,
             extra_properties=parameters,
         )
+
+        # Stamp the database container's own Lake Formation tags with attribution
+        # (external/origin), the same as table and column tags, so they can be told
+        # apart from tags added in the DataHub UI. Emitted as a separate GlobalTags
+        # aspect because gen_containers only accepts bare tag-name strings.
+        if database_lf_tags:
+            global_tags = self._build_lf_global_tags(database_lf_tags)
+            if global_tags:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=database_container_key.as_urn(),
+                    aspect=global_tags,
+                ).as_workunit()
 
     def add_table_to_database_container(
         self, dataset_urn: str, db_name: str
