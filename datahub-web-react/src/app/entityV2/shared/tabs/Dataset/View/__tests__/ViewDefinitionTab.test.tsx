@@ -12,10 +12,9 @@ vi.mock('@app/entity/shared/EntityContext', async (importOriginal) => ({
     useBaseEntity: vi.fn(),
 }));
 
-vi.mock('@app/entityV2/shared/StyledSyntaxHighlighter', () => ({
-    StyledSyntaxHighlighter: ({ children }: { children: React.ReactNode }) => (
-        <pre data-testid="syntax-highlighter">{children}</pre>
-    ),
+vi.mock('react-syntax-highlighter', () => ({
+    __esModule: true,
+    Prism: ({ children }: { children: string }) => <pre data-testid="syntax-highlighter">{children}</pre>,
 }));
 
 vi.mock('@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery', () => ({
