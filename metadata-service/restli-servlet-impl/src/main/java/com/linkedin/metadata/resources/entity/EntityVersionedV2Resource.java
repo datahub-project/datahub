@@ -8,6 +8,7 @@ import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.annotations.VisibleForTesting;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
@@ -16,7 +17,7 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -66,6 +67,21 @@ public class EntityVersionedV2Resource
     @Named("systemOperationContext")
     private OperationContext systemOperationContext;
 
+  @VisibleForTesting
+  void setEntityService(EntityService<?> entityService) {
+    this._entityService = entityService;
+  }
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    this._authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setSystemOperationContext(OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+  }
+
   @RestMethod.BatchGet
   @Nonnull
   @WithSpan
@@ -103,7 +119,7 @@ public class EntityVersionedV2Resource
                   ? opContext.getEntityAspectNames(entityType)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntitiesVersionedV2(opContext,
+            return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, _entityService.getEntitiesVersionedV2(opContext,
                 versionedUrnStrs.stream()
                     .map(
                         versionedUrnTyperef -> {
@@ -116,7 +132,7 @@ public class EntityVersionedV2Resource
                           return versionedUrn;
                         })
                     .collect(Collectors.toSet()),
-                projectedAspects);
+                projectedAspects));
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

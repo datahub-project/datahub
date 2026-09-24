@@ -18,6 +18,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -233,7 +234,11 @@ public class EntityController
                     .urn(u.toString())
                     .build(
                         objectMapper,
-                        toAspectMap(u, aspects.getOrDefault(u, List.of()), withSystemMetadata)))
+                        SensitiveAspectAuthUtil.omitUnauthorizedAspects(
+                            opContext,
+                            u,
+                            toAspectMap(
+                                u, aspects.getOrDefault(u, List.of()), withSystemMetadata))))
         .collect(Collectors.toList());
   }
 

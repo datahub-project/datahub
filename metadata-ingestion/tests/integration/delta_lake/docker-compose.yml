@@ -1,7 +1,7 @@
 version: "3"
 services:
   minio:
-    image: quay.io/minio/minio:RELEASE.2023-07-07T07-13-57Z
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: "minio_test"
     environment:
       MINIO_ROOT_USER: "miniouser"

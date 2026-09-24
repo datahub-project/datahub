@@ -2,6 +2,8 @@ package com.linkedin.metadata.resources.entity;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -39,6 +41,8 @@ import java.util.List;
 import java.util.Optional;
 
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -149,6 +153,35 @@ public class AspectResourceTest {
     verify(producer, times(5))
         .produceMetadataChangeLog(any(OperationContext.class), eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
+  }
+
+  @Test
+  public void testGetCredentialsAspectDeniedWithoutManageUserCredentials() throws URISyntaxException {
+    reset(producer, aspectDao);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    // Grant everything except the credential-management privilege.
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      AuthorizationResult.Type type =
+          PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE.getType().equals(request.getPrivilege())
+              ? AuthorizationResult.Type.DENY
+              : AuthorizationResult.Type.ALLOW;
+      return new AuthorizationResult(request, type, "");
+    });
+    try {
+      aspectResource.get("urn:li:corpuser:victim", CORP_USER_CREDENTIALS_ASPECT_NAME, 0L);
+      fail("Expected a 403 for corpUserCredentials without Manage User Credentials");
+    } catch (RestLiServiceException e) {
+      assertEquals(e.getStatus(), HttpStatus.S_403_FORBIDDEN);
+      verifyNoInteractions(aspectDao);
+    } finally {
+      when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+        AuthorizationRequest request = invocation.getArgument(0);
+        return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+      });
+    }
   }
 
   @Test(expectedExceptions = RestLiServiceException.class, expectedExceptionsMessageRegExp = "Unknown aspect notAnAspect for entity dataset")
