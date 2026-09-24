@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pytest
 from sqlalchemy.engine.url import make_url
@@ -557,3 +557,214 @@ def test_query_log_query_skips_rows_that_touch_no_real_table():
         "INFORMATION_SCHEMA.",
     ):
         assert f"NOT startsWith(t, '{prefix}')" in sql
+
+
+def _select_row(
+    *,
+    query_id: str = "s1",
+    user: str = "alice",
+    database: str = "my_db",
+    hash_value: Optional[int] = 54321,
+    day: int = 14,
+    tables: Tuple[str, ...] = ("my_db.raw_events",),
+    columns: Tuple[str, ...] = ("my_db.raw_events.col_a",),
+    occurrences: int = 1,
+) -> _FakeRow:
+    return _FakeRow(
+        {
+            "query_id": query_id,
+            "query": "SELECT col_a FROM raw_events WHERE col_b = 'x'",
+            "query_kind": "Select",
+            "user": user,
+            "event_time": datetime(2020, 4, day, 6, 0, 0, tzinfo=timezone.utc),
+            "current_database": database,
+            "normalized_query_hash": hash_value,
+            "tables": list(tables),
+            "columns": list(columns),
+            "occurrences": occurrences,
+        }
+    )
+
+
+def test_usage_credits_every_table_clickhouse_resolved(monkeypatch):
+    # ClickHouse already resolved the read down to tables and columns, so usage
+    # comes straight off the row. A query spanning two tables credits both.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            tables=("my_db.raw_events", "my_db.dim_users"),
+            columns=(
+                "my_db.raw_events.col_a",
+                "my_db.raw_events.col_b",
+                "my_db.dim_users.col_c",
+            ),
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    by_urn = {
+        wu.metadata.entityUrn: wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    }
+
+    dim_users = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.dim_users,PROD)"
+    assert set(by_urn) == {_RAW_EVENTS, dim_users}
+    assert _field_counts(by_urn[_RAW_EVENTS]) == {"col_a": 1, "col_b": 1}
+    assert _field_counts(by_urn[dim_users]) == {"col_c": 1}
+
+
+def test_usage_counts_columns_the_parser_would_miss(monkeypatch):
+    # The whole point of using ClickHouse's own column list: a filter-only column
+    # never appears in a parsed SELECT's column lineage, so it used to go
+    # uncounted. Same for the expansion of a star.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            columns=(
+                "my_db.raw_events.col_a",
+                "my_db.raw_events.col_filtered_on",
+            )
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert _field_counts(usage[0]) == {"col_a": 1, "col_filtered_on": 1}
+
+
+def test_usage_does_not_parse_selects(monkeypatch):
+    # Skipping the parse is the reason this path exists, and nothing in the
+    # output would change if it regressed - so assert the parse count directly.
+    source = _query_log_source()
+    rows = [_select_row(query_id=f"s{i}", day=14 + i % 2) for i in range(6)]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    sqlglot_lineage._sqlglot_lineage_cached.cache_clear()
+    list(source._extract_query_log())
+
+    assert sqlglot_lineage._sqlglot_lineage_cached.cache_info().misses == 0
+
+
+def test_usage_produces_no_lineage(monkeypatch):
+    source = _query_log_source()
+    monkeypatch.setattr(
+        clickhouse, "create_engine", lambda *a, **kw: _FakeEngine([_select_row()])
+    )
+
+    assert _lineage_urns(source) == set()
+
+
+def test_usage_skips_system_tables_within_a_kept_row(monkeypatch):
+    # The fetch keeps a row if ANY table is a real one, so a row can still carry
+    # system entries alongside the table we care about.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            tables=("my_db.raw_events", "system.one"),
+            columns=("my_db.raw_events.col_a", "system.one.dummy"),
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    urns = {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    }
+
+    assert urns == {_RAW_EVENTS}
+
+
+def test_usage_skips_clickhouse_temporary_tables(monkeypatch):
+    # ClickHouse reports temporary tables under a pseudo-database. Minting URNs
+    # for those would put usage on datasets that were never ingested.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            tables=("my_db.raw_events", "_temporary_and_external_tables.scratch"),
+            columns=(
+                "my_db.raw_events.col_a",
+                "_temporary_and_external_tables.scratch.col_x",
+            ),
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    urns = {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    }
+
+    assert urns == {_RAW_EVENTS}
+
+
+def test_usage_aggregates_users_and_buckets(monkeypatch):
+    source = _query_log_source()
+    rows = (
+        [_select_row(query_id=f"a{i}", user="alice") for i in range(3)]
+        + [_select_row(query_id=f"b{i}", user="bob") for i in range(2)]
+        + [_select_row(query_id=f"c{i}", day=15) for i in range(4)]
+    )
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    by_total = {u.totalSqlQueries or 0: u for u in usage}
+    assert sorted(by_total) == [4, 5]
+    day14 = by_total[5]
+    assert day14.uniqueUserCount == 2
+    assert day14.userCounts is not None
+    assert {c.user.split(":")[-1]: c.count for c in day14.userCounts} == {
+        "alice": 3,
+        "bob": 2,
+    }
+
+
+def test_usage_row_without_hash_is_skipped_and_reported(monkeypatch):
+    source = _query_log_source()
+    row = _select_row()
+    del row._mapping["normalized_query_hash"]
+    monkeypatch.setattr(
+        clickhouse, "create_engine", lambda *a, **kw: _FakeEngine([row])
+    )
+
+    assert _usage_for(source, _RAW_EVENTS) == []
+    assert len(source.report.warnings) == 1
+
+
+def _field_counts(aspect: DatasetUsageStatisticsClass) -> Dict[str, int]:
+    assert aspect.fieldCounts is not None
+    return {f.fieldPath: f.count for f in aspect.fieldCounts}
+
+
+def test_query_log_query_fetches_selects_only_for_usage():
+    # A Select writes no table, so it reaches neither the lineage map nor an
+    # operation. With usage off it would be fetched and parsed to produce nothing.
+    base = {
+        "host_port": "localhost:8123",
+        "start_time": "2020-04-14T00:00:00Z",
+        "end_time": "2020-04-15T00:00:00Z",
+    }
+
+    lineage_only = ClickHouseSource(
+        ClickHouseConfig.model_validate({**base, "include_query_log_lineage": True}),
+        PipelineContext(run_id="test"),
+    )
+    assert "'Select'" not in lineage_only._build_query_log_query()
+
+    assert "tables" in lineage_only._build_query_log_query()  # used by the filter
+    assert "columns" not in lineage_only._build_query_log_query()
+
+    with_usage = ClickHouseSource(
+        ClickHouseConfig.model_validate({**base, "include_usage_statistics": True}),
+        PipelineContext(run_id="test"),
+    )
+    sql = with_usage._build_query_log_query()
+    assert "'Select'" in sql
+    assert "columns" in sql

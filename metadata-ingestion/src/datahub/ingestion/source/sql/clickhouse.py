@@ -82,10 +82,27 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
+    PreparsedQuery,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
 
 assert clickhouse_driver
+
+# query_kind comes from the statement's AST root: INSERT INTO ... SELECT is
+# "Insert", CREATE TABLE ... AS SELECT is "Create", only a bare read is "Select".
+_SELECT_QUERY_KIND = "Select"
+
+# Pseudo-tables ClickHouse reports in system.query_log.tables that are not user
+# data. Shared by the fetch's WHERE clause and the usage fan-out so the two
+# cannot drift apart.
+_NON_USER_TABLE_PREFIXES = (
+    "system.",
+    "_table_function.",
+    "_temporary_and_external_tables.",
+    "information_schema.",
+    "INFORMATION_SCHEMA.",
+)
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
 base.ischema_names["DateTime64(0)"] = DATETIME
@@ -687,12 +704,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             else:
                 target_dataset_name = target_table
 
-        return builder.make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=target_dataset_name,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        return self._dataset_urn(target_dataset_name)
 
     def _should_extract_query_log(self) -> bool:
         """Check if any query log extraction feature is enabled."""
@@ -750,10 +762,23 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             user_filters.append(f"user != '{username}'")
         user_filter_clause = " AND ".join(user_filters) if user_filters else "1=1"
 
-        # Query kinds that produce lineage (INSERT, CREATE TABLE AS)
-        # For usage, we also include SELECT
-        query_kinds = ["'Insert'", "'Create'", "'Select'"]
+        # Only a write can produce lineage or an operation, so with usage off a
+        # Select would be fetched and parsed to produce nothing.
+        query_kinds = ["'Insert'", "'Create'"]
+        if self.config.include_usage_statistics:
+            query_kinds.append(f"'{_SELECT_QUERY_KIND}'")
         query_kinds_clause = ", ".join(query_kinds)
+
+        # Only the usage path reads these arrays, so do not ship them otherwise.
+        usage_columns = (
+            ",\n    tables,\n    columns"
+            if self.config.include_usage_statistics
+            else ""
+        )
+
+        non_user_table_filter = "\n              AND ".join(
+            f"NOT startsWith(t, '{prefix}')" for prefix in _NON_USER_TABLE_PREFIXES
+        )
 
         # Security: usernames are validated by Pydantic field validator
         # (validate_query_log_deny_usernames) to only allow safe characters [a-zA-Z0-9_-],
@@ -766,7 +791,7 @@ SELECT
     user,
     event_time,
     current_database,
-    normalized_query_hash
+    normalized_query_hash{usage_columns}
 FROM system.query_log
 WHERE type = 'QueryFinish'
   AND is_initial_query = 1
@@ -784,10 +809,7 @@ WHERE type = 'QueryFinish'
   AND NOT empty(
       arrayFilter(
           t ->
-              NOT startsWith(t, 'system.')
-              AND NOT startsWith(t, '_table_function.')
-              AND NOT startsWith(t, 'information_schema.')
-              AND NOT startsWith(t, 'INFORMATION_SCHEMA.'),
+              {non_user_table_filter},
           tables
       )
   )
@@ -829,21 +851,25 @@ ORDER BY event_time ASC
         # reported. Keeping the query on the outside also lets the emit loop below
         # finish one query before moving on, so the parser's cache stays warm.
         by_query: Dict[_QueryKey, Dict[_UsageKey, _QueryRun]] = {}
-        num_rows = 0
         num_lineage = 0
         num_usage = 0
         for row in result:
             row_dict = dict(row._mapping)
+
+            # A Select can only produce usage, and ClickHouse already resolved the
+            # tables and columns it read - so it never needs the parser.
+            if row_dict.get("query_kind") == _SELECT_QUERY_KIND:
+                preparsed = self._usage_row_to_preparsed(row_dict)
+                if preparsed:
+                    num_usage += preparsed.query_count
+                    self._query_log_aggregator.add(preparsed)
+                continue
+
             observed_query = self._parse_query_log_row(row_dict)
             if not observed_query:
                 continue
 
-            num_rows += 1
-            query_kind = row_dict.get("query_kind", "")
-            if query_kind in ("Insert", "Create"):
-                num_lineage += 1
-            elif query_kind == "Select":
-                num_usage += 1
+            num_lineage += 1
 
             query_key, usage_key = self._query_log_keys(observed_query)
             query_runs_by_usage = by_query.setdefault(query_key, {})
@@ -872,9 +898,8 @@ ORDER BY event_time ASC
         # len(by_query), not the number of add() calls: the splits of one query
         # share a SQL text, so only the first of them reaches the parser.
         logger.info(
-            f"Query log processing complete: {num_lineage} lineage queries, "
-            f"{num_usage} usage queries "
-            f"({num_rows} rows -> {len(by_query)} parsed)"
+            f"Query log processing complete: {num_usage} usage reads, "
+            f"{num_lineage} lineage rows -> {len(by_query)} parsed"
         )
 
         yield from auto_workunit(self._query_log_aggregator.gen_metadata())
@@ -894,6 +919,62 @@ ORDER BY event_time ASC
             ),
         )
         return query_key, usage_key
+
+    def _dataset_urn(self, dataset_name: str) -> str:
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def _usage_row_to_preparsed(self, row: Dict) -> Optional[PreparsedQuery]:
+        """Turn a Select row into a read of the tables ClickHouse resolved for it."""
+        try:
+            event_time = row["event_time"]
+            if isinstance(event_time, datetime):
+                event_time = event_time.astimezone(timezone.utc)
+
+            # ClickHouse reports tables as db.table, which is already the dataset
+            # name this two-tier source uses.
+            urn_by_dataset_name = {
+                dataset_name: self._dataset_urn(dataset_name)
+                for dataset_name in row.get("tables") or []
+                if not dataset_name.startswith(_NON_USER_TABLE_PREFIXES)
+            }
+            if not urn_by_dataset_name:
+                # The fetch keeps a row if any one table is real, so a row can
+                # still arrive carrying nothing but system tables.
+                return None
+
+            # And columns as db.table.column, so everything up to the last dot is
+            # the dataset name above.
+            column_usage: Dict[str, Set[str]] = defaultdict(set)
+            for qualified_column in row.get("columns") or []:
+                dataset_name, _, column = qualified_column.rpartition(".")
+                urn = urn_by_dataset_name.get(dataset_name)
+                if urn:
+                    column_usage[urn].add(column)
+
+            user = row.get("user", "")
+            return PreparsedQuery(
+                # Same id the parsed path uses, so the Query URN does not depend
+                # on which path recorded it.
+                query_id=str(row["normalized_query_hash"]),
+                query_text=row["query"],
+                upstreams=list(urn_by_dataset_name.values()),
+                downstream=None,
+                column_usage=dict(column_usage),
+                user=CorpUserUrn(user) if user else None,
+                timestamp=event_time,
+                query_type=QueryType.SELECT,
+            )
+        except Exception as e:
+            self.report.warning(
+                "Failed to read usage from query log row",
+                context=f"query_id={row.get('query_id', 'unknown')}: {e}",
+            )
+            return None
 
     def _parse_query_log_row(self, row: Dict) -> Optional[ObservedQuery]:
         """Parse a query_log row into an ObservedQuery."""

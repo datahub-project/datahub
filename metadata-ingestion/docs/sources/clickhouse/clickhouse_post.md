@@ -11,6 +11,14 @@ Enable query-log based metadata extraction to augment definition-based lineage:
 
 This complements view/materialized-view lineage and improves operational usage visibility.
 
+Usage is read from the `tables` and `columns` that ClickHouse itself resolved for each query,
+rather than from parsing the SQL. Two consequences:
+
+- Column counts cover every column the query touched, including ones used only in `WHERE`,
+  `JOIN` or `GROUP BY`, and the expansion of `SELECT *`.
+- A read through a view is counted against the view **and** its underlying tables, because
+  ClickHouse reports both.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
