@@ -1544,6 +1544,20 @@ public class OpenLineageEventToDatahubTest {
   }
 
   @Test
+  public void testFabricNotebookFlowNamesSparkConf() {
+    assertTrue(
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+                ConfigFactory.parseString("metadata.fabricNotebookFlowNames = true"),
+                new SparkAppContext())
+            .isFabricNotebookFlowNames());
+    // Opt-in: it renames existing notebook DataFlow / DataJob URNs.
+    assertTrue(
+        !SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+                ConfigFactory.parseString("metadata.dataset.env = \"PROD\""), new SparkAppContext())
+            .isFabricNotebookFlowNames());
+  }
+
+  @Test
   public void testFabricOneLakeItemIdsSparkConf() {
     DatahubOpenlineageConfig conf =
         SparkConfigParser.sparkConfigToDatahubOpenlineageConf(

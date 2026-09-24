@@ -475,6 +475,10 @@ public class OpenLineageToDataHub {
 
     log.info("Emitting lineage: {}", OpenLineageClientUtils.toJson(event));
     DataFlowInfo dfi = convertRunEventToDataFlowInfo(event, datahubConf.getPipelineName());
+    Optional<FabricNotebookRun> notebook = FabricNotebookRun.from(event, datahubConf);
+    if (datahubConf.getPipelineName() == null && notebook.isPresent()) {
+      dfi.setName(notebook.get().getArtifactName());
+    }
 
     String processingEngine = null;
 
@@ -489,7 +493,8 @@ public class OpenLineageToDataHub {
             event.getJob().getName(),
             processingEngine,
             event.getProducer(),
-            datahubConf);
+            datahubConf,
+            notebook.map(FabricNotebookRun::getArtifactId).orElse(null));
     jobBuilder.flowUrn(dataFlowUrn);
 
     if (datahubConf.getPlatformInstance() != null) {
@@ -995,19 +1000,23 @@ public class OpenLineageToDataHub {
       jobProcessingEngine = event.getRun().getFacets().getProcessing_engine().getName();
     }
 
+    Optional<FabricNotebookRun> notebook = FabricNotebookRun.from(event, datahubConf);
     DataFlowUrn flowUrn =
         getFlowUrn(
             event.getJob().getNamespace(),
             job.getName(), // Use original job name for flow URN
             jobProcessingEngine,
             event.getProducer(),
-            datahubConf);
+            datahubConf,
+            notebook.map(FabricNotebookRun::getArtifactId).orElse(null));
 
     dji.setFlowUrn(flowUrn);
     dji.setType(DataJobInfo.Type.create(flowUrn.getOrchestratorEntity()));
 
-    // Use the jobNameForUrn (which includes table name for MERGE commands)
-    DataJobUrn dataJobUrn = new DataJobUrn(flowUrn, jobNames.urnName);
+    // Use the jobNameForUrn (which includes table name for MERGE commands); for Fabric notebooks,
+    // without the per-session prefix so every run of the notebook lands on the same DataJob.
+    String jobNameForUrn = notebook.map(n -> n.jobName(jobNames.urnName)).orElse(jobNames.urnName);
+    DataJobUrn dataJobUrn = new DataJobUrn(flowUrn, jobNameForUrn);
     datahubJob.setJobUrn(dataJobUrn);
 
     StringMap customProperties = generateCustomProperties(event, false);
@@ -1458,6 +1467,21 @@ public class OpenLineageToDataHub {
       String processingEngine,
       URI producer,
       DatahubOpenlineageConfig datahubOpenlineageConfig) {
+    return getFlowUrn(
+        namespace, jobName, processingEngine, producer, datahubOpenlineageConfig, null);
+  }
+
+  /**
+   * As above; {@code defaultFlowName} (e.g. a Fabric notebook item id) replaces the flow name
+   * derived from the job name, unless a pipeline name is configured.
+   */
+  public static DataFlowUrn getFlowUrn(
+      String namespace,
+      String jobName,
+      String processingEngine,
+      URI producer,
+      DatahubOpenlineageConfig datahubOpenlineageConfig,
+      String defaultFlowName) {
     String producerName = null;
     if (producer != null) {
       producerName = producer.toString();
@@ -1466,6 +1490,9 @@ public class OpenLineageToDataHub {
     String orchestrator =
         getOrchestrator(processingEngine, producerName, datahubOpenlineageConfig.getOrchestrator());
     String flowName = datahubOpenlineageConfig.getPipelineName();
+    if (flowName == null) {
+      flowName = defaultFlowName;
+    }
     if (datahubOpenlineageConfig.getPlatformInstance() != null) {
       namespace = datahubOpenlineageConfig.getPlatformInstance();
     }

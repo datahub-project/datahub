@@ -92,23 +92,24 @@ The DataHub OpenLineage integration can be configured using environment variable
 
 ##### Environment Variables
 
-| Environment Variable                                           | Property                                                       | Type    | Default | Description                                                                                                                   |
-| -------------------------------------------------------------- | -------------------------------------------------------------- | ------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `DATAHUB_OPENLINEAGE_ENV`                                      | `datahub.openlineage.env`                                      | String  | `PROD`  | Environment for DataFlow cluster and Dataset fabricType (see valid values below)                                              |
-| `DATAHUB_OPENLINEAGE_ORCHESTRATOR`                             | `datahub.openlineage.orchestrator`                             | String  | `null`  | Orchestrator name for DataFlow entities. When set, takes precedence over processing_engine facet and producer URL             |
-| `DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE`                        | `datahub.openlineage.platform-instance`                        | String  | `null`  | Override DataFlow cluster (defaults to env if not specified)                                                                  |
-| `DATAHUB_OPENLINEAGE_COMMON_DATASET_ENV`                       | `datahub.openlineage.common-dataset-env`                       | String  | `null`  | Override Dataset environment independently from DataFlow cluster                                                              |
-| `DATAHUB_OPENLINEAGE_COMMON_DATASET_PLATFORM_INSTANCE`         | `datahub.openlineage.common-dataset-platform-instance`         | String  | `null`  | Common platform instance for dataset entities                                                                                 |
-| `DATAHUB_OPENLINEAGE_MATERIALIZE_DATASET`                      | `datahub.openlineage.materialize-dataset`                      | Boolean | `true`  | Whether to materialize dataset entities                                                                                       |
-| `DATAHUB_OPENLINEAGE_INCLUDE_SCHEMA_METADATA`                  | `datahub.openlineage.include-schema-metadata`                  | Boolean | `true`  | Whether to include schema metadata in lineage                                                                                 |
-| `DATAHUB_OPENLINEAGE_CAPTURE_COLUMN_LEVEL_LINEAGE`             | `datahub.openlineage.capture-column-level-lineage`             | Boolean | `true`  | Whether to capture column-level lineage information                                                                           |
-| `DATAHUB_OPENLINEAGE_USE_PATCH`                                | `datahub.openlineage.use-patch`                                | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage                                                               |
-| `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`            | `datahub.openlineage.file-partition-regexp-pattern`            | String  | `null`  | Regular expression pattern for file partition detection                                                                       |
-| `DATAHUB_OPENLINEAGE_DOMAINS`                                  | `datahub.openlineage.domains`                                  | List    | `empty` | Comma-separated domain URNs (`urn:li:domain:<id>`) attached to the DataFlow and DataJob                                       |
-| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ENABLED`                   | `datahub.openlineage.fabric-onelake-enabled`                   | Boolean | `false` | Map Fabric OneLake table paths to `fabric-onelake` URNs (opt-in; see [Microsoft Fabric (OneLake)](#microsoft-fabric-onelake)) |
-| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_CONVERT_URNS_TO_LOWERCASE` | `datahub.openlineage.fabric-onelake-convert-urns-to-lowercase` | Boolean | `false` | Lowercase schema, table and column names; match the connector's `convert_urns_to_lowercase`                                   |
-| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_PLATFORM_INSTANCE`         | `datahub.openlineage.fabric-onelake-platform-instance`         | String  | `null`  | Platform instance for `fabric-onelake` URNs; match the connector's `platform_instance`                                        |
-| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ITEM_IDS`                  | `datahub.openlineage.fabric-onelake-item-ids`                  | String  | `null`  | Comma-separated `<workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID>` entries for friendly-name OneLake paths    |
+| Environment Variable                                           | Property                                                       | Type    | Default | Description                                                                                                                              |
+| -------------------------------------------------------------- | -------------------------------------------------------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATAHUB_OPENLINEAGE_ENV`                                      | `datahub.openlineage.env`                                      | String  | `PROD`  | Environment for DataFlow cluster and Dataset fabricType (see valid values below)                                                         |
+| `DATAHUB_OPENLINEAGE_ORCHESTRATOR`                             | `datahub.openlineage.orchestrator`                             | String  | `null`  | Orchestrator name for DataFlow entities. When set, takes precedence over processing_engine facet and producer URL                        |
+| `DATAHUB_OPENLINEAGE_PLATFORM_INSTANCE`                        | `datahub.openlineage.platform-instance`                        | String  | `null`  | Override DataFlow cluster (defaults to env if not specified)                                                                             |
+| `DATAHUB_OPENLINEAGE_COMMON_DATASET_ENV`                       | `datahub.openlineage.common-dataset-env`                       | String  | `null`  | Override Dataset environment independently from DataFlow cluster                                                                         |
+| `DATAHUB_OPENLINEAGE_COMMON_DATASET_PLATFORM_INSTANCE`         | `datahub.openlineage.common-dataset-platform-instance`         | String  | `null`  | Common platform instance for dataset entities                                                                                            |
+| `DATAHUB_OPENLINEAGE_MATERIALIZE_DATASET`                      | `datahub.openlineage.materialize-dataset`                      | Boolean | `true`  | Whether to materialize dataset entities                                                                                                  |
+| `DATAHUB_OPENLINEAGE_INCLUDE_SCHEMA_METADATA`                  | `datahub.openlineage.include-schema-metadata`                  | Boolean | `true`  | Whether to include schema metadata in lineage                                                                                            |
+| `DATAHUB_OPENLINEAGE_CAPTURE_COLUMN_LEVEL_LINEAGE`             | `datahub.openlineage.capture-column-level-lineage`             | Boolean | `true`  | Whether to capture column-level lineage information                                                                                      |
+| `DATAHUB_OPENLINEAGE_USE_PATCH`                                | `datahub.openlineage.use-patch`                                | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage                                                                          |
+| `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`            | `datahub.openlineage.file-partition-regexp-pattern`            | String  | `null`  | Regular expression pattern for file partition detection                                                                                  |
+| `DATAHUB_OPENLINEAGE_DOMAINS`                                  | `datahub.openlineage.domains`                                  | List    | `empty` | Comma-separated domain URNs (`urn:li:domain:<id>`) attached to the DataFlow and DataJob                                                  |
+| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ENABLED`                   | `datahub.openlineage.fabric-onelake-enabled`                   | Boolean | `false` | Map Fabric OneLake table paths to `fabric-onelake` URNs (opt-in; see [Microsoft Fabric (OneLake)](#microsoft-fabric-onelake))            |
+| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_CONVERT_URNS_TO_LOWERCASE` | `datahub.openlineage.fabric-onelake-convert-urns-to-lowercase` | Boolean | `false` | Lowercase schema, table and column names; match the connector's `convert_urns_to_lowercase`                                              |
+| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_PLATFORM_INSTANCE`         | `datahub.openlineage.fabric-onelake-platform-instance`         | String  | `null`  | Platform instance for `fabric-onelake` URNs; match the connector's `platform_instance`                                                   |
+| `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_ITEM_IDS`                  | `datahub.openlineage.fabric-onelake-item-ids`                  | String  | `null`  | Comma-separated `<workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID>` entries for friendly-name OneLake paths               |
+| `DATAHUB_OPENLINEAGE_FABRIC_NOTEBOOK_FLOW_NAMES`               | `datahub.openlineage.fabric-notebook-flow-names`               | Boolean | `false` | One DataFlow per Fabric notebook item instead of per Spark session (opt-in; see [Microsoft Fabric (OneLake)](#microsoft-fabric-onelake)) |
 
 > **Valid `env` values**: `PROD`, `DEV`, `TEST`, `QA`, `UAT`, `EI`, `PRE`, `STG`, `NON_PROD`, `CORP`, `RVW`, `PRD`, `TST`, `SIT`, `SBX`, `SANDBOX`, `CERT`
 >
@@ -196,26 +197,50 @@ The orchestrator name is determined in the following priority order:
 
 #### Microsoft Fabric (OneLake)
 
-Spark in Microsoft Fabric (notebooks and Spark job definitions) can send OpenLineage events to this
-endpoint with the standard OpenLineage Spark listener and its `http` transport. Lakehouse tables live
-in OneLake and show up in events as ABFS paths:
+Spark in Microsoft Fabric (notebooks and Spark job definitions) can send runtime lineage to this
+endpoint through the OpenLineage Spark listener Fabric bundles. Lakehouse tables live in OneLake and
+show up in events as ABFS paths:
 
 ```text
 abfss://<workspaceGUID>@onelake.dfs.fabric.microsoft.com/<itemGUID>/Tables/[<schema>/]<table>
 abfss://<workspaceName>@onelake.dfs.fabric.microsoft.com/<itemName>.Lakehouse/Tables/[<schema>/]<table>
 ```
 
-For example, add these Spark properties to a Fabric Environment:
+Use **Fabric Runtime 2.0**. It bundles `openlineage-spark_2.13` 1.40.1, which reports column-level
+lineage for `MERGE INTO`, `CREATE OR REPLACE TABLE ... AS SELECT`, `INSERT OVERWRITE` and DataFrame
+`saveAsTable`. Runtime 1.3 bundles 1.26.0, which reports column-level lineage for `MERGE INTO` only.
 
-```text
-spark.extraListeners                     io.openlineage.spark.agent.OpenLineageSparkListener
-spark.openlineage.transport.type         http
-spark.openlineage.transport.url          https://GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/
-spark.openlineage.transport.endpoint     api/v1/lineage
-spark.openlineage.transport.auth.type    api_key
-spark.openlineage.transport.auth.apiKey  <datahub-access-token>
-spark.openlineage.namespace              fabric
-```
+1. The listener is registered but disabled. Turn it on in the Fabric Environment attached to the
+   notebooks (Spark properties):
+
+   ```text
+   spark.openlineage.disabled  false
+   ```
+
+2. Fabric pins the listener's transport to a file in the notebook's default Lakehouse
+   (`/lakehouse/default/Files/Lineage/lineage_<timestamp>`, one event per line). An `http`
+   transport set in the Environment or with `%%configure` is overridden, so post the file to this
+   endpoint from the last cell of the notebook (or a pipeline step that runs after it):
+
+   ```python
+   import requests, time
+
+   time.sleep(20)  # let the listener write the last statement's events
+   location = spark.sparkContext.getConf().get("spark.openlineage.transport.location")
+   token = notebookutils.credentials.getSecret("https://<vault>.vault.azure.net/", "<secret-name>")
+   with open(location) as events:
+       for event in filter(None, map(str.strip, events)):
+           requests.post(
+               "https://GMS_SERVER_HOST:GMS_PORT/openapi/openlineage/api/v1/lineage",
+               data=event,
+               headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
+               timeout=60,
+           ).raise_for_status()
+   ```
+
+   A notebook that fails before this cell sends no lineage for that run.
+
+3. Configure this endpoint for OneLake as described below.
 
 By default, OneLake paths are handled like any other ABFS path: tables land on `abs` path URNs (or
 on the Spark catalog symlink, for example `hive.<lakehouse>.<table>`). Set
@@ -258,14 +283,27 @@ urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,<workspaceGUID>.<itemGUID>.<s
   or `hive` datasets. New lineage lands on the `fabric-onelake` URNs; the old entities and their
   lineage are not migrated. Soft-delete them if you no longer need them.
 
-Verified against events from the `openlineage-spark_2.12` 1.26.0 listener bundled with Fabric
-Runtime 1.3 (not registered by default; add it with `spark.extraListeners`). Those events carry no
-catalog symlinks. `MERGE INTO` events list no inputs: the source table appears only in the output's
-column lineage, so the job gets column-level lineage but no input dataset edge.
-`saveAsTable`/`CREATE OR REPLACE TABLE ... AS SELECT` events carry table-level lineage only.
+Verified end to end from a Fabric Runtime 2.0 notebook (events forwarded as above), and against
+events from the `openlineage-spark_2.12` 1.26.0 listener of Runtime 1.3:
+
+- **Runtime 2.0 (1.40.1):** every write reports its inputs and output. The column lineage is on the
+  `overwrite_by_expression_exec_v1` event for CTAS, `INSERT OVERWRITE` and `saveAsTable`; the
+  `atomic_replace_table_as_select` and `command_result` events repeat the table-level lineage.
+- **Runtime 1.3 (1.26.0):** `MERGE INTO` events list no inputs (the source table appears only in the
+  column lineage), and `saveAsTable` / CTAS events carry table-level lineage only.
+
+**Notebook names.** OpenLineage Spark names jobs `<spark.app.name>.<action>`, and in Fabric the app
+name is `<notebook>_<session GUID>`, so every notebook run creates a new DataFlow and new DataJobs.
+Set `DATAHUB_OPENLINEAGE_FABRIC_NOTEBOOK_FLOW_NAMES=true` to key the DataFlow on the notebook item
+instead: the flow id is the notebook item GUID (`trident.artifact.id`), its name is the notebook name
+(`trident.artifact.name`), and job names drop the session prefix (for example
+`execute_merge_into_command.customers`), so all runs of a notebook land on the same entities. A
+configured `pipeline-name` still wins. Events without the `trident.artifact.*` Spark properties (the
+application-level start/end events, which carry no lineage) keep the session name. It is opt-in
+because it renames the DataFlow and DataJob URNs of existing notebook lineage.
 
 The same options exist in the [Spark agent](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage#configuration-instructions-microsoft-fabric)
-as `spark.datahub.metadata.dataset.fabricOneLake.*`.
+as `spark.datahub.metadata.dataset.fabricOneLake.*` and `spark.datahub.metadata.fabricNotebookFlowNames`.
 
 #### Known Limitations
 

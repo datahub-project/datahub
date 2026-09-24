@@ -68,6 +68,11 @@ public class DatahubOpenlineageConfig {
   // Maps "<workspaceName>/<itemName>.<ItemType>" (case-insensitive) to
   // "<workspaceGUID>/<itemGUID>" so those paths can be mapped too; unmapped ones stay on abs.
   @Builder.Default private final Map<String, String> fabricOneLakeItemIds = new HashMap<>();
+  // Microsoft Fabric notebooks: key the DataFlow on the notebook item (trident.artifact.id /
+  // trident.artifact.name from the spark_properties run facet) and drop the per-session prefix
+  // from job names, instead of one DataFlow per Spark session (<notebook>_<session GUID>).
+  // Opt-in: it renames the DataFlow / DataJob URNs of existing Fabric notebook lineage.
+  @Builder.Default private final boolean fabricNotebookFlowNames = false;
 
   // Metadata ingestion configuration
   private final boolean materializeDataset;

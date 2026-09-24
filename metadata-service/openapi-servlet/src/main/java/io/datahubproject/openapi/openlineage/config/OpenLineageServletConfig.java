@@ -65,6 +65,7 @@ public class OpenLineageServletConfig {
             .fabricOneLakeEnabled(properties.isFabricOnelakeEnabled())
             .fabricOneLakeConvertUrnsToLowercase(properties.isFabricOnelakeConvertUrnsToLowercase())
             .fabricOneLakePlatformInstance(properties.getFabricOnelakePlatformInstance())
+            .fabricNotebookFlowNames(properties.isFabricNotebookFlowNames())
             .fabricOneLakeItemIds(
                 new HashMap<>(FabricOneLakePath.parseItemIds(properties.getFabricOnelakeItemIds())))
             .parentJobUrn(null)

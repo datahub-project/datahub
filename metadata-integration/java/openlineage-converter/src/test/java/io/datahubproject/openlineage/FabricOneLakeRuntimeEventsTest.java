@@ -306,6 +306,37 @@ public class FabricOneLakeRuntimeEventsTest {
   }
 
   @Test
+  public void testNotebookFlowNamesKeyOnTheNotebookItem() throws Exception {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .fabricOneLakeEnabled(true)
+            .fabricNotebookFlowNames(true)
+            .build();
+    String flow = "urn:li:dataFlow:(spark," + NOTEBOOK + ",fabric-test-workspace)";
+    List<Expected> expected =
+        expected(BRONZE_CUSTOMERS, BRONZE_ORDERS, SILVER_CUSTOMERS, SILVER_CUSTOMER_TOTALS);
+    int last = events.size() - 1;
+    for (int i = 0; i < last; i++) {
+      DatahubJob job = OpenLineageToDataHub.convertRunEventToJob(events.get(i), config);
+      // Every action of the session lands on the notebook's DataFlow, without the session prefix.
+      assertEquals(job.getFlowUrn().toString(), flow, "event " + i);
+      assertEquals(
+          job.getJobUrn().toString(),
+          "urn:li:dataJob:(" + flow + "," + expected.get(i).jobSuffix() + ")",
+          "event " + i);
+      assertEquals(job.getDataFlowInfo().getName(), "nb_bronze_to_silver", "event " + i);
+    }
+    // The application-end event carries no trident.artifact.* properties (and no lineage), so it
+    // keeps the per-session name rather than guessing the notebook from spark.app.name.
+    DatahubJob appEnd = OpenLineageToDataHub.convertRunEventToJob(events.get(last), config);
+    assertEquals(
+        appEnd.getFlowUrn().toString(),
+        "urn:li:dataFlow:(spark," + FLOW_NAME + ",fabric-test-workspace)");
+    assertTrue(appEnd.getInSet().isEmpty() && appEnd.getOutSet().isEmpty());
+  }
+
+  @Test
   public void testMappingDisabledKeepsAbsUrns() throws Exception {
     DatahubOpenlineageConfig config = gmsConfig(false);
     List<Expected> expected =

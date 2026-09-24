@@ -41,6 +41,10 @@ public class DatahubOpenlineageProperties {
   // Comma-separated <workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID> entries for
   // friendly-name OneLake paths, which carry no GUIDs.
   private String fabricOnelakeItemIds;
+  // Microsoft Fabric notebooks: one DataFlow per notebook item instead of per Spark session
+  // (datahub.openlineage.fabric-notebook-flow-names /
+  // DATAHUB_OPENLINEAGE_FABRIC_NOTEBOOK_FLOW_NAMES).
+  private boolean fabricNotebookFlowNames = false;
 
   // Metadata ingestion configuration
   private boolean materializeDataset = true;

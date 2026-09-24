@@ -72,6 +72,7 @@ public class SparkConfigParser {
   public static final String FABRIC_ONELAKE_PLATFORM_INSTANCE =
       FABRIC_ONELAKE_KEY + ".platformInstance";
   public static final String FABRIC_ONELAKE_ITEM_IDS = FABRIC_ONELAKE_KEY + ".itemIds";
+  public static final String FABRIC_NOTEBOOK_FLOW_NAMES = "metadata.fabricNotebookFlowNames";
 
   public static final String DATASET_MATERIALIZE_KEY = "metadata.dataset.materialize";
   public static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
@@ -201,6 +202,7 @@ public class SparkConfigParser {
     builder.fabricOneLakePlatformInstance(
         SparkConfigParser.getFabricOneLakePlatformInstance(sparkConfig));
     builder.fabricOneLakeItemIds(SparkConfigParser.getFabricOneLakeItemIds(sparkConfig));
+    builder.fabricNotebookFlowNames(SparkConfigParser.isFabricNotebookFlowNames(sparkConfig));
     builder.captureColumnLevelLineage(SparkConfigParser.isCaptureColumnLevelLineage(sparkConfig));
     builder.includeIndirectColumnLineage(
         SparkConfigParser.isIncludeIndirectColumnLineage(sparkConfig));
@@ -520,6 +522,15 @@ public class SparkConfigParser {
     }
     return new HashMap<>(
         FabricOneLakePath.parseItemIds(datahubConfig.getString(FABRIC_ONELAKE_ITEM_IDS)));
+  }
+
+  /**
+   * Opt-in: key the DataFlow on the Fabric notebook item instead of the Spark session (renames the
+   * DataFlow / DataJob URNs of existing Fabric notebook lineage).
+   */
+  public static boolean isFabricNotebookFlowNames(Config datahubConfig) {
+    return datahubConfig.hasPath(FABRIC_NOTEBOOK_FLOW_NAMES)
+        && datahubConfig.getBoolean(FABRIC_NOTEBOOK_FLOW_NAMES);
   }
 
   public static boolean isEnhancedMergeIntoExtractionEnabled(Config datahubConfig) {

@@ -231,38 +231,48 @@ the `fabric-onelake` platform instead. It uses the same dataset name as the
 
 **Runtime requirements.** The agent is compiled for Java 17. Fabric Runtime 1.3 runs Java 11 and
 can't load it. Use Fabric Runtime 2.0 (Spark 4.1, Scala 2.13, Java 21) with the Scala 2.13 build,
-`acryl-spark-lineage_2.13`. The OneLake mapping has been checked against events from the
-OpenLineage listener bundled with Fabric Runtime 1.3; the agent itself hasn't yet been verified on
-Fabric Runtime 2.0.
+`acryl-spark-lineage_2.13`. Verified on Runtime 2.0: column-level lineage for `MERGE INTO`,
+`CREATE OR REPLACE TABLE ... AS SELECT`, `INSERT OVERWRITE` and DataFrame `saveAsTable`, on the same
+`fabric-onelake` URNs the Fabric OneLake source ingests.
 
-**Fabric Environment setup.**
+**Fabric notebook setup.**
 
-1. Create an Environment and select Runtime 2.0.
-2. Under _Custom libraries_, upload the `acryl-spark-lineage_2.13-<version>.jar` shaded jar.
-3. Under _Spark properties_, add:
+1. Create an Environment, select Runtime 2.0, and under _Custom libraries_ upload the
+   `acryl-spark-lineage_2.13-<version>.jar` shaded jar. Attach the Environment to the notebooks.
+2. Register the listener from the **first cell** of the notebook. Don't put
+   `spark.extraListeners=datahub.spark.DatahubSparkListener` in the Environment: the listener is
+   created while the Spark session starts, before Fabric adds Environment libraries, and the session
+   fails to start (`LIVY_JOB_STATE_DEAD`).
+3. Set `spark.openlineage.disabled=false` before registering it. Fabric sets it to `true` to keep its
+   own bundled OpenLineage listener off, and the agent reads the same setting, so otherwise it stays
+   inactive without an error.
 
-```text
-spark.extraListeners                                          datahub.spark.DatahubSparkListener
-spark.datahub.rest.server                                     https://<your-datahub-gms>
-spark.datahub.rest.token                                      <datahub-access-token>
-spark.datahub.metadata.dataset.env                            PROD
-spark.datahub.metadata.dataset.fabricOneLake.enabled          true
-# Only if the Fabric OneLake source uses these options:
-spark.datahub.metadata.dataset.fabricOneLake.convertUrnsToLowercase  true
-spark.datahub.metadata.dataset.fabricOneLake.platformInstance        <same as source>
-# Optional: friendly-name paths -> GUIDs
-spark.datahub.metadata.dataset.fabricOneLake.itemIds          Sales/bronze.Lakehouse=<wsGUID>/<lhGUID>
+```python
+sc = spark.sparkContext._jsc.sc()
+conf = sc.conf()
+for key, value in {
+    "spark.openlineage.disabled": "false",
+    "spark.datahub.rest.server": "https://<your-datahub-gms>",
+    "spark.datahub.rest.token": notebookutils.credentials.getSecret("https://<vault>.vault.azure.net/", "<secret-name>"),
+    "spark.datahub.metadata.dataset.env": "PROD",
+    "spark.datahub.metadata.dataset.fabricOneLake.enabled": "true",
+    # Only if the Fabric OneLake source uses these options:
+    "spark.datahub.metadata.dataset.fabricOneLake.convertUrnsToLowercase": "true",
+    # "spark.datahub.metadata.dataset.fabricOneLake.platformInstance": "<same as source>",
+    # Optional: one DataFlow per notebook instead of per Spark session
+    "spark.datahub.metadata.fabricNotebookFlowNames": "true",
+}.items():
+    conf.set(key, value)
+sc.addSparkListener(spark._jvm.datahub.spark.DatahubSparkListener(conf))
 ```
 
-4. Publish the Environment and attach it to your notebooks or Spark job definitions. You can also
-   make it the workspace default.
+The listener only sees statements that run after this cell.
 
-You can also skip the DataHub jar. Use the upstream OpenLineage Spark listener
-(`io.openlineage.spark.agent.OpenLineageSparkListener`), either the one bundled with your Fabric
-runtime or an uploaded `openlineage-spark_2.13` jar. Point its `http` transport at DataHub's
-[OpenLineage endpoint](https://docs.datahub.com/docs/lineage/openlineage#microsoft-fabric-onelake).
-On that route, configure the OneLake mapping with the `DATAHUB_OPENLINEAGE_FABRIC_ONELAKE_*` GMS
-settings.
+You can also skip the DataHub jar. Fabric bundles the upstream OpenLineage Spark listener, registered
+but disabled. Turn it on with `spark.openlineage.disabled=false`, and forward the events it writes to
+DataHub's [OpenLineage endpoint](https://docs.datahub.com/docs/lineage/openlineage#microsoft-fabric-onelake).
+Fabric pins that listener's transport to a file, so the forwarding step is needed. On that route,
+configure the OneLake mapping with the `DATAHUB_OPENLINEAGE_FABRIC_*` GMS settings.
 
 ## Configuration Options
 
@@ -306,6 +316,7 @@ settings.
 | spark.datahub.metadata.dataset.fabricOneLake.convertUrnsToLowercase             |          | false                   | Lowercase schema, table and column names (column-level lineage field paths) for `fabric-onelake` URNs. Set it to match the Fabric OneLake source's `convert_urns_to_lowercase`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | spark.datahub.metadata.dataset.fabricOneLake.platformInstance                   |          |                         | Platform instance for `fabric-onelake` URNs. Set it to match the Fabric OneLake source's `platform_instance`. Does not fall back to `spark.datahub.metadata.dataset.platformInstance`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | spark.datahub.metadata.dataset.fabricOneLake.itemIds                            |          |                         | Comma-separated `<workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID>` entries. Friendly-name OneLake paths carry no GUIDs; those listed here map to `fabric-onelake`, and the rest stay `abs`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| spark.datahub.metadata.fabricNotebookFlowNames                                  |          | false                   | Microsoft Fabric notebooks: key the DataFlow on the notebook item (`trident.artifact.id`, named after `trident.artifact.name`) and drop the per-session prefix from job names, so every run of a notebook lands on the same DataFlow and DataJobs. Opt-in: renames existing notebook DataFlow / DataJob URNs.                                                                                                                                                                                                                                                                                                                                                                          |
 | spark.datahub.s3.bucket                                                         |          |                         | The name of the bucket where metadata will be written if s3 emitter is set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | spark.datahub.s3.prefix                                                         |          |                         | The prefix for the file where metadata will be written on s3 if s3 emitter is set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | spark.datahub.s3.filename                                                       |          |                         | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
