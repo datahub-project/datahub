@@ -81,8 +81,8 @@ public final class MembershipGraphScrollFallback {
                 direction == TraversalDirection.REVERSE ? anchorFilter : EMPTY_FILTER,
                 relationshipTypes,
                 new RelationshipFilter()
-                        .setDirection(RelationshipDirection.OUTGOING)
-                        .setOr(new ConjunctiveCriterionArray()),
+                    .setDirection(RelationshipDirection.OUTGOING)
+                    .setOr(new ConjunctiveCriterionArray()),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,

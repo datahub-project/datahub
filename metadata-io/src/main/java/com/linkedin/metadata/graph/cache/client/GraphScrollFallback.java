@@ -94,9 +94,10 @@ public final class GraphScrollFallback {
                 destinationFilter,
                 Set.of(spec.getRelationshipType()),
                 new RelationshipFilter()
-                        .setDirection(RelationshipDirection.OUTGOING)
-                        .setOr(new ConjunctiveCriterionArray(
-                                new ConjunctiveCriterion().setAnd(new CriterionArray()))),
+                    .setDirection(RelationshipDirection.OUTGOING)
+                    .setOr(
+                        new ConjunctiveCriterionArray(
+                            new ConjunctiveCriterion().setAnd(new CriterionArray()))),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,

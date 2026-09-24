@@ -65,9 +65,7 @@ public final class GraphQueryUtils {
     org.opensearch.index.query.BoolQueryBuilder orQuery =
         org.opensearch.index.query.QueryBuilders.boolQuery();
     final ConjunctiveCriterionArray disjunction =
-            filter.getOr() != null
-            ? filter.getOr()
-                    : new ConjunctiveCriterionArray();
+        filter.getOr() != null ? filter.getOr() : new ConjunctiveCriterionArray();
     for (com.linkedin.metadata.query.filter.ConjunctiveCriterion conjunction : disjunction) {
       final org.opensearch.index.query.BoolQueryBuilder andQuery =
           org.opensearch.index.query.QueryBuilders.boolQuery();
