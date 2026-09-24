@@ -93,6 +93,8 @@ assert clickhouse_driver
 # "Insert", CREATE TABLE ... AS SELECT is "Create", only a bare read is "Select".
 _SELECT_QUERY_KIND = "Select"
 
+_MIN_TIMESTAMP = datetime.min.replace(tzinfo=timezone.utc)
+
 # Separator for the query_log arrays, joined server-side. A newline cannot appear
 # in a ClickHouse identifier unless it is backtick-quoted, and those entries are
 # dropped anyway because they match no table we built a URN for.
@@ -911,7 +913,13 @@ ORDER BY event_time ASC
             # same SQL text so the parser's cache answers all but the first: their
             # literals differ, but the lineage they produce cannot.
             shared_sql = next(iter(query_runs_by_usage.values())).observed.query
-            for query_run in query_runs_by_usage.values():
+            # The aggregator overwrites a query's timestamp and actor on every
+            # add, expecting oldest first. Splits are ordered by their first
+            # execution, not their last, so sort before emitting.
+            for query_run in sorted(
+                query_runs_by_usage.values(),
+                key=lambda run: run.observed.timestamp or _MIN_TIMESTAMP,
+            ):
                 query_run.observed.query = shared_sql
                 # The aggregator counts this execution usage_multiplier times, so
                 # the totals match what a row-by-row loop would have produced.

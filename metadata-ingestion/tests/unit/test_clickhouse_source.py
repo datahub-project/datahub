@@ -12,6 +12,7 @@ from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouse
 from datahub.ingestion.source.sql.clickhouse_connection import CLICKHOUSE_CLIENT_NAME
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
+    OperationClass,
     UpstreamLineageClass,
 )
 
@@ -407,6 +408,7 @@ def _insert_row(
     database: str = "my_db",
     hash_value: Optional[int] = 12345,
     day: int = 14,
+    hour: int = 6,
     literal: str = "a",
 ) -> _FakeRow:
     # Same shape every time; only the literal changes, as in a real query log.
@@ -419,7 +421,7 @@ def _insert_row(
             ),
             "query_kind": "Insert",
             "user": user,
-            "event_time": datetime(2020, 4, day, 6, 0, 0, tzinfo=timezone.utc),
+            "event_time": datetime(2020, 4, day, hour, 0, 0, tzinfo=timezone.utc),
             "current_database": database,
             "normalized_query_hash": hash_value,
         }
@@ -702,6 +704,41 @@ def test_usage_skips_clickhouse_temporary_tables(monkeypatch):
     }
 
     assert urns == {_RAW_EVENTS}
+
+
+def test_operation_reports_the_newest_execution(monkeypatch):
+    # The aggregator overwrites timestamp and actor on every add, so the last
+    # split emitted decides both. Splitting one shape across users orders the
+    # splits by their first execution, not their last.
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "include_query_log_operations": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-16T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    rows = [
+        _insert_row(query_id="a6", user="alice", hour=6),
+        _insert_row(query_id="b7", user="bob", hour=7),
+        _insert_row(query_id="a8", user="alice", hour=8),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    ops = [
+        wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, OperationClass)
+    ]
+
+    assert len(ops) == 1
+    assert ops[0].actor == "urn:li:corpuser:alice"
+    assert ops[0].lastUpdatedTimestamp == int(
+        datetime(2020, 4, 14, 8, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
+    )
 
 
 def test_query_log_respects_database_pattern(monkeypatch):
