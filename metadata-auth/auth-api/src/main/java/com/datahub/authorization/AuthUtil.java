@@ -81,8 +81,10 @@ public class AuthUtil {
     return isRestApiAuthorizationEnabled;
   }
 
+  // getEffectiveUnrestrictedEntityTypes() is Lombok-generated, so javadoc (which does not run
+  // annotation processors) cannot resolve it: {@link} here fails the auth-api javadoc task.
   /**
-   * Effective view-unrestricted entity types for a request. Resolved once onto {@link
+   * Effective view-unrestricted entity types for a request. Resolved once onto {@code
    * com.datahub.authorization.config.ViewAuthorizationConfiguration#getEffectiveUnrestrictedEntityTypes()}
    * from {@code authorization.view.unrestrictedEntityTypes} (YAML/env). When unset, returns an
    * empty set — with view authorization enabled, every entity type is restricted.

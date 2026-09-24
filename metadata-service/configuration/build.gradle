@@ -4,6 +4,7 @@ plugins {
 
 apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
+apply from: 'generate-config-key-constants.gradle'
 
 sourceSets {
     productUpdateCiGate
@@ -66,7 +67,6 @@ tasks.register('productUpdateReleaseSyncCheck', Test) {
     group = 'verification'
     testClassesDirs = sourceSets.productUpdateCiGate.output.classesDirs
     classpath = sourceSets.productUpdateCiGate.runtimeClasspath
-    include '**/productupdate/ProductUpdateReleaseSyncTest.class'
     inputs.files productUpdateInputs
     outputs.file(productUpdateStamp)
     systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath

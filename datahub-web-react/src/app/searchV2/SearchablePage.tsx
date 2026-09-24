@@ -1,4 +1,4 @@
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -64,7 +64,7 @@ const Content = styled.div<{
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
 `;
 
-const FIFTH_SECOND_IN_MS = 100;
+const FIFTH_SECOND_IN_MS = 200;
 
 type Props = React.PropsWithChildren<{
     hideSearchBar?: boolean;

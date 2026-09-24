@@ -122,7 +122,8 @@ test.describe('SearchV2 Features', () => {
     await searchPage.searchAndWait('*', 3000);
     await searchPage.expectHasResults();
     await searchPage.expectPaginationVisible();
-    await expect(page.getByText(/of [0-9]+ result/)).toBeVisible();
+    // The total is locale-formatted once it passes 999 ("of 5,146 results"), and may carry a "+" when capped.
+    await expect(page.getByText(/of [0-9][0-9,.]*\+? result/)).toBeVisible();
   });
 
   test('should handle filter option selection with checkboxes', async () => {

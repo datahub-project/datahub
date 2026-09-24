@@ -50,7 +50,7 @@ buildscript {
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
-  ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
+  ext.elasticsearchVersion = '2.19.4' // OpenSearch 2.x REST high-level client (type library)
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
   // CVE-2026-10050 (Digest Auth bypass via ISO-8859-1 encoding): fixed in 12.1.10+
@@ -109,7 +109,7 @@ buildscript {
   // instrument Java 25 runtime classes; forced in the resolutionStrategy block below.
   ext.byteBuddyVersion = '1.18.11'
   ext.openLineageVersion = '1.50.0'
-  ext.awsSdk2Version = '2.30.33'
+  ext.awsSdk2Version = '2.54.16'
   ext.micrometerVersion = '1.16.6'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
   ext.vertxVersion = '4.5.27'
@@ -127,8 +127,10 @@ buildscript {
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
   // CVE-2026-64607 (connection leak on invalid Content-Encoding): fixed in 5.6.3+
   ext.httpClient5Version = '5.6.3'
-  // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
-  ext.bouncyCastleJdk18onVersion = '1.84'
+  // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil).
+  // CVE-2026-0636 fixed in 1.84+; CVE-2026-13506 and CVE-2026-8763 fixed in 1.85+;
+  // 1.86 is the latest 1.x (CVE-2026-17507 / 18036 / 18040 / 71885–71892 / 85515).
+  ext.bouncyCastleJdk18onVersion = '1.86'
   // gRPC protobuf/stub line from Pegasus/Rest.li transitives (not gRPC transport — grpc-netty-shaded is excluded repo-wide).
   ext.grpcVersion = '1.81.0'
   // Align with Spring Boot 4.0.7 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.
@@ -235,11 +237,11 @@ project.ext.externalDependency = [
     'avro': 'org.apache.avro:avro:1.11.5',
     'avroCompiler': 'org.apache.avro:avro-compiler:1.11.5',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.25',
-    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.2',
-    'awsSdk2Bom': 'software.amazon.awssdk:bom:2.30.33',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.3.8',
+    'awsSdk2Bom': "software.amazon.awssdk:bom:$awsSdk2Version",
     'awsS3': "software.amazon.awssdk:s3:$awsSdk2Version",
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:2.0.4',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.6.5',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:4.4.0',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
     'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.6',
     'azureIdentity': 'com.azure:azure-identity:1.18.1',
@@ -268,6 +270,9 @@ project.ext.externalDependency = [
     'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
     // Multi-client shim dependencies
     'elasticsearch8Client': 'co.elastic.clients:elasticsearch-java:' + elasticsearch8Version,
+    // OpenSearch server DSL (SearchSourceBuilder etc.). Declared directly: the shim interface and
+    // ~100 call sites compile against these types; do not rely on the RHLC jar pulling it in.
+    'opensearchServer': 'org.opensearch:opensearch:' + elasticsearchVersion,
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
@@ -654,7 +659,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981; overrides d2's 3.6.3
-    resolutionStrategy.force 'org.apache.thrift:libthrift:0.23.0' // CVE-2026-43869; transitive via jena-arq
+    resolutionStrategy.force 'org.apache.thrift:libthrift:0.24.0' // CVE-2026-48586 (TZlibTransport zip-bomb DoS); transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {

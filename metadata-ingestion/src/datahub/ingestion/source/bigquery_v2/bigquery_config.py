@@ -32,7 +32,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -71,6 +71,14 @@ EXTRACT_COLUMN_LINEAGE_IGNORED_MESSAGE: str = (
     "`include_column_lineage_with_gcs`."
 )
 
+# Emitted both at config-validation time and into the ingestion report, so it lives here
+# rather than being duplicated at the two call sites.
+LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE = (
+    "`include_linked_dataset_lineage` is set but `include_table_lineage` is False; "
+    "the linked-dataset COPY lineage (the feature's main output) will not be emitted. "
+    "Subtype and source properties are still emitted when `include_schema_metadata` is enabled."
+)
+
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
 # The regexp checks for valid dates in the suffix (e.g. 20200101, 20200229, 20201231) and if the date is not valid
@@ -80,7 +88,7 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
 )
 
 
-class BigQueryProfilingConfig(GEProfilingConfig):
+class BigQueryProfilingConfig(ProfilingConfig):
     fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
         default_factory=dict,
         description="Fallback values for partition columns when partition discovery fails. Keys are column "
@@ -445,6 +453,19 @@ class BigQueryV2Config(
         "dataset-scoped but covers base tables only.",
     )
 
+    include_materialized_view_stats: bool = Field(
+        default=False,
+        description="Emit row count and size statistics for materialized views. Materialized view "
+        "stats are fetched from the BigQuery `tables.get` API (a metadata-only call that does not "
+        "scan data and does not require `profiling.enabled`). The stats are emitted as a "
+        "`datasetProfile` aspect so they appear in the DataHub UI Stats panel. Defaults to `False` "
+        "(opt-in): set to `True` to make one `tables.get` call per materialized view (capped at "
+        "1000 per dataset, after which remaining MVs in that dataset are ingested without stats) "
+        "and emit `datasetProfile` for them. The same call also populates the view's `lastModified` "
+        "in dataset properties. Both the fetch and the emit respect `view_pattern` and "
+        "`profile_pattern`, so excluded MVs make no API call.",
+    )
+
     debug_include_full_payloads: bool = Field(
         default=False,
         description="Include full payload into events. It is only for debugging and internal use.",
@@ -651,11 +672,11 @@ class BigQueryV2Config(
     @field_validator("profiling", mode="before")
     @classmethod
     def coerce_profiling_config(cls, v: object) -> object:
-        # A code caller may pass a GEProfilingConfig instance rather than a YAML dict.
-        # Re-validating it as the BigQueryProfilingConfig subclass runs GEProfilingConfig's
+        # A code caller may pass a ProfilingConfig instance rather than a YAML dict.
+        # Re-validating it as the BigQueryProfilingConfig subclass runs ProfilingConfig's
         # inherited before-validators, which assume a dict and raise on a model instance;
         # dump it back to a dict so re-validation runs on plain data.
-        if isinstance(v, GEProfilingConfig):
+        if isinstance(v, ProfilingConfig):
             return v.dict()
         return v
 
@@ -812,22 +833,11 @@ class BigQueryV2Config(
         return self
 
     @model_validator(mode="after")
-    def warn_linked_dataset_lineage_missing_dependencies(self) -> "BigQueryV2Config":
+    def warn_linked_dataset_lineage_needs_table_lineage(self) -> "BigQueryV2Config":
         # The COPY edge, this feature's main output, is gated on table lineage; with it
         # off the flag produces nothing, so warn rather than silently no-op.
         if self.include_linked_dataset_lineage and not self.include_table_lineage:
-            logger.warning(
-                "`include_linked_dataset_lineage` is set but `include_table_lineage` "
-                "is False - the linked-dataset COPY lineage is the feature's main "
-                "output and will not be emitted. Subtype and source properties are "
-                "still emitted."
-            )
-        if self.include_linked_dataset_lineage and not self.include_schema_metadata:
-            logger.warning(
-                "`include_linked_dataset_lineage` is set but `include_schema_metadata` "
-                "is False - linked datasets are detected during the schema pass, so "
-                "with it disabled nothing is detected and the feature is inert."
-            )
+            logger.warning(LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE)
         return self
 
     @model_validator(mode="after")

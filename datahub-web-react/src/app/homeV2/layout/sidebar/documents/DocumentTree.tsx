@@ -55,7 +55,7 @@ const EmptyStateWrap = styled.div`
 interface DocumentTreeProps {
     onCreateChild: (parentUrn: string | null) => void;
     selectedUrn?: string; // For selection mode (e.g., in move dialog)
-    onSelectDocument?: (urn: string) => void; // Callback when document is selected
+    onSelectDocument?: (urn: string, title?: string) => void; // Callback when document is selected
     hideActions?: boolean; // Hide action buttons (e.g., in move dialog)
     hideActionsMenu?: boolean; // Hide move/delete menu actions
     hideCreate?: boolean; // Hide create/add button
@@ -252,7 +252,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
                         isExternal={node.isExternal}
                         platform={node.platform}
                         onToggleExpand={() => handleToggleExpand(node.urn)}
-                        onClick={() => handleDocumentClick(node.urn)}
+                        onClick={() => handleDocumentClick(node.urn, node.title)}
                         onCreateChild={onCreateChild}
                         hideActions={hideActions}
                         hideActionsMenu={hideActionsMenu}
@@ -346,7 +346,10 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
     );
 
     if (loading) {
-        return <Loading height={16} />;
+        // marginTop defaults to 25% of the container's *width* (a CSS percentage-margin quirk),
+        // which reads as an oddly low-positioned spinner in a narrow, short popover. Pin it near
+        // the top instead, matching how other compact/inline Loading usages in the app do this.
+        return <Loading height={16} marginTop={0} />;
     }
 
     const isTreeEmpty =
@@ -388,7 +391,7 @@ export const DocumentTree: React.FC<DocumentTreeProps> = ({
             )}
             {sourcesByPlatform.map(renderPlatformGroup)}
             {hasMoreRoots && <RootObserver ref={rootObserverRef} />}
-            {loadingMoreRoots && <Loading height={12} />}
+            {loadingMoreRoots && <Loading height={12} marginTop={0} />}
         </TreeContainer>
     );
 };

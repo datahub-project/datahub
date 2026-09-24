@@ -1,4 +1,4 @@
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useCallback } from 'react';
 
 import { BreadcrumbButton, BreadcrumbItemWrapper, BreadcrumbLink } from '@components/components/Breadcrumb/components';

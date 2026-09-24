@@ -46,9 +46,10 @@ export class UserEntity implements Entity<CorpUser> {
 
     renderProfile = (urn: string) => <UserProfile urn={urn} />;
 
-    renderPreview = (_: PreviewType, data: CorpUser) => (
+    renderPreview = (previewType: PreviewType, data: CorpUser) => (
         <Preview
             urn={data.urn}
+            previewType={previewType}
             name={this.displayName(data)}
             title={data.editableProperties?.title || data.info?.title || ''}
         />
@@ -59,6 +60,8 @@ export class UserEntity implements Entity<CorpUser> {
     };
 
     displayName = (data: CorpUser) => {
+        if (data?.username === '__datahub_system') return 'Datahub System';
+
         // SDK default writer (`CorpUserUrn("__ingestion")`) — raw username renders as
         // "__ingestion" with a broken avatar glyph; show a human label instead.
         if (data.urn === INGESTION_ACTOR_URN || data.username === '__ingestion') {

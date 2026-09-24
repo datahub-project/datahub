@@ -446,22 +446,77 @@ When `entityService.impl=cassandra`, GMS can route non-locking aspect reads to a
 
 ### Elasticsearch Configuration
 
-| Environment Variable                       | Default         | Description                                                  | Components                                     |
-| ------------------------------------------ | --------------- | ------------------------------------------------------------ | ---------------------------------------------- |
-| `ELASTICSEARCH_HOST`                       | `localhost`     | Elasticsearch host                                           | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PORT`                       | `9200`          | Elasticsearch port                                           | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_THREAD_COUNT`               | `2`             | Elasticsearch thread count                                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT` | `5000`          | Connection request timeout (in milliseconds)                 | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_SOCKET_TIMEOUT`             | `30000`         | Socket timeout for established connections (in milliseconds) | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_USERNAME`                   | `null`          | Elasticsearch username                                       | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PASSWORD`                   | `null`          | Elasticsearch password                                       | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_PATH_PREFIX`                | `null`          | Elasticsearch path prefix                                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_USE_SSL`                    | `false`         | Use SSL for Elasticsearch                                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `OPENSEARCH_USE_AWS_IAM_AUTH`              | `false`         | Use AWS IAM authentication for OpenSearch                    | GMS, MAE Consumer, MCE Consumer, System Update |
-| `AWS_REGION`                               | `null`          | AWS region                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch)                 | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                                            | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes                           | GMS, MAE Consumer, MCE Consumer, System Update |
+| Environment Variable                       | Default         | Description                                                                                                                                                                                                                                    | Components                                     |
+| ------------------------------------------ | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `ELASTICSEARCH_URI`                        | `null`          | Full endpoint as `scheme://host:port[/pathPrefix]` for the primary cluster. When set it supersedes `ELASTICSEARCH_HOST`, `ELASTICSEARCH_PORT`, `ELASTICSEARCH_USE_SSL` and `ELASTICSEARCH_PATH_PREFIX`, which are then ignored with a warning. | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_HOST`                       | `localhost`     | Elasticsearch host                                                                                                                                                                                                                             | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PORT`                       | `9200`          | Elasticsearch port                                                                                                                                                                                                                             | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_THREAD_COUNT`               | `2`             | Elasticsearch thread count                                                                                                                                                                                                                     | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT` | `5000`          | Connection request timeout (in milliseconds)                                                                                                                                                                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_SOCKET_TIMEOUT`             | `30000`         | Socket timeout for established connections (in milliseconds)                                                                                                                                                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_USERNAME`                   | `null`          | Elasticsearch username                                                                                                                                                                                                                         | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PASSWORD`                   | `null`          | Elasticsearch password                                                                                                                                                                                                                         | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PATH_PREFIX`                | `null`          | Elasticsearch path prefix                                                                                                                                                                                                                      | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_USE_SSL`                    | `false`         | Use SSL for Elasticsearch                                                                                                                                                                                                                      | GMS, MAE Consumer, MCE Consumer, System Update |
+| `OPENSEARCH_USE_AWS_IAM_AUTH`              | `false`         | Use AWS IAM authentication for OpenSearch                                                                                                                                                                                                      | GMS, MAE Consumer, MCE Consumer, System Update |
+| `AWS_REGION`                               | `null`          | AWS region                                                                                                                                                                                                                                     | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_IMPLEMENTATION`             | `elasticsearch` | Implementation (elasticsearch or opensearch)                                                                                                                                                                                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                                                                                                                                                                                                                              | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes                                                                                                                                                                                                             | GMS, MAE Consumer, MCE Consumer, System Update |
+
+#### Optional second search cluster
+
+DataHub can connect to more than one search cluster. Clusters are named: `primary` is required and
+is what all the variables above configure, and `secondary` is optional. A cluster owns its own
+endpoint, credentials, TLS material, engine and sizing — nothing is inherited from another cluster,
+so leaving `ELASTICSEARCH_CLUSTERS_SECONDARY_URI` blank simply means there is no second connection.
+
+Index names default to the deployment-wide `INDEX_PREFIX` on every cluster. Set
+`ELASTICSEARCH_CLUSTERS_PRIMARY_INDEX_PREFIX` or
+`ELASTICSEARCH_CLUSTERS_SECONDARY_INDEX_PREFIX` to override one cluster; a blank value inherits
+`INDEX_PREFIX`. A set overlay is the prefix `IndexConvention` uses for every index family on that
+cluster (entity, graph, usage, timeseries, system-metadata) for both reads and writes. Families whose
+cluster overlay is blank still use `INDEX_PREFIX`, or an extension `IndexPrefixResolver` when one is
+registered.
+
+Operational tuning (`ELASTICSEARCH_BULK_*`, `ELASTICSEARCH_BUILD_INDICES_*`, and the non-sizing
+index settings) stays deployment-wide and applies to every cluster.
+
+| Environment Variable                                | Default        | Description                                                                                            | Components                                     |
+| --------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------- |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_URI`              | `null`         | Endpoint of the second cluster as `scheme://host:port[/pathPrefix]`. Blank means unused.               | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_USERNAME`         | `null`         | Username for the second cluster                                                                        | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PASSWORD`         | `null`         | Password for the second cluster                                                                        | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_DATA_NODE_COUNT`  | `null`         | Data node count for the second cluster; never copied from primary                                      | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_NUM_SHARDS`       | `null`         | Shards per index on the second cluster; defaults to that cluster's data node count                     | System Update                                  |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_NUM_REPLICAS`     | `1`            | Replicas per index on the second cluster                                                               | System Update                                  |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_INDEX_PREFIX`       | `INDEX_PREFIX` | Override index prefix on the primary cluster. Blank inherits `INDEX_PREFIX`.                           | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_INDEX_PREFIX`     | `INDEX_PREFIX` | Override index prefix on the second cluster. Blank inherits `INDEX_PREFIX`.                            | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_ENGINE_TYPE` | `AUTO_DETECT`  | Engine of the second cluster. Unset means auto-detect — it never inherits the primary's pinned engine. | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SHIM_AUTO_DETECT` | `true`         | Detect the engine by connecting. Takes precedence over the configured engine type.                     | GMS, MAE Consumer, MCE Consumer, System Update |
+
+Which cluster serves each subsystem is set separately. Every entry defaults to `primary`, so an
+existing deployment behaves exactly as before. Startup fails if an entry names a cluster with no
+URI, rather than deferring the error to the first query.
+
+| Environment Variable                              | Default   | Description                                            | Components                                     |
+| ------------------------------------------------- | --------- | ------------------------------------------------------ | ---------------------------------------------- |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V2`       | `primary` | Cluster hosting Search V2 entity indices (`*index_v2`) | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V3`       | `primary` | Cluster hosting Search V3 entity indices (`*index_v3`) | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_SEMANTIC`        | `primary` | Cluster hosting semantic/kNN indices                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_GRAPH`           | `primary` | Cluster hosting the graph index                        | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_TIMESERIES`      | `primary` | Cluster hosting timeseries aspect indices              | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_SYSTEM_METADATA` | `primary` | Cluster hosting the system metadata index              | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_USAGE`           | `primary` | Cluster hosting usage event indices                    | GMS, MAE Consumer, MCE Consumer, System Update |
+
+Search V2 and Search V3 route independently, so a dual-write migration can keep both families on
+one cluster or split them. Reading V3 still requires V3 writes to be enabled
+(`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED` plus `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`);
+routing V3 to a second cluster does not by itself change which family is read. Semantic (kNN)
+search has its own read flag, `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED` (default
+`false`): with V3 writes on, it reads document vectors from the V3 document index on the Search V3
+cluster instead of the semantic indices, independent of the keyword read flag. It needs OpenSearch
+3.5+ or Elasticsearch 8.18+ on the Search V3 cluster; services given it refuse to start on older OpenSearch.
 
 #### MAE consumer (`metadata-jobs/mae-consumer-job`)
 
@@ -507,39 +562,39 @@ The MAE consumer runs in **its own** process and shares the same `ESBulkProcesso
 
 #### Index Configuration
 
-| Environment Variable                                       | Default | Description                             | Components                                     |
-| ---------------------------------------------------------- | ------- | --------------------------------------- | ---------------------------------------------- |
-| `INDEX_PREFIX`                                             | ``      | Index prefix                            | GMS, MAE Consumer, MCE Consumer, System Update |
-| `ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED` | `false` | Enable hash ID for schema field doc IDs | GMS, MAE Consumer, MCE Consumer, System Update |
+| Environment Variable                                       | Default | Description                                                                                                                                                           | Components                                     |
+| ---------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `INDEX_PREFIX`                                             | ``      | Default index prefix for every search cluster. Per-cluster overrides: `ELASTICSEARCH_CLUSTERS_PRIMARY_INDEX_PREFIX`, `ELASTICSEARCH_CLUSTERS_SECONDARY_INDEX_PREFIX`. | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED` | `false` | Enable hash ID for schema field doc IDs                                                                                                                               | GMS, MAE Consumer, MCE Consumer, System Update |
 
 #### Build Indices Configuration
 
-| Environment Variable                                            | Default                          | Description                                                                                                                                                          | Components         |
-| --------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`          | `false`                          | Allow document count mismatch when clone indices is enabled                                                                                                          | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                     | `true`                           | Clone indices                                                                                                                                                        | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`                    | `DAYS`                           | Retention unit for indices                                                                                                                                           | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`                   | `60`                             | Retention value for indices                                                                                                                                          | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED`      | `true`                           | Enable reindex optimization                                                                                                                                          | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE`                | `5000`                           | Documents per scroll batch during reindex                                                                                                                            | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES`                | `256`                            | Maximum parallel reindex slices (capped from target shards)                                                                                                          | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES` | `5`                              | Minutes without document-count progress before re-triggering reindex                                                                                                 | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK`  | `true`                           | Skip stall-retry resubmit while the ES `_reindex` task is still running or status lookup failed                                                                      | System Update      |
-| `ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS`    | `180`                            | Seconds; HTTP socket timeout for slow **build-indices** / system-update operations (`ESIndexBuilder`, reindex, count, tasks—not `ESBulkProcessor` by-query defaults) | GMS, System Update |
-| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                            | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount                                                                                                                | System Update      |
-| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                          | `1`                              | Number of replicas per index                                                                                                                                         | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                       | `3`                              | Index builder number of retries                                                                                                                                      | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`          | `3`                              | Index builder refresh interval                                                                                                                                       | System Update      |
-| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                              | `1000`                           | Maximum array length in search documents                                                                                                                             | System Update      |
-| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                               | `1000`                           | Maximum object keys in search documents                                                                                                                              | System Update      |
-| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                              | `4096`                           | Maximum value length in search documents                                                                                                                             | System Update      |
-| `ELASTICSEARCH_MAIN_TOKENIZER`                                  | `null`                           | Main tokenizer                                                                                                                                                       | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                          | Enable mappings reindex                                                                                                                                              | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                          | Enable settings reindex                                                                                                                                              | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                              | Maximum reindex hours (0 = no timeout)                                                                                                                               | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                           | Index builder settings overrides                                                                                                                                     | System Update      |
-| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                              | Minimum search filter length                                                                                                                                         | System Update      |
-| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                           | Entity settings overrides                                                                                                                                            | System Update      |
+| Environment Variable                                            | Default                                           | Description                                                                                                                                                          | Components         |
+| --------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`          | `false`                                           | Allow document count mismatch when clone indices is enabled                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                     | `true`                                            | Clone indices                                                                                                                                                        | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`                    | `DAYS`                                            | Retention unit for indices                                                                                                                                           | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`                   | `60`                                              | Retention value for indices                                                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED`      | `true`                                            | Enable reindex optimization                                                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE`                | `5000`                                            | Documents per scroll batch during reindex                                                                                                                            | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES`                | `256`                                             | Maximum parallel reindex slices (capped from target shards)                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES` | `5`                                               | Minutes without document-count progress before re-triggering reindex                                                                                                 | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_WAIT_FOR_UNRESOLVED_REINDEX_TASK`  | `true`                                            | Skip stall-retry resubmit while the ES `_reindex` task is still running or status lookup failed                                                                      | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS`    | `180`                                             | Seconds; HTTP socket timeout for slow **build-indices** / system-update operations (`ESIndexBuilder`, reindex, count, tasks—not `ESBulkProcessor` by-query defaults) | GMS, System Update |
+| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                            | `${elasticsearch.clusters.primary.dataNodeCount}` | Number of shards per index on the primary cluster; defaults to that cluster's own data node count                                                                    | System Update      |
+| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                          | `1`                                               | Number of replicas per index                                                                                                                                         | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                       | `3`                                               | Index builder number of retries                                                                                                                                      | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`          | `3`                                               | Index builder refresh interval                                                                                                                                       | System Update      |
+| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                              | `1000`                                            | Maximum array length in search documents                                                                                                                             | System Update      |
+| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                               | `1000`                                            | Maximum object keys in search documents                                                                                                                              | System Update      |
+| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                              | `4096`                                            | Maximum value length in search documents                                                                                                                             | System Update      |
+| `ELASTICSEARCH_MAIN_TOKENIZER`                                  | `null`                                            | Main tokenizer                                                                                                                                                       | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                                           | Enable mappings reindex                                                                                                                                              | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                                           | Enable settings reindex                                                                                                                                              | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                                               | Maximum reindex hours (0 = no timeout)                                                                                                                               | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                                            | Index builder settings overrides                                                                                                                                     | System Update      |
+| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                                               | Minimum search filter length                                                                                                                                         | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                                            | Entity settings overrides                                                                                                                                            | System Update      |
 
 #### Search Configuration
 
@@ -564,22 +619,22 @@ The MAE consumer runs in **its own** process and shares the same `ESBulkProcesso
 
 #### Graph Search Configuration
 
-| Environment Variable                                        | Default                          | Description                                                                                           | Components |
-| ----------------------------------------------------------- | -------------------------------- | ----------------------------------------------------------------------------------------------------- | ---------- |
-| `ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS`                | `50`                             | Graph DAO timeout seconds                                                                             | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE`                     | `1000`                           | Graph DAO batch size                                                                                  | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH`              | `false`                          | Allow path retraversal for all paths                                                                  | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES`                | `true`                           | Boost graph edges with via nodes                                                                      | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED`                 | `false`                          | Enable soft delete tracking of URNs on edges                                                          | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`               | `20`                             | Maximum hops to traverse lineage graph                                                                | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS`                | `1000`                           | Maximum hops to traverse for impact analysis (impact.maxHops)                                         | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS`           | `40000`                          | Maximum number of relationships for impact analysis (impact.maxRelations)                             | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES`                  | `${elasticsearch.dataNodeCount}` | Number of slices for parallel search operations (impact.slices), defaults to dataNodeCount, minimum 2 | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE`              | `5m`                             | Point-in-Time keepAlive duration for impact analysis queries (impact.keepAlive)                       | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_PARTIAL_RESULTS`         | `false`                          | If true, return partial results when maxRelations is reached; if false (default), throw an error      | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`                             | Maximum parallel lineage graph queries                                                                | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`                           | Reduce query nesting if possible                                                                      | GMS        |
-| `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`                           | Enable creation of point in time snapshots for graph queries                                          | GMS        |
+| Environment Variable                                        | Default                                           | Description                                                                                                                   | Components |
+| ----------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS`                | `50`                                              | Graph DAO timeout seconds                                                                                                     | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE`                     | `1000`                                            | Graph DAO batch size                                                                                                          | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH`              | `false`                                           | Allow path retraversal for all paths                                                                                          | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES`                | `true`                                            | Boost graph edges with via nodes                                                                                              | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED`                 | `false`                                           | Enable soft delete tracking of URNs on edges                                                                                  | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS`               | `20`                                              | Maximum hops to traverse lineage graph                                                                                        | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS`                | `1000`                                            | Maximum hops to traverse for impact analysis (impact.maxHops)                                                                 | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_RELATIONS`           | `40000`                                           | Maximum number of relationships for impact analysis (impact.maxRelations)                                                     | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SLICES`                  | `${elasticsearch.clusters.primary.dataNodeCount}` | Number of slices for parallel search operations (impact.slices), defaults to the primary cluster's data node count, minimum 2 | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_KEEP_ALIVE`              | `5m`                                              | Point-in-Time keepAlive duration for impact analysis queries (impact.keepAlive)                                               | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_PARTIAL_RESULTS`         | `false`                                           | If true, return partial results when maxRelations is reached; if false (default), throw an error                              | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS`             | `32`                                              | Maximum parallel lineage graph queries                                                                                        | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION`             | `true`                                            | Reduce query nesting if possible                                                                                              | GMS        |
+| `ELASTICSEARCH_SEARCH_GRAPH_POINT_IN_TIME_CREATION_ENABLED` | `true`                                            | Enable creation of point in time snapshots for graph queries                                                                  | GMS        |
 
 ### Neo4j Configuration
 
@@ -1167,26 +1222,28 @@ See [Monitoring — API usage aggregation metrics](../advanced/monitoring.md#api
 
 ### GraphQL Configuration
 
-| Environment Variable                            | Default                                                    | Description                                                     | Components |
-| ----------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------- | ---------- |
-| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL                         | GMS        |
-| `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS`     | `false`                                                    | Restore CPU-scaled pool sizes and SynchronousQueue              | GMS        |
-| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                                  | GMS        |
-| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `40`                                                       | GraphQL core pool size (`< 0` = 5 \* cores)                     | GMS        |
-| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `800`                                                      | GraphQL max pool size, 8-core cap (`<= 0` = 100 \* cores)       | GMS        |
-| `GRAPHQL_CONCURRENCY_QUEUE_SIZE`                | `0`                                                        | `<= 0` SynchronousQueue (blocking fan-out); `> 0` bounded queue | GMS        |
-| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                                  | GMS        |
-| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                                  | GMS        |
-| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                                       | GMS        |
-| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                                    | GMS        |
-| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                               | GMS        |
-| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                                             | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics                              | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                                  | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics                           | GMS        |
-| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                                       | GMS        |
-| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics                | GMS        |
-| `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED`           | `true`                                                     | Load only aspects the query selection needs                     | GMS        |
+| Environment Variable                            | Default                                                    | Description                                                                            | Components |
+| ----------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------- |
+| `GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL`      | `false`                                                    | Enable separate thread pool for GraphQL                                                | GMS        |
+| `GRAPHQL_CONCURRENCY_SCALE_WITH_PROCESSORS`     | `false`                                                    | Restore CPU-scaled pool sizes and SynchronousQueue                                     | GMS        |
+| `GRAPHQL_CONCURRENCY_STACK_SIZE`                | `256000`                                                   | GraphQL thread pool stack size                                                         | GMS        |
+| `GRAPHQL_CONCURRENCY_CORE_POOL_SIZE`            | `40`                                                       | GraphQL core pool size (`< 0` = 5 \* cores)                                            | GMS        |
+| `GRAPHQL_CONCURRENCY_MAX_POOL_SIZE`             | `800`                                                      | GraphQL max pool size, 8-core cap (`<= 0` = 100 \* cores)                              | GMS        |
+| `GRAPHQL_CONCURRENCY_QUEUE_SIZE`                | `0`                                                        | `<= 0` SynchronousQueue (blocking fan-out); `> 0` bounded queue                        | GMS        |
+| `GRAPHQL_CONCURRENCY_KEEP_ALIVE`                | `60`                                                       | GraphQL thread keep alive time                                                         | GMS        |
+| `GRAPHQL_DOCUMENT_CACHE_ENABLED`                | `true`                                                     | Enable the cache of parsed/validated GraphQL query documents                           | GMS        |
+| `GRAPHQL_DOCUMENT_CACHE_MAX_BYTES`              | `26214400`                                                 | Maximum GraphQL document cache weight in bytes (25MB, estimated as 5x query text size) | GMS        |
+| `GRAPHQL_QUERY_COMPLEXITY_LIMIT`                | `2000`                                                     | GraphQL query complexity limit                                                         | GMS        |
+| `GRAPHQL_QUERY_DEPTH_LIMIT`                     | `50`                                                       | GraphQL query depth limit                                                              | GMS        |
+| `GRAPHQL_QUERY_INTROSPECTION_ENABLED`           | `true`                                                     | Enable GraphQL introspection                                                           | GMS        |
+| `GRAPHQL_METRICS_ENABLED`                       | `true`                                                     | Enable GraphQL metrics collection                                                      | GMS        |
+| `GRAPHQL_PERCENTILES`                           | `0.5,0.75,0.95,0.98,0.99,0.999`                            | GraphQL percentiles                                                                    | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_ENABLED`           | `false`                                                    | Enable field-level GraphQL metrics                                                     | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_OPERATIONS`        | `getSearchResultsForMultiple,searchAcrossLineageStructure` | GraphQL field-level operations                                                         | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATH_ENABLED`      | `false`                                                    | Include field path in GraphQL metrics                                                  | GMS        |
+| `GRAPHQL_METRICS_FIELD_LEVEL_PATHS`             | ``                                                         | GraphQL field-level paths                                                              | GMS        |
+| `GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED` | `false`                                                    | Include trivial data fetchers in GraphQL metrics                                       | GMS        |
+| `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED`           | `true`                                                     | Load only aspects the query selection needs                                            | GMS        |
 
 ### Chrome Extension Configuration
 
@@ -1349,6 +1406,16 @@ DataHub supports CDC mode for MetadataChangeLog generation, which guarantees ord
 | ----------------------- | ------- | ----------------------------------------------- | ---------- |
 | `AUTH_COOKIE_SAME_SITE` | `LAX`   | SameSite attribute for authentication cookies   | Frontend   |
 | `AUTH_COOKIE_SECURE`    | `false` | Whether authentication cookies should be secure | Frontend   |
+
+### Security headers (opt-in)
+
+Play's `SecurityHeadersFilter` is enabled in the frontend filter chain. With no env vars set, `X-Frame-Options`, `X-Content-Type-Options`, and `Referrer-Policy` are **not** sent. Set a variable to emit that header. Content-Security-Policy is configured separately via `DATAHUB_CSP_*` (see `play.filters.csp` in `datahub-frontend/conf/application.conf`).
+
+| Environment Variable                            | Default                 | Description                                                          | Components |
+| ----------------------------------------------- | ----------------------- | -------------------------------------------------------------------- | ---------- |
+| `DATAHUB_SECURITY_HEADERS_FRAME_OPTIONS`        | `null` (header omitted) | Value for `X-Frame-Options` (e.g. `DENY`, `SAMEORIGIN`)              | Frontend   |
+| `DATAHUB_SECURITY_HEADERS_CONTENT_TYPE_OPTIONS` | `null` (header omitted) | Value for `X-Content-Type-Options` (e.g. `nosniff`)                  | Frontend   |
+| `DATAHUB_SECURITY_HEADERS_REFERRER_POLICY`      | `null` (header omitted) | Value for `Referrer-Policy` (e.g. `strict-origin-when-cross-origin`) | Frontend   |
 
 ## Authentication Configuration
 
