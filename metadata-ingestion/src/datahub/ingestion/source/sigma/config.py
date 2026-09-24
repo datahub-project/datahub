@@ -184,9 +184,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # counter restores the observability signal.
     chart_dataset_upstream_name_missing: int = 0
 
-    # The four counters below count columns the resolver COMPUTED, not columns
-    # emitted: a chart aspect refused for resolving less than a duplicate
-    # workbook's copy still counted here. See
+    # Every chart-column counter in this section counts what the resolver
+    # COMPUTED, not what was emitted: a chart aspect refused for resolving less
+    # than a duplicate workbook's copy still counted here. See
     # input_fields_regressive_emission_skipped.
     # Chart InputFields — one counter fires per chart column (not per formula ref).
     # The resolver (_resolve_chart_formula_upstream) is a pure predicate: it

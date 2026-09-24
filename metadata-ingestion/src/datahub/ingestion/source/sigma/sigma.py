@@ -1965,10 +1965,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         key=value; a platform_instance is user config and may not. An accepted
         tie moves it: the label must name whoever wrote what is there.
 
-        The drain names its aggregator instead. A customSQL chart's columns
-        reference its own SQL output, so both copies' element aspects resolve
-        nothing, tie, and record no sample -- a drain-vs-drain refusal is then
-        the only entry there is.
+        The drain names its aggregator instead, since it has no workbook. Two
+        drains cannot contest one URN -- the registered set is global, so a
+        chart registers with exactly one aggregator -- but a drain can be
+        refused against an element aspect whose workbook failed to register,
+        and then the aggregator is what identifies the losing side.
         """
         best = self._best_input_fields_resolved.get(entity_urn)
         if best is not None and resolved < best[0]:
@@ -2004,10 +2005,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Charts do not accept ``upstreamLineage``; this converts the aggregator
         output into the ``inputFields`` aspect that DataHub's chart entity accepts.
 
-        On a URN two workbooks claim, the parts of this aspect disagree about
-        which workbook they came from: the stashed fields are the richest
-        copy's, while the view definition and the passthrough mapping are still
-        the last registered one's.
+        On a URN two workbooks claim, the parts of this aspect come from
+        different workbooks. The view definition is the FIRST copy to register
+        successfully -- registration returns early once the URN is known. The
+        passthrough mapping is the last copy with a non-empty one, which is
+        decided before that check. The stashed fields are the last ACCEPTED
+        copy, and a tie counts as accepted, so they are not necessarily the
+        richest.
         """
         input_fields: List[InputFieldClass] = []
         if aspect.fineGrainedLineages:
@@ -4457,8 +4461,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # by _build_workbook_chart_input_fields_mcp; the drain MCP supersedes this
             # one (later in the workunit stream).  The formula-derived fields stashed
             # below are merged into the drain MCP so nothing is silently dropped.
-            chart_mcp = self._chart_input_fields_mcp(
-                chart_urn, element_input_fields, workbook.workbookId
+            element_resolved = self._resolved_field_count(
+                chart_urn, element_input_fields
+            )
+            chart_mcp = self._guarded_input_fields_mcp(
+                chart_urn, element_input_fields, element_resolved, workbook.workbookId
             )
             if chart_mcp is not None:
                 # Stash only what was emitted. Stashing a refused copy would
@@ -4471,9 +4478,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 yield chart_mcp.as_workunit()
 
             if chart_resolved_counts is not None:
-                chart_resolved_counts.append(
-                    self._resolved_field_count(chart_urn, element_input_fields)
-                )
+                chart_resolved_counts.append(element_resolved)
 
             # Unconditional: within one workbook the page aspect is a union over
             # its charts, and a refusal is about one chart URN. The page aspect
