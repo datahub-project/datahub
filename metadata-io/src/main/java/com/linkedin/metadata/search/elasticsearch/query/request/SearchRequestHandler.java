@@ -35,6 +35,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchSuggestion;
 import com.linkedin.metadata.search.SearchSuggestionArray;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -135,7 +136,10 @@ public class SearchRequestHandler extends BaseRequestHandler {
     highlights = getDefaultHighlights(opContext);
     searchQueryBuilder = new SearchQueryBuilder(configs.getSearch(), customSearchConfiguration);
     aggregationQueryBuilder =
-        new AggregationQueryBuilder(configs.getSearch(), entitySearchAnnotations);
+        new AggregationQueryBuilder(
+            configs.getSearch(),
+            entitySearchAnnotations,
+            EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex()));
     this.searchServiceConfig = searchServiceConfig;
     searchableFieldTypes = opContext.getSearchContext().getSearchableFieldTypes();
     searchableFieldPaths = opContext.getSearchContext().getSearchableFieldPaths();
@@ -243,7 +247,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable EntityIndexConfiguration entityIndexConfiguration) {
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
+            filter,
+            false,
+            EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration),
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain);
     return applyDefaultSearchFilters(
         opContext, entityNames, filter, filterQuery, entityIndexConfiguration);
   }
@@ -417,7 +426,12 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchSourceBuilder.size(0);
     searchSourceBuilder.aggregation(
         AggregationBuilders.terms(field)
-            .field(ESUtils.toKeywordField(opContext, field, false, opContext.getAspectRetriever()))
+            .field(
+                ESUtils.toKeywordField(
+                    opContext,
+                    field,
+                    EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration),
+                    opContext.getAspectRetriever()))
             .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
     searchRequest.source(searchSourceBuilder);
 

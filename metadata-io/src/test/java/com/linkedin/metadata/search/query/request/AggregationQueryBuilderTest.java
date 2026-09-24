@@ -658,6 +658,52 @@ public class AggregationQueryBuilderTest {
             DEFAULT_FILTER));
   }
 
+  /** V3 entity indices keep keyword fields at the root, so facets skip the .keyword subfield. */
+  @Test
+  public void testV3KeywordReadFacetsUseRootFields() {
+    SearchableAnnotation annotation =
+        new SearchableAnnotation(
+            "test1",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            false,
+            Optional.empty(),
+            Optional.of("Has Test"),
+            1.0,
+            Optional.of("hasTest1"),
+            Optional.empty(),
+            Collections.<Object, Double>emptyMap(),
+            Collections.<String>emptyList(),
+            false,
+            false,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            false);
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)), true);
+
+    Set<String> facets =
+        builder
+            .getAggregations(
+                TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+                ImmutableList.of("test1", "hasTest1", "structuredProperties.hello"))
+            .stream()
+            .map(aggB -> ((TermsAggregationBuilder) aggB).field())
+            .collect(Collectors.toSet());
+    Assert.assertEquals(
+        facets, ImmutableSet.of("test1", "hasTest1", "structuredProperties.hello", DEFAULT_FILTER));
+  }
+
   @Test
   public void testAggregateOverFieldsAndStructPropV1() {
     SearchableAnnotation annotation1 =

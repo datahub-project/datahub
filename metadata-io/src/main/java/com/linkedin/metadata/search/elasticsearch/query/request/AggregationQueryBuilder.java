@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -58,13 +59,29 @@ public class AggregationQueryBuilder {
   private final Set<String> allFacetFields;
   private final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
 
+  /**
+   * Search V3 entity indices keep keyword fields at the root, so facets aggregate on the field
+   * itself instead of a {@code .keyword} subfield.
+   */
+  private final boolean v3KeywordReadEnabled;
+
   private Map<String, String> filtersToDisplayName;
 
+  /** V2 facets only; production passes the V3 read decision through the other constructor. */
+  @VisibleForTesting
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations) {
+    this(configs, entitySearchAnnotations, false);
+  }
+
+  public AggregationQueryBuilder(
+      @Nonnull final SearchConfiguration configs,
+      @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations,
+      final boolean v3KeywordReadEnabled) {
     this.configs = Objects.requireNonNull(configs, "configs must not be null");
     this.entitySearchAnnotations = entitySearchAnnotations;
+    this.v3KeywordReadEnabled = v3KeywordReadEnabled;
 
     List<SearchableAnnotation> annotations =
         this.entitySearchAnnotations.values().stream()
@@ -199,7 +216,7 @@ public class AggregationQueryBuilder {
       return facet;
     }
     // Structured properties and keyword fields share one resolver (SP type → parent vs .keyword).
-    return ESUtils.toKeywordField(opContext, facet, false, aspectRetriever);
+    return ESUtils.toKeywordField(opContext, facet, v3KeywordReadEnabled, aspectRetriever);
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {

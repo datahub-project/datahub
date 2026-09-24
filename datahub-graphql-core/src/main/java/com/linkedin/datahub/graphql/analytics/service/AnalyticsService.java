@@ -233,23 +233,17 @@ public class AnalyticsService {
     if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
       throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
     }
-    if (isUnimplementedV3EntityKeywordAggregation(indexName, dimensions)) {
-      log.error(
-          "Entity-index analytics aggregations on V2 keyword subfields {} are not implemented when Search V3 keyword reads are enabled (index {}). Returning empty results.",
-          dimensions,
-          indexName);
-      return ImmutableList.of();
-    }
+    final List<String> fields = toIndexFields(indexName, dimensions);
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
-    TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(dimensions.get(0));
+    TermsAggregationBuilder termAgg = AggregationBuilders.terms(DIMENSION).field(fields.get(0));
     if (showMissing) {
       termAgg.missing(NA);
     }
 
     if (dimensions.size() == 2) {
       TermsAggregationBuilder secondTermAgg =
-          AggregationBuilders.terms(SECOND_DIMENSION).field(dimensions.get(1));
+          AggregationBuilders.terms(SECOND_DIMENSION).field(fields.get(1));
       if (showMissing) {
         secondTermAgg.missing(NA);
       }
@@ -295,21 +289,25 @@ public class AnalyticsService {
   }
 
   /**
-   * Landscape charts still aggregate on V2 {@code .keyword} URN subfields ({@code
-   * platform.keyword}, {@code domains.keyword}, …). V3 maps those as keyword parents without that
-   * subfield, so the query is not implemented for V3 entity indices.
+   * Landscape charts name V2 {@code .keyword} URN subfields ({@code platform.keyword}, {@code
+   * domains.keyword}, …). V3 entity indices map those fields as keyword at the root, without that
+   * subfield, so the suffix is dropped there. Other indices keep the names as given.
    */
-  private boolean isUnimplementedV3EntityKeywordAggregation(
-      String indexName, List<String> dimensions) {
-    if (!EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)) {
-      return false;
+  private List<String> toIndexFields(String indexName, List<String> dimensions) {
+    boolean v3EntityIndex =
+        EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration)
+            && indexName.endsWith("index_v3")
+            && indexName.length() > "index_v3".length();
+    if (!v3EntityIndex) {
+      return dimensions;
     }
-    boolean usesKeywordSubfield =
-        dimensions.stream().anyMatch(field -> field.endsWith(SearchUtil.KEYWORD_SUFFIX));
-    if (!usesKeywordSubfield) {
-      return false;
-    }
-    return indexName.endsWith("index_v3") && indexName.length() > "index_v3".length();
+    return dimensions.stream()
+        .map(
+            field ->
+                field.endsWith(SearchUtil.KEYWORD_SUFFIX)
+                    ? field.substring(0, field.length() - SearchUtil.KEYWORD_SUFFIX.length())
+                    : field)
+        .collect(Collectors.toList());
   }
 
   private List<BarSegment> extractBarSegmentsFromAggregations(

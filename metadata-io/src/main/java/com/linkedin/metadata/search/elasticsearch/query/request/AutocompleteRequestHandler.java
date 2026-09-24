@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.AutoCompleteEntity;
 import com.linkedin.metadata.query.AutoCompleteEntityArray;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -149,7 +150,12 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     // Initial query with input filters
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
+            filter,
+            false,
+            EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex()),
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain);
     baseQuery.filter(filterQuery);
 
     // Apply field configuration to autocomplete fields

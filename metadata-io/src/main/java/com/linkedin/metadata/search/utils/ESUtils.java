@@ -462,6 +462,33 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return buildFilterQuery(
+        filter,
+        isTimeseries,
+        isTimeseries,
+        searchableFieldTypes,
+        opContext,
+        queryFilterRewriteChain);
+  }
+
+  /**
+   * Constructs the filter query given filter map.
+   *
+   * @param filter the search filter
+   * @param isTimeseries whether filtering on timeseries index, which also selects the timeseries
+   *     query rewrites
+   * @param skipKeywordSuffix filter on each field itself, never a {@code .keyword} subfield.
+   *     Timeseries indices and Search V3 entity indices keep their keyword fields at the root.
+   * @return built filter query
+   */
+  @Nonnull
+  public static BoolQueryBuilder buildFilterQuery(
+      @Nullable Filter filter,
+      boolean isTimeseries,
+      boolean skipKeywordSuffix,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
     if (filter == null) {
       return finalQueryBuilder;
@@ -479,6 +506,7 @@ public class ESUtils {
                       ESUtils.buildConjunctiveFilterQuery(
                           or,
                           isTimeseries,
+                          skipKeywordSuffix,
                           searchableFieldTypes,
                           opContext,
                           queryFilterRewriteChain)));
@@ -495,6 +523,7 @@ public class ESUtils {
                       getQueryBuilderFromCriterion(
                           criterion,
                           isTimeseries,
+                          skipKeywordSuffix,
                           searchableFieldTypes,
                           opContext,
                           queryFilterRewriteChain));
@@ -506,7 +535,7 @@ public class ESUtils {
         opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {
       BoolQueryBuilder filterNonLatestVersions =
           ESUtils.buildFilterNonLatestEntities(
-              opContext, queryFilterRewriteChain, searchableFieldTypes);
+              opContext, queryFilterRewriteChain, searchableFieldTypes, skipKeywordSuffix);
       finalQueryBuilder.must(filterNonLatestVersions);
     }
     if (!finalQueryBuilder.should().isEmpty()) {
@@ -519,6 +548,23 @@ public class ESUtils {
   public static BoolQueryBuilder buildConjunctiveFilterQuery(
       @Nonnull ConjunctiveCriterion conjunctiveCriterion,
       boolean isTimeseries,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return buildConjunctiveFilterQuery(
+        conjunctiveCriterion,
+        isTimeseries,
+        isTimeseries,
+        searchableFieldTypes,
+        opContext,
+        queryFilterRewriteChain);
+  }
+
+  @Nonnull
+  private static BoolQueryBuilder buildConjunctiveFilterQuery(
+      @Nonnull ConjunctiveCriterion conjunctiveCriterion,
+      boolean isTimeseries,
+      boolean skipKeywordSuffix,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
@@ -535,6 +581,7 @@ public class ESUtils {
                       getQueryBuilderFromCriterion(
                           criterion,
                           isTimeseries,
+                          skipKeywordSuffix,
                           searchableFieldTypes,
                           opContext,
                           queryFilterRewriteChain));
@@ -543,6 +590,7 @@ public class ESUtils {
                       getQueryBuilderFromCriterion(
                           criterion,
                           isTimeseries,
+                          skipKeywordSuffix,
                           searchableFieldTypes,
                           opContext,
                           queryFilterRewriteChain));
@@ -586,6 +634,22 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+    return getQueryBuilderFromCriterion(
+        criterion,
+        isTimeseries,
+        isTimeseries,
+        searchableFieldTypes,
+        opContext,
+        queryFilterRewriteChain);
+  }
+
+  private static QueryBuilder getQueryBuilderFromCriterion(
+      @Nonnull final Criterion criterion,
+      boolean isTimeseries,
+      boolean skipKeywordSuffix,
+      final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      @Nonnull OperationContext opContext,
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     final String fieldName =
         toParentField(opContext, criterion.getField(), opContext.getAspectRetriever());
 
@@ -605,6 +669,7 @@ public class ESUtils {
           maybeFieldToExpand.get(),
           criterion,
           isTimeseries,
+          skipKeywordSuffix,
           searchableFieldTypes,
           opContext,
           queryFilterRewriteChain);
@@ -613,6 +678,7 @@ public class ESUtils {
     return getQueryBuilderFromCriterionForSingleField(
         criterion,
         isTimeseries,
+        skipKeywordSuffix,
         searchableFieldTypes,
         criterion.getField(),
         opContext,
@@ -907,6 +973,7 @@ public class ESUtils {
       @Nonnull final List<String> fields,
       @Nonnull final Criterion criterion,
       final boolean isTimeseries,
+      final boolean skipKeywordSuffix,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
@@ -916,11 +983,12 @@ public class ESUtils {
           getQueryBuilderFromCriterionForSingleField(
                   buildCriterion(
                       toKeywordField(
-                          opContext, field, isTimeseries, opContext.getAspectRetriever()),
+                          opContext, field, skipKeywordSuffix, opContext.getAspectRetriever()),
                       criterion.getCondition(),
                       criterion.isNegated(),
                       criterion.getValues()),
                   isTimeseries,
+                  skipKeywordSuffix,
                   searchableFieldTypes,
                   null,
                   opContext,
@@ -938,6 +1006,7 @@ public class ESUtils {
   private static QueryBuilder getQueryBuilderFromCriterionForSingleField(
       @Nonnull Criterion criterion,
       boolean isTimeseries,
+      boolean skipKeywordSuffix,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nullable String queryName,
       @Nonnull OperationContext opContext,
@@ -962,7 +1031,7 @@ public class ESUtils {
         return buildEqualsConditionFromCriterion(
                 fieldName,
                 criterion,
-                isTimeseries,
+                skipKeywordSuffix,
                 searchableFieldTypes,
                 opContext,
                 aspectRetriever,
@@ -974,19 +1043,19 @@ public class ESUtils {
                 fieldName,
                 searchableFieldTypes,
                 condition,
-                isTimeseries,
+                skipKeywordSuffix,
                 opContext,
                 aspectRetriever)
             .queryName(queryName != null ? queryName : fieldName);
       } else if (condition == Condition.CONTAIN) {
         return buildContainsConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
+            fieldName, criterion, queryName, skipKeywordSuffix, opContext, aspectRetriever);
       } else if (condition == Condition.START_WITH) {
         return buildStartsWithConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
+            fieldName, criterion, queryName, skipKeywordSuffix, opContext, aspectRetriever);
       } else if (condition == Condition.END_WITH) {
         return buildEndsWithConditionFromCriterion(
-            fieldName, criterion, queryName, isTimeseries, opContext, aspectRetriever);
+            fieldName, criterion, queryName, skipKeywordSuffix, opContext, aspectRetriever);
       } else if (Set.of(ANCESTORS_INCL, DESCENDANTS_INCL, RELATED_INCL).contains(condition)) {
         enableCaseInsensitiveSearch = isCaseInsensitiveSearchEnabled(condition);
         return QueryFilterRewriterContext.builder()
@@ -999,7 +1068,7 @@ public class ESUtils {
                 buildEqualsConditionFromCriterion(
                     fieldName,
                     criterion,
-                    isTimeseries,
+                    skipKeywordSuffix,
                     searchableFieldTypes,
                     opContext,
                     aspectRetriever,
@@ -1013,7 +1082,7 @@ public class ESUtils {
   private static QueryBuilder buildWildcardQueryWithMultipleValues(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
-      final boolean isTimeseries,
+      final boolean skipKeywordSuffix,
       @Nullable String queryName,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
@@ -1023,7 +1092,8 @@ public class ESUtils {
     for (String value : criterion.getValues()) {
       boolQuery.should(
           QueryBuilders.wildcardQuery(
-                  toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
+                  toKeywordField(
+                      opContext, criterion.getField(), skipKeywordSuffix, aspectRetriever),
                   String.format(wildcardPattern, ESUtils.escapeReservedCharacters(value.trim())))
               .queryName(queryName != null ? queryName : fieldName)
               .caseInsensitive(true));
@@ -1035,39 +1105,39 @@ public class ESUtils {
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
-      final boolean isTimeseries,
+      final boolean skipKeywordSuffix,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "*%s*");
+        fieldName, criterion, skipKeywordSuffix, queryName, opContext, aspectRetriever, "*%s*");
   }
 
   private static QueryBuilder buildStartsWithConditionFromCriterion(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
-      final boolean isTimeseries,
+      final boolean skipKeywordSuffix,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "%s*");
+        fieldName, criterion, skipKeywordSuffix, queryName, opContext, aspectRetriever, "%s*");
   }
 
   private static QueryBuilder buildEndsWithConditionFromCriterion(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
       @Nullable String queryName,
-      final boolean isTimeseries,
+      final boolean skipKeywordSuffix,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever) {
     return buildWildcardQueryWithMultipleValues(
-        fieldName, criterion, isTimeseries, queryName, opContext, aspectRetriever, "*%s");
+        fieldName, criterion, skipKeywordSuffix, queryName, opContext, aspectRetriever, "*%s");
   }
 
   private static QueryBuilder buildEqualsConditionFromCriterion(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
-      final boolean isTimeseries,
+      final boolean skipKeywordSuffix,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
@@ -1075,7 +1145,7 @@ public class ESUtils {
     return buildEqualsConditionFromCriterionWithValues(
         fieldName,
         criterion,
-        isTimeseries,
+        skipKeywordSuffix,
         searchableFieldTypes,
         opContext,
         aspectRetriever,
@@ -1089,7 +1159,7 @@ public class ESUtils {
   private static QueryBuilder buildEqualsConditionFromCriterionWithValues(
       @Nonnull final String fieldName,
       @Nonnull final Criterion criterion,
-      final boolean isTimeseries,
+      final boolean skipKeywordSuffix,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nullable final Object opContext,
       @Nonnull AspectRetriever aspectRetriever,
@@ -1124,7 +1194,10 @@ public class ESUtils {
                   boolQuery.should(
                       QueryBuilders.termQuery(
                               toKeywordField(
-                                  opContext, criterion.getField(), isTimeseries, aspectRetriever),
+                                  opContext,
+                                  criterion.getField(),
+                                  skipKeywordSuffix,
+                                  aspectRetriever),
                               value.trim())
                           .caseInsensitive(true)));
       if (!boolQuery.should().isEmpty()) {
@@ -1134,7 +1207,7 @@ public class ESUtils {
     }
 
     return QueryBuilders.termsQuery(
-            toKeywordField(opContext, criterion.getField(), isTimeseries, aspectRetriever),
+            toKeywordField(opContext, criterion.getField(), skipKeywordSuffix, aspectRetriever),
             criterion.getValues())
         .queryName(fieldName);
   }
@@ -1182,7 +1255,7 @@ public class ESUtils {
       String fieldName,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       Condition condition,
-      boolean isTimeseries,
+      boolean skipKeywordSuffix,
       @Nullable final Object opContext,
       AspectRetriever aspectRetriever) {
     Set<String> fieldTypes =
@@ -1205,7 +1278,7 @@ public class ESUtils {
       documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
-      documentFieldName = toKeywordField(opContext, fieldName, isTimeseries, aspectRetriever);
+      documentFieldName = toKeywordField(opContext, fieldName, skipKeywordSuffix, aspectRetriever);
     }
 
     // Set up QueryBuilder based on condition
@@ -1337,6 +1410,15 @@ public class ESUtils {
       OperationContext opContext,
       QueryFilterRewriteChain queryFilterRewriteChain,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    return buildFilterNonLatestEntities(
+        opContext, queryFilterRewriteChain, searchableFieldTypes, false);
+  }
+
+  private static BoolQueryBuilder buildFilterNonLatestEntities(
+      OperationContext opContext,
+      QueryFilterRewriteChain queryFilterRewriteChain,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
+      boolean skipKeywordSuffix) {
     ConjunctiveCriterion isLatestCriterion = new ConjunctiveCriterion();
     CriterionArray isLatestCriterionArray = new CriterionArray();
     isLatestCriterionArray.add(
@@ -1344,7 +1426,12 @@ public class ESUtils {
     isLatestCriterion.setAnd(isLatestCriterionArray);
     BoolQueryBuilder isLatest =
         ESUtils.buildConjunctiveFilterQuery(
-            isLatestCriterion, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
+            isLatestCriterion,
+            false,
+            skipKeywordSuffix,
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain);
     ConjunctiveCriterion isNotVersionedCriterion = new ConjunctiveCriterion();
     CriterionArray isNotVersionedCriterionArray = new CriterionArray();
     isNotVersionedCriterionArray.add(
@@ -1354,6 +1441,7 @@ public class ESUtils {
         ESUtils.buildConjunctiveFilterQuery(
             isNotVersionedCriterion,
             false,
+            skipKeywordSuffix,
             searchableFieldTypes,
             opContext,
             queryFilterRewriteChain);

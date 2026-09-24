@@ -12,6 +12,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -25,9 +27,14 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterSearchType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -203,6 +210,47 @@ public class ESUtilsTest {
             .collect(Collectors.toList()),
         conditions,
         "Expected each condition to reach the rewrite chain unchanged");
+  }
+
+  /**
+   * Search V3 entity indices keep keyword fields at the root: skipping the .keyword subfield must
+   * not switch the rewrite chain to its timeseries mode.
+   */
+  @Test
+  public void testBuildFilterQuerySkipsKeywordSuffixWithoutTimeseriesRewrites() {
+    QueryFilterRewriteChain chain = mock(QueryFilterRewriteChain.class);
+    when(chain.rewrite(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform", Condition.EQUAL, "urn:li:dataPlatform:hive"),
+                                buildCriterion(
+                                    "container",
+                                    Condition.ANCESTORS_INCL,
+                                    "urn:li:container:foo")))));
+
+    String rootFields =
+        ESUtils.buildFilterQuery(filter, false, true, new HashMap<>(), opContext, chain).toString();
+    String keywordSubfields =
+        ESUtils.buildFilterQuery(filter, false, new HashMap<>(), opContext, chain).toString();
+
+    assertFalse(rootFields.contains(".keyword"), rootFields);
+    assertTrue(rootFields.contains("\"platform\""), rootFields);
+    assertTrue(keywordSubfields.contains("platform.keyword"), keywordSubfields);
+    ArgumentCaptor<QueryFilterRewriterContext> contexts =
+        ArgumentCaptor.forClass(QueryFilterRewriterContext.class);
+    verify(chain, Mockito.times(2)).rewrite(any(), contexts.capture(), any());
+    contexts
+        .getAllValues()
+        .forEach(
+            context ->
+                assertNotEquals(context.getSearchType(), QueryFilterRewriterSearchType.TIMESERIES));
   }
 
   @Test
