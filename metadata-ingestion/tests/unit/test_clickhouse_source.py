@@ -533,3 +533,27 @@ def test_one_parse_per_shape_across_users_and_buckets(monkeypatch):
     list(source._extract_query_log())
 
     assert sqlglot_lineage._sqlglot_lineage_cached.cache_info().misses == 1
+
+
+def test_query_log_query_skips_rows_that_touch_no_real_table():
+    # ClickHouse resolves SELECT 1 to system.one and numbers() to
+    # _table_function.numbers, so the fetch drops them without matching query text.
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-15T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+
+    sql = source._build_query_log_query()
+
+    for prefix in (
+        "system.",
+        "_table_function.",
+        "information_schema.",
+        "INFORMATION_SCHEMA.",
+    ):
+        assert f"NOT startsWith(t, '{prefix}')" in sql

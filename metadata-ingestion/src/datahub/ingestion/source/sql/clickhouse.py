@@ -774,9 +774,24 @@ WHERE type = 'QueryFinish'
   AND event_time < '{end_time_str}'
   AND query_kind IN ({query_kinds_clause})
   AND {user_filter_clause}
-  AND query NOT LIKE '%system.%'
-  -- Skip INSERT without SELECT (e.g., INSERT FORMAT, INSERT VALUES) - no lineage value
-  AND NOT (query_kind = 'Insert' AND positionCaseInsensitive(query, ' SELECT ') = 0)
+
+  -- Keep queries that accessed at least one non-system table. ClickHouse resolves
+  -- this itself, so a pool's SELECT 1 (system.one), SELECT * FROM numbers(10)
+  -- (_table_function.numbers) and CREATE DATABASE (no tables at all) drop out
+  -- without any guessing from the query text. One real table is enough to keep the
+  -- row, so INSERT INTO db.t SELECT * FROM s3(...) still contributes db.t, and a
+  -- query over a view is kept because ClickHouse lists the view and its table both.
+  AND NOT empty(
+      arrayFilter(
+          t ->
+              NOT startsWith(t, 'system.')
+              AND NOT startsWith(t, '_table_function.')
+              AND NOT startsWith(t, 'information_schema.')
+              AND NOT startsWith(t, 'INFORMATION_SCHEMA.'),
+          tables
+      )
+  )
+
 ORDER BY event_time ASC
 """
 
