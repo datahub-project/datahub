@@ -1961,8 +1961,16 @@ class PartitionDiscovery:
 
                     if results and results[0].col_value is not None:
                         actual_value = results[0].col_value
+                        # Infer INT64 from a genuine discovered int when the type map has
+                        # no entry: an untyped year/month/day placeholder (IS NOT NULL from
+                        # _test_date_candidate) is resolved here, and create_safe_filter
+                        # would otherwise quote it as `col = '2024'`, which BigQuery rejects
+                        # on an INT64 column. Mirrors _find_max_component_within_constraint.
+                        resolved_type = self._infer_component_type(
+                            col_data_type, actual_value
+                        )
                         enhanced_filter = self._create_safe_filter(
-                            col_name, actual_value, col_data_type
+                            col_name, actual_value, resolved_type
                         )
                         enhanced_filters.append(enhanced_filter)
                         # Constrain the next column's query with this pick so the
