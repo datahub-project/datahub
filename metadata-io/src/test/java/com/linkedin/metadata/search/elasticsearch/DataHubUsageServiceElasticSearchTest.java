@@ -1,4 +1,4 @@
-package com.linkedin.metadata.search.opensearch;
+package com.linkedin.metadata.search.elasticsearch;
 
 import static org.testng.Assert.assertNotNull;
 
@@ -12,11 +12,11 @@ import org.springframework.context.annotation.Import;
 import org.testng.annotations.Test;
 
 @Import({
-  OpenSearchSuite.class,
+  ElasticSearchSuite.class,
   SearchCommonTestConfiguration.class,
   SearchTestContainerConfiguration.class
 })
-public class DataHubUsageServiceOpenSearchTest extends DataHubUsageServiceTestBase {
+public class DataHubUsageServiceElasticSearchTest extends DataHubUsageServiceTestBase {
 
   @Autowired private SearchClientShim<?> searchClient;
 
