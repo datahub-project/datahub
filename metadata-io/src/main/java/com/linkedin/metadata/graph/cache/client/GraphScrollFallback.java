@@ -90,14 +90,11 @@ public final class GraphScrollFallback {
             graphRetriever.scrollRelatedEntities(
                 spec.getScrollSourceEntityTypes(),
                 null,
-                spec.getScrollDestinationEntityTypes(),
+                QueryUtils.EMPTY_FILTER,
                 destinationFilter,
                 Set.of(spec.getRelationshipType()),
-                new RelationshipFilter()
-                    .setDirection(RelationshipDirection.OUTGOING)
-                    .setOr(
-                        new ConjunctiveCriterionArray(
-                            new ConjunctiveCriterion().setAnd(new CriterionArray()))),
+                QueryUtils.newRelationshipFilter(
+                    QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,

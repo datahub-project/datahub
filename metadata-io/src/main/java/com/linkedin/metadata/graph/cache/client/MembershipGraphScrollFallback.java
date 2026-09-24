@@ -20,7 +20,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -80,9 +80,7 @@ public final class MembershipGraphScrollFallback {
                 scrollConfig.destinationEntityTypes(),
                 direction == TraversalDirection.REVERSE ? anchorFilter : EMPTY_FILTER,
                 relationshipTypes,
-                new RelationshipFilter()
-                    .setDirection(RelationshipDirection.OUTGOING)
-                    .setOr(new ConjunctiveCriterionArray()),
+                QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,

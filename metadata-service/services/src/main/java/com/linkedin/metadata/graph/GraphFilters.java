@@ -7,6 +7,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -23,13 +24,9 @@ import org.apache.commons.lang3.tuple.Pair;
 @AllArgsConstructor
 public class GraphFilters {
   public static RelationshipFilter OUTGOING_FILTER =
-      new RelationshipFilter()
-          .setDirection(RelationshipDirection.OUTGOING)
-          .setOr(new ConjunctiveCriterionArray());
+      QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING);
   public static RelationshipFilter INCOMING_FILTER =
-      new RelationshipFilter()
-          .setDirection(RelationshipDirection.INCOMING)
-          .setOr(new ConjunctiveCriterionArray());
+      QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING);
 
   public static GraphFilters incomingFilter(Filter sourceEntityFilter) {
     return new GraphFilters(sourceEntityFilter, EMPTY_FILTER, null, null, null, INCOMING_FILTER);
@@ -114,8 +111,19 @@ public class GraphFilters {
     this.sourceTypes = sourceTypes;
     this.destinationTypes = destinationTypes;
     this.relationshipTypes = relationshipTypes != null ? relationshipTypes : Set.of();
-    this.relationshipFilter = relationshipFilter;
+    this.relationshipFilter = normalizeRelationshipFilter(relationshipFilter);
     this.relationshipDirection = relationshipFilter.getDirection();
+  }
+
+  @Nonnull
+  private static RelationshipFilter normalizeRelationshipFilter(
+      @Nonnull RelationshipFilter filter) {
+    if (filter.getOr() != null) {
+      return filter;
+    }
+    return new RelationshipFilter()
+        .setDirection(filter.getDirection())
+        .setOr(new ConjunctiveCriterionArray());
   }
 
   public boolean isSourceTypesFilterEnabled() {

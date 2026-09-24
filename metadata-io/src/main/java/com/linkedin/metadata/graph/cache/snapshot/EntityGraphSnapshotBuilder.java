@@ -423,9 +423,7 @@ public class EntityGraphSnapshotBuilder {
                 Set.of(destType),
                 QueryUtils.EMPTY_FILTER,
                 Set.of(relType),
-                new RelationshipFilter()
-                    .setDirection(scrollDirection)
-                    .setOr(new ConjunctiveCriterionArray()),
+                QueryUtils.newRelationshipFilter(QueryUtils.EMPTY_FILTER, scrollDirection),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
@@ -698,9 +696,8 @@ public class EntityGraphSnapshotBuilder {
                 Set.of(destType),
                 QueryUtils.EMPTY_FILTER,
                 Set.of(relType),
-                new RelationshipFilter()
-                    .setDirection(resolved.getGraphDirection())
-                    .setOr(new ConjunctiveCriterionArray()),
+                QueryUtils.newRelationshipFilter(
+                    QueryUtils.EMPTY_FILTER, resolved.getGraphDirection()),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
