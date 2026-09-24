@@ -47,7 +47,7 @@ class SqlAlchemyTableDataReader(DataReader):
 
             # limit doesn't compile properly for oracle so we will append rownum to query string later
             if self.connection.dialect.name.lower() == "oracle":
-                raw_query = sa.select([sa.text("*")]).select_from(table)
+                raw_query = sa.select(sa.text("*")).select_from(table)
 
                 query = str(
                     raw_query.compile(
@@ -56,7 +56,7 @@ class SqlAlchemyTableDataReader(DataReader):
                 )
                 query += "\nWHERE ROWNUM <= %d" % sample_size
             else:
-                query = sa.select([sa.text("*")]).select_from(table).limit(sample_size)
+                query = sa.select(sa.text("*")).select_from(table).limit(sample_size)
             query_results = self.connection.execute(query)
 
             # Not ideal - creates a parallel structure in column_values. Can we use pandas here ?

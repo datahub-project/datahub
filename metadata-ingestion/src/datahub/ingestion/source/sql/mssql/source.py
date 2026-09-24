@@ -9,8 +9,11 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Mapping,
     Optional,
+    Sequence,
     Tuple,
+    cast,
 )
 
 import sqlalchemy.dialects.mssql
@@ -558,7 +561,8 @@ class SQLServerSource(SQLAlchemySource):
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
         # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
         table_metadata = conn.execute(
-            """
+            text(
+                """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
               T.NAME AS table_name,
@@ -570,7 +574,8 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.NAME = 'MS_Description'
               AND EP.CLASS = 1
             """
-        )
+            )
+        ).mappings()
         for row in table_metadata:
             self.table_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}"
@@ -578,7 +583,8 @@ class SQLServerSource(SQLAlchemySource):
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
         column_metadata = conn.execute(
-            """
+            text(
+                """
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
               T.NAME AS table_name,
@@ -593,7 +599,8 @@ class SQLServerSource(SQLAlchemySource):
               AND EP.NAME = 'MS_Description'
               AND EP.CLASS = 1
             """
-        )
+            )
+        ).mappings()
         for row in column_metadata:
             self.column_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}.{row['column_name']}"
@@ -628,8 +635,12 @@ class SQLServerSource(SQLAlchemySource):
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
     ) -> List[Dict]:
-        columns: List[Dict] = super()._get_columns(
-            dataset_name, inspector, schema, table
+        # The base method returns Sequence[Mapping[str, Any]] (SA-2.0 reflected
+        # TypedDicts), but the reflected columns are concrete mutable dicts at
+        # runtime and we mutate them below to attach extended descriptions.
+        columns: List[Dict] = cast(
+            List[Dict],
+            super()._get_columns(dataset_name, inspector, schema, table),
         )
         db_name: str = self.get_db_name(inspector)
         for column in columns:
@@ -643,9 +654,9 @@ class SQLServerSource(SQLAlchemySource):
     def get_schema_fields(
         self,
         dataset_name: str,
-        columns: List[dict],
+        columns: Sequence[Mapping[str, Any]],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaFieldClass]:
@@ -694,7 +705,7 @@ class SQLServerSource(SQLAlchemySource):
             return self.config.is_aws_rds
 
         try:
-            result = conn.execute("SELECT @@servername AS server_name")
+            result = conn.execute(text("SELECT @@servername AS server_name")).mappings()
             server_name_row = result.fetchone()
             if server_name_row:
                 server_name = server_name_row["server_name"].lower()
@@ -846,7 +857,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Dict[str, Dict[str, Any]]:
         jobs: Dict[str, Dict[str, Any]] = {}
 
-        jobs_result = conn.execute("EXEC msdb.dbo.sp_help_job")
+        jobs_result = conn.execute(text("EXEC msdb.dbo.sp_help_job"))
         jobs_data = {}
 
         for row in jobs_result.mappings():
@@ -922,7 +933,8 @@ class SQLServerSource(SQLAlchemySource):
         Original method using direct table access for on-premises SQL Server.
         """
         jobs_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT
                 job.job_id,
                 job.name,
@@ -942,7 +954,8 @@ class SQLServerSource(SQLAlchemySource):
                 job.job_id = steps.job_id
             where database_name = '{db_name}'
             """
-        )
+            )
+        ).mappings()
 
         jobs: Dict[str, Dict[str, Any]] = {}
         for row in jobs_data:
@@ -1117,7 +1130,8 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, procedure: StoredProcedure
     ) -> ProcedureLineageStream:
         downstream_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT DISTINCT OBJECT_SCHEMA_NAME ( referencing_id ) AS [schema],
                 OBJECT_NAME(referencing_id) AS [name],
                 o.type_desc AS [type]
@@ -1127,7 +1141,8 @@ class SQLServerSource(SQLAlchemySource):
             WHERE referenced_id = OBJECT_ID(N'{procedure.escape_full_name}')
                 AND o.type_desc in ('TABLE_TYPE', 'VIEW', 'USER_TABLE')
             """
-        )
+            )
+        ).mappings()
         downstream_dependencies = []
         for row in downstream_data:
             downstream_dependencies.append(
@@ -1147,7 +1162,8 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, procedure: StoredProcedure
     ) -> ProcedureLineageStream:
         upstream_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT DISTINCT
                 coalesce(lower(referenced_database_name), db_name()) AS db,
                 referenced_schema_name AS [schema],
@@ -1160,7 +1176,8 @@ class SQLServerSource(SQLAlchemySource):
                 AND referenced_schema_name is not null
                 AND o1.type_desc in ('TABLE_TYPE', 'VIEW', 'SQL_STORED_PROCEDURE', 'USER_TABLE')
             """
-        )
+            )
+        ).mappings()
         upstream_dependencies = []
         for row in upstream_data:
             upstream_dependencies.append(
@@ -1180,14 +1197,16 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, procedure: StoredProcedure
     ) -> List[ProcedureParameter]:
         inputs_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT
                 name,
                 type_name(user_type_id) AS 'type'
             FROM sys.parameters
             WHERE object_id = object_id('{procedure.escape_full_name}')
             """
-        )
+            )
+        ).mappings()
         inputs_list = []
         for row in inputs_data:
             inputs_list.append(ProcedureParameter(name=row["name"], type=row["type"]))
@@ -1206,7 +1225,7 @@ class SQLServerSource(SQLAlchemySource):
             + "'"
         )
         try:
-            code_data = conn.execute(query)
+            code_data = conn.execute(text(query)).mappings()
         except ProgrammingError:
             logger.warning(
                 "Denied permission for read text from procedure '%s'",
@@ -1237,14 +1256,16 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, procedure: StoredProcedure
     ) -> Dict[str, Any]:
         properties_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT
                 create_date as date_created,
                 modify_date as date_modified
             FROM sys.procedures
             WHERE object_id = object_id('{procedure.escape_full_name}')
             """
-        )
+            )
+        ).mappings()
         properties = {}
         for row in properties_data:
             properties = dict(
@@ -1257,7 +1278,8 @@ class SQLServerSource(SQLAlchemySource):
         conn: Connection, db_name: str, schema: str
     ) -> List[Dict[str, str]]:
         stored_procedures_data = conn.execute(
-            f"""
+            text(
+                f"""
             SELECT
                 pr.name as procedure_name,
                 s.name as schema_name
@@ -1267,7 +1289,8 @@ class SQLServerSource(SQLAlchemySource):
                 [{db_name}].[sys].[schemas] s ON pr.schema_id = s.schema_id
             where s.name = '{schema}'
             """
-        )
+            )
+        ).mappings()
         procedures_list = []
         for row in stored_procedures_data:
             procedures_list.append(
@@ -1359,16 +1382,17 @@ class SQLServerSource(SQLAlchemySource):
         self,
         dataset_urn: str,
         schema: str,
-        fk_dict: Dict[str, Any],
+        fk_dict: Mapping[str, Any],
         inspector: Inspector,
     ) -> ForeignKeyConstraintClass:
         if self.config.convert_column_urns_to_lowercase:
-            fk_dict["constrained_columns"] = [
-                f.lower() for f in fk_dict["constrained_columns"]
-            ]
-            fk_dict["referred_columns"] = [
-                f.lower() for f in fk_dict["referred_columns"]
-            ]
+            fk_dict = {
+                **fk_dict,
+                "constrained_columns": [
+                    f.lower() for f in fk_dict["constrained_columns"]
+                ],
+                "referred_columns": [f.lower() for f in fk_dict["referred_columns"]],
+            }
         return super().get_foreign_key_metadata(dataset_urn, schema, fk_dict, inspector)
 
     def get_inspectors(self) -> Iterable[Inspector]:

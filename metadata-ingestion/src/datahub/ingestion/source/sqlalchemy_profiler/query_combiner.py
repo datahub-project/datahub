@@ -29,7 +29,6 @@ import sqlalchemy.sql.elements
 import sqlalchemy.sql.functions
 import sqlalchemy.sql.operators
 import sqlalchemy.sql.visitors
-from packaging import version
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
@@ -37,12 +36,6 @@ from datahub.ingestion.api.report import Report
 from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-# The type annotations for SA 1.3.x don't have the __version__ attribute,
-# so we need to ignore the error here.
-SQLALCHEMY_VERSION = sqlalchemy.__version__  # type: ignore[attr-defined]
-IS_SQLALCHEMY_1_4 = version.parse(SQLALCHEMY_VERSION) >= version.parse("1.4.0")
-
 
 MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
 
@@ -268,12 +261,12 @@ class _QueryFuture:
 
 
 def get_query_columns(query: Any) -> List[Any]:
-    try:
-        # inner_columns will be more accurate if the column names are unnamed,
-        # since .columns will remove the "duplicates".
-        return list(query.inner_columns)
-    except AttributeError:
-        return list(query.columns)
+    # On SQLAlchemy 2.0 a Select exposes `selected_columns`; a CTE/subquery
+    # exposes its columns via `.columns`.
+    cols = getattr(query, "selected_columns", None)
+    if cols is not None:
+        return list(cols)
+    return list(query.columns)
 
 
 @dataclasses.dataclass
@@ -560,18 +553,15 @@ class SQLAlchemyQueryCombiner:
             k: query_future.query.cte(k) for k, query_future in pending_queue.items()
         }
 
-        combined_cols = itertools.chain(
-            *[
-                [
-                    col  # .label(self._generate_sql_safe_identifier())
-                    for col in get_query_columns(cte)
-                ]
-                for _, cte in ctes.items()
-            ]
+        combined_cols = list(
+            itertools.chain.from_iterable(
+                get_query_columns(cte) for cte in ctes.values()
+            )
         )
-        combined_query = sqlalchemy.select(combined_cols)
+        # SA 2.0 removed the list form of select() and Select.append_from().
+        combined_query = sqlalchemy.select(*combined_cols)
         for cte in ctes.values():
-            combined_query.append_from(cte)
+            combined_query = combined_query.select_from(cte)
 
         query_id = SQLAlchemyQueryCombiner._generate_query_id()
         self.report.combined_queries_issued += 1
@@ -591,23 +581,19 @@ class SQLAlchemyQueryCombiner:
         assert len(results) == 1
         row = results[0]
 
-        # Extract the results into a result for each query.
+        # Extract the results into a result for each query. Use the CTE's
+        # columns (not the original query's) because the combined select was
+        # built from them, and on SA 2.0 the original query may contain
+        # unlabeled BindParameters without a .name. CTE columns always have
+        # stable string names.
         index = 0
-        for _, query_future in pending_queue.items():
-            query = query_future.query
-            if IS_SQLALCHEMY_1_4:
-                # On 1.4, it prints a warning if we don't call subquery.
-                query = query.subquery()  # type: ignore
-            cols = query.columns
-
+        for k, query_future in pending_queue.items():
             data = {}
-            for col in cols:
+            for col in get_query_columns(ctes[k]):
                 data[col.name] = row[index]
                 index += 1
 
-            res = _ResultProxyFake([_RowProxyFake(data)])
-
-            query_future.res = res
+            query_future.res = _ResultProxyFake([_RowProxyFake(data)])
 
         # Assert before marking done: a wrong-but-done future is skipped by
         # the recovery paths' `if not fut.done` filters.
@@ -780,9 +766,9 @@ class SQLAlchemyQueryCombiner:
         # All members share the same FROM by signature; use one representative
         # so we append exactly one table and avoid a cross-join.
         rep_froms = members[0][1].query.get_final_froms()
-        combined_query = sqlalchemy.select(labeled_cols)
+        combined_query = sqlalchemy.select(*labeled_cols)
         for f in rep_froms:
-            combined_query.append_from(f)
+            combined_query = combined_query.select_from(f)
 
         query_id = SQLAlchemyQueryCombiner._generate_query_id()
         self.report.combined_queries_issued += 1
@@ -841,6 +827,16 @@ class SQLAlchemyQueryCombiner:
             logger.info(f"[{query_id}] Executing fallback query")
             logger.debug(f"[{query_id}] SQL: {str(query_future.query)}")
 
+            # The failed combined query (or a preceding fallback query) may have
+            # left the transaction aborted -- SA 2.0 has no autocommit, so e.g.
+            # Postgres/Redshift return 25P02 for every later statement until a
+            # rollback. These are read-only profiling SELECTs whose results are
+            # already materialized, so rolling back is safe.
+            try:
+                query_future.conn.rollback()
+            except Exception as rollback_err:
+                logger.debug(f"Rollback before fallback query failed: {rollback_err}")
+
             with PerfTimer() as timer:
                 try:
                     res = _sa_execute_underlying_method(
@@ -850,9 +846,7 @@ class SQLAlchemyQueryCombiner:
                         **query_future.params,
                     )
 
-                    # The actual execute method returns a CursorResult on SQLAlchemy 1.4.x
-                    # and a ResultProxy on SQLAlchemy 1.3.x. Both interfaces are shimmed
-                    # by _ResultProxyFake.
+                    # CursorResult's interface is shimmed by _ResultProxyFake.
                     query_future.res = cast(_ResultProxyFake, res)
 
                     logger.info(

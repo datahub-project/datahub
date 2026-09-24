@@ -10,7 +10,9 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Mapping,
     Optional,
+    Sequence,
     Set,
     Tuple,
     Type,
@@ -21,7 +23,7 @@ from typing import (
 import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
-from sqlalchemy.engine.row import LegacyRow
+from sqlalchemy.engine.row import Row
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
@@ -240,8 +242,8 @@ def get_schema_metadata(
     sql_report: SQLSourceReport,
     dataset_name: str,
     platform: str,
-    columns: List[dict],
-    pk_constraints: Optional[dict] = None,
+    columns: Sequence[Mapping[str, Any]],
+    pk_constraints: Optional[Mapping[str, Any]] = None,
     foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None,
     canonical_schema: Optional[List[SchemaFieldClass]] = None,
     simplify_nested_field_paths: bool = False,
@@ -667,7 +669,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self,
         dataset_urn: str,
         schema: str,
-        fk_dict: Dict[str, str],
+        fk_dict: Mapping[str, Any],
         inspector: Inspector,
     ) -> ForeignKeyConstraintClass:
         referred_schema: Optional[str] = fk_dict.get("referred_schema")
@@ -812,7 +814,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_snapshot.aspects.append(dataset_properties)
 
         extra_tags = self.get_extra_tags(inspector, schema, table)
-        pk_constraints: dict = inspector.get_pk_constraint(table, schema)
+        pk_constraints: Mapping[str, Any] = inspector.get_pk_constraint(table, schema)
         partitions: Optional[List[str]] = self.get_partitions(inspector, schema, table)
         foreign_keys = self._get_foreign_keys(dataset_urn, inspector, schema, table)
         schema_fields = self.get_schema_fields(
@@ -970,7 +972,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             table_info: dict = inspector.get_table_comment(table, f'"{schema}"')  # type: ignore
 
         description = table_info.get("text")
-        if isinstance(description, LegacyRow):
+        if isinstance(description, Row):
             # Handling for value type tuple which is coming for dialect 'db2+ibm_db'
             description = table_info["text"][0]
 
@@ -997,8 +999,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
-    ) -> List[dict]:
-        columns = []
+    ) -> Sequence[Mapping[str, Any]]:
+        columns: Sequence[Mapping[str, Any]] = []
         try:
             columns = inspector.get_columns(table, schema)
             if len(columns) == 0:
@@ -1067,9 +1069,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_schema_fields(
         self,
         dataset_name: str,
-        columns: List[dict],
+        columns: Sequence[Mapping[str, Any]],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
     ) -> List[SchemaFieldClass]:
@@ -1092,9 +1094,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def get_schema_fields_for_column(
         self,
         dataset_name: str,
-        column: dict,
+        column: Mapping[str, Any],
         inspector: Inspector,
-        pk_constraints: Optional[dict] = None,
+        pk_constraints: Optional[Mapping[str, Any]] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaFieldClass]:
