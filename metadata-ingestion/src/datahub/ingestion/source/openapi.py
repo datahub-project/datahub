@@ -1,6 +1,5 @@
 import json
 import logging
-import warnings
 from abc import ABC
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple
@@ -23,15 +22,14 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.extractor.json_schema_util import (
-    get_schema_metadata,
-)
+from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.openapi_parser import (
     SCHEMA_EXTRACTABLE_METHODS,
     clean_url,
     compose_url_attr,
     extract_fields,
+    flatten2list,
     get_endpoints,
     get_schema_from_response,
     get_swag_json,
@@ -52,6 +50,40 @@ from datahub.metadata.schema_classes import (
 )
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+_SCHEMA_CONTENT_TYPES = ("application/json", "application/xml", "text/json")
+
+
+_BAD_RESPONSE_MESSAGES: Dict[int, Tuple[str, str]] = {
+    400: (
+        "Failed to Extract Metadata",
+        "Bad request body when retrieving data from OpenAPI endpoint",
+    ),
+    401: (
+        "Unauthorized to Extract Metadata",
+        "Authentication failed when retrieving data from OpenAPI endpoint; check credentials or token",
+    ),
+    403: (
+        "Unauthorized to Extract Metadata",
+        "Received unauthorized response when attempting to retrieve data from OpenAPI endpoint",
+    ),
+    404: (
+        "Failed to Extract Metadata",
+        "Unable to find an example for endpoint. Please add it to the list of forced examples.",
+    ),
+    429: (
+        "Failed to Extract Metadata",
+        "Rate limited when retrieving data from OpenAPI endpoint; retry later or reduce request volume",
+    ),
+    500: (
+        "Failed to Extract Metadata",
+        "Received unknown server error from OpenAPI endpoint",
+    ),
+    504: (
+        "Failed to Extract Metadata",
+        "Timed out when attempting to retrieve data from OpenAPI endpoint",
+    ),
+}
 
 
 @dataclass
@@ -115,8 +147,9 @@ class OpenApiConfig(ConfigModel):
     swagger_file: str = Field(
         description="Route for access to the swagger file. e.g. openapi.json"
     )
-    ignore_endpoints: list = Field(
-        default=[], description="List of endpoints to ignore during ingestion."
+    ignore_endpoints: List[str] = Field(
+        default_factory=list,
+        description="List of endpoints to ignore during ingestion.",
     )
     username: str = Field(
         default="", description="Username used for basic HTTP authentication."
@@ -125,7 +158,7 @@ class OpenApiConfig(ConfigModel):
         default=SecretStr(""),
         description="Password used for basic HTTP authentication.",
     )
-    proxies: Optional[dict] = Field(
+    proxies: Optional[Dict[str, str]] = Field(
         default=None,
         description="Eg. "
         "`{'http': 'http://10.10.1.10:3128', 'https': 'http://10.10.1.10:1080'}`."
@@ -203,8 +236,11 @@ class OpenApiConfig(ConfigModel):
     @model_validator(mode="after")
     def ensure_only_one_token(self) -> "OpenApiConfig":
         # Truthiness, not `is not None`: an empty SecretStr("") (e.g. an unset
-        # env var substituted into token/bearer_token) is falsy and get_swagger()
-        # treats it as unconfigured, so it must not count as "configured" here.
+        # env var substituted into `token`/`bearer_token`) is falsy and
+        # get_swagger() below treats it as unconfigured, so it must not count
+        # as "configured" here either -- otherwise a recipe pairing an
+        # accidentally-empty token with `get_token` would fail validation for
+        # a combination that would have worked fine at runtime.
         configured = [
             name
             for name, value in (
@@ -239,7 +275,7 @@ class OpenApiConfig(ConfigModel):
         """
         # Truthiness (not `is not None`) for all three: an empty SecretStr("") is
         # falsy, and treating it as "configured" here would fall through to the
-        # else below and hit `assert self.get_token is not None` with neither
+        # `else` below and hit `assert self.get_token is not None` with neither
         # get_token nor a real token/bearer_token actually set.
         if self.get_token or self.token or self.bearer_token:
             if self.token:
@@ -307,10 +343,7 @@ class ApiWorkUnit(MetadataWorkUnit):
     SourceCapability.DESCRIPTIONS,
     "Extracts endpoint descriptions and summaries from OpenAPI specifications",
 )
-@capability(
-    SourceCapability.TAGS,
-    "Extracts tags from OpenAPI specifications",
-)
+@capability(SourceCapability.TAGS, "Extracts tags from OpenAPI specifications")
 @capability(
     SourceCapability.OWNERSHIP,
     "Does not currently support extracting ownership",
@@ -350,52 +383,23 @@ class APISource(Source, ABC):
         Args:
             status_code: HTTP status code from the API response
             type: Endpoint type or identifier for context
-
-        Raises:
-            Exception: For unhandled status codes
         """
-        if status_code == 400:
-            self.report.warning(
-                title="Failed to Extract Metadata",
-                message="Bad request body when retrieving data from OpenAPI endpoint",
-                context=f"Endpoint Type: {type}, Status Code: {status_code}",
-                log=False,
-            )
-        elif status_code == 403:
-            self.report.warning(
-                title="Unauthorized to Extract Metadata",
-                message="Received unauthorized response when attempting to retrieve data from OpenAPI endpoint",
-                context=f"Endpoint Type: {type}, Status Code: {status_code}",
-                log=False,
-            )
-        elif status_code == 404:
-            self.report.warning(
-                title="Failed to Extract Metadata",
-                message="Unable to find an example for endpoint. Please add it to the list of forced examples.",
-                context=f"Endpoint Type: {type}, Status Code: {status_code}",
-                log=False,
-            )
-        elif status_code == 500:
-            self.report.warning(
-                title="Failed to Extract Metadata",
-                message="Received unknown server error from OpenAPI endpoint",
-                context=f"Endpoint Type: {type}, Status Code: {status_code}",
-                log=False,
-            )
-        elif status_code == 504:
-            self.report.warning(
-                title="Failed to Extract Metadata",
-                message="Timed out when attempting to retrieve data from OpenAPI endpoint",
-                context=f"Endpoint Type: {type}, Status Code: {status_code}",
-                log=False,
-            )
-        else:
-            raise Exception(
-                f"Unable to retrieve endpoint, response code {status_code}, key {type}"
-            )
+        context = f"Endpoint Type: {type}, Status Code: {status_code}"
+        title, message = _BAD_RESPONSE_MESSAGES.get(
+            status_code,
+            (
+                "Failed to Extract Metadata",
+                "Unexpected HTTP status when retrieving data from OpenAPI endpoint",
+            ),
+        )
+        self.report.warning(title=title, message=message, context=context, log=False)
 
     def extract_response_schema_from_endpoint(
-        self, endpoint_spec: Dict, sw_dict: Dict
+        self,
+        endpoint_spec: Dict,
+        sw_dict: Dict,
+        endpoint_k: str = "",
+        method: str = "",
     ) -> Optional[Dict]:
         """
         Extract the response schema from an endpoint specification.
@@ -406,6 +410,10 @@ class APISource(Source, ABC):
         Args:
             endpoint_spec: The endpoint specification containing responses
             sw_dict: The complete OpenAPI specification dictionary
+            endpoint_k: The endpoint path, used only to identify this
+                endpoint in a warning if extraction fails
+            method: The HTTP method, used only to identify this endpoint in
+                a warning if extraction fails
 
         Returns:
             Extracted schema dictionary if found, None otherwise
@@ -428,11 +436,7 @@ class APISource(Source, ABC):
                 # OpenAPI v3 format
                 content = success_response["content"]
                 # Try application/json first, then fallback to others
-                for content_type in [
-                    "application/json",
-                    "application/xml",
-                    "text/json",
-                ]:
+                for content_type in _SCHEMA_CONTENT_TYPES:
                     if content_type in content:
                         schema = content[content_type].get("schema")
                         if schema:
@@ -450,11 +454,25 @@ class APISource(Source, ABC):
 
             return None
         except (KeyError, TypeError, AttributeError) as e:
-            logger.warning(f"Error extracting response schema: {str(e)}", exc_info=True)
+            # self.report.warning already logs this (WARN level, plus the full
+            # traceback at DEBUG via exc=e) -- a separate logger.warning call
+            # here would just duplicate it.
+            self.report.warning(
+                title="Failed to Extract Response Schema",
+                message="Error extracting response schema from OpenAPI endpoint",
+                context=f"Endpoint: {method} {endpoint_k}: {e}"
+                if endpoint_k
+                else str(e),
+                exc=e,
+            )
             return None
 
     def extract_request_schema_from_endpoint(
-        self, endpoint_spec: Dict, sw_dict: Dict
+        self,
+        endpoint_spec: Dict,
+        sw_dict: Dict,
+        endpoint_k: str = "",
+        method: str = "",
     ) -> Optional[Dict]:
         """Extract the request schema from an endpoint specification."""
         try:
@@ -463,11 +481,7 @@ class APISource(Source, ABC):
                 request_body = endpoint_spec["requestBody"]
                 if "content" in request_body:
                     content = request_body["content"]
-                    for content_type in [
-                        "application/json",
-                        "application/xml",
-                        "text/json",
-                    ]:
+                    for content_type in _SCHEMA_CONTENT_TYPES:
                         if content_type in content:
                             schema = content[content_type].get("schema")
                             if schema:
@@ -479,7 +493,16 @@ class APISource(Source, ABC):
 
             # Check for parameters (both v2 and v3)
             parameters = endpoint_spec.get("parameters", [])
-            if parameters:
+            if not isinstance(parameters, list):
+                self.report.warning(
+                    title="Malformed Request Parameters",
+                    message="Skipping malformed 'parameters' value (expected list)",
+                    context=f"Endpoint: {method} {endpoint_k}: got "
+                    f"{type(parameters).__name__}"
+                    if endpoint_k
+                    else f"Got {type(parameters).__name__}",
+                )
+            elif parameters:
                 # Create a schema from parameters
                 param_schema: Dict[str, Any] = {"type": "object", "properties": {}}
                 for param in parameters:
@@ -493,8 +516,15 @@ class APISource(Source, ABC):
                     return param_schema
 
             return None
-        except Exception as e:
-            logger.warning(f"Error extracting request schema: {str(e)}")
+        except (KeyError, TypeError, AttributeError) as e:
+            self.report.warning(
+                title="Failed to Extract Request Schema",
+                message="Error extracting request schema from OpenAPI endpoint",
+                context=f"Endpoint: {method} {endpoint_k}: {e}"
+                if endpoint_k
+                else str(e),
+                exc=e,
+            )
             return None
 
     def extract_schema_from_all_methods(
@@ -504,22 +534,21 @@ class APISource(Source, ABC):
         path_spec = sw_dict["paths"].get(endpoint_k, {})
 
         # Focus on the HTTP methods that can provide useful schemas
-        methods = SCHEMA_EXTRACTABLE_METHODS
-
-        for method in methods:
+        for method in SCHEMA_EXTRACTABLE_METHODS:
             method_spec = path_spec.get(method, {})
             if method_spec:
                 # Try response schema first
                 response_schema = self.extract_response_schema_from_endpoint(
-                    method_spec, sw_dict
+                    method_spec, sw_dict, endpoint_k, method
                 )
                 if response_schema:
                     return response_schema
 
-                # If no response schema, try request schema for POST/PUT/PATCH
-                if method in ["post", "put", "patch"]:
+                # If no response schema, try request schema -- only methods
+                # other than GET can carry a requestBody worth reading.
+                if method != "get":
                     request_schema = self.extract_request_schema_from_endpoint(
-                        method_spec, sw_dict
+                        method_spec, sw_dict, endpoint_k, method
                     )
                     if request_schema:
                         return request_schema
@@ -538,23 +567,30 @@ class APISource(Source, ABC):
             schema: JSON schema dictionary to convert
 
         Returns:
-            SchemaMetadataClass instance with extracted field information
-
-        Note:
-            Falls back to empty schema metadata if conversion fails
+            SchemaMetadataClass instance with extracted field information, or None
+            if conversion fails (no schema aspect is emitted).
         """
         try:
+            # Do not swallow jsonref/jsonschema failures — empty fields would otherwise
+            # look like a successful extract and inflate from_openapi_spec stats.
             return get_schema_metadata(
                 platform=self.platform,
                 name=dataset_name,
                 json_schema=schema,
                 raw_schema_string=json.dumps(schema, indent=2),
+                swallow_exceptions=False,
             )
         except Exception as e:
-            logger.warning(
-                f"Error creating schema metadata for {dataset_name}: {str(e)}"
+            # A warning, not a failure: the caller (_process_endpoint) still tries
+            # example-data and live-API fallback after this returns None, and a
+            # successful fallback would otherwise leave a sticky run failure behind
+            # even though the endpoint's schema was ultimately extracted.
+            self.report.warning(
+                title="Failed to Create Schema Metadata",
+                message="Error creating schema metadata from OpenAPI schema",
+                context=f"Dataset: {dataset_name}",
+                exc=e,
             )
-            # Return None instead of empty schema - no schema aspect is better than empty one
             return None
 
     def init_dataset(
@@ -692,39 +728,69 @@ class APISource(Source, ABC):
 
         # Try to extract schema from all methods for this endpoint
         schema = self.extract_schema_from_all_methods(endpoint_k, sw_dict)
+        if not schema:
+            logger.debug(f"No schema found in OpenAPI spec for {dataset_name}")
+            return None
 
-        if schema:
-            schema_metadata = self.create_schema_metadata_from_schema(
-                dataset_name, schema
-            )
-            logger.info(
-                f"Successfully extracted schema from OpenAPI spec for {dataset_name}"
-            )
-            self.report.info(
-                message="Schema extracted from OpenAPI specification",
+        schema_metadata = self.create_schema_metadata_from_schema(dataset_name, schema)
+        if not schema_metadata:
+            return None
+        if not schema_metadata.fields:
+            # A schema that resolves without error but yields zero fields (e.g. a
+            # map-only response with no explicit "type": "object") is not a
+            # successful extraction — counting it as one hides the gap from users.
+            self.report.warning(
+                title="Schema Extracted With No Fields",
+                message="OpenAPI spec schema resolved but produced no extractable fields",
                 context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
             )
-            self.schema_extraction_stats.from_openapi_spec += 1
-            return schema_metadata
-        else:
-            logger.debug(f"No schema found in OpenAPI spec for {dataset_name}")
-
-        return None
+            return None
+        # self.report.info already logs this at INFO level -- a separate
+        # logger.info call here would just duplicate it.
+        self.report.info(
+            message="Schema extracted from OpenAPI specification",
+            context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+        )
+        self.schema_extraction_stats.from_openapi_spec += 1
+        return schema_metadata
 
     def _extract_schema_from_endpoint_data(
         self, endpoint_dets: Dict, dataset_name: str
     ) -> Optional[SchemaMetadataClass]:
         """Extract schema from endpoint data if available."""
-        if "data" in endpoint_dets:
-            # Extract fields from the example data using flatten2list
-            from datahub.ingestion.source.openapi_parser import flatten2list
+        if "data" not in endpoint_dets:
+            return None
 
-            fields = flatten2list(endpoint_dets["data"])
-            if fields:
-                self.schema_extraction_stats.from_endpoint_data += 1
-                return set_metadata(
-                    dataset_name, fields, original_data=endpoint_dets["data"]
-                )
+        # Extract fields from the example data using flatten2list
+        example_data = endpoint_dets["data"]
+        # The OpenAPI "example" value is free-form JSON, so it may legitimately
+        # be a list (e.g. an array-typed response: "example": [{"id": 1}, ...])
+        # or a bare scalar rather than an object. flatten2list only understands
+        # a dict of fields and calls .items() unconditionally -- passing it
+        # anything else raises AttributeError/TypeError, which aborts this
+        # endpoint's entire processing (see get_workunits_internal's per-endpoint
+        # except) instead of falling through to the next extraction strategy.
+        if isinstance(example_data, list):
+            example_data = example_data[0] if example_data else None
+        if not isinstance(example_data, dict):
+            # Matches the sibling extractors (_extract_schema_from_openapi_spec,
+            # _schema_from_api_response): surface why this strategy didn't
+            # produce a schema instead of silently falling through to
+            # "No Schema Extracted" with no clue what was actually present.
+            self.report.info(
+                message="Example data present but not usable for field extraction",
+                context=f"Name: {dataset_name}, got {type(example_data).__name__}",
+            )
+            return None
+
+        fields = flatten2list(example_data)
+        if fields:
+            self.schema_extraction_stats.from_endpoint_data += 1
+            return set_metadata(dataset_name, fields, original_data=example_data)
+        self.report.info(
+            message="Example data present but yielded no extractable fields",
+            context=f"Name: {dataset_name}",
+        )
         return None
 
     def _has_credentials(self) -> bool:
@@ -737,56 +803,37 @@ class APISource(Source, ABC):
         )
 
     def _should_make_api_call(self, endpoint_k: str, endpoint_dets: Dict) -> bool:
+        """Return True when a live GET is allowed for schema extraction fallback.
+
+        Requires enable_api_calls_for_schema_extraction, GET method, credentials,
+        and an endpoint not listed in ignore_endpoints. Callers also gate on
+        failed OpenAPI/example extraction before invoking this.
         """
-        Determine if we should make an API call based on configuration and endpoint details.
-
-        This method implements the logic for when API calls are allowed:
-        - API calls must be explicitly enabled
-        - Method must be GET (for safety)
-        - Credentials must be provided
-        - Endpoint must not be in ignore list
-
-        Args:
-            endpoint_k: The endpoint path/key
-            endpoint_dets: Endpoint details including method information
-
-        Returns:
-            True if API call should be made, False otherwise
-
-        Note:
-            This ensures API calls are only made when safe and necessary
-        """
-        # Don't make API calls if not explicitly enabled
         if not self.config.enable_api_calls_for_schema_extraction:
             return False
 
-        # Only make API calls for GET methods
         method = endpoint_dets.get("method", "").lower()
         if method != "get":
             return False
 
-        # Only make API calls if credentials are provided
         if not self._has_credentials():
             return False
 
-        # Don't make API calls if endpoint is in ignore list
         if endpoint_k in self.config.ignore_endpoints:
             return False
 
-        # Only make API calls if we have forced examples or no schema was found
-        # This should be rare with improved schema extraction
         return True
 
     def _make_api_request(self, url: str) -> Optional[requests.Response]:
         """Make API request with appropriate authentication."""
-        if self.config.token:
-            return request_call(
-                url,
-                token=self.config.token.get_secret_value(),
-                proxies=self.config.proxies,
-                verify_ssl=self.config.verify_ssl,
-            )
-        else:
+        try:
+            if self.config.token:
+                return request_call(
+                    url,
+                    token=self.config.token.get_secret_value(),
+                    proxies=self.config.proxies,
+                    verify_ssl=self.config.verify_ssl,
+                )
             return request_call(
                 url,
                 username=self.config.username,
@@ -794,33 +841,53 @@ class APISource(Source, ABC):
                 proxies=self.config.proxies,
                 verify_ssl=self.config.verify_ssl,
             )
+        except requests.exceptions.RequestException as e:
+            self.report.warning(
+                title="Failed to Call OpenAPI Endpoint",
+                message="HTTP request to OpenAPI endpoint failed",
+                context=url,
+                exc=e,
+            )
+            return None
+
+    def _schema_from_api_response(
+        self,
+        endpoint_k: str,
+        dataset_name: str,
+        tot_url: str,
+        root_dataset_samples: Optional[Dict] = None,
+    ) -> Optional[SchemaMetadataClass]:
+        response = self._make_api_request(tot_url)
+        if response and response.status_code == 200:
+            fields2add, sample = extract_fields(response, dataset_name)
+            if root_dataset_samples is not None:
+                root_dataset_samples[dataset_name] = sample
+            if not fields2add:
+                # Matches the sibling extractors (_extract_schema_from_openapi_spec,
+                # _extract_schema_from_endpoint_data): a zero-field result is not a
+                # successful extraction. Returning a schema anyway would emit an
+                # empty-fields aspect and leave this endpoint counted in neither
+                # from_api_calls nor no_schema_found, undercounting the run's stats.
+                self.report.info(
+                    message="No fields found from endpoint response.",
+                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+                )
+                return None
+            self.schema_extraction_stats.from_api_calls += 1
+            return set_metadata(dataset_name, fields2add)
+        if response:
+            self.report_bad_responses(response.status_code, type=endpoint_k)
+        return None
 
     def _extract_schema_from_simple_endpoint(
         self, endpoint_k: str, dataset_name: str, root_dataset_samples: Dict
     ) -> Optional[SchemaMetadataClass]:
         """Extract schema from simple endpoint (no parameters) - only if necessary."""
-        # Only make API calls if absolutely necessary
-        if not self._should_make_api_call(endpoint_k, {"method": "get"}):
-            return None
-
+        # Caller already gated on _should_make_api_call + GET.
         tot_url = clean_url(self.config.url + self.url_basepath + endpoint_k)
-        response = self._make_api_request(tot_url)
-
-        if response and response.status_code == 200:
-            fields2add, root_dataset_samples[dataset_name] = extract_fields(
-                response, dataset_name
-            )
-            if not fields2add:
-                self.report.info(
-                    message="No fields found from endpoint response.",
-                    context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                )
-            else:
-                self.schema_extraction_stats.from_api_calls += 1
-            return set_metadata(dataset_name, fields2add)
-        elif response:
-            self.report_bad_responses(response.status_code, type=endpoint_k)
-        return None
+        return self._schema_from_api_response(
+            endpoint_k, dataset_name, tot_url, root_dataset_samples
+        )
 
     def _extract_schema_from_parameterized_endpoint(
         self, endpoint_k: str, dataset_name: str, root_dataset_samples: Dict
@@ -828,64 +895,19 @@ class APISource(Source, ABC):
         """
         Extract schema from parameterized endpoint - only if necessary.
 
-        This method handles endpoints with path parameters by either using forced examples
-        or guessing parameter values based on previously collected samples.
-
-        Args:
-            endpoint_k: The endpoint path/key (may contain {parameter} placeholders)
-            dataset_name: Name of the dataset/endpoint
-            root_dataset_samples: Dictionary containing sample data for parameter guessing
-
-        Returns:
-            SchemaMetadataClass if schema extracted successfully, None otherwise
-
-        Note:
-            Uses forced_examples configuration or tries to guess parameter values
-            Tracks statistics for reporting
+        Handles path parameters via forced_examples or guessing from prior samples.
         """
-        # Only make API calls if absolutely necessary
-        if not self._should_make_api_call(endpoint_k, {"method": "get"}):
-            return None
-
+        # Caller already gated on _should_make_api_call + GET.
         if endpoint_k not in self.config.forced_examples:
-            # Try guessing
             url_guess = try_guessing(endpoint_k, root_dataset_samples)
             tot_url = clean_url(self.config.url + self.url_basepath + url_guess)
-            response = self._make_api_request(tot_url)
+            return self._schema_from_api_response(endpoint_k, dataset_name, tot_url)
 
-            if response and response.status_code == 200:
-                fields2add, _ = extract_fields(response, dataset_name)
-                if not fields2add:
-                    self.report.info(
-                        message="No fields found from endpoint response.",
-                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                    )
-                else:
-                    self.schema_extraction_stats.from_api_calls += 1
-                return set_metadata(dataset_name, fields2add)
-            elif response:
-                self.report_bad_responses(response.status_code, type=endpoint_k)
-        else:
-            # Use forced examples
-            composed_url = compose_url_attr(
-                raw_url=endpoint_k, attr_list=self.config.forced_examples[endpoint_k]
-            )
-            tot_url = clean_url(self.config.url + self.url_basepath + composed_url)
-            response = self._make_api_request(tot_url)
-
-            if response and response.status_code == 200:
-                fields2add, _ = extract_fields(response, dataset_name)
-                if not fields2add:
-                    self.report.info(
-                        message="No fields found from endpoint response.",
-                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                    )
-                else:
-                    self.schema_extraction_stats.from_api_calls += 1
-                return set_metadata(dataset_name, fields2add)
-            elif response:
-                self.report_bad_responses(response.status_code, type=endpoint_k)
-        return None
+        composed_url = compose_url_attr(
+            raw_url=endpoint_k, attr_list=self.config.forced_examples[endpoint_k]
+        )
+        tot_url = clean_url(self.config.url + self.url_basepath + composed_url)
+        return self._schema_from_api_response(endpoint_k, dataset_name, tot_url)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
@@ -908,35 +930,80 @@ class APISource(Source, ABC):
             Tracks statistics for final reporting
         """
         config = self.config
-        sw_dict = self.config.get_swagger()
-        self.url_basepath = get_url_basepath(sw_dict)
-
-        # Getting all the URLs accepting the "GET" method
-        with warnings.catch_warnings(record=True) as warn_c:
+        try:
+            sw_dict = self.config.get_swagger()
+            self.url_basepath = get_url_basepath(sw_dict)
             url_endpoints = get_endpoints(sw_dict)
-            for w in warn_c:
-                w_msg = w.message
-                w_spl = w_msg.args[0].split(" --- ")  # type: ignore
-                self.report.warning(message=w_spl[1], context=w_spl[0], log=False)
+        except Exception as e:
+            # get_url_basepath/get_endpoints are included here (not just
+            # get_swagger) because a spec that fetches/parses fine but is
+            # missing an expected key (e.g. "paths") would otherwise raise an
+            # unhandled KeyError and crash the whole run instead of surfacing a
+            # report failure.
+            #
+            # Attaching the real exception is safe: get_tok (the only place a
+            # get_token password is ever substituted into a URL) already
+            # sanitizes every exception it raises down to response.status_code /
+            # exception type, with no url4req/password in the message -- see
+            # test_get_tok_error_does_not_leak_credentials_in_message and
+            # test_get_tok_connection_error_does_not_leak_credentials_in_message.
+            # Hiding it behind a generic RuntimeError would just deprive
+            # operators of the real cause (401, parse error, missing "paths",
+            # TLS failure).
+            self.report.failure(
+                title="Failed to Fetch OpenAPI Spec",
+                message="Unable to retrieve, parse, or interpret the OpenAPI specification",
+                context=f"{config.url} / {config.swagger_file}",
+                exc=e,
+            )
+            return
 
         # Sample from "listing endpoint" for guessing composed endpoints
         root_dataset_samples: Dict[str, Any] = {}
 
-        # Process all endpoints
         for endpoint_k, endpoint_dets in url_endpoints.items():
             if endpoint_k in config.ignore_endpoints:
                 continue
 
-            # Initialize dataset and get common aspects
-            dataset_name, dataset_urn, workunits = self.init_dataset(
-                endpoint_k, endpoint_dets
-            )
-            for wu in workunits:
-                yield wu
+            try:
+                workunits = list(
+                    self._process_endpoint(
+                        endpoint_k, endpoint_dets, sw_dict, root_dataset_samples
+                    )
+                )
+            except Exception as e:
+                self.report.failure(
+                    title="Failed to Process Endpoint",
+                    message="Unexpected error while processing OpenAPI endpoint",
+                    context=endpoint_k,
+                    exc=e,
+                )
+                continue
 
-            # Try to extract schema metadata - always attempt spec extraction first
-            schema_metadata = None
+            yield from workunits
 
+    def _process_endpoint(
+        self,
+        endpoint_k: str,
+        endpoint_dets: Dict[str, Any],
+        sw_dict: Dict[str, Any],
+        root_dataset_samples: Dict[str, Any],
+    ) -> Iterable[MetadataWorkUnit]:
+        # Initialize dataset and get common aspects
+        dataset_name, dataset_urn, workunits = self.init_dataset(
+            endpoint_k, endpoint_dets
+        )
+        for wu in workunits:
+            yield wu
+
+        # Schema extraction is wrapped so a failure here can't take the
+        # dataset init workunits already yielded above down with it: the
+        # caller materializes this whole generator with list() before
+        # yielding anything, so an exception propagating past this point
+        # would discard dataset metadata that had already succeeded, not
+        # just the schema.
+        extraction_failed = False
+        try:
             # Always try OpenAPI spec extraction first
             schema_metadata = self._extract_schema_from_openapi_spec(
                 endpoint_k, dataset_name, sw_dict
@@ -948,66 +1015,68 @@ class APISource(Source, ABC):
                     endpoint_dets, dataset_name
                 )
 
-            # Only make API calls as a last resort and only if explicitly enabled
+            # Only make API calls as a last resort and only if explicitly enabled.
+            # _should_make_api_call already requires method == "get", so no separate
+            # non-GET guard is needed here.
             if not schema_metadata and self._should_make_api_call(
                 endpoint_k, endpoint_dets
             ):
-                method = endpoint_dets.get("method", "").lower()
-                if method != "get":
-                    self.report.warning(
-                        title="Failed to Extract Endpoint Metadata",
-                        message="No schema found in OpenAPI spec for non-GET method (API calls only made for GET methods with credentials)",
-                        context=f"method={endpoint_dets.get('method', 'unknown')}, endpoint={endpoint_k}, name={dataset_name}",
-                        log=False,
-                    )
-                    continue
-
-                # Try simple endpoint first
                 if "{" not in endpoint_k:
                     schema_metadata = self._extract_schema_from_simple_endpoint(
                         endpoint_k, dataset_name, root_dataset_samples
                     )
                 else:
-                    # Try parameterized endpoint
                     schema_metadata = self._extract_schema_from_parameterized_endpoint(
                         endpoint_k, dataset_name, root_dataset_samples
                     )
+        except Exception as e:
+            schema_metadata = None
+            extraction_failed = True
+            self.report.warning(
+                title="Schema Extraction Failed",
+                message="Unexpected error while extracting schema for endpoint; dataset metadata was still emitted",
+                context=endpoint_k,
+                exc=e,
+            )
 
-            # Yield the schema metadata work unit
-            if schema_metadata:
-                wu = MetadataWorkUnit(
-                    id=f"{dataset_name}-schema",
-                    mcp=MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=schema_metadata
-                    ),
-                )
-                yield wu
+        # Yield the schema metadata work unit
+        if schema_metadata:
+            wu = MetadataWorkUnit(
+                id=f"{dataset_name}-schema",
+                mcp=MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=schema_metadata
+                ),
+            )
+            yield wu
+        else:
+            # Log when no schema could be extracted
+            self.schema_extraction_stats.no_schema_found += 1
+
+            # A raised extraction already emitted "Schema Extraction Failed"
+            # above; re-reporting "No Schema Extracted" for the same endpoint
+            # would be a second, contradictory entry for one failure.
+            if extraction_failed:
+                return
+
+            # Check if we could have made an API call but didn't due to missing credentials
+            method = endpoint_dets.get("method", "").lower()
+            if (
+                method == "get"
+                and self.config.enable_api_calls_for_schema_extraction
+                and not self._has_credentials()
+            ):
+                title = "No Schema Extracted - Missing Credentials"
+                message = "Could not extract schema from OpenAPI spec and no API call made due to missing credentials (GET methods only)"
             else:
-                # Log when no schema could be extracted
-                self.schema_extraction_stats.no_schema_found += 1
+                title = "No Schema Extracted"
+                message = "Could not extract schema from OpenAPI spec (GET/POST/PUT/PATCH with 200 responses) or API calls for endpoint"
+            self.report.warning(
+                title=title,
+                message=message,
+                context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
+            )
 
-                # Check if we could have made an API call but didn't due to missing credentials
-                method = endpoint_dets.get("method", "").lower()
-                if (
-                    method == "get"
-                    and self.config.enable_api_calls_for_schema_extraction
-                    and not self._has_credentials()
-                ):
-                    self.report.warning(
-                        title="No Schema Extracted - Missing Credentials",
-                        message="Could not extract schema from OpenAPI spec and no API call made due to missing credentials (GET methods only)",
-                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                        log=False,
-                    )
-                else:
-                    self.report.warning(
-                        title="No Schema Extracted",
-                        message="Could not extract schema from OpenAPI spec (GET/POST/PUT/PATCH with 200 responses) or API calls for endpoint",
-                        context=f"Endpoint Type: {endpoint_k}, Name: {dataset_name}",
-                        log=False,
-                    )
-
-    def get_report(self):
+    def get_report(self) -> SourceReport:
         return self.report
 
     def close(self) -> None:
@@ -1051,6 +1120,6 @@ class OpenApiSource(APISource):
         super().__init__(config, ctx, "OpenApi")
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "OpenApiSource":
         config = OpenApiConfig.model_validate(config_dict)
         return cls(config, ctx)
