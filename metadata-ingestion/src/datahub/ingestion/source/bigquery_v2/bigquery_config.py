@@ -32,7 +32,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -88,7 +88,7 @@ _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
 )
 
 
-class BigQueryProfilingConfig(GEProfilingConfig):
+class BigQueryProfilingConfig(ProfilingConfig):
     fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
         default_factory=dict,
         description="Fallback values for partition columns when partition discovery fails. Keys are column "
@@ -672,11 +672,11 @@ class BigQueryV2Config(
     @field_validator("profiling", mode="before")
     @classmethod
     def coerce_profiling_config(cls, v: object) -> object:
-        # A code caller may pass a GEProfilingConfig instance rather than a YAML dict.
-        # Re-validating it as the BigQueryProfilingConfig subclass runs GEProfilingConfig's
+        # A code caller may pass a ProfilingConfig instance rather than a YAML dict.
+        # Re-validating it as the BigQueryProfilingConfig subclass runs ProfilingConfig's
         # inherited before-validators, which assume a dict and raise on a model instance;
         # dump it back to a dict so re-validation runs on plain data.
-        if isinstance(v, GEProfilingConfig):
+        if isinstance(v, ProfilingConfig):
             return v.dict()
         return v
 
