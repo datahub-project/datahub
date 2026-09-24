@@ -9,11 +9,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
-from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_schema_field_urn,
-    make_ts_millis,
-)
+from datahub.emitter.mce_builder import make_schema_field_urn, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.assertion import (
@@ -61,91 +57,115 @@ def rows_to_workunits(
     results: List[Dict[str, Any]],
     resolve_dataset_urn: Callable[[str, str, str], Optional[str]],
     resolve_field_urn: Callable[[str, str], str],
+    on_warning: Optional[Callable[[str], None]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    """Pure core: rule/result rows -> assertion MCPs. No I/O, fully unit-testable."""
+    """Pure core: rule/result rows -> assertion MCPs. No I/O, fully unit-testable.
+
+    `rules`/`results` come from customer-owned tables whose shape is not contractually
+    locked (spec §7); a single malformed row must not abort the whole generator, so each
+    row is processed inside its own try/except and skipped-with-warning on failure.
+    """
+    warn = on_warning or logger.warning
     urn_by_rule: Dict[str, str] = {}
     dataset_urn_by_rule: Dict[str, str] = {}
 
     for rule in rules:
-        dataset_urn = resolve_dataset_urn(
-            rule["catalog"], rule["schema"], rule["table"]
-        )
-        if not dataset_urn:
+        try:
+            rule_id = rule["rule_id"]
+            dataset_urn = resolve_dataset_urn(
+                rule["catalog"], rule["schema"], rule["table"]
+            )
+            if not dataset_urn:
+                continue
+
+            cols = _columns(rule)
+            scope = (
+                DatasetAssertionScopeClass.DATASET_COLUMN
+                if cols
+                else DatasetAssertionScopeClass.DATASET_ROWS
+            )
+            std = map_operator(
+                rule.get("operator", ""),
+                rule.get("threshold_min"),
+                rule.get("threshold_max"),
+                rule.get("threshold_value"),
+                scope=scope,
+            )
+
+            # Governance surface key = rule_id (spec §8), keyed off the dataset urn so it
+            # inherits platform_instance/metastore/env; "surface" tag stops cross-surface collisions.
+            urn = make_urn(
+                {
+                    "surface": "governance",
+                    "platform": "databricks",
+                    "dataset": dataset_urn,
+                    "rule_id": rule_id,
+                }
+            )
+
+            info_mcp = build_custom_assertion_info(
+                assertion_urn=urn,
+                entity_urn=dataset_urn,
+                category="Databricks Governance DQ",
+                native_type=rule["rule_type"],
+                display_name=rule.get("rule_name", rule_id),
+                std=std,
+                field_urns=[resolve_field_urn(dataset_urn, c) for c in cols],
+                logic=rule.get("rule_description"),
+                native_parameters=_native_strs(rule, _NATIVE_PARAMETER_FIELDS) or None,
+            )
+        except KeyError as e:
+            warn(
+                f"Skipping governance DQ rule row missing required field {e}: {rule!r}"
+            )
             continue
 
-        cols = _columns(rule)
-        scope = (
-            DatasetAssertionScopeClass.DATASET_COLUMN
-            if cols
-            else DatasetAssertionScopeClass.DATASET_ROWS
-        )
-        std = map_operator(
-            rule.get("operator", ""),
-            rule.get("threshold_min"),
-            rule.get("threshold_max"),
-            rule.get("threshold_value"),
-            scope=scope,
-        )
-
-        # Governance surface key = rule_id (spec §8), keyed off the dataset urn so it
-        # inherits platform_instance/metastore/env; "surface" tag stops cross-surface collisions.
-        urn = make_urn(
-            {
-                "surface": "governance",
-                "platform": "databricks",
-                "dataset": dataset_urn,
-                "rule_id": rule["rule_id"],
-            }
-        )
-        urn_by_rule[rule["rule_id"]] = urn
-        dataset_urn_by_rule[rule["rule_id"]] = dataset_urn
-
-        yield build_custom_assertion_info(
-            assertion_urn=urn,
-            entity_urn=dataset_urn,
-            category="Databricks Governance DQ",
-            native_type=rule["rule_type"],
-            display_name=rule.get("rule_name", rule["rule_id"]),
-            std=std,
-            field_urns=[resolve_field_urn(dataset_urn, c) for c in cols],
-            logic=rule.get("rule_description"),
-            native_parameters=_native_strs(rule, _NATIVE_PARAMETER_FIELDS) or None,
-        )
-
-        active = bool(rule.get("active", True))
-        if not active:
-            # Only emit removed=True on retirement; an active rule needs no redundant
-            # removed=False status MCP.
-            yield build_status(urn, active)
+        urn_by_rule[rule_id] = urn
+        dataset_urn_by_rule[rule_id] = dataset_urn
+        yield info_mcp
+        # Reactivation (spec §8): always emit Status so a retired->active rule clears
+        # `removed`. removed=False on a never-retired assertion is a harmless no-op upsert.
+        yield build_status(urn, bool(rule.get("active", True)))
 
     seen_runs = set()
     for res in results:
-        rule_id = res["rule_id"]
-        assertion_urn = urn_by_rule.get(rule_id)
-        if assertion_urn is None:
-            continue
-        dedup_key = (assertion_urn, res["run_id"])
-        if dedup_key in seen_runs:
-            continue
-        seen_runs.add(dedup_key)
+        try:
+            rule_id = res["rule_id"]
+            run_id = res["run_id"]
+            assertion_urn = urn_by_rule.get(rule_id)
+            if assertion_urn is None:
+                continue
+            dedup_key = (assertion_urn, run_id)
+            if dedup_key in seen_runs:
+                continue
+            seen_runs.add(dedup_key)
 
-        yield build_assertion_run_event(
-            assertion_urn=assertion_urn,
-            dataset_urn=dataset_urn_by_rule[rule_id],
-            run_id=res["run_id"],
-            timestamp_millis=res["executed_at_millis"],
-            status=res["status"],
-            warning=bool(res.get("warning", False)),
-            severity=res.get("severity"),
-            actual_value=res.get("actual_value"),
-            row_count=res.get("evaluated_row_count"),
-            missing_count=res.get("missing_row_count"),
-            unexpected_count=res.get("failed_row_count"),
-            external_url=res.get("external_url"),
-            error_type=res.get("error_type"),
-            error_message=res.get("error_message"),
-            native_results=_native_strs(res, _NATIVE_RESULT_FIELDS) or None,
-        )
+            run_event_mcp = build_assertion_run_event(
+                assertion_urn=assertion_urn,
+                dataset_urn=dataset_urn_by_rule[rule_id],
+                run_id=run_id,
+                timestamp_millis=res["executed_at_millis"],
+                status=res["status"],
+                warning=bool(res.get("warning", False)),
+                severity=res.get("severity"),
+                actual_value=res.get("actual_value"),
+                row_count=res.get("evaluated_row_count"),
+                missing_count=res.get("missing_row_count"),
+                unexpected_count=res.get("failed_row_count"),
+                external_url=res.get("external_url"),
+                error_type=res.get("error_type"),
+                error_message=res.get("error_message"),
+                native_results=_native_strs(res, _NATIVE_RESULT_FIELDS) or None,
+            )
+        except KeyError as e:
+            # Covers missing required fields as well as an unknown `status` value, which
+            # raises KeyError from assertion.py's _RESULT_TYPE[status] lookup.
+            warn(
+                f"Skipping governance DQ result row missing/invalid field {e}: {res!r}"
+            )
+            continue
+
+        yield run_event_mcp
 
 
 @dataclass(eq=False)
@@ -156,19 +176,12 @@ class GovernanceDQExtractor:
     config: GovernanceDQConfig
     proxy: UnityCatalogApiProxy
     report: UnityCatalogReport
-    platform_instance: Optional[str]
-    env: str
-    platform: str = "databricks"
+    # Bound to the connector's own gen_dataset_urn (via a TableReference), so governance
+    # assertions always attach to the exact dataset URN the connector emits for that table.
+    resolve_dataset_urn: Callable[[str, str, str], Optional[str]]
 
-    def _resolve_dataset_urn(
-        self, catalog: str, schema: str, table: str
-    ) -> Optional[str]:
-        return make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=f"{catalog}.{schema}.{table}",
-            platform_instance=self.platform_instance,
-            env=self.env,
-        )
+    def _on_warning(self, msg: str) -> None:
+        self.report.warning(message="Skipping malformed governance DQ row", context=msg)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         if not self.config.rules_table or not self.config.results_table:
@@ -184,7 +197,11 @@ class GovernanceDQExtractor:
                 res.setdefault("executed_at_millis", make_ts_millis(executed_at))
 
         for mcp in rows_to_workunits(
-            rules, results, self._resolve_dataset_urn, make_schema_field_urn
+            rules,
+            results,
+            self.resolve_dataset_urn,
+            make_schema_field_urn,
+            on_warning=self._on_warning,
         ):
             if isinstance(mcp.aspect, AssertionInfoClass):
                 self.report.governance_dq_assertions_emitted += 1

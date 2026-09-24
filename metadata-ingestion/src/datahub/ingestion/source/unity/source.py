@@ -451,6 +451,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global map of service principal application id -> ServicePrincipal
         self.service_principals: Dict[str, ServicePrincipal] = {}
         self.groups: List[str] = []
+        # Populated by process_metastores() when include_metastore=True; feeds
+        # gen_dataset_urn's metastore prefix for the governance DQ seam (see below).
+        self.metastore_id: Optional[str] = None
         # Global set of table refs
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
@@ -674,16 +677,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if self.config.governance_dq.enabled:
             with self.report.new_stage("Governance DQ"):
-                # platform_instance_name (not config.platform_instance) is the connector's
-                # resolved value used by gen_dataset_urn; the two diverge when
-                # include_metastore=True, and using the raw config value here would produce
-                # dataset URNs that don't match the tables ingested above.
+                # Delegate dataset URN construction to gen_dataset_urn itself, rather than
+                # re-deriving the name here, so governance assertions attach to the exact
+                # same dataset URN the connector emits for that table -- including the
+                # metastore-id prefix that gen_dataset_urn adds when include_metastore=True.
                 yield from GovernanceDQExtractor(
                     config=self.config.governance_dq,
                     proxy=self.unity_catalog_api_proxy,
                     report=self.report,
-                    platform_instance=self.platform_instance_name,
-                    env=self.config.env,
+                    resolve_dataset_urn=self._resolve_governance_dataset_urn,
                 ).get_workunits()
 
     def build_service_principal_map(self) -> None:
@@ -783,6 +785,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     context="Metastore",
                 )
                 return
+            self.metastore_id = metastore.id
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
         if metastore and self.config.include_metastore:
@@ -1270,6 +1273,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.platform_instance_name,
             name=str(table_ref),
             env=self.config.env,
+        )
+
+    def _resolve_governance_dataset_urn(
+        self, catalog: str, schema: str, table: str
+    ) -> Optional[str]:
+        """Governance DQ seam's resolve_dataset_urn callable: builds the same
+        TableReference gen_dataset_urn would for a UC table, so the two never diverge."""
+        return self.gen_dataset_urn(
+            TableReference(
+                metastore=self.metastore_id if self.config.include_metastore else None,
+                catalog=catalog,
+                schema=schema,
+                table=table,
+            )
         )
 
     def gen_ml_model_urn(self, name: str) -> str:

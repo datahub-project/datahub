@@ -1845,7 +1845,9 @@ def _governance_get_rows_from_table(fully_qualified_table):
     return []
 
 
-def _run_governance_pipeline(tmp_path, requests_mock, governance_dq_extra):
+def _run_governance_pipeline(
+    tmp_path, requests_mock, governance_dq_extra, source_config_extra=None
+):
     """Run a minimal UC ingestion with `governance_dq` configured; return emitted MCPs."""
     register_mock_api(request_mock=requests_mock)
     output_file_name = "unity_catalog_governance_dq_mcps.json"
@@ -1883,6 +1885,7 @@ def _run_governance_pipeline(tmp_path, requests_mock, governance_dq_extra):
                         "results_table": _GOVERNANCE_RESULTS_TABLE,
                         **governance_dq_extra,
                     },
+                    **(source_config_extra or {}),
                 },
             },
             "sink": {
@@ -1924,3 +1927,56 @@ def test_governance_dq_emits_nothing_when_disabled(
     assert not any(
         mcp.get("aspectName") in ("assertionInfo", "assertionRunEvent") for mcp in mcps
     )
+
+
+def _governance_entity_urns(mcps):
+    return {
+        mcp["aspect"]["json"]["customAssertion"]["entity"]
+        for mcp in mcps
+        if mcp.get("aspectName") == "assertionInfo"
+    }
+
+
+def test_governance_dq_dataset_urn_omits_metastore_prefix_by_default(
+    pytestconfig, tmp_path, requests_mock
+):
+    # Finding 1: by default (include_metastore=False) governance assertions must attach
+    # to the connector's plain 3-part dataset URN.
+    mcps = _run_governance_pipeline(tmp_path, requests_mock, {"enabled": True})
+
+    entity_urns = _governance_entity_urns(mcps)
+    assert entity_urns, "expected at least one assertionInfo MCP"
+    assert all(
+        "quickstart_catalog.quickstart_schema.quickstart_table" in urn
+        for urn in entity_urns
+    )
+    assert not any("acryl_metastore" in urn for urn in entity_urns)
+
+
+def test_governance_dq_dataset_urn_matches_connector_when_include_metastore_true(
+    pytestconfig, tmp_path, requests_mock
+):
+    # Finding 1: with include_metastore=True, gen_dataset_urn prefixes the dataset name
+    # with the metastore id -- governance assertions must attach to that same URN, not a
+    # phantom 3-part name the connector never emits for the table.
+    mcps = _run_governance_pipeline(
+        tmp_path,
+        requests_mock,
+        {"enabled": True},
+        source_config_extra={"include_metastore": True},
+    )
+
+    entity_urns = _governance_entity_urns(mcps)
+    assert entity_urns, "expected at least one assertionInfo MCP"
+
+    dataset_urns_for_table = {
+        mcp["entityUrn"]
+        for mcp in mcps
+        if mcp.get("entityType") == "dataset"
+        and "quickstart_catalog.quickstart_schema.quickstart_table" in mcp["entityUrn"]
+    }
+    assert dataset_urns_for_table, "expected the connector to emit the ingested table"
+    # Governance assertions must attach to the exact same dataset URN(s) the connector
+    # emits for that table -- no phantom dataset with a mismatched metastore prefix.
+    assert entity_urns <= dataset_urns_for_table
+    assert all("acryl_metastore" in urn for urn in entity_urns)
