@@ -78,9 +78,11 @@ def _revoke_token(admin_session, token_id: str) -> None:
 
 @pytest.fixture(scope="module", autouse=True)
 def credential_users():
+    # v1.6 create_user() clears cookies after /signUp and returns a fresh admin
+    # session; discard the return and later GraphQL calls run unauthenticated.
     admin_session = get_frontend_session()
-    create_user(admin_session, ATTACKER_EMAIL, USER_PASSWORD)
-    create_user(admin_session, VICTIM_EMAIL, USER_PASSWORD)
+    admin_session = create_user(admin_session, ATTACKER_EMAIL, USER_PASSWORD)
+    admin_session = create_user(admin_session, VICTIM_EMAIL, USER_PASSWORD)
     token, token_id = _mint_token(admin_session, ATTACKER_URN)
     wait_for_writes_to_sync()
     _state["attacker_headers"] = {
