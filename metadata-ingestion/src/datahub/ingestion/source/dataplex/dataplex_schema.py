@@ -1,10 +1,15 @@
 """Schema extraction utilities for Dataplex source."""
 
+import json
 import logging
+import re
+from collections.abc import Iterator
+from itertools import count
 from typing import Any, Optional
 
 from google.cloud import dataplex_v1
 
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
@@ -19,6 +24,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
 )
 from datahub.metadata.urns import DataPlatformUrn
+from datahub.utilities.hive_schema_to_avro import HiveColumnToAvroConverter
 
 logger = logging.getLogger(__name__)
 
@@ -216,6 +222,198 @@ def process_schema_field_item(field_value: Any, entry_id: str) -> Optional[Any]:
     return None
 
 
+# e.g. ``array<struct<id:string>>``; a bare ``struct`` word has nothing to parse.
+_HIVE_COMPLEX_NATIVE_TYPE = re.compile(
+    r"^(struct|array|map|list|uniontype)<", re.IGNORECASE
+)
+
+_PRIMITIVE_DATA_TYPE_TO_AVRO = {
+    "STRING": "string",
+    "VARCHAR": "string",
+    "CHAR": "string",
+    "TEXT": "string",
+    "INTEGER": "long",
+    "INT": "long",
+    "INT64": "long",
+    "LONG": "long",
+    "BIGINT": "long",
+    "SMALLINT": "long",
+    "TINYINT": "long",
+    "BYTEINT": "long",
+    "FLOAT": "double",
+    "FLOAT64": "double",
+    "DOUBLE": "double",
+    "NUMERIC": "double",
+    "DECIMAL": "double",
+    "BIGNUMERIC": "double",
+    "BIGDECIMAL": "double",
+    "BOOLEAN": "boolean",
+    "BOOL": "boolean",
+    "BYTES": "bytes",
+    "BINARY": "bytes",
+}
+_TIME_DATA_TYPES = ("TIMESTAMP", "DATETIME", "DATE", "TIME")
+
+# Fallback for parameterized native spellings such as ``decimal(10,2)``.
+_METADATA_TYPE_TO_AVRO = {
+    "STRING": "string",
+    "NUMBER": "double",
+    "BOOLEAN": "boolean",
+    "BYTES": "bytes",
+}
+_TIME_METADATA_TYPES = ("DATETIME", "TIMESTAMP")
+
+_REPEATED_MODE = "REPEATED"
+_REQUIRED_MODE = "REQUIRED"
+_RECORD_TYPES = ("RECORD", "STRUCT")
+
+
+def _extract_nested_field_items(field_data: Any) -> list:
+    """A field's nested ``fields``, from either a protobuf Value or exported JSON."""
+    if isinstance(field_data, dict):
+        nested = field_data.get("fields")
+    else:
+        nested = getattr(field_data, "fields", None)
+    if nested is None or isinstance(nested, (str, bytes)):
+        return []
+    if hasattr(nested, "list_value"):
+        return list(nested.list_value.values)
+    if hasattr(nested, "__iter__"):
+        return list(nested)
+    return []
+
+
+def _is_complex_field(field_data: Any, data_type: str, mode: str) -> bool:
+    """True when a field carries structure the flat mapping would drop."""
+    return bool(
+        mode == _REPEATED_MODE
+        or _extract_nested_field_items(field_data)
+        or _HIVE_COMPLEX_NATIVE_TYPE.match(data_type.strip())
+    )
+
+
+def _leaf_avro_type(data_type: str, metadata_type: str) -> dict:
+    """Avro node for a leaf field; unknown types become ``null`` (NullType)."""
+    node: dict[str, Any] = {"native_data_type": data_type}
+    data_type_upper = data_type.upper()
+    metadata_type_upper = metadata_type.upper()
+    if data_type_upper in _PRIMITIVE_DATA_TYPE_TO_AVRO:
+        node["type"] = _PRIMITIVE_DATA_TYPE_TO_AVRO[data_type_upper]
+    elif (
+        data_type_upper in _TIME_DATA_TYPES
+        or metadata_type_upper in _TIME_METADATA_TYPES
+    ):
+        node["type"] = "long"
+        node["logicalType"] = "timestamp-millis"
+    elif metadata_type_upper in _METADATA_TYPE_TO_AVRO:
+        node["type"] = _METADATA_TYPE_TO_AVRO[metadata_type_upper]
+    else:
+        node["type"] = "null"
+    return node
+
+
+def _kc_field_to_avro_type(
+    field_data: Any, entry_id: str, struct_names: Iterator[int]
+) -> Any:
+    """Avro node for one catalog schema field, recursing into nested fields."""
+    data_type = str(
+        extract_field_value(field_data, "type")
+        or extract_field_value(field_data, "dataType", "string")
+    ).strip()
+    metadata_type = str(extract_field_value(field_data, "metadataType"))
+    mode = str(extract_field_value(field_data, "mode")).upper()
+    nested_items = _extract_nested_field_items(field_data)
+
+    core: Any
+    if nested_items:
+        child_fields = []
+        for nested_item in nested_items:
+            child_data = process_schema_field_item(nested_item, entry_id)
+            if child_data is None:
+                continue
+            child_name = extract_field_value(child_data, "name") or extract_field_value(
+                child_data, "column"
+            )
+            if not child_name:
+                continue
+            child_field: dict[str, Any] = {
+                "name": str(child_name),
+                "type": _kc_field_to_avro_type(child_data, entry_id, struct_names),
+            }
+            child_desc = extract_field_value(child_data, "description")
+            if child_desc:
+                child_field["doc"] = child_desc
+            child_fields.append(child_field)
+        core = {
+            # Must be unique per schema; schema_util renders it as [type=struct].
+            "type": "record",
+            "name": f"__struct_{next(struct_names)}",
+            "fields": child_fields,
+            "native_data_type": data_type,
+        }
+    elif _HIVE_COMPLEX_NATIVE_TYPE.match(data_type):
+        # Private entry point on purpose: the public one wraps the result in an
+        # extra record layer, which would double-nest the column.
+        try:
+            core = HiveColumnToAvroConverter._parse_datatype_string(data_type.lower())
+        except Exception:
+            logger.debug(
+                "Could not parse native type %r for entry %s", data_type, entry_id
+            )
+            core = {"type": "null", "native_data_type": data_type}
+    elif data_type.upper() in _RECORD_TYPES or metadata_type.upper() in _RECORD_TYPES:
+        core = {
+            "type": "record",
+            "name": f"__struct_{next(struct_names)}",
+            "fields": [],
+            "native_data_type": data_type,
+        }
+    else:
+        core = _leaf_avro_type(data_type, metadata_type)
+
+    if mode == _REPEATED_MODE:
+        if not (isinstance(core, dict) and core.get("type") == "array"):
+            inner_native = (
+                core.get("native_data_type", data_type)
+                if isinstance(core, dict)
+                else data_type
+            )
+            core = {
+                "type": "array",
+                "items": core,
+                "native_data_type": f"ARRAY<{inner_native}>",
+            }
+        core["_nullable"] = False
+        return core
+    if isinstance(core, dict):
+        core["_nullable"] = mode != _REQUIRED_MODE
+    return core
+
+
+def _convert_complex_column(
+    field_data: Any, field_name: str, description: str, entry_id: str
+) -> list[SchemaFieldClass]:
+    """Nested v2 SchemaFields for one complex column, via ``avro_schema_to_mce_fields``.
+
+    Raises when no structure is found, so the caller falls back to a flat row.
+    """
+    avro_type = _kc_field_to_avro_type(field_data, entry_id, count())
+    if isinstance(avro_type, dict) and avro_type.get("type") == "null":
+        raise ValueError(f"no structure extracted for column {field_name}")
+    column_field: dict[str, Any] = {"name": field_name, "type": avro_type}
+    if description:
+        column_field["doc"] = description
+    avro_schema = {"type": "record", "name": "__struct_", "fields": [column_field]}
+    schema_fields = avro_schema_to_mce_fields(
+        json.dumps(avro_schema), swallow_exceptions=False
+    )
+    if not schema_fields:
+        raise ValueError(f"Avro conversion yielded no fields for column {field_name}")
+    if description and not schema_fields[0].description:
+        schema_fields[0].description = description
+    return schema_fields
+
+
 def map_aspect_type_to_datahub(type_str: str) -> SchemaFieldDataTypeClass:
     """Map aspect schema type string to DataHub schema type.
 
@@ -385,6 +583,31 @@ def extract_schema_from_entry_aspects(
                     field_desc = extract_field_value(field_data, "description")
 
                     if field_name:
+                        field_mode = str(
+                            extract_field_value(field_data, "mode")
+                        ).upper()
+                        if _is_complex_field(field_data, str(field_type), field_mode):
+                            try:
+                                fields.extend(
+                                    _convert_complex_column(
+                                        field_data,
+                                        str(field_name),
+                                        field_desc,
+                                        entry_id,
+                                    )
+                                )
+                                logger.debug(
+                                    f"Extracted complex field '{field_name}' "
+                                    f"({field_type}) for entry {entry_id}"
+                                )
+                                continue
+                            except Exception as conversion_error:
+                                logger.warning(
+                                    f"Falling back to flat mapping for complex "
+                                    f"column '{field_name}' ({field_type}) in "
+                                    f"entry {entry_id}: {conversion_error}"
+                                )
+
                         # Map the type string to DataHub schema type
                         datahub_type = map_aspect_type_to_datahub(str(field_type))
 

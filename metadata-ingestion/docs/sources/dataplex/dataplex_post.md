@@ -89,7 +89,7 @@ For more details, see [Google Cloud Knowledge Catalog (Dataplex) Lineage Documen
 
 **Metadata Extraction:**
 
-- **`include_schema`** (default: `true`): Extract column metadata and types
+- **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a hive-style complex type spelling such as `array<struct<...>>` — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 
 #### Parallel Processing
