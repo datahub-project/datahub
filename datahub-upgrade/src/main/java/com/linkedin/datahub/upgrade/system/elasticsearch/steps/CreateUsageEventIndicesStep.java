@@ -25,6 +25,9 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
   private final ConfigurationProvider configurationProvider;
   @Nullable private final SearchClusterRegistry searchClusterRegistry;
+  // Retries of this step within one run skip the migration: each attempt would leave another
+  // clone, all copied back later, and a rollover between those copies duplicates events.
+  private boolean legacyIndexMigrationAttempted = false;
 
   public CreateUsageEventIndicesStep(
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
@@ -168,7 +171,7 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
     }
   }
 
-  private static void migrateLegacyIndex(
+  private void migrateLegacyIndex(
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents cluster,
       OperationContext operationContext,
       String prefix,
@@ -179,6 +182,11 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
           SKIP_LEGACY_INDEX_MIGRATION_ENV);
       return;
     }
+    if (legacyIndexMigrationAttempted) {
+      log.info("Legacy usage event index migration already attempted in this run");
+      return;
+    }
+    legacyIndexMigrationAttempted = true;
     try {
       UsageEventIndexUtils.migrateLegacyUsageEventIndex(
           operationContext, cluster, prefix, useOpenSearch);

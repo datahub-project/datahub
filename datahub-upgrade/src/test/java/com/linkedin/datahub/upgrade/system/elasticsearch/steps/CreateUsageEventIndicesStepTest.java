@@ -707,6 +707,21 @@ public class CreateUsageEventIndicesStepTest {
   }
 
   @Test
+  public void testExecutable_RetriesDoNotMigrateTheLegacyIndexAgain() throws Exception {
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+
+    step.executable().apply(upgradeContext);
+    step.executable().apply(upgradeContext);
+
+    Mockito.verify(searchClient, Mockito.times(1))
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
+            Mockito.argThat(
+                request ->
+                    request.getEndpoint().equals("/_resolve/index/test_datahub_usage_event")));
+  }
+
+  @Test
   public void testExecutable_LegacyIndexMigrationFailureDoesNotFailTheStep() throws Exception {
     Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
     Mockito.when(
