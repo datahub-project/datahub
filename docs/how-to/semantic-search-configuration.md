@@ -6,7 +6,7 @@ Semantic search covers document entities (`ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIE
 
 ## Prerequisites
 
-1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`), or **Elasticsearch 8.18+**. On Elasticsearch, filters apply after the nearest-neighbour search, to roughly the nearest 1.2 times the requested page of results, so a selective filter can return few or no results where OpenSearch returns a full page.
+1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`), or **Elasticsearch 8.18+**.
 2. **An API key** for your chosen embedding provider (see table below). The in-process `onnx` provider needs a local model download instead of a key. The `classical` provider below needs neither, but it is a CI and smoke-test provider, not semantic search.
 
 ## How to Configure Semantic Search

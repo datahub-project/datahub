@@ -83,19 +83,14 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>No caching
  *   <li>No hybrid search (semantic only)
- *   <li>Filter placement is engine-specific (see below)
+ *   <li>Filters pre-filter the kNN traversal (see below)
  *   <li>Oversamples candidates and slices in-memory for stable pagination (skip/take)
  * </ul>
  *
- * <p>Filter placement varies by engine:
- *
- * <ul>
- *   <li><b>OpenSearch 2</b>: filters are placed inside the kNN clause ({@code filter} parameter),
- *       applying them <em>before</em> the approximate nearest-neighbour traversal (pre-filtering).
- *   <li><b>Elasticsearch 8</b>: filters are placed in the outer {@code bool.filter} clause
- *       (post-filtering), because ES 8's nested kNN context cannot see root-level document fields.
- *       The 1.2x oversample factor compensates for candidates discarded by post-filtering.
- * </ul>
+ * <p>Filter placement: both engines place filters inside the kNN clause ({@code filter} parameter).
+ * There they apply to the parent documents of the nested vectors, before the approximate
+ * nearest-neighbour traversal (pre-filtering), so non-matching documents cannot crowd matching ones
+ * out of the top k.
  *
  * <p>Stable pagination note: We request {@code k >= ceil((from + pageSize) * oversampleFactor)} to
  * ensure that, after pre-filtering and any deduplication, there are at least {@code from +
@@ -214,7 +209,7 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * @param opContext operation context (auth, flags, registries)
    * @param entityNames list of entity type names whose semantic indices should be searched
    * @param input raw query text to embed for kNN
-   * @param postFilters optional document-level filters applied inside or after kNN
+   * @param postFilters optional document-level filters, applied inside the kNN clause
    * @param sortCriterion optional sort criterion (semantic v1 typically ignores custom sort)
    * @param from zero-based starting offset for pagination on the ranked candidate list
    * @param pageSize requested number of results per page; when null, defaults are applied
