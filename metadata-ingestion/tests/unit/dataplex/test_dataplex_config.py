@@ -250,8 +250,8 @@ class TestDataplexConfig:
 
         # Test max_retries upper bound
         with pytest.raises(ValidationError) as exc_info:
-            DataplexConfig(project_ids=["test-project"], lineage_max_retries=11)
-        assert "less than or equal to 10" in str(exc_info.value)
+            DataplexConfig(project_ids=["test-project"], lineage_max_retries=21)
+        assert "less than or equal to 20" in str(exc_info.value)
 
         # Test backoff_multiplier lower bound
         with pytest.raises(ValidationError) as exc_info:
@@ -263,9 +263,9 @@ class TestDataplexConfig:
         # Test backoff_multiplier upper bound
         with pytest.raises(ValidationError) as exc_info:
             DataplexConfig(
-                project_ids=["test-project"], lineage_retry_backoff_multiplier=11.0
+                project_ids=["test-project"], lineage_retry_backoff_multiplier=31.0
             )
-        assert "less than or equal to 10" in str(exc_info.value)
+        assert "less than or equal to 30" in str(exc_info.value)
 
     def test_lineage_retry_configuration_edge_values(self):
         """Test lineage retry configuration with edge values (boundaries)."""
@@ -281,11 +281,11 @@ class TestDataplexConfig:
         # Maximum valid values
         config_max = DataplexConfig(
             project_ids=["test-project"],
-            lineage_max_retries=10,
-            lineage_retry_backoff_multiplier=10.0,
+            lineage_max_retries=20,
+            lineage_retry_backoff_multiplier=30.0,
         )
-        assert config_max.lineage_max_retries == 10
-        assert config_max.lineage_retry_backoff_multiplier == 10.0
+        assert config_max.lineage_max_retries == 20
+        assert config_max.lineage_retry_backoff_multiplier == 30.0
 
     def test_entries_location_default(self):
         """Test that entries locations defaults are set correctly."""

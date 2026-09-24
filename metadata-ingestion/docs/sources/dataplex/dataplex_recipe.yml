@@ -65,9 +65,12 @@ source:
     #   export_paths:
     #     us: "gs://my-export-bucket-us/dataplex-exports"
 
-    # Optional: Lineage retry settings
-    # lineage_max_retries: 3                    # Max retry attempts (range: 1-10, default: 3)
-    # lineage_retry_backoff_multiplier: 1.0     # Backoff delay multiplier (range: 0.1-10.0, default: 1.0)
+    # Optional: Lineage retry and rate-limit settings
+    # lineage_max_retries: 3                    # Max retry attempts (range: 1-20, default: 3)
+    # lineage_retry_backoff_multiplier: 1.0     # Backoff delay multiplier (range: 0.1-30.0, default: 1.0)
+    # lineage_retry_max_wait_seconds: 65        # Backoff cap, just past the 60s quota window
+    # lineage_max_calls_per_minute: 1000        # Client-side Data Lineage API read ceiling
+    # glossary_lookup_max_calls_per_minute: 600 # Same, for lookupEntryLinks reads
 
     # Optional: Filtering patterns for entries
     # filter_config:

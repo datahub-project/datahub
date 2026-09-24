@@ -26,6 +26,9 @@ from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_external_entities import (
     DataplexAspectPlatformResource,
 )
+from datahub.ingestion.source.dataplex.dataplex_helpers import (
+    calls_per_minute_bucket,
+)
 from datahub.ingestion.source.dataplex.dataplex_platform_resource_repository import (
     DataplexPlatformResourceRepository,
 )
@@ -277,6 +280,10 @@ class DataplexGlossaryProcessor:
         self._emitted_terms: List[GlossaryTermRef] = []
         self._emitted_terms_lock = threading.Lock()
         self._platform_resource_repository = platform_resource_repository
+        # Shared across all glossary worker threads.
+        self._lookup_rate_limiter = calls_per_minute_bucket(
+            ctx.config.glossary_lookup_max_calls_per_minute
+        )
 
     # ------------------------------------------------------------------
     # Phase 1: Glossary ingestion
@@ -805,6 +812,7 @@ class DataplexGlossaryProcessor:
             f"/locations/{location}:lookupEntryLinks"
             f"?entry={urllib.parse.quote(term_entry_path, safe='')}"
         )
+        self._lookup_rate_limiter.acquire()
         with PerfTimer() as timer:
             resp = self._ctx.authed_session.get(url)
         self._report.report_api_call("lookupEntryLinks", timer.elapsed_seconds())

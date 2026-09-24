@@ -7,7 +7,19 @@ from typing import Any, Dict, Optional
 
 from google.cloud import dataplex_v1
 
+from datahub.utilities.ratelimiter import TokenBucket
+
 logger = logging.getLogger(__name__)
+
+SECONDS_PER_MINUTE = 60.0
+
+
+def calls_per_minute_bucket(max_calls_per_minute: int) -> TokenBucket:
+    """Token bucket pacing at ``max_calls_per_minute`` sustained calls."""
+    return TokenBucket(
+        rate=max_calls_per_minute / SECONDS_PER_MINUTE,
+        capacity=max_calls_per_minute,
+    )
 
 
 @dataclass(frozen=True)

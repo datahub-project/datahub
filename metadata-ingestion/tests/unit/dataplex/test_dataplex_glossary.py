@@ -726,8 +726,10 @@ def _platform_resource_wus(
 
 
 def _make_processor(repo: Optional[Mock]) -> DataplexGlossaryProcessor:
+    ctx = MagicMock()
+    ctx.config.glossary_lookup_max_calls_per_minute = 600
     return DataplexGlossaryProcessor(
-        ctx=MagicMock(),
+        ctx=ctx,
         glossary_client=MagicMock(),
         report=DataplexGlossaryReport(),
         source_report=MagicMock(),
@@ -765,8 +767,10 @@ class TestReconcileTerm:
         repo = MagicMock()
         repo.search_entity_by_urn.side_effect = Exception("boom")
         source_report = MagicMock()
+        ctx = MagicMock()
+        ctx.config.glossary_lookup_max_calls_per_minute = 600
         proc = DataplexGlossaryProcessor(
-            ctx=MagicMock(),
+            ctx=ctx,
             glossary_client=MagicMock(),
             report=DataplexGlossaryReport(),
             source_report=source_report,

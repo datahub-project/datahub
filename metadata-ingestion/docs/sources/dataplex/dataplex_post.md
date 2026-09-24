@@ -132,10 +132,13 @@ source:
     max_workers_lineage: 40 # default: 20
 ```
 
-**Lineage Retry Settings** (optional):
+**Lineage Retry and Rate Limit Settings** (optional):
 
-- **`lineage_max_retries`** (default: `3`, range: `1-10`): Retry attempts for transient errors
-- **`lineage_retry_backoff_multiplier`** (default: `1.0`, range: `0.1-10.0`): Backoff delay multiplier
+- **`lineage_max_retries`** (default: `3`, range: `1-20`): Retry attempts for transient errors
+- **`lineage_retry_backoff_multiplier`** (default: `1.0`, range: `0.1-30.0`): Backoff delay multiplier
+- **`lineage_retry_max_wait_seconds`** (default: `65`, range: `2-600`): Upper cap on the backoff between retries. The default sits just above the Data Lineage API's 60-second quota window, so a retry can land in a fresh window instead of burning every attempt inside the same exhausted one.
+- **`lineage_max_calls_per_minute`** (default: `1000`): Client-side ceiling on Data Lineage API reads, enforced across all lineage workers. Google documents the read quota as 1000 requests/minute/project/user/region; lower this when several pipelines share the same quota.
+- **`glossary_lookup_max_calls_per_minute`** (default: `600`): The same ceiling for `lookupEntryLinks` reads during term-association resolution.
 
 **Example Configuration:**
 
@@ -156,8 +159,10 @@ source:
     include_lineage: true # Enable lineage extraction with automatic retries
 
     # Lineage retry settings (optional, defaults shown)
-    lineage_max_retries: 3 # Max retry attempts (range: 1-10)
-    lineage_retry_backoff_multiplier: 1.0 # Exponential backoff multiplier (range: 0.1-10.0)
+    lineage_max_retries: 3 # Max retry attempts (range: 1-20)
+    lineage_retry_backoff_multiplier: 1.0 # Exponential backoff multiplier (range: 0.1-30.0)
+    lineage_retry_max_wait_seconds: 65 # Backoff cap, just past the 60s quota window
+    lineage_max_calls_per_minute: 1000 # Client-side Data Lineage API read ceiling
 ```
 
 **Configuration for Large Deployments:**

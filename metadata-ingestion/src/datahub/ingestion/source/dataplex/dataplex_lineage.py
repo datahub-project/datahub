@@ -31,7 +31,10 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
-from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
+from datahub.ingestion.source.dataplex.dataplex_helpers import (
+    EntryDataTuple,
+    calls_per_minute_bucket,
+)
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
     dataset_urn_from_fqn_only,
     is_lineage_supported,
@@ -47,6 +50,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.ratelimiter import TokenBucket
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +58,9 @@ logger = logging.getLogger(__name__)
 # Prevents O(N) memory growth when there are thousands of entries.
 # TODO: replace with proper backpressure (e.g. bounded queue / semaphore).
 WORKERS_BATCH_SIZE = 200
+
+# The default is 10, and the pager silently fetches every page. 100 is the max.
+SEARCH_LINKS_PAGE_SIZE = 100
 
 
 def build_lineage_parent(project_id: str, location: str) -> str:
@@ -303,6 +310,10 @@ class DataplexLineageExtractor:
         # TODO: Use redundant_run_skip_handler to short-circuit lineage calls when stateful
         # lineage ingestion determines this run is redundant.
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        # Shared by all lineage workers.
+        self._rate_limiter: TokenBucket = calls_per_minute_bucket(
+            config.lineage_max_calls_per_minute
+        )
 
     def get_lineage_for_entry(
         self,
@@ -386,6 +397,10 @@ class DataplexLineageExtractor:
                             link.source.fully_qualified_name
                         )
 
+            if not hit_parents and not empty_parents:
+                # Every parent failed: report a failed lookup, not "no lineage".
+                return None
+
             logger.debug(
                 "Lineage lookup summary for entry=%s fqn=%s: hit_parents=%s empty_parents=%s",
                 entry.dataplex_entry_name,
@@ -432,7 +447,10 @@ class DataplexLineageExtractor:
                 )
             ),
             wait=wait_exponential(
-                multiplier=self.config.lineage_retry_backoff_multiplier, min=2, max=10
+                multiplier=self.config.lineage_retry_backoff_multiplier,
+                min=2,
+                # Must be able to exceed the 60s per-minute quota window.
+                max=self.config.lineage_retry_max_wait_seconds,
             ),
             stop=stop_after_attempt(self.config.lineage_max_retries),
             before_sleep=before_sleep_log(logger, logging.WARNING),
@@ -453,7 +471,9 @@ class DataplexLineageExtractor:
             raise RuntimeError("Lineage client is not initialized")
         logger.debug(f"Searching upstream lineage for FQN: {fully_qualified_name}")
         target = EntityReference(fully_qualified_name=fully_qualified_name)
-        request = SearchLinksRequest(parent=parent, target=target)
+        request = SearchLinksRequest(
+            parent=parent, target=target, page_size=SEARCH_LINKS_PAGE_SIZE
+        )
         # Convert pager to list - this automatically handles pagination
         results = list(self.lineage_client.search_links(request=request))
         logger.debug(
@@ -479,6 +499,8 @@ class DataplexLineageExtractor:
         Raises:
             Exception: If the lineage API call fails after all retries
         """
+        # Outside the retry loop, so retries do not re-charge the limiter.
+        self._rate_limiter.acquire()
         # Apply retry decorator dynamically based on config
         retry_decorator = self._get_retry_decorator()
         retrying_func = retry_decorator(self._search_links_by_target_impl)
@@ -502,6 +524,8 @@ class DataplexLineageExtractor:
         """
         self.report.report_lineage_entry_processed(entry.dataplex_entry_name)
         if not lineage_data:
+            # Emit nothing: upstreamLineage is whole-value, so a partial set
+            # would replace persisted upstreams on a transient failure.
             self.report.report_lineage_entry_without_lineage(
                 entry_name=entry.dataplex_entry_name,
                 reason="lineage_lookup_failed_or_unavailable",
