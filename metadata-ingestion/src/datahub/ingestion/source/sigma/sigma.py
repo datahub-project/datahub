@@ -1961,14 +1961,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         ``claimed_by`` names the workbook, so a refusal points at the two
         workbooks to reconcile rather than at an element id nobody can search
-        for.
+        for. It is space-free so the sample parses as key=value, and an
+        accepted tie moves it: the label must name whoever wrote what is there.
         """
         best = self._best_input_fields_resolved.get(entity_urn)
         if best is not None and resolved < best[0]:
             self.reporter.input_fields_regressive_emission_skipped += 1
             self.reporter.input_fields_regressive_emission_samples.append(
-                f"entity={entity_urn} kept={best[0]} from={best[1]} "
-                f"refused={resolved} from={claimed_by}"
+                f"entity={entity_urn} kept={best[0]} kept_from={best[1]} "
+                f"refused={resolved} refused_from={claimed_by}"
             )
             logger.debug(
                 "%s: refusing InputFields from %s with %d resolved column(s); "
@@ -2026,7 +2027,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     and fb.schemaField.fieldPath not in covered_paths
                 ):
                     input_fields.append(fb)
-        mcp = self._chart_input_fields_mcp(entity_urn, input_fields, "customSQL drain")
+        mcp = self._chart_input_fields_mcp(entity_urn, input_fields, "customsql-drain")
         # Counted after the guard: a refused aspect is not emitted.
         if mcp is not None:
             self.reporter.workbook_customsql_upstream_emitted += 1
@@ -4446,7 +4447,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # one (later in the workunit stream).  The formula-derived fields stashed
             # below are merged into the drain MCP so nothing is silently dropped.
             chart_mcp = self._chart_input_fields_mcp(
-                chart_urn, element_input_fields, f"workbook {workbook.workbookId}"
+                chart_urn, element_input_fields, workbook.workbookId
             )
             if chart_mcp is not None:
                 # Stash only what was emitted. Stashing a refused copy would
@@ -4551,7 +4552,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     }.values()
                 ),
                 sum(chart_resolved_counts),
-                f"workbook {workbook.workbookId}",
+                workbook.workbookId,
             )
             if page_mcp is not None:
                 yield page_mcp.as_workunit()
