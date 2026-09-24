@@ -491,7 +491,11 @@ class TestTheCustomSqlDrainIsGuardedToo:
     """The drain runs after every workbook, so it is the last word on a chart."""
 
     def _drain_aspect(
-        self, source: SigmaSource, chart_urn: str, upstream_column: Optional[str]
+        self,
+        source: SigmaSource,
+        chart_urn: str,
+        upstream_column: Optional[str],
+        claimed_by: str = "customsql-drain:snowflake/PROD/None",
     ) -> Optional[InputFieldsClass]:
         source._workbook_customsql_registered_urns.add(chart_urn)
         aspect = UpstreamLineage(
@@ -518,7 +522,9 @@ class TestTheCustomSqlDrainIsGuardedToo:
             if upstream_column
             else None,
         )
-        mcp = source._build_workbook_chart_input_fields_mcp(chart_urn, aspect)
+        mcp = source._build_workbook_chart_input_fields_mcp(
+            chart_urn, aspect, claimed_by
+        )
         if mcp is None:
             return None
         assert isinstance(mcp.aspect, InputFieldsClass)
@@ -534,7 +540,7 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert [
             s
             for s in source.reporter.input_fields_regressive_emission_samples
-            if "refused_from=customsql-drain" in s
+            if "refused_from=customsql-drain:snowflake/PROD/None" in s
         ]
 
     def test_a_fallback_only_drain_is_not_counted_as_column_lineage(self) -> None:
@@ -557,6 +563,23 @@ class TestTheCustomSqlDrainIsGuardedToo:
         assert aspect is not None and len(aspect.fields) == 1
         assert source.reporter.workbook_customsql_upstream_emitted == 1
         assert source.reporter.workbook_customsql_column_lineage_emitted == 0
+
+    def test_two_aggregators_are_told_apart(self) -> None:
+        """A customSQL chart's element aspects tie at 0, so they record no
+        sample -- a drain-vs-drain refusal is the only entry there is."""
+        source = _make_source()
+        chart_urn = _chart_urn(CHART_ELEMENT_ID)
+        prod = "customsql-drain:snowflake/PROD/None"
+        dev = "customsql-drain:snowflake/DEV/None"
+
+        assert self._drain_aspect(source, chart_urn, "col", prod) is not None
+        assert self._drain_aspect(source, chart_urn, None, dev) is None
+
+        assert [
+            s
+            for s in source.reporter.input_fields_regressive_emission_samples
+            if f"kept_from={prod} refused=0 refused_from={dev}" in s
+        ]
 
     def test_a_refused_drain_aspect_is_not_counted_as_emitted(self) -> None:
         source = _make_source()
@@ -619,6 +642,12 @@ class TestTheCustomSqlDrainIsGuardedToo:
 
         assert emitted == [healthy_urn]
         assert source.reporter.input_fields_regressive_emission_skipped == 1
+        # The drain labels the refusal with the aggregator it came from.
+        assert [
+            s
+            for s in source.reporter.input_fields_regressive_emission_samples
+            if "refused_from=customsql-drain:snowflake/inst/None" in s
+        ]
         assert not [
             entry
             for entry in source.reporter.warnings
