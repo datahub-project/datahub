@@ -1,6 +1,6 @@
 import datetime as _dt
 from contextlib import ExitStack, contextmanager
-from typing import Any, Dict, Iterator, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -100,6 +100,22 @@ def _make_element(element_id: str = "elem1", name: str = "My Chart") -> MagicMoc
     element.elementId = element_id
     element.name = name
     return element
+
+
+def _real_workbook() -> Workbook:
+    """A Workbook the lineage-pattern check can read, unlike a MagicMock."""
+    return Workbook(
+        workbookId="wb-1",
+        name="Workbook",
+        ownerId="u",
+        createdBy="u",
+        updatedBy="u",
+        createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+        updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+        url="https://sigma.example/wb",
+        path="Workspace/Workbook",
+        latestVersion=1,
+    )
 
 
 def _make_workbook(workbook_id: str = "wb1", name: str = "My Workbook") -> MagicMock:
@@ -3471,6 +3487,13 @@ class TestErrorBodyNeverLeaksOrRaises:
                     "json_body": {"detail": _LEAK},
                 },
             ),
+            (
+                "a json message under a non-json type -- no shortcut past it",
+                {
+                    "headers": {"Content-Type": "text/html"},
+                    "json_body": {"message": _LEAK},
+                },
+            ),
         ],
     )
     def test_a_body_that_is_not_sigmas_own_json_is_suppressed(
@@ -3493,6 +3516,7 @@ class TestErrorBodyNeverLeaksOrRaises:
                 400,
                 json_body={"code": "invalid_request", "message": "dependency cycle"},
                 text=f"<html>{self._LEAK}</html>",
+                headers={"Content-Type": "application/json"},
             ),
         )
 
@@ -3641,7 +3665,7 @@ class TestListingFailureWiring:
             "a page's elements",
             lambda api: api.get_page_elements(MagicMock(), MagicMock()),
         ),
-        ("a workbook's pages", lambda api: api.get_workbook_pages(MagicMock())),
+        ("a workbook's pages", lambda api: api.get_workbook_pages(_real_workbook())),
         ("a workspace lookup", lambda api: api.get_workspace("ws-1")),
         (
             "a file-path walk",
@@ -3710,8 +3734,12 @@ class TestRepeatedLookupsAreAskedOnce:
 
     @pytest.mark.parametrize(
         ("status", "expected_calls"),
-        [(400, 1), (500, 3)],
-        ids=["a-refusal-is-asked-once", "a-blip-is-asked-again"],
+        [(400, 1), (500, 3), (401, 3)],
+        ids=[
+            "a-refusal-is-asked-once",
+            "a-blip-is-asked-again",
+            "a-401-after-a-failed-refresh-is-asked-again",
+        ],
     )
     def test_a_broken_workspace(self, status: int, expected_calls: int) -> None:
         api = _create_sigma_api()
@@ -3792,7 +3820,7 @@ class TestRepeatedLookupsAreAskedOnce:
         counting -- the DM survives via its own payload -- and the workbook
         walk then short-circuits on it, though the workbook IS dropped."""
         api = _create_sigma_api()
-        with _dead_call(api):
+        with _dead_call(api, status=404):
             api.get_workspace_id_from_file_path("p-1", "ws/dir", entity_removing=False)
             assert api.report.child_entity_listing_failed == 0
             api.get_workspace_id_from_file_path("p-1", "ws/other")
@@ -4105,6 +4133,11 @@ class TestFailureRemedies:
                 "cannot parse",
             ),
             ("a page with no entries", {"total": 0}, "did not have the shape"),
+            (
+                "a null row, which must not raise past the handler",
+                {"entries": [None], "nextPage": None},
+                "row id not present in the payload",
+            ),
         ],
     )
     def test_file_metadata_classifies_its_own_failures(
@@ -4220,7 +4253,8 @@ class TestRetryPolicy:
         ordinary "no lineage metadata" reply. Retrying turns a routine answer
         into 4 requests and ~12s of backoff, once per element."""
         api = _create_sigma_api()
-        adapter = cast(HTTPAdapter, api.session.get_adapter("https://example.invalid"))
+        adapter = api.session.get_adapter("https://example.invalid")
+        assert isinstance(adapter, HTTPAdapter)
 
         assert 500 not in adapter.max_retries.status_forcelist
         assert {429, 502, 503, 504} <= set(adapter.max_retries.status_forcelist)
@@ -4228,7 +4262,8 @@ class TestRetryPolicy:
     def test_only_gets_are_replayed(self) -> None:
         """The token and refresh calls are POSTs and must not be replayed."""
         api = _create_sigma_api()
-        adapter = cast(HTTPAdapter, api.session.get_adapter("https://example.invalid"))
+        adapter = api.session.get_adapter("https://example.invalid")
+        assert isinstance(adapter, HTTPAdapter)
         allowed = adapter.max_retries.allowed_methods
 
         assert allowed is not None and allowed is not False

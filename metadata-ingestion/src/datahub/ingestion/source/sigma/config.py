@@ -648,8 +648,9 @@ class SigmaSourceConfig(
         "support on 2026-09-15, so ``/v2/datasets`` is on a removal path. Set "
         "this to ``False`` once that endpoint has gone for your tenant: the "
         "call is not made and the run stops failing. Sigma Datasets a "
-        "previous run emitted are then soft-deleted, and workbook elements "
-        "that read one lose the warehouse table behind them.",
+        "previous run emitted are then soft-deleted. Data Model elements "
+        "that read one lose the warehouse table behind it; workbook elements "
+        "do only when their SQL names no warehouse table.",
     )
     ingest_data_models: bool = pydantic.Field(
         default=True,

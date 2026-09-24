@@ -3,6 +3,7 @@ import logging
 import sys
 from collections import deque
 from collections.abc import Hashable
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
@@ -128,10 +129,14 @@ def _is_transient(e: BaseException) -> bool:
     is soft-deleted by a run that otherwise passes. 500 in particular is
     deliberately absent from the retry status list, so nothing else retries
     it.
+
+    401 counts too: a token refresh that fails transiently leaves the re-ask
+    in _get_api_call holding the expired token, and the next call refreshes
+    again.
     """
     status = _http_status(e)
     if status is not None:
-        return status == 429 or status >= 500
+        return status in (401, 429) or status >= 500
     # No HTTP response at all. A reset or a timeout is worth re-asking; a body
     # this connector could not read is the same on every attempt.
     return isinstance(e, requests.exceptions.RequestException) and not (
@@ -139,7 +144,7 @@ def _is_transient(e: BaseException) -> bool:
     )
 
 
-def _failed_row(e: BaseException, last_row: Dict[str, Any]) -> str:
+def _failed_row(e: BaseException, last_row: object) -> str:
     """Name the row only when the ROW is what failed.
 
     The hand-written listings keep the last row in hand for the whole
@@ -171,13 +176,15 @@ def _terse(ve: ValidationError) -> str:
         return str(ve)[:200]
 
 
-def _row_identity(entry: Dict[str, Any]) -> str:
+def _row_identity(entry: object) -> str:
     """Whatever identifies a row that failed to parse, if anything does.
 
     A validation error names the FIELD that was wrong, never the object, so
     without this an operator is told a row is unparseable and has no way to
     find it.
     """
+    if not isinstance(entry, dict):
+        return "row id not present in the payload"
     for key in (
         "workbookId",
         "datasetId",
@@ -244,16 +251,17 @@ def _error_body(
     """
     if response is None:
         return None
-    if isinstance(payload, dict):
-        # Sigma's own message, which is what an operator can act on.
-        message = payload.get("message")
-        if isinstance(message, str) and message.strip():
-            return message.strip()[:_MAX_ERROR_BODY_CHARS].replace("\n", " ")
     try:
         content_type = response.headers.get("Content-Type", "")
     except Exception:
         content_type = ""
-    if payload is None or "json" not in content_type.lower():
+    is_json = payload is not None and "json" in content_type.lower()
+    if is_json and isinstance(payload, dict):
+        # Sigma's own message, which is what an operator can act on.
+        message = payload.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()[:_MAX_ERROR_BODY_CHARS].replace("\n", " ")
+    if not is_json:
         # Not Sigma's own JSON error -- typically a proxy's error page, which
         # can carry internal hostnames into a persisted report. Report its
         # size, not its content. Both signals must agree, since Content-Type
@@ -290,6 +298,14 @@ def _error_code(
         return None
     code = payload.get("code")
     return code if isinstance(code, str) and code else None
+
+
+@dataclass(frozen=True)
+class _FilePathWalk:
+    """Where a file-path walk ended: its workspace, or the ancestor that died."""
+
+    workspace_id: Optional[str]
+    failed_ancestor: Optional[str]
 
 
 class SigmaAPI:
@@ -463,8 +479,9 @@ class SigmaAPI:
         self.report.failure(
             title="Sigma entity listing failed",
             message="A Sigma listing call failed, so the entities it would "
-            "have returned are missing from this run. Stale-entity removal is "
-            "suppressed to avoid soft-deleting objects that still exist. "
+            "have returned are missing from this run. If stateful ingestion "
+            "is on, stale-entity removal is skipped for this run, so objects "
+            "that still exist are not soft-deleted. "
             "Re-run once the cause is resolved; the context names the listing "
             "and what to do about a failure that repeats.",
             # Remedy FIRST: report_log truncates context at 1000 chars, which
@@ -714,30 +731,27 @@ class SigmaAPI:
         walked twice. The cached walk reports which ancestor died; this
         wrapper decides what that costs.
         """
-        workspace_id, failed_ancestor = self._walk_to_workspace(parent_id, path)
-        if failed_ancestor is not None:
-            self._note_file_path_loss(failed_ancestor, entity_removing)
-        return workspace_id
+        walk = self._walk_to_workspace(parent_id, path)
+        if walk.failed_ancestor is not None:
+            self._note_file_path_loss(walk.failed_ancestor, entity_removing)
+        return walk.workspace_id
 
     @functools.lru_cache()
-    def _walk_to_workspace(
-        self, parent_id: str, path: str
-    ) -> Tuple[Optional[str], Optional[str]]:
-        """``(workspace_id, None)``, or ``(None, the ancestor that died)``."""
+    def _walk_to_workspace(self, parent_id: str, path: str) -> "_FilePathWalk":
         try:
             path_list = path.split("/")
             while len(path_list) != 1:  # means current parent id is folder's id
                 if parent_id in self._file_path_lookup_failed:
                     # Known-broken ancestor. The repeat this prevents is
                     # SIBLING FOLDERS; lru_cache collapses the per-file case.
-                    return None, parent_id
+                    return _FilePathWalk(workspace_id=None, failed_ancestor=parent_id)
                 response = self._get_api_call(
                     f"{self.config.api_url}/files/{parent_id}"
                 )
                 response.raise_for_status()
                 parent_id = response.json()[Constant.PARENTID]
                 path_list.pop()
-            return parent_id, None
+            return _FilePathWalk(workspace_id=parent_id, failed_ancestor=None)
         except Exception as e:
             # Through _log_http_error, not logger.error, or the failure misses
             # the counter and no entry names the file.
@@ -749,7 +763,7 @@ class SigmaAPI:
                 # Same rule as get_workspace: latching a folder on a blip
                 # drops every sibling subtree under it, unretried.
                 self._file_path_lookup_failed.add(parent_id)
-            return None, parent_id
+            return _FilePathWalk(workspace_id=None, failed_ancestor=parent_id)
 
     def _note_file_path_loss(self, ancestor_id: str, entity_removing: bool) -> None:
         """Count a broken ancestor once, for the callers that lose an entity.
