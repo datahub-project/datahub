@@ -773,6 +773,7 @@ public class UsageEventIndexUtils {
       throws IOException, InterruptedException {
     String indexName = prefix + "datahub_usage_event";
     if (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
+      dropStaleBackups(opContext, esComponents, prefix, indexName);
       replaceLegacyIndex(
           opContext,
           esComponents,
@@ -784,7 +785,7 @@ public class UsageEventIndexUtils {
         resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
       try {
         backfillFromBackup(opContext, esComponents, backupName, indexName, !useOpenSearch);
-      } catch (IOException e) {
+      } catch (IOException | RuntimeException e) {
         log.error(
             "Could not copy usage events from {} back into {}; keeping {}",
             backupName,
@@ -793,6 +794,57 @@ public class UsageEventIndexUtils {
             e);
       }
     }
+  }
+
+  /**
+   * Deletes backups that an earlier, failed attempt cloned from the current legacy index: they have
+   * no copy task and are younger than the index, so the index still holds all their events. Without
+   * this, retried attempts pile up overlapping backups that are each copied back.
+   */
+  private static void dropStaleBackups(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String prefix,
+      String indexName)
+      throws IOException {
+    long indexCreated = creationDate(opContext, esComponents, indexName);
+    for (String backupName :
+        resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
+      if (backfillMeta(opContext, esComponents, backupName).path(BACKFILL_TASK_META).isMissingNode()
+          && creationDate(opContext, esComponents, backupName) > indexCreated) {
+        log.info("Deleting {}, left by an earlier attempt to migrate {}", backupName, indexName);
+        deleteIndex(opContext, esComponents, backupName);
+      }
+    }
+  }
+
+  private static long creationDate(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName)
+      throws IOException {
+    return readJson(
+            opContext,
+            IndexUtils.performGetRequest(
+                opContext, esComponents, "/" + indexName + "/_settings/index.creation_date"))
+        .path(indexName)
+        .path("settings")
+        .path("index")
+        .path("creation_date")
+        .asLong();
+  }
+
+  private static JsonNode backfillMeta(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String backupName)
+      throws IOException {
+    return readJson(
+            opContext,
+            IndexUtils.performGetRequest(opContext, esComponents, "/" + backupName + "/_mapping"))
+        .path(backupName)
+        .path("mappings")
+        .path("_meta");
   }
 
   private static void replaceLegacyIndex(
@@ -840,8 +892,15 @@ public class UsageEventIndexUtils {
     } catch (IOException | RuntimeException e) {
       try {
         if (!originalDeleted
-            && resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
-          setWriteBlock(opContext, esComponents, indexName, false);
+            && resolveIndices(opContext, esComponents, indexName).contains(indexName)
+            && !IndexUtils.retryWithBackoff(
+                3,
+                1000,
+                () -> {
+                  setWriteBlock(opContext, esComponents, indexName, false);
+                  return true;
+                })) {
+          e.addSuppressed(new IOException("Could not lift the write block on " + indexName));
         }
       } catch (IOException | RuntimeException unblockFailure) {
         e.addSuppressed(unblockFailure);
@@ -877,14 +936,7 @@ public class UsageEventIndexUtils {
       String indexName,
       boolean dataStream)
       throws IOException, InterruptedException {
-    JsonNode meta =
-        readJson(
-                opContext,
-                IndexUtils.performGetRequest(
-                    opContext, esComponents, "/" + backupName + "/_mapping"))
-            .path(backupName)
-            .path("mappings")
-            .path("_meta");
+    JsonNode meta = backfillMeta(opContext, esComponents, backupName);
     String taskId = meta.path(BACKFILL_TASK_META).asText();
     String writeIndex = writeIndex(opContext, esComponents, indexName, dataStream);
     if (!taskId.isEmpty() && getTask(opContext, esComponents, taskId) == null) {
