@@ -748,6 +748,7 @@ plugins: Dict[str, Set[str]] = {
     # kafka_protobuf reused for Glue Schema Registry PROTOBUF support
     # (kinesis_schema_registry imports protobuf_util at module load).
     "kinesis": aws_common | kafka_protobuf,
+    "langfuse": {"requests<3.0.0"},
     "ldap": {"python-ldap>=2.4,<4.0.0"},
     "looker": looker_common,
     "lookml": looker_common,
@@ -1225,6 +1226,7 @@ entry_points = {
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
         "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "kinesis = datahub.ingestion.source.kinesis.kinesis:KinesisSource",
+        "langfuse = datahub.ingestion.source.langfuse.langfuse:LangfuseSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",

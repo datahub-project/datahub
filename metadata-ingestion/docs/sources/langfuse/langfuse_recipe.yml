@@ -1,0 +1,32 @@
+source:
+  type: langfuse
+  config:
+    # Coordinates
+    platform_instance: production # optional
+    env: PROD # optional
+
+    connection:
+      host: http://localhost:3000 # or your self-hosted URL, e.g. http://localhost:3000
+      public_key: ${LANGFUSE_PUBLIC_KEY}
+      secret_key: ${LANGFUSE_SECRET_KEY}
+
+    # Rolling time window for Trace/Observation/Score retrieval (default: last 7 days)
+    window:
+      start_time: "-7d" # optional, also accepts an absolute ISO 8601 datetime
+      # end_time: "2026-01-01T00:00:00Z"  # optional, defaults to now
+
+    # Feature toggles
+    include_traces: true # optional, default true - extract Traces and generation Observations
+    include_scores: true # optional, default true - attach Scores as MLMetric; requires include_traces
+    include_sessions: true # optional, default true - record session/user IDs as custom properties
+    include_prompts: true # optional, default true - extract Prompts as versioned Datasets
+
+    # Filtering
+    trace_name_pattern:
+      deny:
+        - "^healthcheck.*" # example: exclude internal healthcheck traces
+    prompt_pattern:
+      allow:
+        - ".*" # default: allow all prompts
+sink:
+  # sink configs
