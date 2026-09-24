@@ -9,12 +9,14 @@ from functools import cached_property
 from typing import (
     Any,
     Dict,
+    Generic,
     Iterable,
     List,
     NamedTuple,
     Optional,
     Set,
     Tuple,
+    TypeVar,
     Union,
 )
 
@@ -80,7 +82,7 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     UpstreamClass,
 )
-from datahub.metadata.urns import CorpUserUrn
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     PreparsedQuery,
@@ -192,15 +194,14 @@ class LineageItem:
 
 
 class _QueryKey(NamedTuple):
-    """Rows sharing this always parse to the same lineage, so one parse covers all.
+    """Rows sharing this parse to the same lineage, so one parse covers all.
 
-    ClickHouse derives normalized_query_hash from the statement text alone, so the
-    same unqualified SQL run against two databases gets the *same* hash while
-    resolving to different tables. The database is here for correctness, not speed.
+    The database is here for correctness: normalized_query_hash comes from the
+    statement text alone, so the same unqualified SQL run against two databases
+    shares a hash while resolving to different tables.
     """
 
-    # Optional only because ObservedQuery declares it so; _parse_query_log_row
-    # always sets it or skips the row.
+    # Optional only to mirror ObservedQuery; _parse_query_log_row always sets it.
     query_hash: Optional[str]
     database: str
 
@@ -208,32 +209,67 @@ class _QueryKey(NamedTuple):
 class _UsageKey(NamedTuple):
     """The dimensions datasetUsageStatistics is reported along.
 
-    userCounts is per user and the aspect is a timeseries with one entry per
-    bucket, so counts from different users or buckets must not be added together.
+    userCounts is per user and the aspect is a timeseries per bucket, so counts
+    from different users or buckets must not be added together.
     """
 
     user: str
     bucket: Optional[datetime]
 
 
-@dataclass
-class _QueryRun:
-    """One query as run by one user in one bucket, and how often."""
-
-    # The single execution we hand to the parser, standing in for the rest.
-    observed: ObservedQuery
-    # How many executions it stands for, reported as the usage count.
-    count: int
+# Both query-log paths hand the aggregator one of these.
+_Query = TypeVar("_Query", ObservedQuery, PreparsedQuery)
 
 
 @dataclass
-class _UsageRun:
-    """One Select as run by one user in one bucket, and how often."""
+class _CountedQuery(Generic[_Query]):
+    """A query, and the number of executions it stands for."""
 
-    # The single execution we hand to the aggregator, standing in for the rest.
-    preparsed: PreparsedQuery
-    # How many executions it stands for, reported as the usage count.
-    count: int
+    query: _Query
+    execution_count: int = 1
+
+
+class _DeduplicatedQueries(Generic[_Query]):
+    """Query-log rows reduced to one entry per query, user and time bucket.
+
+    A repeated statement is separate rows but identical work downstream, so
+    this turns a per-execution cost into a per-query one.
+    """
+
+    def __init__(self) -> None:
+        self._by_query: Dict[_QueryKey, Dict[_UsageKey, _CountedQuery[_Query]]] = {}
+
+    @property
+    def num_queries(self) -> int:
+        return len(self._by_query)
+
+    @property
+    def num_records(self) -> int:
+        return sum(len(records) for records in self._by_query.values())
+
+    def add(self, keys: Tuple[_QueryKey, _UsageKey], query: _Query) -> None:
+        query_key, usage_key = keys
+        records = self._by_query.setdefault(query_key, {})
+        counted = records.get(usage_key)
+        if counted is None:
+            records[usage_key] = _CountedQuery(query=query)
+        else:
+            counted.execution_count += 1
+            # Keep the latest execution so lastExecutedAt stays accurate.
+            counted.query.timestamp = query.timestamp
+
+    def grouped_by_query(self) -> Iterable[List[_CountedQuery[_Query]]]:
+        """Each query's records together, oldest execution first.
+
+        Together keeps the parser's cache warm; oldest-first is what the
+        aggregator expects, and records are built in first-execution order
+        while the timestamp each carries is its last.
+        """
+        for records in self._by_query.values():
+            yield sorted(
+                records.values(),
+                key=lambda counted: counted.query.timestamp or _MIN_TIMESTAMP,
+            )
 
 
 class ClickHouseConfig(
@@ -891,24 +927,8 @@ ORDER BY event_time ASC
             )
             return
 
-        # Why collapse rows at all: a scheduled pipeline runs the same statement
-        # over and over with different values. That is one query to the parser but
-        # N different strings to its cache, so the cache misses on nearly every row
-        # and each execution pays for a full parse. Collapsing first turns "parse
-        # once per execution" into "parse once per query", which is the whole cost.
-        #
-        #   by_query[query][usage] -> the query runs to report for that user/bucket
-        #
-        # Two levels because the keys answer different questions: the query decides
-        # what gets parsed, the user and bucket decide where its counts are
-        # reported. Keeping the query on the outside also lets the emit loop below
-        # finish one query before moving on, so the parser's cache stays warm.
-        by_query: Dict[_QueryKey, Dict[_UsageKey, _QueryRun]] = {}
-        # Selects skip the parser but not the aggregator, and every add() there
-        # costs two FileBackedDict round-trips plus one usage event per table
-        # read. Those are per-execution costs the same collapse removes, so the
-        # usage path groups on the same keys before adding.
-        usage_runs: Dict[Tuple[_QueryKey, _UsageKey], _UsageRun] = {}
+        lineage_queries: _DeduplicatedQueries[ObservedQuery] = _DeduplicatedQueries()
+        usage_queries: _DeduplicatedQueries[PreparsedQuery] = _DeduplicatedQueries()
         num_lineage = 0
         num_usage = 0
         for row in result:
@@ -920,113 +940,85 @@ ORDER BY event_time ASC
                 preparsed = self._usage_row_to_preparsed(row_dict)
                 if preparsed:
                     num_usage += 1
-                    usage_run_key = self._usage_log_keys(preparsed, row_dict)
-                    usage_run = usage_runs.get(usage_run_key)
-                    if usage_run is None:
-                        usage_runs[usage_run_key] = _UsageRun(
-                            preparsed=preparsed, count=1
-                        )
-                    else:
-                        usage_run.count += 1
-                        # Keep the latest execution so lastExecutedAt stays accurate.
-                        usage_run.preparsed.timestamp = preparsed.timestamp
+                    usage_queries.add(
+                        self._group_keys(
+                            query_hash=preparsed.query_id,
+                            # Not on the PreparsedQuery: its query_id is the hash
+                            # of the statement text alone, so the database that
+                            # resolved its tables has to come off the row.
+                            database=row_dict.get("current_database"),
+                            user=preparsed.user,
+                            timestamp=preparsed.timestamp,
+                        ),
+                        preparsed,
+                    )
                 continue
 
-            observed_query = self._parse_query_log_row(row_dict)
-            if not observed_query:
+            observed = self._parse_query_log_row(row_dict)
+            if not observed:
                 continue
 
             num_lineage += 1
+            lineage_queries.add(
+                self._group_keys(
+                    query_hash=observed.query_hash,
+                    database=observed.default_schema,
+                    user=observed.user,
+                    timestamp=observed.timestamp,
+                ),
+                observed,
+            )
 
-            query_key, usage_key = self._query_log_keys(observed_query)
-            query_runs_by_usage = by_query.setdefault(query_key, {})
-            query_run = query_runs_by_usage.get(usage_key)
-            if query_run is None:
-                query_runs_by_usage[usage_key] = _QueryRun(
-                    observed=observed_query, count=1
-                )
-            else:
-                query_run.count += 1
-                # Keep the latest execution so lastExecutedAt stays accurate.
-                query_run.observed.timestamp = observed_query.timestamp
+        for usage_group in usage_queries.grouped_by_query():
+            for usage_record in usage_group:
+                usage_record.query.query_count = usage_record.execution_count
+                self._query_log_aggregator.add(usage_record.query)
 
-        # Oldest first, so the query's actor and timestamp end up those of its
-        # newest execution, as a row-by-row loop would have left them.
-        for usage_run in sorted(
-            usage_runs.values(),
-            key=lambda run: run.preparsed.timestamp or _MIN_TIMESTAMP,
-        ):
-            usage_run.preparsed.query_count = usage_run.count
-            self._query_log_aggregator.add(usage_run.preparsed)
-
-        for query_runs_by_usage in by_query.values():
-            # One query still splits across users and buckets. Give every split the
-            # same SQL text so the parser's cache answers all but the first: their
-            # literals differ, but the lineage they produce cannot.
-            shared_sql = next(iter(query_runs_by_usage.values())).observed.query
-            # The aggregator overwrites a query's timestamp and actor on every
-            # add, expecting oldest first. Splits are ordered by their first
-            # execution, not their last, so sort before emitting.
-            for query_run in sorted(
-                query_runs_by_usage.values(),
-                key=lambda run: run.observed.timestamp or _MIN_TIMESTAMP,
-            ):
-                query_run.observed.query = shared_sql
+        for lineage_group in lineage_queries.grouped_by_query():
+            # Give every split of a query the same SQL text so the parser's cache
+            # answers all but the first: their literals differ, but the lineage
+            # they produce cannot.
+            shared_sql = lineage_group[0].query.query
+            for lineage_record in lineage_group:
+                observed_query = lineage_record.query
+                observed_query.query = shared_sql
                 # The aggregator counts this execution usage_multiplier times, so
                 # the totals match what a row-by-row loop would have produced.
-                query_run.observed.usage_multiplier = query_run.count
-                self._query_log_aggregator.add(query_run.observed)
+                observed_query.usage_multiplier = lineage_record.execution_count
+                self._query_log_aggregator.add(observed_query)
 
-        # len(by_query), not the number of add() calls: the splits of one query
-        # share a SQL text, so only the first of them reaches the parser.
         self.report.query_log_usage_reads += num_usage
-        self.report.query_log_usage_records += len(usage_runs)
+        self.report.query_log_usage_records += usage_queries.num_records
         self.report.query_log_lineage_rows += num_lineage
-        self.report.query_log_queries_parsed += len(by_query)
+        self.report.query_log_queries_parsed += lineage_queries.num_queries
         logger.info(
             f"Query log processing complete: {num_usage} usage reads -> "
-            f"{len(usage_runs)} recorded, "
-            f"{num_lineage} lineage rows -> {len(by_query)} parsed"
+            f"{usage_queries.num_records} recorded, "
+            f"{num_lineage} lineage rows -> {lineage_queries.num_queries} parsed"
         )
 
         yield from auto_workunit(self._query_log_aggregator.gen_metadata())
 
-    def _query_log_keys(self, observed: ObservedQuery) -> Tuple[_QueryKey, _UsageKey]:
-        """Which query this row is, and which usage numbers its count belongs to."""
-        query_key = _QueryKey(
-            query_hash=observed.query_hash,
-            database=observed.default_schema or "",
-        )
-        usage_key = _UsageKey(
-            user=str(observed.user or ""),
-            bucket=(
-                get_time_bucket(observed.timestamp, self.config.bucket_duration)
-                if observed.timestamp
-                else None
-            ),
-        )
-        return query_key, usage_key
-
-    def _usage_log_keys(
-        self, preparsed: PreparsedQuery, row: Dict[str, Any]
+    def _group_keys(
+        self,
+        *,
+        query_hash: Optional[str],
+        database: Optional[str],
+        user: Optional[Union[CorpUserUrn, CorpGroupUrn]],
+        timestamp: Optional[datetime],
     ) -> Tuple[_QueryKey, _UsageKey]:
-        """Which Select this row is, and which usage numbers its count belongs to."""
-        query_key = _QueryKey(
-            query_hash=preparsed.query_id,
-            # Not derivable from the PreparsedQuery: its query_id is the hash of
-            # the statement text alone, so the database that resolved its tables
-            # has to come off the row.
-            database=str(row.get("current_database") or ""),
-        )
-        usage_key = _UsageKey(
-            user=str(preparsed.user or ""),
-            bucket=(
-                get_time_bucket(preparsed.timestamp, self.config.bucket_duration)
-                if preparsed.timestamp
-                else None
+        """Which shape this row is, and which usage numbers its count belongs to."""
+        return (
+            _QueryKey(query_hash=query_hash, database=database or ""),
+            _UsageKey(
+                user=str(user or ""),
+                bucket=(
+                    get_time_bucket(timestamp, self.config.bucket_duration)
+                    if timestamp
+                    else None
+                ),
             ),
         )
-        return query_key, usage_key
 
     def _dataset_urn(self, dataset_name: str) -> str:
         return builder.make_dataset_urn_with_platform_instance(

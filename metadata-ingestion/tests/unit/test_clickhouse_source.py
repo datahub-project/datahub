@@ -802,6 +802,24 @@ def test_query_log_respects_database_pattern(monkeypatch):
     assert _RAW_EVENTS in urns
 
 
+def test_usage_rows_are_deduplicated_before_the_aggregator(monkeypatch):
+    # Selects skip the parser but not the aggregator, and each add() there costs
+    # FileBackedDict writes plus a usage event per table. Nothing in the emitted
+    # aspects would reveal a regression, so assert the record count directly.
+    source = _query_log_source()
+    rows = (
+        [_select_row(query_id=f"a{i}", user="alice") for i in range(5)]
+        + [_select_row(query_id=f"b{i}", user="bob") for i in range(3)]
+        + [_select_row(query_id=f"c{i}", day=15) for i in range(4)]
+    )  # one shape x (alice, bob, day-15) = 12 rows, 3 records
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    list(source._extract_query_log())
+
+    assert source.report.query_log_usage_reads == 12
+    assert source.report.query_log_usage_records == 3
+
+
 def test_usage_aggregates_users_and_buckets(monkeypatch):
     source = _query_log_source()
     rows = (
