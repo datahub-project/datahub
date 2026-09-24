@@ -162,6 +162,12 @@ def test_map_operator_structured_cases():
     nn = map_operator("NOT_NULL", scope=DatasetAssertionScopeClass.DATASET_COLUMN)
     assert nn.operator == AssertionStdOperatorClass.NOT_NULL
 
+    unique = map_operator("UNIQUE", scope=DatasetAssertionScopeClass.DATASET_COLUMN)
+    assert unique.operator == AssertionStdOperatorClass.EQUAL_TO
+    assert unique.aggregation == AssertionStdAggregationClass.UNIQUE_PROPOTION
+    assert unique.parameters is not None
+    assert unique.parameters.value.value == "1.0"
+
     # DatasetAssertionScopeClass has no bare DATASET value in this schema version
     # (only DATASET_COLUMN/_ROWS/_SCHEMA/_STORAGE_SIZE/UNKNOWN); DATASET_ROWS fits
     # this table-level BETWEEN case.
@@ -170,6 +176,17 @@ def test_map_operator_structured_cases():
     )
     assert between.operator == AssertionStdOperatorClass.BETWEEN
     assert between.parameters is not None
+    # Assert the actual min/max values (not just presence) so a min/max swap is caught.
+    assert between.parameters.minValue.value == "10"
+    assert between.parameters.maxValue.value == "1000"
+
+    for op in ("GREATER_THAN", "LESS_THAN", "EQUAL_TO"):
+        result = map_operator(
+            op, value=5, scope=DatasetAssertionScopeClass.DATASET_COLUMN
+        )
+        assert result.operator == getattr(AssertionStdOperatorClass, op)
+        assert result.parameters is not None
+        assert result.parameters.value.value == "5"
 
 
 def test_map_operator_native_fallback():
