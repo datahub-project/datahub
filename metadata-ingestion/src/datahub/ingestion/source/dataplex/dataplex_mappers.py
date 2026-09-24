@@ -25,6 +25,7 @@ classes, project-key lookup) live in ``dataplex_ids.py``.
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -35,6 +36,7 @@ from typing_extensions import TypeAlias, assert_never
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -1418,6 +1420,126 @@ def dataset_urn_from_fqn_only(fully_qualified_name: str, env: str) -> Optional[s
         )
         if urn:
             return urn
+    return None
+
+
+# Key class -> (display-name field, subtype) for lineage-only container levels.
+# Pinned to the Container mappers by test_dataplex_mappers.
+_CONTAINER_STUB_RENDERING: dict[type[DataplexProjectId], Tuple[str, str]] = {
+    DataplexBigQueryDataset: (
+        "dataset_id",
+        DatasetContainerSubTypes.BIGQUERY_DATASET,
+    ),
+    DataplexCloudSqlMySqlInstance: ("instance_id", DatasetContainerSubTypes.INSTANCE),
+    DataplexCloudSqlMySqlDatabase: ("database_id", DatasetContainerSubTypes.DATABASE),
+    DataplexCloudSpannerInstance: ("instance_id", DatasetContainerSubTypes.INSTANCE),
+    DataplexCloudSpannerDatabase: ("database_id", DatasetContainerSubTypes.DATABASE),
+    DataplexBigtableInstance: ("instance_id", DatasetContainerSubTypes.INSTANCE),
+    DataplexDataprocMetastoreService: (
+        "service_id",
+        DatasetContainerSubTypes.SERVICE,
+    ),
+    DataplexDataprocMetastoreDatabase: (
+        "database_id",
+        DatasetContainerSubTypes.DATABASE,
+    ),
+}
+
+_FORMAT_FIELD_REGEX = re.compile(r"\{(\w+)\}")
+
+
+@dataclass(frozen=True)
+class LineageStubContainer:
+    key: DataplexProjectId
+    display_name: str
+    subtype: str
+
+
+@dataclass(frozen=True)
+class LineageStubSpec:
+    """How to render a lineage-only upstream; ``containers`` run innermost first."""
+
+    platform: str
+    dataset_name: str
+    display_name: str
+    subtype: str
+    containers: Tuple[LineageStubContainer, ...] = ()
+
+
+def _stub_container_chain(
+    mapper: EntryMapper, identity_fields: dict[str, str]
+) -> Tuple[LineageStubContainer, ...]:
+    """Container chain for a lineage-only upstream, innermost first."""
+    parent_link = mapper.dataplex_parent_entry
+    if parent_link is not None:
+        innermost_class: Optional[type[DataplexProjectId]] = (
+            parent_link.datahub_schemakey_class
+        )
+    else:
+        innermost_class = PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM.get(
+            mapper.datahub_platform
+        )
+    if innermost_class is None:
+        return ()
+
+    project_id = identity_fields.get("project_id")
+    if project_id is None:
+        return ()
+
+    containers: list[LineageStubContainer] = []
+    current: Optional[ContainerKey] = instantiate_key(innermost_class, identity_fields)
+    while isinstance(current, DataplexProjectId):
+        rendering = _CONTAINER_STUB_RENDERING.get(type(current))
+        display_name: str
+        subtype: str
+        if rendering is None:
+            # Project level: same rendering as _build_project_container.
+            display_name = project_id
+            subtype = DatasetContainerSubTypes.BIGQUERY_PROJECT
+        else:
+            display_field, subtype = rendering
+            display_name = identity_fields.get(display_field, project_id)
+        containers.append(
+            LineageStubContainer(
+                key=current, display_name=display_name, subtype=subtype
+            )
+        )
+        current = current.parent_key()
+    return tuple(containers)
+
+
+def lineage_stub_spec_from_fqn_only(
+    fully_qualified_name: str,
+) -> Optional[LineageStubSpec]:
+    """Render spec for a lineage-only upstream, mirroring the entries stage."""
+    for mapper in ENTRY_MAPPERS.values():
+        if mapper.datahub_main_entity_type is not Dataset:
+            continue
+        identity = mapper.datahub_identity
+        assert isinstance(identity, DatasetIdentity)
+        identity_fields = parse_with_regex(
+            mapper.dataplex_fqn_regex, fully_qualified_name
+        )
+        if identity_fields is None:
+            continue
+        dataset_name = identity.dataset_name(identity_fields)
+        if dataset_name is None:
+            continue
+        format_fields = _FORMAT_FIELD_REGEX.findall(identity.name_format)
+        display_name = (
+            identity_fields.get(format_fields[-1], dataset_name)
+            if format_fields
+            else dataset_name
+        )
+        subtype = mapper.datahub_subtype
+        assert subtype is not None  # every Dataset mapper declares one
+        return LineageStubSpec(
+            platform=mapper.datahub_platform,
+            dataset_name=dataset_name,
+            display_name=display_name,
+            subtype=subtype,
+            containers=_stub_container_chain(mapper, identity_fields),
+        )
     return None
 
 

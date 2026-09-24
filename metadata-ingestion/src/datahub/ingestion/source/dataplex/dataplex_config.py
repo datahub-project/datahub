@@ -341,6 +341,34 @@ class DataplexConfig(
         "because it adds an upstream that no previous run emitted.",
     )
 
+    include_lineage_only_upstreams: bool = Field(
+        default=False,
+        description="Whether to materialize minimal entities for lineage "
+        "upstreams this run does not otherwise ingest — GCS buckets, "
+        "uncatalogued hive tables, and tables in projects outside the "
+        "configured scope. Without them the edge exists in the graph but the "
+        "node is invisible in the UI, because searchAcrossLineage only returns "
+        "entities that carry a status aspect. Writes are guarded: a URN that "
+        "already exists and is soft-deleted is never revived, and a container "
+        "this connector did not create is never overwritten. Needs a DataHub "
+        "graph connection for those checks; without one, only nodes whose URN "
+        "namespace belongs to this connector are written.",
+    )
+
+    remove_stale_lineage: bool = Field(
+        default=True,
+        description="Whether lineage mirrors the live Data Lineage API state. "
+        "Default true: each run overwrites the upstreamLineage aspect with the "
+        "edges the API currently reports. Set to false for STICKY lineage, "
+        "where new edges are merged with the previously persisted aspect (so "
+        "an edge the API no longer reports — for example past its retention "
+        "window — is preserved) and lineage-only upstream entities are exempt "
+        "from stale-metadata removal. Merging needs the DataHub graph client; "
+        "dry runs without one emit the fresh state only. Either way, entities "
+        "that disappear from the source are still soft-deleted by stateful "
+        "ingestion.",
+    )
+
     resolve_pubsub_subscriptions: bool = Field(
         default=False,
         description="Whether 'pubsub:subscription:...' upstream lineage FQNs "

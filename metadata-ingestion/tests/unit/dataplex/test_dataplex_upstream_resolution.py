@@ -142,7 +142,9 @@ class TestFqnParsers:
 class TestGcsUpstreams:
     def test_gcs_upstream_resolves_to_a_bucket_urn(self) -> None:
         extractor = make_extractor()
-        resolved = extractor._resolve_upstream_fqn("gcs:my-bucket/raw/events.csv", {})
+        resolved = extractor._resolve_upstream_fqn(
+            "gcs:my-bucket/raw/events.csv", {}, {}
+        )
         assert resolved == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket,PROD)"
 
 
@@ -240,6 +242,7 @@ class TestStorageLineage:
             edge.upstream_datahub_urn
             == "urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket,PROD)"
         )
+        assert edge.upstream_fqn == "gcs:my-bucket"
         assert extractor.report.num_storage_lineage_edges_added == 1
 
     def test_missing_storage_aspect_is_counted(self) -> None:
@@ -322,7 +325,7 @@ class TestPubSubSubscriptionResolution:
         extractor._pubsub_resolver._client = subscriber
 
         resolved = extractor._resolve_upstream_fqn(
-            "pubsub:subscription:my-project.my-subscription", {}
+            "pubsub:subscription:my-project.my-subscription", {}, {}
         )
 
         assert (
@@ -357,7 +360,7 @@ class TestPubSubSubscriptionResolution:
 
         assert (
             extractor._resolve_upstream_fqn(
-                "pubsub:subscription:my-project.my-subscription", {}
+                "pubsub:subscription:my-project.my-subscription", {}, {}
             )
             is None
         )
@@ -372,7 +375,7 @@ class TestPubSubSubscriptionResolution:
 
         assert (
             extractor._resolve_upstream_fqn(
-                "pubsub:subscription:my-project.my-subscription", {}
+                "pubsub:subscription:my-project.my-subscription", {}, {}
             )
             is None
         )
@@ -384,10 +387,34 @@ class TestPubSubSubscriptionResolution:
         assert extractor._pubsub_resolver is None
         assert (
             extractor._resolve_upstream_fqn(
-                "pubsub:subscription:my-project.my-subscription", {}
+                "pubsub:subscription:my-project.my-subscription", {}, {}
             )
             is None
         )
+
+    def test_resolved_edge_renders_from_the_topic_fqn(self) -> None:
+        """The node a subscription edge points at must be described by the
+        topic, not by the subscription."""
+        extractor = make_extractor(resolve_pubsub_subscriptions=True)
+        subscriber = MagicMock()
+        subscriber.get_subscription.return_value = MagicMock(
+            topic="projects/my-project/topics/my-topic"
+        )
+        assert extractor._pubsub_resolver is not None
+        extractor._pubsub_resolver._client = subscriber
+        entry = make_dpms_table_entry()
+
+        edges, _mappings = extractor._extract_lineage_edges_for_entry(
+            entry,
+            {
+                "upstream": ["pubsub:subscription:my-project.my-subscription"],
+                "downstream": [],
+                "column_mappings": {},
+            },
+        )
+
+        edge = next(iter(edges))
+        assert edge.upstream_fqn == "pubsub:topic:my-project.my-topic"
 
     def test_unresolved_subscription_warns_with_a_dedicated_title(self) -> None:
         extractor = make_extractor()

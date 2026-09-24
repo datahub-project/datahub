@@ -150,6 +150,43 @@ Dataplex never reports a table's backing-storage hop as lineage, so
 Metastore tables from the entry's own `storage` aspect. It is off by default
 because it adds an upstream that no previous run emitted.
 
+#### Lineage-only Upstream Nodes
+
+`searchAcrossLineage` — and therefore the UI's Lineage tab — only returns
+entities that carry a `status` aspect. An upstream that exists purely because a
+lineage edge points at it (a GCS bucket, an uncatalogued hive table, or a table
+in a project outside the configured scope) is otherwise never materialized, so
+the edge exists in the graph but the node is invisible.
+
+Set `include_lineage_only_upstreams: true` to materialize a minimal entity for
+those URNs. What gets written is decided per URN:
+
+| State of the URN                    | What is written                                                  |
+| ----------------------------------- | ---------------------------------------------------------------- |
+| Emitted by this run's entries stage | `status` only — that stage owns the rest                         |
+| Absent from DataHub                 | `status`, display name, subtype, and the missing container chain |
+| Present and not deleted             | `status` only, so whoever owns its properties keeps them         |
+| Soft-deleted                        | Nothing. A tombstone is never cleared                            |
+
+Deciding this needs a DataHub graph connection, so without one nothing outside
+the run's own entities is written. Note that `gcs` and `hive` URNs get no
+special treatment: DataHub's own object-store and Hive connectors produce URNs
+in those namespaces too, so they are checked like everything else.
+
+#### Sticky Lineage
+
+By default (`remove_stale_lineage: true`) each run overwrites `upstreamLineage`
+with the edges the Data Lineage API currently reports. Because that API retains
+links for a limited window, set `remove_stale_lineage: false` to merge new
+edges with the previously persisted aspect instead: a freshly observed upstream
+always wins over its persisted copy, edges the API no longer reports are
+preserved, and lineage-only upstream entities are exempted from
+stale-metadata removal. Merging reads the persisted aspect, so it needs the
+DataHub graph client; a dry run without one emits the fresh state only.
+
+Either way, entities that disappear from the source are still soft-deleted by
+stateful ingestion.
+
 #### Configuration Options
 
 **Metadata Extraction:**
@@ -157,6 +194,8 @@ because it adds an upstream that no previous run emitted.
 - **`include_schema`** (default: `true`): Extract column metadata and types. Columns that carry structure — `REPEATED` mode, nested `fields`, or a hive-style complex type spelling such as `array<struct<...>>` — are expanded into nested `[version=2.0]` fieldPaths, the same representation the BigQuery connector emits, so the UI renders them as Array/Struct with expandable children.
 - **`include_lineage`** (default: `true`): Extract table-level lineage (automatically retries transient errors)
 - **`include_column_lineage`** (default: `false`): Extract column-to-column lineage; see [Column-level Lineage](#column-level-lineage)
+- **`include_lineage_only_upstreams`** (default: `false`): Materialize minimal entities for upstreams this run does not otherwise ingest; see [Lineage-only Upstream Nodes](#lineage-only-upstream-nodes)
+- **`remove_stale_lineage`** (default: `true`): Whether lineage mirrors the live API state; see [Sticky Lineage](#sticky-lineage)
 - **`include_storage_lineage`** (default: `false`): Derive a bucket → table edge from a Dataproc Metastore table's `storage` aspect
 - **`resolve_pubsub_subscriptions`** (default: `false`): Resolve `pubsub:subscription:` upstreams to their backing topic
 - **`include_hive_metastore_nodes`** (default: `true`): Emit unmatched `hive_metastore:` upstreams as lineage-only `hive` datasets

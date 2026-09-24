@@ -8,3 +8,10 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 def aspect_of(workunit: MetadataWorkUnit) -> Any:
     """The workunit's aspect, without committing to a concrete type."""
     return workunit.metadata.aspect  # type: ignore[union-attr]
+
+
+def entity_urn(workunit: MetadataWorkUnit) -> str:
+    """The URN the workunit targets."""
+    urn = workunit.metadata.entityUrn  # type: ignore[union-attr]
+    assert urn is not None
+    return urn

@@ -7,6 +7,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum, auto
 from itertools import islice
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 
@@ -35,6 +36,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import (
     EntryDataTuple,
@@ -42,6 +48,8 @@ from datahub.ingestion.source.dataplex.dataplex_helpers import (
 )
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     DATAPROC_METASTORE_TABLE_FQN_REGEX,
+    GCS_PLATFORM,
+    HIVE_PLATFORM,
     build_gcs_bucket_urn,
     build_hive_table_urn,
     parse_gcs_bucket_fqn,
@@ -51,9 +59,11 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
 )
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
     DATAPROC_METASTORE_TABLE_ENTRY_TYPE,
+    LineageStubSpec,
     dataproc_metastore_table_urn,
     dataset_urn_from_fqn_only,
     is_lineage_supported,
+    lineage_stub_spec_from_fqn_only,
 )
 from datahub.ingestion.source.dataplex.dataplex_pubsub import (
     PubSubSubscriptionResolver,
@@ -63,13 +73,18 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    ContainerPropertiesClass,
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    StatusClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import DatasetUrn
+from datahub.sdk.container import Container
+from datahub.sdk.dataset import Dataset
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.ratelimiter import TokenBucket
@@ -90,6 +105,18 @@ COLUMN_LINK_BATCH_SIZE = 20
 
 # Number of dotted segments in dpms_hive_metastore_service.
 DPMS_SERVICE_PARTS = 3
+
+# Marks containers created only to host a lineage-only upstream.
+LINEAGE_ONLY_CONTAINER_PROPERTY = "dataplex_lineage_only"
+
+
+class _UpstreamNodeAction(Enum):
+    """How much may be written for a referenced lineage upstream URN."""
+
+    SKIP = auto()
+    STATUS_ONLY = auto()
+    FULL = auto()
+
 
 # Sentinel distinguishing "key absent" from "key present but ambiguous (None)"
 # in the Dataproc Metastore (database, table) -> URN indexes.
@@ -118,11 +145,13 @@ class LineageEdge:
         upstream_datahub_urn: The upstream dataset URN normalized for DataHub
         audit_stamp: When this lineage was observed
         lineage_type: Type of lineage (TRANSFORMED, COPY, etc.)
+        upstream_fqn: The lineage FQN the edge came from
     """
 
     upstream_datahub_urn: str
     audit_stamp: datetime
     lineage_type: str = DatasetLineageTypeClass.TRANSFORMED
+    upstream_fqn: Optional[str] = None
 
 
 @dataclass
@@ -205,6 +234,19 @@ class DataplexLineageReport(Report):
         default_factory=LossyList
     )
     num_pubsub_subscription_cache_hits: int = 0
+    # Minimal entities materialized for lineage-only upstream nodes.
+    num_upstream_nodes_emitted: int = 0
+    upstream_nodes_emitted_samples: LossyList[str] = field(default_factory=LossyList)
+    num_upstream_nodes_skipped_unsafe: int = 0
+    upstream_nodes_skipped_unsafe_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
+    num_upstream_containers_emitted: int = 0
+    # Sticky lineage (remove_stale_lineage: false): edges carried over from the
+    # persisted aspect because the live API no longer reports them.
+    num_lineage_upstreams_preserved: int = 0
+    num_fine_grained_lineages_preserved: int = 0
+    lineage_preserved_samples: LossyList[str] = field(default_factory=LossyList)
     lineage_api: dict[str, tuple[int, float]] = field(default_factory=dict)
     scan_stats_by_project_location_pair: dict[tuple[str, str], LocationScanStats] = (
         field(default_factory=dict)
@@ -421,6 +463,30 @@ class DataplexLineageReport(Report):
         with self._lock:
             self.num_pubsub_subscription_cache_hits += 1
 
+    def report_upstream_node_emitted(self, urn: str) -> None:
+        with self._lock:
+            self.num_upstream_nodes_emitted += 1
+            self.upstream_nodes_emitted_samples.append(urn)
+
+    def report_upstream_node_skipped_unsafe(self, urn: str) -> None:
+        with self._lock:
+            self.num_upstream_nodes_skipped_unsafe += 1
+            self.upstream_nodes_skipped_unsafe_samples.append(urn)
+
+    def report_upstream_container_emitted(self) -> None:
+        with self._lock:
+            self.num_upstream_containers_emitted += 1
+
+    def report_lineage_preserved(
+        self, dataset_urn: str, upstreams: int, fine_grained: int
+    ) -> None:
+        with self._lock:
+            self.num_lineage_upstreams_preserved += upstreams
+            self.num_fine_grained_lineages_preserved += fine_grained
+            self.lineage_preserved_samples.append(
+                f"{dataset_urn}: upstreams={upstreams}, fine_grained={fine_grained}"
+            )
+
 
 class _EntryLineageEdges:
     """Per-entry accumulator keeping exactly one edge per upstream URN."""
@@ -436,13 +502,14 @@ class _EntryLineageEdges:
         """Pre-register an edge built outside the Data Lineage API."""
         self.edges_by_urn[edge.upstream_datahub_urn] = edge
 
-    def add(self, upstream_dataset_urn: str) -> None:
+    def add(self, upstream_dataset_urn: str, upstream_fqn: str) -> None:
         if upstream_dataset_urn in self.edges_by_urn:
             return
         self.edges_by_urn[upstream_dataset_urn] = LineageEdge(
             upstream_datahub_urn=upstream_dataset_urn,
             audit_stamp=datetime.now(timezone.utc),
             lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+            upstream_fqn=upstream_fqn,
         )
         self._report.report_lineage_edge_added(
             downstream_dataset_id=self._downstream_dataset_id,
@@ -470,6 +537,7 @@ class DataplexLineageExtractor:
         source_report: SourceReport,
         lineage_client: Optional[LineageClient] = None,
         redundant_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = None,
+        graph: Optional[DataHubGraph] = None,
         credentials: Optional[service_account.Credentials] = None,
     ):
         """
@@ -481,12 +549,14 @@ class DataplexLineageExtractor:
             source_report: Source report for warning/failure emission
             lineage_client: Optional pre-configured LineageClient
             redundant_run_skip_handler: Optional redundant lineage run skip handler
+            graph: Optional DataHub graph, for sticky merges and upstream-node checks
             credentials: Optional GCP credentials for the Pub/Sub client
         """
         self.config = config
         self.report = report
         self.source_report = source_report
         self.lineage_client = lineage_client
+        self.graph = graph
         # TODO: Use redundant_run_skip_handler to short-circuit lineage calls when stateful
         # lineage ingestion determines this run is redundant.
         self.redundant_run_skip_handler = redundant_run_skip_handler
@@ -495,6 +565,11 @@ class DataplexLineageExtractor:
         # (database, table) -> URN; None marks an ambiguous pair.
         self._dpms_urn_by_db_table: Dict[Tuple[str, str], Optional[str]] = {}
         self._dpms_urn_by_db_table_casefold: Dict[Tuple[str, str], Optional[str]] = {}
+        self._exported_dataset_urns: set[str] = set()
+        # Each upstream is evaluated once per run, across all workers.
+        self._materialized_upstream_urns: set[str] = set()
+        self._materialized_container_urns: set[str] = set()
+        self._materialize_lock = threading.Lock()
         # Shared by all lineage workers.
         self._rate_limiter: TokenBucket = calls_per_minute_bucket(
             config.lineage_max_calls_per_minute
@@ -888,18 +963,23 @@ class DataplexLineageExtractor:
 
         return _hive_node_or_unresolved()
 
-    def _resolve_pubsub_subscription_fqn(self, upstream_fqn: str) -> Optional[str]:
-        """Backing topic's URN for a subscription FQN, or None."""
+    def _resolve_pubsub_subscription_fqn(
+        self, upstream_fqn: str
+    ) -> Optional[Tuple[str, str]]:
+        """``(topic_urn, topic_fqn)`` for a subscription FQN, or None."""
         parsed = parse_pubsub_subscription_fqn(upstream_fqn)
         if parsed is None or self._pubsub_resolver is None:
             return None
         topic_fqn = self._pubsub_resolver.resolve_topic_fqn(*parsed)
         if topic_fqn is None:
             return None
-        return dataset_urn_from_fqn_only(
+        topic_urn = dataset_urn_from_fqn_only(
             fully_qualified_name=topic_fqn,
             env=self.config.env,
         )
+        if topic_urn is None:  # defensive: well-formed topic paths always match
+            return None
+        return topic_urn, topic_fqn
 
     def _storage_lineage_edge(self, entry: EntryDataTuple) -> Optional[LineageEdge]:
         """Bucket -> table edge from a Dataproc Metastore table's storage aspect."""
@@ -920,6 +1000,9 @@ class DataplexLineageExtractor:
             upstream_datahub_urn=bucket_urn,
             audit_stamp=datetime.now(timezone.utc),
             lineage_type=DatasetLineageTypeClass.TRANSFORMED,
+            # Same FQN shape an API link would carry, so the bucket renders
+            # identically however the edge was discovered.
+            upstream_fqn=f"gcs:{entry.storage_gcs_bucket}",
         )
 
     def _remap_upstream_column(self, upstream_urn: str, upstream_column: str) -> str:
@@ -1061,19 +1144,25 @@ class DataplexLineageExtractor:
         # Cache FQN -> URN so table-level and column-level lineage normalize
         # each upstream FQN exactly once (and agree on the URN).
         resolved_fqns: Dict[str, Optional[str]] = {}
+        # Subscription FQN -> resolved topic FQN, so a referenced upstream node
+        # is rendered from the topic rather than from the subscription.
+        effective_fqns: Dict[str, str] = {}
 
         for upstream_fqn in lineage_data.get("upstream", []):
-            upstream_urn = self._resolve_upstream_fqn(upstream_fqn, resolved_fqns)
+            upstream_urn = self._resolve_upstream_fqn(
+                upstream_fqn, resolved_fqns, effective_fqns
+            )
             if upstream_urn is None:
                 self._report_unresolved_upstream(entry, upstream_fqn)
                 continue
-            edges.add(upstream_urn)
+            edges.add(upstream_urn, effective_fqns.get(upstream_fqn, upstream_fqn))
 
         column_mappings = self._normalize_column_mappings(
             entry=entry,
             raw_column_mappings=lineage_data.get("column_mappings") or {},
             edges=edges,
             resolved_fqns=resolved_fqns,
+            effective_fqns=effective_fqns,
         )
         return set(edges.edges_by_urn.values()), column_mappings
 
@@ -1081,6 +1170,7 @@ class DataplexLineageExtractor:
         self,
         upstream_fqn: str,
         resolved_fqns: Dict[str, Optional[str]],
+        effective_fqns: Dict[str, str],
     ) -> Optional[str]:
         """Normalize one upstream FQN to a dataset URN, memoized per entry."""
         if upstream_fqn in resolved_fqns:
@@ -1102,7 +1192,10 @@ class DataplexLineageExtractor:
         if resolved is None:
             # Dataflow-reported subscriptions resolve to their backing topic so
             # the edge joins the catalogued topic entity.
-            resolved = self._resolve_pubsub_subscription_fqn(upstream_fqn)
+            subscription_result = self._resolve_pubsub_subscription_fqn(upstream_fqn)
+            if subscription_result is not None:
+                resolved, topic_fqn = subscription_result
+                effective_fqns[upstream_fqn] = topic_fqn
         resolved_fqns[upstream_fqn] = resolved
         return resolved
 
@@ -1153,6 +1246,7 @@ class DataplexLineageExtractor:
         raw_column_mappings: Dict[str, List[Tuple[str, str]]],
         edges: "_EntryLineageEdges",
         resolved_fqns: Dict[str, Optional[str]],
+        effective_fqns: Dict[str, str],
     ) -> Dict[str, List[Tuple[str, str]]]:
         """``(upstream_fqn, column)`` -> ``(upstream_urn, fieldPath)``.
 
@@ -1165,14 +1259,16 @@ class DataplexLineageExtractor:
             # while the duplicate check stays O(1).
             seen_normalized = set()
             for upstream_fqn, upstream_column in upstream_pairs:
-                upstream_urn = self._resolve_upstream_fqn(upstream_fqn, resolved_fqns)
+                upstream_urn = self._resolve_upstream_fqn(
+                    upstream_fqn, resolved_fqns, effective_fqns
+                )
                 if upstream_urn is None:
                     self.report.report_lineage_upstream_fqn_skipped(
                         entry_name=entry.dataplex_entry_name,
                         upstream_fqn=upstream_fqn,
                     )
                     continue
-                edges.add(upstream_urn)
+                edges.add(upstream_urn, effective_fqns.get(upstream_fqn, upstream_fqn))
                 pair = (
                     upstream_urn,
                     self._remap_upstream_column(upstream_urn, upstream_column),
@@ -1263,9 +1359,236 @@ class DataplexLineageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         if upstream_lineage is None:
             return
+        if not self.config.remove_stale_lineage:
+            upstream_lineage = self._merge_with_persisted_lineage(
+                dataset_urn, upstream_lineage
+            )
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn, aspect=upstream_lineage
         ).as_workunit()
+
+    def _merge_with_persisted_lineage(
+        self, dataset_urn: str, fresh: UpstreamLineageClass
+    ) -> UpstreamLineageClass:
+        """Union the fresh edges with the persisted aspect; fresh wins per upstream."""
+        if self.graph is None:
+            return fresh
+        try:
+            existing = self.graph.get_aspect(dataset_urn, UpstreamLineageClass)
+        except Exception as exc:
+            logger.debug(
+                "Sticky-lineage merge skipped for %s: aspect read failed (%s)",
+                dataset_urn,
+                exc,
+            )
+            return fresh
+        if existing is None or not existing.upstreams:
+            return fresh
+
+        fresh_upstream_urns = {upstream.dataset for upstream in fresh.upstreams}
+        carried_upstreams = [
+            upstream
+            for upstream in existing.upstreams
+            if upstream.dataset not in fresh_upstream_urns
+        ]
+
+        def _fine_grained_key(fine_grained: FineGrainedLineageClass) -> tuple:
+            return tuple(sorted(fine_grained.downstreams or []))
+
+        fresh_fine_grained = list(fresh.fineGrainedLineages or [])
+        fresh_keys = {
+            _fine_grained_key(fine_grained) for fine_grained in fresh_fine_grained
+        }
+        carried_fine_grained = [
+            fine_grained
+            for fine_grained in (existing.fineGrainedLineages or [])
+            if _fine_grained_key(fine_grained) not in fresh_keys
+        ]
+
+        if carried_upstreams or carried_fine_grained:
+            self.report.report_lineage_preserved(
+                dataset_urn, len(carried_upstreams), len(carried_fine_grained)
+            )
+        merged_fine_grained = fresh_fine_grained + carried_fine_grained
+        return UpstreamLineageClass(
+            upstreams=list(fresh.upstreams) + carried_upstreams,
+            fineGrainedLineages=merged_fine_grained or None,
+        )
+
+    def _upstream_node_action(self, upstream_urn: str) -> _UpstreamNodeAction:
+        """What may be written for an upstream URN this run references.
+
+        Only URNs this run emits skip the graph check; an existing entity gets Status only.
+        """
+        if upstream_urn in self._exported_dataset_urns:
+            return _UpstreamNodeAction.STATUS_ONLY
+        if self.graph is None:
+            logger.debug(
+                "Skipping lineage-only node %s: no DataHub graph client available "
+                "to verify its state.",
+                upstream_urn,
+            )
+            return _UpstreamNodeAction.SKIP
+        try:
+            if not self.graph.exists(upstream_urn):
+                return _UpstreamNodeAction.FULL
+            status = self.graph.get_aspect(upstream_urn, StatusClass)
+            if status is not None and status.removed:
+                return _UpstreamNodeAction.SKIP
+            return _UpstreamNodeAction.STATUS_ONLY
+        except Exception as exc:
+            logger.debug(
+                "Skipping lineage-only node %s: state check failed (%s).",
+                upstream_urn,
+                exc,
+            )
+            return _UpstreamNodeAction.SKIP
+
+    def _gen_upstream_node_workunits(
+        self, lineage_edges: set[LineageEdge]
+    ) -> Iterable[MetadataWorkUnit]:
+        """Minimal aspects for referenced upstreams, so they show in lineage views.
+
+        searchAcrossLineage only returns entities that have a status aspect.
+        """
+        for lineage_edge in lineage_edges:
+            upstream_urn = lineage_edge.upstream_datahub_urn
+            with self._materialize_lock:
+                if upstream_urn in self._materialized_upstream_urns:
+                    continue
+                self._materialized_upstream_urns.add(upstream_urn)
+
+            action = self._upstream_node_action(upstream_urn)
+            if action is _UpstreamNodeAction.SKIP:
+                self.report.report_upstream_node_skipped_unsafe(upstream_urn)
+                continue
+
+            # Under sticky lineage, exempt these nodes from stale removal.
+            is_primary_source = self.config.remove_stale_lineage
+            self.report.report_upstream_node_emitted(upstream_urn)
+            yield MetadataChangeProposalWrapper(
+                entityUrn=upstream_urn, aspect=StatusClass(removed=False)
+            ).as_workunit(is_primary_source=is_primary_source)
+
+            if action is not _UpstreamNodeAction.FULL:
+                continue
+
+            spec = self._upstream_node_spec(lineage_edge)
+            if spec is None:
+                continue
+
+            # parent_container=None would still emit an empty browsePathsV2.
+            if spec.containers:
+                upstream_dataset = Dataset(
+                    platform=spec.platform,
+                    name=spec.dataset_name,
+                    env=self.config.env,
+                    display_name=spec.display_name,
+                    subtype=spec.subtype,
+                    parent_container=spec.containers[0].key,
+                )
+            else:
+                upstream_dataset = Dataset(
+                    platform=spec.platform,
+                    name=spec.dataset_name,
+                    env=self.config.env,
+                    display_name=spec.display_name,
+                    subtype=spec.subtype,
+                )
+            for change_proposal in upstream_dataset.as_mcps():
+                yield change_proposal.as_workunit(is_primary_source=is_primary_source)
+            yield from self._gen_upstream_container_workunits(spec)
+
+    def _upstream_node_spec(
+        self, lineage_edge: LineageEdge
+    ) -> Optional[LineageStubSpec]:
+        upstream_fqn = lineage_edge.upstream_fqn
+        if upstream_fqn is None:
+            return None
+        platform = (
+            DatasetUrn.from_string(lineage_edge.upstream_datahub_urn)
+            .get_data_platform_urn()
+            .platform_name
+        )
+        if platform == HIVE_PLATFORM:
+            parsed = parse_hive_metastore_fqn(upstream_fqn)
+            if parsed is None:
+                return None
+            database_id, table_id = parsed
+            return LineageStubSpec(
+                platform=HIVE_PLATFORM,
+                dataset_name=f"{database_id}.{table_id}",
+                display_name=table_id,
+                subtype=DatasetSubTypes.TABLE,
+            )
+        if platform == GCS_PLATFORM:
+            bucket_name = parse_gcs_bucket_fqn(upstream_fqn)
+            if bucket_name is None:
+                return None
+            return LineageStubSpec(
+                platform=GCS_PLATFORM,
+                dataset_name=bucket_name,
+                display_name=bucket_name,
+                subtype=DatasetContainerSubTypes.GCS_BUCKET,
+            )
+        return lineage_stub_spec_from_fqn_only(upstream_fqn)
+
+    def _gen_upstream_container_workunits(
+        self, spec: LineageStubSpec
+    ) -> Iterable[MetadataWorkUnit]:
+        """Missing containers for an upstream node, tagged so later runs can refresh them."""
+        if self.graph is None:
+            return
+        for index, container in enumerate(spec.containers):
+            container_urn = container.key.as_urn()
+            with self._materialize_lock:
+                if container_urn in self._materialized_container_urns:
+                    continue
+                self._materialized_container_urns.add(container_urn)
+            if not self._container_write_allowed(container_urn):
+                continue
+            parent = (
+                spec.containers[index + 1].key
+                if index + 1 < len(spec.containers)
+                else None
+            )
+            self.report.report_upstream_container_emitted()
+            upstream_container = Container(
+                container_key=container.key,
+                display_name=container.display_name,
+                subtype=container.subtype,
+                parent_container=parent,
+                extra_properties={LINEAGE_ONLY_CONTAINER_PROPERTY: "true"},
+            )
+            for change_proposal in upstream_container.as_mcps():
+                yield change_proposal.as_workunit(
+                    is_primary_source=self.config.remove_stale_lineage
+                )
+
+    def _container_write_allowed(self, container_urn: str) -> bool:
+        if self.graph is None:
+            return False
+        try:
+            if not self.graph.exists(container_urn):
+                return True
+            status = self.graph.get_aspect(container_urn, StatusClass)
+            if status is not None and status.removed:
+                return False
+            properties = self.graph.get_aspect(container_urn, ContainerPropertiesClass)
+            return bool(
+                properties
+                and (properties.customProperties or {}).get(
+                    LINEAGE_ONLY_CONTAINER_PROPERTY
+                )
+                == "true"
+            )
+        except Exception as exc:
+            logger.debug(
+                "Skipping lineage-only container %s: state check failed (%s)",
+                container_urn,
+                exc,
+            )
+            return False
 
     def _process_entry_lineage(
         self,
@@ -1297,7 +1620,10 @@ class DataplexLineageExtractor:
         upstream_lineage = self._to_upstream_lineage(
             dataset_id, dataset_urn, lineage_edges, column_mappings
         )
-        return list(self._gen_lineage(dataset_id, dataset_urn, upstream_lineage))
+        workunits = list(self._gen_lineage(dataset_id, dataset_urn, upstream_lineage))
+        if self.config.include_lineage_only_upstreams:
+            workunits.extend(self._gen_upstream_node_workunits(lineage_edges))
+        return workunits
 
     def get_lineage_workunits(
         self,
@@ -1329,6 +1655,9 @@ class DataplexLineageExtractor:
         # Index Dataproc Metastore tables before any worker resolves a
         # hive_metastore upstream FQN against them.
         self.register_dpms_tables(entry_data)
+        self._exported_dataset_urns = {
+            entry.datahub_dataset_urn for entry in entry_data
+        }
 
         logger.info("Extracting lineage (parallel, max_workers=%d)", max_workers)
 

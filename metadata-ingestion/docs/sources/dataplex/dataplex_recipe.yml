@@ -54,6 +54,14 @@ source:
     # include_hive_metastore_nodes: true    # default: true
     # dpms_hive_metastore_service: "my-gcp-project.us-west1.my-service"
 
+    # Optional: materialize minimal entities for upstreams that are not
+    # ingested, so the nodes render in the UI lineage graph.
+    # include_lineage_only_upstreams: true
+
+    # Optional: set to false for sticky lineage — merge new edges with the
+    # previously persisted aspect instead of overwriting it.
+    # remove_stale_lineage: true
+
     # Optional: Extraction method (default: api)
     # Use 'export' for central-catalog / federated setups where assets surface
     # in a catalog project via Dataplex catalog linking and list_entries returns
