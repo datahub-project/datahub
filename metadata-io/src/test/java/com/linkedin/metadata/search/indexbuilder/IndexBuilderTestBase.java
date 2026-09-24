@@ -148,12 +148,15 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
     // Create operation context with our index convention
     opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization().toBuilder()
-            .searchContext(SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
-            .build(
-                TestOperationContexts.systemContextNoSearchAuthorization()
-                    .getSessionAuthentication(),
-                true);
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization().toBuilder()
+                .searchContext(
+                    SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
+                .build(
+                    TestOperationContexts.systemContextNoSearchAuthorization()
+                        .getSessionAuthentication(),
+                    true),
+            getSearchClient());
 
     // Setup DelegatingSettingsBuilder and DelegatingMappingsBuilder
     IndexConfiguration indexConfiguration =
@@ -847,8 +850,11 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                       "myStringProp",
                       Map.of(ESUtils.TYPE, V2LegacySettingsBuilder.KEYWORD))));
     }
+    // With structured-property system-update disabled, existing SP mappings are preserved on
+    // the target even when copyStructuredPropertyMappings is false — otherwise a reindex would
+    // drop them (container is dynamic:false).
     assertEquals(reindexConfigNoCopy.currentMappings(), expectedMappingsStructPropsNested);
-    assertEquals(reindexConfigNoCopy.targetMappings(), SystemMetadataMappingsBuilder.getMappings());
+    assertEquals(reindexConfigNoCopy.targetMappings(), expectedMappingsStructPropsNested);
     assertFalse(reindexConfigNoCopy.isPureMappingsAddition());
 
     // Test build reindex config with structured properties copied

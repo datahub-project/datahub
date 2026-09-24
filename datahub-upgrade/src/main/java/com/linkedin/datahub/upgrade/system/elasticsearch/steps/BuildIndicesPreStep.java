@@ -13,6 +13,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
@@ -56,11 +57,11 @@ public class BuildIndicesPreStep implements UpgradeStep {
             IndexUtils.getIndicesNeedingReindex(opContext, services, structuredProperties);
 
         for (ReindexConfig indexConfig : indexConfigs) {
-          String indexName =
-              IndexUtils.resolveAlias(
-                  opContext, esComponents.getSearchClient(), indexConfig.name());
+          SearchClientShim<?> searchClient =
+              IndexUtils.requireIndexBuilder(indexConfig.name()).getSearchClient();
+          String indexName = IndexUtils.resolveAlias(opContext, searchClient, indexConfig.name());
 
-          boolean ack = blockWrites(opContext, indexName);
+          boolean ack = blockWrites(opContext, searchClient, indexName);
           if (!ack) {
             log.error(
                 "Partial index settings update, some indices may still be blocking writes."
@@ -73,8 +74,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
             String clonedName = indexConfig.name() + "_clone_" + System.currentTimeMillis();
             ResizeRequest resizeRequest = new ResizeRequest(clonedName, indexName);
             boolean cloneAck =
-                esComponents
-                    .getSearchClient()
+                searchClient
                     .cloneIndex(opContext, resizeRequest, RequestOptions.DEFAULT)
                     .isAcknowledged();
             log.info("Cloned index {} into {}, Acknowledged: {}", indexName, clonedName, cloneAck);
@@ -94,7 +94,8 @@ public class BuildIndicesPreStep implements UpgradeStep {
     };
   }
 
-  private boolean blockWrites(OperationContext opContext, String indexName)
+  private boolean blockWrites(
+      OperationContext opContext, SearchClientShim<?> searchClient, String indexName)
       throws InterruptedException, IOException {
     UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
     Map<String, Object> indexSettings = ImmutableMap.of(INDEX_BLOCKS_WRITE_SETTING, "true");
@@ -103,8 +104,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
     boolean ack;
     try {
       ack =
-          esComponents
-              .getSearchClient()
+          searchClient
               .updateIndexSettings(opContext, request, RequestOptions.DEFAULT)
               .isAcknowledged();
       log.info(
@@ -126,8 +126,7 @@ public class BuildIndicesPreStep implements UpgradeStep {
     }
 
     if (ack) {
-      ack =
-          IndexUtils.validateWriteBlock(opContext, esComponents.getSearchClient(), indexName, true);
+      ack = IndexUtils.validateWriteBlock(opContext, searchClient, indexName, true);
       log.info(
           "Validated index {} with new settings. Settings: {}, Acknowledged: {}",
           indexName,

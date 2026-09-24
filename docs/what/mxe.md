@@ -216,7 +216,7 @@ An example of an 'Entity Change Event' Platform Event that is emitted when a new
   },
   "name": "entityChangeEvent",
   "payload": {
-    "value": "{\"entityUrn\":\"urn:li:dataset:abc\",\"entityType\":\"dataset\",\"category\":\"OWNER\",\"operation\":\"ADD\",\"modifier\":\"urn:li:corpuser:jdoe\",\"parameters\":{\"ownerUrn\":\"urn:li:corpuser:jdoe\",\"ownerType\":\"BUSINESS_OWNER\"},\"auditStamp\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":1649953100653}}",
+    "value": "{\"entityUrn\":\"urn:li:dataset:abc\",\"entityType\":\"dataset\",\"category\":\"OWNERSHIP\",\"operation\":\"ADD\",\"modifier\":\"urn:li:corpuser:jdoe\",\"parameters\":{\"ownerUrn\":\"urn:li:corpuser:jdoe\",\"ownerType\":\"BUSINESS_OWNER\"},\"auditStamp\":{\"actor\":\"urn:li:corpuser:jdoe\",\"time\":1649953100653}}",
     "contentType": "application/json"
 }
 ```

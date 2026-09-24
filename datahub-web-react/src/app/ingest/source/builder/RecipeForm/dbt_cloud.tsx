@@ -1,4 +1,4 @@
-import { get } from 'lodash';
+import get from 'lodash/get';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -152,7 +152,7 @@ export const INCLUDE_SEEDS: RecipeField = {
     },
     setValueOnRecipeOverride: (recipe: any, value: boolean) => {
         const includeSeeds = value === true ? 'YES' : 'NO';
-        return setFieldValueOnRecipe(recipe, includeSeeds, includeSourcesPath);
+        return setFieldValueOnRecipe(recipe, includeSeeds, includeSeedsPath);
     },
 };
 

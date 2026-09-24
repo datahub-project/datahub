@@ -138,6 +138,16 @@ def _restore_mssql_temp_table_prefix(
     return table_name
 
 
+def _table_name_as_sqlglot_table(table: _TableName) -> sqlglot.exp.Table:
+    return sqlglot.exp.Table(
+        catalog=(
+            sqlglot.exp.Identifier(this=table.database) if table.database else None
+        ),
+        db=sqlglot.exp.Identifier(this=table.db_schema) if table.db_schema else None,
+        this=sqlglot.exp.Identifier(this=table.table),
+    )
+
+
 def _table_name_from_sqlglot_table(
     table: sqlglot.exp.Table,
     dialect: Optional[sqlglot.Dialect],
@@ -146,8 +156,7 @@ def _table_name_from_sqlglot_table(
 ) -> _TableName:
     """Create a _TableName from a sqlglot Table, handling MSSQL temp table prefixes.
 
-    This is a dialect-aware wrapper around _TableName.from_sqlglot_table that
-    restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
+    Restores MSSQL temp table prefixes (# or ##) that SQLGlot strips during parsing.
 
     Args:
         table: The SQLGlot Table expression
@@ -200,8 +209,7 @@ def _table_name_from_sqlglot_table(
 
     # Handle Dot expressions (more than 3-part names).
     # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
-    # identifiers while walking left, then reverse. Mirror of the traversal in
-    # `_TableName.from_sqlglot_table`; kept in sync intentionally.
+    # identifiers while walking left, then reverse.
     if isinstance(table.this, sqlglot.exp.Dot):
         all_parts_exp: List[sqlglot.exp.Expression] = []
         exp: sqlglot.exp.Expression = table.this
@@ -949,7 +957,7 @@ def _prepare_query_columns(
             normalized_table_schema[col_normalized] = col_type or "UNKNOWN"
 
         sqlglot_db_schema.add_table(
-            table.as_sqlglot_table(),
+            _table_name_as_sqlglot_table(table),
             column_mapping=normalized_table_schema,
         )
 
@@ -1410,7 +1418,6 @@ def _get_direct_raw_col_upstreams(
                         and dialect is not None
                     ):
                         table_ref = table_ref.qualified(
-                            dialect=dialect,
                             default_db=default_db,
                             default_schema=default_schema,
                         )
@@ -2151,7 +2158,7 @@ def _sqlglot_lineage_inner(
         # For select statements, qualification will be a no-op. For other statements, this
         # is where the qualification actually happens.
         qualified_table = table.qualified(
-            dialect=dialect, default_db=default_db, default_schema=default_schema
+            default_db=default_db, default_schema=default_schema
         )
 
         urn, schema_info = schema_resolver.resolve_table(qualified_table)
