@@ -1,4 +1,4 @@
-"""Unit tests for Fabric OneLake cross-item / cross-workspace SQL name resolution."""
+"""Unit tests for Fabric OneLake cross-item SQL name resolution."""
 
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
@@ -45,11 +45,9 @@ def _urn(name: str, platform_instance: Optional[str] = None) -> str:
 
 def _catalog() -> FabricItemCatalog:
     catalog = FabricItemCatalog()
-    catalog.add_workspace(WS_ANALYTICS, "Analytics")
     catalog.add_item(WS_ANALYTICS, "lh-bronze", "bronze_lh", "Lakehouse")
     catalog.add_item(WS_ANALYTICS, "lh-silver", "silver_lh", "Lakehouse")
     catalog.add_item(WS_ANALYTICS, "wh-gold", "gold_wh", "Warehouse")
-    catalog.add_workspace(WS_SHARED, "Shared Data")
     # Same display name as the analytics lakehouse, different workspace.
     catalog.add_item(WS_SHARED, "lh-shared-silver", "silver_lh", "Lakehouse")
     catalog.add_item(WS_SHARED, "lh-ref", "ref_lh", "Lakehouse")
@@ -141,9 +139,8 @@ def test_catalog_resolves_names_case_insensitively_and_strips_brackets() -> None
 
     # Items are also addressable by GUID.
     assert catalog.resolve_item(WS_SHARED, "LH-REF").item is not None
-    assert catalog.resolve_workspace("[Shared Data]") == (WS_SHARED, None)
-    assert catalog.resolve_workspace(WS_SHARED) == (WS_SHARED, None)
-    assert catalog.resolve_workspace("nope")[0] is None
+    # Items of another workspace are never matched.
+    assert catalog.resolve_item(WS_ANALYTICS, "ref_lh").item is None
 
 
 def test_catalog_reports_ambiguous_names() -> None:
@@ -152,11 +149,6 @@ def test_catalog_reports_ambiguous_names() -> None:
     resolution = catalog.resolve_item(WS_ANALYTICS, "silver_lh")
     assert resolution.item is None
     assert resolution.reason is not None and "ambiguous" in resolution.reason
-
-    catalog.add_workspace("ws-other", "Shared Data")
-    workspace_id, reason = catalog.resolve_workspace("Shared Data")
-    assert workspace_id is None
-    assert reason is not None and "ambiguous" in reason
 
 
 @pytest.mark.parametrize(
@@ -226,16 +218,24 @@ def test_three_part_reference_is_scoped_to_the_referencing_workspace() -> None:
         pytest.param("[ws-shared].[lh-ref].dbo.regions", id="guids"),
     ],
 )
-def test_cross_workspace_four_part_reference(table_ref: str) -> None:
-    lineage, _, report = _upstreams_of_view(
+def test_four_part_names_are_unresolved(table_ref: str) -> None:
+    """Fabric has no cross-workspace (4-part) table names - the SQL endpoint
+    rejects them - so even a 4-part name that spells an ingested workspace and
+    item is dropped and reported instead of resolved."""
+    lineage, resolver, report = _upstreams_of_view(
         f"SELECT c.id, r.region_name FROM silver_lh.dbo.customers AS c "
         f"JOIN {table_ref} AS r ON c.region_id = r.region_id"
     )
     assert _upstream_datasets(lineage) == [
-        _urn(f"{WS_ANALYTICS}.lh-silver.dbo.customers"),
-        _urn(f"{WS_SHARED}.lh-ref.dbo.regions"),
+        _urn(f"{WS_ANALYTICS}.lh-silver.dbo.customers")
     ]
-    assert report.num_cross_item_references_unresolved == 0
+    assert len(resolver.unresolved_urns) == 1
+    assert report.num_cross_item_references_unresolved == 1
+    warnings = [
+        w for w in report.warnings if w.title == "Unresolved Cross-Item SQL Reference"
+    ]
+    assert len(warnings) == 1
+    assert any("3-part" in c for c in warnings[0].context)
 
 
 def test_unknown_item_is_dropped_and_warned() -> None:
@@ -263,13 +263,7 @@ def test_unknown_item_is_dropped_and_warned() -> None:
     "sql",
     [
         pytest.param("SELECT id FROM missing_lh.dbo.scores", id="unknown-item"),
-        pytest.param(
-            "SELECT id FROM [Other WS].ref_lh.dbo.regions", id="unknown-workspace"
-        ),
-        pytest.param(
-            "SELECT id FROM Analytics.missing_lh.dbo.scores",
-            id="unknown-item-in-known-workspace",
-        ),
+        pytest.param("SELECT id FROM [Other WS].ref_lh.dbo.regions", id="four-part"),
     ],
 )
 def test_only_unknown_references_emit_no_lineage(sql: str) -> None:
@@ -351,7 +345,7 @@ def test_observed_queries_resolve_cross_item_with_column_lineage() -> None:
     assert report.num_cross_item_references_unresolved == 1
 
 
-def test_more_than_four_part_names_are_unresolved() -> None:
+def test_five_part_names_are_unresolved() -> None:
     """A 5-part (linked-server style) name can never match a GUID-keyed
     dataset, so it is dropped and reported instead of emitted as a dangling URN."""
     lineage, resolver, report = _upstreams_of_view(
@@ -475,7 +469,7 @@ def test_view_parsing_hook_is_scoped() -> None:
         "INFORMATION_SCHEMA.COLUMNS",
         "information_schema.tables",
         "queryinsights.exec_requests_history",
-        # Qualified with another item / workspace: still a system object.
+        # Qualified with another item (or 4 parts): still a system object.
         "silver_lh.sys.objects",
         "[Shared Data].[ref_lh].[sys].[tables]",
     ],

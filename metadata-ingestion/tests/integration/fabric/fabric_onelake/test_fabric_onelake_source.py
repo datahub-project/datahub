@@ -795,7 +795,7 @@ def test_fabric_onelake_schema_pattern_filters_schemas() -> None:
 # Cross-item lineage fixtures: one "analytics" workspace with a bronze / silver
 # lakehouse and a gold warehouse, plus a "shared" workspace that also has a
 # lakehouse named `silver_lh` (to prove 3-part names resolve within the
-# referencing workspace) and a reference lakehouse reached via a 4-part name.
+# referencing workspace).
 _ANALYTICS_WS = FabricWorkspace(id="ws-analytics", name="Analytics")
 _SHARED_WS = FabricWorkspace(id="ws-shared", name="Shared Data")
 
@@ -821,9 +821,6 @@ _LAKEHOUSES = {
             workspace_id="ws-shared",
             type="Lakehouse",
         ),
-        FabricLakehouse(
-            id="lh-ref", name="ref_lh", workspace_id="ws-shared", type="Lakehouse"
-        ),
     ],
 }
 _WAREHOUSES = {
@@ -835,10 +832,13 @@ _WAREHOUSES = {
     "ws-shared": [],
 }
 _TABLES = {
-    "lh-bronze": [("raw_orders", ["order_id", "customer_id", "amount"])],
+    "lh-bronze": [
+        ("raw_orders", ["order_id", "customer_id", "amount"]),
+        ("regions", ["region_id", "region_name"]),
+        ("customer_totals_copy", ["customer_id", "total_amount"]),
+    ],
     "lh-silver": [("customers", ["customer_id", "name", "region_id"])],
     "lh-shared-silver": [("customers", ["customer_id", "name", "region_id"])],
-    "lh-ref": [("regions", ["region_id", "region_name"])],
     "wh-gold": [
         ("customer_totals", ["customer_id", "total_amount"]),
         ("customer_snapshot", ["customer_id", "name"]),
@@ -861,13 +861,13 @@ _GOLD_VIEWS = [
         "JOIN [Bronze_LH].[dbo].[raw_orders] AS o ON c.customer_id = o.customer_id",
         ["customer_id", "name", "amount"],
     ),
-    # 4-part reference into another ingested workspace.
+    # Join across two other items of the same workspace.
     (
         "v_customer_regions",
         "CREATE VIEW dbo.v_customer_regions AS "
         "SELECT c.customer_id, r.region_name "
         "FROM silver_lh.dbo.customers AS c "
-        "JOIN [Shared Data].[ref_lh].[dbo].[regions] AS r ON c.region_id = r.region_id",
+        "JOIN bronze_lh.dbo.regions AS r ON c.region_id = r.region_id",
         ["customer_id", "region_name"],
     ),
     # SELECT * across items: columns come from the registered upstream schema.
@@ -898,13 +898,17 @@ _GOLD_QUERIES = [
         "CREATE TABLE dbo.customer_snapshot AS "
         "SELECT customer_id, name FROM silver_lh.dbo.customers",
     ),
-    # 4-part reference into a workspace that is processed *after* this one:
-    # only resolvable because all items are indexed before any is processed.
-    (
-        "SELECT",
-        "SELECT r.region_name FROM [Shared Data].[ref_lh].[dbo].[regions] AS r",
-    ),
     ("SELECT", "SELECT * FROM missing_lh.dbo.scores"),
+]
+# Observed in the bronze lakehouse, which is processed *before* gold_wh: the
+# `SELECT *` only expands to columns (column-level lineage) because observed
+# queries are parsed after every item's schema is registered.
+_BRONZE_QUERIES = [
+    (
+        "INSERT",
+        "INSERT INTO dbo.customer_totals_copy "
+        "SELECT * FROM gold_wh.dbo.customer_totals",
+    ),
 ]
 _INGESTION_LOGIN = "svc-datahub@example.com"
 # queryinsights noise that must not produce any output: bodies of the ODBC
@@ -964,7 +968,21 @@ def _cross_item_schema_client(
 ) -> MagicMock:
     client = MagicMock()
     client.get_all_tables.return_value = _cross_item_tables(workspace.id, item_id)
-    if item_id == "wh-gold":
+    client.get_current_login.return_value = _INGESTION_LOGIN
+    if item_id == "lh-bronze":
+        client.get_all_views.return_value = []
+        client.stream_usage_history.return_value = iter(
+            FabricQueryInsightsRow(
+                start_time=FROZEN_TIME - timedelta(hours=1, minutes=i),
+                statement_type=statement_type,
+                login_name="etl@example.com",
+                row_count=10,
+                status="Succeeded",
+                command=command,
+            )
+            for i, (statement_type, command) in enumerate(_BRONZE_QUERIES)
+        )
+    elif item_id == "wh-gold":
         client.get_all_views.return_value = [
             FabricView(
                 name=name,
@@ -975,7 +993,6 @@ def _cross_item_schema_client(
             )
             for name, definition, _ in _GOLD_VIEWS
         ]
-        client.get_current_login.return_value = _INGESTION_LOGIN
         rows = [
             ("etl@example.com", statement_type, command)
             for statement_type, command in _GOLD_QUERIES
@@ -1000,12 +1017,13 @@ def _cross_item_schema_client(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fabric_onelake_cross_item_lineage(pytestconfig: pytest.Config) -> None:
-    """3-part / 4-part display-name references resolve to GUID-keyed URNs.
+    """3-part display-name references resolve to GUID-keyed URNs.
 
     Covers views in a Warehouse reading other items in the same workspace
-    (plain and bracketed), a 4-part reference into another ingested workspace,
-    an unknown item (dropped, with a warning), and Warehouse INSERT...SELECT /
-    CTAS observed queries that read other items (table + column lineage).
+    (plain and bracketed), an unknown item (dropped, with a warning),
+    Warehouse INSERT...SELECT / CTAS observed queries that read other items
+    (table + column lineage), and a Lakehouse query that reads a Warehouse
+    processed after it (`SELECT *` still gets column-level lineage).
     """
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
         output_file = tmp.name
@@ -1104,10 +1122,26 @@ def test_fabric_onelake_cross_item_lineage(pytestconfig: pytest.Config) -> None:
                 for e in events
                 if e.get("aspectName") == "datasetUsageStatistics"
             }
-            assert (
+            gold_totals = (
                 "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
-                "ws-shared.lh-ref.dbo.regions,PROD)"
-            ) in usage_urns
+                "ws-analytics.wh-gold.dbo.customer_totals,PROD)"
+            )
+            assert gold_totals in usage_urns
+            copy_lineage = [
+                e["aspect"]["json"]
+                for e in events
+                if e.get("aspectName") == "upstreamLineage"
+                and e["entityUrn"]
+                == (
+                    "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+                    "ws-analytics.lh-bronze.dbo.customer_totals_copy,PROD)"
+                )
+            ]
+            assert len(copy_lineage) == 1
+            assert [u["dataset"] for u in copy_lineage[0]["upstreams"]] == [gold_totals]
+            assert copy_lineage[0].get("fineGrainedLineages"), (
+                "SELECT * across items must expand to column-level lineage"
+            )
             assert all(
                 name.startswith(("ws-analytics.", "ws-shared."))
                 for name in emitted_urns
@@ -1122,7 +1156,10 @@ def test_fabric_onelake_cross_item_lineage(pytestconfig: pytest.Config) -> None:
             assert skipped.get("procedural_statement") == 2
             assert skipped.get("ingestion_identity") == 2
             assert source.report.num_system_object_references_filtered == 2
-            assert source.report.num_usage_queries_fetched == len(_GOLD_QUERIES) + 2
+            assert (
+                source.report.num_usage_queries_fetched
+                == len(_GOLD_QUERIES) + len(_BRONZE_QUERIES) + 2
+            )
 
             golden_path = (
                 Path(__file__).parent

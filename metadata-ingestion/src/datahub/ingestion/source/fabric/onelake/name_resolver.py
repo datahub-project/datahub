@@ -1,11 +1,13 @@
-"""Cross-item / cross-workspace SQL name resolution for Fabric OneLake.
+"""Cross-item SQL name resolution for Fabric OneLake.
 
-Fabric SQL endpoints let a view or query reference tables in *other* items by
-display name:
-
-- 3-part ``item.schema.table`` (e.g. ``silver_lh.dbo.customers``) - another
-  Lakehouse / Warehouse in the **same workspace**.
-- 4-part ``workspace.item.schema.table`` - an item in another workspace.
+Fabric SQL endpoints let a view or query reference tables in *other* items of
+the **same workspace** by display name, using a 3-part ``item.schema.table``
+name (e.g. ``silver_lh.dbo.customers``). Cross-database queries are limited to
+the current workspace
+(https://learn.microsoft.com/en-us/fabric/data-warehouse/query-warehouse#write-a-cross-database-query):
+there is no supported 4-part ``workspace.item.schema.table`` form, and the SQL
+endpoint rejects one as an unknown linked server. Names with 4 or more parts
+are therefore treated as unresolved.
 
 Dataset URNs, however, are keyed by GUIDs (``<workspaceId>.<itemId>.<schema>.<table>``),
 so the SQL parser on its own would emit dangling URNs such as
@@ -54,8 +56,8 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
-# Fabric addresses a table with at most 4 parts: `workspace.item.schema.table`.
-_MAX_FABRIC_NAME_PARTS = 4
+# Fabric addresses a table with at most 3 parts: `item.schema.table`.
+_MAX_FABRIC_NAME_PARTS = 3
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +98,8 @@ class _Resolution:
 
 @dataclass
 class FabricItemCatalog:
-    """Display-name -> GUID index of the workspaces and items being ingested."""
+    """Display-name -> GUID index of the items being ingested, per workspace."""
 
-    _workspaces_by_name: Dict[str, Set[str]] = field(default_factory=dict)
-    _workspace_ids: Dict[str, str] = field(default_factory=dict)
     _items_by_name: Dict[str, Dict[str, List[FabricItemRef]]] = field(
         default_factory=dict
     )
@@ -108,12 +108,6 @@ class FabricItemCatalog:
     # Workspaces whose lakehouse / warehouse listing failed: their index is
     # incomplete, so a miss there must not be reported as "item not found".
     _incomplete_workspaces: Set[str] = field(default_factory=set)
-
-    def add_workspace(self, workspace_id: str, workspace_name: str) -> None:
-        self._workspace_ids[workspace_id.casefold()] = workspace_id
-        self._workspaces_by_name.setdefault(
-            _normalize_token(workspace_name), set()
-        ).add(workspace_id)
 
     def add_item(
         self, workspace_id: str, item_id: str, item_name: str, item_type: str
@@ -143,18 +137,6 @@ class FabricItemCatalog:
     def is_item_default_db(self, database: str) -> bool:
         return database.casefold() in self._default_dbs
 
-    def resolve_workspace(self, token: str) -> Tuple[Optional[str], Optional[str]]:
-        """Return ``(workspace_id, failure_reason)`` for a display name or GUID."""
-        key = _normalize_token(token)
-        if key in self._workspace_ids:
-            return self._workspace_ids[key], None
-        candidates = self._workspaces_by_name.get(key)
-        if not candidates:
-            return None, "workspace not found among ingested workspaces"
-        if len(candidates) > 1:
-            return None, "workspace display name is ambiguous"
-        return next(iter(candidates)), None
-
     def resolve_item(self, workspace_id: str, token: str) -> _Resolution:
         ws_key = workspace_id.casefold()
         key = _normalize_token(token)
@@ -179,7 +161,8 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
     - 2-part / unqualified references are qualified by the parser with the
       statement's ``default_db`` (``<workspaceId>.<itemId>``) and pass through.
     - 3-part ``item.schema.table`` resolves ``item`` within the scoped workspace.
-    - 4-part ``workspace.item.schema.table`` resolves ``workspace`` then ``item``.
+    - Names with 4 or more parts are not valid Fabric table references (Fabric
+      does not support cross-workspace names) and are always unresolved.
 
     References that look like cross-item names but cannot be resolved are
     recorded in ``unresolved_urns`` so the source can drop them instead of
@@ -256,7 +239,7 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
     @staticmethod
     def _is_system_object(table: _TableName) -> bool:
         # The schema is the second-to-last name part. ``db_schema`` alone is not
-        # enough: for a 4-part name it holds the item token.
+        # enough: for a name with 4+ parts it holds a different token.
         parts = table.parts
         schema = parts[-2] if parts and len(parts) >= 2 else table.db_schema
         return schema is not None and is_fabric_system_schema(_normalize_token(schema))
@@ -281,20 +264,17 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
     def _resolve_fabric_table(self, table: _TableName) -> Tuple[_TableName, bool]:
         """Return the (possibly rewritten) table name and whether it is unresolved."""
         parts = table.parts
-        if parts and len(parts) == _MAX_FABRIC_NAME_PARTS:
-            workspace_token, item_token, schema, table_name = parts
-            return self._resolve_four_part(
-                table, workspace_token, item_token, schema, table_name
-            )
         if parts and len(parts) > _MAX_FABRIC_NAME_PARTS:
-            # e.g. a linked-server style name. It can never match a GUID-keyed
-            # Fabric dataset, so treat it as unresolved rather than emitting a
-            # dangling URN.
+            # e.g. `workspace.item.schema.table` or a linked-server name. Fabric
+            # rejects these (cross-database names are limited to 3 parts within
+            # the workspace), and they can never match a GUID-keyed dataset, so
+            # treat them as unresolved rather than emitting a dangling URN.
             self._record(
                 self._scope_workspace_id,
                 parts,
                 None,
-                "more than 4 name parts; not a Fabric item reference",
+                "4 or more name parts; Fabric only supports 3-part "
+                "item.schema.table names within the same workspace",
             )
             return table, True
 
@@ -328,28 +308,6 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
             False,
         )
 
-    def _resolve_four_part(
-        self,
-        table: _TableName,
-        workspace_token: str,
-        item_token: str,
-        schema: str,
-        table_name: str,
-    ) -> Tuple[_TableName, bool]:
-        reference = (workspace_token, item_token, schema, table_name)
-        workspace_id, reason = self.catalog.resolve_workspace(workspace_token)
-        item: Optional[FabricItemRef] = None
-        if workspace_id is not None:
-            resolution = self.catalog.resolve_item(workspace_id, item_token)
-            item, reason = resolution.item, resolution.reason
-        self._record(self._scope_workspace_id, reference, item, reason)
-        if item is None:
-            return table, True
-        return (
-            _TableName(database=item.default_db, db_schema=schema, table=table_name),
-            False,
-        )
-
     def _record(
         self,
         scope_workspace_id: Optional[str],
@@ -374,10 +332,12 @@ class FabricOneLakeSchemaResolver(SchemaResolver):
         self._report.warning(
             title="Unresolved Cross-Item SQL Reference",
             message=(
-                "A view or query references a Fabric item (or workspace) by a name "
-                "that does not match any ingested Lakehouse / Warehouse. Lineage and "
-                "usage for this reference are skipped. Ensure the referenced item's "
-                "workspace is included in workspace_pattern."
+                "A view or query references a Fabric item by a name that does not "
+                "match any Lakehouse / Warehouse of its workspace. Lineage and usage "
+                "for this reference are skipped. Ensure the referenced item exists "
+                "and that extract_lakehouses / extract_warehouses is enabled for its "
+                "type; other item types (e.g. mirrored or SQL databases) are not "
+                "ingested by this connector."
             ),
             context=(
                 f"reference={'.'.join(reference)}, "

@@ -1489,7 +1489,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Extracted via SQL parsing of view definitions (when `extract_views` is enabled) and of queryinsights queries (when `usage.include_usage_statistics` is enabled). Cross-item and cross-workspace references resolve to ingested Lakehouses / Warehouses.",
+          "description": "Extracted via SQL parsing of view definitions (when `extract_views` is enabled) and of queryinsights queries (when `usage.include_usage_statistics` is enabled). Cross-item (`item.schema.table`) references resolve to the Lakehouses / Warehouses of the same workspace.",
           "subtype_modifier": null,
           "supported": true
         }

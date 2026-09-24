@@ -12,6 +12,7 @@ This connector extracts metadata from Microsoft Fabric OneLake including:
 import functools
 import logging
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Callable,
@@ -96,6 +97,14 @@ logger = logging.getLogger(__name__)
 PLATFORM = "fabric-onelake"
 
 _T = TypeVar("_T")
+
+
+@dataclass(frozen=True)
+class _PendingUsageExtraction:
+    workspace_id: str
+    item_id: str
+    item_display_name: str
+    schema_client: "SchemaExtractionClient"
 
 
 def _iter_isolated(
@@ -185,8 +194,9 @@ class WarehouseSchemaKey(WarehouseKey):
     SourceCapability.LINEAGE_COARSE,
     "Extracted via SQL parsing of view definitions (when `extract_views` is "
     "enabled) and of queryinsights queries (when "
-    "`usage.include_usage_statistics` is enabled). Cross-item and "
-    "cross-workspace references resolve to ingested Lakehouses / Warehouses.",
+    "`usage.include_usage_statistics` is enabled). Cross-item "
+    "(`item.schema.table`) references resolve to the Lakehouses / Warehouses "
+    "of the same workspace.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -236,10 +246,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # the usage toggle; usage flags below decide what gets emitted.
         usage_enabled = config.usage.include_usage_statistics
         queries_enabled = usage_enabled and config.usage.include_queries
-        # Display-name -> GUID index of ingested workspaces / items, filled before
-        # any item is processed so that cross-item (`item.schema.table`) and
-        # cross-workspace (`workspace.item.schema.table`) SQL references resolve
-        # to real dataset URNs regardless of processing order.
+        # Display-name -> GUID index of each workspace's items, filled before
+        # any item of that workspace is processed so that cross-item
+        # (`item.schema.table`) SQL references resolve to real dataset URNs
+        # regardless of processing order.
         self.item_catalog = FabricItemCatalog()
         self.schema_resolver = FabricOneLakeSchemaResolver(
             catalog=self.item_catalog,
@@ -298,6 +308,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         # Resolved at the start of get_workunits_internal(); see comment there.
         self._skip_usage_run: bool = False
+        # Items whose queryinsights rows are read after every item's tables and
+        # views are registered; see _extract_pending_usage().
+        self._pending_usage: list[_PendingUsageExtraction] = []
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FabricOneLakeSource":
@@ -355,7 +368,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             )
             workspaces = []
 
-        allowed_workspaces: list[FabricWorkspace] = []
         for workspace in workspaces:
             self.report.report_api_call()
 
@@ -363,24 +375,19 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             if not self.config.workspace_pattern.allowed(workspace.name):
                 self.report.report_workspace_filtered(workspace.name)
                 continue
-            allowed_workspaces.append(workspace)
 
-        # List items of every ingested workspace up front: usage queries are
-        # parsed as each item is processed, so the name index must already
-        # know every item they might reference.
-        workspace_items = {
-            workspace.id: self._list_workspace_items(workspace)
-            for workspace in allowed_workspaces
-        }
-
-        for workspace in allowed_workspaces:
             self.report.report_workspace_scanned()
             logger.info(f"Processing workspace: {workspace.name} ({workspace.id})")
-            lakehouses, warehouses = workspace_items[workspace.id]
+            # List (and index) all of the workspace's items before processing
+            # any of them: a view in one item may reference any other item of
+            # the same workspace by name.
+            lakehouses, warehouses = self._list_workspace_items(workspace)
             yield from _iter_isolated(
                 self._process_workspace(workspace, lakehouses, warehouses),
                 on_error=functools.partial(self._report_workspace_failure, workspace),
             )
+
+        self._extract_pending_usage()
 
         # Drain the aggregator. Emits view lineage and (when usage is enabled)
         # datasetUsageStatistics / operation aspects. Deferred to the end so
@@ -428,8 +435,6 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         Items are indexed before the item patterns are applied: a view may
         reference a filtered-out item, and its GUID URN is still correct.
         """
-        self.item_catalog.add_workspace(workspace.id, workspace.name)
-
         lakehouses: Optional[list[FabricLakehouse]] = None
         if self.config.extract_lakehouses:
             try:
@@ -714,7 +719,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_display_name: str,
         schema_client: Optional["SchemaExtractionClient"],
     ) -> None:
-        """Stream queryinsights rows for one item into the aggregator.
+        """Queue this item's queryinsights rows for parsing into the aggregator.
 
         No-op when usage is disabled, when this run was already covered by a
         previous successful run, or when schema extraction failed for this item
@@ -732,12 +737,33 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 f"({item_display_name}): SQL Analytics Endpoint unavailable."
             )
             return
-        self.usage_extractor.extract(
-            workspace_id=workspace_id,
-            item_id=item_id,
-            item_display_name=item_display_name,
-            schema_client=schema_client,
+        self._pending_usage.append(
+            _PendingUsageExtraction(
+                workspace_id=workspace_id,
+                item_id=item_id,
+                item_display_name=item_display_name,
+                schema_client=schema_client,
+            )
         )
+
+    def _extract_pending_usage(self) -> None:
+        """Parse the queued items' queryinsights rows.
+
+        Observed queries are parsed as soon as they are added to the aggregator,
+        unlike view definitions (parsed at drain time). Deferring them until
+        every item's tables and views are registered gives a query in one item
+        the column schemas of the items it reads (e.g. for ``SELECT *`` and
+        column-level lineage), whatever the item processing order. Per-item
+        failures are handled inside the extractor.
+        """
+        pending, self._pending_usage = self._pending_usage, []
+        for item in pending:
+            self.usage_extractor.extract(
+                workspace_id=item.workspace_id,
+                item_id=item.item_id,
+                item_display_name=item.item_display_name,
+                schema_client=item.schema_client,
+            )
 
     def _process_item_tables(
         self,

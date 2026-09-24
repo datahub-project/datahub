@@ -65,9 +65,9 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     # `VIEW DEFINITION` permission); their lineage cannot be parsed.
     views_missing_definition: LossyList[str] = field(default_factory=LossyList)
 
-    # Cross-item (`item.schema.table`) / cross-workspace
-    # (`workspace.item.schema.table`) SQL references in views and queries,
-    # counted once per distinct reference per workspace.
+    # Cross-item (`item.schema.table`) SQL references in views and queries,
+    # counted once per distinct reference per workspace. Unresolved includes
+    # 4+-part names, which Fabric does not support.
     num_items_indexed_for_name_resolution: int = 0
     num_cross_item_references_resolved: int = 0
     num_cross_item_references_unresolved: int = 0
