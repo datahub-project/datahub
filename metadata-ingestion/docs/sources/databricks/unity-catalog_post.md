@@ -104,6 +104,64 @@ The upstream lineage edge only resolves if the external source is **also ingeste
 
 The `emit_siblings` option described under _Delta Lake External Tables_ above is unrelated: it governs only the Delta Lake (S3 external table) sibling path, not Lakehouse Federation.
 
+#### Governance DQ tables
+
+If your organization tracks data quality rules and their run history in your own Unity Catalog
+tables (rather than Databricks' built-in Lakehouse Monitoring or a tool like Great Expectations),
+the connector can read those tables directly and republish each rule/result pair as a DataHub
+assertion + assertion run event.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    governance_dq:
+      enabled: true
+      rules_table: gov_catalog.gov_schema.dq_rules
+      results_table: gov_catalog.gov_schema.dq_results
+```
+
+Both `rules_table` and `results_table` are fully-qualified `catalog.schema.table` names and are
+required when `enabled` is `true`. The connector runs a `SELECT *` against each table via the
+configured SQL warehouse, so the tables must be readable by the service principal or token used for
+ingestion.
+
+Each row of the **rules table** becomes one assertion definition:
+
+| Column                                              | Required | Description                                                                                                             |
+| --------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `rule_id`                                           | Yes      | Stable identifier for the rule. Used to build the assertion's URN and dedup results.                                    |
+| `catalog`                                           | Yes      | Catalog of the table the rule applies to.                                                                               |
+| `schema`                                            | Yes      | Schema of the table the rule applies to.                                                                                |
+| `table`                                             | Yes      | Table the rule applies to.                                                                                              |
+| `rule_type`                                         | Yes      | Native rule category (e.g. `completeness`, `uniqueness`, `freshness`).                                                  |
+| `operator`                                          | Yes      | Native operator (e.g. `NOT_NULL`, `UNIQUE`, `LESS_THAN`, `BETWEEN`) mapped to a DataHub standard assertion operator.    |
+| `columns`                                           | No       | Comma-separated column names (or a list) the rule scopes to. Empty means a row/dataset-level rule.                      |
+| `rule_name`                                         | No       | Display name. Falls back to `rule_id` when absent.                                                                      |
+| `rule_description`                                  | No       | Free-text description, surfaced as the assertion's logic/description.                                                   |
+| `threshold_min`, `threshold_max`, `threshold_value` | No       | Operator parameters (e.g. `BETWEEN` bounds, a numeric comparison value).                                                |
+| `severity`                                          | No       | Native severity label (e.g. `LOW`/`MEDIUM`/`HIGH`), passed through as a native parameter.                               |
+| `active`                                            | No       | Defaults to `true`. Set to `false` to mark the assertion as retired (`Status.removed = true`) without deleting the row. |
+| `rule_version`, `dataset_name`, `source_format`     | No       | Passed through as native parameters for display in the UI.                                                              |
+
+Each row of the **results table** becomes one assertion run event, linked to its rule via `rule_id`:
+
+| Column                                                                                                                                        | Required | Description                                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------- |
+| `run_id`                                                                                                                                      | Yes      | Identifier for this evaluation run. Deduplicated per assertion + run_id.                            |
+| `rule_id`                                                                                                                                     | Yes      | Foreign key into the rules table. Results for unknown rules are skipped.                            |
+| `status`                                                                                                                                      | Yes      | Native run status (e.g. `SUCCESS`, `ERROR`), mapped to a DataHub assertion result type.             |
+| `executed_at` or `executed_at_millis`                                                                                                         | Yes      | When the rule ran. A timestamp column (`executed_at`) is converted to epoch millis automatically.   |
+| `warning`                                                                                                                                     | No       | Marks the run as a warning rather than a hard pass/fail.                                            |
+| `severity`                                                                                                                                    | No       | Native severity at run time (used to gate warning vs. failure display).                             |
+| `actual_value`                                                                                                                                | No       | The measured value (e.g. failing-row percentage).                                                   |
+| `evaluated_row_count`                                                                                                                         | No       | Total rows evaluated.                                                                               |
+| `failed_row_count`                                                                                                                            | No       | Rows that failed the rule.                                                                          |
+| `missing_row_count`                                                                                                                           | No       | Rows missing required data.                                                                         |
+| `external_url`                                                                                                                                | No       | Link back to the run in your own DQ tool.                                                           |
+| `error_type`, `error_message`                                                                                                                 | No       | Populated when `status` indicates an execution error rather than a rule failure.                    |
+| `operator_snapshot`, `threshold_min_snapshot`, `threshold_max_snapshot`, `threshold_value_snapshot`, `rule_version_snapshot`, `source_format` | No       | Point-in-time snapshots of the rule definition at run time, passed through as native result fields. |
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces

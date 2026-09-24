@@ -26,7 +26,11 @@ from datahub.ingestion.source.unity.assertion import (
 from datahub.ingestion.source.unity.config import GovernanceDQConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.report import UnityCatalogReport
-from datahub.metadata.schema_classes import DatasetAssertionScopeClass
+from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
+    AssertionRunEventClass,
+    DatasetAssertionScopeClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -182,4 +186,8 @@ class GovernanceDQExtractor:
         for mcp in rows_to_workunits(
             rules, results, self._resolve_dataset_urn, make_schema_field_urn
         ):
+            if isinstance(mcp.aspect, AssertionInfoClass):
+                self.report.governance_dq_assertions_emitted += 1
+            elif isinstance(mcp.aspect, AssertionRunEventClass):
+                self.report.governance_dq_run_events_emitted += 1
             yield mcp.as_workunit()

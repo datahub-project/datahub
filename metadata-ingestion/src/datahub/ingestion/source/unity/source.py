@@ -87,6 +87,7 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
+from datahub.ingestion.source.unity.governance_dq import GovernanceDQExtractor
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -670,6 +671,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ).get_workunits(list(self.tables.values()))
                 else:
                     raise ValueError("Unknown profiling config method")
+
+        if self.config.governance_dq.enabled:
+            with self.report.new_stage("Governance DQ"):
+                # platform_instance_name (not config.platform_instance) is the connector's
+                # resolved value used by gen_dataset_urn; the two diverge when
+                # include_metastore=True, and using the raw config value here would produce
+                # dataset URNs that don't match the tables ingested above.
+                yield from GovernanceDQExtractor(
+                    config=self.config.governance_dq,
+                    proxy=self.unity_catalog_api_proxy,
+                    report=self.report,
+                    platform_instance=self.platform_instance_name,
+                    env=self.config.env,
+                ).get_workunits()
 
     def build_service_principal_map(self) -> None:
         try:

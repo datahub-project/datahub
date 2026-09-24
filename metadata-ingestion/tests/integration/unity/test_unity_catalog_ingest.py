@@ -1801,3 +1801,126 @@ def test_include_tables_false_skips_tables(pytestconfig, tmp_path, requests_mock
     urns = _run_view_filter_pipeline(tmp_path, requests_mock, {"include_tables": False})
     assert not any("my_table" in urn for urn in urns)
     assert any("my_view" in urn for urn in urns)
+
+
+_GOVERNANCE_RULES_TABLE = "gov_catalog.gov_schema.dq_rules"
+_GOVERNANCE_RESULTS_TABLE = "gov_catalog.gov_schema.dq_results"
+
+
+def _governance_get_rows_from_table(fully_qualified_table):
+    """Stand in for UnityCatalogApiProxy.get_rows_from_table: return canned rule/result
+    rows for the two configured governance tables, nothing for anything else."""
+    if fully_qualified_table == _GOVERNANCE_RULES_TABLE:
+        return [
+            {
+                "rule_id": "R1",
+                "catalog": "quickstart_catalog",
+                "schema": "quickstart_schema",
+                "table": "quickstart_table",
+                "columns": "columnA",
+                "rule_name": "columnA not null",
+                "rule_type": "completeness",
+                "operator": "NOT_NULL",
+                "severity": "MEDIUM",
+                "active": True,
+                "rule_version": 1,
+                "rule_description": "columnA populated",
+                "dataset_name": "src",
+                "source_format": "custom_engine",
+            }
+        ]
+    if fully_qualified_table == _GOVERNANCE_RESULTS_TABLE:
+        return [
+            {
+                "run_id": "run-1",
+                "rule_id": "R1",
+                "status": "SUCCESS",
+                "warning": False,
+                "actual_value": 100.0,
+                "evaluated_row_count": 1000,
+                "failed_row_count": 0,
+                "executed_at": datetime(2021, 12, 7, 6, 0, 0, tzinfo=timezone.utc),
+            }
+        ]
+    return []
+
+
+def _run_governance_pipeline(tmp_path, requests_mock, governance_dq_extra):
+    """Run a minimal UC ingestion with `governance_dq` configured; return emitted MCPs."""
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_governance_dq_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(
+            UnityCatalogApiProxy,
+            "get_rows_from_table",
+            side_effect=_governance_get_rows_from_table,
+        ),
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-governance-dq-test",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": False,
+                    "include_partition_keys": False,
+                    "governance_dq": {
+                        "rules_table": _GOVERNANCE_RULES_TABLE,
+                        "results_table": _GOVERNANCE_RESULTS_TABLE,
+                        **governance_dq_extra,
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"/{tmp_path}/{output_file_name}"},
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+    import json
+
+    with open(f"/{tmp_path}/{output_file_name}") as f:
+        return json.load(f)
+
+
+def test_governance_dq_emits_assertions_when_enabled(
+    pytestconfig, tmp_path, requests_mock
+):
+    mcps = _run_governance_pipeline(tmp_path, requests_mock, {"enabled": True})
+
+    assertion_infos = [mcp for mcp in mcps if mcp.get("aspectName") == "assertionInfo"]
+    run_events = [mcp for mcp in mcps if mcp.get("aspectName") == "assertionRunEvent"]
+
+    assert assertion_infos, "expected at least one assertionInfo MCP"
+    assert run_events, "expected at least one assertionRunEvent MCP"
+    assert any(
+        mcp["aspect"]["json"]["customAssertion"]["type"] == "Databricks Governance DQ"
+        for mcp in assertion_infos
+    )
+
+
+def test_governance_dq_emits_nothing_when_disabled(
+    pytestconfig, tmp_path, requests_mock
+):
+    mcps = _run_governance_pipeline(tmp_path, requests_mock, {"enabled": False})
+
+    assert not any(
+        mcp.get("aspectName") in ("assertionInfo", "assertionRunEvent") for mcp in mcps
+    )
