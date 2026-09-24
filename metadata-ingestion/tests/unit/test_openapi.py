@@ -16,6 +16,7 @@ from datahub.ingestion.source.openapi import (
 from datahub.ingestion.source.openapi_parser import (
     flatten2list,
     get_endpoints,
+    get_swag_json,
     get_tok,
     get_url_basepath,
     guessing_url_name,
@@ -1993,3 +1994,112 @@ class TestGetTok(unittest.TestCase):
                     method="post",
                 )
         self.assertNotIn("hunter2", str(ctx.exception))
+
+
+class TestOpenApiInputHardening(unittest.TestCase):
+    def test_forced_examples_coerce_numeric_path_params(self):
+        # Docs use integers (e.g. /pet/{petId}: [1]); config stores strings for URLs.
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            forced_examples={"/pet/{petId}": [1]},
+        )
+        self.assertEqual(config.forced_examples["/pet/{petId}"], ["1"])
+
+    def test_forced_examples_coerce_bool_via_int(self):
+        # The docs promise "bool via int": True/False must become "1"/"0", not
+        # str(True) == "True", which most APIs reject for a boolean path param.
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            forced_examples={"/pet/{available}": [True, False]},
+        )
+        self.assertEqual(config.forced_examples["/pet/{available}"], ["1", "0"])
+
+    def test_forced_examples_reject_null_path_params(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                forced_examples={"/pet/{petId}": [None]},
+            )
+
+    def test_schema_resolution_max_depth_capped(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                schema_resolution_max_depth=101,
+            )
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                schema_resolution_max_depth=0,
+            )
+
+    def test_get_swag_json_parses_json_response(self):
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, content=b'{"openapi": "3.0.0"}'
+            )
+            result = get_swag_json("https://api.example.com")
+        self.assertEqual(result, {"openapi": "3.0.0"})
+
+    def test_get_swag_json_falls_back_to_yaml(self):
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, content=b"openapi: 3.0.0\npaths: {}\n"
+            )
+            result = get_swag_json("https://api.example.com")
+        self.assertEqual(result, {"openapi": "3.0.0", "paths": {}})
+
+    def test_get_swag_json_raises_when_neither_json_nor_yaml(self):
+        with patch("requests.get") as mock_get:
+            # A tab character is invalid in both JSON and YAML.
+            mock_get.return_value = MagicMock(status_code=200, content=b"{\t*bad*")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("as JSON or YAML", str(ctx.exception))
+
+    def test_get_swag_json_raises_clear_error_on_non_utf8_content(self):
+        # Regression: json.loads on non-UTF-8 bytes raises UnicodeDecodeError,
+        # not json.JSONDecodeError -- that used to skip both the YAML fallback
+        # and this function's own clear error message, letting a raw decode
+        # error propagate instead.
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=200, content=b"\xff\xfe\x00")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("as JSON or YAML", str(ctx.exception))
+
+    def test_get_swag_json_raises_on_non_dict_document(self):
+        # Regression: a valid JSON/YAML document that isn't an object (e.g. a
+        # bare list) is not a valid OpenAPI/Swagger spec, but used to be
+        # returned as-is despite the declared `-> Dict` contract, letting a
+        # confusing TypeError/KeyError surface later in get_endpoints instead
+        # of a clear error at the point the malformed data was fetched.
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=200, content=b"[1, 2, 3]")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("did not parse to a JSON/YAML object", str(ctx.exception))
+
+    def test_resolve_schema_references_non_dict_properties_does_not_crash(self):
+        # A malformed spec may set `properties` to a non-dict; resolution must
+        # leave it untouched rather than raising while iterating its keys.
+        schema = {"type": "object", "properties": ["not", "a", "dict"]}
+        resolved = resolve_schema_references(schema, {"components": {"schemas": {}}})
+        self.assertEqual(resolved["properties"], ["not", "a", "dict"])
+
+    def test_resolve_schema_references_non_list_oneof_does_not_crash(self):
+        # oneOf/anyOf as a single inline object (not a list) must be left
+        # untouched rather than iterated as if it were a list of members.
+        schema = {"oneOf": {"type": "string"}}
+        resolved = resolve_schema_references(schema, {"components": {"schemas": {}}})
+        self.assertEqual(resolved["oneOf"], {"type": "string"})

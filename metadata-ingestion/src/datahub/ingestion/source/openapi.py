@@ -132,9 +132,11 @@ class OpenApiConfig(ConfigModel):
         "If authentication is required, add it to the proxy url directly e.g. "
         "`http://user:pass@10.10.1.10:3128/`.",
     )
-    forced_examples: dict = Field(
-        default={},
-        description="If no example is provided for a route, it is possible to create one using forced_example.",
+    forced_examples: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Path-parameter examples keyed by endpoint path. Values may be "
+        "scalars (str/int/float; bool is accepted via int) and are stringified for "
+        "URL composition.",
     )
     token: Optional[TransparentSecretStr] = Field(
         default=None, description="Token for endpoint authentication."
@@ -156,9 +158,11 @@ class OpenApiConfig(ConfigModel):
     )
     schema_resolution_max_depth: int = Field(
         default=10,
+        ge=1,
+        le=100,
         description="Maximum recursion depth for resolving schema references. "
         "Prevents infinite recursion from deeply nested or circular references. "
-        "Default is 10 levels.",
+        "Default is 10 levels; capped at 100 to avoid RecursionError.",
     )
 
     @field_validator("get_token", mode="before")
@@ -168,6 +172,33 @@ class OpenApiConfig(ConfigModel):
         if value == {} or value is None:
             return None
         return value
+
+    @field_validator("forced_examples", mode="before")
+    @classmethod
+    def stringify_forced_examples(cls, value: Any) -> Any:
+        # Docs/recipes use numeric path params (e.g. /pet/{petId}: [1]).
+        # Only coerce documented scalars — leave null/objects untouched so List[str]
+        # validation rejects them instead of silently emitting "None" in URLs.
+        if not isinstance(value, dict):
+            return value
+        coerced: Dict[str, Any] = {}
+        for endpoint, examples in value.items():
+            if not isinstance(examples, list):
+                coerced[endpoint] = examples
+                continue
+            coerced[endpoint] = [
+                # bool must be handled before int (it is a subclass): the docs
+                # promise "bool via int", so True/False become "1"/"0" rather
+                # than str(True) == "True", which most APIs reject for a boolean
+                # path param.
+                str(int(item))
+                if isinstance(item, bool)
+                else str(item)
+                if isinstance(item, (str, int, float))
+                else item
+                for item in examples
+            ]
+        return coerced
 
     @model_validator(mode="after")
     def ensure_only_one_token(self) -> "OpenApiConfig":
