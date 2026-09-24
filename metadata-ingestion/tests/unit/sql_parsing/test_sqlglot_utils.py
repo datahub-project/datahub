@@ -486,6 +486,7 @@ def test_snowflake_governance_ddl_lineage(sql: str, expected_in_tables: list) ->
 def test_sanitize_tsql_temp_tables(sql: str, expected: str) -> None:
     assert _sanitize_tsql_temp_tables(sql) == expected
 
+
 @pytest.mark.parametrize(
     "sql, expected",
     [
@@ -495,7 +496,10 @@ def test_sanitize_tsql_temp_tables(sql: str, expected: str) -> None:
         # Parameter declaration header with a simple type.
         ("(@Id int)select * from dbo.users", "select * from dbo.users"),
         # Parameter declaration header with multiple parameters.
-        ("(@Id int,@Name nvarchar(50))select * from dbo.users", "select * from dbo.users"),
+        (
+            "(@Id int,@Name nvarchar(50))select * from dbo.users",
+            "select * from dbo.users",
+        ),
         # Regression case from MSSQL query lineage: the parameter header
         # precedes an INSERT...SELECT statement and must be removed before
         # sqlglot parses the query.
@@ -508,13 +512,13 @@ def test_sanitize_tsql_temp_tables(sql: str, expected: str) -> None:
             "insert into dbo.target_table (col1, col2) "
             "select s.col1, s.col2 "
             "from dbo.source_table as s "
-            "where s.amount > @Amount"
+            "where s.amount > @Amount",
         ),
         # SQL without a parameter header must remain unchanged.
         ("SELECT * FROM dbo.users", "SELECT * FROM dbo.users"),
         # Parenthesized SQL is valid T-SQL and must not be mistaken for a
         # parameter declaration header.
-        ("(SELECT 1) AS something", "(SELECT 1) AS something")
+        ("(SELECT 1) AS something", "(SELECT 1) AS something"),
     ],
 )
 def test_sanitize_tsql_param_header(sql: str, expected: str) -> None:
@@ -525,6 +529,7 @@ def test_sanitize_tsql_param_header(sql: str, expected: str) -> None:
     header causes sqlglot to fail to parse the otherwise valid query.
     """
     assert _sanitize_tsql_param_header(sql) == expected
+
 
 def test_tsql_digit_leading_temp_table_lineage() -> None:
     """A #<digit> temp-table target must not blow up parsing and lose the real source.
@@ -567,6 +572,7 @@ def test_parse_statement_filters_noop_block_nodes(sql: str, dialect: str) -> Non
     assert not isinstance(result, sqlglot.exp.Block)
     assert not isinstance(result, (sqlglot.exp.Semicolon, sqlglot.exp.EndStatement))
 
+
 def test_parse_statement_sanitizes_tsql_param_header() -> None:
     """T-SQL parameter declaration headers must not prevent SQL parsing.
 
@@ -583,6 +589,7 @@ def test_parse_statement_sanitizes_tsql_param_header() -> None:
     result = parse_statement(sql, get_dialect("tsql"))
 
     assert isinstance(result, sqlglot.exp.Insert)
+
 
 def test_tsql_param_header_lineage() -> None:
     """A T-SQL parameter declaration header must not prevent lineage extraction.
@@ -607,7 +614,9 @@ def test_tsql_param_header_lineage() -> None:
 
     assert result.debug_info.table_error is None, result.debug_info.table_error
     assert any("source_table" in table for table in result.in_tables), result.in_tables
-    assert any("target_table" in table for table in result.out_tables), result.out_tables
+    assert any("target_table" in table for table in result.out_tables), (
+        result.out_tables
+    )
 
 
 @pytest.mark.parametrize(

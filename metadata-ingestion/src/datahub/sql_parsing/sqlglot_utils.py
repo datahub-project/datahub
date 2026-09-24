@@ -94,6 +94,7 @@ _TSQL_PARAM_HEADER = re.compile(
     re.VERBOSE,
 )
 
+
 def _sanitize_tsql_param_header(sql: str) -> str:
     """Strip a leading SQL Server DMV parameter declaration header."""
     return _TSQL_PARAM_HEADER.sub("", sql, count=1)
@@ -190,11 +191,10 @@ def parse_statement(
             logger.debug("Sanitized Snowflake DDL: %s -> %s", sql, sanitized)
         sql = sanitized
     if isinstance(sql, str) and is_dialect_instance(dialect, "tsql"):
-
         sanitized = _sanitize_tsql_param_header(sql)
         if sanitized != sql:
             sql = sanitized
-        
+
         sanitized = _sanitize_tsql_temp_tables(sql)
         if sanitized != sql:
             logger.debug("Sanitized T-SQL temp tables: %s -> %s", sql, sanitized)
