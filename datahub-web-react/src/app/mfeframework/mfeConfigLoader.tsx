@@ -4,29 +4,21 @@ import { Route, Switch } from 'react-router';
 
 import { MFEConfigContext } from '@app/mfeframework/MFEConfigContext';
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
-import { DEFAULT_MFE_SLOT, MFESlotId, isMFESlotId } from '@app/mfeframework/slots/slotTypes';
+import { MFEPlacement, getPlacement, isNavPageMfe } from '@app/mfeframework/slots/slotPlacement';
+import { isMFESlotId } from '@app/mfeframework/slots/slotTypes';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export interface MFEFlags {
     enabled: boolean;
-    showInNav: boolean;
+    /** Nav-only: show a left-navigation item. Not applicable to (and not required for) slot placements. */
+    showInNav?: boolean;
 }
 
-/**
- * Where an MFE renders. Omitted => `nav.page` (a full page reached from the left navigation),
- * which is how every entry behaved before placements existed.
- */
-export type MFEPlacement = {
-    slot: MFESlotId;
-    /**
-     * Coarse filter for entity-scoped slots: GraphQL EntityType names (case-insensitive, e.g. `dataset`).
-     * Omitted => the MFE is offered on every entity type the slot appears on.
-     */
-    entityTypes?: string[];
-    /** Tab label for `entity.detail.tab`; defaults to `label`. */
-    tabName?: string;
-};
+// Placement lives in slots/slotPlacement so the slot modules can read it without importing this file
+// at runtime (this file renders MFEBaseConfigurablePage, which would close an import cycle).
+export type { MFEPlacement };
+export { getPlacement, isNavPageMfe };
 
 // MFEConfig: Type for a valid micro frontend config entry.
 export interface MFEConfig {
@@ -53,14 +45,6 @@ export interface MFESchema {
 const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'remoteEntry', 'module', 'flags'];
 const NAV_PAGE_REQUIRED_FIELDS: (keyof MFEConfig)[] = ['path', 'navIcon'];
 
-export function getPlacement(config: MFEConfig): MFEPlacement {
-    return config.placement ?? { slot: DEFAULT_MFE_SLOT };
-}
-
-export function isNavPageMfe(config: MFEConfig): boolean {
-    return getPlacement(config).slot === 'nav.page';
-}
-
 function validatePlacement(placement: any, errors: string[]): void {
     if (placement === undefined) return;
     if (typeof placement !== 'object' || placement === null) {
@@ -70,14 +54,22 @@ function validatePlacement(placement: any, errors: string[]): void {
     if (!isMFESlotId(placement.slot)) {
         errors.push(`[MFE Loader] placement.slot must be one of the known slots; got "${placement.slot}"`);
     }
+    // Gate 1 — the host must know which context shape to build BEFORE it builds one, so an entry that
+    // opts into a slot has to declare the contract it was built against. Fail closed if it does not.
+    if (typeof placement.contractVersion !== 'string' || placement.contractVersion.trim().length === 0) {
+        errors.push('[MFE Loader] placement.contractVersion is required and must be a non-empty string');
+    }
     if (
         placement.entityTypes !== undefined &&
         (!Array.isArray(placement.entityTypes) || placement.entityTypes.some((t: unknown) => typeof t !== 'string'))
     ) {
         errors.push('[MFE Loader] placement.entityTypes must be an array of strings');
     }
-    if (placement.tabName !== undefined && typeof placement.tabName !== 'string') {
-        errors.push('[MFE Loader] placement.tabName must be a string');
+    if (
+        placement.visibleWhen !== undefined &&
+        (!Array.isArray(placement.visibleWhen) || placement.visibleWhen.some((n: unknown) => typeof n !== 'string'))
+    ) {
+        errors.push('[MFE Loader] placement.visibleWhen must be an array of strings');
     }
 }
 
@@ -109,7 +101,12 @@ function validateMFEConfig(config: any): MFEConfig | null {
     if (typeof config.flags !== 'object' || config.flags === null) errors.push('[MFE Loader] flags must be an object');
     if (config.flags) {
         if (typeof config.flags.enabled !== 'boolean') errors.push('[MFE Loader] flags.enabled must be boolean');
-        if (typeof config.flags.showInNav !== 'boolean') errors.push('[MFE Loader] flags.showInNav must be boolean');
+        if (requiresNavFields) {
+            if (typeof config.flags.showInNav !== 'boolean')
+                errors.push('[MFE Loader] flags.showInNav must be boolean');
+        } else if (config.flags.showInNav !== undefined && typeof config.flags.showInNav !== 'boolean') {
+            errors.push('[MFE Loader] flags.showInNav must be boolean when present');
+        }
     }
     if (requiresNavFields && (typeof config.navIcon !== 'string' || !config.navIcon.length)) {
         errors.push('[MFE Loader] navIcon must be a non-empty string');

@@ -6,8 +6,10 @@
  * it to the MFE's `mount(el, ctx)` entry point. MFE authors should `import type` from this file so both
  * sides of the boundary share one definition.
  *
- * Versioning: to pass more context to a slot, extend that slot's context type and bump
- * `SLOT_CONTRACT_VERSION`. Never widen `SlotBaseContext` with surface-specific fields.
+ * Versioning: an entry declares the shape it was built against via `placement.contractVersion`, and the
+ * host stamps that version back into the context it hands over. To change a slot's payload, add a NEW
+ * versioned type here plus a builder in `slotContextBuilders` — never mutate a version that has shipped,
+ * and never widen `SlotBaseContext` with surface-specific fields.
  */
 
 /** Slots the host currently exposes. `nav.page` is the original full-page MFE surface. */
@@ -17,30 +19,41 @@ export const MFE_SLOT_IDS: readonly MFESlotId[] = ['nav.page', 'entity.detail.ta
 
 export const DEFAULT_MFE_SLOT: MFESlotId = 'nav.page';
 
-export const SLOT_CONTRACT_VERSION = '1.0.0';
+/** The contract version assumed for entries that predate `placement` (legacy nav-only YAML). */
+export const DEFAULT_SLOT_CONTRACT_VERSION = '1.0.0';
 
 /** Fields every slot context carries, regardless of surface. */
 export type SlotBaseContext = {
     slot: MFESlotId;
-    version: string;
+    /** Host-stamped at render time; mirrors the entry's `placement.contractVersion`. */
+    contractVersion: string;
     /** The authenticated user, when known. MFEs can also call GraphQL directly with the session. */
     principal?: { user: string };
 };
 
-/** Context for a full-page MFE reached from the left navigation (`/mfe<path>`). */
-export type NavPageContext = SlotBaseContext & {
+/** Context for a full-page MFE reached from the left navigation (`/mfe<path>`) — v1. */
+export type NavPageContextV1 = SlotBaseContext & {
     slot: 'nav.page';
+    contractVersion: '1.0.0';
 };
 
-/** Context for an MFE rendered as a tab on an entity profile page. */
-export type EntityDetailTabContext = SlotBaseContext & {
+/** Context for an MFE rendered as a tab on an entity profile page — v1. */
+export type EntityDetailTabContextV1 = SlotBaseContext & {
     slot: 'entity.detail.tab';
+    contractVersion: '1.0.0';
     entity: {
         urn: string;
         /** GraphQL `EntityType` name, e.g. `DATASET`. */
         type: string;
     };
 };
+
+/**
+ * Every versioned context the host can emit for a slot. Widen these unions as new versions ship
+ * (e.g. `NavPageContextV1 | NavPageContextV2`); never edit a shipped version in place.
+ */
+export type NavPageContext = NavPageContextV1;
+export type EntityDetailTabContext = EntityDetailTabContextV1;
 
 export type SlotContextMap = {
     'nav.page': NavPageContext;

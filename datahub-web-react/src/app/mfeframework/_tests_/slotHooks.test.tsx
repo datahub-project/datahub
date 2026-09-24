@@ -19,7 +19,7 @@ import {
 } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import MFEEntityTab from '@app/mfeframework/slots/MFEEntityTab';
-import { SLOT_CONTRACT_VERSION, isMFESlotId } from '@app/mfeframework/slots/slotTypes';
+import { DEFAULT_SLOT_CONTRACT_VERSION, isMFESlotId } from '@app/mfeframework/slots/slotTypes';
 import { useMFEEntityTabs } from '@app/mfeframework/slots/useMFEEntityTabs';
 import { useResolveSlot } from '@app/mfeframework/slots/useResolveSlot';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
@@ -40,6 +40,10 @@ vi.mock('virtual:__federation__', () => ({
     __federation_method_unwrapDefault: unwrapModuleMock,
 }));
 
+// The visibility registry reaches `logicalModels.utils`, which imports an enum from EntityMenuActions —
+// a React component module — for an unrelated menu helper. Stub it to keep this test graph light.
+vi.mock('@app/entityV2/shared/EntityDropdown/EntityMenuActions', () => ({ EntityMenuItems: {} }));
+
 const THEME = { styles: {}, colors: { bg: 'none' }, assets: {}, content: {} };
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,my_db.events,PROD)';
 
@@ -48,8 +52,8 @@ const TAB: MFEConfig = {
     label: 'Access',
     remoteEntry: 'http://localhost:3002/remoteEntry.js',
     module: 'accessMFE/mount',
-    flags: { enabled: true, showInNav: false },
-    placement: { slot: 'entity.detail.tab', entityTypes: ['dataset'], tabName: 'Access Requests' },
+    flags: { enabled: true },
+    placement: { slot: 'entity.detail.tab', contractVersion: '1.0.0', entityTypes: ['dataset'] },
 };
 const NAV: MFEConfig = {
     id: 'nav-app',
@@ -61,6 +65,12 @@ const NAV: MFEConfig = {
     navIcon: 'Globe',
 };
 const SCHEMA: MFESchema = { topLevelMenuTitle: 'Apps', subNavigationMode: false, microFrontends: [NAV, TAB] };
+
+/** The context the host builds for a legacy nav.page entry. */
+const NAV_CTX = {
+    slot: 'nav.page',
+    contractVersion: DEFAULT_SLOT_CONTRACT_VERSION,
+} as const;
 
 const YAML = `subNavigationMode: false
 microFrontends:
@@ -141,12 +151,16 @@ describe('placement validation edge cases', () => {
     });
     afterEach(() => vi.restoreAllMocks());
 
-    it('rejects a non-object placement and a non-string tabName', () => {
+    it('rejects a non-object placement and a placement missing its contract version', () => {
         const base = `subNavigationMode: false\nmicroFrontends:\n  - id: x\n    label: X\n    remoteEntry: http://r/remoteEntry.js\n    module: m/mount\n    flags:\n      enabled: true\n      showInNav: false\n`;
         expect(loadMFEConfigFromYAML(`${base}    placement: entity.detail.tab\n`).microFrontends).toHaveLength(0);
         expect(
-            loadMFEConfigFromYAML(`${base}    placement:\n      slot: entity.detail.tab\n      tabName: 42\n`)
-                .microFrontends,
+            loadMFEConfigFromYAML(`${base}    placement:\n      slot: entity.detail.tab\n`).microFrontends,
+        ).toHaveLength(0);
+        expect(
+            loadMFEConfigFromYAML(
+                `${base}    placement:\n      slot: entity.detail.tab\n      contractVersion: "1.0.0"\n      visibleWhen: notAnArray\n`,
+            ).microFrontends,
         ).toHaveLength(0);
     });
 
@@ -174,11 +188,28 @@ describe('slot hooks', () => {
 
     it('useMFEEntityTabs maps placed entries to EntityTab definitions for the entity type', () => {
         const { result } = renderHook(() => useMFEEntityTabs('DATASET'), { wrapper });
-        expect(result.current.map((t) => t.name)).toEqual(['Access Requests']);
+        expect(result.current.map((t) => t.name)).toEqual(['Access']);
         expect(result.current[0].display?.visible(null as any, null)).toBe(true);
         expect(result.current[0].display?.enabled(null as any, null)).toBe(true);
         const { result: none } = renderHook(() => useMFEEntityTabs('CHART'), { wrapper });
         expect(none.current).toEqual([]);
+    });
+
+    it('hides a tab whose visibleWhen predicate rejects the entity on screen', () => {
+        const gated: MFESchema = {
+            ...SCHEMA,
+            microFrontends: [{ ...TAB, placement: { ...TAB.placement!, visibleWhen: ['physicalDataset'] } }],
+        };
+        const gatedWrapper = ({ children }: { children: React.ReactNode }) => (
+            <MFEConfigContext.Provider value={{ provided: true, config: gated, loading: false }}>
+                {children}
+            </MFEConfigContext.Provider>
+        );
+        const { result } = renderHook(() => useMFEEntityTabs('DATASET'), { wrapper: gatedWrapper });
+        expect(result.current).toHaveLength(1);
+        const logical = { platform: { properties: { logical: true } } } as any;
+        expect(result.current[0].display?.visible(logical, null)).toBe(false);
+        expect(result.current[0].display?.visible({ platform: {} } as any, null)).toBe(true);
     });
 
     it('useMFEEntityTabs renders a lazy icon when navIcon is set', () => {
@@ -233,7 +264,7 @@ describe('MFEEntityTab and MFEBaseConfigurablePage contexts', () => {
         });
         expect(mountFn).toHaveBeenCalledWith(screen.getByTestId('mfe-slot-container'), {
             slot: 'entity.detail.tab',
-            version: SLOT_CONTRACT_VERSION,
+            contractVersion: DEFAULT_SLOT_CONTRACT_VERSION,
             entity: { urn: DATASET_URN, type: 'DATASET' },
             principal: { user: 'urn:li:corpuser:jdoe' },
         });
@@ -245,13 +276,16 @@ describe('MFEEntityTab and MFEBaseConfigurablePage contexts', () => {
         await act(async () => {
             render(withProviders(<MFEBaseConfigurablePage config={NAV} />, { user: null }));
         });
-        expect(mountFn).toHaveBeenCalledWith(expect.anything(), { slot: 'nav.page', version: SLOT_CONTRACT_VERSION });
+        expect(mountFn).toHaveBeenCalledWith(expect.anything(), {
+            slot: 'nav.page',
+            contractVersion: DEFAULT_SLOT_CONTRACT_VERSION,
+        });
     });
 
     it('accepts a module whose default export is the mount function and tolerates a non-function return', async () => {
         const mountFn = vi.fn(() => 'not-a-cleanup');
         mountResolvesTo({ default: mountFn });
-        const ctx = { slot: 'nav.page' as const, version: SLOT_CONTRACT_VERSION };
+        const ctx = NAV_CTX;
         let view: ReturnType<typeof render> | undefined;
         await act(async () => {
             view = render(withProviders(<MFEMount config={NAV} ctx={ctx} />));
@@ -263,15 +297,19 @@ describe('MFEEntityTab and MFEBaseConfigurablePage contexts', () => {
     it('accepts a module whose default export exposes mount', async () => {
         const mountFn = vi.fn(() => vi.fn());
         mountResolvesTo({ default: { mount: mountFn } });
-        const ctx = { slot: 'nav.page' as const, version: SLOT_CONTRACT_VERSION };
-        await act(async () => render(withProviders(<MFEMount config={NAV} ctx={ctx} />)));
+        const ctx = NAV_CTX;
+        await act(async () => {
+            render(withProviders(<MFEMount config={NAV} ctx={ctx} />));
+        });
         expect(mountFn).toHaveBeenCalledTimes(1);
     });
 
     it('does not call a module that exposes no mount function', async () => {
         mountResolvesTo({ somethingElse: true });
-        const ctx = { slot: 'nav.page' as const, version: SLOT_CONTRACT_VERSION };
-        await act(async () => render(withProviders(<MFEMount config={NAV} ctx={ctx} />)));
+        const ctx = NAV_CTX;
+        await act(async () => {
+            render(withProviders(<MFEMount config={NAV} ctx={ctx} />));
+        });
         expect(console.warn).toHaveBeenCalledWith('[HOST] mount is not a function; got: ', undefined);
     });
 
@@ -284,7 +322,7 @@ describe('MFEEntityTab and MFEBaseConfigurablePage contexts', () => {
             }),
         );
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
-        const ctx = { slot: 'nav.page' as const, version: SLOT_CONTRACT_VERSION };
+        const ctx = NAV_CTX;
         const view = render(withProviders(<MFEMount config={NAV} ctx={ctx} />));
         view.unmount();
         await act(async () => {
@@ -297,8 +335,10 @@ describe('MFEEntityTab and MFEBaseConfigurablePage contexts', () => {
         const mountFn = vi.fn(() => vi.fn());
         mountResolvesTo({ mount: mountFn });
         const disabled = { ...NAV, flags: { enabled: false, showInNav: true } };
-        const ctx = { slot: 'nav.page' as const, version: SLOT_CONTRACT_VERSION };
-        await act(async () => render(withProviders(<MFEMount config={disabled} ctx={ctx} />)));
+        const ctx = NAV_CTX;
+        await act(async () => {
+            render(withProviders(<MFEMount config={disabled} ctx={ctx} />));
+        });
         expect(mountFn).not.toHaveBeenCalled();
         expect(screen.queryByTestId('mfe-slot-container')).toBeNull();
     });
@@ -396,18 +436,35 @@ microFrontends:
         });
         expect(mountFn).toHaveBeenCalledWith(expect.anything(), {
             slot: 'entity.detail.tab',
-            version: SLOT_CONTRACT_VERSION,
+            contractVersion: DEFAULT_SLOT_CONTRACT_VERSION,
             entity: { urn: DATASET_URN, type: 'CHART' },
         });
     });
 
-    it('renders the legacy (non-redesign) page chrome', async () => {
+    it('renders nothing when the entry declares a contract version the host cannot build', async () => {
         const mountFn = vi.fn(() => vi.fn());
         getRemoteMock.mockResolvedValue({ mount: mountFn });
         unwrapModuleMock.mockResolvedValue({ mount: mountFn });
+        const future: MFEConfig = { ...TAB, placement: { ...TAB.placement!, contractVersion: '4.0.0' } };
         await act(async () => {
-            render(withProviders(<MFEBaseConfigurablePage config={NAV} />));
+            render(
+                withProviders(
+                    <EntityContext.Provider
+                        value={
+                            {
+                                urn: DATASET_URN,
+                                entityType: EntityType.Dataset,
+                                entityData: null,
+                                loading: false,
+                            } as any
+                        }
+                    >
+                        <MFEEntityTab config={future} />
+                    </EntityContext.Provider>,
+                ),
+            );
         });
-        expect(screen.getByTestId('mfe-configurable-container')).toBeInTheDocument();
+        expect(mountFn).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('mfe-slot-container')).toBeNull();
     });
 });

@@ -124,7 +124,7 @@ describe('MFEBaseConfigurablePage', () => {
         const mountTarget = container.querySelector('div');
         expect(mountFn).toHaveBeenCalledWith(
             mountTarget,
-            expect.objectContaining({ slot: 'nav.page', version: expect.any(String) }),
+            expect.objectContaining({ slot: 'nav.page', contractVersion: expect.any(String) }),
         );
     });
 

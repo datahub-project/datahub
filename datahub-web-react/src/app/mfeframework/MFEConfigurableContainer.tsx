@@ -11,7 +11,8 @@ import {
 import { useUserContext } from '@app/context/useUserContext';
 import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
-import { NavPageContext, SLOT_CONTRACT_VERSION, SlotContext } from '@app/mfeframework/slots/slotTypes';
+import { buildSlotContext } from '@app/mfeframework/slots/slotContextBuilders';
+import { SlotContext } from '@app/mfeframework/slots/slotTypes';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const REMOTE_LOAD_TIMEOUT_MS = 5000;
@@ -234,10 +235,12 @@ export const MFEMount = ({ config, ctx, minHeight = DEFAULT_MOUNT_MIN_HEIGHT }: 
 export const MFEBaseConfigurablePage = ({ config }: { config: MFEConfig }) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const principal = useSlotPrincipal();
-    const ctx = useMemo<NavPageContext>(
-        () => ({ slot: 'nav.page', version: SLOT_CONTRACT_VERSION, ...(principal ? { principal } : {}) }),
-        [principal],
-    );
+    // Built by the builder registered for this entry's contract version. Entries with no `placement`
+    // (every pre-slot config) resolve to nav.page on the default version, so legacy MFEs are unaffected.
+    const ctx = useMemo(() => buildSlotContext(config, { principal }), [config, principal]);
+
+    // Gate 2 — the entry declared a contract version this host has no builder for; don't mount it.
+    if (!ctx) return null;
 
     return (
         <MFEConfigurableContainer $isShowNavBarRedesign={isShowNavBarRedesign} data-testid="mfe-configurable-container">
