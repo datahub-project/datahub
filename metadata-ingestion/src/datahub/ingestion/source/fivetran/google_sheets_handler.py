@@ -16,7 +16,7 @@ References:
 """
 
 import logging
-from typing import Callable, Dict, Iterable, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -40,6 +40,12 @@ from datahub.sdk.entity import Entity
 logger = logging.getLogger(__name__)
 
 _CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
+_CUSTOM_INGESTED_BY = "ingested_by"
+_CUSTOM_INGESTED_BY_VALUE = "fivetran source"
+_CUSTOM_CONNECTOR_ID = "connector_id"
+_CUSTOM_CONNECTOR_NAME = "connector_name"
+_CUSTOM_SHEET_ID = "sheet_id"
+_CUSTOM_NAMED_RANGE = "named_range"
 
 
 class GoogleSheetsConnectorHandler:
@@ -164,32 +170,47 @@ class GoogleSheetsConnectorHandler:
                 )
             return
 
+        # Fivetran does not expose the Google workbook or tab title — only
+        # the spreadsheet ID and named-range identifier, both opaque. Use
+        # the Fivetran connection name for UI labels and browse folders so
+        # users see the name they set in Fivetran instead of those IDs.
+        # URNs stay ID-based so lineage stays stable across renames.
+        display_name = self._human_readable_name(connector)
+        browse_parent: List[str] = [display_name]
+        shared_custom_properties: Dict[str, str] = {
+            _CUSTOM_INGESTED_BY: _CUSTOM_INGESTED_BY_VALUE,
+            _CUSTOM_CONNECTOR_ID: conn_details.id,
+            _CUSTOM_CONNECTOR_NAME: display_name,
+            _CUSTOM_SHEET_ID: sheet_id,
+        }
+
         gsheets_dataset = Dataset(
             name=sheet_id,
             platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
             env=self._config.env,
-            display_name=sheet_id,
+            display_name=display_name,
+            qualified_name=sheet_id,
+            parent_container=browse_parent,
             external_url=conn_details.config.sheet_id,
             created=conn_details.created_at,
             last_modified=conn_details.succeeded_at,
             subtype=DatasetSubTypes.GOOGLE_SHEETS,
-            custom_properties={
-                "ingested_by": "fivetran source",
-                "connector_id": conn_details.id,
-            },
+            custom_properties=shared_custom_properties,
         )
         gsheets_named_range_dataset = Dataset(
             name=named_range,
             platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
             env=self._config.env,
-            display_name=conn_details.config.named_range,
+            display_name=display_name,
+            qualified_name=named_range,
+            parent_container=browse_parent,
             external_url=conn_details.config.sheet_id,
             created=conn_details.created_at,
             last_modified=conn_details.succeeded_at,
             subtype=DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE,
             custom_properties={
-                "ingested_by": "fivetran source",
-                "connector_id": conn_details.id,
+                **shared_custom_properties,
+                _CUSTOM_NAMED_RANGE: conn_details.config.named_range,
             },
             upstreams=UpstreamLineage(
                 upstreams=[
@@ -301,6 +322,12 @@ class GoogleSheetsConnectorHandler:
                 f"Failed to extract sheet_id from URL: {sheet_id}, Error: {e}"
             )
         return None
+
+    @staticmethod
+    def _human_readable_name(connector: Connector) -> str:
+        """Return the Fivetran connection name, falling back to connector id."""
+        name = (connector.connector_name or "").strip()
+        return name or connector.connector_id
 
     def _get_named_range_dataset_id(
         self, conn_details: FivetranConnectionDetails

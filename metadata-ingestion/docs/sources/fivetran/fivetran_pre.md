@@ -317,19 +317,25 @@ For each Google Sheets connector, two Dataset entities are created:
 
    - Platform: `google_sheets`
    - Subtype: `GOOGLE_SHEETS`
-   - Contains the sheet ID extracted from the Google Sheets URL
+   - URN uses the spreadsheet ID extracted from the Google Sheets URL (stable identifier)
+   - Display name and browse folder use the Fivetran connection name
 
 2. **Named Range Dataset**: Represents the specific named range being synced
    - Platform: `google_sheets`
    - Subtype: `GOOGLE_SHEETS_NAMED_RANGE`
-   - Contains the named range identifier
+   - URN uses `<spreadsheet_id>.<named_range>`
+   - Display name and browse folder use the Fivetran connection name
+   - Spreadsheet ID and named-range identifier are stored as custom properties
    - Has upstream lineage to the Google Sheet Dataset
+
+Fivetran's Google Sheets connector maps one named range to one destination table and does not expose the Google workbook or tab title. DataHub therefore uses the Fivetran connection name — the label you set in the Fivetran UI — so datasets are listed under a human-readable folder instead of the spreadsheet or named-range ID.
 
 ##### Limitations
 
 - **Column lineage is disabled** for Google Sheets connectors due to stale metadata issues in the Fivetran Platform Connector (as of October 2025)
 - This is a workaround that will be removed once DataHub natively supports Google Sheets as a source
 - If the Fivetran API is unavailable or the connector details can't be fetched, the connector will be skipped with a warning
+- Google workbook and tab titles are not available from Fivetran. Rename the Fivetran connection if you want a different display name in DataHub. Destination table names in the warehouse still follow the named range, which Fivetran requires.
 
 ##### Example Configuration
 

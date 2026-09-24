@@ -10,6 +10,7 @@ import datetime
 from typing import Optional
 from unittest.mock import MagicMock
 
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.fivetran.config import (
     Constant,
     FivetranSourceConfig,
@@ -23,6 +24,8 @@ from datahub.ingestion.source.fivetran.response_models import (
     FivetranConnectionConfig,
     FivetranConnectionDetails,
 )
+from datahub.metadata.schema_classes import BrowsePathsV2Class
+from datahub.sdk.dataset import Dataset
 
 
 def _make_conn_details(
@@ -179,3 +182,80 @@ class TestApiClientLazyResolution:
         index[0] = 1
         details = handler._get_connection_details("c1")
         assert details is not None
+
+
+def _browse_path_ids(dataset: Dataset) -> list[str]:
+    browse = dataset._get_aspect(BrowsePathsV2Class)
+    assert browse is not None
+    return [entry.id for entry in browse.path]
+
+
+class TestEmitWorkunitsHumanReadableNames:
+    def test_uses_connector_name_not_ids(self):
+        sheet_id = "1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo"
+        named_range_id = "s_opaque_named_range_id"
+        api_client = MagicMock()
+        api_client.get_connection_details_by_id.return_value = _make_conn_details(
+            sheet_id=sheet_id, named_range=named_range_id
+        )
+        handler = _make_handler(api_client=api_client)
+        connector = Connector(
+            connector_id="c1",
+            connector_name="Weekly Metrics",
+            connector_type=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+            paused=False,
+            sync_frequency=360,
+            destination_id="d1",
+            user_id="",
+            lineage=[],
+            jobs=[],
+        )
+
+        entities = list(handler.emit_workunits(connector))
+        assert len(entities) == 2
+        sheet, named_range = entities
+        assert isinstance(sheet, Dataset)
+        assert isinstance(named_range, Dataset)
+
+        # URNs stay ID-based so lineage does not churn when the connection
+        # is renamed in Fivetran.
+        assert sheet_id in str(sheet.urn)
+        assert f"{sheet_id}.{named_range_id}" in str(named_range.urn)
+
+        assert sheet.display_name == "Weekly Metrics"
+        assert named_range.display_name == "Weekly Metrics"
+        assert sheet.display_name != sheet_id
+        assert named_range.display_name != named_range_id
+
+        assert _browse_path_ids(sheet) == ["Weekly Metrics"]
+        assert _browse_path_ids(named_range) == ["Weekly Metrics"]
+
+        assert sheet.custom_properties["sheet_id"] == sheet_id
+        assert sheet.custom_properties["connector_name"] == "Weekly Metrics"
+        assert named_range.custom_properties["named_range"] == named_range_id
+        assert named_range.subtype == DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE
+        assert sheet.subtype == DatasetSubTypes.GOOGLE_SHEETS
+
+    def test_falls_back_to_connector_id_when_name_blank(self):
+        api_client = MagicMock()
+        api_client.get_connection_details_by_id.return_value = _make_conn_details(
+            sheet_id="abc123", named_range="Range1"
+        )
+        handler = _make_handler(api_client=api_client)
+        connector = Connector(
+            connector_id="c1",
+            connector_name="   ",
+            connector_type=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+            paused=False,
+            sync_frequency=360,
+            destination_id="d1",
+            user_id="",
+            lineage=[],
+            jobs=[],
+        )
+
+        sheet, named_range = list(handler.emit_workunits(connector))
+        assert isinstance(sheet, Dataset)
+        assert isinstance(named_range, Dataset)
+        assert sheet.display_name == "c1"
+        assert named_range.display_name == "c1"

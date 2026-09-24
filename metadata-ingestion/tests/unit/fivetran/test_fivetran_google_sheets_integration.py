@@ -136,6 +136,7 @@ class TestFivetranGoogleSheetsIntegration:
             == f"urn:li:dataPlatform:{Constant.GOOGLE_SHEETS_CONNECTOR_TYPE}"
         ]
         assert len(gsheets_datasets) == 2
+        assert {ds.display_name for ds in gsheets_datasets} == {"Google Sheets Test"}
 
     def test_google_sheets_lineage_generation(self, make_connection_details):
         """Test lineage generation for Google Sheets connectors."""
