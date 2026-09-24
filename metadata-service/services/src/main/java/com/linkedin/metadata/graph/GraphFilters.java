@@ -24,12 +24,12 @@ import org.apache.commons.lang3.tuple.Pair;
 public class GraphFilters {
   public static RelationshipFilter OUTGOING_FILTER =
       new RelationshipFilter()
-              .setDirection(RelationshipDirection.OUTGOING)
-              .setOr(new ConjunctiveCriterionArray());
+          .setDirection(RelationshipDirection.OUTGOING)
+          .setOr(new ConjunctiveCriterionArray());
   public static RelationshipFilter INCOMING_FILTER =
       new RelationshipFilter()
-              .setDirection(RelationshipDirection.INCOMING)
-              .setOr(new ConjunctiveCriterionArray());
+          .setDirection(RelationshipDirection.INCOMING)
+          .setOr(new ConjunctiveCriterionArray());
 
   public static GraphFilters incomingFilter(Filter sourceEntityFilter) {
     return new GraphFilters(sourceEntityFilter, EMPTY_FILTER, null, null, null, INCOMING_FILTER);
