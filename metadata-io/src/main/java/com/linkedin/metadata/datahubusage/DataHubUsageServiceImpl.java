@@ -207,8 +207,8 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
    * The field to filter and sort event types on. The index template maps {@code type} as {@code
    * keyword}, but a usage index that a write auto-created before its data stream or rollover alias
    * existed maps it dynamically as {@code text} with a {@code .keyword} subfield. Sorting on that
-   * text field fails the whole search and term filters on it never match, so use the subfield
-   * there.
+   * text field fails the whole search and term filters on it never match, so use the subfield when
+   * every index behind the name maps it that way.
    */
   private String eventTypeField(OperationContext opContext, String usageIndexName) {
     // One lookup per call; cache it if this endpoint ever gets hot. Field-scoped rather than the
@@ -221,6 +221,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
                   "GET",
                   "/" + usageIndexName + "/_mapping/field/" + DataHubUsageEventConstants.TYPE));
       JsonNode indices = opContext.getObjectMapper().readTree(response.getEntity().getContent());
+      int textMapped = 0;
       for (JsonNode index : indices) {
         String mappedType =
             index
@@ -231,8 +232,19 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
                 .path("type")
                 .asText();
         if ("text".equals(mappedType)) {
-          return keywordField(DataHubUsageEventConstants.TYPE);
+          textMapped++;
         }
+      }
+      if (textMapped > 0 && textMapped == indices.size()) {
+        return keywordField(DataHubUsageEventConstants.TYPE);
+      }
+      if (textMapped > 0) {
+        // The subfield only exists on the text-mapped indices and sorting on it would fail on
+        // the others, which hold the newer events; those are the ones worth keeping.
+        log.warn(
+            "Some indices behind {} map {} as text; their events are left out of audit search",
+            usageIndexName,
+            DataHubUsageEventConstants.TYPE);
       }
     } catch (IOException e) {
       log.warn(

@@ -275,8 +275,8 @@ public class DataHubUsageServiceTest {
   @Test
   public void testExternalAuditSearchUsesKeywordSubfieldWhenTypeIsMappedAsText()
       throws IOException {
-    // One backing index from the template, one auto-created with type as text + .keyword
-    stubTypeFieldMapping("keyword", "text");
+    // Auto-created before its template existed, so type is text + .keyword on every index
+    stubTypeFieldMapping("text", "text");
 
     SearchSourceBuilder source = searchWithEventTypeFilter();
 
@@ -287,6 +287,17 @@ public class DataHubUsageServiceTest {
     assertEquals("GET", mappingRequest.getValue().getMethod());
     assertEquals(
         "/" + TEST_INDEX_NAME + "/_mapping/field/type", mappingRequest.getValue().getEndpoint());
+  }
+
+  @Test
+  public void testExternalAuditSearchKeepsTypeWhenBackingIndicesDisagree() throws IOException {
+    // type.keyword does not exist on the template-mapped index, so sorting on it would fail there
+    stubTypeFieldMapping("keyword", "text");
+
+    SearchSourceBuilder source = searchWithEventTypeFilter();
+
+    assertEquals("type", ((FieldSortBuilder) source.sorts().get(1)).getFieldName());
+    assertEquals("type", eventTypeTermsQuery(source).fieldName());
   }
 
   @Test
