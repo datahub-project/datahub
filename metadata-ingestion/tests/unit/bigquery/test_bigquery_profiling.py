@@ -998,6 +998,29 @@ def test_partition_datetime_override_rejects_offset_bearing_datetime():
     )
 
 
+def test_datetime_column_accepts_utc_aware_moment():
+    """The offset-bearing DATETIME rejection must fire only for a *non-zero* offset. A
+    UTC-aware moment (the internal fallback_date / strategic candidate dates are
+    datetime.now(timezone.utc)-based) has a zero offset, so dropping it is a no-op: it
+    must still widen to a range rather than degrade to a full scan.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(partition_info=PartitionInfo(fields=("dt",), type="DAY"))
+
+    # Direct value: a UTC-aware datetime object widens like a naive one.
+    direct = discovery._value_filter(
+        table, "dt", datetime(2025, 1, 15, tzinfo=timezone.utc), "DATETIME"
+    )
+    assert direct == "`dt` >= '2025-01-15 00:00:00' AND `dt` < '2025-01-16 00:00:00'"
+
+    # The fallback path passes a UTC-aware guessed date; it must prune to a range, not
+    # fall through to IS NOT NULL.
+    widened = discovery._create_fallback_filter_for_column(
+        table, "dt", datetime(2025, 1, 15, tzinfo=timezone.utc), "DATETIME"
+    )
+    assert ">=" in widened and "<" in widened and "IS NOT NULL" not in widened
+
+
 def test_fallback_date_component_unknown_type_scans_all():
     """A date-component column (e.g. `year`) with no known type can't be given a typed
     literal — an untyped `year = '2026'` string is rejected against an INT64 column — so
