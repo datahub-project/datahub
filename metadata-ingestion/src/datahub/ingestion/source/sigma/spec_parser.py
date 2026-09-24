@@ -5,6 +5,11 @@ from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
 
 _PAGES = "pages"
 _SCHEMA_VERSION = "schemaVersion"
+# The `schemaVersion` this parser was written against. A consumer should
+# distrust a read whose `schema_version` differs.
+SUPPORTED_SCHEMA_VERSION = 1
+# A control's `source` binds its value to a column; it carries no lineage.
+_CONTROL_ELEMENT_KIND = "control"
 _ELEMENTS = "elements"
 _COLUMNS = "columns"
 _SOURCE = "source"
@@ -19,10 +24,12 @@ _CONNECTION_ID = "connectionId"
 _PATH = "path"
 _JOIN_KIND = "join"
 _UNION_KIND = "union"
-# Kinds whose upstream /columns formulas already reach, as seen in Sigma's
-# published examples. Any other kind -- a renamed "join", or one whose shape
-# nobody has checked yet, such as a transpose -- is reported, not assumed safe.
-_SINGLE_SOURCE_KINDS = frozenset({"warehouse-table", "table", "sql"})
+# Every source kind in Sigma's published data model examples is one of these.
+# Single-source kinds are ones /columns formulas already reach. A transpose is
+# valid Sigma that this parser does not map: its upstream columns appear only
+# in `columnsToMerge`. Any other kind -- a renamed "join", say -- is drift.
+_SINGLE_SOURCE_KINDS = frozenset({"warehouse-table", "table", "sql", "csv-table"})
+_UNMAPPED_KINDS = frozenset({"transpose"})
 _MATCHES = "matches"
 _SOURCES = "sources"
 _OUTPUT_COLUMN_NAME = "outputColumnName"
@@ -129,13 +136,13 @@ class DataModelSpecIndex:
     # with nothing to join.
     element_count: int = 0
     sourced_element_count: int = 0
-    # Union branch refs that go through a relationship (`[Rel/Col]`). Valid
-    # Sigma, but mapping one needs the relationship's target, which this module
-    # does not index; counted so the lineage left behind is visible.
-    union_relationship_ref_count: int = 0
-    # The document's `schemaVersion`. Sigma bumps it when fields or types
-    # change; this parser was written against 1, so anything else is a reason
-    # to distrust the whole read.
+    # Valid Sigma this parser reads but does not map, so the lineage left
+    # behind is visible without being mistaken for drift: elements of a known
+    # but unmapped kind, keyed by kind, and unions with a branch ref through a
+    # relationship (`[Rel/Col]`), which needs the relationship's target.
+    unmapped_element_ids: Dict[str, List[str]] = field(default_factory=dict)
+    union_relationship_ref_element_ids: List[str] = field(default_factory=list)
+    # The document's `schemaVersion`; see SUPPORTED_SCHEMA_VERSION.
     schema_version: Optional[int] = None
 
 
@@ -418,8 +425,13 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
 
     for element in _iter_spec_elements(spec):
         index.element_count += 1
-        # An element with no source (a control, a text box) has no lineage.
-        if _SOURCE not in element:
+        # An element with no source (a text box) has no lineage, nor does a
+        # control, whose source only binds its value to a column.
+        element_kind = element.get(_KIND)
+        if _SOURCE not in element or (
+            isinstance(element_kind, str)
+            and element_kind.strip().lower() == _CONTROL_ELEMENT_KIND
+        ):
             continue
         index.sourced_element_count += 1
         source = element.get(_SOURCE)
@@ -435,7 +447,8 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
         if kind == _UNION_KIND:
             union = _read_union(source, union_element_id=element_id)
             index.unions.extend(union.columns)
-            index.union_relationship_ref_count += union.relationship_refs
+            if union.relationship_refs:
+                index.union_relationship_ref_element_ids.append(element_id)
             if not union.readable:
                 index.unreadable_union_element_ids.append(element_id)
         elif kind == _JOIN_KIND:
@@ -451,6 +464,8 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
                 readable = readable and read.readable
             if not readable:
                 index.unreadable_join_element_ids.append(element_id)
+        elif kind in _UNMAPPED_KINDS:
+            index.unmapped_element_ids.setdefault(kind, []).append(element_id)
         elif kind not in _SINGLE_SOURCE_KINDS:
             index.unrecognised_element_count += 1
     return index

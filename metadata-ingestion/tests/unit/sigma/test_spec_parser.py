@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Tuple
 import pytest
 
 from datahub.ingestion.source.sigma.spec_parser import (
+    SUPPORTED_SCHEMA_VERSION,
     DataModelSpecIndex,
     UnionOutputColumn,
     parse_data_model_spec,
@@ -390,7 +391,7 @@ def test_a_source_with_no_usable_kind_is_counted(kind: Any) -> None:
     assert index.unrecognised_element_count == 1
 
 
-@pytest.mark.parametrize("kind", ["join-v2", "transpose"])
+@pytest.mark.parametrize("kind", ["join-v2", "pivot"])
 def test_an_unknown_source_kind_is_counted_not_assumed_single_source(
     kind: str,
 ) -> None:
@@ -402,10 +403,46 @@ def test_an_unknown_source_kind_is_counted_not_assumed_single_source(
     assert index.unrecognised_element_count == 1
 
 
-@pytest.mark.parametrize("kind", ["warehouse-table", "table", "sql"])
+@pytest.mark.parametrize("kind", ["warehouse-table", "table", "sql", "csv-table"])
 def test_a_published_single_source_kind_is_quiet(kind: str) -> None:
     index = parse_data_model_spec(_spec({"kind": kind}))
     assert index.unrecognised_element_count == 0
+
+
+def test_the_published_transpose_is_unmapped_not_drift() -> None:
+    """Valid Sigma, but its upstream columns appear only in `columnsToMerge`,
+    which /columns formulas do not reach. Structure verbatim, ids generic."""
+    transpose = {
+        "kind": "transpose",
+        "source": dict(_WAREHOUSE_SIDE),
+        "direction": "column-to-row",
+        "columnsToMerge": ["Start", "End"],
+        "columnLabelForMergedColumns": "Event type",
+        "columnLabelForValues": "Event time",
+    }
+    index = parse_data_model_spec(_spec(transpose, element_id="el-t"))
+    assert index.unmapped_element_ids == {"transpose": ["el-t"]}
+    assert index.unrecognised_element_count == 0
+
+
+def test_a_control_is_not_a_data_element() -> None:
+    """A control's source binds its value to a column; it carries no lineage.
+    Structure verbatim from Sigma's published list-values control."""
+    spec = _spec({"kind": "warehouse-table", **_WAREHOUSE_SIDE})
+    spec["pages"][0]["elements"].append(
+        {
+            "id": "ctrl-1",
+            "kind": "control",
+            "source": {
+                "kind": "source",
+                "source": {"kind": "table", "elementId": "el-left"},
+                "columnId": "inode-1/COL_A",
+            },
+        }
+    )
+    index = parse_data_model_spec(spec)
+    assert index.unrecognised_element_count == 0
+    assert (index.element_count, index.sourced_element_count) == (4, 3)
 
 
 def test_a_source_that_is_not_an_object_is_counted() -> None:
@@ -431,6 +468,7 @@ def test_a_renamed_source_key_leaves_no_sourced_elements() -> None:
     [(1, 1), (2, 2), ("1", None), (True, None), ("<absent>", None)],
 )
 def test_the_schema_version_is_read(version: Any, expected: Any) -> None:
+    assert SUPPORTED_SCHEMA_VERSION == 1
     spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
     if version != "<absent>":
         spec["schemaVersion"] = version
@@ -639,7 +677,7 @@ def test_a_relationship_ref_in_a_branch_is_counted_not_drift() -> None:
     """Valid Sigma, but mapping it needs the relationship's target."""
     index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[A] + [Rel/Col]", "[C]"]))
     assert _branches(index.unions[0]) == [("el-a", "A"), ("el-b", "C")]
-    assert index.union_relationship_ref_count == 1
+    assert index.union_relationship_ref_element_ids == ["el-union"]
     assert index.unreadable_union_element_ids == []
 
 
