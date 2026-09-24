@@ -83,7 +83,7 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     mfePage = new MFEFrameworkPage(page);
   });
 
-  test('renders the placed MFE as a tab captioned by the entry's label', async () => {
+  test('renders the placed MFE as a tab captioned by its label', async () => {
     await mfePage.mockFetchForMFEConfig(TAB_MFE);
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
     await mfePage.gotoDataset(DATASET_URN);
