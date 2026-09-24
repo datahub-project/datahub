@@ -3,7 +3,7 @@
 
 import os
 import re
-from typing import Optional
+from typing import List, Optional
 
 # ============================================================================
 # Core DataHub Configuration
@@ -154,6 +154,18 @@ def get_batch_number() -> int:
     return int(os.getenv("BATCH_NUMBER", "0"))
 
 
+def get_smoke_dump_batch_plan() -> Optional[str]:
+    """Path for the opt-in batch-plan dump plugin.
+
+    When set, overrides ``--dump-batch-plan`` so CI can choose the artifact
+    path without changing pytest argv. Empty/unset means use the CLI option
+    (or stdout if that is also unset). Only has effect when the plugin is
+    loaded with ``-p batch_plan_dump``.
+    """
+    value = os.getenv("SMOKE_DUMP_BATCH_PLAN", "").strip()
+    return value or None
+
+
 def get_pytest_xdist_workers() -> int:
     """pytest-xdist worker count used for a batch's parallel phase.
 
@@ -265,6 +277,16 @@ def get_datahub_usage_event_topic() -> str:
 def get_filtered_tests_file() -> Optional[str]:
     """Path to file containing filtered test paths (one per line)."""
     return os.getenv("FILTERED_TESTS")
+
+
+def get_smoke_changed_tests() -> List[str]:
+    """Test modules the PR under test touches (CI sets SMOKE_CHANGED_TESTS).
+
+    Space-separated repo-relative paths; these run alongside a tier-narrowed
+    selection.
+    """
+    raw = os.getenv("SMOKE_CHANGED_TESTS", "").strip()
+    return raw.split() if raw else []
 
 
 def get_smoke_policy_phase() -> Optional[str]:

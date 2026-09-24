@@ -6,7 +6,7 @@ from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.CATALOG)]
 
 
 def test_analytics_charts_have_data(auth_session, analytics_events_loaded):

@@ -1,19 +1,19 @@
-import { Radio, Typography } from 'antd';
+import { CodeBlock } from '@components';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
-import { ViewHeader } from '@app/entityV2/shared/containers/profile/sidebar/SidebarLogicSection';
-import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 
 const JUSTIFY_CONTENT_LEFT = 'left';
 const DEFAULT_SYNTAX_LANGUAGE = 'sql';
+const SOURCE_OPTION = 'source';
+const FORMATTED_OPTION = 'formatted';
 
 const InfoSection = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
@@ -31,48 +31,9 @@ const InfoItemContent = styled.div`
     padding-top: 8px;
 `;
 
-const FormattingSelector = styled.div``;
-
-/**
- * NOTE: To ensure consistent font-family for pre and code tags within as the parent wrapper was overriding it,
- * we explicitly apply 'Roboto Mono', monospace as the font-family for code children using span.
- */
-const QueryText = styled(Typography.Paragraph)`
+const CodeBlockWrapper = styled.div`
     margin-top: 20px;
-    background-color: ${(props) => props.theme.colors.bgSurface};
-    span {
-        font-family: 'Roboto Mono', monospace !important;
-    }
 `;
-
-// NOTE: Yes, using `!important` is a shame. However, the SyntaxHighlighter is applying styles directly
-// to the component, so there's no way around this
-const NestedSyntax = styled(StyledSyntaxHighlighter)`
-    background-color: transparent !important;
-    border: none !important;
-`;
-
-interface ViewTabProps {
-    formatOptions: string[];
-    showFormatted: boolean;
-    setShowFormatted: (showFormatted: boolean) => void;
-}
-
-export function ViewTab({ formatOptions, showFormatted, setShowFormatted }: ViewTabProps) {
-    return (
-        <FormattingSelector>
-            <Radio.Group
-                options={[
-                    { label: formatOptions[0], value: false },
-                    { label: formatOptions[1], value: true },
-                ]}
-                onChange={(e) => setShowFormatted(e.target.value)}
-                value={showFormatted}
-                optionType="button"
-            />
-        </FormattingSelector>
-    );
-}
 
 export default function ViewDefinitionTab() {
     const { t } = useTranslation('entity.profile.view');
@@ -85,10 +46,21 @@ export default function ViewDefinitionTab() {
     const canShowFormatted = !!formattedLogic;
 
     const isDbt = baseEntity?.dataset?.platform?.urn === DBT_URN;
-    const formatOptions = isDbt
-        ? [t('viewDefinitionTab.formatSource'), t('viewDefinitionTab.formatCompiled')]
-        : [t('viewDefinitionTab.formatRaw'), t('viewDefinitionTab.formatFormatted')];
     const [showFormatted, setShowFormatted] = useState(false);
+    const languageOptions = canShowFormatted
+        ? [
+              {
+                  label: isDbt ? t('viewDefinitionTab.formatSource') : t('viewDefinitionTab.formatRaw'),
+                  value: SOURCE_OPTION,
+              },
+              {
+                  label: isDbt ? t('viewDefinitionTab.formatCompiled') : t('viewDefinitionTab.formatFormatted'),
+                  value: FORMATTED_OPTION,
+              },
+          ]
+        : undefined;
+    const selectedLanguage = showFormatted ? FORMATTED_OPTION : SOURCE_OPTION;
+    const code = showFormatted ? formattedLogic || logic : logic;
 
     return (
         <>
@@ -109,21 +81,16 @@ export default function ViewDefinitionTab() {
             </InfoSection>
             <InfoSection>
                 <Typography.Title level={5}>{t('viewDefinitionTab.logicHeading')}</Typography.Title>
-                <ViewHeader>
-                    {canShowFormatted && (
-                        <ViewTab
-                            formatOptions={formatOptions}
-                            setShowFormatted={setShowFormatted}
-                            showFormatted={showFormatted}
-                        />
-                    )}
-                    <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
-                </ViewHeader>
-                <QueryText>
-                    <NestedSyntax language={language?.toLowerCase() ?? DEFAULT_SYNTAX_LANGUAGE}>
-                        {showFormatted ? formattedLogic : logic}
-                    </NestedSyntax>
-                </QueryText>
+                <CodeBlockWrapper>
+                    <CodeBlock
+                        code={code}
+                        language={language?.toLowerCase() ?? DEFAULT_SYNTAX_LANGUAGE}
+                        languageLabel={false}
+                        languageOptions={languageOptions}
+                        selectedLanguage={selectedLanguage}
+                        onLanguageChange={(value) => setShowFormatted(value === FORMATTED_OPTION)}
+                    />
+                </CodeBlockWrapper>
             </InfoSection>
         </>
     );

@@ -12,6 +12,11 @@ on:
         required: false
         default: "5"
         type: string
+      embedding_model:
+        description: "Ollama embedding model for the AI smoke test (local embeddings)"
+        required: false
+        default: "nomic-embed-text"
+        type: string
   push:
     branches:
       - master
@@ -82,6 +87,33 @@ permissions:
   id-token: write
 
 jobs:
+  # Announce build start in the release Slack channel when a GitHub release is
+  # published, linking to this run. Non-blocking: never gates the actual build.
+  # Only fires on release events — not on ordinary pushes to releases/**
+  # branches, which would notify on every merge.
+  notify_release_build_start:
+    name: Notify Release Channel of Build Start
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release scripts
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/notify-release-channel
+          sparse-checkout-cone-mode: true
+          fetch-depth: 1
+
+      - name: Notify release channel of build start
+        continue-on-error: true
+        uses: ./.github/actions/notify-release-channel
+        with:
+          version: ${{ github.event.release.tag_name }}
+          emoji: ":hammer_and_wrench:"
+          message: "*Docker build started* for `${{ github.event.release.tag_name }}` — <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|view run>"
+          slack-bot-token: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
+
   setup:
     runs-on: depot-ubuntu-24.04-small
     outputs:
@@ -111,8 +143,8 @@ jobs:
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
       smoke_test_change: ${{ steps.ci-optimize.outputs.smoke-test-change == 'true' }}
       java_client_change: ${{ steps.ci-optimize.outputs.java-client-change == 'true' || github.event_name != 'pull_request' }}
-      integrations_service_change: "false"
-      datahub_executor_change: "false"
+      playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
+      embedding_ai_change: ${{ steps.ci-optimize.outputs.embedding-ai-change == 'true' || github.event_name != 'pull_request' }}
 
       build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
@@ -123,7 +155,23 @@ jobs:
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       playwright_matrix: ${{ steps.set-playwright-matrix.outputs.matrix }}
-      playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
+      # Pull requests run only the p0 tier while the PYTEST_P0_SMOKE repository
+      # variable is 'true'; post-merge pushes -- and the default with the
+      # variable unset -- always run the full suite. smoke.sh reads it as
+      # SMOKE_TIER.
+      #
+      # The `run-all-tests` label opts a single PR back into the whole suite, for
+      # changes whose blast radius is wider than their own touched modules
+      # (shared fixtures, conftest, a broad refactor). Like every other label
+      # this workflow honours (`depot`, `publish`, `build-images`, ...) it is
+      # read from the event payload, so it takes effect on the PR's next push
+      # rather than the moment it is applied -- `labeled` is deliberately absent
+      # from the trigger types above, because pr-labeler.yml labels every PR on
+      # open and would double this workflow's runs.
+      smoke_tier: ${{ (github.event_name == 'pull_request' && vars.PYTEST_P0_SMOKE == 'true' && !contains(github.event.pull_request.labels.*.name, 'run-all-tests')) && 'p0' || 'full' }}
+      # Test modules this PR touches; conftest runs these alongside the p0
+      # tier. Empty on a full run.
+      smoke_changed_tests: ${{ steps.smoke-tier.outputs.changed_tests }}
       smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
       smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
       # Gradle modules base_build has to bake; empty means every image in the
@@ -239,6 +287,28 @@ jobs:
           SMOKE_BUILD_TASK: ${{ steps.smoke-profile.outputs.smoke_build_task }}
           CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
         run: .github/scripts/resolve_image_builds.sh
+
+      - name: Resolve smoke-test tier inputs
+        id: smoke-tier
+        env:
+          CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
+        run: |
+          files=""
+          if [[ -n "${CHANGED_FILES:-}" ]] && jq -e 'type == "array"' <<<"$CHANGED_FILES" >/dev/null 2>&1; then
+            files=$(jq -r '.[]' <<<"$CHANGED_FILES")
+          fi
+
+          # Test modules this PR touches; conftest runs these alongside the p0
+          # tier (SMOKE_CHANGED_TESTS).
+          changed=$(printf '%s\n' "$files" \
+            | grep -E '^smoke-test/(.*/)?(test_.*|.*_test)\.py$' || true)
+          echo "changed_tests=$(printf '%s' "$changed" | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+          echo "Changed smoke test modules: $(printf '%s' "$changed" | tr '\n' ' ')"
+
+          # Which knobs decided this run's tier, so a surprising selection is
+          # diagnosable from the log alone.
+          echo "PYTEST_P0_SMOKE=${{ vars.PYTEST_P0_SMOKE }}" \
+               "run-all-tests label=${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-all-tests') }}"
 
       - name: Determine runner type
         id: set-runner
@@ -460,14 +530,14 @@ jobs:
             ${{ github.workspace }}/build/build-metadata.json
             ${{ github.workspace }}/build/bake-spec-allImages.json
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
@@ -483,7 +553,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Upsert PR image comment
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PR_TAG: ${{ needs.setup.outputs.tag }}
           SHORT_SHA: ${{ needs.setup.outputs.short_sha }}
@@ -542,8 +612,14 @@ jobs:
         run: |
           if [[ "${{ env.IS_FORK }}" == "true" ]]; then
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ needs.setup.outputs.smoke_tier }}" == "p0" ]]; then
+            # The p0 tier is 357 of 1209 collected tests, so 4 batches carry a
+            # lighter per-batch load than the full suite's 9 while cutting the
+            # per-batch fixed cost (caches, image pull, quickstart) that dominates
+            # a short run. Revisit once p0 batch durations have been measured.
+            echo "python_batch_count=4" >> "$GITHUB_OUTPUT"
           else
-            echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=9" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -718,7 +794,7 @@ jobs:
 
       - name: Upload Java SDK V2 coverage to Codecov
         if: ${{ always() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-integration/java/datahub-client/
@@ -741,7 +817,7 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
@@ -932,6 +1008,11 @@ jobs:
           TEST_STRATEGY: pytests
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
+          # 'p0' or 'full' -- see the setup job's smoke_tier output.
+          SMOKE_TIER: ${{ needs.setup.outputs.smoke_tier }}
+          # Test modules this PR touches; they run alongside the p0 tier.
+          # Ignored on a full run.
+          SMOKE_CHANGED_TESTS: ${{ needs.setup.outputs.smoke_changed_tests }}
           PYTEST_XDIST_WORKERS: "3"
           # GMS here runs with a 1s bulk-flush and 1s index refresh interval
           # (see run-quickstart.sh), so the trailing post-wait sleep can match.
@@ -1030,23 +1111,306 @@ jobs:
 
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
         with:
           path: ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ github.ref == 'refs/heads/master' && matrix.batch == '0' }}
         with:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
+
+  # Runs the quickstart stack and validates that semantic search works
+  # end-to-end with an in-process or locally served embedding provider, one
+  # matrix leg each:
+  #   local     — DataHub + Ollama, the `local` provider over the OpenAI-compatible API
+  #   classical — DataHub only, the deterministic hashing provider (no model, no endpoint)
+  # Reuses the images built once by base_build (depot pull, or a local bake on
+  # fork PRs) instead of rebuilding them in a standalone workflow.
+  ai_smoke_test:
+    name: AI Smoke Test (${{ matrix.provider }})
+    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    needs: [setup, base_build]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [local, classical]
+    # See pytest_tests for why the status-check function is required (downstream
+    # of the optionally-skipped base_build on fork PRs). On a PR this is gated to
+    # embedding / semantic-search path changes so ordinary PRs skip it; every
+    # non-PR event (post-merge push, release, dispatch) runs it unconditionally,
+    # which is what replaces the standalone workflow's nightly cron.
+    if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.embedding_ai_change == 'true' }}
+    env:
+      LOCAL_EMBEDDING_MODEL: ${{ github.event.inputs.embedding_model || 'nomic-embed-text' }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+
+      - name: Set up Depot CLI
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+
+      - name: Login to DockerHub
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - id: uv-creds
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        uses: ./.github/actions/setup-uv-credentials
+        with:
+          base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
+          chainguard_python_identity_id: ${{ vars.CHAINGUARD_PYTHON_IDENTITY_ID }}
+          chainguard_python_token: ${{ secrets.CHAINGUARD_PYTHON_TOKEN }}
+
+      - name: Build images
+        timeout-minutes: 60
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        env:
+          DOCKER_CACHE: GITHUB
+        run: |
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstart' }}"
+          echo "Using build task: $BUILD_TASK"
+          ./gradlew --max-workers="$(nproc)" $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -Pdatahub.dependencies.python.uvDockerProfile=${{ steps.uv-creds.outputs.uv_profile }}
+          docker images
+
+      - name: Pull images from depot
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.base_build.outputs.build_id != '' }}
+        run: |
+          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
+          docker images
+
+      - name: Pin reused images to the quickstart tag
+        env:
+          IMAGE_VERSION_ENV: ${{ needs.setup.outputs.image_version_env }}
+        run: |
+          # Per-service overrides for the images this PR cannot affect. Empty on a full build.
+          printf '%s' "$IMAGE_VERSION_ENV" | tee -a "$GITHUB_ENV"
+
+      # GMS AI env vars are injected into the GMS container via
+      # DATAHUB_LOCAL_COMMON_ENV (read as an env_file by docker-compose.gms.yml).
+      # GMS reaches Ollama over the Docker bridge network; the CI runner reaches
+      # it via the mapped port at localhost:11434.
+      - name: Write GMS AI env file (local)
+        if: matrix.provider == 'local'
+        run: |
+          printf '%s\n' \
+            "EMBEDDING_PROVIDER_TYPE=local" \
+            "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true" \
+            "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true" \
+            "LOCAL_EMBEDDING_ENDPOINT=http://ollama:11434/v1/embeddings" \
+            "LOCAL_EMBEDDING_MODEL=${LOCAL_EMBEDDING_MODEL}" \
+            > /tmp/ai-gms.env
+
+      # The classical provider is lexical hashing, not semantic search; GMS refuses
+      # it without the explicit opt-in. system-update reads the same env file,
+      # which is what adds the hash_v1_2048 field to the semantic index before
+      # GMS starts.
+      - name: Write GMS AI env file (classical)
+        if: matrix.provider == 'classical'
+        run: |
+          printf '%s\n' \
+            "EMBEDDING_PROVIDER_TYPE=classical" \
+            "CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true" \
+            "ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true" \
+            "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true" \
+            > /tmp/ai-gms.env
+
+      # Activates two profiles simultaneously:
+      #   quickstart-consumers — core DataHub services (GMS, ES, MySQL, Kafka, …)
+      #   quickstart-ai        — Ollama server + one-shot model-pull + warmup
+      # Only the local leg needs the Ollama server; classical embeds in-process.
+      - name: Start DataHub (quickstart-consumers, plus quickstart-ai Ollama on the local leg)
+        run: |
+          SIGNING_KEY=$(openssl rand -base64 32)
+          SIGNING_SALT=$(openssl rand -base64 32)
+          AI_PROFILE=()
+          if [ "${{ matrix.provider }}" = "local" ]; then
+            AI_PROFILE=(--profile quickstart-ai)
+          fi
+
+          DATAHUB_VERSION=${{ needs.setup.outputs.tag }} \
+          DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${SIGNING_KEY} \
+          DATAHUB_TOKEN_SERVICE_SALT=${SIGNING_SALT} \
+          DATAHUB_SEARCH_IMAGE=opensearchproject/opensearch \
+          DATAHUB_SEARCH_TAG=2.19.3 \
+          XPACK_SECURITY_ENABLED=plugins.security.disabled=true \
+          ELASTICSEARCH_USE_SSL=false \
+          USE_AWS_ELASTICSEARCH=true \
+          ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=1 \
+          POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10 \
+          DATAHUB_TELEMETRY_ENABLED=false \
+          DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
+          DATAHUB_LOCAL_ACTIONS_ENV=$(pwd)/smoke-test/test_resources/actions/actions.env \
+          DATAHUB_LOCAL_COMMON_ENV=/tmp/ai-gms.env \
+          LOCAL_EMBEDDING_MODEL=${LOCAL_EMBEDDING_MODEL} \
+          docker compose \
+            -p datahub \
+            --project-directory docker/profiles \
+            --profile quickstart-consumers \
+            "${AI_PROFILE[@]}" \
+            up -d --quiet-pull
+
+      # Wait for GMS to be reachable before tuning OpenSearch.
+      # ollama-model-init is a one-shot init container that exits with 0 once
+      # the model is pulled and warmed up; we poll for both GMS and Ollama
+      # readiness rather than relying on `docker compose --wait`, which treats
+      # any container exit (even successful) as a failure.
+      - name: Wait for GMS to be ready
+        run: |
+          echo "Waiting for GMS at http://localhost:8080/health..."
+          for i in $(seq 1 90); do
+            if curl -sf http://localhost:8080/health > /dev/null 2>&1; then
+              echo "✓ GMS is ready (attempt ${i})"
+              exit 0
+            fi
+            echo "  Attempt ${i}/90 — GMS not ready yet, waiting 10s..."
+            sleep 10
+          done
+          echo "ERROR: GMS did not become ready within 900s."
+          docker ps -a
+          exit 1
+
+      - name: Relax OpenSearch disk threshold
+        run: |
+          curl -sf -XPUT "http://localhost:9200/_cluster/settings" \
+            -H "Content-Type: application/json" \
+            -d '{"persistent":{"cluster.routing.allocation.disk.threshold_enabled":"false"}}' \
+          || echo "Warning: could not relax disk threshold (non-fatal)"
+
+      # ollama-model-init pulls the model and warms it up inside the container
+      # network. We also probe from the CI runner (via the mapped port) to
+      # confirm the model is hot before handing off to the smoke tests.
+      - name: Wait for Ollama model readiness
+        if: matrix.provider == 'local'
+        run: |
+          MODEL="${LOCAL_EMBEDDING_MODEL}"
+          echo "Waiting for Ollama model '${MODEL}' to respond at localhost:11434..."
+          for i in $(seq 1 60); do
+            if curl -sf -X POST http://localhost:11434/v1/embeddings \
+                -H "Content-Type: application/json" \
+                -d "{\"model\":\"${MODEL}\",\"input\":\"readiness probe\"}" \
+                > /dev/null 2>&1; then
+              echo "✓ Ollama model '${MODEL}' is ready (attempt ${i})"
+              exit 0
+            fi
+            echo "  Attempt ${i}/60 — model not ready yet, waiting 10s..."
+            sleep 10
+          done
+          echo "ERROR: Ollama model '${MODEL}' did not become ready within 600s."
+          exit 1
+
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+
+      - name: Install dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      # smoke-test/requirements.txt installs ../metadata-ingestion as an editable
+      # package, so `datahub.metadata` resolves to src/datahub/metadata -- which only
+      # exists once codegen has run. :smoke-test:installDev does not depend on it.
+      # The standalone AI workflow got it as a side effect of building the images
+      # locally; this job pulls prebuilt images instead, so run codegen explicitly.
+      - name: Build datahub cli
+        run: ./gradlew :metadata-ingestion:install
+
+      - name: Install smoke test dependencies
+        run: ./gradlew :smoke-test:installDev
+
+      - name: Run AI embedding smoke tests (local)
+        if: matrix.provider == 'local'
+        working-directory: smoke-test
+        run: |
+          source venv/bin/activate
+          pytest tests/semantic/test_local_embedding_provider.py \
+            -v \
+            --junit-xml=junit.smoke-ai.xml \
+            --timeout=120
+        env:
+          DATAHUB_GMS_URL: "http://localhost:8080"
+          LOCAL_EMBEDDING_PROVIDER_TESTS: "true"
+          LOCAL_EMBEDDING_ENDPOINT: "http://localhost:11434/v1/embeddings"
+          LOCAL_EMBEDDING_MODEL: ${{ env.LOCAL_EMBEDDING_MODEL }}
+          EMBEDDING_WAIT_SECONDS: "30"
+
+      - name: Run AI embedding smoke tests (classical)
+        if: matrix.provider == 'classical'
+        working-directory: smoke-test
+        run: |
+          source venv/bin/activate
+          pytest tests/semantic/test_classical_embedding_provider.py \
+            -v \
+            --junit-xml=junit.smoke-ai.xml \
+            --timeout=120
+        env:
+          DATAHUB_GMS_URL: "http://localhost:8080"
+          CLASSICAL_EMBEDDING_PROVIDER_TESTS: "true"
+          EMBEDDING_WAIT_SECONDS: "30"
+
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: Test Results (smoke tests) ai-smoke-${{ matrix.provider }}
+          test-results-paths: |
+            **/junit.smoke-ai.xml
+          junit-file-globs: |
+            **/junit.smoke-ai.xml
+
+      - name: Collect Docker logs on failure
+        if: failure()
+        env:
+          TARGET_DIR: docker_logs/${{ github.job }}-${{ matrix.provider }}
+          COMPOSE_PROJECT_NAME: datahub
+        run: |
+          docker ps -a
+          . .github/scripts/docker_logs.sh
+
+      - name: Upload Docker logs on failure
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: docker-logs-ai-${{ matrix.provider }}-${{ github.run_id }}
+          path: docker_logs/${{ github.job }}-${{ matrix.provider }}/
+          retention-days: 5
 
   playwright_test:
     name: Playwright E2E Tests

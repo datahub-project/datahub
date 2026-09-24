@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sqlalchemy as sa
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
     SnowflakeAdapter,
@@ -15,11 +15,13 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombiner,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
 )
 from datahub.metadata.schema_classes import DatasetFieldProfileClass
-from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombiner
 
 
 def _engine(dialect: Any) -> Any:
@@ -471,7 +473,6 @@ class TestTranslationIsActuallyWired:
             query_combiner=SQLAlchemyQueryCombiner(
                 enabled=False,
                 catch_exceptions=True,
-                is_single_row_query_method=lambda query: False,
                 serial_execution_fallback_enabled=True,
             ),
             pretty_name="mixed",

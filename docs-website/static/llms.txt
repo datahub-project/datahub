@@ -103,7 +103,7 @@ DataHub goes beyond a traditional data catalog: it connects technical metadata, 
 
 ## Optional
 
-- [Release Notes](https://docs.datahub.com/docs/releases): DataHub OSS release history with version notes and breaking changes
+- [Release Notes](https://docs.datahub.com/docs/releases): DataHub Core (OSS) release history with version notes and breaking changes
 - [GraphQL Schema Reference](https://docs.datahub.com/docs/graphql/queries): Full schema definitions
 - [DataHub Actions](https://docs.datahub.com/docs/act-on-metadata): Event-driven automation framework
 - [Logical Models](https://docs.datahub.com/docs/features/feature-guides/logical-models/overview)

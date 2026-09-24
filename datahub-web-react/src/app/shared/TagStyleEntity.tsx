@@ -164,6 +164,13 @@ const TagHeader = styled.div`
     align-items: top;
 `;
 
+const OwnersContainer = styled.div`
+    display: flex;
+    align-items: top;
+    flex-wrap: wrap;
+    gap: 4px;
+`;
+
 const { Paragraph } = Typography;
 
 type Props = {
@@ -229,7 +236,8 @@ export default function TagStyleEntity({
             input: {
                 query: '*',
                 start: 0,
-                count: 1,
+                // Facets only — result body is unused.
+                count: 0,
                 orFilters: generateOrFilters(UnionType.OR, entityFilters),
             },
         },
@@ -433,7 +441,7 @@ export default function TagStyleEntity({
                 </StatsBox>
                 <div>
                     <StatsLabel>{tcLabels('owners')}</StatsLabel>
-                    <div>
+                    <OwnersContainer>
                         {data?.tag?.ownership?.owners?.map((owner) => (
                             <ExpandedOwner entityUrn={urn} owner={owner} refetch={refetch} hidePopOver />
                         ))}
@@ -451,7 +459,7 @@ export default function TagStyleEntity({
                                 <OwnerButtonTitle>{t('addOwners')}</OwnerButtonTitle>
                             )}
                         </Button>
-                    </div>
+                    </OwnersContainer>
                     <div>
                         {showAddModal && (
                             <EditOwnersModal

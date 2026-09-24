@@ -221,7 +221,7 @@ def guess_person_ldap(
 
 @platform_name("LDAP")
 @config_class(LDAPSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @dataclasses.dataclass
 class LDAPSource(StatefulIngestionSourceBase):
     """

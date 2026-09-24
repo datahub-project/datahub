@@ -172,7 +172,7 @@ class CubeAPIClient:
         # a lineage-only failure never aborts the whole ingestion.
         try:
             cloud_entities = self._get_cloud_entities()
-        except (requests.HTTPError, ValueError) as e:
+        except (requests.RequestException, ValueError) as e:
             self.report.warning(
                 title="Cube Metadata API unavailable",
                 message=(
@@ -191,7 +191,8 @@ class CubeAPIClient:
             return []
         try:
             raw = self._request(HTTP_METHOD_GET, API_ENDPOINT_DATA_SOURCES, bearer=True)
-        except requests.HTTPError as e:
+            return CloudDataSourcesResponse.model_validate(raw).data.data_sources
+        except (requests.RequestException, ValueError) as e:
             self.report.warning(
                 title="Could not list Cube data sources",
                 message=(
@@ -201,7 +202,6 @@ class CubeAPIClient:
                 exc=e,
             )
             return []
-        return CloudDataSourcesResponse.model_validate(raw).data.data_sources
 
     def _can_use_platform_api(self) -> bool:
         # The Platform API (reports/workbooks) is Cube Cloud only and is
@@ -253,7 +253,7 @@ class CubeAPIClient:
         try:
             for page in self._paginate_platform(endpoint, CloudReportsResponse):
                 reports.extend(CubeReport.from_cloud(r) for r in page.items)
-        except requests.HTTPError as e:
+        except (requests.RequestException, ValueError) as e:
             # Keep whatever pages succeeded before the failure rather than
             # discarding them, and surface the truncation in the report.
             self.report.warning(
@@ -273,7 +273,7 @@ class CubeAPIClient:
         try:
             for page in self._paginate_platform(endpoint, CloudWorkbooksResponse):
                 workbooks.extend(CubeWorkbook.from_cloud(w) for w in page.items)
-        except requests.HTTPError as e:
+        except (requests.RequestException, ValueError) as e:
             self.report.warning(
                 title="Could not list all Cube workbooks",
                 message="Workbook ingestion may be incomplete.",

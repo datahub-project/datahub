@@ -4,7 +4,10 @@ import { useTheme } from 'styled-components';
 
 import { TENTATIVE_EDGE_NAME } from '@app/lineageV3/LineageEdge/TentativeEdge';
 import {
+    ColumnHighlightSource,
+    ColumnHighlightedEdges,
     ColumnRef,
+    ENTITY_LEVEL_FIELD,
     FineGrainedLineage,
     FineGrainedLineageMap,
     FineGrainedOperationRef,
@@ -13,31 +16,47 @@ import {
     NodeContext,
     ShownRelatedColumns,
     createColumnRef,
+    createEdgeId,
+    createEntityRef,
     createLineageFilterNodeId,
+    isColumnLikeEntity,
+    isEntityRef,
     isTransformational,
-    isUrnQuery,
     isUrnTransformational,
     parseColumnRef,
+    resolveColumnHighlightSource,
     setDefault,
     setDifference,
 } from '@app/lineageV3/common';
+import { HIGHLIGHTED_EDGE_STROKE_WIDTH } from '@app/lineageV3/constants';
 import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { EntityType, LineageDirection } from '@types';
 
+export interface HighlightSources {
+    selectedColumn: ColumnRef | null;
+    hoveredColumn: ColumnRef | null;
+    /** Urn of the node selected on the graph, if any. Drives highlights only if it has entity-level column lineage. */
+    selectedNode: string | null;
+    /** Urn of the node under the cursor, if any. Drives highlights only if it has entity-level column lineage. */
+    hoveredNode: string | null;
+}
+
 export default function useColumnHighlighting(
-    selectedColumn: ColumnRef | null,
-    hoveredColumn: ColumnRef | null,
+    sources: HighlightSources,
     fineGrainedLineage: FineGrainedLineage,
     shownUrns: string[],
     nodeIdsByUrn: Map<string, string[]>,
 ): {
+    columnHighlightSource: ColumnHighlightSource | null;
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
     shownRelatedColumns: ShownRelatedColumns;
+    columnHighlightedEdges: ColumnHighlightedEdges;
 } {
+    const { selectedColumn, hoveredColumn, selectedNode, hoveredNode } = sources;
     const entityRegistry = useEntityRegistryV2();
     const theme = useTheme();
     const { setEdges } = useReactFlow();
@@ -45,7 +64,6 @@ export default function useColumnHighlighting(
     const {
         nodes,
         adjacencyList,
-        edges,
         rootUrn,
         rootType,
         nodeVersion,
@@ -54,43 +72,45 @@ export default function useColumnHighlighting(
         showDataProcessInstances,
     } = useContext(LineageNodesContext);
 
-    const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges } = useMemo(() => {
-        const displayedNodeIds = new Set(shownUrns);
-        const validQueryIds = new Set(
-            Array.from(edges.values())
-                .map((edge) => edge.via)
-                .filter((via): via is string => !!via),
-        );
-        return processColumnHighlights(
-            selectedColumn,
-            hoveredColumn,
-            {
-                fineGrainedLineage,
-                nodes,
-                adjacencyList,
-                displayedNodeIds,
-                nodeIdsByUrn,
-                validQueryIds,
-                rootUrn,
-                rootType,
-                showFilterNodes: showLineageFilterNodes,
-            },
-            theme.colors.borderSelected,
-            theme.colors.borderHover,
-        );
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        columnEdgeVersion,
-        selectedColumn,
-        hoveredColumn,
-        nodes,
-        edges,
-        fineGrainedLineage,
-        shownUrns,
-        nodeIdsByUrn,
-        entityRegistry,
-        showLineageFilterNodes,
-    ]);
+    const columnHighlightSource = useMemo(
+        () =>
+            resolveColumnHighlightSource(
+                selectedColumn,
+                hoveredColumn,
+                getEntityRef(selectedNode, fineGrainedLineage, nodes),
+                getEntityRef(hoveredNode, fineGrainedLineage, nodes),
+            ),
+        [selectedColumn, hoveredColumn, selectedNode, hoveredNode, fineGrainedLineage, nodes],
+    );
+
+    const { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges, columnHighlightedEdges } =
+        useMemo(() => {
+            const displayedNodeIds = new Set(shownUrns);
+            return computeSingleColumnHighlights(
+                columnHighlightSource?.ref ?? null,
+                {
+                    fineGrainedLineage,
+                    nodes,
+                    adjacencyList,
+                    displayedNodeIds,
+                    nodeIdsByUrn,
+                    rootUrn,
+                    rootType,
+                    showFilterNodes: showLineageFilterNodes,
+                },
+                columnHighlightSource?.isSelected ? theme.colors.borderSelected : theme.colors.borderHover,
+            );
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [
+            columnEdgeVersion,
+            columnHighlightSource,
+            nodes,
+            fineGrainedLineage,
+            shownUrns,
+            nodeIdsByUrn,
+            entityRegistry,
+            showLineageFilterNodes,
+        ]);
 
     useEffect(() => {
         // TODO: Figure out how to only add edges once columns are rendered? For now, just use timeout
@@ -111,7 +131,29 @@ export default function useColumnHighlighting(
         );
     }, [nodeVersion, hideTransformations, showDataProcessInstances, columnEdges, setEdges]);
 
-    return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns };
+    return {
+        columnHighlightSource,
+        cllHighlightedNodes,
+        highlightedColumns,
+        shownRelatedColumns,
+        columnHighlightedEdges,
+    };
+}
+
+/**
+ * The node's entity ref, if it takes part in column lineage as a whole; see `ENTITY_LEVEL_FIELD`.
+ * A column-like entity always qualifies, including one whose column lineage is only reachable
+ * through another such entity, so has no fine grained lineage of its own.
+ */
+export function getEntityRef(
+    urn: string | null,
+    fineGrainedLineage: FineGrainedLineage,
+    nodes: NodeContext['nodes'],
+): ColumnRef | null {
+    if (!urn) return null;
+    const ref = createEntityRef(urn);
+    if (isColumnLikeEntity(urn, nodes)) return ref;
+    return fineGrainedLineage.upstream.has(ref) || fineGrainedLineage.downstream.has(ref) ? ref : null;
 }
 
 interface ArgumentBundle {
@@ -121,24 +163,10 @@ interface ArgumentBundle {
     displayedNodeIds: Set<string>;
     /** Flow node ids for each urn, as one urn can be rendered by multiple nodes. */
     nodeIdsByUrn: Map<string, string[]>;
-    validQueryIds: Set<string>;
     rootUrn: string;
     rootType: EntityType;
     /** Whether lineage filter nodes are rendered, rather than the column lineage controls. */
     showFilterNodes: boolean;
-}
-
-function processColumnHighlights(
-    selectedColumn: ColumnRef | null,
-    hoveredColumn: ColumnRef | null,
-    argumentBundle: ArgumentBundle,
-    selectColor: string,
-    hoverColor: string,
-) {
-    if (selectedColumn) {
-        return computeSingleColumnHighlights(selectedColumn, argumentBundle, selectColor);
-    }
-    return computeSingleColumnHighlights(hoveredColumn, argumentBundle, hoverColor);
 }
 
 export function computeSingleColumnHighlights(
@@ -149,7 +177,6 @@ export function computeSingleColumnHighlights(
         adjacencyList,
         displayedNodeIds,
         nodeIdsByUrn,
-        validQueryIds,
         rootUrn,
         rootType,
         showFilterNodes,
@@ -160,15 +187,19 @@ export function computeSingleColumnHighlights(
     highlightedColumns: HighlightedColumns;
     shownRelatedColumns: ShownRelatedColumns;
     columnEdges: Map<string, Edge>;
+    columnHighlightedEdges: ColumnHighlightedEdges;
 } {
     const cllHighlightedNodes = new Map<string, Set<FineGrainedOperationRef> | null>();
     const highlightedColumns = new Map<string, Set<string>>();
     const shownRelatedColumns: ShownRelatedColumns = new Map();
     const columnEdges = new Map<string, Edge>();
+    // Regular entity -> entity edges that get highlighted due to column interaction
+    // e.g. a metric -> metric edge when a connected metric / column is hovered or selected
+    const columnHighlightedEdges: ColumnHighlightedEdges = new Map();
     const nodeIdsFor = (urn: string) => nodeIdsByUrn.get(urn) ?? [urn];
 
     if (column === null) {
-        return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges };
+        return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges, columnHighlightedEdges };
     }
 
     const [urn, field] = parseColumnRef(column);
@@ -218,7 +249,7 @@ export function computeSingleColumnHighlights(
                         targetHandle: toField ? toRef : undefined,
                         type: isTentative ? TENTATIVE_EDGE_NAME : 'default',
                         markerEnd: LINEAGE_ARROW_MARKER,
-                        style: { stroke, strokeWidth: 1.25 },
+                        style: { stroke, strokeWidth: HIGHLIGHTED_EDGE_STROKE_WIDTH },
                         data: { isColumnEdge: true }, // Used to hide column edges
                     });
                 });
@@ -234,9 +265,10 @@ export function computeSingleColumnHighlights(
             }
             // Every column reached in this direction reports how much of its own lineage is on the
             // graph, so each can show what it is hiding -- but only on the side we traversed, as
-            // the other side of it was never explored
+            // the other side of it was never explored. An entity ref has no column to report on:
+            // its node's own controls and filter nodes cover whatever lineage it hides
             const [currentUrn] = parseColumnRef(ref);
-            if (displayedNodeIds.has(currentUrn)) {
+            if (displayedNodeIds.has(currentUrn) && !isEntityRef(ref)) {
                 const numRelatedOnGraph = countRelatedColumnsOnGraph(ref, fgl, displayedNodeIds, rootType);
                 setDefault(shownRelatedColumns, ref, {})[direction] = numRelatedOnGraph;
 
@@ -251,6 +283,24 @@ export function computeSingleColumnHighlights(
                         addEdge(ref, filterNodeRef, isTentative);
                     }
                 }
+            }
+
+            if (isEntityRef(ref) && isColumnLikeEntity(currentUrn, nodes)) {
+                adjacencyList[direction].get(currentUrn)?.forEach((neighborUrn) => {
+                    if (!isColumnLikeEntity(neighborUrn, nodes)) return;
+                    const neighborRef = createEntityRef(neighborUrn);
+                    if (!seen.has(neighborRef)) {
+                        seen.add(neighborRef);
+                        toVisit.push(neighborRef);
+                    }
+                    setDefault(cllHighlightedNodes, neighborUrn, null);
+                    setDefault(highlightedColumns, neighborUrn, new Set()).add(ENTITY_LEVEL_FIELD);
+                    const edgeId =
+                        direction === LineageDirection.Downstream
+                            ? createEdgeId(currentUrn, neighborUrn)
+                            : createEdgeId(neighborUrn, currentUrn);
+                    columnHighlightedEdges.set(edgeId, stroke);
+                });
             }
 
             fgl.get(ref)?.forEach((fineGrainedOperationRef, childRef) => {
@@ -269,11 +319,15 @@ export function computeSingleColumnHighlights(
                 }
                 setDefault(highlightedColumns, childUrn, new Set()).add(childField);
 
-                if (displayedNodeIds.has(childUrn)) {
-                    addEdge(ref, childRef);
-                } else if (!isUrnQuery(childUrn) || validQueryIds.has(childUrn)) {
-                    // Compute parents of missing nodes; don't add any edges through them
+                if (!displayedNodeIds.has(childUrn)) {
+                    // Compute parents of missing nodes; edges are drawn directly between the
+                    // displayed columns on either side of them. Includes query nodes not on the
+                    // graph, e.g. when a fine-grained edge's query differs from its table edge's.
                     setDefault(missingNodeParents, childRef, new Set()).add(ref);
+                } else if (displayedNodeIds.has(currentUrn)) {
+                    // If `ref`'s own node is missing instead, its edges to displayed children are
+                    // drawn from its ancestors, by the missing node handling below
+                    addEdge(ref, childRef);
                 }
             });
         }
@@ -304,7 +358,14 @@ export function computeSingleColumnHighlights(
         });
     });
 
-    return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges };
+    // A column keeps its own highlight even with no lineage, showing what is selected; an entity
+    // ref has no column to stand for, so leave its node untouched instead
+    if (isEntityRef(column) && !columnEdges.size && !columnHighlightedEdges.size) {
+        cllHighlightedNodes.clear();
+        highlightedColumns.clear();
+    }
+
+    return { cllHighlightedNodes, highlightedColumns, shownRelatedColumns, columnEdges, columnHighlightedEdges };
 }
 
 function getTopologicalOrder(missingNodes: Set<ColumnRef>, fgl: FineGrainedLineageMap) {
@@ -376,6 +437,7 @@ function getLineageFilterNodeEdge(
  * Number of columns related to `ref` that are rendered on the graph, to compare against the count
  * fetched for the column. Traverses through refs that aren't rendered as their own column -- both
  * transformations and nodes missing from the graph -- as those aren't counted for the column either.
+ * Entities attached directly to columns like metrics count too.
  */
 function countRelatedColumnsOnGraph(
     ref: ColumnRef,

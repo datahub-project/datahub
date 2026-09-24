@@ -68,7 +68,8 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
               throw new RuntimeException(
                   String.format(
                       "Failed to migrate group membership when removing group members from group %s",
-                      groupUrnStr));
+                      groupUrnStr),
+                  e);
             }
           } else if (groupOrigin.getType() == OriginType.EXTERNAL) {
             throw new RuntimeException(
@@ -77,8 +78,7 @@ public class RemoveGroupMembersResolver implements DataFetcher<CompletableFuture
                     groupUrnStr));
           }
           try {
-            _groupService.removeExistingNativeGroupMembers(
-                context.getOperationContext(), groupUrn, userUrnList);
+            _groupService.removeGroupMembers(context.getOperationContext(), groupUrn, userUrnList);
             return true;
           } catch (Exception e) {
             throw new RuntimeException(e);

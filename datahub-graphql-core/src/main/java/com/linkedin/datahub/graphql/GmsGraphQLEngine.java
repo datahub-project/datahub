@@ -31,6 +31,7 @@ import com.linkedin.datahub.graphql.loaders.DomainEntityCountsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.EntityExistsBatchLoader;
 import com.linkedin.datahub.graphql.loaders.ParentContainersBatchLoader;
 import com.linkedin.datahub.graphql.loaders.ParentNodesBatchLoader;
+import com.linkedin.datahub.graphql.loaders.SiblingsSearchBatchLoader;
 import com.linkedin.datahub.graphql.plugins.SemanticSearchPlugin;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -157,6 +158,7 @@ import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.load.AspectResolver;
 import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
+import com.linkedin.datahub.graphql.resolvers.load.DashboardUsageBucketsBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.DatasetStatsSummaryBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader;
 import com.linkedin.datahub.graphql.resolvers.load.EntityLineageResultResolver;
@@ -509,6 +511,7 @@ public class GmsGraphQLEngine {
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
   private final SemanticSearchConfiguration semanticSearchConfiguration;
+  private final boolean entityIndexV3Enabled;
 
   private final DatasetType datasetType;
 
@@ -661,6 +664,7 @@ public class GmsGraphQLEngine {
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
     this.semanticSearchConfiguration = args.semanticSearchConfiguration;
+    this.entityIndexV3Enabled = args.entityIndexV3Enabled;
 
     this.datasetType = new DatasetType(entityClient);
     this.roleType = new RoleType(entityClient);
@@ -997,6 +1001,10 @@ public class GmsGraphQLEngine {
             context ->
                 DashboardStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
         .addDataLoader(
+            DashboardUsageBucketsBatchLoader.LOADER_NAME,
+            context ->
+                DashboardUsageBucketsBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
             EntityHealthBatchLoader.LOADER_NAME,
             context ->
                 EntityHealthBatchLoader.createDataLoader(
@@ -1009,6 +1017,10 @@ public class GmsGraphQLEngine {
             DatasetStatsSummaryBatchLoader.LOADER_NAME,
             context ->
                 DatasetStatsSummaryBatchLoader.createDataLoader(timeseriesAspectService, context))
+        .addDataLoader(
+            SiblingsSearchBatchLoader.LOADER_NAME,
+            context ->
+                SiblingsSearchBatchLoader.create(this.entityClient, this.viewService, context))
         .addDataLoader(
             EntityExistsBatchLoader.LOADER_NAME,
             context -> EntityExistsBatchLoader.create(this.entityService, context))
@@ -1146,7 +1158,8 @@ public class GmsGraphQLEngine {
                         this.objectStorageClient != null
                             && this.objectStorageClient.isConfigured()
                             && this.objectStorageClient.supportsPresignedUrls(),
-                        this.semanticSearchConfiguration))
+                        this.semanticSearchConfiguration,
+                        this.entityIndexV3Enabled))
                 .dataFetcher(
                     "latestProductUpdate",
                     new ProductUpdateResolver(
@@ -1458,7 +1471,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("removeGroupMembers", new RemoveGroupMembersResolver(this.groupService))
               .dataFetcher("createGroup", new CreateGroupResolver(this.groupService))
               .dataFetcher("removeUser", new RemoveUserResolver(this.entityClient))
-              .dataFetcher("removeGroup", new RemoveGroupResolver(this.entityClient))
+              .dataFetcher(
+                  "removeGroup", new RemoveGroupResolver(this.entityClient, this.groupService))
               .dataFetcher("updateUserStatus", new UpdateUserStatusResolver(this.entityClient))
               .dataFetcher(
                   "createDomain", new CreateDomainResolver(this.entityClient, this.entityService))
@@ -1568,7 +1582,9 @@ public class GmsGraphQLEngine {
                   "batchUpdateSoftDeleted", new BatchUpdateSoftDeletedResolver(this.entityService))
               .dataFetcher("updateUserSetting", new UpdateUserSettingResolver(this.entityService))
               .dataFetcher("rollbackIngestion", new RollbackIngestionResolver(this.entityClient))
-              .dataFetcher("batchAssignRole", new BatchAssignRoleResolver(this.roleService))
+              .dataFetcher(
+                  "batchAssignRole",
+                  new BatchAssignRoleResolver(this.roleService, this.systemEntityClient))
               .dataFetcher(
                   "createInviteToken", new CreateInviteTokenResolver(this.inviteTokenService))
               .dataFetcher(
@@ -2117,7 +2133,8 @@ public class GmsGraphQLEngine {
                         new ParentContainersResolver(entityClient, featureFlags))
                     .dataFetcher(
                         "siblingsSearch",
-                        new SiblingsSearchResolver(this.entityClient, this.viewService))
+                        new SiblingsSearchResolver(
+                            this.entityClient, this.viewService, this.featureFlags))
                     .dataFetcher(
                         "logicalParent",
                         new EntityTypeResolver(
@@ -2318,8 +2335,8 @@ public class GmsGraphQLEngine {
                     new EntityTypeResolver(
                         entityTypes,
                         (env) ->
-                            Optional.ofNullable((Dataset) env.getSource())
-                                .map(Dataset::getLogicalParent)
+                            Optional.ofNullable((SchemaFieldEntity) env.getSource())
+                                .map(SchemaFieldEntity::getLogicalParent)
                                 .orElse(null)))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
@@ -2581,8 +2598,13 @@ public class GmsGraphQLEngine {
                               : null;
                         }))
                 .dataFetcher(
+                    "usageStats",
+                    new DashboardUsageStatsResolver(
+                        timeseriesAspectService,
+                        featureFlags.isTimeseriesAspectBatchLoadEnabled(),
+                        featureFlags.isTimeseriesAspectAggBatchLoadEnabled()))
+                .dataFetcher(
                     "parentContainers", new ParentContainersResolver(entityClient, featureFlags))
-                .dataFetcher("usageStats", new DashboardUsageStatsResolver(timeseriesAspectService))
                 .dataFetcher(
                     "statsSummary",
                     new DashboardStatsSummaryResolver(timeseriesAspectService, featureFlags))

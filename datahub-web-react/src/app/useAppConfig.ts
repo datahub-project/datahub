@@ -2,9 +2,7 @@ import { useContext } from 'react';
 
 import { HIDE_LINEAGE_IN_SEARCH_CARDS_KEY, SHOW_SEPARATE_SIBLINGS_KEY } from '@app/appConfig/UpdateGlobalFlags';
 import { loadFromLocalStorage } from '@app/sharedV2/hooks/useFeatureFlag';
-import { AppConfigContext } from '@src/appConfigContext';
-
-import { AppConfig } from '@types';
+import { AppConfigContext, AppConfigWithoutPolicyPrivileges } from '@src/appConfigContext';
 
 /**
  * Fetch an instance of AppConfig from the React context.
@@ -51,7 +49,7 @@ export function useIsContextDocumentsEnabled(): boolean {
     return appConfig.config.featureFlags.contextDocumentsEnabled;
 }
 
-function useFlagWithLocalStorageSync(key: string, f: (appConfig: AppConfig) => boolean) {
+function useFlagWithLocalStorageSync(key: string, f: (appConfig: AppConfigWithoutPolicyPrivileges) => boolean) {
     const { config, loaded } = useAppConfig();
     const flagValue = f(config);
 

@@ -8,7 +8,7 @@ from tests.utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.domain(Domain.PLATFORM)
+pytestmark = [pytest.mark.domain(Domain.PLATFORM), pytest.mark.p0]
 
 # Kept separate so that it does not cause failures in PRs
 DATAHUB_VERSION = env_vars.get_test_datahub_version()

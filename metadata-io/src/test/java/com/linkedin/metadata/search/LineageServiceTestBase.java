@@ -56,7 +56,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -144,9 +145,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     operationContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-                new SnapshotEntityRegistry(new Snapshot()),
-                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build())
+        TestOperationContexts.withFixedSearchClient(
+                TestOperationContexts.systemContextNoSearchAuthorization(
+                    new SnapshotEntityRegistry(new Snapshot()),
+                    SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+                getSearchClient())
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
@@ -216,6 +219,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   public void wipe() throws Exception {
     syncAfterWrite(getBulkProcessor());
     elasticSearchService.clear(operationContext);
+    // New mock per test so a sibling's async cache-refill cannot leak into verify().
+    // clearCache rebuilds LineageSearchService so it holds this mock, not the previous test's.
+    graphService = mock(GraphService.class);
+    when(graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
     clearCache(false);
     syncAfterWrite(getBulkProcessor());
   }
@@ -223,9 +230,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
     searchClientSpy = spy(getSearchClient());
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(operationContext, searchClientSpy);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            searchClientSpy,
             false,
             getElasticSearchConfiguration(),
             null,
@@ -233,13 +241,16 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClientSpy,
             getElasticSearchConfiguration(),
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO =
-        new ESWriteDAO(getElasticSearchConfiguration(), searchClientSpy, getBulkProcessor());
+        new ESWriteDAO(
+            getElasticSearchConfiguration(),
+            searchClientSpy,
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
@@ -247,7 +258,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -614,6 +625,95 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
     assertEquals(scrollResult.getNumEntities().intValue(), 0);
     assertNull(scrollResult.getScrollId());
+  }
+
+  @Test
+  public void testScrollAcrossLineageClampsExcessiveMaxHops() throws Exception {
+    // scrollAcrossLineage must clamp a caller-supplied maxHops the same way searchAcrossLineage
+    // does. Previously the scroll path defaulted to 1000 without clamping, so a caller could
+    // request an unbounded deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        Integer.MAX_VALUE,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // Integer.MAX_VALUE must have been clamped down to the exact configured impact hop limit.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
+    clearCache(false);
+  }
+
+  @Test
+  public void testScrollAcrossLineageDefaultsNullMaxHopsToConfiguredLimit() throws Exception {
+    // A null maxHops must resolve to the finite configured impact hop limit, not pass through as an
+    // unbounded (or null) deep traversal.
+    when(graphService.getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            anyInt()))
+        .thenReturn(mockResult(Collections.emptyList()));
+
+    lineageSearchService.scrollAcrossLineage(
+        getOperationContext()
+            .withSearchFlags(flags -> flags.setSkipCache(true))
+            .withLineageFlags(
+                flags ->
+                    flags
+                        .setStartTimeMillis(null, SetMode.REMOVE_IF_NULL)
+                        .setEndTimeMillis(null, SetMode.REMOVE_IF_NULL)),
+        TEST_URN,
+        LineageDirection.DOWNSTREAM,
+        ImmutableList.of(),
+        TEST1,
+        null,
+        null,
+        null,
+        null,
+        "5m",
+        10);
+
+    ArgumentCaptor<Integer> maxHopsCaptor = ArgumentCaptor.forClass(Integer.class);
+    Mockito.verify(graphService)
+        .getImpactLineage(
+            eq(getOperationContext().withSearchFlags(f -> f.setSkipCache(true))),
+            eq(TEST_URN),
+            eq(DOWNSTREAM_FILTERS),
+            maxHopsCaptor.capture());
+    // null must resolve to the exact configured impact hop limit, not pass through.
+    assertEquals(
+        maxHopsCaptor.getValue().intValue(),
+        getElasticSearchConfiguration().getSearch().getGraph().getImpact().getMaxHops());
+    clearCache(false);
   }
 
   @Test

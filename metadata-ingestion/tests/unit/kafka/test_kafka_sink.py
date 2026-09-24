@@ -1,3 +1,6 @@
+# SerializingProducer.produce/poll are fully typed in confluent-kafka>=2.13;
+# autospec mocks still expose MagicMock attributes mypy cannot see on the stub.
+# mypy: disable-error-code="attr-defined"
 import threading
 import unittest
 from typing import Union

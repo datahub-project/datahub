@@ -1,7 +1,9 @@
+import contextlib
 import functools
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -9,11 +11,15 @@ import time_machine
 
 from datahub.configuration.datetimes import parse_user_datetime
 from datahub.configuration.time_window_config import BucketDuration, get_time_bucket
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
     OperationClass,
+    QueryPropertiesClass,
     QueryUsageStatisticsClass,
+    UpstreamLineageClass,
 )
 from datahub.metadata.urns import CorpUserUrn, DatasetUrn, QueryUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
@@ -30,6 +36,8 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
     DownstreamColumnRef,
+    SqlParsingDebugInfo,
+    SqlParsingResult,
 )
 from datahub.testing import mce_helpers
 from datahub.utilities.file_backed_collections import FileBackedCounter
@@ -1001,6 +1009,145 @@ def test_basic_usage() -> None:
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
+def test_preparsed_redacted_query_text_emits_usage_but_no_query_entity() -> None:
+    # Sources like Databricks Unity Catalog can lose SQL text to masking
+    # (statement_text = "<REDACTED>") while still knowing lineage from
+    # system.access.table_lineage. In that case we want table-level usage
+    # stats to survive — dropping the query would silently zero out
+    # totalSqlQueries — but we don't want a placeholder Query entity for
+    # every masked statement. redacted_query_text=True is that opt-in.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    upstream_urn = DatasetUrn("redshift", "dev.public.foo").urn()
+
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=False,
+        generate_queries=True,
+        generate_usage_statistics=True,
+        generate_query_usage_statistics=True,
+        generate_operations=False,
+        usage_config=BaseUsageConfig(
+            start_time=get_time_bucket(frozen_timestamp, BucketDuration.DAY),
+            end_time=frozen_timestamp,
+        ),
+    )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="<REDACTED>",
+            upstreams=[upstream_urn],
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+            redacted_query_text=True,
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    dataset_usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, DatasetUsageStatisticsClass)
+    ]
+    assert len(dataset_usage_mcps) == 1, (
+        "table-level usage must be emitted so totalSqlQueries isn't silently "
+        "zeroed for buckets whose queries are fully redacted"
+    )
+    usage_aspect = dataset_usage_mcps[0].aspect
+    assert isinstance(usage_aspect, DatasetUsageStatisticsClass)
+    assert usage_aspect.totalSqlQueries == 1
+    assert usage_aspect.uniqueUserCount == 1
+
+    query_mcps = [
+        mcp
+        for mcp in mcps
+        if mcp.entityUrn and mcp.entityUrn.startswith("urn:li:query:")
+    ]
+    assert query_mcps == [], (
+        "redacted_query_text must suppress Query-entity emission to avoid "
+        "polluting the catalog with placeholder queries"
+    )
+
+    query_usage_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryUsageStatisticsClass)
+    ]
+    assert query_usage_mcps == [], (
+        "redacted_query_text must skip per-Query URN usage counters — those "
+        "would reference a Query that was never emitted"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_preparsed_redacted_query_text_still_emits_operation_and_lineage() -> None:
+    # Redacted DML queries (INSERT/CREATE TABLE AS/...) must still populate the
+    # downstream table's UpstreamLineage and Operation aspects — the lineage/
+    # timestamp/actor come from system.access.table_lineage, not the SQL text.
+    # The Query URN references in both aspects must be None to avoid dangling
+    # pointers to a Query entity we intentionally didn't emit.
+    frozen_timestamp = parse_user_datetime(FROZEN_TIME)
+    upstream_urn = DatasetUrn("redshift", "dev.public.foo").urn()
+    downstream_urn = DatasetUrn("redshift", "dev.public.bar").urn()
+
+    aggregator = SqlParsingAggregator(
+        platform="redshift",
+        generate_lineage=True,
+        generate_queries=True,
+        generate_usage_statistics=False,
+        generate_query_usage_statistics=False,
+        generate_operations=True,
+    )
+
+    aggregator.add_preparsed_query(
+        PreparsedQuery(
+            query_id=None,
+            query_text="<REDACTED>",
+            upstreams=[upstream_urn],
+            downstream=downstream_urn,
+            timestamp=frozen_timestamp,
+            user=CorpUserUrn("user1"),
+            query_type=QueryType.INSERT,
+            redacted_query_text=True,
+        )
+    )
+
+    mcps = list(aggregator.gen_metadata())
+
+    op_mcps = [
+        mcp
+        for mcp in mcps
+        if mcp.entityUrn == downstream_urn and isinstance(mcp.aspect, OperationClass)
+    ]
+    assert len(op_mcps) == 1, (
+        "operation MCP must be emitted for redacted DML so users still see "
+        "table-write activity"
+    )
+    op_aspect = op_mcps[0].aspect
+    assert isinstance(op_aspect, OperationClass)
+    assert op_aspect.queries is None, (
+        "operation must not reference a Query URN that was never emitted"
+    )
+
+    upstream_lineage_mcps = [
+        mcp
+        for mcp in mcps
+        if mcp.entityUrn == downstream_urn
+        and isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert len(upstream_lineage_mcps) == 1
+    upstream_aspect = upstream_lineage_mcps[0].aspect
+    assert isinstance(upstream_aspect, UpstreamLineageClass)
+    assert all(u.query is None for u in upstream_aspect.upstreams), (
+        "upstream edges must not reference a Query URN that was never emitted"
+    )
+
+    query_entity_mcps = [
+        mcp for mcp in mcps if isinstance(mcp.aspect, QueryPropertiesClass)
+    ]
+    assert query_entity_mcps == [], (
+        "Query entity must not be emitted for redacted_query_text queries"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_query_usage_stats_attributed_to_temp_table_composite_query() -> None:
     # Query usage counts are recorded per raw-statement fingerprint, but a query
     # fed by temp tables is emitted as a Query entity under a *composite*
@@ -1827,3 +1974,557 @@ def test_usage_aggregator_uses_shared_connection() -> None:
         )
     finally:
         aggregator.close()
+
+
+# --- table-level fallback on view-definition parse-failure ---
+
+_UNPARSEABLE_DT_DDL = (
+    "create or replace dynamic table db.schema.dt (a int) "
+    "target_lag='1 hour' refresh_mode=CUSTOM_INCREMENTAL initialize=ON_CREATE warehouse=w "
+    "refresh using (merge into self as t "
+    "using (select a from db.schema.src changes(information=>default)) s on t.a=s.a "
+    "when matched then update set t.a=s.a when not matched then insert (a) values (s.a))"
+)
+
+
+def _upstream_lineage_aspect(
+    mcps: List[MetadataChangeProposalWrapper], downstream_urn: str
+) -> Optional[UpstreamLineageClass]:
+    for mcp in mcps:
+        if mcp.entityUrn == downstream_urn and isinstance(
+            mcp.aspect, UpstreamLineageClass
+        ):
+            return mcp.aspect
+    return None
+
+
+def _skip_query_present(mcps: List[MetadataChangeProposalWrapper]) -> bool:
+    return any(
+        isinstance(mcp.aspect, QueryPropertiesClass)
+        and mcp.aspect.statement.value == "-skip-"
+        for mcp in mcps
+    )
+
+
+def test_view_definition_table_level_fallback_on_parse_failure() -> None:
+    """An unparseable definition falls back to the supplied table-level upstreams, with no
+    column lineage."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    dt = DatasetUrn("snowflake", "db.schema.dt").urn()
+    up_a = DatasetUrn("snowflake", "db.schema.src_a").urn()
+    up_b = DatasetUrn("snowflake", "db.schema.src_b").urn()
+    aggregator.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[up_a, up_b],
+    )
+    mcps = list(aggregator.gen_metadata())
+    aspect = _upstream_lineage_aspect(mcps, dt)
+    assert aspect is not None
+    assert sorted(u.dataset for u in aspect.upstreams) == sorted([up_a, up_b])
+    assert not aspect.fineGrainedLineages
+    # the fallback must not surface a spurious Query entity carrying the "-skip-" placeholder.
+    assert not _skip_query_present(mcps)
+    assert aggregator.report.num_views_table_level_fallback == 1
+    assert aggregator.report.num_views_self_reference_dropped == 0
+
+
+def test_table_level_fallback_excludes_self() -> None:
+    """The table-level fallback path drops the view from its own upstreams, so a caller that includes
+    the view in the fallback list can't produce a self-loop."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    dt = DatasetUrn("snowflake", "db.schema.dt").urn()
+    up = DatasetUrn("snowflake", "db.schema.src").urn()
+    aggregator.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[dt, up],  # includes the view itself
+    )
+    aspect = _upstream_lineage_aspect(list(aggregator.gen_metadata()), dt)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert up in upstreams
+    assert dt not in upstreams  # self excluded by the fallback path
+    assert aggregator.report.num_views_self_reference_dropped == 1
+
+    # A fallback list of only the view strips to empty, so no upstream lineage is emitted.
+    all_self = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    all_self.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[dt],
+    )
+    assert _upstream_lineage_aspect(list(all_self.gen_metadata()), dt) is None
+
+
+def test_view_definition_empty_table_level_fallback_no_aspect() -> None:
+    """An unparseable definition with no INPUTS emits no upstreamLineage aspect and no
+    spurious Query entity."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    dt = DatasetUrn("snowflake", "db.schema.dt").urn()
+    aggregator.add_view_definition(
+        view_urn=dt,
+        view_definition=_UNPARSEABLE_DT_DDL,
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[],
+    )
+    mcps = list(aggregator.gen_metadata())
+    assert _upstream_lineage_aspect(mcps, dt) is None
+    assert aggregator.report.num_views_table_level_fallback == 0
+    assert not _skip_query_present(mcps)
+
+
+def test_parseable_definition_ignores_table_level_fallback() -> None:
+    """When the definition parses, the table-level fallback is ignored (no pollution)."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    real = DatasetUrn("snowflake", "db.schema.bar").urn()
+    wrong = DatasetUrn("snowflake", "db.schema.wrong").urn()
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a from db.schema.bar",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[wrong],
+    )
+    aspect = _upstream_lineage_aspect(list(aggregator.gen_metadata()), v)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert real in upstreams
+    assert wrong not in upstreams
+    assert aggregator.report.num_views_self_reference_dropped == 0
+
+
+def test_view_definition_self_reference_is_excluded() -> None:
+    """A parsed definition that references the view itself must not emit a self-loop or
+    self-column-lineage; the parse path applies the same self-exclusion as the fallback path."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    real = DatasetUrn("snowflake", "db.schema.bar").urn()
+    # Mock the parser so it lists the view as its own upstream (a partial parse of a MERGE INTO
+    # SELF could do that). The self-exclusion should drop the self-reference and keep the rest.
+    parsed = SqlParsingResult(
+        in_tables=[v, real],
+        out_tables=[v],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="a"),
+                upstreams=[ColumnRef(table=v, column="a")],  # self edge
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="b"),
+                upstreams=[ColumnRef(table=real, column="b")],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="c"),
+                upstreams=[
+                    ColumnRef(table=v, column="c"),  # self edge, dropped
+                    ColumnRef(table=real, column="c"),  # real upstream, kept
+                ],
+            ),
+        ],
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a, b from db.schema.bar",
+        default_db="db",
+        default_schema="schema",
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    aspect = _upstream_lineage_aspect(mcps, v)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert real in upstreams
+    assert v not in upstreams  # self-loop excluded at the table level
+    # the self column-lineage edge is dropped; the real one is kept
+    fgl_upstreams = [
+        up for fgl in (aspect.fineGrainedLineages or []) for up in (fgl.upstreams or [])
+    ]
+    assert any(real in up for up in fgl_upstreams)
+    assert all(v not in up for up in fgl_upstreams)
+    # A mixed entry (self-edge plus a real upstream) keeps the real part instead of being dropped
+    # whole: column c should still have its real upstream, not the self one.
+    c_upstreams = [
+        up
+        for fgl in (aspect.fineGrainedLineages or [])
+        if any(d.endswith(",c)") for d in (fgl.downstreams or []))
+        for up in (fgl.upstreams or [])
+    ]
+    assert any(real in up for up in c_upstreams)
+    assert all(v not in up for up in c_upstreams)
+    assert aggregator.report.num_views_self_reference_dropped == 1
+
+
+def test_view_definition_self_only_with_view_in_fallback_counts_once() -> None:
+    """Parse resolves to only the view, and the caller's fallback list also contains the view:
+    the self-reference drop must be counted once, not once per path."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    fb = DatasetUrn("snowflake", "db.schema.src").urn()
+    parsed = SqlParsingResult(
+        in_tables=[v],
+        out_tables=[v],
+        column_lineage=None,
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a from db.schema.v",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[v, fb],  # includes the view itself
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    aspect = _upstream_lineage_aspect(mcps, v)
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [fb]
+    assert aggregator.report.num_views_self_reference_dropped == 1
+
+
+def test_view_definition_fallback_only_self_still_counts() -> None:
+    """Parse finds no self-reference but the caller's fallback list is only the view: the
+    fallback strip is the only place the self-loop is caught, so it must still count once."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    parsed = SqlParsingResult(
+        in_tables=[],
+        out_tables=[v],
+        column_lineage=None,
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select 1",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[v],  # only the view itself
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    assert _upstream_lineage_aspect(mcps, v) is None  # stripped to empty
+    assert aggregator.report.num_views_self_reference_dropped == 1
+
+
+def test_view_definition_parses_to_only_self_falls_back() -> None:
+    """A definition that parses but resolves to only the view itself uses the table-level fallback
+    instead of emitting empty lineage; the fallback must not depend on the definition hard-failing
+    to parse (which is a sqlglot-version detail for MERGE-INTO-SELF DDL)."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    fb = DatasetUrn("snowflake", "db.schema.src").urn()
+    parsed = SqlParsingResult(
+        in_tables=[v],  # parses, but the only upstream is the view itself
+        out_tables=[v],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="a"),
+                upstreams=[ColumnRef(table=v, column="a")],
+            )
+        ],
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a from db.schema.v",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[fb],
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    aspect = _upstream_lineage_aspect(mcps, v)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert fb in upstreams  # fell back to the supplied upstreams
+    assert v not in upstreams
+    assert not aspect.fineGrainedLineages  # the all-self column lineage was excluded
+    assert not _skip_query_present(mcps)  # fallback emits no placeholder Query entity
+    assert aggregator.report.num_views_table_level_fallback == 1
+    assert aggregator.report.num_views_self_reference_dropped == 1
+
+
+def test_view_definition_empty_table_upstreams_keeps_column_lineage() -> None:
+    """A parse that yields no table-level upstreams (after self-exclusion) but a real column edge
+    must keep the column lineage, not discard it for the table-level fallback."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    real = DatasetUrn("snowflake", "db.schema.real").urn()
+    fb = DatasetUrn("snowflake", "db.schema.fb").urn()
+    parsed = SqlParsingResult(
+        in_tables=[v],  # only the view itself at the table level
+        out_tables=[v],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="a"),
+                upstreams=[
+                    ColumnRef(table=real, column="a")
+                ],  # real, non-self column edge
+            )
+        ],
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select a from db.schema.real",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[fb],
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    aspect = _upstream_lineage_aspect(mcps, v)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert fb not in upstreams  # did NOT fall back
+    assert real in upstreams  # the column-lineage upstream is kept
+    assert aspect.fineGrainedLineages  # column lineage preserved
+    assert aggregator.report.num_views_table_level_fallback == 0
+
+
+def test_view_definition_column_lineage_without_real_upstreams_falls_back() -> None:
+    """Column-lineage entries with no real upstream are not usable lineage, so a definition with no
+    table upstreams and only such entries uses the fallback rather than emitting nothing."""
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    v = DatasetUrn("snowflake", "db.schema.v").urn()
+    fb = DatasetUrn("snowflake", "db.schema.src").urn()
+    parsed = SqlParsingResult(
+        in_tables=[],
+        out_tables=[v],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=v, column="a"),
+                upstreams=[],  # a column with no real upstream
+            )
+        ],
+        debug_info=SqlParsingDebugInfo(confidence=1.0),
+    )
+    aggregator.add_view_definition(
+        view_urn=v,
+        view_definition="create view v as select 1 as a",
+        default_db="db",
+        default_schema="schema",
+        table_level_fallback_upstreams=[fb],
+    )
+    with patch.object(aggregator, "_run_sql_parser", return_value=parsed):
+        mcps = list(aggregator.gen_metadata())
+
+    aspect = _upstream_lineage_aspect(mcps, v)
+    assert aspect is not None
+    upstreams = [u.dataset for u in aspect.upstreams]
+    assert fb in upstreams  # fell back: no usable lineage was derived
+    assert aggregator.report.num_views_table_level_fallback == 1
+
+
+@contextlib.contextmanager
+def _borrowed_resolver_pair():
+    """An owner aggregator and a borrower that shares its schema resolver.
+
+    This is the shape Snowflake builds under `use_queries_v2`: one aggregator
+    owns the resolver, a second is handed the same object and never owns it. Both
+    are closed on exit so their backing SQLite temp dirs do not leak; close() is
+    idempotent, so a test may also close either one itself.
+    """
+    owner = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_queries=False,
+    )
+    resolver = owner._schema_resolver
+    resolver._schema_cache[
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
+    ] = {"col_a": "int"}
+    borrower = SqlParsingAggregator(
+        platform="snowflake",
+        schema_resolver=resolver,
+        generate_lineage=True,
+        generate_queries=False,
+    )
+    try:
+        yield owner, borrower
+    finally:
+        borrower.close()
+        owner.close()
+
+
+def test_compute_stats_does_not_raise_after_resolver_closed():
+    """The guard has to describe the resolver, not the aggregator holding it.
+
+    The borrower never owns the resolver, so its own `_closed` flag says nothing
+    about whether the resolver's SQLite connection is still open. Closing the
+    owner used to leave the borrower's next report serialization raising
+    AttributeError on a None connection.
+    """
+    with _borrowed_resolver_pair() as (owner, borrower):
+        owner.close()
+
+        borrower.report.compute_stats()
+
+
+def test_aggregator_owned_stats_survive_dead_resolver():
+    """Only the resolver is foreign-owned; every other counter must still be set.
+
+    Guards against simplifying the narrow guard into an early return, which stays
+    silent because the crash remains fixed and only the counters vanish. Every
+    assignment below the guard is asserted, so a partial list cannot let that
+    regression through.
+    """
+    with _borrowed_resolver_pair() as (owner, borrower):
+        owner.close()
+
+        borrower.report.compute_stats()
+
+        # aggregator-owned
+        assert borrower.report.num_unique_query_fingerprints is not None
+        assert borrower.report.num_urns_with_lineage is not None
+        assert borrower.report.num_temp_sessions is not None
+        assert borrower.report.num_inferred_temp_schemas is not None
+        # process-wide caches, unaffected by this aggregator's resolver
+        assert borrower.report.sql_parsing_cache_stats is not None
+        assert borrower.report.parse_statement_cache_stats is not None
+        assert borrower.report.format_query_cache_stats is not None
+        # the one thing that is genuinely unreadable, and the flag that says so
+        assert borrower.report.schema_resolver_count is None
+        assert borrower.report.schema_resolver_unavailable is True
+
+
+def test_stale_count_not_republished_after_resolver_closes():
+    """compute_stats() runs on every render, including the mid-run progress print.
+
+    A count measured while the resolver was alive must not survive into the final
+    report once the resolver is gone.
+    """
+    with _borrowed_resolver_pair() as (owner, borrower):
+        borrower.report.compute_stats()
+        assert isinstance(borrower.report.schema_resolver_count, int), (
+            "setup failed: the count was never populated, so the assertion below "
+            "would pass for the wrong reason"
+        )
+
+        owner.close()
+        borrower.report.compute_stats()
+
+        assert borrower.report.schema_resolver_count is None
+
+
+def test_no_stats_for_never_populated_closed_resolver():
+    """An empty open resolver reads 0; a closed one reads None, not 0.
+
+    The two are different facts: 0 means measured-and-empty, None means could not
+    measure. Asserting both is what makes the cleared cache load-bearing.
+    """
+    with _borrowed_resolver_pair() as (owner, borrower):
+        owner._schema_resolver._schema_cache.clear()
+
+        borrower.report.compute_stats()
+        # Empty but readable, while the resolver is still open.
+        assert borrower.report.schema_resolver_count == 0
+
+        owner.close()
+        borrower.report.compute_stats()
+        # Absent, not a spurious zero: we could not measure it, so we do not claim it.
+        assert borrower.report.schema_resolver_count is None
+
+
+def test_compute_stats_early_returns_when_aggregator_closed():
+    """The pre-existing early return protects more than the resolver line.
+
+    `close()` computes stats once and then closes the exit stack, which takes
+    `_query_map` with it. A second `compute_stats()` without the early return
+    dies on `len(_query_map)`, the same exception this change fixes elsewhere.
+    The two guards therefore cover different cases and neither replaces the
+    other, which is what the dead-state assertion below pins.
+    """
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_queries=False,
+    )
+    aggregator.close()
+    before = aggregator.report.num_unique_query_fingerprints
+
+    # returns without raising, and without recomputing
+    aggregator.report.compute_stats()
+    assert aggregator.report.num_unique_query_fingerprints == before
+
+    # and this is what it declined to touch: state that is genuinely gone
+    with pytest.raises(AttributeError):
+        len(aggregator._query_map)
+
+
+def test_report_serializes_twice_without_raising():
+    """The pipeline serializes the report mid-run for progress and again at the end."""
+    with _borrowed_resolver_pair() as (owner, borrower):
+        owner.close()
+
+        borrower.report.as_obj()
+        borrower.report.as_obj()

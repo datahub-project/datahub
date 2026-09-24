@@ -137,9 +137,6 @@ async def test_execute_success(
         patch(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
         ) as _mock_remove_dir,
-        patch(
-            "datahub.executor.execution.sub_process_test_connection_task.shutdown_secret_masking"
-        ),
     ):
         # Setup mocks: _resolve_recipe now returns (recipe, secret_values)
         mock_resolve.return_value = (
@@ -194,6 +191,8 @@ async def test_execute_success(
         assert yaml.safe_load(stdin_payload["__recipe_yaml__"]) == {
             "source": {"type": "demo-data"}
         }
+        # Recipe secrets plus pip-referenced env values; extra_env_vars are
+        # deliberately NOT treated as secrets (plaintext in the source config).
         assert stdin_payload["__secrets__"] == {"SOME_SECRET": "val"}
         mock_process.stdin.close.assert_called_once()
 
@@ -257,9 +256,6 @@ async def test_execute_failure_raises(
         patch(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
         ) as _mock_remove_dir,
-        patch(
-            "datahub.executor.execution.sub_process_test_connection_task.shutdown_secret_masking"
-        ),
     ):
         # Setup mocks: _resolve_recipe now returns (recipe, secret_values)
         mock_resolve.return_value = ({"source": {"type": "demo-data"}}, {})
@@ -343,9 +339,6 @@ async def test_cancellation_terminates_the_subprocess(
         patch(
             "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
         ),
-        patch(
-            "datahub.executor.execution.sub_process_test_connection_task.shutdown_secret_masking"
-        ),
     ):
         mock_resolve.return_value = ({"source": {"type": "demo-data"}}, {})
         mock_get_plugin.return_value = "demo-data"
@@ -361,3 +354,43 @@ async def test_cancellation_terminates_the_subprocess(
             await pending
 
     mock_process.terminate.assert_called_once()
+
+
+async def test_exec_out_dir_exists_when_the_subprocess_is_launched(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """The connection report is written into exec_out_dir, so it must exist by launch.
+
+    Only the dynamic venv path creates it, via `uv venv`. "bundled" and "native" reuse a
+    prebuilt venv and return without touching it, so the task has to create it itself.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+    exec_out_dir = Path(config.tmp_dir) / exec_ctx.exec_id
+
+    observed: dict[str, bool] = {}
+
+    def record_and_stop(*_args: Any, **_kwargs: Any) -> Mock:
+        observed["exec_out_dir_exists"] = exec_out_dir.is_dir()
+        raise RuntimeError("stop here; the directory is all this test cares about")
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "opt" / "datahub" / "venvs" / "demo-data-bundled"
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            side_effect=record_and_stop,
+        ),
+        pytest.raises(RuntimeError),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert observed["exec_out_dir_exists"]

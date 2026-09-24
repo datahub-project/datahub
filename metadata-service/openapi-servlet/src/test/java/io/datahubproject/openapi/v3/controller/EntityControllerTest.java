@@ -1,14 +1,19 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.CORP_USER_CREDENTIALS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SUB_TYPES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.TAG_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.utils.GenericRecordUtils.JSON;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -53,15 +58,19 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory;
+import com.linkedin.identity.CorpUserCredentials;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -536,6 +545,101 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
       return authorizerChain;
     }
+  }
+
+  private void denyManageUserCredentialsOnly() {
+    when(authorizerChain.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              AuthorizationResult.Type type =
+                  PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE
+                          .getType()
+                          .equals(request.getPrivilege())
+                      ? AuthorizationResult.Type.DENY
+                      : AuthorizationResult.Type.ALLOW;
+              return new AuthorizationResult(request, type, "");
+            });
+  }
+
+  private void stubCorpUserAspects(Urn userUrn) {
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                userUrn,
+                List.of(
+                    new EnvelopedAspect()
+                        .setName(CORP_USER_INFO_ASPECT_NAME)
+                        .setValue(new Aspect(new CorpUserInfo().setActive(true).data())),
+                    new EnvelopedAspect()
+                        .setName(CORP_USER_CREDENTIALS_ASPECT_NAME)
+                        .setValue(
+                            new Aspect(
+                                new CorpUserCredentials()
+                                    .setSalt("salt")
+                                    .setHashedPassword("hash")
+                                    .data())))));
+  }
+
+  @Test
+  public void testCredentialsAspectDeniedWithoutManageUserCredentials() throws Exception {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+    denyManageUserCredentialsOnly();
+    stubCorpUserAspects(userUrn);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                    "/openapi/v3/entity/corpuser/{urn}/corpUserCredentials", userUrn)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
+    // Case-insensitive path segments must not bypass the gate.
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                    "/openapi/v3/entity/corpuser/{urn}/corpusercredentials", userUrn)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden());
+    // HEAD shares the gate: existence of credential material is not disclosed either.
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.head(
+                "/openapi/v3/entity/corpuser/{urn}/corpUserCredentials", userUrn))
+        .andExpect(status().isForbidden());
+    verify(mockEntityService, never())
+        .getEnvelopedVersionedAspects(any(OperationContext.class), anyMap(), anyBoolean());
+  }
+
+  @Test
+  public void testCredentialsAspectOmittedFromEntityWithoutManageUserCredentials()
+      throws Exception {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+    denyManageUserCredentialsOnly();
+    stubCorpUserAspects(userUrn);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/entity/corpuser/{urn}", userUrn)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.urn").value(userUrn.toString()))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.corpUserInfo.value.active").value(true))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.corpUserCredentials").doesNotExist());
+  }
+
+  @Test
+  public void testCredentialsAspectReturnedWithManageUserCredentials() throws Exception {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:victim");
+    stubCorpUserAspects(userUrn);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(
+                    "/openapi/v3/entity/corpuser/{urn}/corpUserCredentials", userUrn)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.value.hashedPassword").value("hash"));
   }
 
   @Test
@@ -1926,6 +2030,120 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     verify(mockEntityService, times(0))
         .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  public void testCreateEntityUnknownAspectReturns400() throws Exception {
+    String body =
+        "[{"
+            + "\"urn\":\"urn:li:tag:classification.public\","
+            + "\"structuredProperties\":{\"value\":{\"properties\":[{"
+            + "\"propertyUrn\":\"urn:li:structuredProperty:io.acryl.test.domain\","
+            + "\"values\":[{\"string\":\"Finance\"}]}]}}}]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/tag")
+                .content(body)
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "false")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(
+            result -> {
+              assertTrue(result.getResolvedException() instanceof IllegalArgumentException);
+              String message = result.getResolvedException().getMessage();
+              assertTrue(message.contains(STRUCTURED_PROPERTIES_ASPECT_NAME));
+              assertTrue(message.contains("tag"));
+            });
+
+    verify(mockEntityService, never())
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  public void testToMCPBatchTagPropertiesStillIngests() throws Exception {
+    String body =
+        "[{\"urn\":\"urn:li:tag:test-tag\",\"tagProperties\":{\"value\":{\"name\":\"test-tag\"}}}]";
+
+    AspectsBatch batch =
+        entityController.toMCPBatch(
+            opContext, body, opContext.getSessionActorContext().getAuthentication().getActor());
+
+    assertEquals(1, batch.getMCPItems().size());
+    assertEquals(TAG_PROPERTIES_ASPECT_NAME, batch.getMCPItems().get(0).getAspectName());
+  }
+
+  @Test
+  public void testToMCPBatchDatasetStructuredPropertiesStillIngests() throws Exception {
+    String body =
+        "[{\"urn\":\"urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)\","
+            + "\"structuredProperties\":{\"value\":{\"properties\":[{"
+            + "\"propertyUrn\":\"urn:li:structuredProperty:io.acryl.test.domain\","
+            + "\"values\":[{\"string\":\"Finance\"}]}]}}}]";
+
+    AspectsBatch batch =
+        entityController.toMCPBatch(
+            opContext, body, opContext.getSessionActorContext().getAuthentication().getActor());
+
+    assertEquals(1, batch.getMCPItems().size());
+    assertEquals(STRUCTURED_PROPERTIES_ASPECT_NAME, batch.getMCPItems().get(0).getAspectName());
+  }
+
+  @Test
+  public void testToMCPBatchMixedUnknownAspectFailsEntireRequest() {
+    String body =
+        "["
+            + "{\"urn\":\"urn:li:tag:valid-tag\",\"tagProperties\":{\"value\":{\"name\":\"valid-tag\"}}},"
+            + "{\"urn\":\"urn:li:tag:invalid-tag\",\"structuredProperties\":{\"value\":{\"properties\":[]}}}"
+            + "]";
+
+    try {
+      entityController.toMCPBatch(
+          opContext, body, opContext.getSessionActorContext().getAuthentication().getActor());
+      fail("Expected IllegalArgumentException for unknown aspect");
+    } catch (IllegalArgumentException e) {
+      assertTrue(e.getMessage().contains(STRUCTURED_PROPERTIES_ASPECT_NAME));
+      assertTrue(e.getMessage().contains("tag"));
+    } catch (Exception e) {
+      fail("Expected IllegalArgumentException, got " + e);
+    }
+  }
+
+  @Test
+  public void testToMCPBatchSkipsScrollIdDocumentKey() throws Exception {
+    String body =
+        "[{\"urn\":\"urn:li:tag:test-tag\",\"scrollId\":\"not-an-aspect\","
+            + "\"tagProperties\":{\"value\":{\"name\":\"test-tag\"}}}]";
+
+    AspectsBatch batch =
+        entityController.toMCPBatch(
+            opContext, body, opContext.getSessionActorContext().getAuthentication().getActor());
+
+    assertEquals(1, batch.getMCPItems().size());
+    assertEquals(TAG_PROPERTIES_ASPECT_NAME, batch.getMCPItems().get(0).getAspectName());
+  }
+
+  @Test
+  public void testToMCPBatchAlternateValidationRejectsUnknownAspect() {
+    OperationContext opContextSpy = spy(opContext);
+    ValidationContext mockValidationContext = mock(ValidationContext.class);
+    when(mockValidationContext.isAlternateValidation()).thenReturn(true);
+    when(opContextSpy.getValidationContext()).thenReturn(mockValidationContext);
+
+    String body =
+        "["
+            + "{\"urn\":\"urn:li:tag:valid-tag\",\"tagProperties\":{\"value\":{\"name\":\"valid-tag\"}}},"
+            + "{\"urn\":\"urn:li:tag:invalid-tag\",\"structuredProperties\":{\"value\":{\"properties\":[]}}}"
+            + "]";
+
+    assertThrows(
+        ValidationException.class,
+        () ->
+            entityController.toMCPBatch(
+                opContextSpy,
+                body,
+                opContext.getSessionActorContext().getAuthentication().getActor()));
   }
 
   private static String statusRemovedFalsePatchBody(Urn urn) {

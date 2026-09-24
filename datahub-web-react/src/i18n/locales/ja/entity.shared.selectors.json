@@ -3,8 +3,8 @@
     "domainSelector.label": "Domain",
     "domainSelector.placeholder": "Domainを選択",
     "domainSelector.searchPlaceholder": "すべてのDomainを検索...",
-    "entitySearch.noEntitiesFound": "エンティティが見つかりません",
-    "entitySearch.placeholder": "エンティティを検索...",
+    "entitySearch.noEntitiesFound": "Entityが見つかりません",
+    "entitySearch.placeholder": "Entityを検索...",
     "groupBy.displayValue": "{{label}}でグループ化",
     "groupBy.group": "グループ化"
 }

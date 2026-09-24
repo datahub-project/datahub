@@ -125,6 +125,12 @@ class SnowflakeV2Report(
     num_upstream_lineage_edge_parsing_failed: int = 0
     num_secure_views_missing_definition: int = 0
     num_dynamic_tables_missing_definition: int = 0
+    # No DYNAMIC_TABLE_GRAPH_HISTORY row matched the dynamic table's qualified name, so its
+    # INPUTS upstreams and target_lag fallback are unavailable. Counted because that loss is
+    # otherwise invisible: this equalling the dynamic-table count is the signature of the
+    # keying bug fixed in #19143, and of the graph-history query's filters excluding
+    # everything on an edition whose output differs from the documented one.
+    num_dynamic_tables_missing_graph_info: int = 0
     num_structured_property_templates_created: int = 0
     # sqlglot parse failures while resolving metric-to-metric derivedFrom refs;
     # best-effort, the metric is still emitted without those edges.

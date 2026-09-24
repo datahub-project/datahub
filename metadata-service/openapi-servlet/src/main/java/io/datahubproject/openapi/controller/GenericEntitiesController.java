@@ -25,6 +25,8 @@ import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
+import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
@@ -423,6 +425,8 @@ public abstract class GenericEntitiesController<
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + " entities.");
     }
+    denyUnauthorizedTimeseriesAspect(opContext, authentication, urn, entityName, aspectName);
+    denyUnauthorizedSensitiveAspect(opContext, authentication, urn, aspectName);
 
     final List<E> resultList;
     if (version == 0) {
@@ -484,6 +488,8 @@ public abstract class GenericEntitiesController<
       throw new UnauthorizedException(
           authentication.getActor().toUrnStr() + " is unauthorized to " + EXISTS + " entities.");
     }
+    denyUnauthorizedTimeseriesAspect(opContext, authentication, urn, entityName, aspectName);
+    denyUnauthorizedSensitiveAspect(opContext, authentication, urn, aspectName);
 
     return lookupAspectSpec(urn, aspectName)
         .filter(aspectSpec -> exists(opContext, urn, aspectSpec.getName(), includeSoftDelete))
@@ -830,6 +836,44 @@ public abstract class GenericEntitiesController<
   protected Optional<AspectSpec> lookupAspectSpec(Urn urn, String aspectName) {
     return RequestInputUtil.lookupAspectSpec(
         entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
+  }
+
+  protected boolean isTimeseriesAspect(@Nonnull Urn urn, @Nonnull String aspectName) {
+    return lookupAspectSpec(urn, aspectName).map(AspectSpec::isTimeseries).orElse(false);
+  }
+
+  protected void denyUnauthorizedTimeseriesAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull Authentication authentication,
+      @Nonnull Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName) {
+    if (isTimeseriesAspect(urn, aspectName)
+        && !TimeseriesAuthUtil.canViewAspect(opContext, urn, entityName, aspectName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " timeseries aspect "
+              + aspectName);
+    }
+  }
+
+  protected void denyUnauthorizedSensitiveAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull Authentication authentication,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName) {
+    String canonicalName =
+        lookupAspectSpec(urn, aspectName).map(AspectSpec::getName).orElse(aspectName);
+    if (!SensitiveAspectAuthUtil.canReadAspect(opContext, urn, canonicalName)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " aspect "
+              + canonicalName);
+    }
   }
 
   protected RecordTemplate toRecordTemplate(
