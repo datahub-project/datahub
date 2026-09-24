@@ -24,6 +24,7 @@ from datahub.ingestion.source.dataplex.dataplex_mappers import (
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.mlmodel import MLModel
 
 ENTRY_TYPE_PREFIX = "projects/123/locations/global/entryTypes/"
 
@@ -174,6 +175,30 @@ CASES = [
         "Table",
     ),
     (
+        "vertexai-feature-group",
+        "vertex_ai:featuregroup:my-project.us-west2.my_feature_group",
+        "",
+        "Dataset",
+        "my-project.us-west2.my_feature_group",
+        "Feature Group",
+    ),
+    (
+        "vertexai-feature-online-store",
+        "vertex_ai:featureonlinestore:my-project.us-west2.my_store",
+        "",
+        "Dataset",
+        "my-project.us-west2.my_store",
+        "Feature Online Store",
+    ),
+    (
+        "vertexai-model-version",
+        "vertex_ai:model:my-project.us-west2.123456.1",
+        "",
+        "MLModel",
+        "my-project.us-west2.123456.1",
+        None,
+    ),
+    (
         "dataproc-metastore-service",
         "dataproc_metastore:my-project.us-west1.my-service",
         "",
@@ -225,7 +250,20 @@ def test_mapper_builds_expected_entity(
     assert result is not None
     assert result.main_entity is not None
 
-    # Every entry also emits its owning project container as an additional entity.
+    if main_type == "MLModel":
+        # An MLModel has no DataHub container parent, no subtype slot, and is
+        # not a lineage node.
+        assert isinstance(result.main_entity, MLModel)
+        assert result.additional_entities == []
+        assert result.lineage_entry is None
+        assert dataset_name is not None
+        assert result.main_entity.urn.urn() == (
+            f"urn:li:mlModel:(urn:li:dataPlatform:{mapper.datahub_platform},"
+            f"{dataset_name},PROD)"
+        )
+        return
+
+    # Every other entry also emits its owning project container.
     assert len(result.additional_entities) == 1
     project_container = result.additional_entities[0]
     assert isinstance(project_container, Container)

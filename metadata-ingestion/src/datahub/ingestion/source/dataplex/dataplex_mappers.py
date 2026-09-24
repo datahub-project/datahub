@@ -39,6 +39,7 @@ from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    MLAssetSubTypes,
 )
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_helpers import EntryDataTuple
@@ -68,6 +69,9 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     SPANNER_INSTANCE_PARENT_ENTRY_REGEX,
     SPANNER_TABLE_FQN_REGEX,
     VERTEX_AI_DATASET_FQN_REGEX,
+    VERTEX_AI_FEATURE_GROUP_FQN_REGEX,
+    VERTEX_AI_FEATURE_ONLINE_STORE_FQN_REGEX,
+    VERTEX_AI_MODEL_FQN_REGEX,
     DataplexBigQueryDataset,
     DataplexBigtableInstance,
     DataplexCloudSpannerDatabase,
@@ -93,6 +97,7 @@ from datahub.metadata.schema_classes import SchemaMetadataClass
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
+from datahub.sdk.mlmodel import MLModel
 
 # ----------------------------------------------------------------------------
 # Context + result
@@ -177,11 +182,24 @@ class ContainerIdentity:
         return instantiate_key(self.key_class, identity_fields)
 
 
-# A mapper's identity is exactly one of these two variants. Modeled as a union
+@dataclass(frozen=True)
+class MLModelIdentity:
+    """MLModel identity: a dotted id built from FQN fields; no container, no schema."""
+
+    id_format: str
+
+    def model_id(self, identity_fields: dict[str, str]) -> Optional[str]:
+        try:
+            return self.id_format.format(**identity_fields) or None
+        except KeyError:
+            return None
+
+
+# A mapper's identity is exactly one of these variants. Modeled as a union
 # (not a shared base class) — the variants expose different builders
-# (dataset_name vs container_key), so there is no shared method, and the union
-# gives assert_never exhaustiveness in datahub_main_entity_type.
-DatahubIdentity: TypeAlias = Union[DatasetIdentity, ContainerIdentity]
+# (dataset_name vs container_key vs model_id), so there is no shared method,
+# and the union gives assert_never exhaustiveness in datahub_main_entity_type.
+DatahubIdentity: TypeAlias = Union[DatasetIdentity, ContainerIdentity, MLModelIdentity]
 
 
 @dataclass(frozen=True)
@@ -302,6 +320,8 @@ class EntryMapper(ABC):
             return Dataset
         elif isinstance(identity, ContainerIdentity):
             return Container
+        elif isinstance(identity, MLModelIdentity):
+            return MLModel
         else:
             assert_never(identity)
 
@@ -331,7 +351,8 @@ class EntryMapper(ABC):
     @property
     def datahub_additional_entity_types(self) -> tuple[type[Entity], ...]:
         """Entity types this mapper may emit besides the main one (the owning
-        project Container, hence the default).
+        project Container, hence the default). MLModel mappers override this
+        with an empty tuple: an MLModel has no DataHub container parent.
 
         Descriptive contract surface only — it documents the mapper's outputs and
         is **not** consumed at runtime: the orchestrator dedups the concrete
@@ -660,6 +681,53 @@ def build_dataset(
         additional_entities=additional,
         lineage_entry=lineage_entry,
     )
+
+
+def build_mlmodel(
+    entry: dataplex_v1.Entry,
+    ctx: EntryMappingContext,
+    *,
+    platform: str,
+    fqn_regex: Pattern[str],
+    identity: MLModelIdentity,
+) -> Optional[EntryMappingResult]:
+    """Map a Dataplex entry to a DataHub MLModel (no container, no lineage)."""
+    if not entry.fully_qualified_name:
+        return None
+
+    identity_fields = parse_with_regex(fqn_regex, entry.fully_qualified_name)
+    model_id = (
+        identity.model_id(identity_fields) if identity_fields is not None else None
+    )
+    if model_id is None:
+        ctx.report.warning(
+            title="Unparseable Dataplex fully_qualified_name",
+            message=(
+                "Recognized the entry type but could not derive a model id from "
+                "its fully_qualified_name. Skipping the model."
+            ),
+            context=(
+                f"entry_type={entry.entry_type}, "
+                f"entry_name={entry.name}, "
+                f"fully_qualified_name={entry.fully_qualified_name}"
+            ),
+        )
+        return None
+
+    common = _extract_common_fields(
+        entry, ctx.config.aspect_type_pattern, ctx.entries_report
+    )
+    model = MLModel(
+        id=model_id,
+        platform=platform,
+        env=ctx.config.env,
+        name=common.display_name,
+        description=common.description or None,
+        custom_properties=common.custom_properties,
+        created=common.created,
+        last_modified=common.last_modified,
+    )
+    return EntryMappingResult(main_entity=model)
 
 
 def build_container(
@@ -1095,6 +1163,72 @@ class VertexAiDatasetMapper(EntryMapper):
         )
 
 
+class VertexAiFeatureGroupMapper(EntryMapper):
+    dataplex_entry_type_short_name = "vertexai-feature-group"
+    datahub_platform = "vertexai"
+    dataplex_fqn_regex = VERTEX_AI_FEATURE_GROUP_FQN_REGEX
+    datahub_identity = DatasetIdentity("{project_id}.{location}.{feature_group_id}")
+    datahub_subtype = MLAssetSubTypes.VERTEX_FEATURE_GROUP
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_dataset(
+            entry,
+            ctx,
+            short_name=self.dataplex_entry_type_short_name,
+            platform=self.datahub_platform,
+            subtype=self.datahub_subtype,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+            parent=self.dataplex_parent_entry,
+        )
+
+
+class VertexAiFeatureOnlineStoreMapper(EntryMapper):
+    dataplex_entry_type_short_name = "vertexai-feature-online-store"
+    datahub_platform = "vertexai"
+    dataplex_fqn_regex = VERTEX_AI_FEATURE_ONLINE_STORE_FQN_REGEX
+    datahub_identity = DatasetIdentity("{project_id}.{location}.{store_id}")
+    datahub_subtype = MLAssetSubTypes.VERTEX_FEATURE_ONLINE_STORE
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_dataset(
+            entry,
+            ctx,
+            short_name=self.dataplex_entry_type_short_name,
+            platform=self.datahub_platform,
+            subtype=self.datahub_subtype,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+            parent=self.dataplex_parent_entry,
+        )
+
+
+class VertexAiModelVersionMapper(EntryMapper):
+    dataplex_entry_type_short_name = "vertexai-model-version"
+    datahub_platform = "vertexai"
+    dataplex_fqn_regex = VERTEX_AI_MODEL_FQN_REGEX
+    datahub_identity = MLModelIdentity("{project_id}.{location}.{model_id}.{version}")
+
+    @property
+    def datahub_additional_entity_types(self) -> tuple[type[Entity], ...]:
+        return ()
+
+    def map(
+        self, entry: dataplex_v1.Entry, ctx: EntryMappingContext
+    ) -> Optional[EntryMappingResult]:
+        return build_mlmodel(
+            entry,
+            ctx,
+            platform=self.datahub_platform,
+            fqn_regex=self.dataplex_fqn_regex,
+            identity=self.datahub_identity,
+        )
+
+
 class DataprocMetastoreServiceMapper(EntryMapper):
     dataplex_entry_type_short_name = "dataproc-metastore-service"
     datahub_platform = "dataproc-metastore"
@@ -1189,6 +1323,9 @@ _ALL_MAPPERS: list[EntryMapper] = [
     CloudBigtableTableMapper(),
     PubSubTopicMapper(),
     VertexAiDatasetMapper(),
+    VertexAiFeatureGroupMapper(),
+    VertexAiFeatureOnlineStoreMapper(),
+    VertexAiModelVersionMapper(),
     DataprocMetastoreServiceMapper(),
     DataprocMetastoreDatabaseMapper(),
     DataprocMetastoreTableMapper(),
