@@ -16,16 +16,11 @@ import requests
 
 from tests.consistency_utils import wait_for_writes_to_sync
 from tests.privileges.utils import create_user, remove_user
-from tests.utilities.domains import Domain
 from tests.utils import get_frontend_session, get_frontend_url, get_gms_url, login_as
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [
-    pytest.mark.no_cypress_suite1,
-    pytest.mark.domain(Domain.PLATFORM),
-    pytest.mark.p0,
-]
+pytestmark = pytest.mark.no_cypress_suite1
 
 _UNIQUE = uuid.uuid4().hex[:8]
 USER_PASSWORD = "user"
