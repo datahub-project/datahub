@@ -92,4 +92,4 @@ Casing is chosen by the shared schema resolver. The resolver dialect-normalizes 
 
 The resolver also folds BigQuery date-shard suffixes (`events_20240101` → `events_yyyymmdd`) so partitioned tables line up.
 
-Every resolver miss is counted under `queried_tables_unresolved_in_datahub`, with the synthesized URNs sampled in `queried_tables_unresolved_sample`. A high count is the signal for the dangling-edge case above.
+When `datahub-api` is configured, every resolver miss is counted under `queried_tables_unresolved_in_datahub`, with the synthesized URNs sampled in `queried_tables_unresolved_sample`. A high count is the signal for the dangling-edge case above. Without `datahub-api` the resolver cannot probe DataHub, so this counter stays at 0 and is not meaningful.

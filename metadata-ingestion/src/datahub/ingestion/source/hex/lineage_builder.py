@@ -17,6 +17,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.error import InvalidUrnError
 
 _MAX_SAMPLE_MISMATCHES = 5
 
@@ -99,10 +100,12 @@ class LineageBuilderReport(SourceReport):
     skipped_cells: LossyList[SkippedCell] = field(default_factory=LossyList)
     projects_lineage_via_queried_tables: int = 0
     projects_lineage_via_sql_parsing: int = 0
-    # queriedTables entries whose resolver probe missed DataHub. resolve_table
-    # still synthesizes a URN on a miss (per-platform default casing), so this
-    # counter is how a dangling upstream edge becomes diagnosable rather than
-    # silent — see build_from_queried_tables' "Known limitation" docstring.
+    # queriedTables entries whose resolver probe missed DataHub. Only
+    # incremented when a graph is attached — without datahub-api every
+    # probe returns schema_info=None and this would equal the table count.
+    # resolve_table still synthesizes a URN on a miss (per-platform default
+    # casing), so with a graph this counter is how a dangling upstream edge
+    # becomes diagnosable rather than silent.
     queried_tables_unresolved_in_datahub: int = 0
     queried_tables_unresolved_sample: LossyList[str] = field(default_factory=LossyList)
     # ENTERPRISE cross-validation: SQL parsing vs queriedTables
@@ -162,6 +165,10 @@ class HexLineageBuilder:
         # Cached per (platform, platform_instance) — same-platform connections
         # with different instances must NOT share a resolver.
         self._schema_resolvers: Dict[Tuple[str, Optional[str]], SchemaResolver] = {}
+        # Resolve dialect once per platform for the whole run — a bad
+        # connection_platform_map entry is a single config issue, not N
+        # per-project failures.
+        self._dialects: Dict[str, Optional[sqlglot.Dialect]] = {}
 
     def set_project_id(self, project_id: str) -> None:
         self._project_id = project_id
@@ -193,10 +200,6 @@ class HexLineageBuilder:
         """
         seen: Set[str] = set()
         result: List[str] = []
-        # Resolve dialect once per platform — a bad connection_platform_map
-        # entry is a single config issue, not N per-row failures.
-        dialects: Dict[str, Optional[sqlglot.Dialect]] = {}
-        unmapped_platforms_warned: Set[str] = set()
 
         for item in queried_tables:
             if not isinstance(item, dict):
@@ -217,24 +220,22 @@ class HexLineageBuilder:
                 continue
 
             platform = connection.platform
-            if platform not in dialects:
+            if platform not in self._dialects:
                 try:
-                    dialects[platform] = get_dialect(platform)
+                    self._dialects[platform] = get_dialect(platform)
                 except ValueError as e:
-                    dialects[platform] = None
-                    if platform not in unmapped_platforms_warned:
-                        unmapped_platforms_warned.add(platform)
-                        self._report.warning(
-                            title="Hex queriedTables: unmapped platform dialect",
-                            message=(
-                                "connection_platform_map names a platform that "
-                                "sqlglot has no dialect for, so its queriedTables "
-                                "entries cannot be parsed and are skipped from "
-                                "tier-1 lineage"
-                            ),
-                            context=f"platform={platform} error={e}",
-                        )
-            dialect = dialects[platform]
+                    self._dialects[platform] = None
+                    self._report.warning(
+                        title="Hex queriedTables: unmapped platform dialect",
+                        message=(
+                            "connection_platform_map names a platform that "
+                            "sqlglot has no dialect for, so its queriedTables "
+                            "entries cannot be parsed and are skipped from "
+                            "tier-1 lineage"
+                        ),
+                        context=f"platform={platform} error={e}",
+                    )
+            dialect = self._dialects[platform]
             if dialect is None:
                 self._record_skip(
                     connection_id=connection_id or "",
@@ -251,13 +252,29 @@ class HexLineageBuilder:
                 default_schema=connection.default_schema,
             )
             try:
-                # ParseError / TokenError come from tableName itself, which Hex
-                # does not guarantee is a well-formed identifier.
+                # sqlglot is lenient: to_table rarely raises, but it can return
+                # a Table with an empty name (a Snowflake table function such
+                # as TABLE(FLATTEN(...)), or "count(*)"). The empty name then
+                # raises InvalidUrnError out of URN construction, so the
+                # resolve has to sit inside the guard too — otherwise one bad
+                # row aborts the run.
                 tbl = normalize_identifiers(
                     sqlglot.to_table(qualified_name, dialect=dialect),
                     dialect=dialect,
                 )
-            except (sqlglot.ParseError, sqlglot.TokenError) as e:
+                tn = _table_name_from_sqlglot_table(tbl, dialect)
+                if not tn.table:
+                    raise ValueError(
+                        f"parsed to an empty table name: {qualified_name!r}"
+                    )
+                urn, schema_info = self._get_resolver(
+                    platform, connection.platform_instance
+                ).resolve_table_parts(
+                    database=tn.database,
+                    db_schema=tn.db_schema,
+                    table=tn.table,
+                )
+            except (sqlglot.errors.SqlglotError, InvalidUrnError, ValueError) as e:
                 self._record_skip(
                     connection_id=connection_id or "",
                     cell_id="queriedTables",
@@ -267,17 +284,11 @@ class HexLineageBuilder:
                 )
                 continue
 
-            tn = _table_name_from_sqlglot_table(tbl, dialect)
-            urn, schema_info = self._get_resolver(
-                platform, connection.platform_instance
-            ).resolve_table_parts(
-                database=tn.database,
-                db_schema=tn.db_schema,
-                table=tn.table,
-            )
-            if schema_info is None:
+            if self._graph is not None and schema_info is None:
                 # Synthesized URN — casing is a per-platform guess, not the
                 # warehouse's. Track so dangling edges are diagnosable.
+                # Gated on a graph: without datahub-api every probe misses
+                # and this counter would equal the distinct-table count.
                 self._report.queried_tables_unresolved_in_datahub += 1
                 self._report.queried_tables_unresolved_sample.append(urn)
             if urn not in seen:

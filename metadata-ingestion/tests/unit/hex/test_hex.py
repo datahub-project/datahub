@@ -8,6 +8,7 @@ from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.api.workunit_processor import WorkunitProcessorContext
+from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.hex.api import HexApiConnection
 from datahub.ingestion.source.hex.config import HexConnectionDetail, HexSourceConfig
 from datahub.ingestion.source.hex.hex import HexSource
@@ -473,17 +474,22 @@ def test_pipeline_blanket_urn_lowercasing_stays_disabled() -> None:
     decision so a future refactor can't quietly opt back into the global
     processor.
     """
-    config = HexSourceConfig.model_validate(
-        {
-            "workspace_name": "ws",
-            "token": "t",
-            "connection_platform_map": {
-                "conn-sf": {"platform": "snowflake", "platform_instance": "prod_sf"},
-                "conn-bq": {"platform": "bigquery"},
-            },
-        }
+    recipe = {
+        "workspace_name": "ws",
+        "token": "t",
+        "connection_platform_map": {
+            "conn-sf": {"platform": "snowflake", "platform_instance": "prod_sf"},
+            "conn-bq": {"platform": "bigquery"},
+        },
+    }
+    config = HexSourceConfig.model_validate(recipe)
+    pipeline_ctx = PipelineContext(
+        run_id="pipeline-lower-test",
+        pipeline_config=PipelineConfig(
+            source=SourceConfig(type="hex", config=recipe),
+        ),
     )
-    src = HexSource(config, PipelineContext(run_id="pipeline-lower-test"))
+    src = HexSource(config, pipeline_ctx)
     ctx = WorkunitProcessorContext(
         source_report=src.report,
         pipeline_context=src.ctx,
@@ -491,6 +497,25 @@ def test_pipeline_blanket_urn_lowercasing_stays_disabled() -> None:
         platform="hex",
     )
     assert not AutoLowercaseUrnsProcessor.should_enable(ctx)
+
+    # Contrast: the same processor with the key present in the recipe dict
+    # *would* fire. That proves the assertion above is reading the recipe,
+    # not short-circuiting on a missing pipeline_config.
+    opt_in_ctx = WorkunitProcessorContext(
+        source_report=src.report,
+        pipeline_context=PipelineContext(
+            run_id="pipeline-lower-opt-in",
+            pipeline_config=PipelineConfig(
+                source=SourceConfig(
+                    type="hex",
+                    config={**recipe, "convert_urns_to_lowercase": True},
+                ),
+            ),
+        ),
+        source_config=src.source_config,
+        platform="hex",
+    )
+    assert AutoLowercaseUrnsProcessor.should_enable(opt_in_ctx)
 
     # Negative control: HexSourceConfig must not accept
     # ``convert_urns_to_lowercase`` at the top level either — a recipe that
@@ -668,6 +693,88 @@ class TestQueriedTablesFallback:
         upstream = source.project_registry[project_id].upstream_datasets
         assert upstream and any("db.public.customers" in u for u in upstream)
         assert any("queriedTables" in (w.title or "") for w in source.report.warnings)
+
+    def test_fully_skipped_queried_tables_falls_back_to_sql_parsing(self):
+        """A 200 queriedTables response whose every row is skipped (unmapped
+        connection) must not suppress the SQL-cell path. Reverting
+        ``used_queried_tables = bool(upstream_urns)`` to ``True`` would leave
+        this project's upstreams empty."""
+        project_id = "proj-1"
+        project = {
+            "id": project_id,
+            "title": "Published",
+            "type": "PROJECT",
+            "lastPublishedAt": "2024-08-22T10:00:00Z",
+        }
+        sql_cell = {
+            "staticId": "cell-1",
+            "cellType": "SQL",
+            "dataConnectionId": "conn-sf",
+            "contents": {"sqlCell": {"source": "SELECT * FROM db.public.customers"}},
+        }
+
+        def make_response(status: int, payload: dict) -> MagicMock:
+            response = MagicMock(status_code=status, ok=status < 400)
+            response.json.return_value = payload
+            response.raise_for_status = MagicMock(
+                side_effect=None if status < 400 else Exception(f"HTTP {status}")
+            )
+            return response
+
+        def mock_get(url: str, **_: object) -> MagicMock:
+            if "queriedTables" in url:
+                return make_response(
+                    200,
+                    {
+                        "values": [
+                            {
+                                "dataConnectionId": "conn-unmapped",
+                                "tableName": "db.schema.orders",
+                            }
+                        ]
+                    },
+                )
+            if url.endswith("/data-connections"):
+                return make_response(
+                    200,
+                    {"values": [{"id": "conn-sf", "name": "SF", "type": "snowflake"}]},
+                )
+            if url.endswith("/cells"):
+                return make_response(200, {"values": [sql_cell], "pagination": {}})
+            if url.endswith("/projects"):
+                return make_response(200, {"values": [project], "pagination": {}})
+            return make_response(404, {})
+
+        def mock_post(_url: str, **_kwargs: object) -> MagicMock:
+            return make_response(200, {"content": "cells: []\n"})
+
+        config = {
+            "workspace_name": "ws",
+            "workspace_id": "ws-uuid",
+            "token": "t",
+            "use_queried_tables_lineage": True,
+            "include_run_history": False,
+            "include_context_documents": False,
+        }
+
+        with patch(
+            "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
+        ) as factory:
+            session = MagicMock()
+            session.get.side_effect = mock_get
+            session.post.side_effect = mock_post
+            session.request.side_effect = lambda method, url, **kw: (
+                mock_post(url, **kw)
+                if method.upper() == "POST"
+                else mock_get(url, **kw)
+            )
+            factory.return_value = session
+
+            source = HexSource.create(config, PipelineContext(run_id="t"))
+            list(source.get_workunits_internal())
+
+        upstream = source.project_registry[project_id].upstream_datasets
+        assert upstream and any("db.public.customers" in u for u in upstream)
 
     def test_column_lineage_dropped_warns_when_sql_disagrees_with_queried_tables(self):
         """When queriedTables and SQL cells resolve to different tables, all

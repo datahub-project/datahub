@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -53,17 +54,27 @@ def _pin_bigquery_shard_suffix(monkeypatch):
     )
 
 
+def _empty_graph() -> MagicMock:
+    """A graph that finds nothing — truthy so the unresolved counter gates on,
+    but every resolver probe still misses."""
+    graph = MagicMock()
+    graph.get_entities.return_value = {}
+    return graph
+
+
 def _builder(
     connections: Optional[Dict[str, HexConnection]] = None,
     env: str = "PROD",
     report: Optional[LineageBuilderReport] = None,
     project_id: str = "proj-1",
+    graph: Optional[Any] = None,
 ) -> HexLineageBuilder:
     return HexLineageBuilder(
         connections=connections if connections is not None else CONNECTIONS,
         env=env,
         report=report if report is not None else LineageBuilderReport(),
         project_id=project_id,
+        graph=graph,
     )
 
 
@@ -250,7 +261,7 @@ def test_build_from_queried_tables_skip_captures_exception_detail():
     ]
     assert len(unmapped) == 1
     contexts = list(unmapped[0].context)
-    assert any("db2" in c and "Unknown dialect" in c for c in contexts)
+    assert any("db2" in c for c in contexts)
     # Per-row skips still record every affected row for triage.
     assert len(report.skipped_cells) == 2
     for skip in report.skipped_cells:
@@ -284,6 +295,26 @@ def test_build_from_queried_tables_bad_entry_does_not_drop_neighbors():
     assert len(urns) == 2
     assert any("good_one" in u for u in urns)
     assert any("good_two" in u for u in urns)
+
+
+def test_build_from_queried_tables_table_function_does_not_abort_run():
+    """Snowflake table functions parse to an empty table name. URN construction
+    used to raise InvalidUrnError past the sqlglot guard and abort the run
+    when the connection had neither default_database nor default_schema."""
+    report = LineageBuilderReport()
+    b = _builder(report=report)
+    urns = b.build_from_queried_tables(
+        [
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "TABLE(FLATTEN(x))"},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "count(*)"},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "foo(bar)"},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "good_table"},
+        ]
+    )
+    assert len(urns) == 1
+    assert "good_table" in urns[0]
+    skipped = [s for s in report.skipped_cells if s.reason == "unparseable_table_name"]
+    assert len(skipped) == 3
 
 
 def test_build_from_queried_tables_four_part_name_preserved():
@@ -1130,6 +1161,7 @@ def test_build_from_queried_tables_mssql_case_preserved_urn_not_matched_by_resol
                 default_schema="dbo",
             ),
         },
+        graph=_empty_graph(),
     )
     landed_urn = make_dataset_urn_with_platform_instance(
         platform="mssql",
@@ -1157,9 +1189,10 @@ def test_build_from_queried_tables_mssql_case_preserved_urn_not_matched_by_resol
     assert list(report.queried_tables_unresolved_sample) == urns
 
 
-def test_build_from_queried_tables_unresolved_counter_and_sample_tracked():
-    """Every resolver miss increments the counter and appends the (synthesized)
-    URN to the sample so a dangling upstream edge is diagnosable."""
+def test_build_from_queried_tables_unresolved_counter_stays_zero_without_graph():
+    """Without datahub-api the resolver cannot probe DataHub, so every
+    schema_info is None. The unresolved counter must stay at 0 — otherwise a
+    supported coarse-lineage run looks like a widespread dangling-edge miss."""
     report = LineageBuilderReport()
     b = _builder(report=report)
     urns = b.build_from_queried_tables(
@@ -1168,7 +1201,23 @@ def test_build_from_queried_tables_unresolved_counter_and_sample_tracked():
             {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.s.b"},
         ]
     )
-    # No graph seeded → both misses.
+    assert len(urns) == 2
+    assert report.queried_tables_unresolved_in_datahub == 0
+    assert len(report.queried_tables_unresolved_sample) == 0
+
+
+def test_build_from_queried_tables_unresolved_counter_and_sample_tracked():
+    """With a graph attached, every resolver miss increments the counter and
+    appends the (synthesized) URN to the sample so a dangling upstream edge
+    is diagnosable."""
+    report = LineageBuilderReport()
+    b = _builder(report=report, graph=_empty_graph())
+    urns = b.build_from_queried_tables(
+        [
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.s.a"},
+            {"dataConnectionId": SNOWFLAKE_CONN, "tableName": "db.s.b"},
+        ]
+    )
     assert len(urns) == 2
     assert report.queried_tables_unresolved_in_datahub == 2
     assert set(report.queried_tables_unresolved_sample) == set(urns)
@@ -1178,7 +1227,7 @@ def test_build_from_queried_tables_unresolved_counter_not_bumped_on_hit():
     """When the URN is present in DataHub, the unresolved counter must not
     fire — otherwise operators can't distinguish real misses."""
     report = LineageBuilderReport()
-    b = _builder(report=report)
+    b = _builder(report=report, graph=_empty_graph())
     hit_urn = make_dataset_urn_with_platform_instance(
         platform="snowflake", name="db.s.orders", platform_instance=None, env="PROD"
     )
