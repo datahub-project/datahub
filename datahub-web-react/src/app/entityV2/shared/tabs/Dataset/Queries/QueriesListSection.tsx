@@ -1,27 +1,43 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Popover } from '@components';
-import { Table, TablePaginationConfig, Typography } from 'antd';
-import { TooltipPlacement } from 'antd/es/tooltip';
-import React, { useState } from 'react';
+import { Pagination, Popover, Table, Text } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { Column, SortingState } from '@components/components/Table/types';
 
 import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
 import QueryFilters from '@app/entityV2/shared/tabs/Dataset/Queries/QueryFilters/QueryFilters';
 import { QueriesTabSection, Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
 import useQueryTableColumns from '@app/entityV2/shared/tabs/Dataset/Queries/useQueryTableColumns';
 import { DEFAULT_PAGE_SIZE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
-import Loading from '@app/shared/Loading';
-import usePagination, { Pagination } from '@app/sharedV2/pagination/usePagination';
+import {
+    getQueriesTableData,
+    shouldShowQueriesTableLoading,
+} from '@app/entityV2/shared/tabs/Dataset/Queries/utils/getQueriesTableData';
+import usePagination, { Pagination as PaginationState } from '@app/sharedV2/pagination/usePagination';
 import { Sorting } from '@app/sharedV2/sorting/useSorting';
 import { FacetFilterInput } from '@src/types.generated';
 
-const SectionWrapper = styled.div<{ $borderRadiusBottom?: boolean }>`
+type TooltipPlacement = React.ComponentProps<typeof Popover>['placement'];
+
+const POPULAR_ROW_TEST_ID = 'popular-query-row';
+const PAGE_SIZE_OPTIONS = [5, 10, 20, 50, 100];
+const SMALLEST_PAGE_SIZE = Math.min(...PAGE_SIZE_OPTIONS);
+
+const SectionWrapper = styled.div<{ $borderRadiusBottom?: boolean; $fillHeight?: boolean }>`
     background-color: ${(props) => props.theme.colors.bg};
     padding: 24px;
     box-shadow: ${(props) => props.theme.colors.shadowXs};
     ${(props) => (props.$borderRadiusBottom ? `border-radius: 0 0 10px 10px;` : `border-radius: 10px;`)}
-    height: fit-content;
+    display: flex;
+    flex-direction: column;
+    /* The bottom-most section stretches to the end of the tab so the card lines up with the
+       entity sidebar. Sections above it stay content-sized. */
+    flex: ${(props) => (props.$fillHeight ? '1 0 auto' : '0 0 auto')};
+    ${(props) => props.$fillHeight && `max-height: 100%;`}
+    min-height: 0;
+    overflow: hidden;
 `;
 
 const QueriesTitleSection = styled.div`
@@ -36,44 +52,13 @@ const TitleWrapper = styled.div`
     align-items: center;
 `;
 
-const QueriesTitle = styled(Typography.Text)`
-    && {
-        margin: 0px;
-        font-size: 16px;
-        font-weight: 700;
-        color: ${(props) => props.theme.colors.text};
-    }
+const QueriesTitle = styled(Text)`
+    margin: 0;
 `;
 
-const StyledInfoOutlined = styled(InfoCircleOutlined)`
+const StyledInfo = styled(Info)`
     margin-left: 8px;
-    font-size: 12px;
     color: ${(props) => props.theme.colors.textTertiary};
-`;
-
-const StyledTable = styled(Table)`
-    .ant-table-thead > tr > th {
-        font-weight: 700;
-        font-size: 14px;
-        line-height: 16px;
-        color: ${(props) => props.theme.colors.textSecondary};
-    }
-
-    .lastRun {
-        min-width: 120px;
-    }
-    .usedBy {
-        min-width: 100px;
-    }
-    .description {
-        min-width: 240px;
-    }
-`;
-
-const LoadingWrapper = styled.div`
-    height: 300px;
-    display: flex;
-    align-items: center;
 `;
 
 const FiltersContainer = styled.div`
@@ -81,9 +66,18 @@ const FiltersContainer = styled.div`
     gap: 10px;
 `;
 
-const HighlightedQueriesContainer = styled.div`
-    height: 100%;
-    overflow: auto;
+const TableWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+`;
+
+const PaginationContainer = styled.div`
+    display: flex;
+    justify-content: center;
+    padding-top: 8px;
 `;
 
 type Props = {
@@ -92,10 +86,7 @@ type Props = {
     totalQueries: number;
     tooltip?: string;
     tooltipPosition?: TooltipPlacement;
-    initialPageSize?: number;
     showDetails?: boolean;
-    showEdit?: boolean;
-    showDelete?: boolean;
     onDeleted?: (query) => void;
     onEdited?: (query) => void;
     section: QueriesTabSection;
@@ -104,11 +95,12 @@ type Props = {
     selectedUsersFilter: FacetFilterInput;
     setSelectedUsersFilter: (usersFilter: FacetFilterInput) => void;
     loading?: boolean;
-    pagination?: Pagination;
+    pagination?: PaginationState;
     sorting?: Sorting;
     addQueryDisabled?: boolean;
     onAddQuery?: () => void;
     isTopSection?: boolean;
+    fillHeight?: boolean;
 };
 
 export default function QueriesListSection({
@@ -118,8 +110,6 @@ export default function QueriesListSection({
     queries,
     totalQueries,
     showDetails,
-    showEdit,
-    showDelete,
     onDeleted,
     onEdited,
     section,
@@ -133,15 +123,24 @@ export default function QueriesListSection({
     addQueryDisabled,
     onAddQuery,
     isTopSection,
+    fillHeight,
 }: Props) {
     const { t } = useTranslation('entity.profile.queries');
-    /**
-     * Table state
-     */
-    const [hoveredQueryUrn, setHoveredQueryUrn] = useState<string | null>(null);
     const defaultPagination = usePagination(DEFAULT_PAGE_SIZE);
+    // Popular / Highlighted pass a server-backed pagination hook; Downstream / Recent omit it and
+    // fall back to local page state. Alchemy's Table does not slice rows itself.
+    const isServerPaginated = pagination != null;
     const { pageSize, page, setPage, setPageSize } = pagination || defaultPagination;
+    const tableData = getQueriesTableData({
+        queries,
+        isServerPaginated,
+        page,
+        pageSize,
+    });
     const showPagination = totalQueries > pageSize;
+    // Visibility is independent of the current page size so choosing a size that fits every row
+    // does not hide the control needed to switch back.
+    const showPaginationControls = totalQueries > SMALLEST_PAGE_SIZE;
 
     const {
         titleColumn,
@@ -154,11 +153,7 @@ export default function QueriesListSection({
         columnsColumn,
         editColumn,
     } = useQueryTableColumns({
-        queries,
-        hoveredQueryUrn,
-        showDelete,
         showDetails,
-        showEdit,
         onDeleted,
         onEdited,
         sorting,
@@ -176,60 +171,48 @@ export default function QueriesListSection({
 
     const popularQueriesColumns = [queryTextColumn(), topUsersColumn, columnsColumn];
 
-    const downstreamQueriesColumns = [queryTextColumn(550), powersColumn];
+    const downstreamQueriesColumns = [queryTextColumn('550px'), powersColumn];
 
-    const recentQueriesColumns = [queryTextColumn(550)];
+    const recentQueriesColumns = [queryTextColumn('550px')];
 
-    const pagionationOptions: false | TablePaginationConfig = showPagination
-        ? ({
-              total: totalQueries,
-              current: page,
-              pageSize,
-              position: ['bottomCenter'],
-              onChange: (newPage: number) => {
-                  setPage(newPage);
-              },
-              pageSizeOptions: ['5', '10', '20', '50', '100'],
-              onShowSizeChange: (_, newPageSize: number) => {
-                  setPageSize(newPageSize);
-              },
-          } as TablePaginationConfig)
-        : false;
+    const handleSortColumnChange = ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => {
+        if (!showPagination || !sorting) return;
 
-    const loadingConfig = loading
-        ? {
-              indicator: (
-                  <LoadingWrapper data-testid="queries-loading">
-                      <Loading />{' '}
-                  </LoadingWrapper>
-              ),
-          }
-        : false;
-
-    const handleTableChange = (_pagination, _filters, tableSorting) => {
-        if (showPagination && sorting && tableSorting && Object.keys(tableSorting).length) {
-            sorting.setSortField((tableSorting as any).column?.field || null);
-            sorting.setSortOrder((tableSorting as any).order || null);
-        }
+        const sortFields: Record<string, string> = {
+            name: 'name',
+            dateCreated: 'createdAt',
+        };
+        sorting.setSortField(sortFields[sortColumn] ?? null);
+        sorting.setSortOrder(sortOrder === SortingState.ORIGINAL ? null : sortOrder);
     };
 
-    const tableProps = {
-        dataSource: queries,
-        pagination: pagionationOptions,
-        style: loading ? { minHeight: 400 } : {},
-        loading: loadingConfig,
-        scroll: { x: 'auto' },
-        onChange: handleTableChange,
-    };
+    const renderTable = (columns: Column<Query>[], rowDataTestId?: () => string) => (
+        <Table
+            columns={columns}
+            data={tableData}
+            isLoading={shouldShowQueriesTableLoading(loading, tableData.length)}
+            isScrollable
+            rowKey={(query) => query.urn || query.query}
+            rowDataTestId={rowDataTestId}
+            handleSortColumnChange={handleSortColumnChange}
+            data-testid={`queries-table-${section}`}
+        />
+    );
 
     return (
-        <SectionWrapper $borderRadiusBottom={isTopSection} data-testid={`queries-list-section-${section}`}>
+        <SectionWrapper
+            $borderRadiusBottom={isTopSection}
+            $fillHeight={fillHeight}
+            data-testid={`queries-list-section-${section}`}
+        >
             <QueriesTitleSection>
                 <TitleWrapper>
-                    <QueriesTitle>{title}</QueriesTitle>
+                    <QueriesTitle type="span" size="lg" weight="bold">
+                        {title}
+                    </QueriesTitle>
                     {tooltip && (
                         <Popover content={tooltip} placement={tooltipPosition}>
-                            <StyledInfoOutlined />
+                            <StyledInfo size={12} />
                         </Popover>
                     )}
                 </TitleWrapper>
@@ -253,33 +236,28 @@ export default function QueriesListSection({
                     />
                 )}
             </QueriesTitleSection>
-            {section === QueriesTabSection.Highlighted && (
-                <HighlightedQueriesContainer>
-                    <StyledTable
-                        {...tableProps}
-                        // eslint-disable-next-line i18next/no-literal-string -- antd scroll config value, not UI text
-                        scroll={{ x: 'auto', y: 400 }}
-                        columns={highlightedQueriesColumns}
-                        onRow={(row) => {
-                            return {
-                                onMouseEnter: () => setHoveredQueryUrn((row as Query).urn || ''),
-                                onMouseLeave: () => setHoveredQueryUrn(null),
-                            };
+            <TableWrapper>
+                {section === QueriesTabSection.Highlighted && renderTable(highlightedQueriesColumns)}
+                {section === QueriesTabSection.Popular && renderTable(popularQueriesColumns, () => POPULAR_ROW_TEST_ID)}
+                {section === QueriesTabSection.Downstream && renderTable(downstreamQueriesColumns)}
+                {section === QueriesTabSection.Recent && renderTable(recentQueriesColumns)}
+            </TableWrapper>
+            {showPaginationControls && (
+                <PaginationContainer>
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        total={totalQueries}
+                        pageSizeOptions={PAGE_SIZE_OPTIONS}
+                        showSizeChanger
+                        onPageChange={(newPage) => setPage(newPage)}
+                        onShowSizeChange={(newPage, newPageSize) => {
+                            setPage(newPage);
+                            setPageSize(newPageSize);
                         }}
                     />
-                </HighlightedQueriesContainer>
+                </PaginationContainer>
             )}
-            {section === QueriesTabSection.Popular && (
-                <StyledTable
-                    {...tableProps}
-                    columns={popularQueriesColumns}
-                    onRow={() => ({ 'data-testid': 'popular-query-row' }) as React.HTMLAttributes<HTMLElement>}
-                />
-            )}
-            {section === QueriesTabSection.Downstream && (
-                <StyledTable columns={downstreamQueriesColumns} {...tableProps} />
-            )}
-            {section === QueriesTabSection.Recent && <StyledTable columns={recentQueriesColumns} {...tableProps} />}
         </SectionWrapper>
     );
 }
