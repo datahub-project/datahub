@@ -334,7 +334,8 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     # >= 4.7.1 for CVE-2026-15925: the connector accepted a certificate signed by any
     # trusted CA for any domain without matching the requested host. 4.7.0 was yanked.
-    "snowflake-connector-python>=4.7.1,<5.0.0",
+    # Floor is 4.7.3: 4.7.1/4.7.2 reject valid certificates for account locators with underscores.
+    "snowflake-connector-python>=4.7.3,<5.0.0",
     "pandas<3.0.0",
     # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
     # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.

@@ -39,6 +39,10 @@ pillow>=12.1.1
 setuptools>=83.0.0
 # CVE-2026-69247; CVE-2026-69249 path-building DoS covered by 49+.
 cryptography>=50.0.0,<51.0.0
+# snowflake-connector-python: CVE-2026-15925 (improper TLS hostname verification); fixed in 4.7.1
+# (4.7.0 was yanked). Floor is 4.7.3 because 4.7.1/4.7.2 break hostname verification for account
+# locators containing underscores. Matches the setup.py floor so published acryl-datahub installs get it too.
+snowflake-connector-python>=4.7.3,<5.0.0
 # GHSA-6v7p-g79w-8964: Unpacker reuse after error can SEGV / DoS; fixed in 1.2.1.
 msgpack>=1.2.1
 # JWE RSA1_5 padding oracle (CVE); fixed in 1.6.9
@@ -90,8 +94,3 @@ ujson>=5.12.1,<6
 # CVE-2026-85999 (ReDoS RE_WS_END), CVE-2026-86000 (ReDoS IDENTIFIER/VALUE);
 # all fixed in 2.9.0. Transitive (beautifulsoup4); not in setup.py.
 soupsieve>=2.9.0
-# snowflake-connector-python: CVE-2026-15925 (improper TLS hostname verification - a
-# certificate signed by any trusted CA for any domain was accepted without matching the
-# requested host); fixed in 4.7.1. 4.7.0 is yanked on PyPI. Mirrors the setup.py floor so
-# image builds pick it up without waiting for an acryl-datahub release.
-snowflake-connector-python>=4.7.1,<5.0.0
