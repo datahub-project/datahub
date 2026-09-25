@@ -131,8 +131,8 @@ Keys that are not listed above are ignored. There is no feature flag: micro fron
 lists at least one enabled entry.
 
 The tab caption is the entry's `label`; `placement` deliberately carries no presentation fields so it can generalise to
-slots that are not tabs. Entity tabs are routed by that caption (`/dataset/<urn>/<label>`), so pick a `label` that does
-not collide with a built-in tab such as `Columns` or `Lineage`, and note that renaming it changes the tab's deep link.
+slots that are not tabs. A slot tab is addressed in the URL by `mfe-<id>` rather than by its caption
+(`/dataset/<urn>/mfe-access-tab`), so renaming — or translating — the label never breaks an existing link.
 
 ### Deploying the config
 
