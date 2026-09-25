@@ -41,8 +41,8 @@ import org.bouncycastle.pkcs.PKCSException;
  * PEM key/certificate loaders for {@code private_key_jwt} client authentication (RFC 7523).
  * Supports PKCS#8 ({@code BEGIN [ENCRYPTED] PRIVATE KEY}) and traditional OpenSSL ({@code BEGIN RSA
  * PRIVATE KEY}, encrypted or not) for keys, and PEM or DER X.509 for certificates (multi-cert PEMs
- * are treated as a chain, leaf first). For PKCS#12 / JKS sources, convert first with {@code openssl
- * pkcs12 -in keystore.p12 -nodes -out key.pem}.
+ * are treated as a chain, leaf first). To extract a key from a PKCS#12 file before configuration,
+ * use {@code openssl pkcs12 -in keystore.p12 -nocerts -nodes -out key.pem}.
  */
 public final class PrivateKeyJwtUtils {
 

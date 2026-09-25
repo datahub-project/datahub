@@ -15,7 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 public class PrivateKeyJwtUtilsTest {
 
   @Test
-  void loadsUnencryptedPemPrivateKey() throws IOException {
+  void loadsTraditionalUnencryptedRsaPemPrivateKey() throws IOException {
     RSAPrivateKey key = PrivateKeyJwtUtils.loadPrivateKey(TestKeyMaterial.PRIVATE_KEY_PATH, null);
     assertEquals("RSA", key.getAlgorithm());
     assertTrue(key.getModulus().bitLength() >= 2048);
@@ -27,6 +27,20 @@ public class PrivateKeyJwtUtilsTest {
         PrivateKeyJwtUtils.loadPrivateKey(
             TestKeyMaterial.ENCRYPTED_PRIVATE_KEY_PATH, TestKeyMaterial.ENCRYPTED_KEY_PASSWORD);
     assertEquals("RSA", key.getAlgorithm());
+  }
+
+  @Test
+  void loadsTraditionalEncryptedRsaPemPrivateKey() throws IOException {
+    RSAPrivateKey key =
+        PrivateKeyJwtUtils.loadPrivateKey(
+            TestKeyMaterial.ENCRYPTED_TRADITIONAL_PRIVATE_KEY_PATH,
+            TestKeyMaterial.ENCRYPTED_KEY_PASSWORD);
+    assertEquals("RSA", key.getAlgorithm());
+    assertThrows(
+        IOException.class,
+        () ->
+            PrivateKeyJwtUtils.loadPrivateKey(
+                TestKeyMaterial.ENCRYPTED_TRADITIONAL_PRIVATE_KEY_PATH, "wrongpassword"));
   }
 
   @Test

@@ -17,6 +17,7 @@ import org.bouncycastle.openssl.PKCS8Generator;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.openssl.jcajce.JcaPKCS8Generator;
 import org.bouncycastle.openssl.jcajce.JceOpenSSLPKCS8EncryptorBuilder;
+import org.bouncycastle.openssl.jcajce.JcePEMEncryptorBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.OutputEncryptor;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -33,6 +34,7 @@ public final class TestKeyMaterial {
 
   public static final String PRIVATE_KEY_PATH;
   public static final String ENCRYPTED_PRIVATE_KEY_PATH;
+  public static final String ENCRYPTED_TRADITIONAL_PRIVATE_KEY_PATH;
   public static final String CERTIFICATE_PATH;
   public static final String OTHER_CERTIFICATE_PATH;
   public static final String EC_PRIVATE_KEY_PATH;
@@ -62,6 +64,9 @@ public final class TestKeyMaterial {
       Path encKeyPath = dir.resolve("key-encrypted.pem");
       writeEncryptedPkcs8(encKeyPath, keyPair, ENCRYPTED_KEY_PASSWORD);
 
+      Path traditionalEncKeyPath = dir.resolve("key-traditional-encrypted.pem");
+      writeEncryptedTraditional(traditionalEncKeyPath, keyPair, ENCRYPTED_KEY_PASSWORD);
+
       KeyPair otherPair = kpg.generateKeyPair();
       Path otherCertPath = dir.resolve("other-cert.pem");
       writePem(otherCertPath, generateSelfSignedCertificate(otherPair));
@@ -69,7 +74,9 @@ public final class TestKeyMaterial {
       KeyPairGenerator ecKpg = KeyPairGenerator.getInstance("EC");
       ecKpg.initialize(256);
       Path ecKeyPath = dir.resolve("ec-key.pem");
-      writePem(ecKeyPath, ecKpg.generateKeyPair().getPrivate());
+      writePem(
+          ecKeyPath,
+          new PemObject("PRIVATE KEY", ecKpg.generateKeyPair().getPrivate().getEncoded()));
 
       KeyPairGenerator weakRsaKpg = KeyPairGenerator.getInstance("RSA");
       weakRsaKpg.initialize(1024);
@@ -78,6 +85,7 @@ public final class TestKeyMaterial {
 
       PRIVATE_KEY_PATH = keyPath.toString();
       ENCRYPTED_PRIVATE_KEY_PATH = encKeyPath.toString();
+      ENCRYPTED_TRADITIONAL_PRIVATE_KEY_PATH = traditionalEncKeyPath.toString();
       CERTIFICATE_PATH = certPath.toString();
       OTHER_CERTIFICATE_PATH = otherCertPath.toString();
       EC_PRIVATE_KEY_PATH = ecKeyPath.toString();
@@ -110,13 +118,27 @@ public final class TestKeyMaterial {
   }
 
   private static void writePem(Path path, Object object) throws IOException {
+    path.toFile().deleteOnExit();
     try (JcaPEMWriter writer = new JcaPEMWriter(Files.newBufferedWriter(path))) {
       writer.writeObject(object);
     }
   }
 
+  private static void writeEncryptedTraditional(Path path, KeyPair keyPair, String password)
+      throws IOException {
+    path.toFile().deleteOnExit();
+    try (JcaPEMWriter writer = new JcaPEMWriter(Files.newBufferedWriter(path))) {
+      writer.writeObject(
+          keyPair.getPrivate(),
+          new JcePEMEncryptorBuilder("AES-256-CBC")
+              .setProvider(BouncyCastleProvider.PROVIDER_NAME)
+              .build(password.toCharArray()));
+    }
+  }
+
   private static void writeEncryptedPkcs8(Path path, KeyPair keyPair, String password)
       throws Exception {
+    path.toFile().deleteOnExit();
     OutputEncryptor encryptor =
         new JceOpenSSLPKCS8EncryptorBuilder(PKCS8Generator.AES_256_CBC)
             .setProvider(BouncyCastleProvider.PROVIDER_NAME)

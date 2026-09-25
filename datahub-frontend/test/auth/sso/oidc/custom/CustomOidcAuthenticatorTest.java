@@ -232,6 +232,7 @@ public class CustomOidcAuthenticatorTest {
         List.of(GRANT, new RefreshTokenGrant(new RefreshToken("test-refresh-token")))) {
       TokenRequest request = auth.createTokenRequest(grant);
       assertEquals(updatedEndpoint, request.getEndpointURI());
+      assertEquals(new Scope("openid", "profile", "email"), request.getScope());
       assertEquals(
           List.of(updatedEndpoint.toString()),
           signedAssertion(request).getJWTClaimsSet().getAudience());
@@ -246,7 +247,7 @@ public class CustomOidcAuthenticatorTest {
     TokenRequest request = auth.createTokenRequest(GRANT);
     SignedJWT jwt = signedAssertion(request);
 
-    assertNull(request.getScope());
+    assertEquals(new Scope("openid", "profile", "email"), request.getScope());
     assertEquals("keycloak-client-kid-42", jwt.getHeader().getKeyID());
     // x5t#S256 must still be populated alongside the override so thumbprint-matching IdPs still
     // work.

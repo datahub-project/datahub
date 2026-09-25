@@ -13,6 +13,7 @@ import com.nimbusds.oauth2.sdk.AuthorizationCode;
 import com.nimbusds.oauth2.sdk.AuthorizationCodeGrant;
 import com.nimbusds.oauth2.sdk.AuthorizationGrant;
 import com.nimbusds.oauth2.sdk.ParseException;
+import com.nimbusds.oauth2.sdk.Scope;
 import com.nimbusds.oauth2.sdk.TokenErrorResponse;
 import com.nimbusds.oauth2.sdk.TokenRequest;
 import com.nimbusds.oauth2.sdk.TokenResponse;
@@ -163,7 +164,11 @@ public class CustomOidcAuthenticator extends OidcAuthenticator {
 
     URI tokenEndpoint = configuration.getOpMetadataResolver().load().getTokenEndpointURI();
     try {
-      return new TokenRequest(tokenEndpoint, signFreshPrivateKeyJwt(tokenEndpoint), grant);
+      return new TokenRequest(
+          tokenEndpoint,
+          signFreshPrivateKeyJwt(tokenEndpoint),
+          grant,
+          Scope.parse(configuration.getScope()));
     } catch (JOSEException e) {
       throw new TechnicalException("Failed to sign private_key_jwt client assertion", e);
     }

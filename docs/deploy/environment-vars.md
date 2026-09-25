@@ -1473,7 +1473,7 @@ Reference Links:
 | `AUTH_OIDC_PRIVATE_KEY_JWT_KID`             | `null`                 | Optional JWT `kid`. Defaults to the leaf certificate SHA-256 thumbprint.                                               | Frontend   |
 | `AUTH_OIDC_JIT_PROVISIONING_ENABLED`        | `true`                 | Whether DataHub users should be provisioned on login if they don't exist                                               | Frontend   |
 | `AUTH_OIDC_PRE_PROVISIONING_REQUIRED`       | `false`                | Whether the user should already exist in DataHub on login                                                              | Frontend   |
-| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `true`                 | Whether groups should be extracted from a claim in the OIDC profile                                                    | Frontend   |
+| `AUTH_OIDC_EXTRACT_GROUPS_ENABLED`          | `false`                | Whether groups should be extracted from a claim in the OIDC profile                                                    | Frontend   |
 | `AUTH_OIDC_REQUIRED_GROUPS`                 | `null`                 | Comma-separated list of required groups, from the OIDC groups claim.                                                   | Frontend   |
 | `AUTH_OIDC_ACCESS_DENIED_REDIRECT_URL`      | `null`                 | URL to redirect denied users (required groups or IdP access_denied). Takes precedence over the access-denied message.  | Frontend   |
 | `AUTH_OIDC_ACCESS_DENIED_MESSAGE`           | `null`                 | Message shown to users when denied access for missing required groups.                                                 | Frontend   |
