@@ -272,12 +272,17 @@ export class DatasetEntity implements Entity<Dataset> {
                 component: ViewDefinitionTab,
                 icon: CodeOutlined,
                 display: {
+                    // Presence of viewProperties (not .logic) reflects whether this dataset is a
+                    // view at all -- materialized/language are always populated when it is, but
+                    // .logic/.formattedLogic are null when the actor lacks VIEW_ENTITY_QUERIES,
+                    // and the tab must stay visible/enabled either way so it can show the
+                    // no-permission message inside instead of disappearing.
                     visible: (_, dataset: GetDatasetQuery) =>
-                        !!dataset?.dataset?.viewProperties?.logic ||
+                        !!dataset?.dataset?.viewProperties ||
                         !!dataset?.dataset?.subTypes?.typeNames
                             ?.map((t) => t.toLocaleLowerCase())
                             .includes(SUBTYPES.VIEW.toLocaleLowerCase()),
-                    enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties?.logic,
+                    enabled: (_, dataset: GetDatasetQuery) => !!dataset?.dataset?.viewProperties,
                 },
             },
             ...(!showSummaryTab

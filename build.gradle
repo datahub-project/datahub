@@ -44,7 +44,8 @@ buildscript {
   // CVE-2026-41731 (spring-kafka header deserialization): fixed in 4.0.6+ / 3.3.16+
   ext.springKafkaVersion = '4.0.7'
   // CVE-2023-50572 (GroovyEngine OOM); GHSA-2r2c-cx56-8933 (remote-telnet NAWS DoS): fixed in 4.2.1+
-  ext.jlineVersion = '4.2.1'
+  // CVE-2026-77420 (HISTORY_IGNORE ReDoS): fixed in 4.3.1+ / 3.30.15+
+  ext.jlineVersion = '4.3.1'
   // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
   ext.openTelemetryVersion = '1.62.0'
   ext.neo4jVersion = '5.20.0'
@@ -54,7 +55,9 @@ buildscript {
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
   // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
   // CVE-2026-10050 (Digest Auth bypass via ISO-8859-1 encoding): fixed in 12.1.10+
-  ext.jettyVersion = '12.1.10'
+  // CVE-2026-12611 (HTTP/2 RST_STREAM/GOAWAY race): fixed in 12.1.11+
+  // CVE-2026-19203 (HTTP/1.1 chunked smuggling), CVE-2026-19204 (WebSocket heap DoS): fixed in 12.1.12+
+  ext.jettyVersion = '12.1.13'
   // see also datahub-frontend/play.gradle (Play 3 + Apache Pekko)
   ext.playVersion = '3.0.10'
   ext.playScalaVersion = '2.13'
@@ -194,13 +197,16 @@ plugins {
 apply from: "gradle/docker/docker-utils.gradle"
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
-ext.jacksonVersion = '2.21.5'
+ext.jacksonVersion = '2.21.7'
 // Parquet stack: parquet-jackson shades Jackson under shaded/parquet/.
 // 1.18.0+ bundles jackson-databind 2.22.1 (CVE-2026-54512/54513 and related jackson-databind CVEs
 // fixed in 2.21.4+; https://github.com/apache/parquet-java/pull/3594).
 // 1.18.1 disables file-controlled KMS URLs by default (CVE-2026-73334).
-// App-classpath jackson-databind remains ext.jacksonVersion (2.21.5); that pin does not replace the shade.
+// App-classpath jackson-databind remains ext.jacksonVersion (2.21.7); that pin does not replace the shade.
 ext.parquetVersion = '1.18.1'
+// Latest JJWT on the 0.13 line (Java 7 compatible; 0.14+ not released). Deprecated
+// SigningKeyResolver still exists, which we need for issuer-based JWKS lookup.
+ext.jjwtVersion = '0.13.0'
 // Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
@@ -323,6 +329,9 @@ project.ext.externalDependency = [
     'jsonSmart': 'net.minidev:json-smart:2.5.2',
     'json': 'org.json:json:20231013',
     'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
+    'jjwtApi': "io.jsonwebtoken:jjwt-api:$jjwtVersion",
+    'jjwtImpl': "io.jsonwebtoken:jjwt-impl:$jjwtVersion",
+    'jjwtJackson': "io.jsonwebtoken:jjwt-jackson:$jjwtVersion",
     'junit': 'junit:junit:4.13.2',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
@@ -352,8 +361,8 @@ project.ext.externalDependency = [
     'mockServer': 'org.mock-server:mockserver-netty:5.15.0',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.15.0',
     'mysqlConnector': 'com.mysql:mysql-connector-j:9.4.0',
-    // CVE-2026-55856, CVE-2026-55857, CVE-2026-55858: fixed in 2.7.14+
-    'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.7.14',
+    // CVE-2026-55856/55857/55858, CVE-2026-61700: fixed in 2.7.14+; 2.7.15 adds CONJ-1342/1340/1332
+    'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.7.15',
     'gcpCloudSqlConnector': 'com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.25.3',
     'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
@@ -454,7 +463,7 @@ project.ext.externalDependency = [
     'fabric8KubernetesClient': 'io.fabric8:kubernetes-client:7.4.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.6',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.7',
     'wire': "com.squareup.wire:wire-compiler:${wireVersion}",
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
@@ -658,7 +667,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "io.confluent:kafka-schema-types:${rootProject.ext.confluentSerdeVersion}"
     resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
-    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981; overrides d2's 3.6.3
+    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739; overrides d2's 3.6.3
+    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.7'
     resolutionStrategy.force 'org.apache.thrift:libthrift:0.24.0' // CVE-2026-48586 (TZlibTransport zip-bomb DoS); transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
@@ -727,7 +737,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force rootProject.ext.externalDependency.lz4Java
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512/54513/54514/54516/54517/54518/59888 (2.21.4); CVE-2026-54515/59889, GHSA-mhm7-754m-9p8w (2.21.5)
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"  // CVE-2026-54512/54513/54514/54516/54517/54518/59888 (2.21.4); CVE-2026-54515/59889, GHSA-mhm7-754m-9p8w (2.21.5); CVE-2026-19032 (2.21.6)
     resolutionStrategy.force "org.springframework.security:spring-security-oauth2-jose:${rootProject.ext.springSecurityVersion}"  // CVE-2026-22748
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
@@ -893,7 +903,7 @@ subprojects {
         implementation("org.springframework.kafka:spring-kafka:${rootProject.ext.springKafkaVersion}") // CVE-2026-41731
         implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") // GHSA-vc5p-v9hr-52mj
         implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
-        implementation("org.jline:jline:${rootProject.ext.jlineVersion}") // CVE-2023-50572; GHSA-2r2c-cx56-8933
+        implementation("org.jline:jline:${rootProject.ext.jlineVersion}") // CVE-2023-50572; GHSA-2r2c-cx56-8933; CVE-2026-77420
         implementation("org.apache.commons:commons-configuration2:${commonsConfiguration2Version}") // CVE-2026-45205; GHSA-xjp4-hw94-mvp5
         implementation("org.springframework.security:spring-security-oauth2-jose:${springSecurityVersion}") // CVE-2026-22748
         implementation("org.apache.commons:commons-compress:${rootProject.ext.commonsCompressVersion}")
