@@ -59,6 +59,7 @@
     "filters.allStatuses": "Kaikki tilat",
     "filters.cli": "CLI",
     "filters.resultStatus": "Tuloksen tila",
+    "filters.sourceType": "Lähdetyyppi",
     "filters.ui": "UI",
     "page.noPermissionTooltip": "Sinulla ei ole käyttöoikeutta suorittaa tätä toimintoa. Ota yhteyttä DataHub-pääkäyttäjääsi saadaksesi lisätietoja.",
     "page.subtitle": "Määritä ja ajasta synkronointeja tietojen tuomiseksi tietolähteistäsi",

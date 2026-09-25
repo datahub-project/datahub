@@ -81,6 +81,7 @@
     "navLinks.help.title": "Hjälp",
     "navLinks.home": "Hem",
     "navLinks.metrics": "Mätvärden",
+    "navLinks.marketplace": "Marketplace",
     "navLinks.ingestion.description": "Hantera dataintegrationer och Pipelines",
     "navLinks.ingestion.title": "Ingestion",
     "navLinks.settings.description": "Hantera ditt konto och dina preferenser",

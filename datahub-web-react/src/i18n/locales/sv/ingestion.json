@@ -59,6 +59,7 @@
     "filters.allStatuses": "Alla status",
     "filters.cli": "CLI",
     "filters.resultStatus": "Resultatstatus",
+    "filters.sourceType": "Källtyp",
     "filters.ui": "UI",
     "page.noPermissionTooltip": "Du har inte behörighet att utföra den här åtgärden. Kontakta din DataHub-administratör för mer information.",
     "page.subtitle": "Konfigurera och schemalägg synkroniseringar för att importera data från dina datakällor",

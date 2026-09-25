@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "Kyselyt, jotka tukevat alavirran kohteita",
     "queriesTab.highlightedQueriesTitle": "Korostetut kyselyt",
     "queriesTab.highlightedQueriesTooltip": "Tähän tietoaineistoon liittyvät kuratoidut kyselyt",
+    "queriesTab.noViewPermission": "Sinulla ei ole käyttöoikeutta tarkastella tämän tietoaineiston kyselyjä.",
+    "queriesTab.queriesTitle": "Kyselyt",
     "queriesTab.recentQueriesTitle": "Viimeisimmät kyselyt",
     "queriesTab.recentQueriesTooltip": "Äskettäin tähän tietoaineistoon kohdistetut kyselyt",
     "queryBuilderModal.createError": "Kyselyn luominen epäonnistui! Tapahtui odottamaton virhe",

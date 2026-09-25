@@ -7,6 +7,7 @@
     "empty.title": "术语表为空",
     "list.error": "加载术语表失败！发生意外错误。",
     "list.loading": "正在加载术语表…",
+    "page.contactAdmin": "请联系你的 DataHub 管理员来设置术语表。",
     "page.createGlossary": "创建术语表",
     "page.subtitle": "使用数据字典对你的数据资产和列进行分类",
     "page.title": "业务术语表",

@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "驅動下游資料資產的查詢",
     "queriesTab.highlightedQueriesTitle": "精選查詢",
     "queriesTab.highlightedQueriesTooltip": "與此資料集相關的精選查詢",
+    "queriesTab.noViewPermission": "你沒有檢視此資料集查詢的權限。",
+    "queriesTab.queriesTitle": "查詢",
     "queriesTab.recentQueriesTitle": "近期查詢",
     "queriesTab.recentQueriesTooltip": "近期對此資料集執行的查詢",
     "queryBuilderModal.createError": "無法建立查詢！發生未預期的錯誤",

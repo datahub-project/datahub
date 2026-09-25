@@ -317,6 +317,7 @@
     "user.enterDisplayNameError": "Skriv inn et visningsnavn.",
     "user.enterEmailError": "Skriv inn e-postadressen din",
     "user.imageUrlLabel": "Bilde-URL",
+    "user.ingestionActor": "Ingestion",
     "user.invalidPhoneError": "ikke et gyldig telefonnummer",
     "user.invalidUrlError": "ikke en gyldig URL",
     "user.name": "Person",
@@ -328,5 +329,8 @@
     "user.teamLabel": "Team",
     "user.teamsHeading": "Team",
     "user.titleRoleLabel": "Tittel/rolle",
+    "tab.outputPorts": "Utdataporter",
+    "dataProduct.outputPortsToggle": "Utdataporter · {{count}}",
+    "dataProduct.allAssetsToggle": "Alle ressurser · {{count}}",
     "dataProduct.parentLabel": "Overordnet Data Product"
 }

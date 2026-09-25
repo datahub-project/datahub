@@ -1,6 +1,9 @@
 {
     "appearance.subTitle": "Hallitse ulkoasuasetuksiasi.",
     "appearance.title": "Ulkoasu",
+    "darkMode.beta": "Beta",
+    "darkMode.description": "Käytä tummaa väriteemaa koko DataHubissa.",
+    "darkMode.title": "Tumma tila",
     "language.description": "Valitse haluamasi käyttöliittymän kieli",
     "language.title": "Käyttöliittymän kieli",
     "noSettings": "Ulkoasuasetuksia ei löytynyt.",

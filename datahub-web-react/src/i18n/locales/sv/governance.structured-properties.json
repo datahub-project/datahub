@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Lägg till ett nytt värde i listan över tillåtna värden",
     "allowedValues.anyValueAllowed": "Alla värden av typen <type>{{valueType}}</type> tillåts",
     "allowedValues.descriptionPlaceholder": "Ange en beskrivning",
+    "allowedValues.descriptionTooltip": "Lägg till en beskrivning",
+    "allowedValues.dragTooltip": "Dra för att ändra ordning",
     "allowedValues.editExistingTooltip": "Det går inte att redigera befintliga tillåtna värden",
     "allowedValues.fieldTooltip": "Definiera vilka värden som är giltiga för den här egenskapen. Om inga anges tillåts alla värden",
+    "allowedValues.hideDescriptionTooltip": "Dölj beskrivning",
     "allowedValues.removeTooltip": "Ta bort från listan över tillåtna värden",
     "allowedValues.title": "Tillåtna värden",
     "allowedValues.updateButton": "Uppdatera tillåtna värden",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Gäller för",
     "appliesTo.titleCapitalized": "Gäller för",
     "appliesTo.tooltip": "Välj de entitetstyper som den här egenskapen kan läggas till på",
+    "badgeReplaceError": "Den strukturerade egenskapen har sparats, men tillgångens badge kunde inte uppdateras.",
     "create.nameError": "Ange ett namn",
     "create.namePlaceholder": "Ange ett namn",
     "create.propertyType": "Egenskapstyp",
@@ -64,6 +68,7 @@
     "page.subtitle": "Skapa och hantera anpassade egenskaper för dina datatillgångar",
     "page.title": "Strukturerade egenskaper",
     "permissionTooltip": "Du måste ha behörighet att hantera strukturerade egenskaper. Kontakta din DataHub-administratör.",
+    "table.allowedPlatformsColumn": "Plattformar",
     "table.confirmDeleteText": "Är du säker på att du vill ta bort? Om du tar bort den försvinner den strukturerade egenskapen från alla tillgångar den för närvarande finns på.",
     "table.confirmDeleteTitle": "Bekräfta borttagning",
     "table.copyUrn": "Kopiera URN",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Entitetstyper",
     "table.noPropertiesYet": "Inga egenskaper ännu!",
     "table.noSearchResults": "Inga sökresultat!",
+    "table.typeColumn": "Typ",
     "updateError": "Det gick inte att uppdatera den strukturerade egenskapen.",
     "updateSuccess": "Strukturerad egenskap uppdaterad!",
     "valueType.dateDescription": "Ett specifikt datum",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Ett textvärde",
     "valueType.textLabel": "Text",
     "valueType.textListDescription": "En lista med textvärden",
-    "valueType.textListLabel": "Text – Lista"
+    "valueType.textListLabel": "Text – Lista",
+    "viewTitle": "Visa strukturerad egenskap"
 }

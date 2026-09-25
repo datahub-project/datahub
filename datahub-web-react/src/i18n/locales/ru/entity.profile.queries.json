@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "Запросы, которые формируют нижестоящие ассеты",
     "queriesTab.highlightedQueriesTitle": "Отмеченные запросы",
     "queriesTab.highlightedQueriesTooltip": "Отобранные запросы, относящиеся к этому набору данных",
+    "queriesTab.noViewPermission": "У вас нет прав на просмотр запросов для этого набора данных.",
+    "queriesTab.queriesTitle": "Запросы",
     "queriesTab.recentQueriesTitle": "Последние запросы",
     "queriesTab.recentQueriesTooltip": "Недавно выполненные запросы к этому набору данных",
     "queryBuilderModal.createError": "Не удалось создать запрос! Произошла непредвиденная ошибка",

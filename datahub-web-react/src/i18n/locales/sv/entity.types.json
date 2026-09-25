@@ -317,6 +317,7 @@
     "user.enterDisplayNameError": "Ange ett visningsnamn.",
     "user.enterEmailError": "Ange din e-postadress",
     "user.imageUrlLabel": "Bild-URL",
+    "user.ingestionActor": "Ingestion",
     "user.invalidPhoneError": "inte ett giltigt telefonnummer",
     "user.invalidUrlError": "inte en giltig URL",
     "user.name": "Person",
@@ -328,5 +329,8 @@
     "user.teamLabel": "Team",
     "user.teamsHeading": "Team",
     "user.titleRoleLabel": "Titel/Roll",
+    "tab.outputPorts": "Output-portar",
+    "dataProduct.outputPortsToggle": "Output-portar · {{count}}",
+    "dataProduct.allAssetsToggle": "Alla tillgångar · {{count}}",
     "dataProduct.parentLabel": "Överordnat Data Product"
 }

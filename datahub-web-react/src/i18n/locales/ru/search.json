@@ -163,6 +163,7 @@
     "searchBar.sections.bestMatches": "Лучшие совпадения",
     "searchBar.sections.recentlySearched": "Вы недавно искали",
     "searchBar.sections.recentlyViewed": "Вы недавно просматривали",
+    "searchBar.viewAll": "Показать все →",
     "searchBar.viewAllResults": "Показать все результаты по запросу <bold>{{query}}</bold>",
     "searchHeader.discover": "Обзор",
     "sidebar.loadingError": "Не удалось загрузить боковую панель.",

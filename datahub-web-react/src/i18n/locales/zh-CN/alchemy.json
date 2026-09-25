@@ -64,6 +64,8 @@
     "incidentStage.noAction": "无需处理",
     "incidentStage.triage": "待分类",
     "input.placeholder": "占位文本",
+    "multiSelectInput.clearAllAriaLabel": "清除所有标签",
+    "multiSelectInput.removeTagAriaLabel": "移除 {{tag}}",
     "loadedImage.error": "未找到图片",
     "loadedVideo.error": "视频加载失败",
     "loadedVideo.unsupportedFallback": "你的浏览器不支持 HTML5 视频。请改用<anchor>视频链接</anchor>。",

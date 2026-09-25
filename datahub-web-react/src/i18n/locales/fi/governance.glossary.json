@@ -18,5 +18,11 @@
     "sidebar.collapse": "Pienennä sanasto",
     "sidebar.expand": "Laajenna sanasto",
     "sidebar.home": "Sanaston etusivu",
-    "sidebar.section.allTerms": "Kaikki sanaston termit"
+    "sidebar.ownerFilter.label": "Omistajat",
+    "sidebar.ownerFilter.placeholder": "Suodata omistajan mukaan",
+    "sidebar.domainFilter.label": "Toimialueet",
+    "sidebar.domainFilter.placeholder": "Suodata toimialueen mukaan",
+    "sidebar.section.allTerms": "Kaikki sanaston termit",
+    "sidebar.tagFilter.label": "Tunnisteet",
+    "sidebar.tagFilter.placeholder": "Suodata tunnisteen mukaan"
 }

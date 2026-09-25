@@ -17,6 +17,7 @@
     "executions.cancelError": "取消执行失败：\n {{errorMessage}}",
     "executions.cancelSuccess": "已成功提交取消请求！",
     "executions.cliExecution": "CLI 执行",
+    "executions.cliExecutionBy": "由 <user></user> 通过 CLI 执行",
     "executions.colDuration": "时长",
     "executions.colExecutedBy": "执行者",
     "executions.colStartedAt": "开始时间",

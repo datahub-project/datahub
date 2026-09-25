@@ -2,9 +2,13 @@
     "actorsSearch.placeholder": "Søk etter brukere eller grupper",
     "domainSelector.label": "Domener",
     "domainSelector.placeholder": "Velg domener",
+    "domainSelector.singleLabel": "Domene",
+    "domainSelector.singlePlaceholder": "Velg domene",
     "domainSelector.searchPlaceholder": "Søk i alle domener...",
     "entitySearch.noEntitiesFound": "Ingen entiteter funnet",
     "entitySearch.placeholder": "Søk etter entiteter...",
+    "customOwnershipType": "Egendefinert eierskapstype",
+    "ingestionSource": "Ingestion-kilde",
     "groupBy.displayValue": "Gruppert etter {{label}}",
     "groupBy.group": "Grupper"
 }

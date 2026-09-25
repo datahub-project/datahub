@@ -317,6 +317,7 @@
     "user.enterDisplayNameError": "Insira um nome de exibição.",
     "user.enterEmailError": "Insira seu e-mail",
     "user.imageUrlLabel": "URL da Imagem",
+    "user.ingestionActor": "Ingestion",
     "user.invalidPhoneError": "número de telefone inválido",
     "user.invalidUrlError": "URL inválida",
     "user.name": "Pessoa",
@@ -328,5 +329,8 @@
     "user.teamLabel": "Equipe",
     "user.teamsHeading": "Equipes",
     "user.titleRoleLabel": "Cargo/Função",
+    "tab.outputPorts": "Portas de Saída",
+    "dataProduct.outputPortsToggle": "Portas de saída · {{count}}",
+    "dataProduct.allAssetsToggle": "Todos os ativos · {{count}}",
     "dataProduct.parentLabel": "Data Product pai"
 }

@@ -18,5 +18,11 @@
     "sidebar.collapse": "Contraer glosario",
     "sidebar.expand": "Expandir glosario",
     "sidebar.home": "Inicio del glosario",
-    "sidebar.section.allTerms": "Todos los términos del glosario"
+    "sidebar.ownerFilter.label": "Owners",
+    "sidebar.ownerFilter.placeholder": "Filtrar por Owner",
+    "sidebar.domainFilter.label": "Dominios",
+    "sidebar.domainFilter.placeholder": "Filtrar por dominio",
+    "sidebar.section.allTerms": "Todos los términos del glosario",
+    "sidebar.tagFilter.label": "Tags",
+    "sidebar.tagFilter.placeholder": "Filtrar por tag"
 }

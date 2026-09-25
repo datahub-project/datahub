@@ -5,6 +5,8 @@
     "domainSelector.searchPlaceholder": "Поиск по всем доменам...",
     "entitySearch.noEntitiesFound": "Объекты не найдены",
     "entitySearch.placeholder": "Поиск объектов...",
+    "customOwnershipType": "Пользовательский тип владения",
+    "ingestionSource": "Источник загрузки",
     "groupBy.displayValue": "Группировать {{label}}",
     "groupBy.group": "Группировать",
     "domainSelector.singleLabel": "Домен",

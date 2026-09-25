@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "Requêtes qui alimentent les Assets en aval",
     "queriesTab.highlightedQueriesTitle": "Requêtes mises en avant",
     "queriesTab.highlightedQueriesTooltip": "Requêtes sélectionnées pertinentes pour ce dataset",
+    "queriesTab.noViewPermission": "Vous n'êtes pas autorisé à afficher les requêtes de ce dataset.",
+    "queriesTab.queriesTitle": "Requêtes",
     "queriesTab.recentQueriesTitle": "Requêtes récentes",
     "queriesTab.recentQueriesTooltip": "Requêtes récemment exécutées sur ce dataset",
     "queryBuilderModal.createError": "Échec de la création de la requête! Une erreur inattendue s'est produite",

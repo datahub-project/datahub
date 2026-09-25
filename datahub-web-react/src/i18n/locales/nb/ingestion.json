@@ -59,6 +59,7 @@
     "filters.allStatuses": "Alle statuser",
     "filters.cli": "CLI",
     "filters.resultStatus": "Resultatstatus",
+    "filters.sourceType": "Kildetype",
     "filters.ui": "UI",
     "page.noPermissionTooltip": "Du har ikke tillatelse til å utføre denne handlingen. Ta kontakt med DataHub-administratoren din for mer informasjon.",
     "page.subtitle": "Konfigurer og planlegg synkroniseringer for å importere data fra datakildene dine",

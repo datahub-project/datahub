@@ -59,6 +59,7 @@
     "filters.allStatuses": "Todos os Status",
     "filters.cli": "CLI",
     "filters.resultStatus": "Status do Resultado",
+    "filters.sourceType": "Tipo de Fonte",
     "filters.ui": "UI",
     "page.noPermissionTooltip": "Você não tem permissão para realizar esta ação. Entre em contato com o administrador do DataHub para mais informações.",
     "page.subtitle": "Configure e agende sincronizações para importar dados das suas fontes de dados",

@@ -317,6 +317,7 @@
     "user.enterDisplayNameError": "Anna näyttönimi.",
     "user.enterEmailError": "Anna sähköpostiosoitteesi",
     "user.imageUrlLabel": "Kuvan URL-osoite",
+    "user.ingestionActor": "Sisäänluku",
     "user.invalidPhoneError": "ei kelvollinen puhelinnumero",
     "user.invalidUrlError": "ei kelvollinen URL-osoite",
     "user.name": "Henkilö",
@@ -328,5 +329,8 @@
     "user.teamLabel": "Tiimi",
     "user.teamsHeading": "Tiimit",
     "user.titleRoleLabel": "Titteli/rooli",
+    "tab.outputPorts": "Lähtöportit",
+    "dataProduct.outputPortsToggle": "Lähtöportit · {{count}}",
+    "dataProduct.allAssetsToggle": "Kaikki kohteet · {{count}}",
     "dataProduct.parentLabel": "Ylätason Data Product"
 }

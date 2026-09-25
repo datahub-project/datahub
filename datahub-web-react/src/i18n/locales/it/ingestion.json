@@ -59,6 +59,7 @@
     "filters.allStatuses": "Tutti gli stati",
     "filters.cli": "CLI",
     "filters.resultStatus": "Stato del risultato",
+    "filters.sourceType": "Tipo di origine",
     "filters.ui": "UI",
     "page.noPermissionTooltip": "Autorizzazione non disponibile per eseguire questa azione. Per maggiori informazioni, contattare l'amministratore DataHub.",
     "page.subtitle": "Configura e pianifica le sincronizzazioni per importare i dati dalle origini dati",
