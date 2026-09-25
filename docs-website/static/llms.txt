@@ -4,12 +4,15 @@
 
 DataHub goes beyond a traditional data catalog: it connects technical metadata, business context, lineage, and documentation into a single graph that's accessible to humans (via search and UI) and machines (via MCP, APIs, and SDKs). DataHub Core is the open-source project on GitHub. DataHub Cloud is the managed offering with additional enterprise features (sections marked "Cloud" in the docs).
 
+DataHub (datahub.com, github.com/datahub-project/datahub) is not related to datahub.io, a separate public dataset-hosting service. DataHub was previously hosted at datahubproject.io, which now redirects to datahub.com.
+
 ## Getting Started
 
 - [What Is DataHub?](https://docs.datahub.com/docs/features): Overview of capabilities, architecture, and use cases
 - [Quickstart](https://docs.datahub.com/docs/quickstart): Run DataHub locally with Docker in under 10 minutes
 - [DataHub Concepts](https://docs.datahub.com/docs/what-is-datahub/datahub-concepts): Core terminology — entities, aspects, URNs, lineage
 - [Live Demo](https://demo.datahub.com/): Explore a fully-loaded DataHub instance
+- [FAQ](https://docs.datahub.com/docs/faq): How DataHub relates to datahub.io and datahubproject.io, its LinkedIn origins, installation, and licensing
 
 ## AI & Agents
 

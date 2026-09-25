@@ -32,6 +32,11 @@ module.exports = {
           label: "Customer Stories",
           href: "https://datahub.com/resources/?2004611554=dh-stories",
         },
+        {
+          type: "doc",
+          label: "FAQ",
+          id: "docs/faq",
+        },
       ],
     },
     {
@@ -1622,6 +1627,7 @@ module.exports = {
         description: "Learn about DataHub community.",
       },
       items: [
+        "docs/community",
         "docs/slack",
         { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
         "docs/townhalls",
@@ -1629,6 +1635,8 @@ module.exports = {
         "docs/CODE_OF_CONDUCT",
         "docs/CONTRIBUTING",
         "docs/links",
+        "docs/ecosystem",
+        "ADOPTERS",
         "docs/rfc",
         {
           type: "category",

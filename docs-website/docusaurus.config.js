@@ -401,6 +401,11 @@ module.exports = {
             from: '/docs/features/feature-guides/observe',
             to: '/docs/managed-datahub/observe/overview',
           },
+          {
+            // The root README is no longer built into the docs site.
+            from: '/docs/introduction',
+            to: '/docs/features',
+          },
         ],
       },
     ],
