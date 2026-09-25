@@ -16,11 +16,11 @@ export type ProfileScopeKind = 'fullTable' | 'query' | 'partition';
 
 export type ProfileScope = {
     kind: ProfileScopeKind;
-    /** Human-readable scope text for the column-stats sentence. */
+    /** Profiler text worth showing. Omitted for raw query JSON. */
     detail?: string;
-    /** Shorter text for the Latest caption. Sample rows stay; raw query JSON does not. */
-    shortDetail?: string;
 };
+
+type ScopeVariant = 'long' | 'short';
 
 type PartitionSpecLike = {
     type?: string | null;
@@ -28,6 +28,14 @@ type PartitionSpecLike = {
 } | null;
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+const SCOPE_KEY: Record<ProfileScopeKind | 'queryUnknown' | 'partitionUnknown', Record<ScopeVariant, string>> = {
+    fullTable: { long: 'profileScope.fullTable', short: 'profileScope.short.fullTable' },
+    query: { long: 'profileScope.query', short: 'profileScope.short.sample' },
+    queryUnknown: { long: 'profileScope.queryUnknown', short: 'profileScope.short.queryUnknown' },
+    partition: { long: 'profileScope.partition', short: 'profileScope.short.partition' },
+    partitionUnknown: { long: 'profileScope.partitionUnknown', short: 'profileScope.short.partitionUnknown' },
+};
 
 function isSamplePartition(partition: string): boolean {
     return partition.toUpperCase().startsWith(SAMPLE_PREFIX);
@@ -37,9 +45,14 @@ function isMachineQuery(partition: string): boolean {
     return partition.startsWith('{') || partition.startsWith('[');
 }
 
-function sampleShortDetail(partition: string): string | undefined {
+function sampleCaptionDetail(partition: string): string | undefined {
     const rest = partition.slice(SAMPLE_PREFIX.length).trim();
     return rest || undefined;
+}
+
+function queryScope(partition: string): ProfileScope {
+    if (!partition || isMachineQuery(partition)) return { kind: 'query' };
+    return { kind: 'query', detail: partition };
 }
 
 export function getProfileScope(partitionSpec?: PartitionSpecLike): ProfileScope | null {
@@ -52,37 +65,32 @@ export function getProfileScope(partitionSpec?: PartitionSpecLike): ProfileScope
     const type = partitionSpec.type ?? undefined;
     const partition = (partitionSpec.partition ?? '').trim();
 
-    if (isSamplePartition(partition) || type === QUERY_TYPE) {
-        if (!partition || isMachineQuery(partition)) return { kind: 'query' };
-        if (isSamplePartition(partition)) {
-            return { kind: 'query', detail: partition, shortDetail: sampleShortDetail(partition) };
-        }
-        return { kind: 'query', detail: partition, shortDetail: partition };
-    }
-
+    if (isSamplePartition(partition) || type === QUERY_TYPE) return queryScope(partition);
     if (type === FULL_TABLE_TYPE || partition === FULL_TABLE_PARTITION || partition === '') {
         return { kind: 'fullTable' };
     }
-
-    return { kind: 'partition', detail: partition || undefined, shortDetail: partition || undefined };
+    if (!partition) return { kind: 'partition' };
+    return { kind: 'partition', detail: partition };
 }
 
-function formatProfileScope(t: Translate, scope: ProfileScope, variant: 'long' | 'short'): string {
-    if (scope.kind === 'fullTable') {
-        return t(variant === 'long' ? 'profileScope.fullTable' : 'profileScope.short.fullTable');
+function visibleDetail(scope: ProfileScope, variant: ScopeVariant): string | undefined {
+    if (!scope.detail) return undefined;
+    if (variant === 'short' && scope.kind === 'query' && isSamplePartition(scope.detail)) {
+        return sampleCaptionDetail(scope.detail);
     }
+    return scope.detail;
+}
+
+function formatProfileScope(t: Translate, scope: ProfileScope, variant: ScopeVariant): string {
+    if (scope.kind === 'fullTable') return t(SCOPE_KEY.fullTable[variant]);
+
+    const detail = visibleDetail(scope, variant);
     if (scope.kind === 'query') {
-        const detail = variant === 'short' ? scope.shortDetail : scope.detail;
-        if (!detail) {
-            return t(variant === 'long' ? 'profileScope.queryUnknown' : 'profileScope.short.queryUnknown');
-        }
-        return t(variant === 'long' ? 'profileScope.query' : 'profileScope.short.sample', { detail });
+        if (!detail) return t(SCOPE_KEY.queryUnknown[variant]);
+        return t(SCOPE_KEY.query[variant], { detail });
     }
-    const detail = variant === 'short' ? scope.shortDetail : scope.detail;
-    if (!detail) {
-        return t(variant === 'long' ? 'profileScope.partitionUnknown' : 'profileScope.short.partitionUnknown');
-    }
-    return t(variant === 'long' ? 'profileScope.partition' : 'profileScope.short.partition', { detail });
+    if (!detail) return t(SCOPE_KEY.partitionUnknown[variant]);
+    return t(SCOPE_KEY.partition[variant], { detail });
 }
 
 export function formatColumnStatsSubtitle(t: Translate, scope: ProfileScope | null, reportedAt?: string): string {
@@ -95,9 +103,7 @@ export function formatColumnStatsSubtitle(t: Translate, scope: ProfileScope | nu
     if (scope) {
         return t('columnStatsV2.subtitleWithScope', { scope: formatProfileScope(t, scope, 'long') });
     }
-    if (reportedAt) {
-        return t('columnStatsV2.subtitleReported', { date: reportedAt });
-    }
+    if (reportedAt) return t('columnStatsV2.subtitleReported', { date: reportedAt });
     return t('columnStatsV2.subtitle');
 }
 

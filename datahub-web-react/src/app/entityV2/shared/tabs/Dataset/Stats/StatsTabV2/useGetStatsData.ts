@@ -42,8 +42,10 @@ export const useGetStatsData = () => {
     const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
     const rowCount = latestProfile?.rowCount ?? undefined;
     const columnCount = latestProfile?.columnCount ?? entityWithSchema?.schemaMetadata?.fields?.length ?? undefined;
-    const queryCount = queryCountLast30Days ?? totalSqlQueries ?? undefined;
+    const recentQueryCount = queryCountLast30Days ?? totalSqlQueries;
+    const queryCount = recentQueryCount ?? undefined;
     const totalOperations = operationsStats?.dataset?.operationsStats?.aggregations?.totalOperations ?? undefined;
+    const profiles = [latestFullTableProfile, latestPartitionProfile];
 
     return {
         usageStats,
@@ -56,14 +58,8 @@ export const useGetStatsData = () => {
         isSiblingsMode,
         partitionSpec: latestProfile?.partitionSpec,
         profileTimestampMillis: latestProfile?.timestampMillis as number | undefined,
-        latestRowCountProfileTime: latestProfileTimeWithField(
-            [latestFullTableProfile, latestPartitionProfile],
-            'rowCount',
-        ),
-        latestStorageSizeProfileTime: latestProfileTimeWithField(
-            [latestFullTableProfile, latestPartitionProfile],
-            'sizeInBytes',
-        ),
-        hasRecentUsage: (queryCountLast30Days ?? totalSqlQueries ?? 0) > 0,
+        latestRowCountProfileTime: latestProfileTimeWithField(profiles, 'rowCount'),
+        latestStorageSizeProfileTime: latestProfileTimeWithField(profiles, 'sizeInBytes'),
+        hasRecentUsage: (recentQueryCount ?? 0) > 0,
     };
 };

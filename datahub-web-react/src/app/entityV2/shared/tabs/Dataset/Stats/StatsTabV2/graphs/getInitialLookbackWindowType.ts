@@ -9,10 +9,6 @@ import {
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { TimeRange } from '@src/types.generated';
 
-/**
- * Windows at least as wide as the default 30-day view, shortest first.
- * Week is omitted so a recent profile does not shrink the chart below 30 days.
- */
 const WINDOWS_FROM_MONTH: LookbackWindowType[] = [
     LookbackWindowType.Month,
     LookbackWindowType.Quarter,
@@ -28,6 +24,19 @@ type ProfileWithField = {
     sizeInBytes?: number | null;
 } | null;
 
+function smallestWindowContaining<T>(
+    windows: readonly T[],
+    time: number,
+    windowStart: (window: T) => number | undefined,
+    fallback: T,
+): T {
+    const containing = windows.find((window) => {
+        const start = windowStart(window);
+        return start !== undefined && start <= time;
+    });
+    return containing ?? fallback;
+}
+
 /**
  * Latest timestamp among profiles that actually have the plotted field.
  * A newer partition with no row count must not keep the row-count chart on 30 days
@@ -37,37 +46,33 @@ export function latestProfileTimeWithField(
     profiles: Array<ProfileWithField | undefined>,
     field: 'rowCount' | 'sizeInBytes',
 ): number | undefined {
-    return profiles.reduce<number | undefined>((latest, profile) => {
+    let latest: number | undefined;
+    profiles.forEach((profile) => {
         const value = profile?.[field];
         const time = profile?.timestampMillis;
-        if (value == null || typeof time !== 'number' || time <= 0) return latest;
-        if (latest == null || time > latest) return time;
-        return latest;
-    }, undefined);
+        if (value == null || typeof time !== 'number' || time <= 0) return;
+        if (latest == null || time > latest) latest = time;
+    });
+    return latest;
 }
 
 /**
  * Smallest lookback that still includes `profileTimeMillis`.
- *
- * Stay on 30 days when that profile is inside the month window, or when no time
- * is known. Past a year the window cannot grow any further.
+ * Week is not a candidate, so a recent profile stays on 30 days.
  */
 export function getInitialLookbackWindowType(profileTimeMillis?: number | null): LookbackWindowType {
     if (profileTimeMillis == null || profileTimeMillis <= 0) return LookbackWindowType.Month;
 
-    const containing = WINDOWS_FROM_MONTH.find((windowType) => {
-        // Same start the chart query uses, so a profile we count as inside the window is actually fetched.
-        const { startTime } = getFixedLookbackWindow(GRAPH_LOOKBACK_WINDOWS[windowType].windowSize);
-        return startTime <= profileTimeMillis;
-    });
+    return smallestWindowContaining(WINDOWS_FROM_MONTH, profileTimeMillis, profileWindowStart, LookbackWindowType.Year);
+}
 
-    return containing ?? LookbackWindowType.Year;
+function profileWindowStart(windowType: LookbackWindowType): number {
+    return getFixedLookbackWindow(GRAPH_LOOKBACK_WINDOWS[windowType].windowSize).startTime;
 }
 
 export function isProfileOutsideMaxLookback(profileTimeMillis?: number | null): boolean {
     if (profileTimeMillis == null || profileTimeMillis <= 0) return false;
-    const { startTime } = getFixedLookbackWindow(GRAPH_LOOKBACK_WINDOWS[LookbackWindowType.Year].windowSize);
-    return profileTimeMillis < startTime;
+    return profileTimeMillis < profileWindowStart(LookbackWindowType.Year);
 }
 
 function usageWindowStart(range: TimeRange): number | undefined {
@@ -82,10 +87,5 @@ function usageWindowStart(range: TimeRange): number | undefined {
 export function getInitialUsageTimeRange(oldestUsageTimeMillis?: number | null, hasRecentUsage?: boolean): TimeRange {
     if (hasRecentUsage || oldestUsageTimeMillis == null || oldestUsageTimeMillis <= 0) return TimeRange.Month;
 
-    const containing = USAGE_RANGES_FROM_MONTH.find((range) => {
-        const startTime = usageWindowStart(range);
-        return startTime !== undefined && startTime <= oldestUsageTimeMillis;
-    });
-
-    return containing ?? TimeRange.Year;
+    return smallestWindowContaining(USAGE_RANGES_FROM_MONTH, oldestUsageTimeMillis, usageWindowStart, TimeRange.Year);
 }

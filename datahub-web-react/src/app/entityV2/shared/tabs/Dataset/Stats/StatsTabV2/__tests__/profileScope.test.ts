@@ -30,7 +30,6 @@ describe('getProfileScope', () => {
         expect(getProfileScope({ type: 'QUERY', partition: 'SAMPLE (sample rows 109186)' })).toEqual({
             kind: 'query',
             detail: 'SAMPLE (sample rows 109186)',
-            shortDetail: '(sample rows 109186)',
         });
     });
 
@@ -45,7 +44,6 @@ describe('getProfileScope', () => {
         expect(getProfileScope({ partition: 'SAMPLE (sample rows 109186)' })).toEqual({
             kind: 'query',
             detail: 'SAMPLE (sample rows 109186)',
-            shortDetail: '(sample rows 109186)',
         });
     });
 
@@ -59,7 +57,6 @@ describe('getProfileScope', () => {
         expect(getProfileScope({ type: 'PARTITION', partition: 'dt=2026-03-01' })).toEqual({
             kind: 'partition',
             detail: 'dt=2026-03-01',
-            shortDetail: 'dt=2026-03-01',
         });
     });
 });
@@ -106,7 +103,7 @@ describe('formatLatestStatsCaption', () => {
     it('shows the sample next to the latest row count', () => {
         const caption = formatLatestStatsCaption(
             t,
-            { kind: 'query', detail: 'SAMPLE (sample rows 109186)', shortDetail: '(sample rows 109186)' },
+            { kind: 'query', detail: 'SAMPLE (sample rows 109186)' },
             '4/17/2026',
         );
 
