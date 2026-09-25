@@ -140,6 +140,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Frontend / Access logging)** Every response that `datahub-frontend` proxies to GMS now carries an `X-DH-JTI` response header holding the `jti` (JWT ID) claim of the access token or UI session token that made the request. The value is a random UUID that identifies the token; it cannot be used to authenticate, and the caller already holds the token it was read from. A reverse proxy or service mesh in front of the frontend can log it to attribute requests to a specific token, and may strip it before responding to clients. Requests that carry no JWT bearer token do not get the header. **Action:** none.
+
 - **(GMS / Metrics)** Metrics & Semantic Models are now enabled by default (`METRICS_ENABLED=true`) from DataHub Core **v1.8.0** and DataHub Cloud **2.3.0**. The **Metrics** item appears in the left navigation sidebar with a Beta badge, and `/metrics` is available without setting an env var. Set `METRICS_ENABLED=false` on GMS to hide the feature. Existing Snowflake `Semantic View` datasets are unchanged; see the [migration FAQ](../features/feature-guides/metrics-and-semantic-models.md#faq) if you need to move them to the new model.
 
 - **(Ingestion / BigQuery linked datasets)** With `include_linked_dataset_lineage: true` and `include_schema_metadata: false`, the lineage recipe now emits `upstreamLineage` COPY edges for linked datasets with no recipe change. A linked dataset's views and snapshots are now filtered by `view_pattern` and `table_snapshot_pattern` instead of `table_pattern`; `table_snapshot_pattern` defaults to allow all with no `table_pattern` fallback, so a narrow `table_pattern` alone no longer excludes a linked dataset's snapshots.
