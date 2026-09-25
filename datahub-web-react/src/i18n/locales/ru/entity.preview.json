@@ -44,7 +44,6 @@
     "health.assertionsPassing": "Все проверки успешны",
     "health.noActiveIncidents": "Активных инцидентов нет",
     "health.noFailingGovernanceTests": "Нет непройденных тестов governance",
-    "health.testsPassing": "Все тесты пройдены",
     "lineage.downstreamCount_one": "{{count}} нижестоящий",
     "lineage.downstreamCount_few": "{{count}} нижестоящих",
     "lineage.downstreamCount_many": "{{count}} нижестоящих",
