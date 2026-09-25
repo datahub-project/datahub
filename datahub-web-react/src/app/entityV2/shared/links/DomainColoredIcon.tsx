@@ -55,7 +55,7 @@ export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20,
             {MaterialIcon ? (
                 <MaterialIcon style={{ color: 'currentColor', fontSize }} />
             ) : (
-                <DomainCharacterIcon $fontSize={fontSize}>{domain?.properties?.name.charAt(0)}</DomainCharacterIcon>
+                <DomainCharacterIcon $fontSize={fontSize}>{domain?.properties?.name?.charAt(0)}</DomainCharacterIcon>
             )}
         </DomainIconContainer>
     );

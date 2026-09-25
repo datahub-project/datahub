@@ -1785,6 +1785,11 @@ class SnowflakeLineage(ThreeStepDataAccessPattern):
         return SupportedDataPlatform.SNOWFLAKE.value
 
 
+class StarburstTrinoLineage(ThreeStepDataAccessPattern):
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.STARBURST_TRINO.value
+
+
 class GoogleBigQueryLineage(ThreeStepDataAccessPattern):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.GOOGLE_BIGQUERY.value
@@ -2447,6 +2452,16 @@ class SupportedPattern(Enum):
     ODBC_QUERY = (
         OdbcLineage,
         FunctionName.ODBC_QUERY,
+    )
+
+    STARBURST_AAD = (
+        StarburstTrinoLineage,
+        FunctionName.STARBURST_AAD_DATA_ACCESS,
+    )
+
+    STARBURST_PRESTO = (
+        StarburstTrinoLineage,
+        FunctionName.STARBURST_PRESTO_DATA_ACCESS,
     )
 
     def handler(self) -> Type[AbstractLineage]:

@@ -2,7 +2,7 @@ import debounce from 'lodash/debounce';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { isDomain } from '@app/entityV2/domain/utils';
+import DomainOptionLabel from '@app/entityV2/shared/DomainSelector/DomainOptionLabel';
 import { InfiniteScrollNestedSelect } from '@app/entityV2/shared/DomainSelector/InfiniteScrollNestedSelect';
 import useInfiniteScrollDomains, {
     getDomainSelectorScrollInput,
@@ -15,34 +15,38 @@ import {
     mergeSelectedNestedOptions,
 } from '@app/entityV2/shared/utils/selectorUtils';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { DomainLink } from '@app/sharedV2/tags/DomainLink';
+import { StyledSpinner } from '@src/alchemy-components/components/Loader/components';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { CustomOptionRenderer } from '@src/alchemy-components/components/Select/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useScrollAcrossEntitiesLazyQuery,
 } from '@src/graphql/search.generated';
-import { Entity, EntityType } from '@src/types.generated';
+import { Domain, EntityType } from '@src/types.generated';
 
-// Add icons to options so selected values render with domain icon via NestedSelect default rendering
+// `DomainSelector` builds its option list from several independent sources (root domains, loaded
+// children, autocomplete search results, and hydrated selected urns) — whichever one a domain's
+// option comes from, apply the same icon so it doesn't matter which list "wins" a merge.
 function withDomainIcons(options: NestedSelectOption[]): NestedSelectOption[] {
     return options.map((option) =>
-        option.entity && isDomain(option.entity)
-            ? { ...option, icon: <DomainColoredIcon domain={option.entity} size={14} fontSize={8} /> }
+        option.entity
+            ? { ...option, icon: <DomainColoredIcon domain={option.entity as Domain} size={14} fontSize={8} /> }
             : option,
     );
 }
 
 type DomainSelectorProps = {
     selectedDomains: string[];
-    onDomainsChange: (domainUrns: string[]) => void;
+    onDomainsChange: (domainUrns: string[], selectedOptions?: NestedSelectOption[]) => void;
     placeholder?: string;
     label?: string;
     isMultiSelect?: boolean;
     selectChildrenWithParent?: boolean;
-    isRequired?: boolean;
+    renderCustomOptionText?: CustomOptionRenderer<NestedSelectOption>;
     renderCustomSelectedValue?: (option: NestedSelectOption) => React.ReactNode;
+    isRequired?: boolean;
 };
 
 /**
@@ -63,35 +67,40 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     label,
     isMultiSelect = false,
     selectChildrenWithParent = true,
-    isRequired = false,
+    renderCustomOptionText = (option) => <DomainOptionLabel option={option} />,
     renderCustomSelectedValue,
+    isRequired = false,
 }) => {
-    const { t } = useTranslation('entity.shared.selectors');
+    const { t } = useTranslation(['entity.shared.selectors', 'common.feedback']);
     const resolvedPlaceholder =
         placeholder ?? t(isMultiSelect ? 'domainSelector.placeholder' : 'domainSelector.singlePlaceholder');
     const resolvedLabel = label ?? t(isMultiSelect ? 'domainSelector.label' : 'domainSelector.singleLabel');
     const entityRegistry = useEntityRegistryV2();
     const [useSearch, setUseSearch] = useState(false);
-    const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
+    const attemptedUrnsRef = useRef<Set<string>>(new Set());
 
     // Entity hydration for selected domains
-    const [getEntities, { data: resolvedEntitiesData }] = useGetEntitiesLazyQuery();
+    const [getEntities, { data: resolvedEntitiesData, loading: entitiesLoading }] = useGetEntitiesLazyQuery();
+
+    // Derived directly from `resolvedEntitiesData` (not useState+useEffect) so the cache updates
+    // in the same render `entitiesLoading` flips to false — an effect-based copy lags one render
+    // behind, long enough to flash the raw urn before the follow-up render fills in the real name.
+    const entityCache = useMemo(() => {
+        return buildEntityCache(resolvedEntitiesData?.entities);
+    }, [resolvedEntitiesData]);
 
     // Bootstrap by resolving all URNs that are not in the cache yet
     useEffect(() => {
-        if (selectedDomains.length > 0 && isEntityResolutionRequired(selectedDomains, entityCache)) {
-            getEntities({ variables: { urns: selectedDomains } });
+        if (selectedDomains.length === 0) {
+            return;
         }
+        const attemptedUrns = attemptedUrnsRef.current;
+        if (!isEntityResolutionRequired(selectedDomains, entityCache, attemptedUrns)) {
+            return;
+        }
+        selectedDomains.forEach((urn) => attemptedUrns.add(urn));
+        getEntities({ variables: { urns: selectedDomains } });
     }, [selectedDomains, entityCache, getEntities]);
-
-    // Build cache from resolved entities
-    useEffect(() => {
-        if (resolvedEntitiesData && resolvedEntitiesData.entities?.length) {
-            // Should be a safe cast since we're only querying for entities
-            const entities: Entity[] = (resolvedEntitiesData?.entities as Entity[]) || [];
-            setEntityCache(buildEntityCache(entities));
-        }
-    }, [resolvedEntitiesData]);
 
     const [autoComplete, { data: autoCompleteData }] = useGetAutoCompleteMultipleResultsLazyQuery();
 
@@ -105,11 +114,21 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         skip: useSearch, // Skip infinite scroll when in search mode
     });
 
+    // Placeholder shown for a selected domain whose entity hasn't been hydrated yet,
+    // so we don't flash the raw urn while `getEntities` is in flight.
+    const loadingPlaceholder = useMemo(
+        () =>
+            entitiesLoading ? { label: t('common.feedback:loading'), icon: <StyledSpinner $height={12} /> } : undefined,
+        [entitiesLoading, t],
+    );
+
     // Convert selected domain URNs to NestedSelectOption format using utility
     // Use useMemo to prevent unnecessary recalculations and ensure NestedSelect properly syncs
     const initialOptions = useMemo(() => {
-        return withDomainIcons(entitiesToNestedSelectOptions(selectedDomains, entityCache, entityRegistry));
-    }, [selectedDomains, entityCache, entityRegistry]);
+        return withDomainIcons(
+            entitiesToNestedSelectOptions(selectedDomains, entityCache, entityRegistry, loadingPlaceholder),
+        );
+    }, [selectedDomains, entityCache, entityRegistry, loadingPlaceholder]);
 
     const [childOptions, setChildOptions] = useState<NestedSelectOption[]>([]);
     const [loadedChildUrns, setLoadedChildUrns] = useState<Set<string>>(new Set());
@@ -175,9 +194,6 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
         }
     }, [nestedScrollData, entityRegistry, loadedChildUrns, scrollNestedDomains]);
 
-    // Root level options from infinite scroll (already in NestedSelectOption format)
-    const options = rootDomains;
-
     const autoCompleteOptions =
         autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((s) =>
             s.entities.map((domain) => ({
@@ -222,26 +238,20 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
     function handleUpdate(values: NestedSelectOption[]) {
         if (values.length) {
             const domainUrnsToUpdate = values.map((v) => v.value);
-            onDomainsChange(domainUrnsToUpdate);
+            onDomainsChange(domainUrnsToUpdate, values);
         } else {
-            onDomainsChange([]);
+            onDomainsChange([], []);
         }
     }
 
     // Merge options to ensure selected domains remain visible
-    const baseOptions = withDomainIcons([...options, ...childOptions].sort((a, b) => a.label.localeCompare(b.label)));
-    const searchOptions = withDomainIcons([...autoCompleteOptions].sort((a, b) => a.label.localeCompare(b.label)));
+    const baseOptions = withDomainIcons([...rootDomains, ...childOptions]).sort((a, b) =>
+        a.label.localeCompare(b.label),
+    );
+    const searchOptions = withDomainIcons(autoCompleteOptions).sort((a, b) => a.label.localeCompare(b.label));
 
     const defaultOptions = mergeSelectedNestedOptions(baseOptions, initialOptions);
     const searchOptionsWithSelected = mergeSelectedNestedOptions(searchOptions, initialOptions);
-
-    const renderDomainOptionText = useCallback((option: NestedSelectOption) => {
-        if (!isDomain(option.entity)) {
-            return option.label;
-        }
-
-        return <DomainLink domain={option.entity} readOnly enableTooltip={false} iconSize={20} iconFontSize={12} />;
-    }, []);
 
     return (
         <InfiniteScrollNestedSelect
@@ -265,7 +275,7 @@ const DomainSelector: React.FC<DomainSelectorProps> = ({
             areParentsSelectable
             shouldAlwaysSyncParentValues
             hideParentCheckbox={false}
-            renderCustomOptionText={renderDomainOptionText}
+            renderCustomOptionText={renderCustomOptionText}
             renderCustomSelectedValue={renderCustomSelectedValue}
             selectLabelProps={renderCustomSelectedValue ? { variant: 'custom' } : undefined}
             showClear

@@ -86,3 +86,5 @@ class FunctionName(Enum):
     MYSQL_DATA_ACCESS = "MySQL.Database"
     ODBC_DATA_ACCESS = "Odbc.DataSource"
     ODBC_QUERY = "Odbc.Query"
+    STARBURST_AAD_DATA_ACCESS = "StarburstAad.Contents"
+    STARBURST_PRESTO_DATA_ACCESS = "StarburstPresto.Contents"
