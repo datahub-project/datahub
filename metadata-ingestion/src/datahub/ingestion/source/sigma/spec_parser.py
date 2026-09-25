@@ -102,6 +102,12 @@ class JoinPredicate:
     read (it is not drift) but not paired, and whether the consumer wants key
     edges to warehouse tables is its call. Identical predicates in different
     joins are not deduplicated.
+
+    Each side's column is attributed to that join entry's own ``left`` /
+    ``right`` descriptor. Sigma's published example has a single join; for a
+    chained join, whether a later entry's descriptor names the element its
+    column actually comes from is unverified, so a consumer must check each
+    column against that element's real columns before emitting an edge.
     """
 
     join_element_id: str
@@ -138,12 +144,17 @@ class DataModelSpecIndex:
     sourced_element_count: int = 0
     # Valid Sigma this parser reads but does not map, so the lineage left
     # behind is visible without being mistaken for drift: elements of a known
-    # but unmapped kind, keyed by kind, and unions with a branch ref through a
-    # relationship (`[Rel/Col]`), which needs the relationship's target.
+    # but unmapped kind, keyed by kind, and join or union elements with a
+    # multi-segment ref (`[Element/Col]`, `[Element/Relationship/Col]`), which
+    # needs the element or relationship it names.
     unmapped_element_ids: Dict[str, List[str]] = field(default_factory=dict)
-    union_relationship_ref_element_ids: List[str] = field(default_factory=list)
+    multi_segment_ref_element_ids: List[str] = field(default_factory=list)
     # The document's `schemaVersion`; see SUPPORTED_SCHEMA_VERSION.
     schema_version: Optional[int] = None
+
+    @property
+    def is_supported_schema(self) -> bool:
+        return self.schema_version == SUPPORTED_SCHEMA_VERSION
 
 
 # `relationships[]` is deliberately not read as lineage. A relationship is a
@@ -166,13 +177,14 @@ class _Owner:
 class _JoinRead:
     predicates: List[JoinPredicate]
     readable: bool
+    multi_segment_refs: bool = False
 
 
 @dataclass
 class _UnionRead:
     columns: List[UnionOutputColumn]
     readable: bool
-    relationship_refs: int = 0
+    multi_segment_refs: bool = False
 
 
 def _iter_spec_elements(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -290,6 +302,7 @@ def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
 
     predicates: List[JoinPredicate] = []
     readable = True
+    multi_segment_refs = False
     for entry in entries:
         if (
             not isinstance(entry, dict)
@@ -310,9 +323,14 @@ def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
             continue
         if op not in _EQUALITY_OPS:
             continue
-        # A literal or composite side is a well-formed predicate, not a key.
-        left_column = _one_column(_join_side_columns(entry[_LEFT]))
-        right_column = _one_column(_join_side_columns(entry[_RIGHT]))
+        # A literal or composite side is a well-formed predicate, not a key; a
+        # multi-segment one is also recorded, since it may be a key we cannot map.
+        left_names = _join_side_columns(entry[_LEFT])
+        right_names = _join_side_columns(entry[_RIGHT])
+        if left_names is None or right_names is None:
+            multi_segment_refs = True
+        left_column = _one_column(left_names)
+        right_column = _one_column(right_names)
         if left_column is None or right_column is None:
             continue
         left = _column_ref(left_owner, entry[_LEFT], left_column)
@@ -334,7 +352,11 @@ def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
                 join_type=join_type,
             )
         )
-    return _JoinRead(predicates=predicates, readable=readable)
+    return _JoinRead(
+        predicates=predicates,
+        readable=readable,
+        multi_segment_refs=multi_segment_refs,
+    )
 
 
 def _read_union(source: Dict[str, Any], *, union_element_id: str) -> _UnionRead:
@@ -351,8 +373,12 @@ def _read_union(source: Dict[str, Any], *, union_element_id: str) -> _UnionRead:
     if not isinstance(sources, list) or not isinstance(matches, list):
         return _UnionRead(columns=[], readable=False)
     owners = [_owner(branch) for branch in sources]
-    readable = all(owner is not None for owner in owners)
-    relationship_refs = 0
+    # A union with sources but no output columns says nothing about what it
+    # produces, like a join with no predicates.
+    readable = all(owner is not None for owner in owners) and bool(
+        matches or not sources
+    )
+    multi_segment_refs = False
 
     columns: List[UnionOutputColumn] = []
     for match in matches:
@@ -382,7 +408,8 @@ def _read_union(source: Dict[str, Any], *, union_element_id: str) -> _UnionRead:
             # the output, and a parameter is a constant it can contribute. No
             # column at all is a branch contributing a constant.
             refs = [r for r in extract_bracket_refs(formula) if not r.is_parameter]
-            relationship_refs += sum(1 for r in refs if r.column is not None)
+            if any(r.column is not None for r in refs):
+                multi_segment_refs = True
             owner = owners[position]
             if owner is None:
                 continue
@@ -399,7 +426,7 @@ def _read_union(source: Dict[str, Any], *, union_element_id: str) -> _UnionRead:
                 )
             )
     return _UnionRead(
-        columns=columns, readable=readable, relationship_refs=relationship_refs
+        columns=columns, readable=readable, multi_segment_refs=multi_segment_refs
     )
 
 
@@ -447,8 +474,8 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
         if kind == _UNION_KIND:
             union = _read_union(source, union_element_id=element_id)
             index.unions.extend(union.columns)
-            if union.relationship_refs:
-                index.union_relationship_ref_element_ids.append(element_id)
+            if union.multi_segment_refs:
+                index.multi_segment_ref_element_ids.append(element_id)
             if not union.readable:
                 index.unreadable_union_element_ids.append(element_id)
         elif kind == _JOIN_KIND:
@@ -458,10 +485,14 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
                 continue
             # Judged per join: one readable join must not hide a broken one.
             readable = True
+            multi_segment_refs = False
             for join in joins:
                 read = _read_join(join, join_element_id=element_id)
                 index.pairs.extend(read.predicates)
                 readable = readable and read.readable
+                multi_segment_refs = multi_segment_refs or read.multi_segment_refs
+            if multi_segment_refs:
+                index.multi_segment_ref_element_ids.append(element_id)
             if not readable:
                 index.unreadable_join_element_ids.append(element_id)
         elif kind in _UNMAPPED_KINDS:

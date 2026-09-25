@@ -296,6 +296,28 @@ def test_an_incomplete_warehouse_side_is_drift(side: Dict[str, Any]) -> None:
     assert union_index.unreadable_union_element_ids == ["el-union"]
 
 
+@pytest.mark.parametrize(
+    ("side", "recorded"),
+    [("[T/Rel/K]", True), ("[Other/K]", True), ("[A] = [B]", False), ("42", False)],
+)
+def test_a_multi_segment_join_side_is_recorded(side: str, recorded: bool) -> None:
+    """Valid Sigma, and possibly a key this parser cannot map -- unlike a
+    literal or composite side, which is simply not a key."""
+    index = _parse_join(_one_join([{"left": side, "right": "[B]"}]))
+    assert index.pairs == []
+    assert index.unreadable_join_element_ids == []
+    assert index.multi_segment_ref_element_ids == (["el-x"] if recorded else [])
+
+
+@pytest.mark.parametrize("first", [True, False], ids=["first-join", "last-join"])
+def test_a_multi_segment_side_is_recorded_beside_a_clean_join(first: bool) -> None:
+    through = _one_join([{"left": "[T/Rel/K]", "right": "[B]"}])
+    clean = _one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])
+    index = _parse_join(*([through, clean] if first else [clean, through]))
+    assert len(index.pairs) == 1
+    assert index.multi_segment_ref_element_ids == ["el-x"]
+
+
 def test_a_warehouse_side_is_read_but_yields_no_pair() -> None:
     index = _parse_join(
         _one_join([{"left": "[SOME_COL]", "right": _RIGHT_EXPR}], left=_WAREHOUSE_SIDE)
@@ -425,6 +447,15 @@ def test_the_published_transpose_is_unmapped_not_drift() -> None:
     assert index.unrecognised_element_count == 0
 
 
+@pytest.mark.parametrize("kind", ["control", " Control "])
+def test_a_control_is_skipped_case_insensitively(kind: str) -> None:
+    spec = _spec({"kind": "warehouse-table", **_WAREHOUSE_SIDE})
+    spec["pages"][0]["elements"].append(
+        {"id": "ctrl-1", "kind": kind, "source": {"kind": "source"}}
+    )
+    assert parse_data_model_spec(spec).unrecognised_element_count == 0
+
+
 def test_a_control_is_not_a_data_element() -> None:
     """A control's source binds its value to a column; it carries no lineage.
     Structure verbatim from Sigma's published list-values control."""
@@ -468,17 +499,19 @@ def test_a_renamed_source_key_leaves_no_sourced_elements() -> None:
     [(1, 1), (2, 2), ("1", None), (True, None), ("<absent>", None)],
 )
 def test_the_schema_version_is_read(version: Any, expected: Any) -> None:
-    assert SUPPORTED_SCHEMA_VERSION == 1
     spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
     if version != "<absent>":
         spec["schemaVersion"] = version
-    assert parse_data_model_spec(spec).schema_version == expected
+    index = parse_data_model_spec(spec)
+    assert index.schema_version == expected
+    assert index.is_supported_schema is (expected == SUPPORTED_SCHEMA_VERSION)
 
 
 @pytest.mark.parametrize(
     "data_model_id",
-    [123, {"id": "dm-2"}, "", "  "],
-    ids=["int", "dict", "empty", "blank"],
+    [None, 123, {"id": "dm-2"}, "", "  "],
+    # No published Sigma document contains a null; absent keys are omitted.
+    ids=["null", "int", "dict", "empty", "blank"],
 )
 def test_an_unusable_data_model_id_is_drift_not_a_local_element(
     data_model_id: Any,
@@ -673,11 +706,18 @@ def test_a_branch_naming_several_columns_contributes_each() -> None:
     assert index.unreadable_union_element_ids == []
 
 
+def test_a_cross_element_ref_in_a_branch_is_recorded_too() -> None:
+    """`[Element/Col]` is the common two-part form, not a relationship."""
+    index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[Left Elem/A]", "[B]"]))
+    assert _branches(index.unions[0]) == [("el-b", "B")]
+    assert index.multi_segment_ref_element_ids == ["el-union"]
+
+
 def test_a_relationship_ref_in_a_branch_is_counted_not_drift() -> None:
     """Valid Sigma, but mapping it needs the relationship's target."""
     index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[A] + [Rel/Col]", "[C]"]))
     assert _branches(index.unions[0]) == [("el-a", "A"), ("el-b", "C")]
-    assert index.union_relationship_ref_element_ids == ["el-union"]
+    assert index.multi_segment_ref_element_ids == ["el-union"]
     assert index.unreadable_union_element_ids == []
 
 
@@ -727,6 +767,14 @@ def test_an_unknown_branch_is_flagged_and_the_good_branch_still_read() -> None:
     index = _parse_union(_union([unknown, _el("el-b")], ["[c-a]", "[c-b]"]))
     assert _branches(index.unions[0]) == [("el-b", "c-b")]
     assert index.unreadable_union_element_ids == ["el-union"]
+
+
+def test_a_union_with_sources_but_no_output_columns_is_reported() -> None:
+    """Like a join with no predicates, it says nothing about what it produces."""
+    source = {"kind": "union", "sources": [_el("el-a")], "matches": []}
+    assert _parse_union(source).unreadable_union_element_ids == ["el-union"]
+    empty = {"kind": "union", "sources": [], "matches": []}
+    assert _parse_union(empty).unreadable_union_element_ids == []
 
 
 def test_a_column_past_the_sources_is_reported_not_reassigned() -> None:
