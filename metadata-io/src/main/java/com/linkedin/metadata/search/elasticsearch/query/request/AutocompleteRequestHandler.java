@@ -58,8 +58,11 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   private static final Map<Pair<EntitySpec, Boolean>, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
-  // Search V3 copies entity names into tier 1; its text subfield is stored, so it can highlight
+  // Search V3 field names. They must match the effective V3 mapping: the bundled
+  // search_entity_mapping_config.yaml as MultiEntityMappingsUtils.buildSearchSection extends it.
+  // Entity names copy into tier 1, whose text subfield is stored, so it can highlight
   private static final String V3_TIER_1_TEXT_FIELD = "_search.tier_1.full";
+  private static final String V3_ENTITY_NAME_FIELD = "_search.entityName";
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
@@ -182,7 +185,9 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                 CustomConfiguration::getAutoCompleteFieldConfigDefault));
 
     // Add autocomplete query
-    baseQuery.should(getQuery(opContext, customAutocompleteConfig, configuredFields, input));
+    final boolean defaultFields = isDefaultFieldsRequest(field);
+    baseQuery.should(
+        getQuery(opContext, customAutocompleteConfig, configuredFields, input, defaultFields));
 
     // Apply default filters
     BoolQueryBuilder queryWithDefaultFilters =
@@ -224,7 +229,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                 opContext.getSearchContext().getSearchFlags(),
                 CustomConfiguration::getAutoCompleteFieldConfigDefault));
     if (highlightBuilder != null) {
-      if (v3KeywordReadEnabled) {
+      if (v3KeywordReadEnabled && defaultFields) {
         // Root fields highlight where their prefix matched and tier 1 where a name word matched,
         // so each suggestion is a matched value. A hit without a highlight is dropped
         highlightBuilder.field(V3_TIER_1_TEXT_FIELD);
@@ -288,6 +293,15 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nullable AutocompleteConfiguration customAutocompleteConfig,
       List<Pair<String, String>> baseFields,
       @Nonnull String query) {
+    return getQuery(operationContext, customAutocompleteConfig, baseFields, query, true);
+  }
+
+  private BoolQueryBuilder getQuery(
+      @Nonnull OperationContext operationContext,
+      @Nullable AutocompleteConfiguration customAutocompleteConfig,
+      List<Pair<String, String>> baseFields,
+      @Nonnull String query,
+      final boolean defaultFields) {
 
     // Apply field configuration
     List<Pair<String, String>> configuredFields =
@@ -305,7 +319,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                         operationContext.getObjectMapper(), cac, query))
             .orElse(QueryBuilders.boolQuery());
 
-    getAutocompleteQuery(customAutocompleteConfig, configuredFields, query)
+    getAutocompleteQuery(customAutocompleteConfig, configuredFields, query, defaultFields)
         .ifPresent(finalQuery::should);
 
     if (!finalQuery.should().isEmpty()) {
@@ -318,32 +332,43 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   private Optional<QueryBuilder> getAutocompleteQuery(
       @Nullable AutocompleteConfiguration customConfig,
       List<Pair<String, String>> autocompleteFields,
-      @Nonnull String query) {
+      @Nonnull String query,
+      final boolean defaultFields) {
     Optional<QueryBuilder> result = Optional.empty();
 
     if (customConfig == null || customConfig.isDefaultQuery()) {
-      result = Optional.of(defaultQuery(autocompleteFields, query));
+      result = Optional.of(defaultQuery(autocompleteFields, query, defaultFields));
     }
 
     return result;
   }
 
   private BoolQueryBuilder defaultQuery(
-      List<Pair<String, String>> autocompleteFields, @Nonnull String query) {
+      List<Pair<String, String>> autocompleteFields,
+      @Nonnull String query,
+      final boolean defaultFields) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     if (v3KeywordReadEnabled) {
-      // Entity names copy into tier 1 and _search.entityName. Fields without a search tier have
-      // no text copy, so each autocomplete field is also prefix matched on its root value
-      finalQuery
-          .should(QueryBuilders.matchBoolPrefixQuery(V3_TIER_1_TEXT_FIELD, query))
-          .should(QueryBuilders.prefixQuery("_search.entityName", query).caseInsensitive(true));
-      autocompleteFields.forEach(
-          pair ->
-              finalQuery.should(
-                  QueryBuilders.prefixQuery(pair.getLeft(), query)
-                      .caseInsensitive(true)
-                      .boost(Float.parseFloat(pair.getRight()))));
+      if (defaultFields) {
+        // Entity names copy into tier 1 and _search.entityName
+        finalQuery
+            .should(QueryBuilders.matchBoolPrefixQuery(V3_TIER_1_TEXT_FIELD, query))
+            .should(QueryBuilders.prefixQuery(V3_ENTITY_NAME_FIELD, query).caseInsensitive(true));
+      }
+      // Fields without a search tier have no text copy, so each field is also prefix matched on
+      // its root value. Every urn starts with "urn:", so default urn fields only take urn input:
+      // any other prefix of it would scan every document. A requested field always keeps its
+      // prefix, since a bool without clauses would match every document
+      final boolean urnInput = query.regionMatches(true, 0, "urn:", 0, 4);
+      autocompleteFields.stream()
+          .filter(pair -> !defaultFields || urnInput || !isUrnField(pair.getLeft()))
+          .forEach(
+              pair ->
+                  finalQuery.should(
+                      QueryBuilders.prefixQuery(pair.getLeft(), query)
+                          .caseInsensitive(true)
+                          .boost(Float.parseFloat(pair.getRight()))));
       return finalQuery;
     }
 
@@ -404,10 +429,23 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   }
 
   private List<Pair<String, String>> getAutocompleteFields(@Nullable String field) {
-    if (field != null && !field.isEmpty() && !field.equalsIgnoreCase("urn")) {
+    if (!isDefaultFieldsRequest(field)) {
       return ImmutableList.of(Pair.of(field, "10.0"));
     }
     return _defaultAutocompleteFields;
+  }
+
+  /** No field, or the urn, means the entity's default autocomplete fields. */
+  private static boolean isDefaultFieldsRequest(@Nullable String field) {
+    return field == null || field.isEmpty() || field.equalsIgnoreCase("urn");
+  }
+
+  private boolean isUrnField(@Nonnull String fieldName) {
+    Set<SearchableAnnotation.FieldType> fieldTypes =
+        searchableFieldTypes.getOrDefault(fieldName, Set.of());
+    return fieldName.equalsIgnoreCase("urn")
+        || fieldTypes.contains(SearchableAnnotation.FieldType.URN)
+        || fieldTypes.contains(SearchableAnnotation.FieldType.URN_PARTIAL);
   }
 
   public AutoCompleteResult extractResult(

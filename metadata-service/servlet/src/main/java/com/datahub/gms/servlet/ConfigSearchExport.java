@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
@@ -135,7 +136,8 @@ public class ConfigSearchExport extends HttpServlet {
                     sqsb.getClass().getSimpleName(),
                     fieldWeight.getKey(),
                     fieldWeight.getValue().toString(),
-                    sqsb.analyzer(),
+                    // Search V3 sets no analyzer: each field applies its own search analyzer
+                    Objects.toString(sqsb.analyzer(), ""),
                     "true",
                     String.valueOf(sqsb.boost()),
                     sqsb.toString().replaceAll("\n", "")

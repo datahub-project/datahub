@@ -1250,19 +1250,7 @@ public class AutocompleteRequestHandlerTest {
 
   @Test
   public void testV3QueryUsesTierFieldsAndHighlightsRootFields() {
-    AutocompleteRequestHandler v3Handler =
-        new AutocompleteRequestHandler(
-            nonMockOpContext,
-            nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
-            CustomSearchConfiguration.builder().build(),
-            QueryFilterRewriteChain.EMPTY,
-            TEST_V3_QUERY_CONFIG,
-            TEST_SEARCH_SERVICE_CONFIG);
-
-    SearchSourceBuilder source =
-        v3Handler
-            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", "name", null, 10)
-            .source();
+    SearchSourceBuilder source = getV3SearchSource(DATASET_ENTITY_NAME, "ord", null);
     String query = source.query().toString();
     assertTrue(query.contains("match_bool_prefix"));
     assertTrue(query.contains("_search.tier_1.full"));
@@ -1272,46 +1260,57 @@ public class AutocompleteRequestHandlerTest {
     assertFalse(query.contains(".delimited"));
     assertFalse(query.contains(".keyword"));
 
-    // Suggestions come from highlights: the root field where its prefix matched, or tier 1 where a
+    // Suggestions come from highlights: a root field where its prefix matched, or tier 1 where a
     // name word matched. A no-match fragment on every root field would surface the urn instead
     List<HighlightBuilder.Field> highlights = source.highlighter().fields();
+    Set<String> highlightNames =
+        highlights.stream().map(HighlightBuilder.Field::name).collect(Collectors.toSet());
+    assertTrue(highlightNames.contains("name"));
+    assertTrue(highlightNames.contains("_search.tier_1.full"));
+    assertTrue(highlights.stream().allMatch(highlight -> highlight.noMatchSize() == null));
+  }
+
+  @Test
+  public void testV3RequestedFieldOnlyMatchesThatField() {
+    SearchSourceBuilder source = getV3SearchSource(DATASET_ENTITY_NAME, "ord", "name");
     assertEquals(
-        highlights.stream().map(HighlightBuilder.Field::name).collect(Collectors.toList()),
-        List.of("name", "_search.tier_1.full"));
-    assertNull(highlights.get(0).noMatchSize());
+        getV3AutocompleteClauses(source),
+        List.of(QueryBuilders.prefixQuery("name", "ord").caseInsensitive(true).boost(10.0f)));
+    assertEquals(
+        source.highlighter().fields().stream()
+            .map(HighlightBuilder.Field::name)
+            .collect(Collectors.toList()),
+        List.of("name"));
   }
 
   @Test
   public void testV3QueryPrefixMatchesFieldsWithoutSearchTier() {
     // The owner picker sends no field; usernames and full names have no search tier
-    AutocompleteRequestHandler v3Handler =
-        new AutocompleteRequestHandler(
-            nonMockOpContext,
-            nonMockOpContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
-            CustomSearchConfiguration.builder().build(),
-            QueryFilterRewriteChain.EMPTY,
-            TEST_V3_QUERY_CONFIG,
-            TEST_SEARCH_SERVICE_CONFIG);
-
-    BoolQueryBuilder wrapper =
-        (BoolQueryBuilder)
-            ((FunctionScoreQueryBuilder)
-                    v3Handler
-                        .getSearchRequest(
-                            nonMockOpContext, CORP_USER_ENTITY_NAME, "jdo", null, null, 10)
-                        .source()
-                        .query())
-                .query();
     Map<String, Float> prefixBoosts =
-        ((BoolQueryBuilder) extractNestedQuery(wrapper))
-            .should().stream()
-                .filter(PrefixQueryBuilder.class::isInstance)
-                .map(PrefixQueryBuilder.class::cast)
-                .collect(
-                    Collectors.toMap(
-                        PrefixQueryBuilder::fieldName, PrefixQueryBuilder::boost, (a, b) -> a));
+        getRootPrefixBoosts(getV3SearchSource(CORP_USER_ENTITY_NAME, "jdo", null));
     assertEquals(prefixBoosts.get("ldap").floatValue(), 2.0f);
     assertEquals(prefixBoosts.get("fullName").floatValue(), 10.0f);
+  }
+
+  @Test
+  public void testV3UrnFieldsOnlyPrefixMatchUrnInput() {
+    // Every urn starts with "urn:", so other input would prefix scan every document's urn
+    Set<String> plainInput =
+        getRootPrefixBoosts(getV3SearchSource(DATASET_ENTITY_NAME, "hiv", null)).keySet();
+    assertTrue(plainInput.contains("name"));
+    assertFalse(plainInput.contains("urn"));
+    assertFalse(plainInput.contains("platform"));
+
+    Set<String> urnInput =
+        getRootPrefixBoosts(getV3SearchSource(DATASET_ENTITY_NAME, "URN:li:dataPlatform:hi", null))
+            .keySet();
+    assertTrue(urnInput.contains("urn"));
+    assertTrue(urnInput.contains("platform"));
+
+    // A requested urn field keeps its prefix: a bool without clauses would match every document
+    assertEquals(
+        getV3AutocompleteClauses(getV3SearchSource(DATASET_ENTITY_NAME, "hiv", "platform")),
+        List.of(QueryBuilders.prefixQuery("platform", "hiv").caseInsensitive(true).boost(10.0f)));
   }
 
   @Test
@@ -1349,5 +1348,33 @@ public class AutocompleteRequestHandlerTest {
         QueryFilterRewriteChain.EMPTY,
         searchConfiguration,
         TEST_SEARCH_SERVICE_CONFIG);
+  }
+
+  private SearchSourceBuilder getV3SearchSource(String entityName, String input, String field) {
+    return new AutocompleteRequestHandler(
+            nonMockOpContext,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(entityName),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            TEST_V3_QUERY_CONFIG,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(nonMockOpContext, entityName, input, field, null, 10)
+        .source();
+  }
+
+  private static List<QueryBuilder> getV3AutocompleteClauses(SearchSourceBuilder source) {
+    BoolQueryBuilder wrapper =
+        (BoolQueryBuilder) ((FunctionScoreQueryBuilder) source.query()).query();
+    return ((BoolQueryBuilder) extractNestedQuery(wrapper)).should();
+  }
+
+  private static Map<String, Float> getRootPrefixBoosts(SearchSourceBuilder source) {
+    return getV3AutocompleteClauses(source).stream()
+        .filter(PrefixQueryBuilder.class::isInstance)
+        .map(PrefixQueryBuilder.class::cast)
+        .filter(prefix -> !prefix.fieldName().startsWith("_search."))
+        .collect(
+            Collectors.toMap(
+                PrefixQueryBuilder::fieldName, PrefixQueryBuilder::boost, (a, b) -> a));
   }
 }

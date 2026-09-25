@@ -509,22 +509,30 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS_CHART);
 
-    // Keyword sort on the root name alias: upper case sorts first
-    assertEquals(
-        searchService
-            .search(
-                fulltext,
-                ENTITY_TYPES,
-                "orders",
-                null,
-                List.of(new SortCriterion().setField("_entityName").setOrder(SortOrder.ASCENDING)),
-                0,
-                10)
-            .getEntities()
-            .stream()
-            .map(SearchEntity::getEntity)
-            .collect(Collectors.toList()),
-        List.of(ORDERS_CHART, ORDERS));
+    // _entityName aliases the raw name, so the chart title's capital sorts first ascending. The urn
+    // tie-break gives that order too; only a working name sort reverses it descending
+    for (Map.Entry<SortOrder, List<Urn>> sort :
+        Map.of(
+                SortOrder.ASCENDING, List.of(ORDERS_CHART, ORDERS),
+                SortOrder.DESCENDING, List.of(ORDERS, ORDERS_CHART))
+            .entrySet()) {
+      assertEquals(
+          searchService
+              .search(
+                  fulltext,
+                  ENTITY_TYPES,
+                  "orders",
+                  null,
+                  List.of(new SortCriterion().setField("_entityName").setOrder(sort.getKey())),
+                  0,
+                  10)
+              .getEntities()
+              .stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toList()),
+          sort.getValue(),
+          sort.getKey().toString());
+    }
   }
 
   @Test
@@ -557,6 +565,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEqualsNoOrder(urns(keyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
     assertEqualsNoOrder(
         keyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
+
+    // A requested field is the only one matched, not the entity name
+    AutoCompleteResult tool =
+        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "look", "tool", null, 10);
+    assertEquals(urns(tool), List.of(ORDERS_CHART));
+    assertEquals(tool.getSuggestions(), List.of("looker"));
+    assertEquals(
+        urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "ord", "tool", null, 10)),
+        List.of());
   }
 
   @Test

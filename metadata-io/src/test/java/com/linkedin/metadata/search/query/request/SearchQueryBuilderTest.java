@@ -334,8 +334,30 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testQueryBuilderV3ExactMatchKeepsCaseOnEntityNameAndUrn() {
-    // Tier keywords are normalized; the entity name and urn keep case
+  public void testQueryBuilderV3KeepsV2RelevancyShape() {
+    // The search config export reads the simple query group and the exact/prefix group by position
+    BoolQueryBuilder relevancy =
+        (BoolQueryBuilder)
+            ((FunctionScoreQueryBuilder)
+                    new SearchQueryBuilder(testQueryConfig, null, true)
+                        .buildQuery(
+                            opContext,
+                            List.of(opContext.getEntityRegistry().getEntitySpec("dataset")),
+                            "*",
+                            true))
+                .query();
+    List<QueryBuilder> simpleQueries = ((BoolQueryBuilder) relevancy.should().get(0)).should();
+    assertFalse(simpleQueries.isEmpty());
+    for (QueryBuilder simpleQuery : simpleQueries) {
+      // No analyzer: each tier subfield applies its own search analyzer
+      assertNull(((SimpleQueryStringBuilder) simpleQuery).analyzer());
+    }
+    assertTrue(relevancy.should().get(1) instanceof BoolQueryBuilder);
+  }
+
+  @Test
+  public void testQueryBuilderV3ExactMatchKeepsCaseOnlyOnUrn() {
+    // Tier keywords and the entity name are normalized; the urn keeps case
     Set<String> exactTerms =
         getV3PrefixAndExactMatchClauses("Test_Table").stream()
             .filter(TermQueryBuilder.class::isInstance)
@@ -353,8 +375,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
         exactTerms,
         Set.of(
             "_search.tier_1 insensitive 10.0 null",
-            "_search.entityName sensitive 10.0 null",
-            "_search.entityName insensitive 7.0 null",
+            "_search.entityName insensitive 10.0 null",
             "urn sensitive 10.0 urn",
             "urn insensitive 7.0 urn"));
   }
