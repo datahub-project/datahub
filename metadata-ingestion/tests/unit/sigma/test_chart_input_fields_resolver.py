@@ -89,6 +89,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.sigma_api.get_workbook_lineage = MagicMock(return_value=[])
     source._workbook_customsql_registered_urns = set()
     source._workbook_customsql_formula_fields = {}
+    source._dm_element_field_paths = {}
+    source._normalized_index_memo = None
     source._bridge_unresolved_warned = set()
     return source
 
@@ -322,26 +324,116 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
 
-    def test_case_mismatched_workbook_element_ref_is_diagnosed(self) -> None:
-        """Workbook element names are exact-case; near misses are counted."""
-        upstream_elem = _make_element("sourceElem", "T Source")
-        wh_urn = (
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.T SOURCE,PROD)"
-        )
-        ref = _make_ref("t source", "col")
-
-        result = self.src._resolve_chart_formula_upstream(
+    def _resolve(
+        self,
+        ref: BracketRef,
+        wb_element_index: Dict[str, List[Element]],
+        upstream_ids: Optional[set] = None,
+        dm_urns: Optional[Dict[str, str]] = None,
+        warehouse_index: Optional[Dict[str, List[str]]] = None,
+    ) -> Optional[tuple]:
+        return self.src._resolve_chart_formula_upstream(
             ref,
             chart_element_id="downstreamElem",
-            chart_upstream_element_ids={"sourceElem"},
-            dm_upstream_urn_by_element_name={},
-            wb_element_index={"T Source": [upstream_elem]},
-            element_warehouse_table_index={"T SOURCE": [wh_urn]},
+            chart_upstream_element_ids=upstream_ids or set(),
+            dm_upstream_urn_by_element_name=dm_urns or {},
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=warehouse_index or {},
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
 
+    def test_case_only_mismatch_resolves_to_the_element(self) -> None:
+        # Sigma resolves formula refs case-insensitively.
+        elem = _make_element("sourceElem", "T Source", columns=["Col A"])
+        result = self._resolve(
+            _make_ref("t source", "col a"),
+            {"T Source": [elem]},
+            upstream_ids={"sourceElem"},
+        )
+        assert result == ("urn:source", "Col A")
+
+    def test_case_only_mismatch_reaches_dm_element_by_its_own_name(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        elem = _make_element("dmElem", "Orders")
+        result = self._resolve(
+            _make_ref("orders", "Id"), {"Orders": [elem]}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Id")
+
+    def test_ambiguous_case_insensitive_match_is_refused_and_counted(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t source,PROD)"
+        index = {
+            "T Source": [_make_element("sourceElem", "T Source")],
+            "T SOURCE": [_make_element("otherElem", "T SOURCE")],
+        }
+        result = self._resolve(
+            _make_ref("t source", "col"),
+            index,
+            upstream_ids={"sourceElem"},
+            warehouse_index={"T SOURCE": [wh_urn]},
+        )
         assert result is None
         assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    def test_whitespace_mismatch_does_not_match_the_element(self) -> None:
+        # Sigma rejects a ref whose name differs only by padding.
+        elem = _make_element("sourceElem", "T Source ")
+        result = self._resolve(
+            _make_ref("T Source", "col"),
+            {"T Source ": [elem]},
+            upstream_ids={"sourceElem"},
+        )
+        assert result is None
+
+    def test_sibling_column_id_is_translated_to_its_name(self) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount"])
+        elem.column_id_by_name = {"Amount": "col-id-1"}
+        result = self._resolve(
+            _make_ref("Src", "col-id-1"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Amount")
+
+    def test_sibling_column_absent_upstream_is_refused(self) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount"])
+        result = self._resolve(
+            _make_ref("Src", "Missing"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result is None
+
+    def test_sibling_with_unknown_columns_passes_ref_through(self) -> None:
+        elem = _make_element("sourceElem", "Src")
+        result = self._resolve(
+            _make_ref("Src", "Any"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Any")
+
+    def test_dm_column_is_checked_against_emitted_schema(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = {"Order Id"}
+        dm_urns = {"Orders": dm_urn}
+        assert self._resolve(_make_ref("Orders", "order id"), {}, dm_urns=dm_urns) == (
+            dm_urn,
+            "Order Id",
+        )
+        assert (
+            self._resolve(_make_ref("Orders", "Missing"), {}, dm_urns=dm_urns) is None
+        )
+
+    def test_dm_column_passes_through_when_schema_unknown(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        result = self._resolve(
+            _make_ref("Orders", "Anything"), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Anything")
+
+    def test_three_segment_ref_is_refused(self) -> None:
+        # [Element/Relationship/Column] must not become a dangling edge to
+        # a column named "Relationship/Column".
+        elem = _make_element("sourceElem", "Src")
+        result = self._resolve(
+            _make_ref("Src", "Rel/Col"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result is None
 
     def test_exact_workbook_name_without_lineage_match_falls_through_to_warehouse(
         self,

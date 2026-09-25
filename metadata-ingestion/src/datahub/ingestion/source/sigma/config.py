@@ -203,8 +203,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # is counted in chart_input_fields_resolved; each additional pair increments
     # this counter. Non-zero means some chart columns have multi-upstream lineage.
     chart_input_fields_multi_ref_extra: int = 0
-    # Sub-bucket of self_ref_fallback: source name that is a case-only mismatch
-    # against a workbook element name (warehouse fallback intentionally skipped).
+    # Sub-bucket of self_ref_fallback: a ref source that matches several
+    # distinct workbook element names case-insensitively, so it is refused
+    # rather than guessed (warehouse fallback skipped too).
     chart_input_fields_case_mismatch: int = 0
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.
