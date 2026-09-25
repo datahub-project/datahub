@@ -318,17 +318,18 @@ For each Google Sheets connector, two Dataset entities are created:
    - Platform: `google_sheets`
    - Subtype: `GOOGLE_SHEETS`
    - URN uses the spreadsheet ID extracted from the Google Sheets URL (stable identifier)
-   - Display name and browse folder use the Fivetran connection name
+   - Display name and browse folder use the Fivetran connection name. When several connections sync the same spreadsheet, DataHub uses the lexicographically smallest connection name so the shared dataset does not flip with ingest order
 
 2. **Named Range Dataset**: Represents the specific named range being synced
    - Platform: `google_sheets`
    - Subtype: `GOOGLE_SHEETS_NAMED_RANGE`
    - URN uses `<spreadsheet_id>.<named_range>`
-   - Display name and browse folder use the Fivetran connection name
-   - Spreadsheet ID and named-range identifier are stored as custom properties
+   - Display name is the named range the user created in Google Sheets
+   - Browse folder uses the Fivetran connection name
+   - Spreadsheet ID, named range, and connection name are stored as custom properties
    - Has upstream lineage to the Google Sheet Dataset
 
-Fivetran's Google Sheets connector maps one named range to one destination table and does not expose the Google workbook or tab title. DataHub therefore uses the Fivetran connection name — the label you set in the Fivetran UI — so datasets are listed under a human-readable folder instead of the spreadsheet or named-range ID.
+Fivetran's Google Sheets connector maps one named range to one destination table and does not expose the Google workbook or tab title. DataHub therefore uses a human-readable Fivetran connection name for the spreadsheet label and for named-range browse folders, instead of the opaque spreadsheet ID.
 
 ##### Limitations
 
