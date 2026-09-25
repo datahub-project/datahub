@@ -204,11 +204,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # this counter. Non-zero means some chart columns have multi-upstream lineage.
     chart_input_fields_multi_ref_extra: int = 0
     # Per ref: a ref source matching several workbook element names that
-    # differ only in case, so it is refused (warehouse fallback skipped too).
-    # A single case-only match now resolves and is not counted.
+    # differ only in case, none picked by lineage, so it is refused (warehouse
+    # fallback skipped too). A single case-only match resolves, uncounted.
     chart_input_fields_case_mismatch: int = 0
-    # Per ref: the ref's column is absent from its upstream's known columns,
-    # so no edge is emitted.
+    # Per ref: the ref's column is absent from its upstream's known columns, or
+    # matches only several case variants of it, so no edge is emitted.
     chart_input_fields_column_not_found: int = 0
     # Per ref: a 3+ segment ref ([Element/Relationship/Column]), not resolved.
     chart_input_fields_multi_segment_refused: int = 0

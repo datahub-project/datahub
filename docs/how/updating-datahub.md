@@ -140,6 +140,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- #20000 **(Sigma ingestion)** A chart column's formula reference now becomes column lineage only when the referenced column exists on its upstream. References to columns the upstream does not have, and three-part references such as `[Element/Relationship/Column]`, no longer produce lineage edges; those columns point to themselves instead. Element and column names now match case-insensitively, as Sigma does. The `chart_input_fields_case_mismatch` report counter now counts only references that match several names differing only in case. **Action:** none. Expect column-lineage counts on Sigma charts to drop on the next run as the incorrect edges are removed.
+
 - **(GMS / Metrics)** Metrics & Semantic Models are now enabled by default (`METRICS_ENABLED=true`) from DataHub Core **v1.8.0** and DataHub Cloud **2.3.0**. The **Metrics** item appears in the left navigation sidebar with a Beta badge, and `/metrics` is available without setting an env var. Set `METRICS_ENABLED=false` on GMS to hide the feature. Existing Snowflake `Semantic View` datasets are unchanged; see the [migration FAQ](../features/feature-guides/metrics-and-semantic-models.md#faq) if you need to move them to the new model.
 
 - **(Ingestion / BigQuery linked datasets)** With `include_linked_dataset_lineage: true` and `include_schema_metadata: false`, the lineage recipe now emits `upstreamLineage` COPY edges for linked datasets with no recipe change. A linked dataset's views and snapshots are now filtered by `view_pattern` and `table_snapshot_pattern` instead of `table_pattern`; `table_snapshot_pattern` defaults to allow all with no `table_pattern` fallback, so a narrow `table_pattern` alone no longer excludes a linked dataset's snapshots.

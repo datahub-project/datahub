@@ -92,7 +92,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._workbook_customsql_registered_urns = set()
     source._workbook_customsql_formula_fields = {}
     source._dm_element_field_paths = {}
-    source._normalized_index_memo = None
+    source._folded_index_memo = None
     source._bridge_unresolved_warned = set()
     return source
 
@@ -371,11 +371,35 @@ class TestResolveChartFormulaUpstream:
         result = self._resolve(
             _make_ref("t source", "col"),
             index,
-            upstream_ids={"sourceElem"},
             warehouse_index={"T SOURCE": [wh_urn]},
         )
         assert result is None
         assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    @pytest.mark.parametrize("ref_source", ["t source", "T Source"])
+    def test_lineage_picks_among_case_variants(self, ref_source: str) -> None:
+        # The exact spelling must not win over the element lineage names.
+        index = {
+            "T Source": [_make_element("otherElem", "T Source")],
+            "T SOURCE": [_make_element("sourceElem", "T SOURCE")],
+        }
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t source,PROD)"
+        result = self._resolve(
+            _make_ref(ref_source, "col"),
+            index,
+            upstream_ids={"sourceElem"},
+            warehouse_index={"T SOURCE": [wh_urn]},
+        )
+        assert result == ("urn:source", "col")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_names_fold_by_lower_not_casefold(self) -> None:
+        # casefold() would equate "Straße" with "STRASSE".
+        elem = _make_element("sourceElem", "STRASSE")
+        result = self._resolve(
+            _make_ref("Straße", "col"), {"STRASSE": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result is None
 
     def test_whitespace_mismatch_does_not_match_the_element(self) -> None:
         # Sigma rejects a ref whose name differs only by padding.
@@ -394,6 +418,33 @@ class TestResolveChartFormulaUpstream:
             _make_ref("Src", "col-id-1"), {"Src": [elem]}, upstream_ids={"sourceElem"}
         )
         assert result == ("urn:source", "Amount")
+
+    def test_column_id_translates_only_to_a_column_the_upstream_has(self) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount"])
+        elem.column_id_by_name = {"Hidden": "cid-9"}
+        result = self._resolve(
+            _make_ref("Src", "cid-9"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result is None
+
+    def test_column_id_is_translated_when_columns_are_unknown(self) -> None:
+        elem = _make_element("sourceElem", "Src")
+        elem.column_id_by_name = {"Amount": "cid-1"}
+        result = self._resolve(
+            _make_ref("Src", "cid-1"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Amount")
+
+    def test_a_warehouse_column_id_ref_is_refused(self) -> None:
+        # inode-<id>/<NAME> parses as three segments; not observed in refs.
+        elem = _make_element("sourceElem", "Src", columns=["AMOUNT"])
+        elem.column_id_by_name = {"AMOUNT": "inode-abc/AMOUNT"}
+        result = self._resolve(
+            _make_ref("Src", "inode-abc/AMOUNT"),
+            {"Src": [elem]},
+            upstream_ids={"sourceElem"},
+        )
+        assert result is None
 
     def test_sibling_column_absent_upstream_is_refused(self) -> None:
         elem = _make_element("sourceElem", "Src", columns=["Amount"])

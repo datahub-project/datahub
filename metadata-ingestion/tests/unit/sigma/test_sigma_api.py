@@ -1952,20 +1952,6 @@ class TestSchemaMetadataEmission:
             {"elementId": "elem1", "name": "Elem 1", "columns": columns}
         )
 
-    def test_only_a_complete_schema_is_recorded_for_ref_checks(self) -> None:
-        """A partial schema would refuse real columns it never received."""
-        source = _create_sigma_source()
-        element = self._make_element([{"columnId": "c1", "name": "Id"}])
-        urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-test.elem1,PROD)"
-
-        source._gen_data_model_element_schema_metadata(
-            urn, element, columns_complete=False
-        )
-        assert urn not in source._dm_element_field_paths
-
-        source._gen_data_model_element_schema_metadata(urn, element)
-        assert source._dm_element_field_paths[urn] == {"Id"}
-
     def test_field_order_is_stable_across_columns_reorder(self) -> None:
         """Maj-2 regression: Sigma's ``/columns`` endpoint has no
         documented ordering contract. Any reorder must not change the
@@ -2396,16 +2382,27 @@ class TestDataModelElementOwner:
         return dm
 
     @pytest.mark.parametrize("complete", [True, False])
-    def test_columns_complete_reaches_the_schema_record(self, complete: bool) -> None:
+    def test_only_a_complete_schema_is_recorded_for_ref_checks(
+        self, complete: bool
+    ) -> None:
+        """A partial schema would refuse real columns it never received."""
         source = _create_sigma_source(ingest_data_models=True)
         dm = self._make_dm_with_one_element()
+        dm.elements = [
+            SigmaDataModelElement.model_validate(
+                {
+                    "elementId": "elem-1",
+                    "name": "element one",
+                    "columns": [{"columnId": "c1", "name": "Id"}],
+                }
+            )
+        ]
         dm.columns_complete = complete
         urn = source._gen_data_model_element_urn(dm, dm.elements[0])
 
-        with patch.object(source.sigma_api, "get_user_name", return_value=None):
-            list(source._gen_data_model_workunit(dm, {"elem-1": urn}))
+        source._prepopulate_dm_bridge_maps(dm)
 
-        assert (urn in source._dm_element_field_paths) is complete
+        assert source._dm_element_field_paths.get(urn) == ({"Id"} if complete else None)
 
     def test_owner_emitted_when_createdBy_resolves_and_ingest_owner_true(
         self,
