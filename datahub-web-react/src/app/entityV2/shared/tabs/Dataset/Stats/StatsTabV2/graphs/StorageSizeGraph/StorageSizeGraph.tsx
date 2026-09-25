@@ -13,7 +13,10 @@ import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsT
 import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
 import { getGraphLookbackWindowsOptions } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByLookbackWindow from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
-import useProfileGraphLookback from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
+import useProfileGraphLookback, {
+    profileChartEmptyMessage,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
+import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import dayjs from '@utils/dayjs';
@@ -37,7 +40,9 @@ export default function StorageSizeGraph() {
         graphLookbackWindowsOptions,
         oldestDatasetProfileTime,
     );
-    const { lookbackWindow, rangeType, selectRangeType } = useProfileGraphLookback();
+    const { latestStorageSizeProfileTime } = useGetStatsData();
+    const { lookbackWindow, rangeType, selectRangeType, profileTimeMillis, outsideMaxLookback } =
+        useProfileGraphLookback(latestStorageSizeProfileTime, statsEntityUrn);
 
     const { data, loading: dataLoading } = useStorageSizeData(statsEntityUrn ?? undefined, lookbackWindow);
 
@@ -63,7 +68,7 @@ export default function StorageSizeGraph() {
             title={chartName}
             dataTestId="storage-size-card"
             isEmpty={data.length === 0 || !canViewDatasetProfile}
-            emptyMessage={t('graph.emptyInSelectedRange')}
+            emptyMessage={profileChartEmptyMessage(t, profileTimeMillis, outsideMaxLookback)}
             emptyContent={!canViewDatasetProfile && <NoPermission statName={t('storageSizeGraph.statName')} />}
             loading={loading}
             graphHeight="290px"

@@ -7,7 +7,10 @@ import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsT
 import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
 import { getGraphLookbackWindowsOptions } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByLookbackWindow from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
-import useProfileGraphLookback from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
+import useProfileGraphLookback, {
+    profileChartEmptyMessage,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
+import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import useRowCountData from '@app/entityV2/shared/useRowCountData';
 
@@ -26,7 +29,9 @@ export default function StatsTabRowCountGraph(): JSX.Element {
         graphLookbackWindowsOptions,
         oldestDatasetProfileTime,
     );
-    const { lookbackWindow, rangeType, selectRangeType } = useProfileGraphLookback();
+    const { latestRowCountProfileTime } = useGetStatsData();
+    const { lookbackWindow, rangeType, selectRangeType, profileTimeMillis, outsideMaxLookback } =
+        useProfileGraphLookback(latestRowCountProfileTime, statsEntityUrn);
 
     const { data, loading: dataLoading } = useRowCountData(
         statsEntityUrn ?? undefined,
@@ -50,7 +55,7 @@ export default function StatsTabRowCountGraph(): JSX.Element {
             data={data}
             loading={loading}
             canViewDatasetProfile={canViewDatasetProfile}
-            emptyMessage={t('graph.emptyInSelectedRange')}
+            emptyMessage={profileChartEmptyMessage(t, profileTimeMillis, outsideMaxLookback)}
             renderControls={() => (
                 <>
                     <TimeRangeSelect

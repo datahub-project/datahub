@@ -1,5 +1,6 @@
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import { latestProfileTimeWithField } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
 import { getIsSiblingsMode } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
@@ -55,7 +56,14 @@ export const useGetStatsData = () => {
         isSiblingsMode,
         partitionSpec: latestProfile?.partitionSpec,
         profileTimestampMillis: latestProfile?.timestampMillis as number | undefined,
-        latestFullTableProfileTime: latestFullTableProfile?.timestampMillis as number | undefined,
-        latestPartitionProfileTime: latestPartitionProfile?.timestampMillis as number | undefined,
+        latestRowCountProfileTime: latestProfileTimeWithField(
+            [latestFullTableProfile, latestPartitionProfile],
+            'rowCount',
+        ),
+        latestStorageSizeProfileTime: latestProfileTimeWithField(
+            [latestFullTableProfile, latestPartitionProfile],
+            'sizeInBytes',
+        ),
+        hasRecentUsage: (queryCountLast30Days ?? totalSqlQueries ?? 0) > 0,
     };
 };

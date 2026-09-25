@@ -30,6 +30,28 @@ describe('getProfileScope', () => {
         expect(getProfileScope({ type: 'QUERY', partition: 'SAMPLE (sample rows 109186)' })).toEqual({
             kind: 'query',
             detail: 'SAMPLE (sample rows 109186)',
+            shortDetail: '(sample rows 109186)',
+        });
+    });
+
+    it('treats a full-table snapshot as the whole table when type is omitted', () => {
+        expect(getProfileScope({ partition: 'FULL_TABLE_SNAPSHOT' })).toEqual({ kind: 'fullTable' });
+        expect(getProfileScope({ type: 'PARTITION', partition: 'FULL_TABLE_SNAPSHOT' })).toEqual({
+            kind: 'fullTable',
+        });
+    });
+
+    it('treats a SAMPLE partition as a sample when type is omitted', () => {
+        expect(getProfileScope({ partition: 'SAMPLE (sample rows 109186)' })).toEqual({
+            kind: 'query',
+            detail: 'SAMPLE (sample rows 109186)',
+            shortDetail: '(sample rows 109186)',
+        });
+    });
+
+    it('does not put a raw query payload on the caption', () => {
+        expect(getProfileScope({ type: 'QUERY', partition: '{"limit": 100, "offset": 0}' })).toEqual({
+            kind: 'query',
         });
     });
 
@@ -37,6 +59,7 @@ describe('getProfileScope', () => {
         expect(getProfileScope({ type: 'PARTITION', partition: 'dt=2026-03-01' })).toEqual({
             kind: 'partition',
             detail: 'dt=2026-03-01',
+            shortDetail: 'dt=2026-03-01',
         });
     });
 });
@@ -83,11 +106,12 @@ describe('formatLatestStatsCaption', () => {
     it('shows the sample next to the latest row count', () => {
         const caption = formatLatestStatsCaption(
             t,
-            { kind: 'query', detail: 'SAMPLE (sample rows 109186)' },
+            { kind: 'query', detail: 'SAMPLE (sample rows 109186)', shortDetail: '(sample rows 109186)' },
             '4/17/2026',
         );
 
-        expect(caption).toContain('SAMPLE (sample rows 109186)');
+        expect(caption).toContain('profileScope.short.sample');
+        expect(caption).toContain('(sample rows 109186)');
         expect(caption).toContain('latestStats.scopeReported');
         expect(caption).toContain('4/17/2026');
     });
@@ -103,6 +127,16 @@ describe('formatLatestStatsCaption', () => {
             '4/17/2026',
         );
 
-        expect(caption).toBe('SAMPLE (sample rows 109186) · reported 4/17/2026');
+        expect(caption).toBe('Sample (sample rows 109186) · reported 4/17/2026');
+    });
+
+    it('labels a limit query as a query instead of its JSON payload', () => {
+        const caption = formatLatestStatsCaption(
+            translate,
+            getProfileScope({ type: 'QUERY', partition: '{"limit": 100, "offset": 0}' }),
+            '4/17/2026',
+        );
+
+        expect(caption).toBe('Query · reported 4/17/2026');
     });
 });
