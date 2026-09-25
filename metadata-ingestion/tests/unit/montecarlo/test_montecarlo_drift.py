@@ -81,6 +81,55 @@ def _live_monitor_shape(
     return shape
 
 
+_COMPARISON_DESIRED_FIELDS = (
+    "comparisonType",
+    "operator",
+    "metric",
+    "customMetric",
+    "field",
+    "fields",
+    "threshold",
+    "upperThreshold",
+    "lowerThreshold",
+)
+
+
+def _live_comparison_shape() -> Dict[str, str]:
+    return {
+        "comparisonType": "SCALAR:String",
+        "operator": "SCALAR:String",
+        "metric": "SCALAR:String",
+        "customMetric": "OBJECT:CustomMetric",
+        "field": "SCALAR:String",
+        "fields": "SCALAR:String",
+        "threshold": "SCALAR:Float",
+        "upperThreshold": "SCALAR:Float",
+        "lowerThreshold": "SCALAR:Float",
+    }
+
+
+def _live_custom_metric_shape() -> Dict[str, str]:
+    return {"uuid": "SCALAR:UUID", "metricName": "SCALAR:String"}
+
+
+def _full_nested_responses(
+    **overrides: Dict[str, Any],
+) -> Dict[str, Dict[str, Any]]:
+    """Introspection map with a complete Comparison / CustomMetric tree so
+    check_drift does not treat a thin nested fixture as silent nested drift."""
+    responses: Dict[str, Dict[str, Any]] = {
+        "Comparison": _introspect_response(_live_comparison_shape()),
+        "CustomMetric": _introspect_response(_live_custom_metric_shape()),
+    }
+    responses.update(overrides)
+    return responses
+
+
+def _assert_desired_comparison_tree(query: str) -> None:
+    for fname in _COMPARISON_DESIRED_FIELDS:
+        assert fname in query
+
+
 def _builder_with_introspection(
     introspect_responses: Dict[str, Dict[str, Any]],
     fatal_error_types: tuple = (),
@@ -114,14 +163,11 @@ def test_parse_type_shape_unwraps_list_of_object() -> None:
 
 def test_builder_drops_removed_fields_from_query() -> None:
     builder = _builder_with_introspection(
-        {
-            "Monitor": _introspect_response(
+        _full_nested_responses(
+            Monitor=_introspect_response(
                 _live_monitor_shape(include_custom_sql=False, include_severity=False)
             ),
-            "Comparison": _introspect_response(
-                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
-            ),
-        }
+        )
     )
     query = builder.monitors_query()
     assert "customSql" not in query
@@ -137,29 +183,24 @@ def test_builder_drops_removed_fields_from_query() -> None:
 
 def test_builder_keeps_all_fields_when_no_drift() -> None:
     builder = _builder_with_introspection(
-        {
-            "Monitor": _introspect_response(_live_monitor_shape()),
-            "Comparison": _introspect_response(
-                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
-            ),
-        }
+        _full_nested_responses(
+            Monitor=_introspect_response(_live_monitor_shape()),
+        )
     )
     query = builder.monitors_query()
     assert "customSql" in query
     assert "severity" in query
     assert "uuid" in query
+    _assert_desired_comparison_tree(query)
 
 
 def test_drift_degraded_when_optional_fields_missing() -> None:
     builder = _builder_with_introspection(
-        {
-            "Monitor": _introspect_response(
+        _full_nested_responses(
+            Monitor=_introspect_response(
                 _live_monitor_shape(include_custom_sql=False, include_severity=False)
             ),
-            "Comparison": _introspect_response(
-                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
-            ),
-        }
+        )
     )
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
@@ -173,12 +214,7 @@ def test_drift_abort_when_critical_field_missing() -> None:
     shape = _live_monitor_shape()
     del shape["uuid"]
     builder = _builder_with_introspection(
-        {
-            "Monitor": _introspect_response(shape),
-            "Comparison": _introspect_response(
-                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
-            ),
-        }
+        _full_nested_responses(Monitor=_introspect_response(shape))
     )
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
@@ -188,14 +224,11 @@ def test_drift_abort_when_critical_field_missing() -> None:
 
 def test_drift_abort_when_strict_and_optional_missing() -> None:
     builder = _builder_with_introspection(
-        {
-            "Monitor": _introspect_response(
+        _full_nested_responses(
+            Monitor=_introspect_response(
                 _live_monitor_shape(include_custom_sql=False, include_severity=False)
             ),
-            "Comparison": _introspect_response(
-                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
-            ),
-        }
+        )
     )
     drift = builder.check_drift(strict=True, types=["Monitor"])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
@@ -203,12 +236,9 @@ def test_drift_abort_when_strict_and_optional_missing() -> None:
 
 def test_drift_proceed_when_no_drift() -> None:
     builder = _builder_with_introspection(
-        {
-            "Monitor": _introspect_response(_live_monitor_shape()),
-            "Comparison": _introspect_response(
-                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
-            ),
-        }
+        _full_nested_responses(
+            Monitor=_introspect_response(_live_monitor_shape()),
+        )
     )
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert drift.per_type["Monitor"].verdict == DriftVerdict.PROCEED
@@ -220,12 +250,7 @@ def test_drift_reports_new_uningested_fields() -> None:
     shape = _live_monitor_shape()
     shape["customSqlRuleType"] = "SCALAR:String"
     builder = _builder_with_introspection(
-        {
-            "Monitor": _introspect_response(shape),
-            "Comparison": _introspect_response(
-                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
-            ),
-        }
+        _full_nested_responses(Monitor=_introspect_response(shape))
     )
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert "customSqlRuleType" in drift.per_type["Monitor"].new_fields
@@ -328,10 +353,11 @@ def test_builder_keeps_comparisons_when_nested_introspection_fails() -> None:
 
     builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
     query = builder.monitors_query()
-    assert "comparisons" in query
-    assert "operator" in query
-    assert "metric" in query
-    assert "customMetric" in query
+    # Dynamic parent selection, not the Monitor fallback: fallback omits
+    # dataQualityDimension, and uses 4-space indent on comparisons.
+    assert "dataQualityDimension" in query
+    assert "        comparisons" in query
+    _assert_desired_comparison_tree(query)
     # Parent Monitor was introspected successfully, so drifted fields stay
     # dropped and the renamed replacements stay requested.
     assert "customSql" not in query
@@ -339,6 +365,10 @@ def test_builder_keeps_comparisons_when_nested_introspection_fails() -> None:
     assert "whereCondition" in query
     assert "priority" in query
     assert "uuid" in query
+    # Failed nested introspection is not reported as drift.
+    drift = builder.check_drift(strict=False, types=["Monitor"])
+    assert "comparisons" not in drift.per_type["Monitor"].missing
+    assert "customSql" in drift.per_type["Monitor"].missing
 
 
 def test_custom_rule_keeps_comparisons_when_nested_introspection_fails() -> None:
@@ -363,11 +393,66 @@ def test_custom_rule_keeps_comparisons_when_nested_introspection_fails() -> None
 
     builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
     query = builder.custom_rules_query()
-    assert "comparisons" in query
-    assert "operator" in query
-    assert "customMetric" in query
+    # 8-space indent is the dynamic selection; the CustomRule fallback
+    # uses 4-space indent and would still contain comparisons.
+    assert "        comparisons" in query
+    _assert_desired_comparison_tree(query)
     assert "customSql" in query
+    assert "priority" in query
+    assert "severity" not in query
     assert "uuid" in query
+
+
+def test_successful_empty_parent_aborts_instead_of_fallback() -> None:
+    # A successful empty Monitor shape (null/empty __type) is real drift,
+    # not an introspection failure. The gate must ABORT on missing critical
+    # fields rather than PROCEED and send the hardcoded fallback.
+    builder = _builder_with_introspection({"Monitor": {"mc_type": {"fields": []}}})
+    drift = builder.check_drift(strict=False, types=["Monitor"])
+    assert drift.per_type["Monitor"].verdict == DriftVerdict.ABORT
+    assert "uuid" in drift.per_type["Monitor"].critical_missing
+    assert "entityMcons" in drift.per_type["Monitor"].critical_missing
+    assert drift.verdict == DriftVerdict.ABORT
+
+
+def test_empty_comparison_drops_field_and_reports_nested_drift() -> None:
+    # Successful empty Comparison is real nested drift: omit comparisons
+    # from the query (empty selection is invalid GraphQL) and surface it
+    # on the gate so the run is DEGRADED, not silent PROCEED.
+    builder = _builder_with_introspection(
+        {
+            "Monitor": _introspect_response(_live_monitor_shape()),
+            "Comparison": {"mc_type": {"fields": []}},
+        }
+    )
+    query = builder.monitors_query()
+    assert "comparisons" not in query
+    assert "uuid" in query
+    drift = builder.check_drift(strict=False, types=["Monitor"])
+    assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
+    assert "comparisons" in drift.per_type["Monitor"].missing
+    assert drift.verdict == DriftVerdict.DEGRADED
+
+
+def test_partial_comparison_reports_nested_drift() -> None:
+    # Thin Comparison {comparisonType, operator} used to assert PROCEED
+    # while metric / thresholds were silently dropped from the query.
+    builder = _builder_with_introspection(
+        {
+            "Monitor": _introspect_response(_live_monitor_shape()),
+            "Comparison": _introspect_response(
+                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
+            ),
+        }
+    )
+    query = builder.monitors_query()
+    assert "comparisons" in query
+    assert "comparisonType" in query
+    assert "operator" in query
+    assert "metric" not in query
+    drift = builder.check_drift(strict=False, types=["Monitor"])
+    assert drift.per_type["Monitor"].verdict == DriftVerdict.DEGRADED
+    assert "comparisons" in drift.per_type["Monitor"].missing
 
 
 def test_builder_only_introspects_desired_nested_types() -> None:
@@ -428,12 +513,9 @@ def test_client_check_schema_drift_respects_config_flags() -> None:
     client.page_size = 100
     client.report = None
     builder = _builder_with_introspection(
-        {
-            "Monitor": _introspect_response(_live_monitor_shape()),
-            "Comparison": _introspect_response(
-                {"comparisonType": "SCALAR:String", "operator": "SCALAR:String"}
-            ),
-            "CustomRule": _introspect_response(
+        _full_nested_responses(
+            Monitor=_introspect_response(_live_monitor_shape()),
+            CustomRule=_introspect_response(
                 {
                     "uuid": "SCALAR:UUID",
                     "ruleName": "SCALAR:String",
@@ -446,8 +528,8 @@ def test_client_check_schema_drift_respects_config_flags() -> None:
                     "comparisons": "OBJECT:Comparison",
                 }
             ),
-            "Alert": _introspect_response({"id": "SCALAR:UUID"}),
-        }
+            Alert=_introspect_response({"id": "SCALAR:UUID"}),
+        )
     )
     client.set_query_builder(builder)
     drift = client.check_schema_drift(strict=False)

@@ -320,18 +320,52 @@ def _build_selection_with_subshapes(
     return "\n".join(lines)
 
 
+def _field_or_nested_missing(
+    fname: str,
+    sub: Optional[Any],
+    shape: _TypeShape,
+    object_shapes: Dict[str, _TypeShape],
+) -> bool:
+    """True when a desired field is absent, or a desired object field's
+    successfully-introspected nested type is missing any desired sub-field.
+    A failed nested ``__type`` call is not drift — the builder keeps the
+    desired sub-selection and cannot assess that type."""
+    live = shape.fields.get(fname)
+    if live is None:
+        return True
+    if not isinstance(sub, dict):
+        return False
+    if not live.is_object or not live.object_type_name:
+        return True
+    sub_shape = object_shapes.get(live.object_type_name)
+    if sub_shape is None or sub_shape.introspection_failed:
+        return False
+    return any(
+        _field_or_nested_missing(nested_name, nested_sub, sub_shape, object_shapes)
+        for nested_name, nested_sub in sub.items()
+    )
+
+
 def _diff_drift(
     type_name: str,
     desired: DesiredFields,
     shape: _TypeShape,
     critical: frozenset,
     strict: bool,
+    object_shapes: Optional[Dict[str, _TypeShape]] = None,
 ) -> TypeDrift:
     """Diff a desired-field tree against a live type shape and produce a
-    TypeDrift verdict. missing = desired fields absent from the live shape
-    (top-level only; nested drift is reported under the parent field name).
-    new_fields = live fields the connector does not request."""
-    missing = [f for f in desired if f not in shape.fields]
+    TypeDrift verdict. missing = desired fields absent from the live shape,
+    or object fields whose successfully-introspected nested type is missing
+    desired sub-fields (reported under the parent field name). Failed nested
+    introspection is not treated as drift. new_fields = live fields the
+    connector does not request."""
+    shapes = object_shapes if object_shapes is not None else {}
+    missing = [
+        fname
+        for fname, sub in desired.items()
+        if _field_or_nested_missing(fname, sub, shape, shapes)
+    ]
     critical_missing = [f for f in missing if f in critical]
     desired_set = set(desired)
     new_fields = [f for f in shape.fields if f not in desired_set]
@@ -508,7 +542,11 @@ class IntrospectingQueryBuilder:
         fallback_selection: str,
     ) -> str:
         shape = self._introspect(type_name)
-        if type_name in self._failed_types or not shape.fields:
+        # Only a failed __type call uses the hardcoded fallback. A successful
+        # empty shape is real drift (the type exists and exposes nothing we
+        # asked for); building it yields an empty selection and the
+        # no-requested-fields warning below. check_drift will ABORT.
+        if type_name in self._failed_types or shape.introspection_failed:
             return _wrap(envelope, fallback_selection)
         self._introspect_desired_subtypes(desired, shape)
         selection = _build_selection_with_subshapes(
@@ -569,14 +607,21 @@ class IntrospectingQueryBuilder:
                 continue
             desired, critical = specs[type_name]
             shape = self._introspect(type_name)
-            if type_name in self._failed_types or not shape.fields:
-                # Introspection failed for this type: cannot assess its drift;
-                # do not fabricate an ABORT.
+            if type_name in self._failed_types or shape.introspection_failed:
+                # Failed __type: cannot assess this type's drift; do not
+                # fabricate an ABORT. A successful empty shape is not this
+                # path — _diff_drift reports total (critical) drift.
                 drift.per_type[type_name] = TypeDrift(
                     type_name=type_name, verdict=DriftVerdict.PROCEED
                 )
                 continue
+            self._introspect_desired_subtypes(desired, shape)
             drift.per_type[type_name] = _diff_drift(
-                type_name, desired, shape, critical, strict
+                type_name,
+                desired,
+                shape,
+                critical,
+                strict,
+                object_shapes=self._object_shapes(),
             )
         return drift
