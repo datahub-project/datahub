@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "クエリをコピー",
-    "emptyQueries.noHighlightedQueries": "注目のクエリはまだありません",
     "queriesTab.addHighlightedQueryButton": "注目のクエリを追加",
     "queriesTab.addHighlightedQueryTooltip": "注目のクエリを追加",
     "queriesTab.addUnauthorizedMessage": "このEntityにクエリを追加する権限がありません。",

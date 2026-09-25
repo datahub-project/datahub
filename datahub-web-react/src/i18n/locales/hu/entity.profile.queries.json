@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "A lekérdezés másolása",
-    "emptyQueries.noHighlightedQueries": "Még nincsenek kiemelt lekérdezések",
     "queriesTab.addHighlightedQueryButton": "Kiemelt lekérdezés hozzáadása",
     "queriesTab.addHighlightedQueryTooltip": "Kiemelt lekérdezés hozzáadása",
     "queriesTab.addUnauthorizedMessage": "Nincs jogosultsága lekérdezéseket hozzáadni ehhez az entitáshoz.",

@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Kopiera Query",
-    "emptyQueries.noHighlightedQueries": "Inga markerade Queries ännu",
     "queriesTab.addHighlightedQueryButton": "Lägg till markerad Query",
     "queriesTab.addHighlightedQueryTooltip": "Lägg till en markerad Query",
     "queriesTab.addUnauthorizedMessage": "Du har inte behörighet att lägga till Queries till den här entiteten.",
