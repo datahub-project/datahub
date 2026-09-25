@@ -625,14 +625,14 @@ LTS hotfix on v1.6.0: authorization tightening, SecretService caller guard, Pyth
 
 Requirements:
 
-- CLI / Python SDK: 1.6.0.3 (Python **3.11+**)
+- CLI / Python SDK: **1.7.0.13** (default; security patches). Older 1.6.0.x / 1.7.0.x CLIs still work.
 - Helm Chart: 1.1.2
 
-From v1.6.0 / v1.6.0.1 / v1.6.0.2: drop-in image bump plus CLI/SDK upgrade. Recreate ingestion venvs. No ZDU or Helm chart change.
+From v1.6.0 / v1.6.0.1 / v1.6.0.2: drop-in image bump. Upgrade the CLI to 1.7.0.13 for the security patches; older CLIs remain compatible. No ZDU or Helm chart change.
 
 ### Breaking Changes
 
-- **(CLI / Python)** This LTS hotfix line requires **Python 3.11+** (`master` still supports 3.10). Rebuild venvs. Notable floors: `urllib3` 2.x, `confluent-kafka` ≥2.15.1, `snowflake-connector-python` ≥4.7.3, patched `unstructured` extras. Airflow 2.x urllib3 1.26 constraint files are unsatisfiable.
+- **(CLI / Python, v1.6.0.x packages only)** The v1.6.0 LTS hotfix CLI/SDK line requires **Python 3.11+** (`master` / 1.7.0.x still supports 3.10). If you stay on 1.6.0.3 packages, rebuild venvs. Notable floors on that line: `urllib3` 2.x, `confluent-kafka` ≥2.15.1, `snowflake-connector-python` ≥4.7.3, patched `unstructured` extras. Airflow 2.x urllib3 1.26 constraint files are unsatisfiable.
 
 - **(GMS / Secrets)** `SECRET_SERVICE_CALLER_GUARD_MODE` defaults to **`ENFORCE`**. Browser sessions and user PATs can no longer decrypt UI secrets via `getSecretValues`. Use [datahub-actions](../actions/actions/executor.md) with system client credentials, or `AUDIT` during rollout. Custom plugins must call `SecretService.encrypt/decrypt(OperationContext, ...)`.
 
@@ -640,6 +640,7 @@ From v1.6.0 / v1.6.0.1 / v1.6.0.2: drop-in image bump plus CLI/SDK upgrade. Recr
 
 ### Other Notable Changes
 
+- Default bundled CLI / Python SDK is **1.7.0.13** for security patches; older CLIs still work.
 - Opt-in Play security headers (`DATAHUB_SECURITY_HEADERS_*`). `getSecretValues` isolates per-secret decrypt failures.
 - Additive document `semanticText` embedding-source aspect.
 - Java and Python CVE bumps (Spring 7.0/4.0 patches, Jackson 2.22.2 / Parquet 1.18.1, mariadb-java-client 2.7.14, aiohttp 3.14.3, and related lockfile pins). Rebuild/redeploy picks them up.
