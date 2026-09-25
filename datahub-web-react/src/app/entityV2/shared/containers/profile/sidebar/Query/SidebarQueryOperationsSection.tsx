@@ -1,8 +1,8 @@
+import { CodeBlock } from '@components';
 import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 
@@ -69,14 +69,8 @@ const TextColumn = styled.td`
     font-family: 'Roboto Mono', monospace;
 `;
 
-const PreviewSyntax = styled(StyledSyntaxHighlighter)`
+const PreviewCode = styled(CodeBlock)`
     max-width: 100%;
-    max-height: 150px;
-    overflow: hidden;
-
-    span {
-        font-family: 'Roboto Mono', monospace;
-    }
 `;
 
 function SidebarQueryOperation({ operation }: { operation: FineGrainedOperation }) {
@@ -86,14 +80,18 @@ function SidebarQueryOperation({ operation }: { operation: FineGrainedOperation 
             {operation.transformOperation && (
                 <Section key="logic">
                     <SectionHeader>{t('sidebar.query.logicLabel')}</SectionHeader>
-                    <PreviewSyntax
+                    <PreviewCode
+                        code={operation.transformOperation}
                         language={DEFAULT_LANGUAGE}
-                        showLineNumbers
-                        wrapLines
-                        lineNumberStyle={{ display: 'none' }}
-                    >
-                        {operation.transformOperation}
-                    </PreviewSyntax>
+                        variant="embedded"
+                        showHeader={false}
+                        showCopy={false}
+                        showFormat={false}
+                        hideLineNumbers
+                        wrap
+                        maxHeight={150}
+                        overflow="hidden"
+                    />
                 </Section>
             )}
             {/* eslint-disable i18next/no-literal-string -- (untranslated-text) used as programmatic key and display value */}

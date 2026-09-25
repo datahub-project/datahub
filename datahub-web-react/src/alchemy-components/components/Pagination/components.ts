@@ -76,8 +76,10 @@ export const PaginationContainer = styled.div`
 
     .ant-pagination-jump-next,
     .ant-pagination-jump-prev {
+        /* Matches the page numbers either side of it rather than the icon tokens, which are a step
+           darker and lose legibility against the dark-mode surface. */
         .ant-pagination-item-ellipsis {
-            color: ${(props) => props.theme.colors.icon};
+            color: ${(props) => props.theme.colors.textTertiary};
         }
 
         :hover {
