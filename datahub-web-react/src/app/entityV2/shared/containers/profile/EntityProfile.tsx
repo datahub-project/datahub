@@ -372,6 +372,7 @@ export const EntityProfile = <T, U>({
                 updateEntity,
                 routeToTab,
                 refetch,
+                refetchForms,
                 lineage,
                 shouldRefetchEmbeddedListSearch,
                 setShouldRefetchEmbeddedListSearch,

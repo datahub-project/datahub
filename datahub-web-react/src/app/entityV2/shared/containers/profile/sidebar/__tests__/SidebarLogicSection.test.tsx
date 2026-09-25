@@ -25,6 +25,29 @@ const datasetWithViewProperties = {
     },
 };
 
+const dataJobWithTransformLogic = {
+    urn: 'urn:li:dataJob:1',
+    type: EntityType.DataJob,
+    dataTransformLogic: {
+        transforms: [
+            {
+                queryStatement: {
+                    value: 'SELECT * FROM my_source_table',
+                    language: 'SQL',
+                },
+            },
+        ],
+    },
+    privileges: {
+        canViewQueries: true,
+    },
+};
+
+const dataJobWithoutTransformLogic = {
+    urn: 'urn:li:dataJob:1',
+    type: EntityType.DataJob,
+};
+
 const datasetWithViewPermission = {
     ...datasetWithViewProperties,
     privileges: {
@@ -206,6 +229,242 @@ describe('Sidebar Logic Components', () => {
         });
     });
 
+    describe('SidebarDataJobTransformationLogicSection', () => {
+        it('renders transformation logic when present', () => {
+            const { getByText, container } = render(
+                <MockedProvider addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:dataJob:1',
+                                entityType: EntityType.DataJob,
+                                entityData: getDataForEntityType({
+                                    data: dataJobWithTransformLogic,
+                                    entityType: EntityType.DataJob,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { dataJob: dataJobWithTransformLogic },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarDataJobTransformationLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(getByText('Logic')).toBeInTheDocument();
+            const codeElement = container.querySelector('code.language-sql');
+            expect(codeElement).toBeInTheDocument();
+            expect(codeElement?.textContent).toContain('SELECT');
+            expect(codeElement?.textContent).toContain('FROM');
+            expect(codeElement?.textContent).toContain('my_source_table');
+        });
+
+        it.skip('handles modal interaction for transformation logic', () => {
+            const { getByText, queryByRole } = render(
+                <MockedProvider addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:dataJob:1',
+                                entityType: EntityType.DataJob,
+                                entityData: getDataForEntityType({
+                                    data: dataJobWithTransformLogic,
+                                    entityType: EntityType.DataJob,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { dataJob: dataJobWithTransformLogic },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarDataJobTransformationLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            // Modal should not be visible initially
+            expect(queryByRole('dialog')).not.toBeInTheDocument();
+
+            // Click "See Full" button
+            const seeFullButton = getByText('See Full');
+            fireEvent.click(seeFullButton);
+
+            // Modal should now be visible
+            expect(queryByRole('dialog')).toBeInTheDocument();
+
+            // Close modal
+            const dismissButton = getByText('Dismiss');
+            fireEvent.click(dismissButton);
+
+            // Modal should be hidden again
+            expect(queryByRole('dialog')).not.toBeInTheDocument();
+        });
+
+        it('returns null when no transformation logic is present', () => {
+            const { container } = render(
+                <MockedProvider addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:1']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:dataJob:1',
+                                entityType: EntityType.DataJob,
+                                entityData: getDataForEntityType({
+                                    data: dataJobWithoutTransformLogic,
+                                    entityType: EntityType.DataJob,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { dataJob: dataJobWithoutTransformLogic },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarDataJobTransformationLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(container.firstChild).toBeNull();
+        });
+
+        const dataJobWithLogic = {
+            type: EntityType.DataJob,
+            urn: 'urn:li:dataJob:test',
+            dataTransformLogic: {
+                transforms: [
+                    {
+                        queryStatement: {
+                            value: 'SELECT * FROM input_table',
+                        },
+                    },
+                ],
+            },
+        };
+
+        it('does not render when canViewQueries is false', () => {
+            const dataJobWithoutViewPermission = {
+                ...dataJobWithLogic,
+                privileges: {
+                    canViewQueries: false,
+                },
+            };
+
+            const { container } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:test']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:dataJob:test',
+                                entityType: EntityType.DataJob,
+                                entityData: getDataForEntityType({
+                                    data: dataJobWithoutViewPermission,
+                                    entityType: EntityType.DataJob,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { dataJob: dataJobWithoutViewPermission },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarDataJobTransformationLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(container.firstChild).toBeNull();
+        });
+
+        it('renders logic section when canViewQueries is true', () => {
+            const dataJobWithViewPermission = {
+                ...dataJobWithLogic,
+                privileges: {
+                    canViewQueries: true,
+                },
+            };
+
+            const { getByText } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:test']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:dataJob:test',
+                                entityType: EntityType.DataJob,
+                                entityData: getDataForEntityType({
+                                    data: dataJobWithViewPermission,
+                                    entityType: EntityType.DataJob,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { dataJob: dataJobWithViewPermission },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarDataJobTransformationLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(getByText('Logic')).toBeInTheDocument();
+        });
+
+        it('does not render logic section when privileges is undefined (fails closed)', () => {
+            const { container } = render(
+                <MockedProvider mocks={mocks} addTypename={false}>
+                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:test']}>
+                        <EntityContext.Provider
+                            value={{
+                                urn: 'urn:li:dataJob:test',
+                                entityType: EntityType.DataJob,
+                                entityData: getDataForEntityType({
+                                    data: dataJobWithLogic,
+                                    entityType: EntityType.DataJob,
+                                    getOverrideProperties: () => ({}),
+                                }),
+                                baseEntity: { dataJob: dataJobWithLogic },
+                                updateEntity: vi.fn(),
+                                routeToTab: vi.fn(),
+                                refetch: vi.fn(),
+                                lineage: undefined,
+                                loading: false,
+                                dataNotCombinedWithSiblings: null,
+                            }}
+                        >
+                            <SidebarDataJobTransformationLogicSection />
+                        </EntityContext.Provider>
+                    </TestPageContainer>
+                </MockedProvider>,
+            );
+
+            expect(container.firstChild).toBeNull();
+        });
+    });
+
     describe('SidebarQueryLogicSection', () => {
         it('renders query logic section', () => {
             const { getByText } = render(
@@ -336,129 +595,6 @@ describe('Sidebar Logic Components', () => {
                             }}
                         >
                             <SidebarQueryLogicSection />
-                        </EntityContext.Provider>
-                    </TestPageContainer>
-                </MockedProvider>,
-            );
-
-            expect(container.firstChild).toBeNull();
-        });
-    });
-
-    describe('SidebarDataJobTransformationLogicSection', () => {
-        const dataJobWithLogic = {
-            type: EntityType.DataJob,
-            urn: 'urn:li:dataJob:test',
-            dataTransformLogic: {
-                transforms: [
-                    {
-                        queryStatement: {
-                            value: 'SELECT * FROM input_table',
-                        },
-                    },
-                ],
-            },
-        };
-
-        it('does not render when canViewQueries is false', () => {
-            const dataJobWithoutViewPermission = {
-                ...dataJobWithLogic,
-                privileges: {
-                    canViewQueries: false,
-                },
-            };
-
-            const { container } = render(
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:test']}>
-                        <EntityContext.Provider
-                            value={{
-                                urn: 'urn:li:dataJob:test',
-                                entityType: EntityType.DataJob,
-                                entityData: getDataForEntityType({
-                                    data: dataJobWithoutViewPermission,
-                                    entityType: EntityType.DataJob,
-                                    getOverrideProperties: () => ({}),
-                                }),
-                                baseEntity: { dataJob: dataJobWithoutViewPermission },
-                                updateEntity: vi.fn(),
-                                routeToTab: vi.fn(),
-                                refetch: vi.fn(),
-                                lineage: undefined,
-                                loading: false,
-                                dataNotCombinedWithSiblings: null,
-                            }}
-                        >
-                            <SidebarDataJobTransformationLogicSection />
-                        </EntityContext.Provider>
-                    </TestPageContainer>
-                </MockedProvider>,
-            );
-
-            expect(container.firstChild).toBeNull();
-        });
-
-        it('renders logic section when canViewQueries is true', () => {
-            const dataJobWithViewPermission = {
-                ...dataJobWithLogic,
-                privileges: {
-                    canViewQueries: true,
-                },
-            };
-
-            const { getByText } = render(
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:test']}>
-                        <EntityContext.Provider
-                            value={{
-                                urn: 'urn:li:dataJob:test',
-                                entityType: EntityType.DataJob,
-                                entityData: getDataForEntityType({
-                                    data: dataJobWithViewPermission,
-                                    entityType: EntityType.DataJob,
-                                    getOverrideProperties: () => ({}),
-                                }),
-                                baseEntity: { dataJob: dataJobWithViewPermission },
-                                updateEntity: vi.fn(),
-                                routeToTab: vi.fn(),
-                                refetch: vi.fn(),
-                                lineage: undefined,
-                                loading: false,
-                                dataNotCombinedWithSiblings: null,
-                            }}
-                        >
-                            <SidebarDataJobTransformationLogicSection />
-                        </EntityContext.Provider>
-                    </TestPageContainer>
-                </MockedProvider>,
-            );
-
-            expect(getByText('Logic')).toBeInTheDocument();
-        });
-
-        it('does not render logic section when privileges is undefined (fails closed)', () => {
-            const { container } = render(
-                <MockedProvider mocks={mocks} addTypename={false}>
-                    <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:test']}>
-                        <EntityContext.Provider
-                            value={{
-                                urn: 'urn:li:dataJob:test',
-                                entityType: EntityType.DataJob,
-                                entityData: getDataForEntityType({
-                                    data: dataJobWithLogic,
-                                    entityType: EntityType.DataJob,
-                                    getOverrideProperties: () => ({}),
-                                }),
-                                baseEntity: { dataJob: dataJobWithLogic },
-                                updateEntity: vi.fn(),
-                                routeToTab: vi.fn(),
-                                refetch: vi.fn(),
-                                lineage: undefined,
-                                loading: false,
-                                dataNotCombinedWithSiblings: null,
-                            }}
-                        >
-                            <SidebarDataJobTransformationLogicSection />
                         </EntityContext.Provider>
                     </TestPageContainer>
                 </MockedProvider>,

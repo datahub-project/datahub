@@ -13,14 +13,14 @@ export const useGetStructuredPropColumns = (
         return properties?.map((prop) => {
             const name = getDisplayName(prop.entity as StructuredPropertyEntity);
             return {
-                width: 120,
+                width: 150,
                 title: name,
                 dataIndex: 'schemaFieldEntity',
                 key: prop.entity.urn,
                 render: (record) =>
                     renderMetadataCell(
                         metadataStatus,
-                        120,
+                        150,
                         () => <StructuredPropValues schemaFieldEntity={record} propColumn={prop} />,
                         'prop-cell-skeleton',
                     ),

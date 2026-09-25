@@ -1,5 +1,6 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -120,6 +121,23 @@ export const ManageIngestionPage = () => {
         [setHideSystemSources],
     );
 
+    const handleExecutionSourceClick = useCallback(
+        (record: { urn?: string; name?: string }) => {
+            setSelectedTab(TabType.Sources);
+            history.replace({
+                pathname: tabUrlMap[TabType.Sources],
+                search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
+            });
+        },
+        [history],
+    );
+
+    const getExecutionRunDetailsPath = useCallback(
+        (urn: string) =>
+            showIngestionOnboardingRedesignV1 ? PageRoutes.INGESTION_RUN_DETAILS.replace(':urn', urn) : undefined,
+        [showIngestionOnboardingRedesignV1],
+    );
+
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
@@ -186,8 +204,10 @@ export const ManageIngestionPage = () => {
                     shouldPreserveParams={shouldPreserveParams}
                     hideSystemSources={hideSystemSources === 'true'}
                     setHideSystemSources={handleSetHideSystemSources}
-                    selectedTab={selectedTab}
-                    setSelectedTab={setSelectedTab}
+                    isActive={selectedTab === TabType.RunHistory}
+                    onSourceClick={handleExecutionSourceClick}
+                    getRunDetailsPath={getExecutionRunDetailsPath}
+                    runDetailsFromUrl={tabUrlMap[TabType.RunHistory]}
                 />
             ),
             key: TabType.RunHistory as string,

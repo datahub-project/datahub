@@ -241,4 +241,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             EntityCapabilityType.FORMS,
         ]);
     };
+
+    getPlatformProperties = (data: MlPrimaryKey) => {
+        return data?.properties?.sources?.[0]?.platform;
+    };
 }
