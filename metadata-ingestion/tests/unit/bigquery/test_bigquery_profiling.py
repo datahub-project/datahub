@@ -507,6 +507,51 @@ def test_fallback_date_component_unknown_type_scans_all():
     assert result == "`year` IS NOT NULL"
 
 
+def test_configured_int_fallback_infers_int64_for_untyped_column():
+    """A user-configured integer fallback on a column with no known type must emit
+    `col = 5` (INT64), not `col = '5'` — BigQuery rejects INT64 = STRING. Covers the
+    fallback-filter builder path (_create_fallback_filter_for_column -> _value_filter).
+    """
+    discovery = PartitionDiscovery(make_config(fallback_partition_values={"shard": 5}))
+
+    result = discovery._create_fallback_filter_for_column(
+        make_table(name="int_fallback"), "shard", datetime(2026, 3, 1), ""
+    )
+
+    assert result == "`shard` = 5"
+
+
+def test_process_non_date_columns_infers_int64_for_composite_constraint():
+    """A discovered INT64 pick for one non-date column must constrain the next column as
+    `col = 5`, not `col = '5'`: an untyped int would be quoted, BigQuery rejects
+    INT64 = STRING, and later composite-key columns would end up unconstrained.
+    """
+    discovery = PartitionDiscovery(make_config())
+    queries: List[str] = []
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        queries.append(query)
+        if "shard" in context:
+            return [SimpleNamespace(val=5, record_count=100)]
+        return [SimpleNamespace(val="emea", record_count=50)]
+
+    result_values: Dict[str, Any] = {}
+    discovery._process_non_date_columns(
+        ["shard", "region"],
+        "`p`.`d`.`t`",
+        [],
+        {},  # empty type map — forces inference
+        10,
+        execute,
+        make_table(),
+        result_values,
+    )
+
+    region_query = next(q for q in queries if "region" in q)
+    assert "`shard` = 5" in region_query
+    assert "`shard` = '5'" not in region_query
+
+
 def test_partition_column_types_backfills_pseudo_columns():
     """INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns, so
     get_partition_column_types must backfill their fixed BigQuery types
@@ -854,3 +899,39 @@ def test_test_date_candidate_untyped_component_scans_column():
         lambda q, j, c: [],
     )
     assert result == ["`month` IS NOT NULL"]
+
+
+def test_test_date_candidate_int_fallback_infers_int64():
+    """When a strategic-candidate column isn't a date component but has a configured
+    integer fallback, the emitted filter must be `col = 5` (INT64), not `col = '5'`
+    (rejected on an INT64 column).
+    """
+
+    class LiveProbe(PartitionDiscovery):
+        def _verify_partition_has_data(self, *args: Any, **kwargs: Any) -> bool:
+            return True
+
+        def _enhance_partition_filters_with_actual_values(
+            self,
+            table: BigqueryTable,
+            project: str,
+            schema: str,
+            required_columns: List[str],
+            initial_filters: List[str],
+            *args: Any,
+            **kwargs: Any,
+        ) -> Optional[List[str]]:
+            return initial_filters
+
+    discovery = LiveProbe(make_config(fallback_partition_values={"shard": 5}))
+    result = discovery._test_date_candidate(
+        make_table(),
+        "test-project-123456",
+        "ds",
+        datetime(2024, 3, 9, tzinfo=timezone.utc),
+        "strategic candidate",
+        ["shard"],
+        {},  # empty type map — shard has no known type
+        lambda q, j, c: [],
+    )
+    assert result == ["`shard` = 5"]
