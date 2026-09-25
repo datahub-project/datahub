@@ -1,8 +1,6 @@
 import collections
 import contextlib
-import dataclasses
 import functools
-import hashlib
 import json
 import logging
 import os
@@ -13,19 +11,13 @@ import subprocess
 import sys
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
-from typing import Annotated, Any, Mapping, Optional, Union
-from urllib.parse import urlparse
+from typing import Mapping, Optional, Union
+from urllib.parse import urlparse, urlsplit, urlunsplit
 
 # Note: BaseExceptionGroup handling removed for Python 3.9 compatibility
 import anyio
 import anyio.abc
 import anyio.streams.text
-import pydantic
-from expandvars import (
-    ExpandvarsException,
-    UnboundVariable,
-    expand as _expandvars_expand,
-)
 
 # TODO: promote to a public config_loader helper.
 from datahub.configuration.config_loader import _extract_env_var_names
@@ -33,35 +25,26 @@ from datahub.executor.common.env_config import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
 )
+from datahub.executor.execution.venv_cache import (
+    VenvCache,
+)
+from datahub.executor.execution.venv_config import (
+    VenvConfig,
+    VenvReference,
+    _pages_wheel_url,
+)
+from datahub.executor.execution.venv_utils import (
+    VENV_NO_DATAHUB,
+    VENV_VERSION_BUNDLED,
+    VENV_VERSION_LATEST,
+    VENV_VERSION_NATIVE,
+    VenvKind,
+    classify_version,
+)
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
-
-
-def _expand_pip_req(req: str) -> str:
-    """Expand ${VAR:-default} templates in a pip requirement string.
-
-    Only expands entries that contain ${, so plain pip specs and URLs with bare
-    $ mid-string (e.g. ?sig=$TOKEN) are passed through unchanged.
-
-    Uses nounset semantics — matching config_loader.py's pattern — so that
-    ${VAR} with no default raises a RuntimeError rather than silently expanding
-    to an empty string and producing a blank pip requirement that uv skips.
-    """
-    if "${" not in req:
-        return req
-    try:
-        return _expandvars_expand(req, nounset=True)
-    except UnboundVariable as e:
-        raise RuntimeError(
-            f"pip requirement {req!r} references unset environment variable {e}. "
-            "Set the variable or add a default (e.g. ${VAR:-fallback})."
-        ) from e
-    except ExpandvarsException as e:
-        raise RuntimeError(
-            f"pip requirement {req!r} has invalid environment variable syntax: {e}"
-        ) from e
 
 
 def referenced_env_values(
@@ -89,18 +72,7 @@ _DEFAULT_MAX_BYTES_PER_LINE = 2**12  # 4kb
 # Doing 90% of that so we have some buffer for other things.
 _DEFAULT_MAX_LOG_SIZE_BYTES = int(0.9 * 2**18)  # 90% of 1mb
 
-VENV_VERSION_LATEST = "latest"
-VENV_VERSION_BUNDLED = "bundled"
-VENV_VERSION_NATIVE = "native"
-VENV_NO_DATAHUB = "NO_ACRYL_DATAHUB"
-
 BUNDLED_VENV_PATH_ENV = "DATAHUB_BUNDLED_VENV_PATH"
-
-
-def _pages_wheel_url(base_url: str) -> str:
-    """Build the wheel download URL for a DataHub Pages dev build, with cache-busting timestamp."""
-    now = datetime.now(tz=timezone.utc)
-    return f"{base_url}/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl?ts={now.timestamp()}"
 
 
 def _validate_wheel_url(url: str) -> bool:
@@ -235,105 +207,6 @@ class LogHolder:
     def get_lines(self) -> list[str]:
         """Get the lines as a list for compatibility with existing code."""
         return list(self._lines)
-
-
-def pydantic_parse_json(v: Any) -> Any:
-    if isinstance(v, str):
-        return json.loads(v)
-    return v
-
-
-class VenvConfig(pydantic.BaseModel):
-    version: str = VENV_VERSION_LATEST
-    main_plugin: Union[str, None] = None
-    extra_pip_requirements: Annotated[
-        list[str], pydantic.BeforeValidator(pydantic_parse_json)
-    ] = []
-    extra_pip_plugins: Annotated[
-        list[str], pydantic.BeforeValidator(pydantic_parse_json)
-    ] = []
-    extra_env_vars: Annotated[dict, pydantic.BeforeValidator(pydantic_parse_json)] = {}
-    requirements_file: Union[pathlib.Path, None] = None
-
-    def set_main_plugin(self, plugin: str) -> None:
-        self.main_plugin = plugin
-
-    def resolve_pip_requirements(self) -> list[str]:
-        """Expand env-var templates in extra_pip_requirements."""
-        return [_expand_pip_req(r) for r in self.extra_pip_requirements]
-
-    def get_stable_venv_name(
-        self, expanded_pip_reqs: Union[list[str], None] = None
-    ) -> Union[str, None]:
-        if self.requirements_file is not None:
-            suffix = hashlib.sha256()
-            suffix.update(self.requirements_file.read_bytes())
-            return f"req-{suffix.digest().hex()[:16]}"
-
-        if self.main_plugin is None:
-            return None
-        if (
-            self.version == VENV_VERSION_LATEST
-            or self.version == VENV_VERSION_NATIVE
-            or self.version == VENV_VERSION_BUNDLED
-            or self.version == VENV_NO_DATAHUB
-            or self.version.startswith("http")
-        ):
-            return None
-
-        # Generate a stable name for the venv.
-        # Hash the expanded values so that changing DATAHUB_INTEGRATIONS_PACKAGE_SPEC
-        # (or any other env-var template) forces a new venv rather than reusing a
-        # cached one with the old spec. Callers may pass pre-expanded reqs (from
-        # resolve_pip_requirements()) so that hash time and install time use the same
-        # os.environ snapshot.
-        suffix = hashlib.sha256()
-        suffix.update(self.version.encode("utf-8"))
-        reqs_for_hash = (
-            expanded_pip_reqs
-            if expanded_pip_reqs is not None
-            else self.resolve_pip_requirements()
-        )
-        suffix.update(str(reqs_for_hash).encode("utf-8"))
-        suffix.update(str(self.extra_pip_plugins).encode("utf-8"))
-
-        return f"{self.main_plugin}-{suffix.digest().hex()[:16]}"
-
-    def get_acryl_datahub_requirement_line(self) -> str:
-        plugins = ""
-        plugins_list = filter(None, [self.main_plugin, *self.extra_pip_plugins])
-        if plugins_list:
-            plugins = f"[{','.join(plugins_list)}]"
-
-        if self.version == VENV_VERSION_LATEST:
-            return f"acryl-datahub{plugins}"
-        elif self.version == VENV_NO_DATAHUB:
-            return "# acryl-datahub is explicitly not requested."
-        elif self.version.startswith("http"):
-            url = (
-                self.version
-                if self.version.endswith(".whl")
-                else _pages_wheel_url(self.version)
-            )
-            return f"acryl-datahub{plugins} @ {url}"
-        else:
-            return f"acryl-datahub{plugins}=={self.version}"
-
-
-@dataclasses.dataclass
-class VenvReference:
-    venv_loc: pathlib.Path
-    venv_config: VenvConfig
-
-    def command(self, cmd: str) -> str:
-        return str(self.venv_loc / "bin" / cmd)
-
-    def extra_envs(self) -> dict[str, str]:
-        return {
-            **self.venv_config.extra_env_vars,
-            # TODO: Do we need to add this?
-            # "VIRTUAL_ENV": str(self.venv_loc),
-        }
 
 
 # Simplified exception group handling for anyio task groups
@@ -472,34 +345,162 @@ class SubprocessRunner:
                     await self._process.wait()
 
 
+# How long setup_venv is willing to wait for a peer that holds the same cache
+# entry. Deliberately far too short to "wait for the build": a real venv build
+# takes minutes, and a task that has one holds the entry SHARED for its whole
+# life -- hours, for an ingestion run. This budget exists only to absorb the
+# sub-second windows in which a peer holds the entry EXCLUSIVE to check
+# completeness, discard a partial directory or write the completion marker.
+# Past it we build a per-run venv instead, which is what happened for every
+# concurrent run before this cache existed: slower than a hit, always correct,
+# and it cannot hang. 10 x 0.15s caps the wait at ~1.35s, small enough to be
+# invisible next to a build and long enough to cover a peer that is only
+# stat-ing the entry.
+
+
+async def _install_extra_requirements(
+    runner: SubprocessRunner,
+    venv_loc: pathlib.Path,
+    expanded_pip_reqs: list[str],
+    venv_env: dict[str, str],
+) -> bool:
+    """Install extra_pip_requirements, leaving no credential on disk.
+
+    Returns whether the requirements file is known to be gone. False means the
+    expanded token may still be in the entry, so the caller must not publish
+    it to the shared cache -- the same contract as
+    _scrub_direct_url_credentials, and for the same reason: an entry other
+    tasks can reach must not carry a credential.
+
+    These are the EXPANDED requirements: a private index URL arrives here with
+    its token already substituted in. The file is only an input to `uv pip
+    install -r` and nothing reads it afterwards, so it does not outlive the
+    install.
+
+    For a cacheable venv `venv_loc` is the cache root, which
+    get_venv_cache_path deliberately places outside the directory
+    finalize_task_output removes -- so nothing else would ever clean this up,
+    and the entry is readable by every task on the node.
+    """
+    extra_req_file = venv_loc / "extra-requirements.txt"
+    removed = False
+    # The try opens before the file is CREATED, not before the install: once
+    # the path is chosen, write_text and the log appends can each fail with
+    # the token already on disk.
+    try:
+        # 0600 before the contents are written, so there is no window at the
+        # ambient umask. chmod as well as touch(mode=...), because mode only
+        # applies when touch creates the file and a discarded incomplete venv
+        # can leave a stale one behind.
+        extra_req_file.touch(mode=0o600, exist_ok=True)
+        extra_req_file.chmod(0o600)
+        extra_req_file.write_text("\n".join(expanded_pip_reqs))
+        runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
+        runner._logs.append_masked("\n".join(expanded_pip_reqs))
+        await runner.execute(
+            [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
+            env=venv_env,
+        )
+    finally:
+        # In a `finally` because an install failing on a bad token is exactly
+        # the run whose requirements file must not be left behind. Guarded so
+        # a full or read-only cache filesystem cannot turn a build that
+        # otherwise succeeded into a failure -- but the failure is REPORTED
+        # rather than only logged, because "the file is still there" and "the
+        # entry is safe to share" are the same question.
+        try:
+            extra_req_file.unlink(missing_ok=True)
+            removed = True
+        except OSError:
+            logger.warning(
+                "Could not remove %s; it holds expanded requirements and may "
+                "contain a credential",
+                extra_req_file,
+                exc_info=True,
+            )
+    return removed
+
+
+def _scrub_direct_url_credentials(venv_loc: pathlib.Path) -> bool:
+    """Remove credentials uv recorded inside the installed packages.
+
+    Returns whether the venv is known clean. False means at least one record
+    could not be read or rewritten, so a credential may still be in there --
+    the caller must not publish the entry to the shared cache.
+
+    PEP 610 has the installer write
+    site-packages/<pkg>.dist-info/direct_url.json for anything installed from
+    a URL, and uv writes the EXPANDED requirement -- so
+    `pkg @ https://user:${TOKEN}@host/pkg.whl` leaves the token in the venv,
+    where _install_extra_requirements' own cleanup cannot see it. It removes
+    the requirements FILE; this removes what the install copied out of it.
+
+    Before the venv cache this was bounded: the venv lived under exec_out_dir
+    and went away with the run. A cacheable venv is deliberately outside
+    exec_out_dir, created by `uv venv` at the ambient umask, shared by every
+    task on the node, and kept until eviction.
+
+    Userinfo and query string both go: basic-auth credentials and signed-URL
+    tokens are equally common in private indexes. The scheme, host and path
+    stay, because "installed from this host" is useful and is not the secret.
+
+    The netloc is rewritten by cutting at the last `@` rather than through
+    `parts.hostname`/`parts.port`. hostname strips the brackets from an IPv6
+    literal (`[::1]:8080` becomes an unparseable `::1:8080`), and reading
+    .port raises ValueError on a non-numeric port -- from a function whose
+    failure must never reach the caller as an exception.
+    """
+    clean = True
+    for record in venv_loc.glob(
+        "lib/python*/site-packages/*.dist-info/direct_url.json"
+    ):
+        try:
+            payload = json.loads(record.read_text())
+            if not isinstance(payload, dict):
+                continue
+            url = payload.get("url")
+            if not isinstance(url, str):
+                continue
+            parts = urlsplit(url)
+            if "@" not in parts.netloc and not parts.query:
+                continue
+            payload["url"] = urlunsplit(
+                (
+                    parts.scheme,
+                    parts.netloc.rsplit("@", 1)[-1],
+                    parts.path,
+                    "",
+                    parts.fragment,
+                )
+            )
+            record.write_text(json.dumps(payload))
+        except Exception:
+            # Every step is inside, not just the read: urlsplit raises on a
+            # malformed IPv6 URL and json.loads on anything non-JSON, and an
+            # escape from here fails an otherwise complete venv build.
+            clean = False
+            logger.warning(
+                "Could not redact a credential possibly recorded in %s; this "
+                "venv will not be published to the shared cache",
+                record,
+                exc_info=True,
+            )
+    return clean
+
+
 # I had to change this from the base file because we needed to introduce
 # support for handling bundled venvs.
-async def setup_venv(
+def _resolve_fixed_venv(
     venv_config: VenvConfig,
     runner: SubprocessRunner,
-    tmp_dir: pathlib.Path,
-    bundled_venv_path: Optional[pathlib.Path] = None,
-) -> VenvReference:
+    bundled_venv_path: Optional[pathlib.Path],
+) -> Optional[VenvReference]:
+    """The venv for a version that is not built at runtime, if this is one.
+
+    `native` runs in the executor's own interpreter; `bundled` uses a venv
+    baked into the image at build time and is only verified, never built.
+    None means the caller has to build one.
     """
-    Set up a virtual environment based on the configuration.
-
-    Args:
-        venv_config: Configuration for the venv
-        runner: Subprocess runner for executing commands
-        tmp_dir: Temporary directory for dynamic venvs
-        bundled_venv_path: Path where bundled startup venvs are stored
-
-    Returns:
-        VenvReference: Reference to the created/found venv
-
-    Raises:
-        ValueError: If dependency resolution is disabled and non-bundled version requested
-        FileNotFoundError: If bundled venv is requested but not found
-        subprocess.CalledProcessError: If venv creation fails
-    """
-    # Validate dependency resolution compatibility
-    validate_dependency_resolution_enabled(venv_config.version)
-
     if venv_config.version == VENV_VERSION_NATIVE:
         return VenvReference(
             venv_loc=pathlib.Path(sys.prefix),
@@ -533,73 +534,23 @@ async def setup_venv(
             venv_loc=venv_loc,
             venv_config=venv_config,
         )
+    return None
 
-    # Handle dynamic venvs
-    #
-    # Both the ambient value and the one extra_env_vars overrides it with. The
-    # venv below is built from {**os.environ, **extra_env_vars}, so the
-    # override is what pip receives and what a failing index URL echoes back --
-    # and registering only os.environ left exactly that value maskable
-    # nowhere. The stdin envelope cannot cover it either: subprocess_env_secrets
-    # excludes overridden names on purpose, to keep get_combined_env_vars
-    # precedence in the child.
-    #
-    # Two calls rather than one merged dict: both values live under the same
-    # NAME, and the registry keeps MAX_SECRET_VERSIONS of those, so merging
-    # would silently keep only the last.
-    _registry = SecretRegistry.get_instance()
-    _registry.register_secrets_batch(
-        referenced_env_values(venv_config.extra_pip_requirements)
-    )
-    _registry.register_secrets_batch(
-        referenced_env_values(
-            venv_config.extra_pip_requirements,
-            {**os.environ, **venv_config.extra_env_vars},
-        )
-    )
 
-    # Expand env-var templates once so that the venv cache key and the
-    # requirements file see the same os.environ snapshot.
-    expanded_pip_reqs = venv_config.resolve_pip_requirements()
+async def _install_datahub(
+    runner: SubprocessRunner,
+    venv_config: VenvConfig,
+    venv_loc: pathlib.Path,
+    venv_env: dict,
+) -> None:
+    """Install acryl-datahub into a freshly created venv.
 
-    # Versions that are "moving targets" get random names, everything else gets a stable name
-    venv_name_candidate = venv_config.get_stable_venv_name(
-        expanded_pip_reqs=expanded_pip_reqs
-    )
-    if venv_name_candidate is None:
-        venv_name = f"eph-{hashlib.sha256(os.urandom(32)).hexdigest()[:16]}"
-    else:
-        venv_name = venv_name_candidate
-
-    # Setup the venv in tmp_dir with venv- prefix for dynamic venvs
-    venv_loc = tmp_dir / f"venv-{venv_name}"
-    venv_reference = VenvReference(
-        venv_loc=venv_loc,
-        venv_config=venv_config,
-    )
-
-    if venv_loc.exists() and (venv_loc / "bin/python").exists():
-        # Certain systems clean up the files in temp directories, but not the directories themselves.
-        # By checking for the python binary, we can be reasonably sure that the venv is still usable.
-        runner._logs.append(f"venv at {venv_loc} already exists, skipping setup.\n")
-        return venv_reference
-
-    runner._logs.append(f"Creating new venv: {venv_loc}\n")
-
-    # Create the venv. We need to pass --python <executable> so that uv uses the same
-    # Python as the current process.
-    await runner.execute(
-        [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
-    )
-
-    venv_env = {
-        **os.environ,
-        **venv_config.extra_env_vars,
-        "VIRTUAL_ENV": str(venv_loc),
-    }
-
+    Three shapes: a caller-supplied requirements file installed verbatim,
+    nothing at all for NO_ACRYL_DATAHUB, or acryl-datahub composed as a
+    named requirement. The last does two passes -- bare install to read
+    the wheel's bundled constraints, then the plugin extras under them.
+    """
     version = venv_config.version
-
     if venv_config.requirements_file is not None:
         # Case 2: the caller supplied its own requirements file, so install from it
         # verbatim rather than composing an acryl-datahub requirement line.
@@ -628,7 +579,7 @@ async def setup_venv(
         plugins = f"[{','.join(plugins_list)}]" if plugins_list else ""
 
         url = ""
-        is_dev_build = version.startswith(("http://", "https://"))
+        is_dev_build = classify_version(version) is VenvKind.DEV_BUILD
         if is_dev_build:
             if not _validate_wheel_url(version):
                 raise RuntimeError(
@@ -651,7 +602,13 @@ async def setup_venv(
 
         # Install acryl-datahub alone first to read its bundled constraints, then
         # install with plugins under those constraints.
-        bootstrap_cmd = [_find_uv(), "pip", "install", "--no-deps", _requirement("")]
+        bootstrap_cmd = [
+            _find_uv(),
+            "pip",
+            "install",
+            "--no-deps",
+            _requirement(""),
+        ]
         runner._logs.append(
             f"Installing datahub (constraints bootstrap): {' '.join(bootstrap_cmd)}\n"
         )
@@ -665,18 +622,126 @@ async def setup_venv(
         runner._logs.append(f"Installing datahub: {' '.join(install_cmd)}\n")
         await runner.execute(install_cmd, env=install_env)
 
-    # Pass 2: Install extra_pip_requirements without constraints.
-    if venv_config.requirements_file is None and expanded_pip_reqs:
-        extra_req_file = venv_loc / "extra-requirements.txt"
-        extra_req_file.write_text("\n".join(expanded_pip_reqs))
-        runner._logs.append(f"Installing extra requirements from: {extra_req_file}\n")
-        runner._logs.append_masked("\n".join(expanded_pip_reqs))
+
+async def setup_venv(
+    venv_config: VenvConfig,
+    runner: SubprocessRunner,
+    tmp_dir: pathlib.Path,
+    bundled_venv_path: Optional[pathlib.Path] = None,
+) -> VenvReference:
+    """
+    Set up a virtual environment based on the configuration.
+
+    Args:
+        venv_config: Configuration for the venv
+        runner: Subprocess runner for executing commands
+        tmp_dir: Temporary directory for dynamic venvs
+        bundled_venv_path: Path where bundled startup venvs are stored
+
+    Returns:
+        VenvReference: Reference to the created/found venv
+
+    Raises:
+        ValueError: If dependency resolution is disabled and non-bundled version requested
+        FileNotFoundError: If bundled venv is requested but not found
+        subprocess.CalledProcessError: If venv creation fails
+    """
+    # Validate dependency resolution compatibility
+    validate_dependency_resolution_enabled(venv_config.version)
+
+    fixed = _resolve_fixed_venv(venv_config, runner, bundled_venv_path)
+    if fixed is not None:
+        return fixed
+
+    # Register BOTH the ambient value and the extra_env_vars override: the
+    # venv is built from {**os.environ, **extra_env_vars}, so the override is
+    # what a failing index URL echoes back. Two calls rather than a merged
+    # dict, because both live under the same NAME and the registry keeps
+    # MAX_SECRET_VERSIONS of those -- merging would keep only the last.
+    _registry = SecretRegistry.get_instance()
+    _registry.register_secrets_batch(
+        referenced_env_values(venv_config.extra_pip_requirements)
+    )
+    _registry.register_secrets_batch(
+        referenced_env_values(
+            venv_config.extra_pip_requirements,
+            {**os.environ, **venv_config.extra_env_vars},
+        )
+    )
+
+    # Expand env-var templates once so that the venv cache key and the
+    # requirements file see the same os.environ snapshot.
+    expanded_pip_reqs = venv_config.resolve_pip_requirements()
+
+    cache_name = venv_config.cache_name(expanded_pip_reqs)
+    cache = VenvCache(tmp_dir)
+    entry = await cache.acquire(cache_name)
+    venv_loc, lock = entry.venv_loc, entry.lock
+
+    venv_reference = VenvReference(
+        venv_loc=venv_loc,
+        venv_config=venv_config,
+        lock=lock,
+    )
+
+    try:
+        if cache.resolve_existing(entry, runner):
+            return venv_reference
+
+        runner._logs.append(f"Creating new venv: {venv_loc}\n")
+
+        # Create the venv. We need to pass --python <executable> so that uv uses the same
+        # Python as the current process.
         await runner.execute(
-            [_find_uv(), "pip", "install", "-r", str(extra_req_file)],
-            env=venv_env,
+            [_find_uv(), "venv", "--python", sys.executable, str(venv_loc)]
         )
 
-    return venv_reference
+        venv_env = {
+            **os.environ,
+            **venv_config.extra_env_vars,
+            "VIRTUAL_ENV": str(venv_loc),
+        }
+
+        await _install_datahub(runner, venv_config, venv_loc, venv_env)
+
+        # Pass 2: Install extra_pip_requirements without constraints.
+        requirements_removed = True
+        if venv_config.requirements_file is None and expanded_pip_reqs:
+            requirements_removed = await _install_extra_requirements(
+                runner, venv_loc, expanded_pip_reqs, venv_env
+            )
+
+        # BOTH gate publication: the expanded requirements file, and what uv
+        # copied out of it into direct_url.json. An entry that could not be
+        # fully cleaned stays unmarked -- this run uses it, the next claimant
+        # rebuilds it rather than inheriting a token. The scrub runs either
+        # way; it is worth doing for this run's own venv regardless.
+        scrubbed = _scrub_direct_url_credentials(venv_loc)
+        if requirements_removed and scrubbed:
+            venv_reference.lock = cache.publish(venv_reference.lock, venv_loc)
+        else:
+            logger.warning(
+                "Not publishing %s to the venv cache: %s.",
+                venv_loc,
+                "the expanded requirements file could not be removed"
+                if not requirements_removed
+                else "a credential recorded by the installer could not be redacted",
+            )
+
+        return venv_reference
+    except BaseException:
+        # Scrub before unwinding: uv writes direct_url.json as each
+        # requirement installs, so a run that failed on the second of two
+        # private-index requirements has already left an expanded token in a
+        # half-built entry sitting in the shared cache root. Guarded so it
+        # cannot replace the exception in flight.
+        try:
+            _scrub_direct_url_credentials(venv_loc)
+        except Exception:
+            logger.exception("Cleanup: failed to scrub credentials from %s", venv_loc)
+        if lock is not None:
+            lock.release()
+        raise
 
 
 def validate_dependency_resolution_enabled(version: str) -> None:

@@ -1,32 +1,73 @@
+import json
 import logging
+import os
 import pathlib
+import shutil
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from typing import Any, List, Optional, Tuple
+from unittest.mock import AsyncMock, Mock, patch
 
 import anyio
 import pytest
 
+from datahub.executor.execution import venv_utils
 from datahub.executor.execution.runner import (
-    VENV_NO_DATAHUB,
-    VENV_VERSION_BUNDLED,
-    VENV_VERSION_LATEST,
-    VENV_VERSION_NATIVE,
     LogHolder,
     SubprocessRunner,
-    VenvConfig,
-    VenvReference,
     _bundled_constraints_path,
-    _expand_pip_req,
+    _scrub_direct_url_credentials,
     _validate_wheel_url,
     setup_venv,
     validate_dependency_resolution_enabled,
 )
+from datahub.executor.execution.task import TaskError
+from datahub.executor.execution.venv_cache import (
+    CacheHit,
+    EntryLock,
+    LockOutcome,
+    UncachedVenv,
+    _acquire_cache_entry,
+)
+from datahub.executor.execution.venv_config import (
+    VenvConfig,
+    VenvReference,
+    _expand_pip_req,
+    _extra_env_vars_cache_suffix,
+)
+from datahub.executor.execution.venv_utils import (
+    VENV_NO_DATAHUB,
+    VENV_VERSION_BUNDLED,
+    VENV_VERSION_LATEST,
+    VENV_VERSION_NATIVE,
+    CacheName,
+)
 from datahub.masking.secret_registry import SecretRegistry
+
+
+@pytest.fixture(autouse=True)
+def _isolate_venv_cache_path(
+    monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    """Give every test in this module its own venv-cache root.
+
+    Without this, any VenvConfig with a pinned version (or `latest`) plus a
+    main_plugin is cacheable by default, and get_venv_cache_path()'s default
+    is `tmp_dir.parent / "_venv_cache"`. For fixtures built on
+    tempfile.TemporaryDirectory() or pytest's shared tmp_path base, that
+    parent is a directory many tests -- or even unrelated pytest runs on this
+    machine -- share. Tests would silently reuse each other's cached venvs,
+    or block forever on a lock another test's leaked file descriptor still
+    holds. Tests that exercise the cache path explicitly override this with
+    their own monkeypatch.setenv, which simply wins because it runs later.
+    """
+    monkeypatch.setenv(
+        "DATAHUB_VENV_CACHE_PATH", str(tmp_path_factory.mktemp("venv_cache"))
+    )
 
 
 def test_venv_config_json_parsing() -> None:
@@ -223,7 +264,14 @@ async def test_running_venv_command(tmp_path: pathlib.Path, version: str) -> Non
 
 
 async def test_repeat_venv_setup(tmp_path: pathlib.Path) -> None:
-    """Test that repeated venv setup reuses existing venv."""
+    """Test that repeated venv setup reuses existing venv.
+
+    A pinned version + main_plugin is cacheable, so this now goes through the
+    node-local cache rather than the plain tmp_dir existence check. The first
+    call's exclusive lock must be released before the second call reuses the
+    same entry, or the second call's acquire would
+    hang forever waiting on a lock this test's own first call still holds.
+    """
     logs = LogHolder(echo_to_stdout_prefix="venv-setup-1: ")
     runner = SubprocessRunner(logs)
 
@@ -242,32 +290,37 @@ async def test_repeat_venv_setup(tmp_path: pathlib.Path) -> None:
                 runner.logs.append("pip install successful\n")
 
     with patch.object(runner, "execute", side_effect=mock_execute):
-        await setup_venv(
+        ref = await setup_venv(
             VenvConfig(version="0.12.1.5", main_plugin="snowflake"),
             runner,
             tmp_path,
         )
 
     assert "Installing datahub" in logs.get_logs()
+    assert ref.lock is not None
+    ref.lock.release()
 
-    # Second setup should skip since venv exists
+    # Second setup should skip since the cached venv is already complete.
     logs = LogHolder(echo_to_stdout_prefix="venv-setup-2: ")
     runner2 = SubprocessRunner(logs)
 
     first_call = False
 
     async def mock_execute_2(command, env=None, cwd=None):
-        # Should not be called since venv exists
+        # Should not be called since the venv is reused from the cache.
         runner2.logs.append("skipping setup - venv already exists\n")
 
     with patch.object(runner2, "execute", side_effect=mock_execute_2):
-        await setup_venv(
+        ref2 = await setup_venv(
             VenvConfig(version="0.12.1.5", main_plugin="snowflake"),
             runner2,
             tmp_path,
         )
 
-    assert "skipping setup" in logs.get_logs()
+    assert ref2.venv_loc == ref.venv_loc
+    assert "Reusing cached venv" in logs.get_logs()
+    assert ref2.lock is not None
+    ref2.lock.release()
 
 
 class TestVenvConfig:
@@ -398,6 +451,45 @@ class TestVenvReference:
 
         envs = venv_ref.extra_envs()
         assert envs["CUSTOM_VAR"] == "value"
+
+
+class _SetupVenvThread(threading.Thread):
+    """setup_venv on its own OS thread and event loop, as production runs it.
+
+    DefaultExecutor.execute_task documents "each time execute_task is called,
+    it is called from a different thread", each with its own event loop. A
+    real thread is also the only thing that can observe a lock hang from
+    OUTSIDE: a blocking flock() freezes the very event loop an in-loop timeout
+    (anyio.fail_after) would have to fire on.
+    """
+
+    def __init__(self, config: VenvConfig, tmp_dir: Path, execute: Any) -> None:
+        super().__init__()
+        self._config = config
+        self._tmp_dir = tmp_dir
+        self._execute = execute
+        self.result: Optional[VenvReference] = None
+        self.error: Optional[BaseException] = None
+
+    def run(self) -> None:
+        runner = SubprocessRunner()
+
+        async def _go() -> VenvReference:
+            with patch.object(runner, "execute", side_effect=self._execute):
+                return await setup_venv(self._config, runner, self._tmp_dir)
+
+        try:
+            self.result = anyio.run(_go)
+        except BaseException as exc:  # surfaced via `error`, not swallowed
+            self.error = exc
+
+    def finish(self, hang_message: str, timeout: float = 30.0) -> VenvReference:
+        self.join(timeout=timeout)
+        assert not self.is_alive(), hang_message
+        if self.error is not None:
+            raise self.error
+        assert self.result is not None
+        return self.result
 
 
 class TestLogHolder:
@@ -838,55 +930,78 @@ class TestSetupVenv:
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_setup_venv_concurrent_creation(self, _find_uv, temp_dir):
-        """Test concurrent venv creation for same configuration."""
+        """Concurrent setups of one entry build it once and never block.
 
+        Two things are asserted, and each catches a distinct regression:
+
+        * Exactly one build across the three threads. A loser must find the
+          winner's finished entry, not build its own. Deterministic even
+          though the threads genuinely race: at most one can hold the entry
+          EXCLUSIVE, and the mocked build finishes far inside the retry
+          budget, so every loser's next pass is a shared hit.
+        * A fourth thread arriving while those three shared holds are
+          outstanding still returns promptly. The regression this guards: an
+          unconditional blocking exclusive acquire makes it wait for holders
+          that, in production, are ingestion runs lasting hours.
+        """
         config = VenvConfig(version="0.12.1", main_plugin="snowflake")
+        installs = [0] * 4
 
-        # Create multiple runners
-        runners = [SubprocessRunner() for _ in range(3)]
+        def make_execute(index: int) -> Any:
+            async def execute(
+                command: List[str],
+                env: Optional[dict] = None,
+                cwd: Optional[str] = None,
+            ) -> None:
+                if "venv" in command:
+                    venv_path = Path(command[-1])
+                    venv_path.mkdir(parents=True, exist_ok=True)
+                    (venv_path / "bin").mkdir(exist_ok=True)
+                    (venv_path / "bin" / "python").touch()
+                elif "install" in command:
+                    installs[index] += 1
 
-        # Mock successful venv creation
-        async def mock_execute(command, env=None, cwd=None):
-            if "venv" in command:
-                venv_path = Path(command[-1])
-                venv_path.mkdir(parents=True, exist_ok=True)
-                (venv_path / "bin").mkdir(exist_ok=True)
-                (venv_path / "bin" / "python").touch()
+            return execute
 
-        # Patch all runners' execute methods
-        patches = []
-        for runner in runners:
-            patcher = patch.object(runner, "execute", side_effect=mock_execute)
-            patches.append(patcher)
-            patcher.start()
+        threads = [
+            _SetupVenvThread(config, temp_dir, make_execute(i)) for i in range(3)
+        ]
+        refs: List[VenvReference] = []
+        try:
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                refs.append(
+                    thread.finish("a thread never finished -- setup_venv blocked")
+                )
 
-        # Run setup_venv concurrently
-        async def setup_one(runner):
-            return await setup_venv(config, runner, temp_dir)
+            for ref in refs:
+                assert ref.venv_config == config
+                assert ref.venv_loc.exists()
+            assert len({ref.venv_loc for ref in refs}) == 1, (
+                "concurrent setups of one config must converge on one entry"
+            )
+            assert sum(1 for count in installs[:3] if count) == 1, (
+                f"exactly one thread should have built the entry: {installs}"
+            )
 
-        # Use anyio task group for concurrent execution with results collection
-        results = [None] * len(runners)  # Pre-allocate results list
+            # Every thread above is still holding its shared lock, exactly as
+            # a running ingestion would for its whole life.
+            late = _SetupVenvThread(config, temp_dir, make_execute(3))
+            late.start()
+            refs.append(
+                late.finish(
+                    "a complete entry held SHARED by running tasks blocked a "
+                    "new setup_venv -- the acquire must be non-blocking"
+                )
+            )
 
-        async def setup_and_store(runner, index):
-            result = await setup_one(runner)
-            results[index] = result
-
-        async with anyio.create_task_group() as task_group:
-            for i, runner in enumerate(runners):
-                task_group.start_soon(setup_and_store, runner, i)  # type: ignore[arg-type]
-
-        # All tasks are complete when we reach here - results are ready
-
-        # All should succeed and create venvs (potentially different locations)
-        assert len(results) == 3
-        for venv_ref in results:
-            assert venv_ref is not None, "VenvReference should not be None"
-            assert venv_ref.venv_config == config
-            assert venv_ref.venv_loc.exists()
-
-        # Clean up patches
-        for patcher in patches:
-            patcher.stop()
+            assert refs[-1].venv_loc == refs[0].venv_loc
+            assert installs[3] == 0, "a complete entry was rebuilt"
+        finally:
+            for ref in refs:
+                if ref.lock is not None:
+                    ref.lock.release()
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_setup_venv_with_requirements_file(
@@ -1471,3 +1586,1636 @@ def test_get_stable_venv_name_stable_when_env_var_unchanged(
         ],
     )
     assert config.get_stable_venv_name() == config.get_stable_venv_name()
+
+
+# Synthetic, and assembled at runtime rather than written inline so the
+# repository's secret scanner does not read these fixtures as real
+# credentials.
+_FAKE_TOKEN = "not-a-real-token-" + "0" * 8
+
+
+class TestDirectUrlCredentialScrubbing:
+    """uv records the requirement URL it installed from, credentials included.
+
+    PEP 610 says an installer SHOULD write
+    site-packages/<pkg>.dist-info/direct_url.json for a package installed
+    from a URL, and uv writes the EXPANDED url -- so a private index
+    requirement like `pkg @ https://user:${TOKEN}@host/pkg.whl` leaves the
+    token inside the venv.
+
+    Before the venv cache that was bounded: the venv lived under
+    exec_out_dir and was deleted with the run. A cacheable venv is
+    deliberately outside exec_out_dir, created by `uv venv` at the ambient
+    umask, shared by every task on the node, and survives until eviction.
+    """
+
+    @staticmethod
+    def _write_direct_url(venv_loc: pathlib.Path, name: str, url: str) -> pathlib.Path:
+        dist_info = (
+            venv_loc / "lib" / "python3.11" / "site-packages" / f"{name}.dist-info"
+        )
+        dist_info.mkdir(parents=True)
+        path = dist_info / "direct_url.json"
+        path.write_text(json.dumps({"url": url, "archive_info": {}}))
+        return path
+
+    def test_a_token_in_the_userinfo_is_removed(self, tmp_path: pathlib.Path) -> None:
+        recorded = self._write_direct_url(
+            tmp_path, "pkg-1.0", "https://tokuser:t0ksecretXYZ@host.example/pkg.whl"
+        )
+
+        _scrub_direct_url_credentials(tmp_path)
+
+        assert "t0ksecretXYZ" not in recorded.read_text()
+        assert "tokuser" not in recorded.read_text()
+        assert "host.example" in recorded.read_text(), (
+            "the origin host is not a secret and is worth keeping"
+        )
+
+    def test_a_token_in_the_query_string_is_removed(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        """Signed-URL style credentials are just as common as basic auth."""
+        recorded = self._write_direct_url(
+            tmp_path, "pkg-1.0", "https://host.example/pkg.whl?sig=s3cr3tSIG"
+        )
+
+        _scrub_direct_url_credentials(tmp_path)
+
+        assert "s3cr3tSIG" not in recorded.read_text()
+
+    def test_an_ordinary_url_is_left_alone(self, tmp_path: pathlib.Path) -> None:
+        url = "https://b983b409.datahub-wheels.pages.dev/artifacts/wheels/x.whl"
+        recorded = self._write_direct_url(tmp_path, "pkg-1.0", url)
+
+        _scrub_direct_url_credentials(tmp_path)
+
+        assert json.loads(recorded.read_text())["url"] == url
+
+    @pytest.mark.parametrize(
+        "netloc",
+        [
+            pytest.param("[::1]:8080", id="ipv6"),
+            pytest.param("host.example:8080", id="explicit-port"),
+        ],
+    )
+    def test_the_host_survives_redaction_intact(
+        self, netloc: str, tmp_path: pathlib.Path
+    ) -> None:
+        """Rebuilding the netloc from parts.hostname strips IPv6 brackets, so
+        `[::1]:8080` becomes the unparseable `::1:8080` -- a redaction that
+        also corrupts the provenance it is meant to preserve.
+
+        The URL is assembled rather than written as a literal so the
+        repository's secret scanner does not read the synthetic userinfo as
+        a real credential.
+        """
+        drop = _FAKE_TOKEN
+        keep = netloc
+        url = f"https://u:{drop}@{netloc}/pkg.whl"
+        recorded = self._write_direct_url(tmp_path, "pkg-1.0", url)
+
+        assert _scrub_direct_url_credentials(tmp_path)
+
+        written = json.loads(recorded.read_text())["url"]
+        assert drop not in written
+        assert keep in written, f"the host was mangled: {written}"
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            pytest.param(
+                "https://u:" + _FAKE_TOKEN + "@host:notaport/p.whl",
+                id="non-numeric-port",
+            ),
+            pytest.param("http://[::1/x", id="malformed-ipv6"),
+        ],
+    )
+    def test_a_malformed_url_is_reported_not_raised(
+        self, url: str, tmp_path: pathlib.Path
+    ) -> None:
+        """An escape here fails an otherwise complete venv build, and
+        setup_task_venv turns it into a TaskError pointing at the venv --
+        so that recipe fails on every run. Verified: urlsplit(...).port
+        raises ValueError on a non-numeric port, and urlsplit raises on a
+        malformed IPv6 literal."""
+        self._write_direct_url(tmp_path, "pkg-1.0", url)
+
+        assert _scrub_direct_url_credentials(tmp_path) in (True, False)
+
+    def test_an_unwritable_record_reports_the_venv_as_dirty(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A scrub that could not finish must stop the entry being published.
+
+        Publishing it marks a known-unredacted credential COMPLETE in a
+        directory every task on the node can read.
+        """
+        self._write_direct_url(
+            tmp_path, "pkg-1.0", f"https://u:{_FAKE_TOKEN}@host.example/pkg.whl"
+        )
+
+        def refuse_write(self: pathlib.Path, *args: object, **kwargs: object) -> int:
+            raise OSError(30, "Read-only file system")
+
+        monkeypatch.setattr(pathlib.Path, "write_text", refuse_write)
+
+        assert not _scrub_direct_url_credentials(tmp_path)
+
+    def test_a_venv_with_nothing_to_scrub_is_not_an_error(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        _scrub_direct_url_credentials(tmp_path / "does-not-exist")
+
+
+class TestVenvCacheInSetupVenv:
+    """The reuse branch in setup_venv has never fired.
+
+    It was written for this and could not work: setup_task_venv passes
+    tmp_dir=exec_out_dir, which finalize_task_output removes in its finally, so
+    the check always looked in a directory that was new and about to be
+    deleted.
+    """
+
+    @staticmethod
+    def _mock_execute():
+        async def execute(command, env=None, cwd=None):
+            if "venv" in command:
+                venv_path = Path(command[-1])
+                venv_path.mkdir(parents=True, exist_ok=True)
+                (venv_path / "bin").mkdir(exist_ok=True)
+                (venv_path / "bin" / "python").touch()
+                (venv_path / "bin" / "datahub").touch()
+
+        return AsyncMock(side_effect=execute)
+
+    async def _setup(
+        self, tmp_path: pathlib.Path, version: str, mock: AsyncMock
+    ) -> VenvReference:
+        runner = SubprocessRunner(LogHolder())
+        with patch.object(runner, "execute", mock):
+            return await setup_venv(
+                VenvConfig(version=version, main_plugin="snowflake"),
+                runner,
+                tmp_path,
+            )
+
+    async def _setup_with_env_vars(
+        self,
+        tmp_path: pathlib.Path,
+        version: str,
+        mock: AsyncMock,
+        extra_env_vars: dict,
+    ) -> VenvReference:
+        runner = SubprocessRunner(LogHolder())
+        with patch.object(runner, "execute", mock):
+            return await setup_venv(
+                VenvConfig(
+                    version=version,
+                    main_plugin="snowflake",
+                    extra_env_vars=extra_env_vars,
+                ),
+                runner,
+                tmp_path,
+            )
+
+    async def test_the_second_setup_of_the_same_venv_installs_nothing(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        first = self._mock_execute()
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", first)
+        assert ref.lock is not None
+        ref.lock.release()
+        assert [c for c in first.call_args_list if "install" in c[0][0]]
+
+        second = self._mock_execute()
+        ref2 = await self._setup(tmp_path / "exec-2", "0.15.0.1", second)
+        assert ref2.lock is not None
+        ref2.lock.release()
+
+        assert not [c for c in second.call_args_list if "install" in c[0][0]], (
+            "a cached venv was rebuilt"
+        )
+        assert not [c for c in second.call_args_list if "venv" in c[0][0]], (
+            "a complete entry was re-created rather than reused"
+        )
+        assert ref2.venv_loc == ref.venv_loc
+
+    async def test_latest_is_cached_too(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`latest` is the default for every recipe. get_stable_venv_name()
+        returns None for it because it is a moving target -- true for a cache
+        that outlives the pod, and this one cannot."""
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        first = self._mock_execute()
+        ref = await self._setup(tmp_path / "exec-1", "latest", first)
+        assert ref.lock is not None
+        ref.lock.release()
+
+        second = self._mock_execute()
+        ref2 = await self._setup(tmp_path / "exec-2", "latest", second)
+        assert ref2.lock is not None
+        ref2.lock.release()
+
+        assert not [c for c in second.call_args_list if "install" in c[0][0]]
+
+    async def test_different_requirements_get_different_entries(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The cache key must be the venv's CONTENTS, not the connector.
+
+        get_stable_venv_name() already hashes the EXPANDED requirements, so
+        changing DATAHUB_INTEGRATIONS_PACKAGE_SPEC or any other env template
+        forces a new entry rather than silently serving one built from the old
+        spec. Serving one venv for two different requirement sets would be a
+        wrong-answer bug, not a slow one.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        runner = SubprocessRunner(LogHolder())
+
+        async def build(reqs: List[str]) -> Tuple[VenvReference, int]:
+            """Returns the reference and how many installs it took.
+
+            A tuple rather than an attribute on VenvReference: mypy covers
+            tests/ in this repo, and assigning an undeclared field to a
+            dataclass instance fails it.
+            """
+            mock = self._mock_execute()
+            with patch.object(runner, "execute", mock):
+                ref = await setup_venv(
+                    VenvConfig(
+                        version="0.15.0.1",
+                        main_plugin="snowflake",
+                        extra_pip_requirements=reqs,
+                    ),
+                    runner,
+                    tmp_path / "exec",
+                )
+            return ref, len([c for c in mock.call_args_list if "install" in c[0][0]])
+
+        first, _ = await build(["pandas==2.0.0"])
+        assert first.lock is not None
+        first.lock.release()
+
+        second, second_installs = await build(["pandas==2.1.0"])
+        assert second.lock is not None
+        second.lock.release()
+
+        assert first.venv_loc != second.venv_loc
+        assert second_installs, "a different requirement set reused an entry"
+
+    # Every version whose name the cache is willing to reuse. The two existing
+    # identity tests only used a pinned version, which routes through
+    # get_stable_venv_name -- so _node_local_stable_name, the function that
+    # makes `latest` (the default for EVERY recipe) cacheable,
+    # had no identity coverage at all. Deleting both of its hash inputs left
+    # the whole suite green.
+    CACHEABLE_VERSIONS = [
+        pytest.param("0.15.0.1", id="pinned"),
+        pytest.param("latest", id="latest"),
+    ]
+
+    async def _build_counting_installs(
+        self, tmp_path: pathlib.Path, config: VenvConfig
+    ) -> Tuple[VenvReference, int]:
+        """Build once, returning the reference and how many installs it took.
+
+        A tuple rather than an attribute on VenvReference: mypy covers tests/
+        here, and assigning an undeclared field to a dataclass fails it.
+        """
+        runner = SubprocessRunner(LogHolder())
+        mock = self._mock_execute()
+        with patch.object(runner, "execute", mock):
+            ref = await setup_venv(config, runner, tmp_path / "exec")
+        return ref, len([c for c in mock.call_args_list if "install" in c[0][0]])
+
+    @pytest.mark.parametrize("version", CACHEABLE_VERSIONS)
+    async def test_different_requirements_never_share_an_entry(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, version: str
+    ) -> None:
+        """Two requirement sets must not land on one venv, on ANY cacheable version.
+
+        Serving one venv for two different requirement sets is a wrong-answer
+        bug, not a slow one: the second recipe runs against the first's
+        dependencies. The pinned case was already covered; `latest` and dev
+        wheels were not, and they are the ones that go through
+        _node_local_stable_name.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        first, _ = await self._build_counting_installs(
+            tmp_path,
+            VenvConfig(
+                version=version,
+                main_plugin="snowflake",
+                extra_pip_requirements=["pandas==2.0.0"],
+            ),
+        )
+        assert first.lock is not None
+        first.lock.release()
+
+        second, second_installs = await self._build_counting_installs(
+            tmp_path,
+            VenvConfig(
+                version=version,
+                main_plugin="snowflake",
+                extra_pip_requirements=["pandas==2.1.0"],
+            ),
+        )
+        assert second.lock is not None
+        second.lock.release()
+
+        assert first.venv_loc != second.venv_loc, (
+            "two requirement sets shared one cache entry"
+        )
+        assert second_installs, "the second requirement set reused an entry"
+
+    @pytest.mark.parametrize("version", CACHEABLE_VERSIONS)
+    async def test_different_plugins_never_share_an_entry(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch, version: str
+    ) -> None:
+        """extra_pip_plugins changes what is installed, so it must change the key.
+
+        Not varied anywhere else at the cache level, for any version, even
+        though it is hashed alongside the requirements.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        first, _ = await self._build_counting_installs(
+            tmp_path,
+            VenvConfig(
+                version=version, main_plugin="snowflake", extra_pip_plugins=["athena"]
+            ),
+        )
+        assert first.lock is not None
+        first.lock.release()
+
+        second, second_installs = await self._build_counting_installs(
+            tmp_path,
+            VenvConfig(
+                version=version, main_plugin="snowflake", extra_pip_plugins=["bigquery"]
+            ),
+        )
+        assert second.lock is not None
+        second.lock.release()
+
+        assert first.venv_loc != second.venv_loc, (
+            "two plugin sets shared one cache entry"
+        )
+        assert second_installs, "the second plugin set reused an entry"
+
+    async def test_a_dev_build_is_not_cached(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Dev wheels stay ephemeral, for a disk reason rather than identity.
+
+        Their install sets UV_NO_CACHE=1 -- it must, because every dev wheel
+        ships the same name and version, so uv's PACKAGE cache would hand one
+        commit's build to another -- and that applies to the whole dependency
+        tree. So nothing in such a venv is a hardlink into the package cache
+        and it costs its full apparent size, while
+        DATAHUB_VENV_CACHE_MAX_ENTRIES bounds a COUNT on the assumption that
+        entries are mostly links. A handful would be several GB of real disk.
+
+        Both halves are asserted: no cache entry, and the package cache still
+        bypassed. Re-enabling either alone reintroduces a different bug.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        url = "https://b983b409.datahub-wheels.pages.dev/"
+
+        first = self._mock_execute()
+        ref = await self._setup(tmp_path / "exec-1", url, first)
+        assert ref.lock is None, (
+            "a dev build took a cache entry; those carry no hardlink savings "
+            "and the count-based limit cannot bound their disk"
+        )
+        assert "eph-" in ref.venv_loc.name, (
+            "a dev build should get an ephemeral per-run name"
+        )
+        assert (tmp_path / "exec-1") in ref.venv_loc.parents, (
+            "a dev build venv must live under the per-execution directory"
+        )
+
+        install_calls = [c for c in first.call_args_list if "install" in c[0][0]]
+        assert install_calls, "the first build must actually install"
+        assert all(
+            (c.kwargs.get("env") or {}).get("UV_NO_CACHE") == "1" for c in install_calls
+        ), "the package cache must stay bypassed for a dev build"
+
+    async def test_a_partially_built_entry_is_rebuilt_not_reused(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The poisoned-entry case: a build killed midway leaves bin/python and
+        no packages, which the old check accepted.
+
+        Asserting only that installs happened (the original version of this
+        test) is satisfiable even if the stale directory is never discarded --
+        a build could silently run ON TOP of a dirty tree and still trigger
+        installs. A sentinel file inside the partial entry, and asserting it
+        is gone afterward, is what actually proves the discard happened.
+        """
+        cache = tmp_path / "cache"
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(cache))
+
+        first = self._mock_execute()
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", first)
+        assert ref.lock is not None
+        ref.lock.release()
+        (ref.venv_loc / venv_utils.COMPLETE_MARKER).unlink()
+        sentinel = ref.venv_loc / "stale-from-the-killed-build.txt"
+        sentinel.write_text("leftover")
+
+        second = self._mock_execute()
+        ref2 = await self._setup(tmp_path / "exec-2", "0.15.0.1", second)
+        assert ref2.lock is not None
+        ref2.lock.release()
+
+        assert [c for c in second.call_args_list if "install" in c[0][0]], (
+            "an incomplete venv was reused"
+        )
+        assert not sentinel.exists(), (
+            "the stale partial directory must be discarded, not built on top of"
+        )
+
+    async def test_the_kill_switch_restores_per_run_venvs(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_ENABLED", "false")
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        exec_dir = tmp_path / "exec-1"
+        ref = await self._setup(exec_dir, "latest", self._mock_execute())
+
+        assert ref.lock is None
+        assert str(exec_dir) in str(ref.venv_loc)
+        assert "venv-eph-" in str(ref.venv_loc), (
+            "with the cache off, `latest` must fall back to today's ephemeral "
+            "random name, not keep a stable cache name"
+        )
+
+        second = self._mock_execute()
+        await self._setup(tmp_path / "exec-2", "latest", second)
+        assert [c for c in second.call_args_list if "install" in c[0][0]]
+
+    @pytest.mark.skipif(
+        hasattr(os, "geteuid") and os.geteuid() == 0,
+        reason="chmod cannot deny uid 0, so the failure under test cannot be staged",
+    )
+    async def test_an_unwritable_cache_root_falls_back_to_a_per_run_venv(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The cache is an optimisation. It must never fail a task that would
+        otherwise have run."""
+        blocked = tmp_path / "blocked"
+        blocked.mkdir()
+        blocked.chmod(0o500)
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(blocked / "cache"))
+        try:
+            exec_dir = tmp_path / "exec-1"
+            ref = await self._setup(exec_dir, "0.15.0.1", self._mock_execute())
+
+            assert ref.lock is None
+            assert str(exec_dir) in str(ref.venv_loc)
+        finally:
+            blocked.chmod(0o700)
+
+    async def test_a_failed_build_releases_its_lock_for_the_next_attempt(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A build that fails must not leave its entry permanently locked.
+
+        setup_venv never returns a VenvReference on the exception path, so
+        nothing outside setup_venv -- not even finalize_task_output --
+        ever gets a chance to release the lock; the except block has to do it
+        itself. Regression: without that release, a second attempt at the
+        SAME entry in the SAME process (a later task in a long-lived pod)
+        would spin through its retry budget and fall back to a per-run
+        venv on every later task, for the life of the pod.
+
+        The second attempt runs in a real OS thread with its own event loop,
+        matching production (default_executor.py gives each task its own
+        thread and loop) and, more importantly here, giving a real
+        thread.join(timeout=) to detect a hang: a blocking flock() call
+        freezes its own event loop entirely, so an in-loop cancellation
+        timeout (anyio.fail_after) could never fire to rescue it.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        config = VenvConfig(version="0.15.0.1", main_plugin="snowflake")
+
+        async def failing_execute(command, env=None, cwd=None):
+            if "venv" in command:
+                venv_path = Path(command[-1])
+                venv_path.mkdir(parents=True, exist_ok=True)
+                (venv_path / "bin").mkdir(exist_ok=True)
+                (venv_path / "bin" / "python").touch()
+                return
+            raise subprocess.CalledProcessError(1, command, "install failed")
+
+        first_runner = SubprocessRunner(LogHolder())
+        with patch.object(first_runner, "execute", side_effect=failing_execute):
+            with pytest.raises(subprocess.CalledProcessError):
+                await setup_venv(config, first_runner, tmp_path / "exec-1")
+
+        result: List[Optional[VenvReference]] = [None]
+        error: List[Optional[BaseException]] = [None]
+
+        def run_second() -> None:
+            async def _go() -> VenvReference:
+                second_runner = SubprocessRunner(LogHolder())
+                with patch.object(second_runner, "execute", self._mock_execute()):
+                    return await setup_venv(config, second_runner, tmp_path / "exec-2")
+
+            try:
+                result[0] = anyio.run(_go)
+            except BaseException as exc:  # surfaced via `error`, not swallowed
+                error[0] = exc
+
+        thread = threading.Thread(target=run_second)
+        thread.start()
+        thread.join(timeout=10)
+        assert not thread.is_alive(), (
+            "the second attempt hung -- the failed first build's lock was "
+            "never released"
+        )
+
+        if error[0] is not None:
+            raise error[0]
+        assert result[0] is not None
+        assert result[0].lock is not None
+        result[0].lock.release()
+
+    async def test_extra_env_vars_get_different_cache_entries(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """extra_env_vars can carry a different package index URL or
+        credentials per recipe, and IS merged into the environment the venv is
+        built and installed under. get_stable_venv_name() doesn't hash it
+        (pre-existing contract other callers rely on), so two recipes
+        differing only here would otherwise share one node-local cache entry
+        and one would silently get a venv built against the other's index.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        first = self._mock_execute()
+        ref1 = await self._setup_with_env_vars(
+            tmp_path / "exec-1",
+            "0.15.0.1",
+            first,
+            {"PIP_INDEX_URL": "https://index-a.example/simple"},
+        )
+        assert ref1.lock is not None
+        ref1.lock.release()
+
+        second = self._mock_execute()
+        ref2 = await self._setup_with_env_vars(
+            tmp_path / "exec-2",
+            "0.15.0.1",
+            second,
+            {"PIP_INDEX_URL": "https://index-b.example/simple"},
+        )
+        assert ref2.lock is not None
+        ref2.lock.release()
+
+        assert ref1.venv_loc != ref2.venv_loc
+        assert [c for c in first.call_args_list if "install" in c[0][0]]
+        assert [c for c in second.call_args_list if "install" in c[0][0]], (
+            "a config with different extra_env_vars reused another's entry"
+        )
+
+    async def test_empty_extra_env_vars_keeps_todays_name(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The overwhelmingly common case (no extra_env_vars) must produce a
+        byte-identical name to before this fix, so nothing else shifts."""
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        implicit = await self._setup(
+            tmp_path / "exec-1", "0.15.0.1", self._mock_execute()
+        )
+        assert implicit.lock is not None
+        implicit.lock.release()
+
+        explicit_empty = await self._setup_with_env_vars(
+            tmp_path / "exec-2", "0.15.0.1", self._mock_execute(), {}
+        )
+        assert explicit_empty.lock is not None
+        explicit_empty.lock.release()
+
+        assert implicit.venv_loc == explicit_empty.venv_loc
+
+    @pytest.mark.parametrize(
+        ("left", "right"),
+        [
+            pytest.param(
+                {"A": "b", "C": "d"},
+                {"A": "b\nC=d"},
+                id="separator-smuggled-into-a-value",
+            ),
+            pytest.param(
+                # The realistic shape. extra_env_vars values are unvalidated
+                # beyond json.loads and routinely hold multi-line content --
+                # service-account JSON, PEM keys, pip/uv config -- so the
+                # smuggling does not have to be deliberate to happen.
+                {
+                    "GOOGLE_CREDS": '{"k":1}',
+                    "UV_INDEX_URL": "https://prod.example/simple",
+                },
+                {"GOOGLE_CREDS": '{"k":1}\nUV_INDEX_URL=https://prod.example/simple'},
+                id="multiline-value-absorbs-the-next-key",
+            ),
+            pytest.param(
+                {"A=B": "c"},
+                {"A": "B=c"},
+                id="separator-smuggled-into-a-key",
+            ),
+        ],
+    )
+    def test_env_var_digests_cannot_be_made_to_collide(
+        self, left: dict, right: dict
+    ) -> None:
+        """The framing must be unambiguous, not just hashed.
+
+        `key=value\\n` per pair with no escaping means a value containing a
+        newline can impersonate an extra pair, so two genuinely different
+        environments digest identically -- the exact collision this suffix
+        exists to prevent. Two recipes sharing plugin, version and
+        requirements but differing in their package index would then land on
+        the SAME entry, and whichever built first decides which index the
+        other's packages came from.
+        """
+        assert _extra_env_vars_cache_suffix(left) != _extra_env_vars_cache_suffix(right)
+
+    def test_env_var_digests_are_stable_and_order_independent(self) -> None:
+        """A rename of the framing must not silently repartition the cache for
+        the common case, and dict order must not matter."""
+        assert _extra_env_vars_cache_suffix(
+            {"A": "b", "C": "d"}
+        ) == _extra_env_vars_cache_suffix({"C": "d", "A": "b"})
+        assert _extra_env_vars_cache_suffix({}) == _extra_env_vars_cache_suffix({})
+
+    @staticmethod
+    def _age_the_build(venv_loc: pathlib.Path, seconds: float) -> None:
+        """Backdate when this entry finished building.
+
+        The completion marker is written once, as the last step of a
+        successful build, and never touched again -- so its mtime is the
+        entry's BUILD time. The last-used marker is not usable for this: it
+        is refreshed on every hit, so a busy entry would look permanently
+        new and never expire.
+        """
+        marker = venv_loc / venv_utils.COMPLETE_MARKER
+        stamp = marker.stat().st_mtime - seconds
+        os.utime(marker, (stamp, stamp))
+
+    async def test_a_stale_latest_entry_is_rebuilt_rather_than_served(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """`latest` is a moving target and the default for every recipe.
+
+        Without a bound the hit path is is_venv_complete() and nothing else:
+        no age check at all. A pod that starts on Monday resolves
+        acryl-datahub once and keeps executing that build until it restarts,
+        so a connector fix published on Tuesday never reaches it -- and
+        because test-connection deliberately shares the entry, re-testing
+        after the fix reports the old behaviour too.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        first = self._mock_execute()
+        ref = await self._setup(tmp_path / "exec-1", VENV_VERSION_LATEST, first)
+        assert ref.lock is not None
+        ref.lock.release()
+        self._age_the_build(ref.venv_loc, seconds=60 * 60 * 25)
+
+        second = self._mock_execute()
+        again = await self._setup(tmp_path / "exec-2", VENV_VERSION_LATEST, second)
+        if again.lock is not None:
+            again.lock.release()
+
+        assert [c for c in second.call_args_list if "install" in c[0][0]], (
+            "a day-old `latest` venv was served without re-resolving"
+        )
+
+    async def test_a_fresh_latest_entry_is_still_a_hit(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The TTL must not cost the speedup the cache exists for."""
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        first = self._mock_execute()
+        ref = await self._setup(tmp_path / "exec-1", VENV_VERSION_LATEST, first)
+        assert ref.lock is not None
+        ref.lock.release()
+        self._age_the_build(ref.venv_loc, seconds=60 * 60)
+
+        second = self._mock_execute()
+        again = await self._setup(tmp_path / "exec-2", VENV_VERSION_LATEST, second)
+        assert again.lock is not None
+        again.lock.release()
+
+        assert not [c for c in second.call_args_list if "install" in c[0][0]], (
+            "an hour-old `latest` venv was rebuilt inside its TTL"
+        )
+
+    async def _setup_with_reqs(
+        self,
+        tmp_path: pathlib.Path,
+        version: str,
+        mock: AsyncMock,
+        reqs: list[str],
+        requirements_file: Optional[pathlib.Path] = None,
+    ) -> VenvReference:
+        runner = SubprocessRunner(LogHolder())
+        with patch.object(runner, "execute", mock):
+            return await setup_venv(
+                VenvConfig(
+                    version=version,
+                    main_plugin="snowflake",
+                    extra_pip_requirements=reqs,
+                    requirements_file=requirements_file,
+                ),
+                runner,
+                tmp_path,
+            )
+
+    @pytest.mark.parametrize(
+        ("reqs", "expires"),
+        [
+            pytest.param(["some-lib"], True, id="bare-name"),
+            pytest.param(["some-lib>=1.0"], True, id="lower-bound"),
+            pytest.param(["some-lib~=1.0"], True, id="compatible-release"),
+            pytest.param(["pkg @ https://host.example/p.whl"], True, id="direct-url"),
+            pytest.param(["some-lib==1.2.3"], False, id="exact-pin"),
+            # PEP 440 prefix matching uses `==` but is not an exact pin:
+            # `==1.2.*` resolves to 1.2.3 today and 1.2.9 tomorrow under one
+            # cache key, so the entry has to expire like any moving target.
+            pytest.param(["some-lib==1.2.*"], True, id="prefix-pin"),
+            pytest.param(["some-lib==1.*"], True, id="major-prefix-pin"),
+            # `===` is arbitrary-equality: a literal string match, no
+            # prefix semantics, so it really is immutable.
+            pytest.param(["some-lib===1.2.3"], False, id="arbitrary-equality"),
+            pytest.param(["a==1.0", "b==2.0"], False, id="several-exact-pins"),
+            # An exact pin fixes the version whatever else is ANDed with it,
+            # so an extra bound must not turn it into a moving target.
+            pytest.param(["some-lib==1.2.3,>=1.0"], False, id="exact-pin-with-a-bound"),
+            # Option lines name no artifact, so they cannot be called pinned.
+            # A constraints file is the case that matters: the key sees only
+            # its path, so its contents can change under an unchanged key.
+            pytest.param(
+                ["-c constraints.txt", "some-lib==1.2.3"], True, id="constraints-file"
+            ),
+            pytest.param(
+                ["--extra-index-url https://index.example/simple", "some-lib==1.2.3"],
+                True,
+                id="index-option",
+            ),
+        ],
+    )
+    async def test_an_unpinned_extra_requirement_makes_the_entry_expire(
+        self,
+        reqs: list[str],
+        expires: bool,
+        tmp_path: pathlib.Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A pinned CLI version does not make the whole venv immutable.
+
+        get_stable_venv_name hashes the requirement STRING, not what it
+        resolves to, so `extra_pip_requirements: ["some-lib"]` keeps one key
+        forever while the package behind it moves. With the TTL keyed only
+        on `version`, the pod served day-one's resolution for its whole life
+        -- and a daily schedule keeps last_used fresh, so the age rule never
+        fires either.
+
+        A direct URL counts as unpinned for the same reason the PR treats a
+        dev-build wheel URL as moving: the artifact behind an address can be
+        republished.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        first = await self._setup_with_reqs(
+            tmp_path / "exec-1", "0.15.0.1", self._mock_execute(), reqs
+        )
+        assert first.lock is not None
+        first.lock.release()
+        self._age_the_build(first.venv_loc, seconds=60 * 60 * 25)
+
+        second = self._mock_execute()
+        again = await self._setup_with_reqs(
+            tmp_path / "exec-2", "0.15.0.1", second, reqs
+        )
+        if again.lock is not None:
+            again.lock.release()
+
+        rebuilt = bool([c for c in second.call_args_list if "install" in c[0][0]])
+        assert rebuilt is expires, (
+            f"reqs={reqs}: expected expires={expires}, got rebuilt={rebuilt}"
+        )
+
+    async def test_an_unpinned_requirements_file_makes_the_entry_expire(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Same reasoning, different input. A requirements_file is installed
+        verbatim, so an unpinned line in it moves exactly like an unpinned
+        extra_pip_requirement."""
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        reqs_file = tmp_path / "reqs.txt"
+        reqs_file.write_text("# a comment\npinned==1.0\nloose-lib\n")
+
+        first = await self._setup_with_reqs(
+            tmp_path / "exec-1", "0.15.0.1", self._mock_execute(), [], reqs_file
+        )
+        assert first.lock is not None
+        first.lock.release()
+        self._age_the_build(first.venv_loc, seconds=60 * 60 * 25)
+
+        second = self._mock_execute()
+        again = await self._setup_with_reqs(
+            tmp_path / "exec-2", "0.15.0.1", second, [], reqs_file
+        )
+        if again.lock is not None:
+            again.lock.release()
+
+        assert [c for c in second.call_args_list if "install" in c[0][0]], (
+            "a venv built from an unpinned requirements file never expires"
+        )
+
+    async def test_a_pinned_version_never_expires(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A pinned version names one immutable build, so age says nothing
+        about staleness -- expiring it would only throw away work."""
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        first = self._mock_execute()
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", first)
+        assert ref.lock is not None
+        ref.lock.release()
+        self._age_the_build(ref.venv_loc, seconds=60 * 60 * 24 * 365)
+
+        second = self._mock_execute()
+        again = await self._setup(tmp_path / "exec-2", "0.15.0.1", second)
+        assert again.lock is not None
+        again.lock.release()
+
+        assert not [c for c in second.call_args_list if "install" in c[0][0]], (
+            "a pinned version was rebuilt purely because the entry was old"
+        )
+
+    async def test_use_does_not_extend_a_moving_entrys_ttl(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The TTL is on BUILD age, not last use.
+
+        Keying it on the last-used marker would make the busiest entry --
+        the shared `latest` one every recipe lands on -- the one that never
+        expires, which is precisely backwards.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        first = self._mock_execute()
+        ref = await self._setup(tmp_path / "exec-1", VENV_VERSION_LATEST, first)
+        assert ref.lock is not None
+        ref.lock.release()
+        self._age_the_build(ref.venv_loc, seconds=60 * 60 * 25)
+        # A hit right now refreshes the last-used marker.
+        venv_utils.touch_last_used(ref.venv_loc)
+
+        second = self._mock_execute()
+        again = await self._setup(tmp_path / "exec-2", VENV_VERSION_LATEST, second)
+        if again.lock is not None:
+            again.lock.release()
+
+        assert [c for c in second.call_args_list if "install" in c[0][0]], (
+            "recent use kept a stale moving-target entry alive"
+        )
+
+    async def test_downgrade_to_shared_allows_readers_but_refuses_a_new_builder(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The whole point of downgrading to shared after a build: the entry
+        stays visible to other concurrent shared holders while still
+        correctly refusing a new exclusive (builder) holder. Nothing in
+        setup_venv's own return value distinguishes "still exclusive" from
+        "downgraded to shared" -- this has to inspect the fcntl state via a
+        second, independent EntryLock on the same path.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+
+        lock_path = ref.venv_loc.parent / f"{ref.venv_loc.name}.lock"
+
+        other_shared = EntryLock(lock_path)
+        assert other_shared.try_acquire(exclusive=False).ok, (
+            "a downgraded-to-shared lock must allow another shared holder"
+        )
+        other_shared.release()
+
+        other_exclusive = EntryLock(lock_path)
+        assert not other_exclusive.try_acquire(exclusive=True).ok, (
+            "an exclusive lock must still be refused while the build's "
+            "shared hold is outstanding -- downgrade_to_shared must not "
+            "have released it outright"
+        )
+
+        ref.lock.release()
+
+    async def test_an_undeletable_incomplete_entry_falls_back_to_a_per_run_venv(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A discard that failed must not look like one that succeeded.
+
+        `shutil.rmtree(..., ignore_errors=True)` makes the two
+        indistinguishable, and the build that follows then either dies
+        forever on that key -- `uv venv` on a surviving non-venv directory
+        fails hard with "exists, but it's not a virtual environment" -- or,
+        if pyvenv.cfg survived, recreates over the leftovers and gets stamped
+        COMPLETE, so every later run reuses a venv that may mix two builds'
+        site-packages. Causes are ordinary: an NFS .nfsXXXX silly-rename, a
+        uid mismatch on a shared volume, a read-only remount.
+
+        Falling back to a per-run venv is slower and always correct.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        # A half-built entry: interpreter present, completion marker absent.
+        cache_root = tmp_path / "cache"
+        first = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert first.lock is not None
+        first.lock.release()
+        (first.venv_loc / venv_utils.COMPLETE_MARKER).unlink()
+
+        def refuse_removal(path, *args, ignore_errors=False, **kwargs):
+            # Faithful to shutil.rmtree: ignore_errors swallows the failure
+            # and returns, which is exactly what makes it indistinguishable
+            # from a successful removal.
+            if ignore_errors:
+                return
+            raise OSError(13, "Permission denied")
+
+        monkeypatch.setattr(shutil, "rmtree", refuse_removal)
+
+        second = await self._setup(
+            tmp_path / "exec-2", "0.15.0.1", self._mock_execute()
+        )
+        if second.lock is not None:
+            second.lock.release()
+
+        assert cache_root not in second.venv_loc.parents, (
+            "the build reused a cache entry whose debris could not be cleared"
+        )
+        assert second.venv_loc.exists(), "the fallback venv was never built"
+
+    async def test_a_continuously_reused_entry_outlives_an_idle_one(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Eviction is LRU, so reuse must actually move the entry's position.
+
+        The end-to-end property the two halves imply but neither proves:
+        touch_last_used firing on the hit path, and eviction ordering by that
+        marker, have to add up to "the venv you keep using is the one that
+        survives". Without the touch, the busiest entry keeps its original
+        timestamp and is evicted ahead of one nothing has opened since.
+
+        Note the shape: the eviction pass runs on the BUILD path only, so a
+        third distinct key is what triggers it. A cache taking nothing but
+        hits never trims, which is deliberate -- it keeps the hit path down
+        to one flock and one stat.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        # 1, not 2: the pass runs BEFORE the new venv is created, so it sees
+        # only the entries already on disk. With two present and a limit of
+        # two there is nothing to trim, and the test would prove nothing.
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_MAX_ENTRIES", "1")
+
+        async def build(exec_dir: str, index: str) -> VenvReference:
+            ref = await self._setup_with_env_vars(
+                tmp_path / exec_dir,
+                "0.15.0.1",
+                self._mock_execute(),
+                {"PIP_INDEX_URL": index},
+            )
+            assert ref.lock is not None
+            ref.lock.release()
+            return ref
+
+        busy = await build("exec-1", "https://busy.example/simple")
+        idle = await build("exec-2", "https://idle.example/simple")
+        assert busy.venv_loc != idle.venv_loc
+
+        # Backdate both so neither is protected by mere recency, and make the
+        # BUSY one the older of the two -- on creation order it would go first.
+        for loc, age in ((busy.venv_loc, 10_000), (idle.venv_loc, 9_000)):
+            stamp = time.time() - age
+            os.utime(loc / venv_utils.LAST_USED_MARKER, (stamp, stamp))
+
+        # Use the busy entry. This is a hit, so it evicts nothing -- it only
+        # advances the marker.
+        reused = await self._setup_with_env_vars(
+            tmp_path / "exec-3",
+            "0.15.0.1",
+            self._mock_execute(),
+            {"PIP_INDEX_URL": "https://busy.example/simple"},
+        )
+        assert reused.venv_loc == busy.venv_loc, "the reuse was not a cache hit"
+        assert reused.lock is not None
+        reused.lock.release()
+
+        # A third key has to be BUILT, which is what runs the eviction pass.
+        third = await build("exec-4", "https://third.example/simple")
+
+        assert third.venv_loc.exists()
+        assert busy.venv_loc.exists(), (
+            "eviction removed the venv that was just reused; reuse is not "
+            "advancing the last-used marker"
+        )
+        assert not idle.venv_loc.exists(), (
+            "the idle entry survived, so eviction never ran and this test "
+            "proves nothing"
+        )
+
+    async def test_an_expired_entry_still_held_by_a_peer_is_served_stale(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A TTL that cannot fire must not cost more than having no TTL.
+
+        Refreshing an expired moving entry needs EXCLUSIVE, and every
+        in-flight run holds the same entry SHARED for its whole life --
+        `latest` is the default, so essentially all runs share one entry. On
+        a pod whose runs overlap continuously there may be no instant inside
+        the retry budget with zero holders, so the rebuild never happens.
+        Falling through to a per-run build there would make every task pay a
+        full build forever: strictly worse than never expiring at all.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_LATEST_TTL_HOURS", "24")
+
+        built = await self._setup(
+            tmp_path / "exec-1", VENV_VERSION_LATEST, self._mock_execute()
+        )
+        assert built.lock is not None
+        built.lock.release()
+        self._age_the_build(built.venv_loc, seconds=60 * 60 * 25)
+
+        # A peer run holding the same entry SHARED for its whole life, which
+        # is exactly what blocks the EXCLUSIVE the rebuild needs.
+        peer = EntryLock(built.venv_loc.parent / f"{built.venv_loc.name}.lock")
+        assert peer.try_acquire(exclusive=False).ok
+        try:
+            second = self._mock_execute()
+            served = await self._setup(tmp_path / "exec-2", VENV_VERSION_LATEST, second)
+        finally:
+            peer.release()
+
+        assert served.venv_loc == built.venv_loc, (
+            "an expired-but-unrebuildable entry was abandoned for a per-run "
+            "venv; every task on the pod would then pay a full build"
+        )
+        assert not [c for c in second.call_args_list if "install" in c[0][0]]
+        if served.lock is not None:
+            served.lock.release()
+
+    async def test_an_unreadable_entry_does_not_strand_the_shared_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """_is_fresh_hit reaches Path.exists(), which re-raises EACCES.
+
+        The shared-acquire branch runs above setup_venv's own handler, so an
+        escape leaks the SHARED hold -- and EntryLock has no __del__, so the
+        next run on that key raises again and leaks another descriptor,
+        unbounded, until the pod hits EMFILE.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+        ref.lock.release()
+
+        boom = PermissionError(13, "Permission denied")
+        monkeypatch.setattr(
+            "datahub.executor.execution.venv_cache.is_venv_complete",
+            Mock(side_effect=boom),
+        )
+
+        with pytest.raises(PermissionError):
+            await _acquire_cache_entry(
+                CacheName(ref.venv_loc.name.removeprefix("venv-"), True, False),
+                tmp_path / "exec-2",
+            )
+
+        monkeypatch.undo()
+        lock_path = ref.venv_loc.parent / f"{ref.venv_loc.name}.lock"
+        probe = EntryLock(lock_path)
+        assert probe.try_acquire(exclusive=True).ok, (
+            "the shared hold leaked, so this cache key can never be built or "
+            "evicted again for the life of the process"
+        )
+        probe.release()
+
+    async def test_a_build_that_loses_its_downgrade_retakes_the_shared_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Losing the conversion is not the same as losing the entry.
+
+        flock's downgrade is not atomic -- the kernel drops the exclusive
+        hold before it scans for conflicts -- but the window is sub-second
+        and usually uncontended, so re-requesting SHARED outright recovers
+        the protection the task needs for its whole run.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setattr(
+            EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
+        )
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+
+        assert ref.lock is not None and ref.lock.held, (
+            "a recoverable downgrade left the freshly built entry unprotected"
+        )
+        assert ref.venv_loc.exists()
+        ref.lock.release()
+
+    async def test_a_build_that_cannot_retake_the_lock_reports_no_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When recovery fails too, the reference must stop claiming a hold.
+
+        A VenvReference still carrying the EntryLock would have
+        finalize_task_output release a lock nobody has, and -- worse --
+        would report the entry as protected when eviction is free to take it.
+        The venv is built and complete, so the run continues; it is the claim
+        that has to go, and loudly.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        real_acquire = EntryLock.try_acquire
+
+        def refuse_shared(self: EntryLock, *, exclusive: bool) -> LockOutcome:
+            if not exclusive:
+                return LockOutcome.CONTENDED
+            return real_acquire(self, exclusive=True)
+
+        monkeypatch.setattr(
+            EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
+        )
+        monkeypatch.setattr(EntryLock, "try_acquire", refuse_shared)
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+
+        assert ref.lock is None
+        assert ref.venv_loc.exists(), (
+            "losing the lock must not cost the venv: it is built and complete, "
+            "just no longer guarded"
+        )
+
+    async def test_a_lost_downgrade_that_cannot_be_recovered_falls_back_to_a_per_run_venv(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A complete entry with no lock must not be handed out as ready.
+
+        flock has no atomic downgrade: the kernel drops the exclusive hold
+        before it scans for conflicts, so a peer granted EXCLUSIVE in that
+        window leaves this call holding nothing. Serving the entry anyway
+        means the task spawns a child against a directory the next eviction
+        pass is free to rmtree -- an ImportError on a deleted .so, inside a
+        run that may already have been reported CANCELLED, so the error lands
+        nowhere. A per-run venv is slower and always correct.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+        ref.lock.release()
+
+        real_acquire = EntryLock.try_acquire
+
+        def refuse_shared(self: EntryLock, *, exclusive: bool) -> LockOutcome:
+            if not exclusive:
+                return LockOutcome.CONTENDED
+            return real_acquire(self, exclusive=True)
+
+        monkeypatch.setattr(EntryLock, "try_acquire", refuse_shared)
+        monkeypatch.setattr(
+            EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
+        )
+
+        entry = await _acquire_cache_entry(
+            CacheName(ref.venv_loc.name.removeprefix("venv-"), True, False),
+            tmp_path / "exec-2",
+        )
+
+        assert entry.lock is None
+        assert isinstance(entry, UncachedVenv), (
+            "an unguarded entry was reported as a cache hit; eviction can "
+            "delete it while the task's child is executing from it"
+        )
+        assert entry.venv_loc != ref.venv_loc, (
+            "the fallback must point at a per-run venv, not the shared entry"
+        )
+
+    async def test_a_lost_downgrade_is_recovered_by_retaking_the_shared_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Losing the conversion is not the same as losing the entry.
+
+        The window is sub-second and usually nobody took it, so re-requesting
+        SHARED outright almost always succeeds -- and keeps the cache hit
+        that a straight fallback would throw away.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+        ref.lock.release()
+
+        real_acquire = EntryLock.try_acquire
+        # Refuse the FIRST shared acquire (the opportunistic hit) so the
+        # exclusive branch is the one that runs, but allow the recovery.
+        state = {"refused": False}
+
+        def refuse_first_shared(self: EntryLock, *, exclusive: bool) -> LockOutcome:
+            if not exclusive and not state["refused"]:
+                state["refused"] = True
+                return LockOutcome.CONTENDED
+            return real_acquire(self, exclusive=exclusive)
+
+        monkeypatch.setattr(EntryLock, "try_acquire", refuse_first_shared)
+        monkeypatch.setattr(
+            EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
+        )
+
+        entry = await _acquire_cache_entry(
+            CacheName(ref.venv_loc.name.removeprefix("venv-"), True, False),
+            tmp_path / "exec-2",
+        )
+
+        assert isinstance(entry, CacheHit) and entry.lock is not None, (
+            "a recoverable downgrade threw away a usable cache hit"
+        )
+        assert entry.venv_loc == ref.venv_loc
+        entry.lock.release()
+
+    async def test_a_cache_hit_advances_the_last_used_marker(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Deleting the touch_last_used() call on the reuse path leaves every
+        other test green -- nothing else reads the marker. Set it far in the
+        past by hand so a real hit is unambiguous regardless of filesystem
+        mtime resolution.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+        ref.lock.release()
+
+        old_time = time.time() - 10_000
+        marker = ref.venv_loc / venv_utils.LAST_USED_MARKER
+        os.utime(marker, (old_time, old_time))
+        assert venv_utils.last_used_at(ref.venv_loc) == pytest.approx(old_time, abs=1)
+
+        ref2 = await self._setup(tmp_path / "exec-2", "0.15.0.1", self._mock_execute())
+        assert ref2.lock is not None
+        ref2.lock.release()
+
+        assert venv_utils.last_used_at(ref2.venv_loc) > old_time + 5_000, (
+            "a cache hit must advance the last-used marker"
+        )
+
+    async def test_setup_venv_invokes_eviction_before_building(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Deleting the eviction call in _acquire_cache_entry leaves every
+        other test green -- none of them ever exceed the limits. Assert the
+        call happens at all, with the configured bounds and the right cache
+        root, rather than relying on an end-to-end scenario.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_MAX_ENTRIES", "5")
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_MAX_AGE_HOURS", "48")
+
+        calls: List[Tuple[pathlib.Path, int, float]] = []
+
+        def fake_evict(
+            cache_root: pathlib.Path, *, max_entries: int, max_age_sec: float
+        ) -> int:
+            calls.append((cache_root, max_entries, max_age_sec))
+            return 0
+
+        monkeypatch.setattr(
+            "datahub.executor.execution.venv_cache.evict_stale_entries", fake_evict
+        )
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+        ref.lock.release()
+
+        assert calls, "a cacheable build must run eviction to make room"
+        cache_root, max_entries, max_age_sec = calls[0]
+        assert cache_root == ref.venv_loc.parent
+        assert max_entries == 5
+        assert max_age_sec == 48 * 3600
+
+    async def test_a_bad_cache_setting_does_not_strand_the_lock(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Anything raised under the exclusive hold must release it first.
+
+        _acquire_cache_entry runs ABOVE setup_venv's own try, whose
+        `except BaseException` exists precisely to release the lock. An
+        escape from inside the exclusive region therefore strands the entry
+        for the life of the process: it can never be built, hit or evicted
+        again, and every task on that key falls back to a full per-run build.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        def explode(*args: object, **kwargs: object) -> int:
+            raise OSError("cache root went away mid-pass")
+
+        monkeypatch.setattr(
+            "datahub.executor.execution.venv_cache.evict_stale_entries", explode
+        )
+
+        with pytest.raises(OSError):
+            await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+
+        cache_root = tmp_path / "cache"
+        lock_path = next(cache_root.glob("*.lock"))
+        assert EntryLock(lock_path).try_acquire(exclusive=True).ok, (
+            "the entry is still locked, so this cache key is dead for the "
+            "life of the process"
+        )
+
+    async def test_a_full_cache_filesystem_does_not_fail_a_successful_build(
+        self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """mark_venv_complete can raise OSError on a full or read-only cache
+        filesystem. The Global Constraint says the cache must never fail a
+        task that would otherwise have run -- an unmarked venv just looks
+        incomplete and gets rebuilt next time, the same degradation
+        touch_last_used already accepts.
+        """
+        monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+
+        def raise_os_error(venv_loc: pathlib.Path) -> None:
+            raise OSError("disk full")
+
+        monkeypatch.setattr(
+            "datahub.executor.execution.venv_cache.mark_venv_complete",
+            raise_os_error,
+        )
+
+        ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
+        assert ref.lock is not None
+        ref.lock.release()
+
+
+async def test_the_expanded_requirements_file_does_not_outlive_the_install(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """extra-requirements.txt holds a token, so it must not persist.
+
+    resolve_pip_requirements substitutes ${VAR} before the file is written, so
+    a private index URL arrives here with its credential in it. The file is an
+    input to `uv pip install -r` and nothing reads it afterwards.
+
+    The venv cache is what made this matter: venv_loc for a cacheable venv is
+    the node-local cache root, which get_venv_cache_path deliberately places
+    OUTSIDE exec_out_dir -- so the file stopped being cleaned up with the run
+    and sat in a directory shared by every task on the node.
+    """
+    monkeypatch.setenv("PIP_INDEX_TOKEN", "index-token-value-1")
+    logs = LogHolder()
+    runner = SubprocessRunner(logs)
+
+    seen: dict = {}
+
+    async def mock_execute(command, env=None, cwd=None):
+        if "venv" in command:
+            venv_path = Path(command[-1])
+            venv_path.mkdir(parents=True, exist_ok=True)
+            (venv_path / "bin").mkdir(exist_ok=True)
+            (venv_path / "bin" / "python").touch()
+        if "-r" in command:
+            # While the install runs the file must exist, carry the expanded
+            # token, and not be readable by anyone else on the node.
+            req = Path(command[command.index("-r") + 1])
+            seen["existed"] = req.is_file()
+            seen["text"] = req.read_text()
+            seen["mode"] = req.stat().st_mode & 0o777
+            # Reproduce what uv actually leaves behind. PEP 610 has the
+            # installer record the URL it installed from in
+            # <pkg>.dist-info/direct_url.json, and uv writes the EXPANDED one
+            # -- credentials included. Without this the rglob assertion below
+            # walks a directory holding only bin/python and two markers, and
+            # passes no matter what the production code does.
+            venv_loc = Path(command[command.index("-r") + 1]).parent
+            dist_info = (
+                venv_loc / "lib" / "python3.11" / "site-packages" / "pkg-1.0.dist-info"
+            )
+            dist_info.mkdir(parents=True, exist_ok=True)
+            (dist_info / "direct_url.json").write_text(
+                json.dumps(
+                    {
+                        "url": f"https://u:{os.environ['PIP_INDEX_TOKEN']}@x/simple",
+                        "archive_info": {},
+                    }
+                )
+            )
+
+    with patch.object(runner, "execute", AsyncMock(side_effect=mock_execute)):
+        venv_ref = await setup_venv(
+            VenvConfig(
+                version="0.12.1.5",
+                main_plugin="snowflake",
+                extra_pip_requirements=["pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"],
+            ),
+            runner,
+            tmp_path,
+        )
+
+    assert seen.get("existed"), "the install never saw a requirements file"
+    assert "index-token-value-1" in seen["text"], "the token was not expanded"
+    assert seen["mode"] == 0o600, (
+        f"world/group readable while it existed: {seen['mode']:o}"
+    )
+
+    leftover = pathlib.Path(venv_ref.venv_loc) / "extra-requirements.txt"
+    assert not leftover.exists(), (
+        f"{leftover} outlived the install; it holds an expanded credential and "
+        "for a cacheable venv this directory is never cleaned up"
+    )
+    # And the token is not recoverable anywhere else under the venv -- in
+    # particular not in the direct_url.json uv writes inside the installed
+    # package, which _install_extra_requirements' own cleanup cannot see.
+    recorded = list(pathlib.Path(venv_ref.venv_loc).rglob("direct_url.json"))
+    assert recorded, "the mock did not reproduce what uv writes"
+    assert not any(
+        "index-token-value-1" in p.read_text(errors="ignore")
+        for p in pathlib.Path(venv_ref.venv_loc).rglob("*")
+        if p.is_file()
+    )
+
+
+async def test_a_failed_install_does_not_leave_the_token_file_behind(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The reason the cleanup is in a `finally`.
+
+    A bad token or an unreachable private index is the common failure here,
+    and it is exactly the run whose requirements file must not survive: the
+    venv is left incomplete in the cache, so nothing rebuilds over it until
+    the next attempt.
+    """
+    monkeypatch.setenv("PIP_INDEX_TOKEN", "index-token-value-2")
+    runner = SubprocessRunner(LogHolder())
+    req_paths: list[pathlib.Path] = []
+
+    async def mock_execute(command, env=None, cwd=None):
+        if "venv" in command:
+            venv_path = Path(command[-1])
+            venv_path.mkdir(parents=True, exist_ok=True)
+            (venv_path / "bin").mkdir(exist_ok=True)
+            (venv_path / "bin" / "python").touch()
+        if "-r" in command:
+            req_paths.append(Path(command[command.index("-r") + 1]))
+            raise TaskError("uv pip install failed: 401 Unauthorized from index")
+
+    with patch.object(runner, "execute", AsyncMock(side_effect=mock_execute)):
+        with pytest.raises(TaskError):
+            await setup_venv(
+                VenvConfig(
+                    version="0.12.1.5",
+                    main_plugin="snowflake",
+                    extra_pip_requirements=[
+                        "pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"
+                    ],
+                ),
+                runner,
+                tmp_path,
+            )
+
+    assert req_paths, "the install was never attempted"
+    assert not req_paths[0].exists(), (
+        f"{req_paths[0]} survived a failed install still holding the token"
+    )
+
+
+async def test_a_failure_after_the_token_is_written_does_not_leave_it_behind(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The window between writing the file and starting the install.
+
+    The sibling test above covers a failing install. This covers the steps
+    before it: the token is on disk from write_text onwards, and the log
+    appends that follow can raise too. With the try opening at the install
+    instead of at the file, those failures left the credential in the
+    node-local cache, which nothing cleans up because it outlives the task by
+    design.
+
+    The log append is used as the trigger because it is a real step between
+    the two, not a contrived one.
+    """
+    monkeypatch.setenv("PIP_INDEX_TOKEN", "index-token-value-3")
+    # Keep the cache under tmp_path: a cacheable venv otherwise lands in a
+    # root beside it, where the search below would not find the file.
+    monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
+    runner = SubprocessRunner(LogHolder())
+    written: list[pathlib.Path] = []
+
+    async def mock_execute(command, env=None, cwd=None):
+        if "venv" in command:
+            venv_path = Path(command[-1])
+            venv_path.mkdir(parents=True, exist_ok=True)
+            (venv_path / "bin").mkdir(exist_ok=True)
+            (venv_path / "bin" / "python").touch()
+
+    def exploding_append_masked(text: str) -> None:
+        # By now write_text has run, so the token is already on disk.
+        written.extend(tmp_path.rglob("extra-requirements.txt"))
+        raise OSError("log sink unavailable")
+
+    with patch.object(runner, "execute", AsyncMock(side_effect=mock_execute)):
+        with patch.object(runner._logs, "append_masked", exploding_append_masked):
+            with pytest.raises(OSError):
+                await setup_venv(
+                    VenvConfig(
+                        version="0.12.1.5",
+                        main_plugin="snowflake",
+                        extra_pip_requirements=[
+                            "pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"
+                        ],
+                    ),
+                    runner,
+                    tmp_path,
+                )
+
+    assert written, "the requirements file was never written, so nothing was proven"
+    assert not written[0].exists(), (
+        f"{written[0]} survived a failure before the install, still holding the token"
+    )
+
+
+async def test_a_requirements_file_that_cannot_be_deleted_is_not_published(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A token still on disk must not become a shared cache entry.
+
+    The unlink is best-effort so that a read-only or full cache filesystem
+    cannot fail a build which otherwise succeeded. But "the requirements file
+    is still there" and "this entry is safe for every other task on the node
+    to reuse" are the same question, so the failure has to gate publication
+    the way a failed direct_url.json scrub already does. Publishing marks a
+    known-unredacted credential COMPLETE in a directory the whole node reads.
+    """
+    monkeypatch.setenv("PIP_INDEX_TOKEN", "index-token-value-3")
+    runner = SubprocessRunner(LogHolder())
+
+    async def mock_execute(command, env=None, cwd=None):
+        if "venv" in command:
+            venv_path = Path(command[-1])
+            venv_path.mkdir(parents=True, exist_ok=True)
+            (venv_path / "bin").mkdir(exist_ok=True)
+            (venv_path / "bin" / "python").touch()
+
+    real_unlink = pathlib.Path.unlink
+
+    def refuse_unlink(self: pathlib.Path, *args: object, **kwargs: object) -> None:
+        if self.name == "extra-requirements.txt":
+            raise OSError(30, "Read-only file system")
+        real_unlink(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pathlib.Path, "unlink", refuse_unlink)
+
+    with patch.object(runner, "execute", AsyncMock(side_effect=mock_execute)):
+        venv_ref = await setup_venv(
+            VenvConfig(
+                version="1.3.0",
+                main_plugin="snowflake",
+                extra_pip_requirements=["pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"],
+            ),
+            runner,
+            tmp_path,
+        )
+
+    loc = pathlib.Path(venv_ref.venv_loc)
+    assert (loc / "extra-requirements.txt").exists(), (
+        "precondition: the unlink was supposed to be refused"
+    )
+    assert not (loc / venv_utils.COMPLETE_MARKER).exists(), (
+        f"{loc} still holds the expanded requirements but was published to the "
+        "shared cache, so every later task on the node can read the token"
+    )

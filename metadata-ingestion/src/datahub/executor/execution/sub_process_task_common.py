@@ -35,12 +35,15 @@ from datahub.executor.execution import venv_utils
 from datahub.executor.execution.runner import (
     LogHolder,
     SubprocessRunner,
-    VenvConfig,
-    VenvReference,
     referenced_env_values,
     setup_venv,
 )
 from datahub.executor.execution.task import TaskError
+from datahub.executor.execution.venv_config import (
+    VenvConfig,
+    VenvReference,
+)
+from datahub.executor.execution.wrapper_common import VENV_LOCK_FD_ENV
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.constants import SENTINEL_MESSAGES
 from datahub.masking.masking_filter import SecretMaskingFilter
@@ -529,6 +532,101 @@ class SubProcessTaskUtil:
         )
 
     @staticmethod
+    def release_venv_lock(venv_ref: Optional[VenvReference]) -> None:
+        """Give up THIS process's copy of a venv's cache lock.
+
+        Called on every path that is finished with the venv: normally from
+        finalize_task_output, once the last-used marker has been stamped,
+        and from the failure paths above the spawn.
+
+        Unconditional by design, and that is the whole reason the old
+        family of keep/retain/release helpers is gone. Each of those existed
+        so a caller could work out whether a child might still be running
+        before letting go, because the executor's hold was then the ONLY
+        protection -- and the windows they missed are where most of this
+        PR's review findings lived. A spawned child now inherits its own
+        descriptor, so releasing here can never expose a venv something is
+        still executing from, and no caller has to reason about it.
+
+        Correct even on the one path that cannot tell whether a child
+        exists -- a cancellation delivered inside the spawn, possibly after
+        the fork -- because EntryLock.release closes rather than unlocking.
+        Closing leaves any inherited hold intact; LOCK_UN would release the
+        child's too, since duplicate descriptors share one description.
+
+        Never raises: every caller may already be unwinding.
+        """
+        try:
+            if venv_ref is not None and venv_ref.lock is not None:
+                venv_ref.lock.release()
+                venv_ref.lock = None
+        except Exception:
+            logger.exception("Cleanup: failed to release the venv cache lock")
+
+    # How long a cancelled test-connection waits for its child, per signal.
+    # Short: the caller is already cancelling and this blocks the event loop.
+    CHILD_REAP_GRACE_SEC = 10
+
+    @staticmethod
+    def terminate_and_reap(process: subprocess.Popen) -> None:
+        """Signal a child and wait for it, escalating to SIGKILL.
+
+        Not about the venv lock any more -- the kernel handles that. This is
+        for exec_out_dir: a NON-cacheable venv lives inside it, so removing
+        it while a forked child is still executing from it deletes that
+        child's interpreter. poll() answers None for a signalled-but-unreaped
+        child, so without this the caller cannot tell.
+
+        Never raises: every caller is unwinding a cancellation.
+        """
+        try:
+            process.terminate()
+            try:
+                process.wait(timeout=SubProcessTaskUtil.CHILD_REAP_GRACE_SEC)
+                return
+            except subprocess.TimeoutExpired:
+                logger.warning(
+                    "Child %s ignored SIGTERM for %ds; sending SIGKILL",
+                    process.pid,
+                    SubProcessTaskUtil.CHILD_REAP_GRACE_SEC,
+                )
+            process.kill()
+            process.wait(timeout=SubProcessTaskUtil.CHILD_REAP_GRACE_SEC)
+        except Exception:
+            logger.exception("Cleanup: failed to reap child process")
+
+    @staticmethod
+    def lock_handoff(
+        venv_ref: Optional[VenvReference],
+    ) -> tuple[tuple[int, ...], dict[str, str]]:
+        """What to pass a child so it inherits this venv's cache lock.
+
+        Returns the descriptors for `pass_fds` and the environment entry that
+        tells the wrapper which one to pass on to the datahub CLI. Both are
+        empty when there is no lock -- an ephemeral venv, a bundled one, or
+        the cache switched off -- so every caller can pass them
+        unconditionally.
+
+        This process KEEPS its own copy. Two descriptors now protect the
+        entry -- this one and the child's -- and the kernel closes both on
+        death, so neither is load-bearing for the other. That is what
+        replaced a family of keep/release/retain helpers: no unwinding path
+        has to work out whether a child might still be alive before letting
+        go, because letting go early is harmless (the child's copy remains)
+        and letting go late is bounded by this process's lifetime.
+
+        Dropping this copy at spawn would reintroduce a narrower version of
+        the old bug from the other side: the child would be the only holder,
+        the kernel would release the entry the instant it exited, and the
+        end-of-run last-used stamp in finalize_task_output would land after
+        a concurrent build could already have evicted the entry as idle.
+        """
+        if venv_ref is None or venv_ref.lock is None or not venv_ref.lock.held:
+            return (), {}
+        fd = venv_ref.lock.fileno
+        return (fd,), {VENV_LOCK_FD_ENV: str(fd)}
+
+    @staticmethod
     def finalize_task_output(
         report_file: str,
         exec_out_dir: str,
@@ -536,6 +634,7 @@ class SubProcessTaskUtil:
         ctx: ExecutionContext,
         *,
         masking_filter: Optional[SecretMaskingFilter] = None,
+        venv_ref: Optional[VenvReference] = None,
     ) -> None:
         """Attach the structured report and logs, then clean up.
 
@@ -632,6 +731,33 @@ class SubProcessTaskUtil:
         except Exception:
             logger.exception("Failed to set logs on execution report")
 
+        # Stamp the entry as used NOW. The hit path already touched it when
+        # the task STARTED, and eviction is LRU, so without this an entry's
+        # recorded age is really "age since the run began" -- an ingestion
+        # running longer than DATAHUB_VENV_CACHE_MAX_AGE_HOURS would be
+        # eligible for age eviction the moment it stops, despite having been
+        # in continuous use throughout.
+        #
+        # touch_last_used swallows its own OSError, so this cannot raise.
+        #
+        # Only for a venv we hold as a CACHE ENTRY, which is what the lock
+        # means. Stamping unconditionally wrote .datahub-venv-last-used into
+        # whatever the run happened to use -- sys.prefix for `native`, and the
+        # image's /opt/datahub/venvs/... for `bundled`. Neither is in the cache
+        # root, so nothing ever reads those markers; it was writing into the
+        # interpreter's own directory and into a read-only image path for no
+        # effect.
+        if venv_ref is not None and venv_ref.lock is not None:
+            venv_utils.touch_last_used(Path(venv_ref.venv_loc))
+
+        # AFTER the stamp, and only this process's copy. The child inherited
+        # its own descriptor, so if one is somehow still running it stays
+        # protected; releasing here is simply "this task is done with it".
+        # Ordering matters: releasing first would let a concurrent build
+        # evict the entry before its last-used marker had been brought up to
+        # date, and the marker still says "when the run started".
+        SubProcessTaskUtil.release_venv_lock(venv_ref)
+
         # Last, and guarded separately: this directory holds the run's reports,
         # with real object names in them, so leaving it behind on a failure
         # further up is the worst outcome available.
@@ -670,13 +796,19 @@ class SubProcessTaskUtil:
             venv_ref = await SubProcessTaskUtil.setup_task_venv(
                 args, plugin, exec_out_dir, version=venv_version, logs=venv_logs
             )
-        except Exception:
-            # setup_venv writes an EXPANDED requirements file in here -- env-var
-            # templates resolved, so a private index URL carries its token in
-            # clear text on disk. The only caller invokes this outside the try
-            # whose finally calls finalize_task_output, so nothing else was
-            # scheduled to remove it and a failed run left the credential
-            # behind.
+        except BaseException:
+            # The only caller invokes this outside the try whose finally calls
+            # finalize_task_output, so nothing else is scheduled to remove
+            # this directory and a failed setup would leave it -- plus the
+            # half-built ephemeral venv inside it -- behind for good.
+            #
+            # BaseException, not Exception: the venv build is both the longest
+            # step and the likeliest cancellation point (DefaultExecutor.signal
+            # cancels the task future), and CancelledError is a BaseException.
+            # Matching the handler below, and sub_process_ingestion_task's.
+            # Note setup_task_venv deliberately keeps its narrower
+            # `except Exception` -- a cancellation must stay a CancelledError
+            # rather than become a TaskError -- so the cleanup has to be here.
             #
             # Only what this call created. exec_out_dir may already exist
             # because a caller laid artifact directories out under it first,
@@ -685,17 +817,31 @@ class SubProcessTaskUtil:
             if ours:
                 SubProcessTaskUtil._remove_directory(exec_out_dir)
             raise
-        return PreparedRun(
-            recipe=recipe,
-            plugin=plugin,
-            venv_ref=venv_ref,
-            subprocess_env=SubProcessTaskUtil.build_subprocess_env(
-                args, venv_ref, extra=env_extra
-            ),
-            stdin_envelope=SubProcessTaskUtil.build_stdin_envelope(
-                args, recipe, secret_values, extra=envelope_extra
-            ),
-        )
+
+        try:
+            return PreparedRun(
+                recipe=recipe,
+                plugin=plugin,
+                venv_ref=venv_ref,
+                subprocess_env=SubProcessTaskUtil.build_subprocess_env(
+                    args, venv_ref, extra=env_extra
+                ),
+                stdin_envelope=SubProcessTaskUtil.build_stdin_envelope(
+                    args, recipe, secret_values, extra=envelope_extra
+                ),
+            )
+        except BaseException:
+            # PreparedRun is the only thing that carries venv_ref out to the
+            # caller whose finally releases it, so anything that raises while
+            # building it -- an unresolvable env var in build_subprocess_env,
+            # a serialisation failure in build_stdin_envelope, a cancellation
+            # between them -- strands the venv's lock with no owner at all.
+            # BaseException for that cancellation; both cleanups guarded
+            # individually so neither can replace the exception in flight.
+            SubProcessTaskUtil.release_venv_lock(venv_ref)
+            if ours:
+                SubProcessTaskUtil._remove_directory(exec_out_dir)
+            raise
 
 
 class SubProcessRecipeTaskArgs(PermissiveConfigModel):
@@ -723,32 +869,6 @@ class SubProcessRecipeTaskArgs(PermissiveConfigModel):
             # Handle corner case where UI passes an empty string
             return {} if v == "" else json.loads(v)
         return v
-
-    def get_venv_name(self, plugin: str) -> str:
-        """Generate venv name, consistent with VenvConfig.get_stable_venv_name().
-
-        Delegates to VenvConfig so that env-var templates in extra_pip_requirements
-        are expanded before hashing — matching what setup_venv() actually installs.
-        """
-        from datahub.executor.execution.runner import VenvConfig
-
-        config = VenvConfig(
-            version=self.version,
-            main_plugin=plugin,
-            extra_pip_requirements=self.extra_pip_requirements,
-            extra_pip_plugins=self.extra_pip_plugins,
-        )
-        expanded = config.resolve_pip_requirements()
-        name = config.get_stable_venv_name(expanded_pip_reqs=expanded)
-        if name is not None:
-            return name
-        # Fallback for ephemeral/bundled/native versions that have no stable name.
-        return venv_utils.get_venv_name(
-            plugin=plugin,
-            version=self.version,
-            extra_pip_requirements=self.extra_pip_requirements,
-            extra_pip_plugins=self.extra_pip_plugins,
-        )
 
     def should_use_bundled_venv(self) -> bool:
         """Check if this configuration should use a Bundled (pre-packaged) venv."""

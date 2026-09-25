@@ -35,7 +35,6 @@ from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution.runner import (
     LogHolder,
-    VenvReference,
 )
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
@@ -43,6 +42,7 @@ from datahub.executor.execution.sub_process_task_common import (
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
+from datahub.executor.execution.venv_config import VenvReference
 from datahub.masking.masking_filter import SecretMaskingFilter
 
 logger = logging.getLogger(__name__)
@@ -213,7 +213,7 @@ class SubProcessIngestionTask(Task):
         exec_out_dir: str,
         shared_logs: LogHolder,
         secret_values: dict[str, str],
-    ) -> asyncio.subprocess.Process:
+    ) -> tuple[asyncio.subprocess.Process, VenvReference]:
         """Create and return the ingestion subprocess.
 
         Secrets and recipe are passed via stdin as a JSON envelope to avoid
@@ -223,6 +223,41 @@ class SubProcessIngestionTask(Task):
             validated_args, plugin, exec_out_dir, shared_logs
         )
 
+        try:
+            return await self._spawn_ingestion_subprocess(
+                validated_args,
+                recipe,
+                report_out_file,
+                subprocess_env,
+                secret_values,
+                venv_ref,
+            )
+        except BaseException:
+            # venv_ref only reaches execute() -- and therefore the finally that
+            # releases its lock -- through this method's return value. Anything
+            # that raises after _setup_venv succeeded would otherwise strand
+            # the hold for the process's life and make that cache entry
+            # unevictable. Correct even for a cancellation delivered inside
+            # the spawn, where a child may already have been forked: this
+            # closes our copy rather than unlocking, so an inherited hold
+            # survives. Guarded, so it cannot replace the exception in flight.
+            SubProcessTaskUtil.release_venv_lock(venv_ref)
+            raise
+
+    async def _spawn_ingestion_subprocess(
+        self,
+        validated_args: SubProcessIngestionTaskArgs,
+        recipe: dict,
+        report_out_file: str,
+        subprocess_env: dict,
+        secret_values: dict[str, str],
+        venv_ref: VenvReference,
+    ) -> tuple[asyncio.subprocess.Process, VenvReference]:
+        """Spawn the child and hand it its stdin envelope.
+
+        Split out of _create_subprocess purely so the venv lock's release has
+        a single `except` covering everything after the venv exists.
+        """
         # Now create subprocess with Python wrapper that enables secret masking
         # Invoked as a module with this interpreter rather than by bare name off PATH:
         # the wrapper must run in the executor's own environment (it then activates the
@@ -257,11 +292,17 @@ class SubProcessIngestionTask(Task):
             },
         )
 
+        # Hand the venv-cache lock to the child, which inherits the
+        # descriptor and therefore the flock. From here the KERNEL releases
+        # it when the child tree dies -- including on SIGKILL, an OOM kill
+        # and a node drain, none of which run any code in this process.
+        lock_fds, lock_env = SubProcessTaskUtil.lock_handoff(venv_ref)
+
         process = await asyncio.create_subprocess_exec(
             sys.executable,
             command_script,
             str(venv_ref.venv_loc),
-            env=venv_env,
+            env={**venv_env, **lock_env},
             stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
@@ -269,14 +310,18 @@ class SubProcessIngestionTask(Task):
             # Own process group, so cancellation can signal the whole tree. Without
             # this, terminating the wrapper leaves the datahub grandchild running.
             start_new_session=True,
+            pass_fds=lock_fds,
         )
 
-        # Write the envelope to stdin and close it
+        # Deliberately unguarded: the child already exists and owns its own
+        # lock descriptor, so a failure writing the envelope has nothing to
+        # unwind here. That is the point of the handoff -- before it, this
+        # needed an `except` to release a lock the parent still held.
         assert process.stdin is not None
         process.stdin.write(stdin_envelope.encode("utf-8"))
         process.stdin.close()
 
-        return process
+        return process, venv_ref
 
     async def execute(self, args: dict, ctx: ExecutionContext) -> None:
         exec_id = ctx.exec_id  # The unique execution id.
@@ -330,7 +375,7 @@ class SubProcessIngestionTask(Task):
 
         logger.info(f"Starting ingestion subprocess for exec_id={exec_id} ({plugin})")
         try:
-            ingest_process = await self._create_subprocess(
+            ingest_process, venv_ref = await self._create_subprocess(
                 validated_args,
                 plugin,
                 recipe,
@@ -385,6 +430,10 @@ class SubProcessIngestionTask(Task):
             cancelled = True
             raise
         finally:
+            # No lock bookkeeping here any more. The child inherited the
+            # descriptor at spawn, so whether it is still alive is the
+            # kernel's question rather than this function's.
+            #
             # _handle_subprocess_completion is contractually safe to call here:
             # it only raises TaskError on a real non-cancelled failure. All
             # cleanup steps are internally guarded, so this finally cannot mask
@@ -397,6 +446,7 @@ class SubProcessIngestionTask(Task):
                 recipe,
                 exec_out_dir,
                 shared_logs,
+                venv_ref=venv_ref,
                 cancelled=cancelled,
             )
 
@@ -557,6 +607,7 @@ class SubProcessIngestionTask(Task):
         recipe: dict,
         exec_out_dir: str,
         shared_logs: LogHolder,
+        venv_ref: Optional[VenvReference] = None,
         cancelled: bool = False,
     ) -> None:
         """Handle subprocess completion: report processing, cleanup, and status.
@@ -567,7 +618,11 @@ class SubProcessIngestionTask(Task):
         `finally` block without fear of masking an in-flight exception.
         """
         SubProcessTaskUtil.finalize_task_output(
-            report_out_file, exec_out_dir, shared_logs.get_lines(), ctx
+            report_out_file,
+            exec_out_dir,
+            shared_logs.get_lines(),
+            ctx,
+            venv_ref=venv_ref,
         )
 
         if cancelled:
