@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.testng.Assert.assertNotNull;
@@ -27,6 +28,7 @@ import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.config.GlobalControllerExceptionHandler;
+import io.datahubproject.openapi.test.AuthorizerChainTestSupport;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -79,9 +81,8 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     AuthenticationContext.setAuthentication(authentication);
 
-    // Setup AuthorizerChain to allow access
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    // Default: 1-arg stub only (OperationContextAuthorizer null fallback).
+    AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
   }
 
   @Test
@@ -91,6 +92,9 @@ public class ElasticsearchRawControllerTest extends AbstractTestNGSpringContextT
 
   @Test
   public void testGetEntityRaw() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+
     // Mock raw entity response
     Map<Urn, Map<String, Object>> rawEntityMap = new HashMap<>();
 

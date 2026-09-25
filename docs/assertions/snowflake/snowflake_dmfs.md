@@ -184,7 +184,7 @@ snowsql -f dmf_definitions.sql
 snowsql -f dmf_associations.sql
 ```
 
-::: NOTE
+:::note
 Scheduling Data Metric Function on table incurs Serverless Credit Usage in Snowflake. Refer [Billing and Pricing](https://docs.snowflake.com/en/user-guide/data-quality-intro#billing-and-pricing) for more details.
 Please ensure you DROP Data Metric Function created via dmf_associations.sql if the assertion is no longer in use.
 :::
@@ -258,7 +258,7 @@ DataHub interprets the `VALUE` column from Snowflake's `DATA_QUALITY_MONITORING_
 
 This is because DataHub cannot interpret arbitrary return values (e.g., "100 null rows" - is that good or bad?). You must build the pass/fail logic into your DMF.
 
-::: warning What if my DMF returns other values?
+:::warning What if my DMF returns other values?
 If your DMF returns values other than 0 or 1, DataHub will mark the assertion result as **ERROR**:
 
 - `VALUE = 1` → **PASSED**
@@ -269,7 +269,8 @@ The ERROR state indicates that the DMF is not configured correctly for DataHub i
 
 1. Checking the ingestion logs for warnings like: `DMF 'my_dmf' returned invalid value 100. Expected 1 (pass) or 0 (fail). Marking as ERROR.`
 2. Looking for assertions with ERROR status in the DataHub UI
-   :::
+
+:::
 
 #### Example: Writing External DMFs Correctly
 

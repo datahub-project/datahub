@@ -12,6 +12,7 @@ ext {
   docker_repo = 'datahub-upgrade'
 }
 
+
 dependencies {
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
@@ -83,6 +84,7 @@ dependencies {
   implementation externalDependency.picocli
   implementation externalDependency.resilience4j
   implementation externalDependency.parquet
+  implementation externalDependency.parquetJackson
   implementation externalDependency.protobuf
   implementation externalDependency.springBeans
   implementation externalDependency.springBootAutoconfigure
@@ -94,6 +96,8 @@ dependencies {
   runtimeOnly externalDependency.openTelemetryExporterCommon
 
   runtimeOnly externalDependency.logbackClassic
+  runtimeOnly externalDependency.janino
+  runtimeOnly externalDependency.lokiLogbackAppender
   runtimeOnly externalDependency.mariadbConnector
   runtimeOnly externalDependency.mysqlConnector
   runtimeOnly externalDependency.postgresql
@@ -101,6 +105,8 @@ dependencies {
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
+  // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184)
+  runtimeOnly externalDependency.jose4j
   implementation externalDependency.fabric8KubernetesClient
 
   implementation platform(externalDependency.jacksonBom)
@@ -135,6 +141,32 @@ dependencies {
 bootJar {
   mainClass = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
   archiveFileName = "${project.name}.jar"
+}
+
+// ONNX image variant (R3): a second boot archive that re-adds the ONNX/DJL native libs
+// (compileOnlyApi in metadata-io, so absent from the default jar) into BOOT-INF/lib. The
+// datahub-upgrade-onnx image is built from this; system-update needs it to build the semantic
+// ES index via the embedding provider bean. The default datahub-upgrade.jar stays slim.
+configurations {
+  onnxRuntimeVariant {
+    canBeConsumed = false
+    canBeResolved = true
+    extendsFrom configurations.implementation, configurations.runtimeOnly
+  }
+}
+dependencies {
+  onnxRuntimeVariant externalDependency.onnxRuntime
+  onnxRuntimeVariant externalDependency.djlApi
+  onnxRuntimeVariant externalDependency.djlHuggingFaceTokenizers
+}
+tasks.register('onnxBootJar', org.springframework.boot.gradle.tasks.bundling.BootJar) {
+  mainClass = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
+  archiveFileName = 'datahub-upgrade-onnx.jar'
+  classpath = sourceSets.main.output + configurations.onnxRuntimeVariant
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+  // The Spring Boot plugin only auto-populates this on the primary bootJar; a second BootJar
+  // must set it or the task fails with "property 'targetJavaVersion' has no value available".
+  targetJavaVersion = java.targetCompatibility
 }
 
 bootRun {
@@ -449,15 +481,9 @@ docker {
   if (project.hasProperty('dockerBaseImage')) {
     dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
   }
-  if (project.hasProperty('apkRepositoryUrl')) {
-    dockerBuildArgs.APK_REPOSITORY_URL = project.getProperty('apkRepositoryUrl')
-  }
-  if (project.hasProperty('githubMirrorUrl')) {
-    dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
-  }
-  if (project.hasProperty('mavenCentralRepositoryUrl')) {
-    dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
-  }
+  dockerBuildArgs.APK_REPOSITORY_URL = gradle.ext['datahub.dependencies.apkrepo.url']
+  dockerBuildArgs.GITHUB_REPO_URL = gradle.ext['datahub.dependencies.github.baseURL']
+  dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = gradle.ext['datahub.dependencies.maven.central']
 
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)

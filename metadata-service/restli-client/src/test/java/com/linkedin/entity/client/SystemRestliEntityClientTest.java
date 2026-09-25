@@ -319,7 +319,9 @@ public class SystemRestliEntityClientTest {
                 EntityClientCache.Key.builder()
                     .urn(TEST_URN)
                     .aspectName(DATASET_PROPERTIES_ASPECT_NAME)
-                    .contextId("1379821641")
+                    .contextId(
+                        TestOperationContexts.systemContextNoSearchAuthorization()
+                            .getEntityContextId())
                     .build()),
         new EntityClientCache.NullEnvelopedAspect(),
         "Expected null object for the non-existent cache entry");

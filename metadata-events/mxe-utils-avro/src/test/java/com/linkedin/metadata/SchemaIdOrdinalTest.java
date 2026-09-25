@@ -36,6 +36,7 @@ public class SchemaIdOrdinalTest {
     assertEquals(SchemaIdOrdinal.METADATA_CHANGE_EVENT.getSchemaId(), 20);
     assertEquals(SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT.getSchemaId(), 21);
     assertEquals(SchemaIdOrdinal.METADATA_AUDIT_EVENT.getSchemaId(), 22);
+    assertEquals(SchemaIdOrdinal.RESERVED_23.getSchemaId(), 23);
   }
 
   @Test
@@ -81,13 +82,14 @@ public class SchemaIdOrdinalTest {
     assertEquals(SchemaIdOrdinal.fromSchemaId(20), SchemaIdOrdinal.METADATA_CHANGE_EVENT);
     assertEquals(SchemaIdOrdinal.fromSchemaId(21), SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT);
     assertEquals(SchemaIdOrdinal.fromSchemaId(22), SchemaIdOrdinal.METADATA_AUDIT_EVENT);
+    assertEquals(SchemaIdOrdinal.fromSchemaId(23), SchemaIdOrdinal.RESERVED_23);
   }
 
   @Test
   public void testFromSchemaIdWithInvalidId() {
     // Test that fromSchemaId() returns null for invalid schema IDs
     assertNull(SchemaIdOrdinal.fromSchemaId(-1));
-    assertNull(SchemaIdOrdinal.fromSchemaId(23));
+    assertNull(SchemaIdOrdinal.fromSchemaId(24));
     assertNull(SchemaIdOrdinal.fromSchemaId(999));
     assertNull(SchemaIdOrdinal.fromSchemaId(Integer.MAX_VALUE));
     assertNull(SchemaIdOrdinal.fromSchemaId(Integer.MIN_VALUE));
@@ -119,10 +121,11 @@ public class SchemaIdOrdinalTest {
     assertTrue(SchemaIdOrdinal.isValidSchemaId(20));
     assertTrue(SchemaIdOrdinal.isValidSchemaId(21));
     assertTrue(SchemaIdOrdinal.isValidSchemaId(22));
+    assertTrue(SchemaIdOrdinal.isValidSchemaId(23));
 
     // Test that isValidSchemaId() returns false for invalid schema IDs
     assertFalse(SchemaIdOrdinal.isValidSchemaId(-1));
-    assertFalse(SchemaIdOrdinal.isValidSchemaId(23));
+    assertFalse(SchemaIdOrdinal.isValidSchemaId(24));
     assertFalse(SchemaIdOrdinal.isValidSchemaId(999));
     assertFalse(SchemaIdOrdinal.isValidSchemaId(Integer.MAX_VALUE));
     assertFalse(SchemaIdOrdinal.isValidSchemaId(Integer.MIN_VALUE));
@@ -173,7 +176,7 @@ public class SchemaIdOrdinalTest {
     SchemaIdOrdinal[] ordinals = SchemaIdOrdinal.values();
 
     assertNotNull(ordinals);
-    assertEquals(ordinals.length, 23, "Should have exactly 23 schema ID ordinals");
+    assertEquals(ordinals.length, 24, "Should have exactly 24 schema ID ordinals");
 
     // Verify all expected ordinals are present
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_CHANGE_PROPOSAL_V1));
@@ -199,6 +202,7 @@ public class SchemaIdOrdinalTest {
     assertTrue(contains(ordinals, SchemaIdOrdinal.FAILED_METADATA_CHANGE_EVENT_V1_FIX));
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_AUDIT_EVENT_V1_FIX));
     assertTrue(contains(ordinals, SchemaIdOrdinal.METADATA_AUDIT_EVENT));
+    assertTrue(contains(ordinals, SchemaIdOrdinal.RESERVED_23));
   }
 
   @Test
@@ -357,6 +361,8 @@ public class SchemaIdOrdinalTest {
         return 21;
       case METADATA_AUDIT_EVENT:
         return 22;
+      case RESERVED_23:
+        return 23;
       default:
         throw new IllegalArgumentException("Unknown ordinal: " + ordinal);
     }

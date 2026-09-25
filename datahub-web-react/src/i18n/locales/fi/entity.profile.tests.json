@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Epäonnistunut",
+    "resultText.passing": "Läpäisty",
+    "summary.allFailing": "Kaikki testit epäonnistuvat",
+    "summary.allPassing": "Kaikki testit läpäisevät",
+    "summary.countsSubtitle": "{{passing}} läpäisevää testiä, {{failing}} epäonnistuvaa testiä",
+    "summary.noTestsRun": "Yhtään testiä ei ole ajettu",
+    "summary.someFailing": "Osa testeistä epäonnistuu",
+    "summary.statusTooltip": "Tämä tila perustuu kunkin testin viimeisimpään ajoon.",
+    "testResults.empty": "Testejä ei löytynyt :(",
+    "testResults.noEvaluations": "Ei arviointeja",
+    "testResults.title": "Governance-testin tulokset"
+}

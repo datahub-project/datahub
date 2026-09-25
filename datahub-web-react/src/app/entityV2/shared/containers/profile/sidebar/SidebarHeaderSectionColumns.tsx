@@ -4,12 +4,15 @@ import styled from 'styled-components';
 import { SidebarStatsColumn } from '@app/entityV2/shared/containers/profile/utils';
 import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 
+const Wrapper = styled.div`
+    padding: 0 20px;
+`;
+
 const ColumnsContainer = styled(HorizontalScroller)`
     display: flex;
     flex-direction: row;
     align-items: stretch;
     justify-content: space-between;
-    padding: 0 20px;
     margin-top: -8px;
     margin-bottom: -8px;
     overflow: auto;
@@ -30,6 +33,7 @@ const Column = styled.div`
     flex: 1;
     padding-top: 8px;
     padding-bottom: 8px;
+    margin-right: 20px;
 
     &:not(:first-child) {
         padding-left: 20px;
@@ -57,15 +61,17 @@ export const SidebarHeaderSectionColumns = ({ columns }: Props) => {
     if (!columns.length) return null;
 
     return (
-        <ColumnsContainer scrollButtonSize={18} scrollButtonOffset={15}>
-            {columns.map((column) => (
-                <Column>
-                    <Heading>
-                        <Title>{column.title}</Title>
-                    </Heading>
-                    {column.content}
-                </Column>
-            ))}
-        </ColumnsContainer>
+        <Wrapper>
+            <ColumnsContainer scrollButtonSize={18} scrollButtonOffset={15}>
+                {columns.map((column) => (
+                    <Column>
+                        <Heading>
+                            <Title>{column.title}</Title>
+                        </Heading>
+                        {column.content}
+                    </Column>
+                ))}
+            </ColumnsContainer>
+        </Wrapper>
     );
 };

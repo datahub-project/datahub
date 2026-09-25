@@ -1,0 +1,105 @@
+# Vendored verbatim (below this header) from the Open Data Contract Standard
+# repository, tag v3.1.0: docs/examples/schema/all-schema-types.odcs.yaml
+# https://github.com/bitol-io/open-data-contract-standard (Apache-2.0; see /NOTICE)
+version: 1.0.0
+kind: DataContract
+id: 53581432-6c55-4ba2-a65f-72344a91553a
+status: active
+name: my_quantum
+apiVersion: v3.0.2
+schema:
+  - name: tbl
+    logicalType: object
+    physicalType: table
+    physicalName: tbl_1
+    description: Provides core payment metrics
+    authoritativeDefinitions:
+      - url: https://catalog.data.gov/dataset/air-quality
+        type: businessDefinition
+      - url: https://youtu.be/jbY1BKFj9ec
+        type: videoTutorial
+    tags: ['finance']
+    dataGranularityDescription: Aggregation on columns txn_ref_dt, pmt_txn_id
+    properties:
+      - name: txn_ref_dt
+        primaryKey: false
+        primaryKeyPosition: -1
+        businessName: transaction reference date
+        logicalType: date
+        physicalType: date
+        required: false
+        description: transaction ref date
+        partitioned: true
+        partitionKeyPosition: 1
+        criticalDataElement: false
+        tags: []
+        classification: public
+        transformSourceObjects:
+          - table_name_1
+          - table_name_2
+          - table_name_3
+        transformLogic: sel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3
+        transformDescription: Defines the logic in business terms.
+        examples:
+          - "2022-10-03"
+          - "2020-01-28"
+      - name: rcvr_id
+        primaryKey: true
+        primaryKeyPosition: 1
+        businessName: receiver id
+        logicalType: string
+        physicalType: varchar(18)
+        required: false
+        description: A description for column rcvr_id.
+        partitioned: false
+        partitionKeyPosition: -1
+        criticalDataElement: false
+        tags: []
+        classification: restricted
+        encryptedName: enc_rcvr_id
+      - name: rcvr_cntry_code
+        primaryKey: false
+        primaryKeyPosition: -1
+        businessName: receiver country code
+        logicalType: string
+        physicalType: varchar(2)
+        required: false
+        description: country code
+        partitioned: false
+        partitionKeyPosition: -1
+        criticalDataElement: false
+        tags: []
+        classification: public
+        authoritativeDefinitions:
+          - url: https://collibra.com/asset/742b358f-71a5-4ab1-bda4-dcdba9418c25
+            type: businessDefinition
+          - url: https://github.com/myorg/myrepo
+            type: transformationImplementation
+          - url: jdbc:postgresql://localhost:5432/adventureworks/tbl_1/rcvr_cntry_code
+            type: implementation
+        encryptedName: rcvr_cntry_code_encrypted
+  - name: AnObject
+    logicalType: object
+    properties:
+      - name: street_lines
+        logicalType: array
+        physicalType: array
+        items:
+          physicalType: string
+          logicalType: string
+  - name: AnotherObject
+    logicalType: object
+    properties:
+      - name: x
+        logicalType: array
+        physicalType: array
+        items:
+          logicalType: object
+          physicalType: object
+          properties:
+            - name: id
+              logicalType: string
+              physicalType: VARCHAR(40)
+            - name: zip
+              logicalType: string
+              physicalType: VARCHAR(15)

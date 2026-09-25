@@ -1,12 +1,14 @@
 import { Page } from '@playwright/test';
 
+import { DATAHUB_GRAPHQL_PATH } from '../utils/constants';
+
 export type GraphQLResponse = Record<string, unknown>;
 
 export class GraphQLHelper {
   constructor(private page: Page) {}
 
   async executeQuery(query: string, variables?: Record<string, unknown>): Promise<GraphQLResponse> {
-    const response = await this.page.request.post('/api/v2/graphql', {
+    const response = await this.page.request.post(DATAHUB_GRAPHQL_PATH, {
       data: {
         query,
         variables: variables ?? {},

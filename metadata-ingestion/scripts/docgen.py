@@ -46,12 +46,12 @@ def get_snippet(long_string: str, max_length: int = 100) -> str:
 
 
 def get_support_status_badge(support_status: SupportStatus) -> str:
-    if support_status == SupportStatus.CERTIFIED:
-        return "![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen)"
-    if support_status == SupportStatus.INCUBATING:
-        return "![Incubating](https://img.shields.io/badge/support%20status-incubating-blue)"
-    if support_status == SupportStatus.TESTING:
-        return "![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey)"
+    if support_status == SupportStatus.GA:
+        return "![GA](https://img.shields.io/badge/support%20status-GA-brightgreen)"
+    if support_status == SupportStatus.BETA:
+        return "![Beta](https://img.shields.io/badge/support%20status-Beta-blue)"
+    if support_status == SupportStatus.ALPHA:
+        return "![Alpha](https://img.shields.io/badge/support%20status-Alpha-lightgrey)"
 
     return ""
 
@@ -69,7 +69,7 @@ def get_capability_text(src_capability: SourceCapability) -> str:
         SourceCapability.DOMAINS: "../../../domains.md",
         SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
         SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
-        SourceCapability.CLASSIFICATION: "../../../../metadata-ingestion/docs/dev_guides/classification.md",
+        SourceCapability.OPERATION_CAPTURE: "../../../api/tutorials/operations.md",
     }
 
     capability_doc = capability_docs_mapping.get(src_capability)
@@ -95,7 +95,7 @@ def map_capability_name_to_enum(capability_name: str) -> SourceCapability:
 
 
 def does_extra_exist(extra_name: str) -> bool:
-    for key, value in metadata("acryl-datahub").items():
+    for key, value in metadata("acryl-datahub").items():  # type: ignore[attr-defined]
         if key == "Provides-Extra" and value == extra_name:
             return True
     return False
@@ -260,7 +260,7 @@ def load_connector_registry(connector_registry_dir: str) -> Dict:
                 package_data = json.load(f)
                 package_name = json_file.stem
                 plugin_count = len(package_data.get("plugin_details", {}))
-                merged_data["plugin_details"].update(
+                merged_data["plugin_details"].update(  # type: ignore[attr-defined]
                     package_data.get("plugin_details", {})
                 )
                 logger.info(
@@ -271,6 +271,16 @@ def load_connector_registry(connector_registry_dir: str) -> Dict:
 
     logger.info(f"Total connectors loaded: {len(merged_data['plugin_details'])}")
     return merged_data
+
+
+# Connector registries generated before the Alpha/Beta/GA retiering store the old
+# tier names. The registry directory is globbed for one JSON file per package, so a
+# package built against an older datahub can still be read here.
+_LEGACY_STATUS_NAMES = {
+    "CERTIFIED": "GA",
+    "INCUBATING": "BETA",
+    "TESTING": "ALPHA",
+}
 
 
 def create_plugin_from_capability_data(
@@ -286,7 +296,10 @@ def create_plugin_from_capability_data(
 
     # Set support status
     if plugin_data.get("support_status"):
-        plugin.support_status = SupportStatus[plugin_data["support_status"]]
+        raw_status = plugin_data["support_status"]
+        plugin.support_status = SupportStatus[
+            _LEGACY_STATUS_NAMES.get(raw_status, raw_status)
+        ]
 
     # Set capabilities
     if plugin_data.get("capabilities"):
@@ -353,7 +366,8 @@ def create_plugin_from_capability_data(
                 source_config_class.model_json_schema(), indent=2
             )
             plugin.config_md = gen_md_table_from_pydantic(
-                source_config_class, current_source=plugin_name
+                source_config_class,  # type: ignore[arg-type]
+                current_source=plugin_name,
             )
 
             # Write the config json schema to the out_dir.
@@ -389,6 +403,7 @@ CAPABILITY_FEATURE_MAP: Dict[str, str] = {
     "LINEAGE_FINE": "Column Level Lineage",
     "LINEAGE_COARSE": "Table-Level Lineage",
     "DATA_PROFILING": "Data Profiling",
+    "OPERATION_CAPTURE": "Operation Capture",
     "TEST_CONNECTION": "UI Ingestion",
 }
 
@@ -413,11 +428,20 @@ def _derive_features(platform: "Platform", meta: Dict[str, Any]) -> List[str]:
 
 
 def _get_support_status_tag(platform: "Platform") -> str:
-    """Get the support status tag string from a platform's plugins."""
-    for plugin in platform.plugins.values():
-        if plugin.support_status != SupportStatus.UNKNOWN:
-            return plugin.support_status.name.title()
-    return ""
+    """Get the support status tag string from a platform's plugins.
+
+    A platform can bundle several plugins (e.g. snowflake, snowflake-queries,
+    snowflake-summary). They share one card on the integrations page, so report
+    the highest tier rather than whichever plugin happens to be iterated first.
+    """
+    statuses = [
+        plugin.support_status
+        for plugin in platform.plugins.values()
+        if plugin.support_status != SupportStatus.UNKNOWN
+    ]
+    if not statuses:
+        return ""
+    return max(statuses, key=lambda status: status.value).display_name
 
 
 def _resolve_platform_type(meta: Dict[str, Any], default: str = "Metadata") -> str:
@@ -581,7 +605,7 @@ def generate_filter_tag_indexes(
 
         features_list = meta.get("extra_features", [])
         connection_type = "API" if is_api else meta.get("connection_type", "Pull")
-        tags: Dict[str, str] = {
+        tags = {
             "Platform Type": _resolve_platform_type(meta),
             "Connection Type": connection_type,
             "Features": ", ".join(features_list),
@@ -884,7 +908,7 @@ def generate(  # noqa: C901
                 f.write("</table>\n\n")
             # Insert platform-level authored docs from README.md before module docs.
             f.write("\n")
-            f.write(platform.custom_docs_pre.strip())
+            f.write((platform.custom_docs_pre or "").strip())
             f.write("\n")
 
             for plugin_name, plugin in platform.plugins.items():
@@ -916,7 +940,7 @@ def generate(  # noqa: C901
                 f.write("\n")
 
                 # PRE authored module docs (<module>_pre.md).
-                f.write(f"{plugin.custom_docs_pre.strip()}\n\n")
+                f.write(f"{(plugin.custom_docs_pre or '').strip()}\n\n")
 
                 # Always show Install the Plugin section
                 f.write(f"\n{section_heading} Install the Plugin\n")
@@ -974,7 +998,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                     )
 
                 # POST authored module docs (<module>_post.md).
-                f.write(f"{plugin.custom_docs_post.strip()}\n\n")
+                f.write(f"{(plugin.custom_docs_post or '').strip()}\n\n")
 
                 if plugin.classname:
                     f.write(f"\n{section_heading} Code Coordinates\n")
@@ -1012,6 +1036,10 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
     # Generate the SQL/Data Profiling supported-sources table that gets
     # inlined into metadata-ingestion/docs/dev_guides/sql_profiles.md.
     generate_sql_profiling_support_table(platforms)
+
+    # Generate the Operation Capture supported-sources table that gets
+    # inlined into docs/api/tutorials/operations.md.
+    generate_operation_capture_support_table(platforms)
 
     # Generate filterTagIndexes.json for the integrations page
     if integrations_output and extra_docs:
@@ -1225,6 +1253,68 @@ def generate_sql_profiling_support_table(platforms: Dict[str, Platform]) -> None
 
     print(
         f"SQL Profiling Support Table Generation Complete ({len(rows)} sources) -> {out_file}"
+    )
+
+
+def generate_operation_capture_support_table(platforms: Dict[str, Platform]) -> None:
+    """Generate a markdown table of all sources that declare OPERATION_CAPTURE support.
+
+    The output is a partial markdown file that gets inlined into
+    ``docs/api/tutorials/operations.md`` via the docs build inline directive.
+
+    Source links are written relative to ``docs/api/tutorials/operations.md`` since
+    ``markdown_rewrite_urls`` runs before inline expansion in the docs-website
+    build pipeline.
+    """
+    out_dir = "../docs/generated/ingestion"
+    os.makedirs(out_dir, exist_ok=True)
+    out_file = f"{out_dir}/operation_capture_support_table.md.snippet"
+
+    rows: List[Dict[str, str]] = []
+    for platform_id, platform in platforms.items():
+        for plugin in platform.plugins.values():
+            if not plugin.capabilities:
+                continue
+            operation_cap = next(
+                (
+                    cap
+                    for cap in plugin.capabilities
+                    if cap.capability == SourceCapability.OPERATION_CAPTURE
+                    and cap.supported
+                ),
+                None,
+            )
+            if operation_cap is None:
+                continue
+
+            if len(platform.plugins) > 1:
+                display_name = f"{platform.name} `{plugin.name}`"
+            else:
+                display_name = platform.name
+
+            notes = (operation_cap.description or "").strip()
+            if notes and not notes.endswith("."):
+                notes += "."
+
+            rows.append(
+                {
+                    "name": display_name,
+                    "platform_id": platform_id,
+                    "notes": notes,
+                }
+            )
+
+    rows.sort(key=lambda r: r["name"].casefold())
+
+    with open(out_file, "w") as f:
+        f.write("| Source | Notes |\n")
+        f.write("| ------ | ----- |\n")
+        for row in rows:
+            link = f"../../generated/ingestion/sources/{row['platform_id']}.md"
+            f.write(f"| [{row['name']}]({link}) | {row['notes']} |\n")
+
+    print(
+        f"Operation Capture Support Table Generation Complete ({len(rows)} sources) -> {out_file}"
     )
 
 

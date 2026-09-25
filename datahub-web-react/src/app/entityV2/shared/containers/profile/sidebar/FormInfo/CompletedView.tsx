@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
 import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
@@ -33,6 +34,7 @@ export default function CompletedView({
     formUrn,
     openFormModal,
 }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     const theme = useTheme();
     const [isOpen, setIsOpen] = useState(false);
 
@@ -51,7 +53,9 @@ export default function CompletedView({
                             ) : (
                                 <StyledReadOutlined color={theme.colors.textSuccess} addLineHeight />
                             )}
-                            {showVerificationStyles ? 'Verified' : 'Documented'}
+                            {showVerificationStyles
+                                ? t('sidebar.formInfo.verifiedTitle')
+                                : t('sidebar.formInfo.documentedTitle')}
                         </Title>
                         {isUserAssigned && <StyledArrow isOpen={isOpen} />}
                     </TitleWrapper>
@@ -62,7 +66,7 @@ export default function CompletedView({
                             {!!openFormModal && (
                                 <StyledButtonWrapper>
                                     <Button variant="outline" onClick={openFormModal}>
-                                        View & Edit
+                                        {t('sidebar.formInfo.viewAndEditButton')}
                                     </Button>
                                 </StyledButtonWrapper>
                             )}

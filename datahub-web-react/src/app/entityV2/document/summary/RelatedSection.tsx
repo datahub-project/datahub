@@ -1,27 +1,52 @@
-import { Button } from '@components';
-import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import React, { useMemo } from 'react';
+import { Pill, Text } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ALLOWED_RELATED_ASSET_TYPES } from '@app/document/utils/documentUtils';
+import { ALLOWED_RELATED_ASSET_TYPES, categorizeUrns } from '@app/document/utils/documentUtils';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { AddRelatedEntityDropdown } from '@app/entityV2/document/summary/AddRelatedEntityDropdown';
-import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { AndFilterInput, DocumentRelatedAsset, DocumentRelatedDocument, EntityType, FilterOperator } from '@types';
+import {
+    AndFilterInput,
+    DocumentRelatedAsset,
+    DocumentRelatedDocument,
+    Entity,
+    EntityType,
+    FilterOperator,
+} from '@types';
+
+// Document is appended separately since it's handled via relatedDocuments and is not
+// in ALLOWED_RELATED_ASSET_TYPES.
+const ALLOWED_ENTITY_TYPES: EntityType[] = [...Object.values(ALLOWED_RELATED_ASSET_TYPES), EntityType.Document];
+
+// Default filter to exclude unpublished documents. For entity types without a "state"
+// field, the backend should ignore or gracefully skip this filter.
+const DEFAULT_FILTERS: AndFilterInput[] = [
+    {
+        and: [
+            {
+                field: 'state',
+                condition: FilterOperator.Equal,
+                negated: true,
+                values: ['UNPUBLISHED'],
+            },
+        ],
+    },
+];
+
+const Divider = styled.div`
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+`;
 
 const Section = styled.div`
     display: flex;
     flex-direction: column;
     gap: 4px;
-
-    &:hover {
-        .hover-btn {
-            display: flex;
-        }
-    }
-    padding-top: 20px;
 `;
 
 const SectionHeader = styled.div`
@@ -30,54 +55,34 @@ const SectionHeader = styled.div`
     align-items: center;
 `;
 
-const SectionTitle = styled.h4`
-    font-size: 14px;
-    font-weight: 600;
-    margin: 0;
-    color: ${(props) => props.theme.colors.text};
-`;
-
-const List = styled.div`
+const PillList = styled.div`
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: 4px;
 `;
 
-const EmptyState = styled.div`
-    font-size: 14px;
-    font-weight: 400;
-    color: ${(props) => props.theme.colors.textTertiary};
-    text-align: start;
-    padding: 0px;
-`;
+type EntityPillIconProps = {
+    platformLogoUrl?: string | null;
+    entityType: EntityType;
+    entityRegistry: ReturnType<typeof useEntityRegistry>;
+};
 
-const EntityItemContainer = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    width: 100%;
-
-    /* Show trash button only on hover */
-    .trash-button {
-        opacity: 0;
-        transition: opacity 0.2s ease;
+// Renders a platform logo when available, falling back to the entity-type icon
+// (either because there is no logo URL or because loading the logo failed).
+function EntityPillIcon({ platformLogoUrl, entityType, entityRegistry }: EntityPillIconProps) {
+    const [imgError, setImgError] = useState(false);
+    if (platformLogoUrl && !imgError) {
+        return (
+            <img
+                src={platformLogoUrl}
+                alt=""
+                style={{ height: 12, width: 'auto', objectFit: 'contain' }}
+                onError={() => setImgError(true)}
+            />
+        );
     }
-
-    &:hover .trash-button {
-        opacity: 1;
-    }
-`;
-
-const EntityLinkWrapper = styled.div`
-    flex: 1;
-    min-width: 0; /* Allow flex item to shrink below content size */
-`;
-
-const TrashButton = styled(Button)`
-    flex-shrink: 0;
-    padding: 0;
-`;
+    return <>{entityRegistry.getIcon(entityType, 12, IconStyleType.ACCENT)}</>;
+}
 
 interface RelatedSectionProps {
     relatedAssets?: DocumentRelatedAsset[];
@@ -96,20 +101,19 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
     onRemoveEntity,
     canEdit = true,
 }) => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
+    const history = useHistory();
 
-    // Derive allowed entity types from the single source of truth (ALLOWED_RELATED_ASSET_TYPES)
-    // Document is appended separately since it's handled via relatedDocuments
-    const allowedEntityTypes: EntityType[] = [...Object.values(ALLOWED_RELATED_ASSET_TYPES), EntityType.Document];
+    const allRelatedEntities: Entity[] = useMemo(
+        () => [
+            ...(relatedAssets?.map((ra) => ra.asset as Entity) || []),
+            ...(relatedDocuments?.map((rd) => rd.document as Entity) || []),
+        ],
+        [relatedAssets, relatedDocuments],
+    );
 
-    // Combine all related entities
-    const allRelatedEntities = [
-        ...(relatedAssets?.map((ra) => ({ ...ra.asset, isDocument: false })) || []),
-        ...(relatedDocuments?.map((rd) => ({ ...rd.document, isDocument: true })) || []),
-    ];
-
-    // Get all existing URNs to prevent duplicates (excluding the document itself)
     const existingUrns = useMemo(
         () =>
             new Set([
@@ -119,104 +123,81 @@ export const RelatedSection: React.FC<RelatedSectionProps> = ({
         [relatedAssets, relatedDocuments],
     );
 
-    // Get view URN from user context
     const viewUrn = userContext?.localState?.selectedViewUrn || undefined;
 
-    // Create default filters to exclude unpublished documents
-    // Filter: state = PUBLISHED
-    // Note: This filter applies to documents. For other entity types that don't have a "state" field,
-    // the backend should handle this gracefully (either ignore the filter or the field check fails gracefully).
-    // If this causes issues with non-documents being excluded, we may need to restructure the filter.
-    const defaultFilters: AndFilterInput[] = useMemo(
-        () => [
-            {
-                and: [
-                    {
-                        field: 'state',
-                        condition: FilterOperator.Equal,
-                        negated: true,
-                        values: ['UNPUBLISHED'],
-                    },
-                ],
-            },
-        ],
-        [],
+    const handleConfirmAdd = useCallback(
+        async (selectedUrns: string[]) => {
+            const { assetUrns, documentUrns } = categorizeUrns(selectedUrns);
+            await onAddEntities(assetUrns, documentUrns);
+        },
+        [onAddEntities],
     );
 
-    const handleConfirmAdd = async (selectedUrns: string[]) => {
-        // Separate documents from assets
-        // selectedUrns is the final list (after user selections/deselections)
-        const finalDocumentUrns: string[] = [];
-        const finalAssetUrns: string[] = [];
-
-        selectedUrns.forEach((urn) => {
-            if (urn.includes(':document:')) {
-                finalDocumentUrns.push(urn);
-            } else {
-                finalAssetUrns.push(urn);
-            }
-        });
-
-        // Pass the final lists (this will replace the entire list, handling both additions and removals)
-        await onAddEntities(finalAssetUrns, finalDocumentUrns);
-    };
-
     return (
-        <Section>
-            <SectionHeader>
-                <SectionTitle>Related</SectionTitle>
-                {canEdit && (
-                    <AddRelatedEntityDropdown
-                        entityTypes={allowedEntityTypes}
-                        existingUrns={existingUrns}
-                        documentUrn={documentUrn}
-                        onConfirm={handleConfirmAdd}
-                        placeholder="Find related assets and context..."
-                        defaultFilters={defaultFilters}
-                        viewUrn={viewUrn}
-                        initialSelectedUrns={Array.from(existingUrns)}
-                    />
-                )}
-            </SectionHeader>
-            <List>
-                {allRelatedEntities.length > 0 ? (
-                    allRelatedEntities.map((entity) => {
-                        const genericProperties = entityRegistry.getGenericEntityProperties(
-                            entity.type as EntityType,
-                            entity,
-                        );
+        <>
+            <Divider />
+            <Section>
+                <SectionHeader>
+                    <Text size="sm" weight="bold" color="text">
+                        {t('document.relatedTitle')}
+                    </Text>
+                    {canEdit && (
+                        <AddRelatedEntityDropdown
+                            entityTypes={ALLOWED_ENTITY_TYPES}
+                            existingUrns={existingUrns}
+                            documentUrn={documentUrn}
+                            onConfirm={handleConfirmAdd}
+                            placeholder={t('document.findRelatedPlaceholder')}
+                            defaultFilters={DEFAULT_FILTERS}
+                            viewUrn={viewUrn}
+                            initialSelectedUrns={Array.from(existingUrns)}
+                        />
+                    )}
+                </SectionHeader>
+                <PillList>
+                    {allRelatedEntities.length > 0 ? (
+                        allRelatedEntities.map((entity) => {
+                            const entityType = entity.type as EntityType;
+                            const genericProps = entityRegistry.getGenericEntityProperties(entityType, entity);
+                            const platformLogoUrl = genericProps?.platform?.properties?.logoUrl;
+                            const displayName = entityRegistry.getDisplayName(entityType, entity);
+                            const url = entityRegistry.getEntityUrl(entityType, entity.urn);
 
-                        return (
-                            <EntityItemContainer key={entity.urn}>
-                                <EntityLinkWrapper>
-                                    <EntityLink
-                                        entity={genericProperties}
-                                        showHealthIcon={!entity.isDocument}
-                                        showDeprecatedIcon={!entity.isDocument}
-                                    />
-                                </EntityLinkWrapper>
-                                {canEdit && onRemoveEntity && (
-                                    <TrashButton
-                                        variant="text"
-                                        icon={{ icon: Trash, color: 'red' }}
-                                        size="md"
-                                        className="trash-button"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            onRemoveEntity(entity.urn);
-                                        }}
-                                        aria-label="Remove related entity"
-                                        data-testid={`remove-related-entity-${entity.urn.split(':').pop()}`}
-                                    />
-                                )}
-                            </EntityItemContainer>
-                        );
-                    })
-                ) : (
-                    <EmptyState>Add related assets or context</EmptyState>
-                )}
-            </List>
-        </Section>
+                            return (
+                                <Pill
+                                    key={entity.urn}
+                                    label={displayName}
+                                    variant="filled"
+                                    color="gray"
+                                    size="md"
+                                    clickable
+                                    onPillClick={() => history.push(url)}
+                                    customIconRenderer={() => (
+                                        <EntityPillIcon
+                                            platformLogoUrl={platformLogoUrl}
+                                            entityType={entityType}
+                                            entityRegistry={entityRegistry}
+                                        />
+                                    )}
+                                    rightIcon={canEdit && onRemoveEntity ? X : undefined}
+                                    onClickRightIcon={
+                                        canEdit && onRemoveEntity
+                                            ? (e) => {
+                                                  e.stopPropagation();
+                                                  onRemoveEntity(entity.urn);
+                                              }
+                                            : undefined
+                                    }
+                                />
+                            );
+                        })
+                    ) : (
+                        <Text size="sm" color="textTertiary">
+                            {t('document.addRelatedEmpty')}
+                        </Text>
+                    )}
+                </PillList>
+            </Section>
+        </>
     );
 };

@@ -26,6 +26,10 @@ allows you to import the groups you have from OIDC for [Okta](../generated/inges
 If you routinely ingest groups from these providers, you will also be able to keep groups synced. New groups will
 be created in DataHub, stale groups will be deleted, and group membership will be updated!
 
+:::tip View-based access control
+When restricting metadata visibility with view-based access control, group design affects authorization performance. See [Designing policies for view-based access control — Groups](./policies.md#groups) in the Policies Guide.
+:::
+
 ## Custom Groups
 
 DataHub admins can create custom groups by going to the **Settings > Users & Groups > Groups > Create Group**.

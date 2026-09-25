@@ -1,80 +1,66 @@
-import { Icon, Text, Tooltip } from '@components';
-import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import { Icon, Tooltip } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
+import AllowedValuesList from '@app/govern/structuredProperties/AllowedValuesList';
 import {
-    FieldLabel,
-    FlexContainer,
-    ItemsContainer,
-    RowContainer,
-    StyledIcon,
-    ValueListContainer,
-    ValueType,
-    ValuesList,
-    VerticalDivider,
+    AllowedValuesLabel,
+    AllowedValuesRequired,
+    AllowedValuesSection,
 } from '@app/govern/structuredProperties/styledComponents';
-import { PropValueField, isStringOrNumberTypeSelected } from '@app/govern/structuredProperties/utils';
-import { AllowedValue } from '@src/types.generated';
+import { AllowedValueRow, PropValueField, isStringOrNumberTypeSelected } from '@app/govern/structuredProperties/utils';
 
-interface Props {
+type Props = {
     selectedValueType: string;
-    allowedValues: AllowedValue[] | undefined;
     valueField: PropValueField;
-    setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
-}
+    isReadOnly: boolean;
+    rows: AllowedValueRow[];
+    errors?: Record<string, string>;
+    addRow: () => void;
+    updateRow: (rowId: string, patch: Partial<AllowedValueRow>) => void;
+    removeRow: (rowId: string) => void;
+    moveRow: (from: number, to: number) => void;
+};
 
-const AllowedValuesField = ({ selectedValueType, allowedValues, valueField, setShowAllowedValuesDrawer }: Props) => {
+const AllowedValuesField = ({
+    selectedValueType,
+    valueField,
+    isReadOnly,
+    rows,
+    errors,
+    addRow,
+    updateRow,
+    removeRow,
+    moveRow,
+}: Props) => {
+    const { t } = useTranslation('governance.structured-properties');
+
+    if (!isStringOrNumberTypeSelected(selectedValueType)) return null;
+
+    // The list itself is optional, so the asterisk only applies once there are rows to fill in.
+    const hasRows = !!rows.length;
+
     return (
-        <>
-            {isStringOrNumberTypeSelected(selectedValueType) && (
-                <RowContainer>
-                    <FieldLabel>
-                        <FlexContainer>
-                            Allowed Values
-                            <Tooltip
-                                title="Define the set of valid values for this property. If none are provided, any value will be allowed"
-                                showArrow={false}
-                            >
-                                <Icon icon={Info} color="violet" size="lg" />
-                            </Tooltip>
-                        </FlexContainer>
-                    </FieldLabel>
-
-                    {allowedValues && allowedValues.length > 0 ? (
-                        <ItemsContainer>
-                            <ValuesList>
-                                {allowedValues.map((val, index) => {
-                                    return (
-                                        <>
-                                            <Text>{val[valueField]}</Text>
-                                            {index < allowedValues.length - 1 && <VerticalDivider type="vertical" />}
-                                        </>
-                                    );
-                                })}
-                            </ValuesList>
-                            <Tooltip title="Update allowed values" showArrow={false}>
-                                <StyledIcon
-                                    icon={CaretRight}
-                                    color="gray"
-                                    onClick={() => setShowAllowedValuesDrawer(true)}
-                                />
-                            </Tooltip>
-                        </ItemsContainer>
-                    ) : (
-                        <ValueListContainer>
-                            Any
-                            <ValueType>{valueField === 'stringValue' ? 'text' : 'number'} </ValueType>
-                            value will be allowed
-                            <Tooltip title="Update allowed values" showArrow={false}>
-                                <Icon icon={Plus} color="gray" onClick={() => setShowAllowedValuesDrawer(true)} />
-                            </Tooltip>
-                        </ValueListContainer>
-                    )}
-                </RowContainer>
-            )}
-        </>
+        <AllowedValuesSection>
+            <AllowedValuesLabel>
+                {t('allowedValues.title')}
+                {hasRows && <AllowedValuesRequired>*</AllowedValuesRequired>}
+                <Tooltip title={t('allowedValues.fieldTooltip')} showArrow={false}>
+                    <Icon icon={Info} size="md" />
+                </Tooltip>
+            </AllowedValuesLabel>
+            <AllowedValuesList
+                propType={valueField}
+                isReadOnly={isReadOnly}
+                rows={rows}
+                errors={errors}
+                addRow={addRow}
+                updateRow={updateRow}
+                removeRow={removeRow}
+                moveRow={moveRow}
+            />
+        </AllowedValuesSection>
     );
 };
 

@@ -1,6 +1,7 @@
 import { Icon, Text } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { buildEntityMap } from '@app/entityV2/view/builder/utils';
@@ -48,6 +49,7 @@ type Props = {
  * Displays selected assets grouped by entity type, with remove buttons.
  */
 export function SelectedFilterValues({ selectedUrns, onRemoveUrn }: Props) {
+    const { t } = useTranslation('entity.views');
     const entityRegistry = useEntityRegistryV2();
     const { entities } = useGetEntities(selectedUrns);
 
@@ -89,10 +91,10 @@ export function SelectedFilterValues({ selectedUrns, onRemoveUrn }: Props) {
         return (
             <Container>
                 <Text color="gray" weight="bold">
-                    Selected Assets
+                    {t('selectAssets.selectedAssetsTitle')}
                 </Text>
                 <EmptyContainer>
-                    <Text color="gray">No assets selected.</Text>
+                    <Text color="gray">{t('selectAssets.noAssetsSelected')}</Text>
                 </EmptyContainer>
             </Container>
         );
@@ -101,7 +103,7 @@ export function SelectedFilterValues({ selectedUrns, onRemoveUrn }: Props) {
     return (
         <Container>
             <Text color="gray" weight="bold">
-                Selected Assets
+                {t('selectAssets.selectedAssetsTitle')}
             </Text>
             <ResultsContainer data-testid="selected-filter-values-list">
                 {Object.entries(groupedByType).map(([typeLabel, typeEntities]) => (

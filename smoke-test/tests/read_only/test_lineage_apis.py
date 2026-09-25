@@ -5,6 +5,7 @@ import logging
 
 import pytest
 
+from tests.utilities.domains import Domain
 from tests.utilities.metadata_operations import (
     get_search_results,
     scroll_across_lineage,
@@ -13,6 +14,8 @@ from tests.utilities.metadata_operations import (
 from tests.utils import execute_graphql
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 
 def _find_urn_with_lineage(auth_session) -> str:
@@ -85,8 +88,9 @@ def test_search_across_lineage_api(auth_session):
     assert "count" in result, "Response should contain count"
     assert "start" in result, "Response should contain start"
 
-    # Validate searchResults structure (if any results exist)
-    if result["total"] > 0:
+    # Validate searchResults structure (if any results exist). Lightning can report a graph
+    # total while this page is empty, so do not treat total > 0 as a populated page.
+    if result["searchResults"]:
         first_result = result["searchResults"][0]
         assert "entity" in first_result, "Result should contain entity"
         assert "urn" in first_result["entity"], "Entity should contain urn"
@@ -112,8 +116,9 @@ def test_scroll_across_lineage_api(auth_session):
     assert "count" in result, "Response should contain count"
     assert "nextScrollId" in result, "Response should contain nextScrollId"
 
-    # Validate searchResults structure (if any results exist)
-    if result["total"] > 0:
+    # Validate searchResults structure (if any results exist). Lightning can report a graph
+    # total while this page is empty, so do not treat total > 0 as a populated page.
+    if result["searchResults"]:
         first_result = result["searchResults"][0]
         assert "entity" in first_result, "Result should contain entity"
         assert "urn" in first_result["entity"], "Entity should contain urn"

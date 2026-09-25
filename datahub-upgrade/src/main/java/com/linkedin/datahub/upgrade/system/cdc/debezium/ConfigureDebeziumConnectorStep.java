@@ -233,13 +233,20 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
     if (response.statusCode() == 201) {
       log.info("Successfully created Debezium connector '{}'", connectorName);
       return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
-    } else {
-      log.error(
-          "Failed to create connector. Status: {}, Response: {}",
-          response.statusCode(),
-          response.body());
-      return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.FAILED);
     }
+    // Kafka Connect can return 409 when the connector exists but GET /connectors/{name}
+    // briefly returns 404 after a concurrent create (eventual consistency).
+    if (response.statusCode() == 409) {
+      log.info(
+          "Connector '{}' already exists (HTTP 409); updating configuration instead",
+          connectorName);
+      return updateConnector(httpClient, connectUrl, connectorName, config);
+    }
+    log.error(
+        "Failed to create connector. Status: {}, Response: {}",
+        response.statusCode(),
+        response.body());
+    return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.FAILED);
   }
 
   /** Updates connector configuration via Kafka Connect REST API. */

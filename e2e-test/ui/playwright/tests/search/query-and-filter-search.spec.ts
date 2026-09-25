@@ -11,13 +11,15 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.use({ featureName: 'search' });
 
 test.describe('Query and Filter Search', () => {
   let searchPage: SearchPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     await searchPage.navigateToHome();
   });
@@ -91,7 +93,7 @@ test.describe('Query and Filter Search', () => {
     await searchPage.expectTextVisible('Tags');
 
     // Verify the specific tag element is visible (requires page directly).
-    const tagLocator = page.locator('[data-testid="tag-PlaywrightFeatureTag"]');
+    const tagLocator = page.getByTestId('tag-PlaywrightFeatureTag');
     await expect(tagLocator).toBeVisible();
     await searchPage.expectTextVisible('PlaywrightFeatureTag');
   });

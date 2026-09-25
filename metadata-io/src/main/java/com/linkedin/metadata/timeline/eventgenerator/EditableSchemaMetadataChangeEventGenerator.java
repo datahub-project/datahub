@@ -221,7 +221,12 @@ public class EditableSchemaMetadataChangeEventGenerator
                   datasetFieldUrn,
                   baseFieldDescription,
                   targetFieldDescription))
-          .parameters(ImmutableMap.of("description", targetFieldDescription))
+          // The schema history UI diffs the two values, so it cannot render the change without the
+          // previous one. Both are non-null here, as guarded by the condition above.
+          .parameters(
+              ImmutableMap.of(
+                  "description", targetFieldDescription,
+                  "previousDescription", baseFieldDescription))
           .auditStamp(auditStamp)
           .build();
     }

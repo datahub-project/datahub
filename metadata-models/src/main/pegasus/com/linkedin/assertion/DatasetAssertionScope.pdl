@@ -1,0 +1,32 @@
+namespace com.linkedin.assertion
+
+/**
+* Scope of an assertion — which part of an asset the check applies to.
+* Used by DatasetAssertionInfo and CustomAssertionInfo.
+**/
+enum DatasetAssertionScope {
+  /**
+  * This assertion applies to dataset column(s)
+  */
+  DATASET_COLUMN
+
+  /**
+  * This assertion applies to entire rows of the dataset
+  */
+  DATASET_ROWS
+
+  /**
+  * This assertion applies to the storage size of the dataset
+  */
+  DATASET_STORAGE_SIZE
+
+  /**
+  * This assertion applies to the schema of the dataset
+  */
+  DATASET_SCHEMA
+
+  /**
+  * The scope of the assertion is unknown
+  */
+  UNKNOWN
+}

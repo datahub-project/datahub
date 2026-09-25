@@ -190,13 +190,13 @@ Data packs can consist of multiple files, referenced by an `index.json`:
 }
 ```
 
-Files are loaded sequentially. When `wait_for_completion` is set, the loader verifies all entities from that file exist on the server before proceeding to the next file. This ensures ordering dependencies are respected (e.g., structured property definitions must exist before assignments can reference them).
+Files are loaded sequentially via OpenAPI **`async_batch`** ingestion. When `wait_for_completion` is set, that file is emitted with **`async_wait`** so the loader blocks on OpenAPI trace completion before starting the next file. Other files use **`async`** (same batch sink, no trace wait). This ensures ordering dependencies are respected (e.g., structured property definitions must be persisted before assignments in a later file can reference them).
 
 Each entry in `files` can be a plain string (filename) or an object with `path` and optional `wait_for_completion`.
 
 ### Schema Downshift
 
-When loading a pack, the CLI queries the server's entity registry (`/openapi/v1/registry/models/entity/specifications`) to discover which `(entityType, aspectName)` pairs are supported. MCPs with unsupported aspects are automatically filtered out. This allows a single data pack to work across both DataHub OSS and Acryl Cloud, with Cloud-only aspects gracefully skipped on OSS.
+When loading a pack, the CLI queries the server's entity registry (`/openapi/v1/registry/models/entity/specifications`) to discover which `(entityType, aspectName)` pairs are supported. MCPs with unsupported aspects are automatically filtered out. This allows a single data pack to work across both DataHub Core and DataHub Cloud, with Cloud-only aspects gracefully skipped on Core.
 
 ### Time-Shifting
 

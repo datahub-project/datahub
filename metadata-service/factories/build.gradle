@@ -17,6 +17,7 @@ dependencies {
   implementation project(':ingestion-scheduler')
   implementation project(':metadata-service:schema-registry-api')
   implementation project(':metadata-service:events-service')
+  implementation project(':metadata-service:rate-limit')
 
   implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'
@@ -50,6 +51,7 @@ dependencies {
   implementation externalDependency.micrometerObserve
   implementation externalDependency.awsPostgresIamAuth
   implementation externalDependency.awsRds
+  implementation externalDependency.awsMskIamAuth
 
   // AWS SDK for S3 file serving
   implementation platform(externalDependency.awsSdk2Bom)
@@ -60,6 +62,7 @@ dependencies {
   implementation 'software.amazon.awssdk:bedrockruntime'
   // Google Auth library for Vertex AI embedding provider
   implementation 'com.google.auth:google-auth-library-oauth2-http:1.30.0'
+  implementation 'com.google.cloud:google-cloud-storage:2.46.0'
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -84,6 +87,13 @@ dependencies {
   testImplementation externalDependency.javatuples
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.testContainersElasticsearch
+  testImplementation externalDependency.testContainersCassandra
+  testImplementation testFixtures(project(':metadata-io'))
+  // EmbeddingProviderFactoryTest mocks OnnxEmbeddingProvider; Mockito loads the class whose
+  // field/ctor descriptors reference ai.onnxruntime/ai.djl, which are now compileOnlyApi upstream.
+  testRuntimeOnly externalDependency.onnxRuntime
+  testRuntimeOnly externalDependency.djlApi
+  testRuntimeOnly externalDependency.djlHuggingFaceTokenizers
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   testCompileOnly externalDependency.lombok

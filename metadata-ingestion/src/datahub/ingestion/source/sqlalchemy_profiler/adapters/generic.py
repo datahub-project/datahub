@@ -39,18 +39,11 @@ class GenericAdapter(PlatformAdapter):
 
     def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
-        Generic median - tries MEDIAN function.
+        Generic adapter has no assumption about MEDIAN support.
 
-        Some databases (like Snowflake, Oracle) have a native MEDIAN function.
-        For databases that don't support it, the query will fail at execution time
-        and get_column_median will return None.
-
-        Args:
-            column: Column name
-
-        Returns:
-            SQLAlchemy expression for MEDIAN function, or None if database doesn't support it
+        Platforms with a native MEDIAN function (Snowflake, Oracle, SQLite with
+        custom aggregate) should provide their own adapter that overrides this.
+        Unknown platforms fall through to the Python OFFSET/LIMIT fallback in
+        `base_adapter.get_column_median`.
         """
-        # Try using MEDIAN function - works on Snowflake, Oracle, and SQLite with custom aggregate
-        # For databases without MEDIAN support, this will fail at query execution
-        return sa.func.median(sa.column(column))
+        return None

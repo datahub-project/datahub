@@ -16,7 +16,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
     AssertionValueChangeTypeClass,
-    DatasetAssertionInfoClass,
+    CustomAssertionInfoClass,
     DatasetAssertionScopeClass,
     SqlAssertionInfoClass,
     SqlAssertionTypeClass,
@@ -70,21 +70,26 @@ class ColumnUniqueAssertion(IdConfigMixin, BaseAssertion):
         return f"{self.type}-{self.column}"
 
     def generate_assertion_info(self, entity_urn: str) -> AssertionInfoClass:
-        dataset_assertion_info = DatasetAssertionInfoClass(
-            dataset=entity_urn,
+        field_urn = builder.make_schema_field_urn(entity_urn, self.column)
+        custom_assertion_info = CustomAssertionInfoClass(
+            type="dataContract",
+            entity=entity_urn,
+            field=field_urn,
+            fields=[field_urn],
             scope=DatasetAssertionScopeClass.DATASET_COLUMN,
-            fields=[builder.make_schema_field_urn(entity_urn, self.column)],
             operator=AssertionStdOperatorClass.EQUAL_TO,
-            aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,  # purposely using the misspelled version to work with gql
+            # purposely using the misspelled version to work with gql
+            aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
             parameters=AssertionStdParametersClass(
                 value=AssertionStdParameterClass(
                     value="1", type=AssertionStdParameterTypeClass.NUMBER
                 )
             ),
+            nativeType="unique",
         )
         return AssertionInfoClass(
-            type=AssertionTypeClass.DATASET,
-            datasetAssertion=dataset_assertion_info,
+            type=AssertionTypeClass.CUSTOM,
+            customAssertion=custom_assertion_info,
             source=builder.make_assertion_source(),
             description=self.description,
         )

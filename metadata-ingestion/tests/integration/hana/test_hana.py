@@ -12,17 +12,37 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-@pytest.mark.xfail  # TODO: debug the flakes for this test
-@pytest.mark.skipif(
-    platform.machine().lower() == "aarch64",
-    reason="The hdbcli dependency is not available for aarch64",
+@pytest.mark.xfail(
+    reason=(
+        "Golden file hasn't been regenerated since 2022 and is expected to "
+        "drift from the current metadata schema. Regenerate on an amd64 "
+        "Linux host (hdbcli isn't published for ARM wheels) with "
+        "`pytest tests/integration/hana/test_hana.py --update-golden-files`, "
+        "then drop this xfail. Calc-view, stored-procedure, and usage paths "
+        "are covered unconditionally by test_hana_calc_views_mock.py."
+    ),
 )
-def test_hana_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+@pytest.mark.skipif(
+    platform.machine().lower() in ("aarch64", "arm64"),
+    reason=(
+        "saplabs/hanaexpress runs only on x86_64 and the hdbcli Python "
+        "driver isn't published for ARM wheels."
+    ),
+)
+def test_hana_ingest(
+    docker_compose_runner, pytestconfig, tmp_path, mock_time, monkeypatch
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
 
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "hana"
     ) as docker_services:
+        # The compose file exposes the HANA port ephemerally, so a leaked
+        # container from a prior run can never hold onto the port a fresh
+        # run needs. hana_to_file.yml picks it up via ${HANA_PORT}.
+        hana_port = docker_services.port_for("testhana", 39041)
+        monkeypatch.setenv("HANA_PORT", str(hana_port))
+
         # added longer timeout and pause due to slow start of hana
         wait_for_port(
             docker_services=docker_services,

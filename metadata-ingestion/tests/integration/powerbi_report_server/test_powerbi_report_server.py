@@ -1,12 +1,19 @@
+import json
 from datetime import datetime
 from typing import Any, Optional
 from unittest import mock
 
+import pytest
 import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.powerbi_report_server.report_server import (
+    PowerBiReportServerDashboardSource,
+)
 from datahub.metadata.schema_classes import AuditStampClass, OwnerClass, OwnershipClass
 from datahub.testing import mce_helpers
+
+pytestmark = pytest.mark.integration_batch_5
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -225,3 +232,40 @@ def test_powerbi_ingest_with_failure(
         output_path=tmp_path / "powerbi_report_server_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("requests_ntlm.HttpNtlmAuth")
+def test_powerbi_ingest_with_report_pattern(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    denied_report_id = "ee56dc21-248a-4138-a446-ee5ab1fc938a"
+    denied_report_name = "Testa"
+
+    register_mock_api(request_mock=requests_mock)
+
+    recipe = get_default_recipe(
+        output_path=str(tmp_path / "powerbi_report_server_mces.json")
+    )
+    recipe["source"]["config"]["report_pattern"] = {"deny": [denied_report_name]}
+
+    pipeline = Pipeline.create(recipe)
+    add_mock_method_in_pipeline(pipeline=pipeline)
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    source = pipeline.source
+    assert isinstance(source, PowerBiReportServerDashboardSource)
+    assert f"{denied_report_id} - {denied_report_name}" in list(
+        source.report.filtered_reports
+    )
+
+    with open(tmp_path / "powerbi_report_server_mces.json") as f:
+        output = json.load(f)
+
+    urns = [entry.get("entityUrn", "") for entry in output if entry.get("entityUrn")]
+    # Denied report is absent
+    assert not any(denied_report_id in urn for urn in urns)
+    # Other reports are still present
+    assert any("ee56dc21-248a-4138-a446-ee5ab1fc938c" in urn for urn in urns)
+    assert any("ee56dc21-248a-4138-a446-ee5ab1fc938d" in urn for urn in urns)

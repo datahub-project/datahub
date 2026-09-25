@@ -1,12 +1,12 @@
-import { Button } from 'antd';
+import { Button } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
 import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/CompletedPromptAuditStamp';
 import useStructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/useStructuredPropertyPrompt';
 import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
-import { applyOpacity } from '@app/shared/styleUtils';
 
 import { FormPrompt, SchemaField, SubmitFormPromptInput } from '@types';
 
@@ -14,7 +14,7 @@ const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
     justify-content: space-between;
     height: min-content;
-    ${(props) => props.displayBulkStyles && `color: white;`}
+    ${(props) => props.displayBulkStyles && `color: ${props.theme.colors.textOnFillDefault};`}
 `;
 
 const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
@@ -27,11 +27,11 @@ const PromptTitle = styled.div<{ displayBulkStyles?: boolean }>`
 const RequiredText = styled.span<{ displayBulkStyles?: boolean }>`
     font-size: 12px;
     margin-left: 4px;
-    color: #a8071a;
+    color: ${(props) => props.theme.colors.textError};
     ${(props) =>
         props.displayBulkStyles &&
         `
-        color: #FFCCC7;
+        color: ${props.theme.colors.textOnFillError};
         margin-left: 8px;
     `}
 `;
@@ -50,10 +50,6 @@ const InputSection = styled.div`
 
 const StyledButton = styled(Button)`
     margin-top: 16px;
-
-    &:focus {
-        box-shadow: 0 0 3px 2px ${(props) => applyOpacity(props.theme.styles['primary-color'] || '', 50)};
-    }
 `;
 
 const PromptInputWrapper = styled.div`
@@ -76,6 +72,8 @@ export default function StructuredPropertyPrompt({
     field,
     optimisticCompletedTimestamp,
 }: Props) {
+    const { t } = useTranslation('entity.form');
+    const { t: tc } = useTranslation('common.actions');
     const {
         hasEdited,
         selectedValues,
@@ -102,9 +100,9 @@ export default function StructuredPropertyPrompt({
             <PromptWrapper>
                 <PromptInputWrapper>
                     <PromptTitle>
-                        {promptNumber !== undefined && <>{promptNumber}. </>}
+                        {promptNumber !== undefined && t('promptNumberPrefix', { number: promptNumber })}
                         {displayName}
-                        {prompt.required && <RequiredText>required</RequiredText>}
+                        {prompt.required && <RequiredText>{t('required')}</RequiredText>}
                     </PromptTitle>
                     {description && <PromptSubTitle>{description}</PromptSubTitle>}
                     <InputSection>
@@ -122,8 +120,8 @@ export default function StructuredPropertyPrompt({
                 )}
             </PromptWrapper>
             {(showSaveButton || showConfirmButton) && (
-                <StyledButton type="primary" onClick={submitStructuredPropertyResponse}>
-                    {showSaveButton ? 'Save' : 'Confirm'}
+                <StyledButton onClick={submitStructuredPropertyResponse}>
+                    {showSaveButton ? tc('save') : tc('confirm')}
                 </StyledButton>
             )}
         </>

@@ -114,6 +114,34 @@ source:
       max_read_errors: 10
 ```
 
+#### Query Cleanup
+
+Soft-deletes old `SYSTEM` queries so stale query entities don't accumulate as orphans in Elasticsearch and primary storage. This is the soft-delete first pass; the Soft-Deleted Entities Cleanup pass below completes the hard delete on a later run.
+
+##### Features
+
+- Selects `SYSTEM` queries whose `lastModifiedAt` is older than `retention_days` using server-side search filters (no per-query reference lookup)
+- Never touches `MANUAL` queries
+- Soft-deletes matched queries rather than hard-deleting them directly
+- Soft deletes are emitted as status workunits and batched/written by the sink
+- Bounded by `limit_entities_delete` (approximate cap on queries deleted per run) and `runtime_limit_seconds`
+
+##### Configuration
+
+```yaml
+source:
+  type: datahub-gc
+  config:
+    query_cleanup:
+      enabled: true # Enabled by default
+      retention_days: 180 # Age cutoff on lastModifiedAt (~6 months, conservative default)
+      batch_size: 500
+      limit_entities_delete: 25000
+      runtime_limit_seconds: 7200
+```
+
+Set `retention_days` to at least your largest connector ingestion window: a live query's `lastModifiedAt` is refreshed on every re-observation, so only queries that have aged out of every ingestion window can cross the cutoff. This is a distinct clock from `soft_deleted_entities_cleanup.retention_days` (which measures time since soft-deletion).
+
 #### Soft-Deleted Entities Cleanup
 
 Manages the permanent removal of soft-deleted entities after a retention period.

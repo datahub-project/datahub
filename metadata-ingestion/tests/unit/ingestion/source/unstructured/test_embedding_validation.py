@@ -438,6 +438,7 @@ def test_get_semantic_search_config_parses_vertex():
         }
     }
     result = get_semantic_search_config(fake_graph)
+    assert result.embedding_config is not None
     assert result.embedding_config.provider == "vertex_ai"
     assert result.embedding_config.vertex_project_id == "my-project"
     assert result.embedding_config.vertex_location == "us-east1"
@@ -485,3 +486,154 @@ def test_get_semantic_search_config_raises_on_incomplete_vertex_config(
     }
     with pytest.raises(GraphError, match="incomplete vertexProviderConfig"):
         get_semantic_search_config(fake_graph)
+
+
+def test_get_semantic_search_config_parses_entity_index_v3():
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": True,
+                "enabledEntities": ["document"],
+                "embeddingConfig": {
+                    "provider": "bedrock",
+                    "modelId": "cohere.embed-english-v3",
+                    "modelEmbeddingKey": "cohere_embed_v3",
+                    "awsProviderConfig": {"region": "us-west-2"},
+                },
+            },
+            "entityIndexV3": {"enabled": True},
+        }
+    }
+    result = get_semantic_search_config(fake_graph)
+    assert result.enabled is True
+    assert result.entity_index_v3_enabled is True
+    assert result.embedding_config is not None
+
+
+def test_get_semantic_search_config_v3_missing_is_none():
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": False,
+                "enabledEntities": ["document"],
+                "embeddingConfig": None,
+            }
+        }
+    }
+    result = get_semantic_search_config(fake_graph)
+    assert result.enabled is False
+    assert result.entity_index_v3_enabled is None
+    assert result.embedding_config is None
+
+
+_LEGACY_SEMANTIC_CONFIG = {
+    "enabled": True,
+    "enabledEntities": ["document"],
+    "embeddingConfig": {
+        "provider": "bedrock",
+        "modelId": "cohere.embed-english-v3",
+        "modelEmbeddingKey": "cohere_embed_v3",
+        "awsProviderConfig": {"region": "us-west-2"},
+    },
+}
+
+
+def test_get_semantic_search_config_retries_without_entity_index_v3():
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = [
+        GraphError("FieldUndefined: Field 'entityIndexV3' is undefined"),
+        {"appConfig": {"semanticSearchConfig": _LEGACY_SEMANTIC_CONFIG}},
+    ]
+    result = get_semantic_search_config(fake_graph)
+    assert result.enabled is True
+    assert result.entity_index_v3_enabled is None
+    assert fake_graph.execute_graphql.call_count == 2
+    fallback_query = fake_graph.execute_graphql.call_args_list[1].kwargs["query"]
+    assert "entityIndexV3" not in fallback_query
+    assert "vertexProviderConfig" not in fallback_query
+
+
+def test_get_semantic_search_config_retries_without_vertex_provider():
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.side_effect = [
+        GraphError("FieldUndefined: Field 'vertexProviderConfig' is undefined"),
+        {"appConfig": {"semanticSearchConfig": _LEGACY_SEMANTIC_CONFIG}},
+    ]
+    result = get_semantic_search_config(fake_graph)
+    assert result.enabled is True
+    assert result.entity_index_v3_enabled is None
+    fallback_query = fake_graph.execute_graphql.call_args_list[1].kwargs["query"]
+    assert "entityIndexV3" not in fallback_query
+    assert "vertexProviderConfig" not in fallback_query
+
+
+def test_resolve_embedding_skips_when_v3_on_but_semantic_off():
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        DocumentChunkingSource,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": False,
+                "enabledEntities": ["document"],
+                "embeddingConfig": None,
+            },
+            "entityIndexV3": {"enabled": True},
+        }
+    }
+    resolved = DocumentChunkingSource.resolve_embedding_config(
+        EmbeddingConfig(), graph=fake_graph
+    )
+    assert resolved.provider is None
+
+
+def test_resolve_embedding_loads_when_semantic_on_regardless_of_v3():
+    from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
+    from datahub.ingestion.source.unstructured.chunking_source import (
+        DocumentChunkingSource,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": True,
+                "enabledEntities": ["document"],
+                "embeddingConfig": {
+                    "provider": "bedrock",
+                    "modelId": "cohere.embed-english-v3",
+                    "modelEmbeddingKey": "cohere_embed_v3",
+                    "awsProviderConfig": {"region": "us-west-2"},
+                },
+            },
+            "entityIndexV3": {"enabled": False},
+        }
+    }
+    resolved = DocumentChunkingSource.resolve_embedding_config(
+        EmbeddingConfig(), graph=fake_graph
+    )
+    assert resolved.provider == "bedrock"
+    assert resolved.model == "cohere.embed-english-v3"

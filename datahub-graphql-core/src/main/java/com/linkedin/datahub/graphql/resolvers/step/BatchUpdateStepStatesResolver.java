@@ -23,11 +23,14 @@ import com.linkedin.step.DataHubStepStateProperties;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -53,54 +56,90 @@ public class BatchUpdateStepStatesResolver
           final Urn actorUrn = UrnUtils.getUrn(actorUrnStr);
           final AuditStamp auditStamp =
               new AuditStamp().setActor(actorUrn).setTime(System.currentTimeMillis());
-          final List<UpdateStepStateResult> results =
-              states.stream()
-                  .map(
-                      state ->
-                          buildUpdateStepStateResult(
-                              context.getOperationContext(), state, auditStamp))
-                  .collect(Collectors.toList());
           final BatchUpdateStepStatesResult result = new BatchUpdateStepStatesResult();
-          result.setResults(results);
+          result.setResults(updateStepStates(context.getOperationContext(), states, auditStamp));
           return result;
         },
         this.getClass().getSimpleName(),
         "get");
   }
 
-  private UpdateStepStateResult buildUpdateStepStateResult(
-      @Nonnull OperationContext opContext,
-      @Nonnull final StepStateInput state,
+  /**
+   * Ingests every step state in a single batch so that all of them share one database transaction
+   * instead of paying for a transaction (and its SELECT ... FOR UPDATE) per state.
+   *
+   * <p>The GraphQL contract reports success per id, but a failed batch does not identify which
+   * state was at fault, so on failure we retry the states individually to recover that granularity.
+   * The retry is safe because these are idempotent upserts.
+   */
+  @Nonnull
+  private List<UpdateStepStateResult> updateStepStates(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final List<StepStateInput> states,
       @Nonnull final AuditStamp auditStamp) {
-    final String id = state.getId();
-    final UpdateStepStateResult updateStepStateResult = new UpdateStepStateResult();
-    updateStepStateResult.setId(id);
-    final boolean success = updateStepState(opContext, id, state.getProperties(), auditStamp);
-    updateStepStateResult.setSucceeded(success);
-    return updateStepStateResult;
+    // Positionally aligned with `states`; null marks a state we could not convert to a proposal.
+    final List<MetadataChangeProposal> proposals =
+        states.stream()
+            .map(state -> buildStepStateProposal(state, auditStamp))
+            .collect(Collectors.toList());
+    final List<MetadataChangeProposal> ingestable =
+        proposals.stream().filter(Objects::nonNull).collect(Collectors.toList());
+
+    boolean batchSucceeded = false;
+    if (!ingestable.isEmpty()) {
+      try {
+        _entityClient.batchIngestProposals(opContext, ingestable, false);
+        batchSucceeded = true;
+      } catch (Exception e) {
+        log.error(
+            "Could not batch update {} step states, retrying them individually",
+            ingestable.size(),
+            e);
+      }
+    }
+
+    final List<UpdateStepStateResult> results = new ArrayList<>(states.size());
+    for (int i = 0; i < states.size(); i++) {
+      final String id = states.get(i).getId();
+      final MetadataChangeProposal proposal = proposals.get(i);
+      final UpdateStepStateResult result = new UpdateStepStateResult();
+      result.setId(id);
+      result.setSucceeded(
+          proposal != null && (batchSucceeded || ingestStepState(opContext, id, proposal)));
+      results.add(result);
+    }
+    return results;
   }
 
-  private boolean updateStepState(
-      @Nonnull OperationContext opContext,
-      @Nonnull final String id,
-      @Nonnull final List<StringMapEntryInput> inputProperties,
-      @Nonnull final AuditStamp auditStamp) {
-    final Map<String, String> properties =
-        inputProperties.stream()
-            .collect(Collectors.toMap(StringMapEntryInput::getKey, StringMapEntryInput::getValue));
+  @Nullable
+  private MetadataChangeProposal buildStepStateProposal(
+      @Nonnull final StepStateInput state, @Nonnull final AuditStamp auditStamp) {
     try {
-      final DataHubStepStateKey stepStateKey = new DataHubStepStateKey().setId(id);
+      final Map<String, String> properties =
+          state.getProperties().stream()
+              .collect(
+                  Collectors.toMap(StringMapEntryInput::getKey, StringMapEntryInput::getValue));
+      final DataHubStepStateKey stepStateKey = new DataHubStepStateKey().setId(state.getId());
       final DataHubStepStateProperties stepStateProperties =
           new DataHubStepStateProperties()
               .setProperties(new StringMap(properties))
               .setLastModified(auditStamp);
+      return buildMetadataChangeProposal(
+          DATAHUB_STEP_STATE_ENTITY_NAME,
+          stepStateKey,
+          DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME,
+          stepStateProperties);
+    } catch (Exception e) {
+      log.error("Could not build step state update for id {}", state.getId(), e);
+      return null;
+    }
+  }
 
-      final MetadataChangeProposal proposal =
-          buildMetadataChangeProposal(
-              DATAHUB_STEP_STATE_ENTITY_NAME,
-              stepStateKey,
-              DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME,
-              stepStateProperties);
+  private boolean ingestStepState(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final String id,
+      @Nonnull final MetadataChangeProposal proposal) {
+    try {
       _entityClient.ingestProposal(opContext, proposal, false);
       return true;
     } catch (Exception e) {

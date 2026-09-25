@@ -14,6 +14,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.shared.LimitConfig;
 import com.linkedin.metadata.config.shared.ResultsLimitConfig;
@@ -310,7 +311,7 @@ public class SemanticSearchServiceTest {
                             new CriterionArray(
                                 new Criterion()
                                     .setField("platform")
-                                    .setValue("snowflake")
+                                    .setValues(new StringArray("snowflake"))
                                     .setCondition(Condition.EQUAL)))));
 
     SearchResult mockResult = createMockSearchResult(from, size, 3);
@@ -484,7 +485,7 @@ public class SemanticSearchServiceTest {
                             new CriterionArray(
                                 new Criterion()
                                     .setField("origin")
-                                    .setValue("PROD")
+                                    .setValues(new StringArray("PROD"))
                                     .setCondition(Condition.EQUAL)))));
 
     List<String> facets = Arrays.asList("platform", "origin");

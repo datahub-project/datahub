@@ -1,5 +1,4 @@
 import contextlib
-import functools
 import json
 import logging
 import os
@@ -17,15 +16,11 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
-from datahub.ingestion.api.incremental_properties_helper import (
-    auto_incremental_properties,
-)
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     SourceReport,
+    StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
 )
@@ -42,11 +37,17 @@ from datahub.ingestion.source.snowflake.snowflake_assertion import (
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE,
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_TITLE,
+    SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL,
     SnowflakeConnection,
     SnowflakeConnectionConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
     SnowflakeLineageExtractor,
+)
+from datahub.ingestion.source.snowflake.snowflake_marketplace import (
+    SnowflakeMarketplaceHandler,
 )
 from datahub.ingestion.source.snowflake.snowflake_pipes import (
     SnowflakePipesExtractor,
@@ -64,6 +65,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
+)
+from datahub.ingestion.source.snowflake.snowflake_semantic_model_gate import (
+    resolve_emit_semantic_model_entities,
 )
 from datahub.ingestion.source.snowflake.snowflake_semantic_view_usage import (
     SemanticViewUsageExtractor,
@@ -90,9 +94,6 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -102,6 +103,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     QUERIES_EXTRACTION,
     VIEW_PARSING,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
@@ -110,7 +112,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @platform_name("Snowflake", doc_order=1)
 @config_class(SnowflakeV2Config)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(
@@ -140,6 +142,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default, can be disabled via configuration `include_usage_stats`",
 )
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default, can be disabled via configuration `include_operational_stats`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
     supported=True,
@@ -147,11 +153,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(
     SourceCapability.TAGS,
     "Optionally enabled via `extract_tags`",
-    supported=True,
-)
-@capability(
-    SourceCapability.CLASSIFICATION,
-    "Optionally enabled via `classification.enabled`",
     supported=True,
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
@@ -164,6 +165,16 @@ class SnowflakeV2Source(
         super().__init__(config, ctx)
         self.config: SnowflakeV2Config = config
         self.report: SnowflakeV2Report = SnowflakeV2Report()
+
+        # Mirror the deprecation in the structured report so it surfaces in the
+        # DataHub UI, not just CLI stdout. The URL goes in `context` and the
+        # message is a Final literal so identical warnings group in the report.
+        if self.config.is_using_password_auth():
+            self.report.warning(
+                SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_MESSAGE,
+                context=SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_URL,
+                title=SNOWFLAKE_PASSWORD_AUTH_DEPRECATION_TITLE,
+            )
 
         self.filters = SnowflakeFilter(
             filter_config=self.config, structured_reporter=self.report
@@ -245,18 +256,21 @@ class SnowflakeV2Source(
                 )
             )
 
+        # Constructed up front so consumers other than ``usage_extractor``
+        # (e.g. the marketplace handler) can also use the stateful window.
+        self.redundant_usage_run_skip_handler: Optional[
+            RedundantUsageRunSkipHandler
+        ] = None
+        if self.config.enable_stateful_usage_ingestion:
+            self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+
         self.usage_extractor: Optional[SnowflakeUsageExtractor] = None
         if self.config.include_usage_stats or self.config.include_operational_stats:
-            redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = (
-                None
-            )
-            if self.config.enable_stateful_usage_ingestion:
-                redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
-                    source=self,
-                    config=self.config,
-                    pipeline_name=self.ctx.pipeline_name,
-                    run_id=self.ctx.run_id,
-                )
             self.usage_extractor = self._exit_stack.enter_context(
                 SnowflakeUsageExtractor(
                     config,
@@ -264,15 +278,15 @@ class SnowflakeV2Source(
                     connection=self.connection,
                     filter=self.filters,
                     identifiers=self.identifiers,
-                    redundant_run_skip_handler=redundant_usage_run_skip_handler,
+                    redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
                 )
             )
 
-        # Semantic view usage extractor (separate from main usage due to different data source)
+        # Semantic view usage/query extractor (separate from main usage due to different data source)
         self.semantic_view_usage_extractor: Optional[SemanticViewUsageExtractor] = None
-        if (
-            self.config.semantic_views.enabled
-            and self.config.semantic_views.include_usage
+        if self.config.semantic_views.enabled and (
+            self.config.semantic_views.include_usage
+            or self.config.semantic_views.include_queries
         ):
             self.semantic_view_usage_extractor = SemanticViewUsageExtractor(
                 config=config,
@@ -413,9 +427,6 @@ class SnowflakeV2Source(
                     _report[SourceCapability.DATA_PROFILING] = CapabilityReport(
                         capable=True
                     )
-                    _report[SourceCapability.CLASSIFICATION] = CapabilityReport(
-                        capable=True
-                    )
 
                     if privilege.object_name.startswith("SNOWFLAKE.ACCOUNT_USAGE."):
                         # if access to "snowflake" shared database, access to all account_usage views is automatically granted
@@ -430,6 +441,9 @@ class SnowflakeV2Source(
                         )
 
                         _report[SourceCapability.USAGE_STATS] = CapabilityReport(
+                            capable=True
+                        )
+                        _report[SourceCapability.OPERATION_CAPTURE] = CapabilityReport(
                             capable=True
                         )
                         _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
@@ -453,11 +467,11 @@ class SnowflakeV2Source(
             SourceCapability.SCHEMA_METADATA: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.DESCRIPTIONS: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.DATA_PROFILING: "Either no tables exist or current role does not have permissions to access them",
-            SourceCapability.CLASSIFICATION: "Either no tables exist or current role does not have permissions to access them",
             SourceCapability.CONTAINERS: "Current role does not have permissions to use any database",
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.USAGE_STATS: "Current role does not have permissions to snowflake account usage views",
+            SourceCapability.OPERATION_CAPTURE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.TAGS: "Either no tags have been applied to objects, or the current role does not have permission to access the objects or to snowflake account usage views ",
         }
 
@@ -467,10 +481,10 @@ class SnowflakeV2Source(
                 SourceCapability.SCHEMA_METADATA,
                 SourceCapability.DESCRIPTIONS,
                 SourceCapability.DATA_PROFILING,
-                SourceCapability.CLASSIFICATION,
                 SourceCapability.LINEAGE_COARSE,
                 SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
+                SourceCapability.OPERATION_CAPTURE,
                 SourceCapability.TAGS,
             ):
                 failure_message = (
@@ -522,22 +536,110 @@ class SnowflakeV2Source(
             name, SnowflakeObjectDomain.TABLE
         )
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            functools.partial(
-                auto_incremental_lineage, self.config.incremental_lineage
-            ),
-            functools.partial(
-                auto_incremental_properties, self.config.incremental_properties
-            ),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
+    def _resolve_semantic_model_emission(self) -> None:
+        # Nothing to resolve if semantic views are not being ingested - avoid the
+        # server probe (unnecessary GraphQL traffic and misleading warnings) when
+        # the feature is off entirely.
+        if not self.config.semantic_views.enabled:
+            return
+
+        # Resolve the tri-state flag against server signals before any
+        # semantic-view processing reads it. A None graph (file sink / no
+        # connection) is handled by the resolver as the OSS path.
+        recipe_value = self.config.semantic_views.emit_semantic_model_entities
+        decision = resolve_emit_semantic_model_entities(self.ctx.graph, recipe_value)
+
+        # Single-pass: overwrite the tri-state with the resolved bool so every
+        # downstream call site reads it. Safe to clobber — ConfigModel has no
+        # validate_assignment (no revalidation), the original request is captured
+        # in report.semantic_model_emission_*, and recipe_value must not be read
+        # past this point.
+        self.config.semantic_views.emit_semantic_model_entities = decision.enabled
+
+        self.report.semantic_model_emission_effective = decision.enabled
+        self.report.semantic_model_emission_reason = decision.reason
+        self.report.semantic_model_emission_is_saas = decision.is_saas
+        self.report.semantic_model_emission_metrics_enabled = decision.metrics_enabled
+        self.report.semantic_model_entity_types_capable = decision.entity_types_capable
+
+        logger.info(
+            "Resolved semantic_views.emit_semantic_model_entities: effective=%s "
+            "(recipe=%s, managed_server=%s, version=%s, metricsEnabled=%s, reason=%s)",
+            decision.enabled,
+            recipe_value,
+            decision.is_saas,
+            decision.version,
+            decision.metrics_enabled,
+            decision.reason,
+        )
+
+        # An unparseable server version fails the capability check closed rather than
+        # crashing the source. Surface it regardless of recipe_value, since the
+        # default managed-server path (recipe_value=None) would otherwise silently
+        # drop to legacy mode without the recipe-request warning below firing.
+        if decision.version_unparseable:
+            self.report.warning(
+                title="Could not parse DataHub server version",
+                message=(
+                    "The DataHub server version string could not be parsed, so "
+                    "semanticModel/metric emission stayed off and ingestion "
+                    "proceeded in legacy dataset mode."
+                ),
+                context=decision.reason,
+            )
+
+        # The metricsEnabled kill-switch probe failed operationally, so emission
+        # failed closed to legacy. Surface it regardless of recipe_value, since the
+        # default managed-server path (recipe_value=None) would otherwise silently
+        # drop to legacy mode without the recipe-request warning below firing.
+        if decision.metrics_probe_failed:
+            self.report.warning(
+                title="Could not verify Metrics kill-switch",
+                message=(
+                    "The metricsEnabled feature-flag probe failed, so "
+                    "semanticModel/metric emission stayed off and ingestion "
+                    "proceeded in legacy dataset mode."
+                ),
+                context=decision.reason,
+            )
+
+        # Warn instead of failing when the recipe requested emission but a server
+        # veto forces it off, so ingestion still proceeds in legacy dataset mode.
+        if recipe_value is True and not decision.enabled:
+            self.report.warning(
+                title="semantic_views.emit_semantic_model_entities forced off",
+                message=(
+                    "semantic_views.emit_semantic_model_entities was requested but "
+                    "could not be enabled; falling back to legacy dataset emission."
+                ),
+                context=decision.reason,
+            )
+
+        if decision.enabled and self.config.semantic_views.include_usage:
+            self.report.warning(
+                title="semantic_views.include_usage ignored",
+                message="semanticModel mode emits no usage statistics; include_usage is ignored.",
+                context=decision.reason,
+            )
+
+        # The config-time validator does not fire on the managed-server auto-enable path
+        # (the flag is resolved to True here, after config validation), so warn at
+        # runtime too: semantic-view processing is gated on include_technical_schema.
+        if decision.enabled and not self.config.include_technical_schema:
+            self.report.warning(
+                title="semantic_views.emit_semantic_model_entities requires include_technical_schema",
+                message=(
+                    "emit_semantic_model_entities is enabled but "
+                    "include_technical_schema is False; no semanticModel/metric "
+                    "entities will be emitted. Set include_technical_schema to True."
+                ),
+                context=decision.reason,
+            )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._snowflake_clear_ocsp_cache()
+
+        self._resolve_semantic_model_emission()
 
         self.inspect_session_metadata(self.connection)
 
@@ -572,7 +674,19 @@ class SnowflakeV2Source(
                 self.config, self.report
             ).get_shares_workunits(databases)
 
-        # Stages, Tasks, and Pipes extraction
+        if self.config.marketplace.enabled:
+            with self.report.new_stage("*: MARKETPLACE_EXTRACTION"):
+                marketplace_handler = SnowflakeMarketplaceHandler(
+                    config=self.config,
+                    report=self.report,
+                    connection=self.connection,
+                    identifiers=self.identifiers,
+                    snowsight_url_builder=snowsight_url_builder,
+                    redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
+                    domain_registry=self.domain_registry,
+                )
+                yield from marketplace_handler.get_marketplace_workunits()
+
         yield from self._get_stages_tasks_pipes_workunits(databases)
 
         discovered_tables: List[str] = [
@@ -618,11 +732,20 @@ class SnowflakeV2Source(
                     "No tables/views/streams found. Verify dataset permissions in Snowflake.",
                 )
 
+        # When emit_semantic_model_entities is enabled, semantic views are emitted
+        # as semanticModel entities (not datasets), so they are deliberately
+        # excluded from discovered_datasets, which feeds dataset-level
+        # usage/lineage/assertion extraction. In legacy dataset mode they are
+        # datasets like any other and must be included.
         self.discovered_datasets = (
             discovered_tables
             + discovered_views
-            + discovered_semantic_views
             + discovered_streams
+            + (
+                []
+                if self.config.semantic_views.emit_semantic_model_entities
+                else discovered_semantic_views
+            )
         )
 
         if self.config.use_queries_v2:
@@ -643,44 +766,33 @@ class SnowflakeV2Source(
                         run_id=self.ctx.run_id,
                     )
 
-                queries_extractor = SnowflakeQueriesExtractor(
-                    connection=self.connection,
-                    # TODO: this should be its own section in main recipe
-                    config=SnowflakeQueriesExtractorConfig(
-                        window=BaseTimeWindowConfig(
-                            start_time=self.config.start_time,
-                            end_time=self.config.end_time,
-                            bucket_duration=self.config.bucket_duration,
-                        ),
-                        temporary_tables_pattern=self.config.temporary_tables_pattern,
-                        include_lineage=self.config.include_table_lineage,
-                        include_usage_statistics=self.config.include_usage_stats,
-                        include_operations=self.config.include_operational_stats,
-                        include_queries=self.config.include_queries,
-                        include_query_usage_statistics=self.config.include_query_usage_statistics,
-                        user_email_pattern=self.config.user_email_pattern,
-                        pushdown_deny_usernames=self.config.pushdown_deny_usernames,
-                        pushdown_allow_usernames=self.config.pushdown_allow_usernames,
-                        query_dedup_strategy=self.config.query_dedup_strategy,
-                        push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
-                        additional_database_names_allowlist=self.config.additional_database_names_allowlist,
-                    ),
-                    structured_report=self.report,
-                    filters=self.filters,
-                    identifiers=self.identifiers,
-                    redundant_run_skip_handler=redundant_queries_run_skip_handler,
-                    schema_resolver=schema_resolver,
-                    discovered_tables=self.discovered_datasets,
-                    graph=self.ctx.graph,
+                queries_extractor = self._create_queries_extractor(
+                    schema_resolver,
+                    redundant_queries_run_skip_handler,
+                    schema_extractor,
                 )
-
-                # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
-                # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
-                # it should be pretty straightforward to refactor this and only initialize the aggregator once.
-                # This also applies for the _is_temp_table and _is_allowed_table methods above, duplicated from SnowflakeQueriesExtractor.
-                self.report.queries_extractor = queries_extractor.report
-                yield from queries_extractor.get_workunits_internal()
-                queries_extractor.close()
+                # The extractor borrows the source's schema resolver and must not
+                # outlive it. Deliberately not `with queries_extractor:` the way
+                # BigQuery does: __exit__ would let a close() failure replace the
+                # stage's real exception, and a full disk fails both. report_exc
+                # downgrades the cleanup failure to a warning instead.
+                try:
+                    # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
+                    # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
+                    # it should be pretty straightforward to refactor this and only initialize the aggregator once.
+                    # This also applies for the _is_temp_table and _is_allowed_table methods above, duplicated from SnowflakeQueriesExtractor.
+                    self.report.queries_extractor = queries_extractor.report
+                    yield from queries_extractor.get_workunits_internal()
+                finally:
+                    with self.report.report_exc(
+                        title="Failed to clean up after query extraction",
+                        message="Cleaning up after the query-history stage failed; "
+                        "temporary files may have been left behind.",
+                        context=queries_extractor.report.audit_log_path
+                        or "audit log path not recorded",
+                        level=StructuredLogLevel.WARN,
+                    ):
+                        queries_extractor.close()
 
         else:
             if self.lineage_extractor:
@@ -706,13 +818,31 @@ class SnowflakeV2Source(
                 )
 
         if self.semantic_view_usage_extractor and discovered_semantic_views:
-            discovered_semantic_views_set = set(discovered_semantic_views)
-            yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
-                discovered_semantic_views_set
-            )
-            yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
-                discovered_semantic_views_set
-            )
+            if not self.config.include_technical_schema:
+                # Query/usage subjects reference the semanticModel (or, in legacy
+                # mode, the semantic-view dataset) entities, which are only emitted
+                # when include_technical_schema is True. Skip emission rather than
+                # produce querySubjects that dangle to never-emitted entities.
+                self.report.warning(
+                    title="Semantic view queries/usage skipped without technical schema",
+                    message=(
+                        "include_technical_schema is False, so semantic view "
+                        "entities are not emitted; skipping their query and usage "
+                        "workunits to avoid dangling query subjects."
+                    ),
+                )
+            else:
+                discovered_semantic_views_set = set(discovered_semantic_views)
+                # Usage statistics are legacy-dataset-mode only - semanticModel
+                # entities have no usage aspect. Query entities (Queries tab) are
+                # emitted in both modes.
+                if not self.config.semantic_views.emit_semantic_model_entities:
+                    yield from self.semantic_view_usage_extractor.get_semantic_view_usage_workunits(
+                        discovered_semantic_views_set
+                    )
+                yield from self.semantic_view_usage_extractor.get_semantic_view_query_workunits(
+                    discovered_semantic_views_set
+                )
 
         if self.config.include_assertion_results:
             yield from SnowflakeAssertionsHandler(
@@ -720,6 +850,44 @@ class SnowflakeV2Source(
             ).get_assertion_workunits(self.discovered_datasets)
 
         self.connection.close()
+
+    def _create_queries_extractor(
+        self,
+        schema_resolver: SchemaResolver,
+        redundant_run_skip_handler: Optional[RedundantQueriesRunSkipHandler],
+        schema_extractor: SnowflakeSchemaGenerator,
+    ) -> SnowflakeQueriesExtractor:
+        return SnowflakeQueriesExtractor(
+            connection=self.connection,
+            # TODO: this should be its own section in main recipe
+            config=SnowflakeQueriesExtractorConfig(
+                window=BaseTimeWindowConfig(
+                    start_time=self.config.start_time,
+                    end_time=self.config.end_time,
+                    bucket_duration=self.config.bucket_duration,
+                ),
+                temporary_tables_pattern=self.config.temporary_tables_pattern,
+                include_lineage=self.config.include_table_lineage,
+                include_usage_statistics=self.config.include_usage_stats,
+                include_operations=self.config.include_operational_stats,
+                include_queries=self.config.include_queries,
+                include_query_usage_statistics=self.config.include_query_usage_statistics,
+                user_email_pattern=self.config.user_email_pattern,
+                pushdown_deny_usernames=self.config.pushdown_deny_usernames,
+                pushdown_allow_usernames=self.config.pushdown_allow_usernames,
+                query_dedup_strategy=self.config.query_dedup_strategy,
+                push_down_database_pattern_access_history=self.config.push_down_database_pattern_access_history,
+                additional_database_names_allowlist=self.config.additional_database_names_allowlist,
+            ),
+            structured_report=self.report,
+            filters=self.filters,
+            identifiers=self.identifiers,
+            redundant_run_skip_handler=redundant_run_skip_handler,
+            schema_resolver=schema_resolver,
+            discovered_tables=self.discovered_datasets,
+            dynamic_table_identifiers=schema_extractor.dynamic_table_identifiers,
+            graph=self.ctx.graph,
+        )
 
     def _get_stages_tasks_pipes_workunits(
         self,
@@ -872,6 +1040,7 @@ class SnowflakeV2Source(
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
                 snowflake_domain=self.config.snowflake_domain,
+                base_url_override=self.config.snowsight_base_url,
             )
 
         except Exception as e:

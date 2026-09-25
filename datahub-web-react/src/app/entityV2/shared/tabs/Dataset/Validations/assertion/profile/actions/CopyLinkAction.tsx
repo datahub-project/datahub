@@ -1,8 +1,9 @@
 import { LinkOutlined } from '@ant-design/icons';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useAssertionURNCopyLink } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
+import { useAssertionURNCopyLink } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
 import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
 
 import { Assertion } from '@types';
@@ -20,15 +21,16 @@ type Props = {
 };
 
 export const CopyLinkAction = ({ assertion, isExpandedView = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const onCopyLink = useAssertionURNCopyLink(assertion.urn);
     return (
         <ActionItem
             key="copy-link"
-            tip="Copy link to this assertion"
+            tip={t('action.copyLinkToAssertion')}
             icon={<StyledLinkOutlined />}
             onClick={onCopyLink}
             isExpandedView={isExpandedView}
-            actionName="Copy link"
+            actionName={t('action.copyLink')}
         />
     );
 };

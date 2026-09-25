@@ -1,5 +1,6 @@
 import { Button, Heading, Text, Tooltip } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
@@ -22,6 +23,11 @@ import {
     ToastContainer,
 } from '@app/shared/product/update/ProductUpdates.components';
 import {
+    getDefaultProductUpdateLink,
+    getLocalizedReleaseMonth,
+    getProductUpdateVersion,
+} from '@app/shared/product/update/ProductUpdates.utils';
+import {
     useDismissProductAnnouncement,
     useGetLatestProductAnnouncementData,
     useIsProductAnnouncementEnabled,
@@ -29,14 +35,17 @@ import {
 } from '@app/shared/product/update/hooks';
 import { isVersionMatch } from '@app/shared/product/update/versionUtils';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
-import { useAppConfig } from '@app/useAppConfig';
+import { useAppConfig, useIsShowAcrylInfoEnabled } from '@app/useAppConfig';
 import { getRuntimeBasePath } from '@utils/runtimeBasePath';
 
 export default function ProductUpdates() {
+    const { t, i18n } = useTranslation('shared.product');
+    const { t: tc } = useTranslation('common.actions');
     const history = useHistory();
     const isFeatureEnabled = useIsProductAnnouncementEnabled();
     const latestUpdate = useGetLatestProductAnnouncementData();
     const appConfig = useAppConfig();
+    const isCloud = useIsShowAcrylInfoEnabled();
     const isOnHomePage = useIsHomePage();
 
     const { visible, refetch } = useIsProductAnnouncementVisible(latestUpdate?.id);
@@ -126,21 +135,38 @@ export default function ProductUpdates() {
         return null;
     }
 
-    const { title, header, image, description, primaryCtaText, primaryCtaLink, ctaText, ctaLink, features } =
-        latestUpdate;
+    const {
+        title,
+        header,
+        image,
+        description,
+        primaryCtaText,
+        primaryCtaLink,
+        ctaText,
+        ctaLink,
+        features,
+        releaseMonth,
+    } = latestUpdate;
 
     // Helper to check if value is actually present (not null, undefined, or string "null")
     const isPresent = (value: any) => value && value !== 'null' && value !== null;
 
-    // Use header if available, otherwise fall back to title
-    const displayTitle = isPresent(header) ? header : title;
+    const version = isCloud ? getProductUpdateVersion(latestUpdate.id) : null;
+    const localizedReleaseMonth = getLocalizedReleaseMonth(i18n.language, releaseMonth);
+    const defaultTitle = localizedReleaseMonth
+        ? t('updates.defaultTitle', {
+              month: localizedReleaseMonth,
+          })
+        : null;
+    const contentTitle = isPresent(title) ? title : defaultTitle;
+    const displayTitle = isPresent(header) ? header : contentTitle;
 
     // Only show title in content if header exists (to avoid duplication)
     const showTitleInContent = isPresent(header);
 
     // Determine primary CTA (prefer new format, fall back to legacy)
-    const primaryText = primaryCtaText || ctaText;
-    const primaryLink = buildUrl(primaryCtaLink || ctaLink);
+    const primaryText = primaryCtaText || ctaText || (version ? t('updates.defaultCtaText', { version }) : null);
+    const primaryLink = buildUrl(primaryCtaLink || ctaLink || getDefaultProductUpdateLink(latestUpdate.id, isCloud));
 
     // Secondary CTA (only if both text and link are present)
     const secondaryText = isPresent(latestUpdate.secondaryCtaText) ? latestUpdate.secondaryCtaText : null;
@@ -152,10 +178,10 @@ export default function ProductUpdates() {
     return (
         <ToastContainer $sidebarWidth={sidebarWidth}>
             <Header>
-                <Heading type="h3" size="lg" weight="bold" color="gray" colorLevel={600}>
+                <Heading type="h3" size="lg" weight="bold">
                     {displayTitle}
                 </Heading>
-                <Tooltip title="Dismiss" placement="left">
+                <Tooltip title={tc('dismiss')} placement="left">
                     <CloseButton onClick={handleDismiss}>
                         <StyledCloseIcon />
                     </CloseButton>
@@ -165,18 +191,18 @@ export default function ProductUpdates() {
                 {description && (
                     <HeroSection>
                         {showTitleInContent && (
-                            <Text size="lg" weight="bold" color="gray" colorLevel={600}>
-                                {title}
+                            <Text size="lg" weight="bold">
+                                {contentTitle}
                             </Text>
                         )}
-                        <Text size="md" weight="medium" color="gray" colorLevel={500} style={{ lineHeight: '1.4' }}>
+                        <Text size="md" weight="medium" color="textSecondary" style={{ lineHeight: '1.4' }}>
                             {description}
                         </Text>
                     </HeroSection>
                 )}
                 {image && (
                     <ImageSection>
-                        <Image src={image} alt={title} />
+                        <Image src={image} alt={contentTitle || undefined} />
                     </ImageSection>
                 )}
                 {displayFeatures && displayFeatures.length > 0 && (
@@ -187,11 +213,10 @@ export default function ProductUpdates() {
                                 <Text
                                     size="sm"
                                     weight="bold"
-                                    color="gray"
-                                    colorLevel={500}
+                                    color="textSecondary"
                                     style={{ textTransform: 'lowercase', whiteSpace: 'nowrap' }}
                                 >
-                                    more in this release
+                                    {t('updates.moreInThisRelease')}
                                 </Text>
                                 <SectionHeaderLine />
                             </SectionHeaderContainer>
@@ -202,20 +227,14 @@ export default function ProductUpdates() {
                                     // $hasIcon={false} — icons not used in current product update JSONs
                                     <FeatureItem key={feature.title} $hasIcon={false}>
                                         <FeatureContent>
-                                            <Text size="md" weight="semiBold" color="gray" colorLevel={600}>
+                                            <Text size="md" weight="semiBold">
                                                 {feature.title}
                                             </Text>
-                                            <Text
-                                                size="md"
-                                                weight="normal"
-                                                color="gray"
-                                                colorLevel={500}
-                                                lineHeight="xs"
-                                            >
+                                            <Text size="md" weight="normal" color="textSecondary" lineHeight="xs">
                                                 {feature.description}
                                             </Text>
                                             {feature.availability && feature.availability !== 'null' && (
-                                                <Text type="span" size="sm" color="gray" colorLevel={400}>
+                                                <Text type="span" size="sm" color="textTertiary">
                                                     {feature.availability}
                                                 </Text>
                                             )}
@@ -234,6 +253,7 @@ export default function ProductUpdates() {
                                 onClick={() => {
                                     trackClick(secondaryLink);
                                     if (secondaryLink.startsWith('http')) {
+                                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) window.open feature string
                                         window.open(secondaryLink, '_blank', 'noopener,noreferrer');
                                     } else {
                                         history.push(secondaryLink);
@@ -247,11 +267,12 @@ export default function ProductUpdates() {
                         {primaryText && primaryLink && (
                             <Button
                                 variant="filled"
-                                color="violet"
+                                color="primary"
                                 onClick={() => {
                                     trackClick(primaryLink);
                                     handleDismiss();
                                     if (primaryLink.startsWith('http')) {
+                                        // eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) window.open feature string
                                         window.open(primaryLink, '_blank', 'noopener,noreferrer');
                                     } else {
                                         history.push(primaryLink);

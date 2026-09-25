@@ -4,11 +4,27 @@ Join us for community gatherings where we discuss roadmap updates, demo new feat
 
 ## 🗓️ Next Town Hall
 
-[Register for the February Town Hall](https://luma.com/zp3h4ex8)
+Town Halls run monthly. [Register on our events calendar →](https://luma.com/datahubevents?tag=datahub%20town%20hall)
 
 ---
 
 ## 📺 Recent Town Halls
+
+**July 2026: Real Stories in Production feat. Miro & Just Eat Takeaway**
+
+- 📺 [Watch recording](https://youtu.be/B5cV9ZPgg30)
+
+**June 2026: Inside the Context Platform feat. TiDB / PingCAP**
+
+- 📺 [Watch recording](https://www.youtube.com/watch?v=JboXwGIz54k)
+
+**May 2026: Context to Action with Grab, dltHub, and iFood**
+
+- 📺 [Watch recording](https://youtu.be/GsnX7edN6Rw)
+
+**April 2026: Talk to Data – The Context Edition feat. Pinterest, Omni and DataHub**
+
+- 📺 [Watch recording](https://youtu.be/qqFUewpnGYg)
 
 **March 2026: Agents, Apps & the Art of Extension**
 
@@ -20,7 +36,7 @@ Join us for community gatherings where we discuss roadmap updates, demo new feat
 
 **January 2026: Powering AI Agents with DataHub Context**
 
-- 📺 [Watch recording](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9)
+- 📺 [Watch recording](https://youtu.be/dqZNV09yvA0)
 
 **December 2025: Building AI Agents You'd Trust in Production**
 

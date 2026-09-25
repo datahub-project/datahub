@@ -7,6 +7,7 @@ from pydantic import Field, field_validator
 from typing_extensions import Literal
 
 from datahub.api.entities.assertion.assertion import (
+    AssertionFailureSeverityDefaultConfig,
     BaseEntityAssertion,
 )
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
@@ -31,6 +32,10 @@ class FreshnessSourceType(Enum):
 
 class CronFreshnessAssertion(BaseEntityAssertion):
     type: Literal["freshness"]
+    failure_severity_config: Optional[AssertionFailureSeverityDefaultConfig] = Field(
+        default=None,
+        description="Optional default severity for failed freshness assertion results.",
+    )
     cron: str = Field(
         description="The cron expression to use. See https://crontab.guru/ for help."
     )
@@ -57,6 +62,11 @@ class CronFreshnessAssertion(BaseEntityAssertion):
                     type=FreshnessAssertionScheduleType.CRON,
                     cron=FreshnessCronSchedule(cron=self.cron, timezone=self.timezone),
                 ),
+                failureSeverityConfig=(
+                    self.failure_severity_config.to_model()
+                    if self.failure_severity_config
+                    else None
+                ),
             ),
         )
 
@@ -74,6 +84,10 @@ class CronFreshnessAssertion(BaseEntityAssertion):
 
 class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
     type: Literal["freshness"]
+    failure_severity_config: Optional[AssertionFailureSeverityDefaultConfig] = Field(
+        default=None,
+        description="Optional default severity for failed freshness assertion results.",
+    )
     lookback_interval: timedelta
     filters: Optional[DatasetFilter] = Field(default=None)
     source_type: FreshnessSourceType = Field(
@@ -104,6 +118,11 @@ class FixedIntervalFreshnessAssertion(BaseEntityAssertion):
                         unit=CalendarInterval.SECOND,
                         multiple=self.lookback_interval.seconds,
                     ),
+                ),
+                failureSeverityConfig=(
+                    self.failure_severity_config.to_model()
+                    if self.failure_severity_config
+                    else None
                 ),
             ),
         )

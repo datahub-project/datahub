@@ -9,12 +9,15 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -24,11 +27,16 @@ import java.util.Optional;
 import java.util.function.Function;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.index.reindex.ReindexRequest;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
 import org.opensearch.tasks.TaskInfo;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -50,7 +58,9 @@ public class CopyDocumentsToSemanticIndexStepTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    opContext = TestOperationContexts.systemContextNoValidate();
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), searchClient);
     when(upgradeContext.opContext()).thenReturn(opContext);
   }
 
@@ -61,11 +71,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // Mock task completion
@@ -78,8 +91,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
         .thenReturn(Optional.of(mockTaskResponse));
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
     UpgradeStepResult result = executable.apply(upgradeContext);
@@ -87,8 +99,12 @@ public class CopyDocumentsToSemanticIndexStepTest {
     assertEquals(result.stepId(), "CopyDocumentsToSemanticIndex_dataset");
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    verify(searchClient).indexExists(any(GetIndexRequest.class), any(RequestOptions.class));
-    verify(searchClient).submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+    verify(searchClient)
+        .indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(searchClient)
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
     verify(searchClient).getTask(any(GetTaskRequest.class), any(RequestOptions.class));
   }
 
@@ -98,15 +114,16 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String baseIndexName = "datasetindex_v2";
     String semanticIndexName = "datasetindex_v2_semantic_search";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
     // Semantic index does not exist
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(false);
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
     UpgradeStepResult result = executable.apply(upgradeContext);
@@ -116,7 +133,8 @@ public class CopyDocumentsToSemanticIndexStepTest {
 
     // Verify reindex task was NOT submitted
     verify(searchClient, never())
-        .submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class));
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
   }
 
   @Test
@@ -126,11 +144,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "chartindex_v2_semantic_search";
     String taskId = "node456:789012";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // Mock task completion with cancellation
@@ -143,8 +164,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
         .thenReturn(Optional.of(mockTaskResponse));
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
     UpgradeStepResult result = executable.apply(upgradeContext);
@@ -160,16 +180,18 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "dashboardindex_v2_semantic_search";
     String taskId = "invalid-task-id-without-colon"; // Invalid format
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
     UpgradeStepResult result = executable.apply(upgradeContext);
@@ -188,11 +210,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // Task not found (empty optional - may have completed and been cleaned up)
@@ -200,8 +225,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
         .thenReturn(Optional.empty());
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
     UpgradeStepResult result = executable.apply(upgradeContext);
@@ -217,16 +241,18 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String baseIndexName = "datasetindex_v2";
     String semanticIndexName = "datasetindex_v2_semantic_search";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenThrow(new IOException("Connection refused"));
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
     UpgradeStepResult result = executable.apply(upgradeContext);
@@ -242,11 +268,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // getTask throws exception
@@ -254,8 +283,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
         .thenThrow(new IOException("Task service unavailable"));
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
     UpgradeStepResult result = executable.apply(upgradeContext);
@@ -276,8 +304,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(previousResult));
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     assertTrue(step.skip(upgradeContext));
   }
@@ -294,8 +321,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.of(previousResult));
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     assertFalse(step.skip(upgradeContext));
   }
@@ -310,8 +336,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     when(mockUpgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     assertFalse(step.skip(upgradeContext));
   }
@@ -321,8 +346,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String entityName = "dataset";
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     // Step should be optional
     assertTrue(step.isOptional());
@@ -333,8 +357,7 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String entityName = "customEntity";
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     assertEquals(step.id(), "CopyDocumentsToSemanticIndex_customEntity");
   }
@@ -346,11 +369,14 @@ public class CopyDocumentsToSemanticIndexStepTest {
     String semanticIndexName = "datasetindex_v2_semantic_search";
     String taskId = "node123:456789";
 
-    when(indexConvention.getEntityIndexName(entityName)).thenReturn(baseIndexName);
-    when(indexConvention.getEntityIndexNameSemantic(entityName)).thenReturn(semanticIndexName);
-    when(searchClient.indexExists(any(GetIndexRequest.class), any(RequestOptions.class)))
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn(baseIndexName);
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn(semanticIndexName);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
         .thenReturn(true);
-    when(searchClient.submitReindexTask(any(ReindexRequest.class), any(RequestOptions.class)))
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
         .thenReturn(taskId);
 
     // First call: task still running, second call: task completed
@@ -368,13 +394,57 @@ public class CopyDocumentsToSemanticIndexStepTest {
         .thenReturn(Optional.of(completedResponse));
 
     step =
-        new CopyDocumentsToSemanticIndexStep(
-            opContext, entityName, searchClient, entityService, indexConvention);
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
 
     Function<UpgradeContext, UpgradeStepResult> executable = step.executable();
     UpgradeStepResult result = executable.apply(upgradeContext);
 
     assertEquals(result.stepId(), "CopyDocumentsToSemanticIndex_dataset");
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
+  public void testExecutable_SplitClusterCopiesWithSearchAfter() throws Exception {
+    String entityName = "dataset";
+    SearchClientShim<?> sourceClient = mock(SearchClientShim.class);
+    SearchClientShim<?> destClient = mock(SearchClientShim.class);
+    SearchClusterAccess access =
+        component -> component == SearchComponent.SEMANTIC ? destClient : sourceClient;
+    opContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoValidate(), access);
+
+    when(indexConvention.getEntityIndexName(opContext, entityName)).thenReturn("datasetindex_v2");
+    when(indexConvention.getEntityIndexNameSemantic(opContext, entityName))
+        .thenReturn("datasetindex_v2_semantic");
+    when(destClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getId()).thenReturn("urn:li:dataset:1");
+    when(hit.getSourceAsString()).thenReturn("{\"urn\":\"urn:li:dataset:1\"}");
+    when(hit.getSortValues()).thenReturn(new Object[] {"urn:li:dataset:1"});
+    SearchHits firstHits = mock(SearchHits.class);
+    when(firstHits.getHits()).thenReturn(new SearchHit[] {hit});
+    SearchResponse firstPage = mock(SearchResponse.class);
+    when(firstPage.getHits()).thenReturn(firstHits);
+    SearchHits emptyHits = mock(SearchHits.class);
+    when(emptyHits.getHits()).thenReturn(new SearchHit[0]);
+    SearchResponse emptyPage = mock(SearchResponse.class);
+    when(emptyPage.getHits()).thenReturn(emptyHits);
+    when(sourceClient.search(any(), any(SearchRequest.class), any(RequestOptions.class)))
+        .thenReturn(firstPage)
+        .thenReturn(emptyPage);
+
+    step =
+        new CopyDocumentsToSemanticIndexStep(opContext, entityName, entityService, indexConvention);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(sourceClient, never())
+        .submitReindexTask(any(), any(ReindexRequest.class), any(RequestOptions.class));
+    verify(sourceClient, never()).scroll(any(), any(), any(RequestOptions.class));
+    verify(destClient).indexDocument(any(), any(IndexRequest.class), any(RequestOptions.class));
   }
 }

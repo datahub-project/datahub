@@ -1,16 +1,21 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     getIsRowCountChange,
-    getOperatorDescription,
     getParameterDescription,
-    getValueChangeTypeDescription,
-    getVolumeTypeDescription,
+    getParameterInterpolation,
+    getVolumeOperatorKeyPart,
     getVolumeTypeInfo,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/utils';
 
-import { IncrementingSegmentRowCountChange, RowCountChange, VolumeAssertionInfo } from '@types';
+import {
+    AssertionValueChangeType,
+    IncrementingSegmentRowCountChange,
+    RowCountChange,
+    VolumeAssertionInfo,
+} from '@types';
 
 type Props = {
     assertionInfo: VolumeAssertionInfo;
@@ -20,20 +25,36 @@ type Props = {
  * A human-readable description of a Volume Assertion.
  */
 export const VolumeAssertionDescription = ({ assertionInfo }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
-    const volumeTypeDescription = getVolumeTypeDescription(volumeType);
-    const operatorDescription = volumeTypeInfo ? getOperatorDescription(volumeTypeInfo.operator) : '';
-    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : '';
-    const valueChangeTypeDescription = getIsRowCountChange(volumeType)
-        ? getValueChangeTypeDescription((volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type)
-        : 'rows';
+    const isChange = getIsRowCountChange(volumeType);
+    const parameterDescription = volumeTypeInfo ? getParameterDescription(volumeTypeInfo.parameters) : undefined;
+    const operatorKeyPart = volumeTypeInfo ? getVolumeOperatorKeyPart(volumeTypeInfo.operator) : null;
+    const interpolation = getParameterInterpolation(parameterDescription);
+
+    let key: string;
+    if (!operatorKeyPart) {
+        // Missing volume info or an operator outside the supported set — render a generic
+        // description rather than composing a key that has no translation. A present volumeTypeInfo
+        // with an unrecognized operator is genuinely unexpected (e.g. from a direct API write), so
+        // surface it for debugging; a missing volumeTypeInfo is a normal empty state and stays quiet.
+        if (volumeTypeInfo) {
+            console.warn(`Unsupported volume assertion operator: ${volumeTypeInfo.operator}`);
+        }
+        key = 'volumeDescription.unknown';
+    } else if (isChange) {
+        const isPercentage =
+            (volumeTypeInfo as RowCountChange | IncrementingSegmentRowCountChange).type ===
+            AssertionValueChangeType.Percentage;
+        key = `volumeDescription.change${operatorKeyPart}${isPercentage ? 'Percent' : 'Rows'}`;
+    } else {
+        key = `volumeDescription.total${operatorKeyPart}`;
+    }
 
     return (
         <div>
-            <Typography.Text>
-                Table {volumeTypeDescription} {operatorDescription} {parameterDescription} {valueChangeTypeDescription}
-            </Typography.Text>
+            <Typography.Text>{t(key, interpolation)}</Typography.Text>
         </div>
     );
 };

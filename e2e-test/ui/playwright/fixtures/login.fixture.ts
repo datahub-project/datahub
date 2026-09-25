@@ -18,10 +18,11 @@
  * Tests never need to call loginPage.login() themselves.
  *
  * Parallel execution note:
- *   Two workers using the same user may rarely hit a race condition when both
- *   enter the "state missing" branch simultaneously. In practice this is
- *   harmless (both write the same valid state), but a file lock can be added
- *   later if needed.
+ *   Two workers using the same user may rarely both enter the "state missing"
+ *   branch for `.auth/{username}.json` simultaneously. In practice that is
+ *   harmless (both write the same valid storageState). The GMS token file is
+ *   guarded by withArtifactLock + writeJsonAtomic so it cannot race seeding's
+ *   bootstrapGmsToken under workers_per_shard > 1.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * User injection example (set at describe level, not inside tests):
@@ -45,6 +46,8 @@ import { test as base } from '@playwright/test';
 import { users, type UserCredentials } from '../data/users';
 import { LoginPage } from '../pages/login.page';
 import { gmsTokenPath } from './login';
+import { DATAHUB_GRAPHQL_PATH } from '../utils/constants';
+import { withArtifactLock, writeJsonAtomic } from '../helpers/seeder-utils';
 import type { DataHubLogger } from '../utils/logger';
 
 // ── Fixture types ─────────────────────────────────────────────────────────────
@@ -158,19 +161,24 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
 
       // Mint a GMS personal access token using the live session cookies so
       // that API-level fixtures (seeding, cleanup) don't need a separate
-      // auth-setup project to run first.
+      // auth-setup project to run first. Same path as seeding.fixture's
+      // bootstrapGmsToken — take the artifact lock so workers_per_shard > 1
+      // cannot race a torn writeFileSync against that producer (or each other).
       const tokenFile = gmsTokenPath(user.username);
-      const cookies = await ctx.cookies();
-      const actorCookie = cookies.find((c) => c.name === 'actor');
-      if (actorCookie) {
-        const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
+      await withArtifactLock(tokenFile, async () => {
         const baseURL = process.env.BASE_URL ?? 'http://localhost:9002';
+        const graphqlUrl = new URL(DATAHUB_GRAPHQL_PATH, baseURL).toString();
+        const cookies = await ctx.cookies(graphqlUrl);
+        const actorCookie = cookies.find((c) => c.name === 'actor');
+        if (!actorCookie) return;
+
+        const cookieHeader = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
         const apiCtx = await playwright.request.newContext({
           baseURL,
           extraHTTPHeaders: { Cookie: cookieHeader },
         });
         try {
-          const resp = await apiCtx.post('/api/v2/graphql', {
+          const resp = await apiCtx.post(DATAHUB_GRAPHQL_PATH, {
             data: {
               query: `mutation createAccessToken($input: CreateAccessTokenInput!) {
                 createAccessToken(input: $input) { accessToken metadata { id } }
@@ -185,21 +193,19 @@ export const loginFixture = base.extend<LoginFixtures, LoginFixtureOptions>({
               },
             },
           });
-          if (resp.ok()) {
-            const body = (await resp.json()) as {
-              data?: { createAccessToken?: { accessToken?: string; metadata?: { id?: string } } };
-            };
-            const token = body.data?.createAccessToken?.accessToken;
-            const tokenId = body.data?.createAccessToken?.metadata?.id;
-            if (token) {
-              fs.writeFileSync(tokenFile, JSON.stringify({ token, tokenId, actorUrn: actorCookie.value }, null, 2));
-              logger.info('GMS token saved', { user: user.username, tokenFile });
-            }
-          }
+          if (!resp.ok()) return;
+          const body = (await resp.json()) as {
+            data?: { createAccessToken?: { accessToken?: string; metadata?: { id?: string } } };
+          };
+          const token = body.data?.createAccessToken?.accessToken;
+          const tokenId = body.data?.createAccessToken?.metadata?.id;
+          if (!token) return;
+          writeJsonAtomic(tokenFile, { token, tokenId, actorUrn: actorCookie.value });
+          logger.info('GMS token saved', { user: user.username, tokenFile });
         } finally {
           await apiCtx.dispose();
         }
-      }
+      });
     } catch (err) {
       logger.error('login failed', { user: user.username, error: String(err) });
       throw err;

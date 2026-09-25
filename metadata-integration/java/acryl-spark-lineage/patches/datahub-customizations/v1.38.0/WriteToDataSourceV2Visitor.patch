@@ -1,0 +1,184 @@
+# Patch for DataHub customizations in WriteToDataSourceV2Visitor.java
+# Upstream version: OpenLineage 1.38.0
+# Generated: 2025-10-02 12:57:22 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/WriteToDataSourceV2Visitor.patch
+#
+--- /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.38.0/spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java	2025-10-02 14:47:51.875538520 +0200
++++ /Users/treff7es/shadow/datahub/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java	2025-09-12 19:50:04.456873157 +0200
+@@ -2,13 +2,18 @@
+ /* Copyright 2018-2025 contributors to the OpenLineage project
+ /* SPDX-License-Identifier: Apache-2.0
+ */
+-
++/*
++This class is shadowed from Openlineage to support foreachBatch in streaming
++*/
+ package io.openlineage.spark.agent.lifecycle.plan;
+ 
+ import io.openlineage.client.OpenLineage.OutputDataset;
++import io.openlineage.client.utils.DatasetIdentifier;
++import io.openlineage.spark.agent.util.PathUtils;
+ import io.openlineage.spark.agent.util.ScalaConversionUtils;
+ import io.openlineage.spark.api.OpenLineageContext;
+ import io.openlineage.spark.api.QueryPlanVisitor;
++import java.net.URI;
+ import java.util.Collections;
+ import java.util.List;
+ import java.util.Map;
+@@ -30,6 +35,8 @@
+     extends QueryPlanVisitor<WriteToDataSourceV2, OutputDataset> {
+   private static final String KAFKA_STREAMING_WRITE_CLASS_NAME =
+       "org.apache.spark.sql.kafka010.KafkaStreamingWrite";
++  private static final String FOREACH_BATCH_SINK_CLASS_NAME =
++      "org.apache.spark.sql.execution.streaming.sources.ForeachBatchSink";
+ 
+   public WriteToDataSourceV2Visitor(@NonNull OpenLineageContext context) {
+     super(context);
+@@ -60,6 +67,13 @@
+       String streamingWriteClassName = streamingWriteClass.getCanonicalName();
+       if (KAFKA_STREAMING_WRITE_CLASS_NAME.equals(streamingWriteClassName)) {
+         result = handleKafkaStreamingWrite(streamingWrite);
++      } else if (streamingWriteClassName != null
++          && (streamingWriteClassName.contains("FileStreamSink")
++              || streamingWriteClassName.contains("ForeachBatchSink")
++              || streamingWriteClassName.contains("ConsoleSink")
++              || streamingWriteClassName.contains("DeltaSink")
++              || streamingWriteClassName.contains("ParquetSink"))) {
++        result = handleFileBasedStreamingWrite(streamingWrite, write);
+       } else {
+         log.warn(
+             "The streaming write class '{}' for '{}' is not supported",
+@@ -73,6 +87,131 @@
+     return result;
+   }
+ 
++  private @NotNull List<OutputDataset> handleFileBasedStreamingWrite(
++      StreamingWrite streamingWrite, WriteToDataSourceV2 write) {
++    log.debug(
++        "Handling file-based streaming write: {}", streamingWrite.getClass().getCanonicalName());
++
++    try {
++      // Try to extract path from streaming write
++      Optional<String> pathOpt = extractPathFromStreamingWrite(streamingWrite);
++      if (!pathOpt.isPresent()) {
++        log.warn("Could not extract path from file-based streaming write");
++        return Collections.emptyList();
++      }
++
++      String path = pathOpt.get();
++      log.debug("Found streaming write path: {}", path);
++
++      // Create dataset from path
++      URI uri = URI.create(path);
++      DatasetIdentifier identifier = PathUtils.fromURI(uri);
++      String namespace = identifier.getNamespace();
++      String name = identifier.getName();
++
++      log.debug("Creating output dataset with namespace: {}, name: {}", namespace, name);
++
++      // Get schema from the write operation
++      StructType schema = null;
++      if (write.query() != null) {
++        schema = write.query().schema();
++      }
++
++      // Use the inherited outputDataset() method to create the dataset
++      OutputDataset dataset = outputDataset().getDataset(name, namespace, schema);
++      return Collections.singletonList(dataset);
++
++    } catch (Exception e) {
++      log.error("Error extracting output dataset from file-based streaming write", e);
++      return Collections.emptyList();
++    }
++  }
++
++  private Optional<String> extractPathFromStreamingWrite(StreamingWrite streamingWrite) {
++    try {
++      // Try to get path using reflection from various sink types
++      String className = streamingWrite.getClass().getCanonicalName();
++
++      // For ForeachBatchSink, try to get the underlying sink's path
++      if (className != null && className.contains("ForeachBatchSink")) {
++        // ForeachBatchSink typically wraps another sink or has batch function
++        // We need to extract path from the context of how it's used
++        return tryExtractPathFromForeachBatch(streamingWrite);
++      }
++
++      // For file-based sinks, try standard path extraction
++      if (className != null
++          && (className.contains("FileStreamSink")
++              || className.contains("ParquetSink")
++              || className.contains("DeltaSink"))) {
++        return tryExtractPathFromFileSink(streamingWrite);
++      }
++
++      // For console sink, return console identifier
++      if (className != null && className.contains("ConsoleSink")) {
++        return Optional.of("console://output");
++      }
++
++    } catch (Exception e) {
++      log.debug("Error extracting path from streaming write: {}", e.getMessage());
++    }
++
++    return Optional.empty();
++  }
++
++  private Optional<String> tryExtractPathFromForeachBatch(StreamingWrite streamingWrite) {
++    try {
++      // ForeachBatchSink doesn't have a direct path since outputs are determined
++      // dynamically by the user's foreachBatch function. The actual lineage
++      // will be captured when the user's function executes batch operations.
++      //
++      // For now, we return empty to indicate that this sink doesn't have
++      // a predetermined output path, and rely on the batch operations
++      // within the foreachBatch function to generate proper lineage events.
++      log.debug("ForeachBatchSink detected - outputs will be tracked from batch operations");
++      return Optional.empty();
++    } catch (Exception e) {
++      log.debug("Could not extract path from ForeachBatchSink: {}", e.getMessage());
++      return Optional.empty();
++    }
++  }
++
++  private Optional<String> tryExtractPathFromFileSink(StreamingWrite streamingWrite) {
++    try {
++      // Try to extract path using reflection
++      Optional<String> pathOpt = tryReadField(streamingWrite, "path");
++      if (pathOpt.isPresent()) {
++        return pathOpt;
++      }
++
++      // Try alternative field names
++      pathOpt = tryReadField(streamingWrite, "outputPath");
++      if (pathOpt.isPresent()) {
++        return pathOpt;
++      }
++
++      pathOpt = tryReadField(streamingWrite, "location");
++      if (pathOpt.isPresent()) {
++        return pathOpt;
++      }
++
++    } catch (Exception e) {
++      log.debug("Error extracting path from file sink: {}", e.getMessage());
++    }
++
++    return Optional.empty();
++  }
++
++  private <T> Optional<T> tryReadField(Object target, String fieldName) {
++    try {
++      T result = (T) FieldUtils.readDeclaredField(target, fieldName, true);
++      return result == null ? Optional.empty() : Optional.of(result);
++    } catch (IllegalAccessException e) {
++      log.debug("Could not read field {}: {}", fieldName, e.getMessage());
++      return Optional.empty();
++    }
++  }
++
+   private @NotNull List<OutputDataset> handleKafkaStreamingWrite(StreamingWrite streamingWrite) {
+     KafkaStreamWriteProxy proxy = new KafkaStreamWriteProxy(streamingWrite);
+     Optional<String> topicOpt = proxy.getTopic();

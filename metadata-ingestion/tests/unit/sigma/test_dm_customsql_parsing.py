@@ -1,6 +1,8 @@
 """Unit tests for DM customSQL element SQL parsing (SqlParsingAggregator path)."""
 
-from typing import Dict, cast
+import logging
+from contextlib import contextmanager
+from typing import Dict, Generator, cast
 from unittest.mock import patch
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -193,6 +195,178 @@ class TestCustomSqlColMapping:
         source._build_customsql_col_mapping(element, element_urn)
         mapping = source._customsql_col_mappings.get(element_urn, {})
         assert mapping.get("order_id") == "Order Id"
+
+    def test_columnid_bare_uppercase_produces_mapping(self) -> None:
+        # Passthrough column with no formula — only columnId (UPPER_SNAKE) available.
+        # Mirrors the broken element 4lkhhi5LDn / "Custom SQL2" on dev tenant.
+        source = _make_source()
+        element_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.el,PROD)"
+        # Element name "Custom SQL2" intentionally does NOT match formula source "Custom SQL"
+        element = SigmaDataModelElement(elementId="el-1", name="Custom SQL2")
+        element.columns = [
+            SigmaDataModelColumn(
+                columnId="CUSTOMER_ID",
+                elementId="el-1",
+                name="Customer Id",
+                formula=None,
+            ),
+            SigmaDataModelColumn(
+                columnId="TOTAL_SPENT",
+                elementId="el-1",
+                name="Total Spent",
+                formula=None,
+            ),
+        ]
+        source._build_customsql_col_mapping(element, element_urn)
+        mapping = source._customsql_col_mappings.get(element_urn, {})
+        assert mapping.get("customer_id") == "Customer Id"
+        assert mapping.get("total_spent") == "Total Spent"
+        assert source.reporter.dm_customsql_col_mapping_via_columnid == 1
+
+    def test_columnid_inode_format_produces_mapping(self) -> None:
+        # inode-{urlId}/{NATIVE_NAME} format — warehouse-backed passthrough column.
+        source = _make_source()
+        element_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.el,PROD)"
+        element = SigmaDataModelElement(elementId="el-1", name="Custom SQL")
+        element.columns = [
+            SigmaDataModelColumn(
+                columnId="inode-abc123/CUSTOMER_ID",
+                elementId="el-1",
+                name="Customer Id",
+                formula=None,
+            ),
+        ]
+        source._build_customsql_col_mapping(element, element_urn)
+        mapping = source._customsql_col_mappings.get(element_urn, {})
+        assert mapping.get("customer_id") == "Customer Id"
+        assert source.reporter.dm_customsql_col_mapping_via_columnid == 1
+
+    def test_columnid_opaque_hash_skipped(self) -> None:
+        # Opaque hash columnIds (composition formulas) must not produce a mapping
+        # via the columnId path; formula-ref path is unaffected.
+        source = _make_source()
+        element_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.el,PROD)"
+        element = SigmaDataModelElement(elementId="el-1", name="Custom SQL")
+        element.columns = [
+            # Opaque hash — should be skipped
+            SigmaDataModelColumn(
+                columnId="1SRzZKnzmb",
+                elementId="el-1",
+                name="Aggregation",
+                formula="Sum([Test Custom SQL/Total Spent])",
+            ),
+            # Formula-ref path still works for element-name-matching columns
+            SigmaDataModelColumn(
+                columnId="cb9IvPpXLU",
+                elementId="el-1",
+                name="Conditional",
+                formula="[Custom SQL/ORDER_ID]",
+            ),
+        ]
+        source._build_customsql_col_mapping(element, element_urn)
+        mapping = source._customsql_col_mappings.get(element_urn, {})
+        # Only formula-ref col contributes; opaque columnId skipped
+        assert "aggregation" not in mapping
+        assert mapping.get("order_id") == "Conditional"
+        # via_columnid not set because no valid columnId mapping was produced
+        assert source.reporter.dm_customsql_col_mapping_via_columnid == 0
+        # Both opaque-hash columnIds incremented the rejected counter
+        assert source.reporter.dm_customsql_col_mapping_columnid_rejected == 2
+
+    def test_columnid_and_formula_same_col_no_collision(self) -> None:
+        # When both paths agree on the same SQL col → display name mapping,
+        # no collision warning is logged and the final mapping is correct.
+        source = _make_source()
+        element_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.el,PROD)"
+        element = SigmaDataModelElement(elementId="el-1", name="Custom SQL")
+        element.columns = [
+            SigmaDataModelColumn(
+                columnId="CUSTOMER_ID",
+                elementId="el-1",
+                name="Customer Id",
+                formula="[Custom SQL/CUSTOMER_ID]",
+            ),
+        ]
+        with self._no_warnings(
+            logging.getLogger("datahub.ingestion.source.sigma.sigma")
+        ):
+            source._build_customsql_col_mapping(element, element_urn)
+        mapping = source._customsql_col_mappings.get(element_urn, {})
+        assert mapping.get("customer_id") == "Customer Id"
+
+    def test_columnid_collision_warns(self) -> None:
+        # Two columns map to the same SQL identifier via columnId — collision is logged.
+        source = _make_source()
+        element_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.el,PROD)"
+        element = SigmaDataModelElement(elementId="el-1", name="Custom SQL")
+        element.columns = [
+            SigmaDataModelColumn(
+                columnId="CUSTOMER_ID",
+                elementId="el-1",
+                name="Customer Id",
+                formula=None,
+            ),
+            SigmaDataModelColumn(
+                columnId="CUSTOMER_ID",
+                elementId="el-1",
+                name="Customer Identifier",
+                formula=None,
+            ),
+        ]
+        with self._assert_warning(
+            logging.getLogger("datahub.ingestion.source.sigma.sigma"),
+            "via columnId",
+        ):
+            source._build_customsql_col_mapping(element, element_urn)
+        mapping = source._customsql_col_mappings.get(element_urn, {})
+        # Last writer wins
+        assert mapping.get("customer_id") == "Customer Identifier"
+
+    # -------------------------------------------------------------------------
+    # Helpers for log-assertion tests
+    # -------------------------------------------------------------------------
+
+    @staticmethod
+    @contextmanager
+    def _no_warnings(logger: logging.Logger) -> Generator[None, None, None]:
+        """Context manager that fails if any WARNING (or above) is emitted."""
+        records: list = []
+
+        class _H(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                if record.levelno >= logging.WARNING:
+                    records.append(record)
+
+        h = _H()
+        logger.addHandler(h)
+        try:
+            yield
+        finally:
+            logger.removeHandler(h)
+        assert not records, f"Unexpected warnings: {[r.getMessage() for r in records]}"
+
+    @staticmethod
+    @contextmanager
+    def _assert_warning(
+        logger: logging.Logger, substr: str
+    ) -> Generator[None, None, None]:
+        """Context manager that asserts at least one WARNING containing ``substr``."""
+        records: list = []
+
+        class _H(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                if record.levelno >= logging.WARNING:
+                    records.append(record)
+
+        h = _H()
+        logger.addHandler(h)
+        try:
+            yield
+        finally:
+            logger.removeHandler(h)
+        assert any(substr in r.getMessage() for r in records), (
+            f"Expected warning containing {substr!r}; got: {[r.getMessage() for r in records]}"
+        )
 
 
 # ---------------------------------------------------------------------------

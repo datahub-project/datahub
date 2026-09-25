@@ -22,8 +22,13 @@ from pathlib import Path
 from bundled_venv_config import (
     BundledVenvGroupPlan,
     build_group_plans,
+    bundled_venv_symlink_names,
     extras_to_install_string,
     groups_config_from_plugin_group_env,
+)
+
+_UNSTRUCTURED_EXTRAS = frozenset(
+    {"unstructured", "notion", "confluence", "datahub-documents"}
 )
 
 
@@ -138,6 +143,19 @@ def create_bundled_venv(
             ["bash", "-c", install_cmd], check=True, capture_output=True, text=True
         )
 
+        extras_set = {e.strip() for e in extras_str.split(",") if e.strip()}
+        if extras_set & _UNSTRUCTURED_EXTRAS:
+            # unstructured 0.24+ lazily installs en-core-web-sm on first partition.
+            # Bake it into the image so air-gapped / read-only runs do not hit GitHub.
+            print("  → Pre-installing spaCy model en_core_web_sm...")
+            python_exe = os.path.join(venv_path, "bin", "python")
+            subprocess.run(
+                [python_exe, "-m", "spacy", "download", "en_core_web_sm"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
         install_from_local = os.path.exists("/metadata-ingestion/setup.py")
         enforce_cli_pin = _env_truthy("BUNDLED_CLI_VERSION_ENFORCE")
         if not install_from_local or enforce_cli_pin:
@@ -196,14 +214,14 @@ def ensure_plugin_symlinks(
     venv_base_path: str,
 ) -> None:
     """
-    For groups with multiple members, or a single member whose canonical dir name
-    differs from `{plugin}-bundled`, create relative symlinks so each plugin path exists.
+    Create relative symlinks so each required ``{plugin}-bundled`` path exists,
+    including ingestion source aliases (e.g. ``databricks-bundled`` when only
+    ``unity-catalog`` was built).
     """
     canonical = group_plan.canonical_dir_name
     canonical_path = os.path.join(venv_base_path, canonical)
 
-    for plugin in group_plan.members:
-        alias_name = f"{plugin}-bundled"
+    for alias_name in bundled_venv_symlink_names(group_plan):
         if alias_name == canonical:
             continue
 

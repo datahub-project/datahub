@@ -2,6 +2,7 @@ package io.datahubproject.metadata.jobs.common.health.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
+@KafkaMessagingEnabled
 public class KafkaHealthIndicator extends AbstractHealthIndicator {
 
   private final KafkaListenerEndpointRegistry listenerRegistry;

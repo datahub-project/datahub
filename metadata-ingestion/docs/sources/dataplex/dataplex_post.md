@@ -186,16 +186,39 @@ Each term is emitted as a `GlossaryTerm` with:
 - `term_source: EXTERNAL` and a `source_url` linking directly to the term in the Dataplex console
 - `custom_properties` carrying `project_id`, `location`, `glossary_id`, and `term_id`
 
-When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires `roles/resourcemanager.projectViewer` on all configured projects.
+When `include_glossary_term_associations` is enabled (opt-in, default: `false`), the connector additionally resolves term-to-asset links using the Dataplex `lookupEntryLinks` API and attaches the corresponding terms to each linked DataHub dataset. For each term, the API is called at the term's location to retrieve all linked assets (regardless of where those assets are located). This phase runs after entries are ingested, so only assets already discovered by the entries stage can be linked. It requires a role granting `resourcemanager.projects.get` (such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser)) on all configured projects. See the Permissions table in the [Prerequisites](#permissions) section above and the GCP [Resource Manager roles reference](https://cloud.google.com/iam/docs/understanding-roles#resource-manager-roles).
+
+:::warning Term associations replace existing glossary terms
+
+`glossaryTerms` has no server-side merge, so each run writes the complete term list for an
+asset. Terms added in the DataHub UI, or applied by another connector to the same entity, are
+replaced by whatever Dataplex reports. Column-level terms are unaffected.
+
+To keep Dataplex's terms scoped to Dataplex and leave everything else intact, add the
+[`set_attribution`](../../../../metadata-ingestion/docs/transformer/set_attribution.md)
+transformer to your recipe:
+
+```yaml
+transformers:
+  - type: "set_attribution"
+    config:
+      attribution_source: "urn:li:dataPlatform:dataplex"
+```
+
+With the default `patch_mode: false`, a run still replaces Dataplex's own terms — so unlinking
+a term in Dataplex removes it from DataHub on the next run — while terms attributed to any
+other source are left untouched.
+
+:::
 
 **Configuration:**
 
-| Field                                | Default    | Description                                                                                                              |
-| ------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`                                                     |
-| `include_glossary_term_associations` | `false`    | Attach glossary terms to linked datasets via `lookupEntryLinks`. Requires `roles/resourcemanager.projectViewer` (opt-in) |
-| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                   |
-| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                     |
+| Field                                | Default    | Description                                                                                                                                                                                                                |
+| ------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `include_glossaries`                 | `true`     | Ingest Dataplex Business Glossaries as `GlossaryNode`/`GlossaryTerm`                                                                                                                                                       |
+| `include_glossary_term_associations` | `false`    | Attach glossary terms to linked datasets via `lookupEntryLinks`. Requires a role granting `resourcemanager.projects.get` such as [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser) (opt-in) |
+| `glossary_locations`                 | `[global]` | GCP locations to scan for glossaries; most glossaries live in `global`                                                                                                                                                     |
+| `max_workers_glossary`               | `10`       | Parallel workers for glossary ingestion and term-association lookups                                                                                                                                                       |
 
 **Example:**
 
@@ -213,13 +236,28 @@ source:
     glossary_locations:
       - "global"
 
-    # Term-to-asset associations (opt-in; requires roles/resourcemanager.projectViewer)
+    # Term-to-asset associations (opt-in; requires roles/browser or another
+    # role granting resourcemanager.projects.get on each configured project)
     # include_glossary_term_associations: true
+# Scope term writes to Dataplex so terms curated in the UI are not replaced.
+# See the warning above.
+# transformers:
+#   - type: "set_attribution"
+#     config:
+#       attribution_source: "urn:li:dataPlatform:dataplex"
 ```
 
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
+
+#### Entity Type Support
+
+Dataplex entries map to either DataHub **Dataset** entities (BigQuery tables and views, Cloud SQL for MySQL tables, Spanner tables and graphs, Bigtable tables, Pub/Sub topics, Vertex AI datasets, Dataproc Metastore tables) or DataHub **Container** entities (BigQuery datasets, Cloud SQL for MySQL instances and databases, Spanner instances and databases, Bigtable instances, Dataproc Metastore services and databases).
+
+**Lineage extraction** applies to Dataset entities only. Containers have no lineage in Dataplex, so no lineage is emitted for them.
+
+**Glossary term associations** apply to both Dataset and Container entities, so a term attached to a BigQuery dataset in Dataplex appears on the corresponding DataHub container. Only assets already discovered by the entries stage can be linked — a term pointing at an entry outside the configured projects, `entries_locations`, or `entries` pattern is reported under `term_links_unmatched` and skipped.
 
 ### Troubleshooting
 

@@ -588,11 +588,8 @@ class InformaticaClient:
             if status.state != ExportJobState.TIMEOUT:
                 self.report.warning(
                     title="IDMC Taskflow batch export did not succeed",
-                    message=(
-                        f"Export ended in state {status.state}. "
-                        "Taskflow step DAGs will be missing for this batch."
-                    ),
-                    context=(f"job_id={job_id} message={status.message or '<none>'}"),
+                    message="Export ended in non-success state; taskflow step DAGs will be missing for this batch",
+                    context=f"job_id={job_id} state={status.state} message={status.message or '<none>'}",
                 )
             return {}
         try:
@@ -692,8 +689,8 @@ class InformaticaClient:
                 if total_bytes > _MAX_OUTER_ZIP_BYTES:
                     self.report.warning(
                         title="IDMC export package exceeds size limit",
-                        message=f"Download aborted after {_MAX_OUTER_ZIP_BYTES} bytes. Lineage for this batch will be missing.",
-                        context=f"job_id={job_id}",
+                        message="Download aborted; lineage for this batch will be missing",
+                        context=f"job_id={job_id} limit_bytes={_MAX_OUTER_ZIP_BYTES}",
                     )
                     return
                 tmp.write(chunk)

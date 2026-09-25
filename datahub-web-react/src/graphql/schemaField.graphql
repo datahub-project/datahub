@@ -25,6 +25,12 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
     documentation {
         ...documentationFields
     }
+    aiContext {
+        synonyms
+        instructions
+        examples
+        customInstructions
+    }
     tags {
         ...globalTagsFields
     }
@@ -64,4 +70,25 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
         }
     }
     ...notes
+    logicalParent {
+        urn
+        type
+        ...logicalParentOrChildFields
+    }
+    physicalChildren: relationships(
+        input: { types: ["PhysicalInstanceOf"], direction: INCOMING, start: 0, count: 10 }
+    ) {
+        start
+        count
+        total
+        relationships {
+            entity {
+                urn
+                type
+                ...logicalParentOrChildFields
+            }
+            direction
+            type
+        }
+    }
 }

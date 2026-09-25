@@ -20,10 +20,10 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 
 **Option 2: Azure Authentication (for Azure Databricks)**
 
-- Create an Azure Active Directory application:
-  - Follow the [Azure AD app registration guide](https://docs.microsoft.com/en-us/azure/active-directory/develop/quickstart-register-app)
+- Create a Microsoft Entra ID application:
+  - Follow the [Microsoft Entra ID app registration guide](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)
   - Note down the `client_id` (Application ID), `tenant_id` (Directory ID), and create a `client_secret`
-- Grant the Azure AD application access to your Databricks workspace:
+- Grant the Microsoft Entra ID application access to your Databricks workspace:
   - Add the service principal to your Databricks workspace following [this guide](https://docs.databricks.com/administration-guide/users-groups/service-principals.html#add-a-service-principal-to-your-azure-databricks-account-using-the-account-console)
 
 **Option 3: Personal Access Token (PAT) (legacy)**
@@ -51,9 +51,14 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
   - [Hive Metastore Privileges documentation](https://docs.databricks.com/en/sql/language-manual/sql-ref-privileges-hms.html)
 - To ingest your workspace's notebooks and respective lineage, your service principal must have `CAN_READ` privileges on the folders containing the notebooks you want to ingest: [guide](https://docs.databricks.com/en/security/auth-authz/access-control/workspace-acl.html#folder-permissions).
 - To `include_usage_statistics` (enabled by default), your service principal must have one of the following:
-  - `CAN_MANAGE` permissions on any SQL Warehouses you want to ingest: [guide](https://docs.databricks.com/security/auth-authz/access-control/sql-endpoint-acl.html).
-  - When `usage_data_source` is set to `SYSTEM_TABLES` or `AUTO` (default) with `warehouse_id` configured: `SELECT` privilege on `system.query.history` table for improved performance with large query volumes and multi-workspace setups.
-- To ingest `profiling` information with `method: ge`, you need `SELECT` privileges on all profiled tables.
+  - When `usage_data_source` is `SYSTEM_TABLES`, or `AUTO` (default) with `warehouse_id` configured: `CAN_USE` on the SQL warehouse and `SELECT` on `system.query.history` and `system.access.table_lineage`.
+  - Otherwise (REST API path): `CAN_MANAGE` on the SQL warehouse: [guide](https://docs.databricks.com/security/auth-authz/access-control/sql-endpoint-acl.html).
+  - Databricks is rolling out query-text masking in `system.query.history`, the Query History REST API, and audit logs (per their August 2026 notice, starting August 26, 2026). To read unmasked query text, the principal must be an account admin or a member of the account-level `databricks_pii_access` group. Create this group with the exact name `databricks_pii_access` and add the DataHub ingestion principal while retaining the permissions above. Without this access, Databricks returns `<REDACTED>` for the affected queries, and behavior differs by configured usage path:
+    - **Default system-tables path (`usage_data_source: AUTO` with `warehouse_id` set, or `SYSTEM_TABLES`) with `include_column_usage_stats: false`:** table-level usage statistics (`totalSqlQueries`, `uniqueUserCount`, `userCounts`) are preserved because upstream tables come from `system.access.table_lineage` and don't need SQL text. `Query` entities are **not** emitted for redacted queries (to avoid polluting the catalog with placeholder entries), so column-level usage statistics, operational statistics, per-query usage counts, and the top-SQL sample are absent for those queries. The top-SQL sample on affected tables may contain a `<REDACTED>` entry indicating how many queries were masked.
+    - **REST API path (`usage_data_source: API`), or any path with `include_column_usage_stats: true`:** redacted queries are dropped entirely and no usage statistics are emitted for them, because these paths require parsing SQL text.
+    - Native table and column lineage from `system.access.*` is unaffected. See [Manage account-level groups](https://docs.databricks.com/aws/en/admin/users-groups/groups).
+- To `include_table_constraints` (disabled by default), no additional permissions are required beyond the `SELECT` privilege already listed above. The connector uses the same `tables.get()` API endpoint.
+- To ingest `profiling` information with the default SQLAlchemy profiler (`method: sqlalchemy`), you need `SELECT` privilege on tables and views.
 - To ingest `profiling` information with `method: analyze` and `call_analyze: true` (enabled by default), your service principal must have ownership or `MODIFY` privilege on any tables you want to profile.
   - Alternatively, you can run [ANALYZE TABLE](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) yourself on any tables you want to profile, then set `call_analyze` to `false`.
     You will still need `SELECT` privilege on those tables to fetch the results.
@@ -61,7 +66,7 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 
 #### Permissions for DataHub Cloud Assertions (Observe)
 
-If you plan to use DataHub Cloud's [Freshness](/docs/managed-datahub/observe/freshness-assertions), [Volume](/docs/managed-datahub/observe/volume-assertions), or [Column](/docs/managed-datahub/observe/column-assertions) Assertions on Databricks, the required Unity Catalog privileges depend on which **Source** you select in the assertion builder:
+If you plan to use DataHub Cloud's [Freshness](../../../managed-datahub/observe/freshness-assertions.md), [Volume](../../../managed-datahub/observe/volume-assertions.md), or [Column](../../../managed-datahub/observe/column-assertions.md) Assertions on Databricks, the required Unity Catalog privileges depend on which **Source** you select in the assertion builder:
 
 | Source Type                                                                        | Required Privilege(s)                                                                                              | Notes                                                                                                                                                                                                                      |
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

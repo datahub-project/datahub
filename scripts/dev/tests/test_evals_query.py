@@ -23,7 +23,6 @@ from _eval_lib import (
     _bash,
     _fmt,
     _read,
-    _text,
     make_main,
 )
 
@@ -47,7 +46,9 @@ def _grade_init(s: SessionOutput) -> Tuple[bool, float, Dict[str, bool], str]:
     return passed, score, checks, _fmt(checks)
 
 
-def _grade_graphql_discovery(s: SessionOutput) -> Tuple[bool, float, Dict[str, bool], str]:
+def _grade_graphql_discovery(
+    s: SessionOutput,
+) -> Tuple[bool, float, Dict[str, bool], str]:
     checks: Dict[str, bool] = {
         "used `datahub graphql --list-operations`": _bash(
             s, r"datahub\s+graphql.*--list-operations"

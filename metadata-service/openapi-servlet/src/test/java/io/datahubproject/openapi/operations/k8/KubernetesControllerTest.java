@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.operations.k8;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.testng.Assert.*;
@@ -9,7 +10,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.datahubproject.metadata.context.ObjectMapperContext;
@@ -21,6 +21,7 @@ import io.datahubproject.openapi.operations.k8.models.ConfigMapUpdateRequest;
 import io.datahubproject.openapi.operations.k8.models.CronJobTriggerRequest;
 import io.datahubproject.openapi.operations.k8.models.DeploymentEnvUpdateRequest;
 import io.datahubproject.openapi.operations.k8.models.DeploymentScaleRequest;
+import io.datahubproject.openapi.test.AuthorizerChainTestSupport;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.fabric8.kubernetes.api.model.*;
 import io.fabric8.kubernetes.api.model.EnvVar;
@@ -36,8 +37,10 @@ import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 import io.fabric8.kubernetes.client.Config;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.*;
 import io.fabric8.kubernetes.client.dsl.ContainerResource;
+import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,14 +82,17 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
 
   @BeforeMethod
   public void setupMocks() {
+    // Reset the shared Spring-managed mock so invocations from previous tests don't
+    // bleed into verify(never()) assertions in subsequent tests.
+    reset(kubernetesClient);
+
     // Setup authentication
     Authentication authentication = mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
     AuthenticationContext.setAuthentication(authentication);
 
-    // Setup authorization
-    when(authorizerChain.authorize(any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    // Setup authorization — 1-arg stub only; exercises OperationContextAuthorizer null fallback.
+    AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
 
     // Setup K8s client config
     Config config = mock(Config.class);
@@ -115,6 +121,32 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testListDeployments() throws Exception {
+    Deployment deployment = createTestDeployment("test-deployment");
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+    DeploymentList deploymentList = new DeploymentList();
+    deploymentList.setItems(List.of(deployment));
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(nsOp);
+    when(nsOp.list()).thenReturn(deploymentList);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(BASE_PATH + "/deployments")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.total").value(1))
+        .andExpect(jsonPath("$.elements[0].metadata.name").value("test-deployment"));
+  }
+
+  @Test
+  public void testListDeploymentsWithOperationContextAuthorizer() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+
     Deployment deployment = createTestDeployment("test-deployment");
 
     MixedOperation deploymentsOp = mock(MixedOperation.class);
@@ -688,6 +720,51 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
                 .accept(MediaType.TEXT_PLAIN))
         .andExpect(status().isOk())
         .andExpect(content().string("Container logs"));
+  }
+
+  // ==================== K8s API Error Surfacing Tests ====================
+
+  @Test
+  public void testListPodsSurfacesKubernetesClientError() throws Exception {
+    MixedOperation podsOp = mock(MixedOperation.class);
+    NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+
+    when(kubernetesClient.pods()).thenReturn(podsOp);
+    when(podsOp.inNamespace(NAMESPACE)).thenReturn(nsOp);
+    when(nsOp.list())
+        .thenThrow(
+            new KubernetesClientException(
+                "pods is forbidden: cannot list resource \"pods\"", 403, null));
+
+    mockMvc
+        .perform(MockMvcRequestBuilders.get(BASE_PATH + "/pods").accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("forbidden")));
+  }
+
+  @Test
+  public void testGetPodLogsSurfacesKubernetesClientError() throws Exception {
+    Pod pod = createTestPod("log-pod");
+
+    MixedOperation podsOp = mock(MixedOperation.class);
+    NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+    PodResource podResource = mock(PodResource.class);
+    ContainerResource containerResource = mock(ContainerResource.class);
+
+    when(kubernetesClient.pods()).thenReturn(podsOp);
+    when(podsOp.inNamespace(NAMESPACE)).thenReturn(nsOp);
+    when(nsOp.withName("log-pod")).thenReturn(podResource);
+    when(podResource.get()).thenReturn(pod);
+    when(podResource.inContainer("main")).thenReturn(containerResource);
+    when(containerResource.getLog())
+        .thenThrow(new KubernetesClientException("pods \"log-pod\" not found", 404, null));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get(BASE_PATH + "/pods/log-pod/logs")
+                .accept(MediaType.TEXT_PLAIN))
+        .andExpect(status().isNotFound())
+        .andExpect(content().string(org.hamcrest.Matchers.containsString("not found")));
   }
 
   // ==================== Trigger CronJob Success Tests ====================
@@ -1633,7 +1710,458 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
     verify(deploymentResource).edit(any(java.util.function.UnaryOperator.class));
   }
 
+  // ==================== KEDA Autoscaling Tests ====================
+
+  @Test
+  public void testScaleDeploymentKedaManagedPausesViaAnnotation() throws Exception {
+    Deployment deployment = createTestDeployment("mae-consumer");
+    GenericKubernetesResource scaledObject =
+        createTestScaledObject("mae-consumer-so", "mae-consumer");
+    DeploymentScaleRequest request = DeploymentScaleRequest.builder().replicas(2).build();
+
+    Resource scaledObjectResource =
+        mockKedaManagedDeployment("mae-consumer", "mae-consumer-so", deployment, scaledObject);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.autoScalingMode").value("paused"));
+
+    // KEDA path — must NOT call direct scale
+    verify(
+            kubernetesClient.apps().deployments().inNamespace(NAMESPACE).withName("mae-consumer"),
+            never())
+        .scale(anyInt());
+    // Must call edit on the ScaledObject resource to add the pause annotation
+    verify(scaledObjectResource).edit(any(java.util.function.UnaryOperator.class));
+  }
+
+  @Test
+  public void testScaleDeploymentKedaManagedAlsoUpdatesResources() throws Exception {
+    Deployment deployment = createTestDeployment("mae-consumer");
+    GenericKubernetesResource scaledObject =
+        createTestScaledObject("mae-consumer-so", "mae-consumer");
+
+    ResourceRequirements resources =
+        new ResourceRequirementsBuilder().addToLimits("cpu", new Quantity("2")).build();
+
+    DeploymentScaleRequest request =
+        DeploymentScaleRequest.builder().replicas(2).resources(resources).build();
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    MixedOperation genericOp = mock(MixedOperation.class);
+    NonNamespaceOperation genericNsOp = mock(NonNamespaceOperation.class);
+    Resource scaledObjectResource = mock(Resource.class);
+    GenericKubernetesResourceList scaledObjectList = new GenericKubernetesResourceList();
+    scaledObjectList.setItems(List.of(scaledObject));
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("mae-consumer")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(deployment);
+    when(deploymentResource.edit(any(java.util.function.UnaryOperator.class)))
+        .thenReturn(deployment);
+
+    when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
+        .thenReturn(genericOp);
+    when(genericOp.inNamespace(NAMESPACE)).thenReturn(genericNsOp);
+    when(genericNsOp.list()).thenReturn(scaledObjectList);
+    when(genericNsOp.withName("mae-consumer-so")).thenReturn(scaledObjectResource);
+    when(scaledObjectResource.edit(any(java.util.function.UnaryOperator.class)))
+        .thenReturn(scaledObject);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.autoScalingMode").value("paused"));
+
+    // KEDA pause annotation must be applied
+    verify(scaledObjectResource).edit(any(java.util.function.UnaryOperator.class));
+    // Resources update must also be applied — not skipped by early return
+    verify(deploymentResource).edit(any(java.util.function.UnaryOperator.class));
+  }
+
+  @Test
+  public void testScaleDeploymentFallsBackToDirectScaleWhenKedaUnavailable() throws Exception {
+    Deployment deployment = createTestDeployment("regular-deployment");
+    DeploymentScaleRequest request = DeploymentScaleRequest.builder().replicas(3).build();
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("regular-deployment")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(deployment);
+
+    // KEDA not available — genericKubernetesResources throws 404 (CRD not installed)
+    when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
+        .thenThrow(new KubernetesClientException("Not Found", 404, null));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/regular-deployment/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.autoScalingMode").doesNotExist());
+
+    // Falls back to direct scale
+    verify(deploymentResource).scale(3);
+  }
+
+  @Test
+  public void testScaleDeploymentFallsBackToDirectScaleOnKedaAuthFailure() throws Exception {
+    Deployment deployment = createTestDeployment("regular-deployment");
+    DeploymentScaleRequest request = DeploymentScaleRequest.builder().replicas(3).build();
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("regular-deployment")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(deployment);
+
+    // A 403 on the ScaledObject list is treated as "KEDA not installed" (namespaces without KEDA
+    // typically have no RBAC grant for scaledobjects), so we fall back to direct scale.
+    when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
+        .thenThrow(new KubernetesClientException("Forbidden", 403, null));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/regular-deployment/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.autoScalingMode").doesNotExist());
+
+    verify(deploymentResource).scale(3);
+  }
+
+  @Test
+  public void testScaleDeploymentResourcesOnlySkipsKedaLookup() throws Exception {
+    Deployment deployment = createTestDeployment("mae-consumer");
+    ResourceRequirements resources =
+        new ResourceRequirementsBuilder().addToLimits("cpu", new Quantity("2")).build();
+    DeploymentScaleRequest request =
+        DeploymentScaleRequest.builder().resources(resources).build(); // replicas=null
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("mae-consumer")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(deployment);
+    when(deploymentResource.edit(any(java.util.function.UnaryOperator.class)))
+        .thenReturn(deployment);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.autoScalingMode").doesNotExist());
+
+    // replicas=null — KEDA lookup must be skipped entirely
+    verify(kubernetesClient, never())
+        .genericKubernetesResources(any(ResourceDefinitionContext.class));
+    // Resources update must still apply
+    verify(deploymentResource).edit(any(java.util.function.UnaryOperator.class));
+  }
+
+  @Test
+  public void testResumeKedaAutoscalingViaScaleEndpoint() throws Exception {
+    Deployment deployment = createTestDeployment("mae-consumer");
+    // ScaledObject with pause annotation set
+    GenericKubernetesResource pausedScaledObject =
+        createTestScaledObject("mae-consumer-so", "mae-consumer");
+    pausedScaledObject
+        .getMetadata()
+        .setAnnotations(
+            new java.util.HashMap<>(Map.of("autoscaling.keda.sh/paused-replicas", "1")));
+
+    DeploymentScaleRequest request =
+        DeploymentScaleRequest.builder().autoscalingMode("activate").build();
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    MixedOperation genericOp = mock(MixedOperation.class);
+    NonNamespaceOperation genericNsOp = mock(NonNamespaceOperation.class);
+    Resource scaledObjectResource = mock(Resource.class);
+    GenericKubernetesResourceList scaledObjectList = new GenericKubernetesResourceList();
+    scaledObjectList.setItems(List.of(pausedScaledObject));
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("mae-consumer")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(deployment);
+
+    when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
+        .thenReturn(genericOp);
+    when(genericOp.inNamespace(NAMESPACE)).thenReturn(genericNsOp);
+    when(genericNsOp.list()).thenReturn(scaledObjectList);
+    when(genericNsOp.withName("mae-consumer-so")).thenReturn(scaledObjectResource);
+    when(scaledObjectResource.edit(any(java.util.function.UnaryOperator.class)))
+        .thenReturn(pausedScaledObject);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.autoScalingMode").value("active"));
+
+    // Annotation removal must be triggered
+    verify(scaledObjectResource).edit(any(java.util.function.UnaryOperator.class));
+  }
+
+  @Test
+  public void testResumeKedaAutoscalingWithResourcesAppliesBoth() throws Exception {
+    // resume + resources: both the ScaledObject annotation removal AND the resource update must run
+    Deployment deployment = createTestDeployment("mae-consumer");
+    GenericKubernetesResource pausedScaledObject =
+        createTestScaledObject("mae-consumer-so", "mae-consumer");
+    pausedScaledObject
+        .getMetadata()
+        .setAnnotations(
+            new java.util.HashMap<>(Map.of("autoscaling.keda.sh/paused-replicas", "1")));
+
+    ResourceRequirements resources =
+        new ResourceRequirementsBuilder().addToLimits("memory", new Quantity("2Gi")).build();
+
+    DeploymentScaleRequest request =
+        DeploymentScaleRequest.builder().autoscalingMode("activate").resources(resources).build();
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    MixedOperation genericOp = mock(MixedOperation.class);
+    NonNamespaceOperation genericNsOp = mock(NonNamespaceOperation.class);
+    Resource scaledObjectResource = mock(Resource.class);
+    GenericKubernetesResourceList scaledObjectList = new GenericKubernetesResourceList();
+    scaledObjectList.setItems(List.of(pausedScaledObject));
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("mae-consumer")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(deployment);
+    when(deploymentResource.edit(any(java.util.function.UnaryOperator.class)))
+        .thenReturn(deployment);
+
+    when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
+        .thenReturn(genericOp);
+    when(genericOp.inNamespace(NAMESPACE)).thenReturn(genericNsOp);
+    when(genericNsOp.list()).thenReturn(scaledObjectList);
+    when(genericNsOp.withName("mae-consumer-so")).thenReturn(scaledObjectResource);
+    when(scaledObjectResource.edit(any(java.util.function.UnaryOperator.class)))
+        .thenReturn(pausedScaledObject);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.autoScalingMode").value("active"));
+
+    // Both operations must be applied
+    verify(scaledObjectResource).edit(any(java.util.function.UnaryOperator.class));
+    verify(deploymentResource).edit(any(java.util.function.UnaryOperator.class));
+  }
+
+  @Test
+  public void testResumeKedaAutoscalingAlreadyActive() throws Exception {
+    Deployment deployment = createTestDeployment("mae-consumer");
+    // ScaledObject with no pause annotation — already active
+    GenericKubernetesResource scaledObject =
+        createTestScaledObject("mae-consumer-so", "mae-consumer");
+    DeploymentScaleRequest request =
+        DeploymentScaleRequest.builder().autoscalingMode("activate").build();
+
+    Resource scaledObjectResource =
+        mockKedaManagedDeployment("mae-consumer", "mae-consumer-so", deployment, scaledObject);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.autoScalingMode").value("active"));
+
+    // Annotation was already absent — no edit should be triggered
+    verify(scaledObjectResource, never()).edit(any(java.util.function.UnaryOperator.class));
+  }
+
+  @Test
+  public void testResumeKedaAutoscalingNotKedaManaged() throws Exception {
+    Deployment deployment = createTestDeployment("regular-deployment");
+    DeploymentScaleRequest request =
+        DeploymentScaleRequest.builder().autoscalingMode("activate").build();
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("regular-deployment")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(deployment);
+
+    // No ScaledObject targeting this deployment
+    MixedOperation genericOp = mock(MixedOperation.class);
+    NonNamespaceOperation genericNsOp = mock(NonNamespaceOperation.class);
+    GenericKubernetesResourceList emptyList = new GenericKubernetesResourceList();
+    emptyList.setItems(List.of());
+
+    when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
+        .thenReturn(genericOp);
+    when(genericOp.inNamespace(NAMESPACE)).thenReturn(genericNsOp);
+    when(genericNsOp.list()).thenReturn(emptyList);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/regular-deployment/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testResumeWithReplicasReturnsBadRequest() throws Exception {
+    // Providing both autoscalingMode=active and replicas is invalid
+    DeploymentScaleRequest request =
+        DeploymentScaleRequest.builder().autoscalingMode("activate").replicas(2).build();
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("mae-consumer")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(createTestDeployment("mae-consumer"));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.error").exists());
+  }
+
+  @Test
+  public void testScaleDeploymentNotFoundOnResume() throws Exception {
+    DeploymentScaleRequest request =
+        DeploymentScaleRequest.builder().autoscalingMode("activate").build();
+
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName("nonexistent")).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(null);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/nonexistent/scale")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isNotFound());
+  }
+
   // ==================== Helper Methods ====================
+
+  /**
+   * Wires up the full mock chain for a KEDA-managed deployment. Avoids repeating 12+ when() calls
+   * across tests that share the same setup. Returns the ScaledObject resource mock so callers can
+   * run verify() against it directly (chaining verify through the client mock is unreliable because
+   * Mockito matchers resolve to null outside of a when()/verify() wrapper).
+   */
+  private Resource mockKedaManagedDeployment(
+      String deploymentName,
+      String scaledObjectName,
+      Deployment deployment,
+      GenericKubernetesResource scaledObject) {
+    MixedOperation deploymentsOp = mock(MixedOperation.class);
+    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
+
+    MixedOperation genericOp = mock(MixedOperation.class);
+    NonNamespaceOperation genericNsOp = mock(NonNamespaceOperation.class);
+    Resource scaledObjectResource = mock(Resource.class);
+    GenericKubernetesResourceList scaledObjectList = new GenericKubernetesResourceList();
+    scaledObjectList.setItems(List.of(scaledObject));
+
+    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
+    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
+    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
+    when(deployNsOp.withName(deploymentName)).thenReturn(deploymentResource);
+    when(deploymentResource.get()).thenReturn(deployment);
+
+    when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
+        .thenReturn(genericOp);
+    when(genericOp.inNamespace(NAMESPACE)).thenReturn(genericNsOp);
+    when(genericNsOp.list()).thenReturn(scaledObjectList);
+    when(genericNsOp.withName(scaledObjectName)).thenReturn(scaledObjectResource);
+    when(scaledObjectResource.edit(any(java.util.function.UnaryOperator.class)))
+        .thenReturn(scaledObject);
+
+    return scaledObjectResource;
+  }
+
+  private GenericKubernetesResource createTestScaledObject(String name, String targetDeployment) {
+    GenericKubernetesResource so = new GenericKubernetesResource();
+    ObjectMeta meta = new ObjectMeta();
+    meta.setName(name);
+    meta.setNamespace(NAMESPACE);
+    so.setMetadata(meta);
+    so.setAdditionalProperties(
+        Map.of("spec", Map.of("scaleTargetRef", Map.of("name", targetDeployment))));
+    return so;
+  }
 
   private Deployment createTestDeployment(String name) {
     return new DeploymentBuilder()
@@ -1767,8 +2295,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
       AuthorizerChain authorizerChain = mock(AuthorizerChain.class);
       Authentication authentication = mock(Authentication.class);
       when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
-      when(authorizerChain.authorize(any()))
-          .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+      AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
       AuthenticationContext.setAuthentication(authentication);
       return authorizerChain;
     }

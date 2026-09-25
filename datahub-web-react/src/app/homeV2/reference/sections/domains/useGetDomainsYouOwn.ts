@@ -1,14 +1,14 @@
 import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { CorpUser, EntityType } from '@types';
 
 const MAX_ASSETS_TO_FETCH = 50;
 
 // TODO: Add Group Ownership here as well.
 export const useGetDomainsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO_FETCH) => {
-    const { loading, data, error } = useGetSearchResultsForMultipleQuery({
+    const { loading, data, error } = useGetSearchResultsForMultipleCardsQuery({
         variables: {
             input: {
                 query: '*',
@@ -21,7 +21,6 @@ export const useGetDomainsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_T
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: user?.urn,
                         values: [user?.urn as string],
                     },
                 ],

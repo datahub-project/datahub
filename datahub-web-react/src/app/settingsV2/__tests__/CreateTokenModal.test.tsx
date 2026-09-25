@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
 import CustomThemeProvider from '@src/CustomThemeProvider';
+import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 import { AccessTokenDuration, AccessTokenType } from '@types';
 
@@ -30,28 +31,18 @@ vi.mock('@app/shared/useEnterKeyListener', () => ({
     useEnterKeyListener: vi.fn(),
 }));
 
-// Mock the utils
-vi.mock('@app/settingsV2/utils', () => ({
-    ACCESS_TOKEN_DURATIONS: [
-        { text: '1 Hour', duration: 'ONE_HOUR' },
-        { text: '1 Day', duration: 'ONE_DAY' },
-        { text: '1 Month', duration: 'ONE_MONTH' },
-        { text: '3 Months', duration: 'THREE_MONTHS' },
-        { text: 'Never', duration: 'NO_EXPIRY' },
-    ],
-    getTokenExpireDate: (duration: string) => {
-        const durationMap: Record<string, string> = {
-            ONE_HOUR: 'in 1 hour',
-            ONE_DAY: 'in 1 day',
-            ONE_MONTH: 'in 1 month',
-            THREE_MONTHS: 'in 3 months',
-            SIX_MONTHS: 'in 6 months',
-            ONE_YEAR: 'in 1 year',
-            NO_EXPIRY: 'never',
-        };
-        return durationMap[duration] || '';
-    },
-}));
+vi.mock('@app/settingsV2/utils', async () => {
+    const actual = await vi.importActual<typeof import('@app/settingsV2/utils')>('@app/settingsV2/utils');
+    return {
+        ...actual,
+        getTokenExpireDate: (duration: string) => {
+            if (duration === 'NO_EXPIRY') {
+                return 'never';
+            }
+            return `expires (${duration})`;
+        },
+    };
+});
 
 // Mock analytics
 vi.mock('@app/analytics', () => ({
@@ -62,6 +53,26 @@ vi.mock('@app/analytics', () => ({
         CreateAccessTokenEvent: 'CreateAccessTokenEvent',
     },
 }));
+
+const baseAuthConfig = {
+    tokenAuthEnabled: true,
+    allowNoExpiry: true,
+    allowedAccessTokenDurations: ['PT1H', 'P1D', 'P30D', 'P90D'],
+};
+
+const buildAppConfigValue = (authConfigOverrides: Partial<typeof baseAuthConfig> = {}) => ({
+    config: {
+        ...DEFAULT_APP_CONFIG,
+        authConfig: {
+            ...baseAuthConfig,
+            ...authConfigOverrides,
+        },
+    },
+    loaded: true,
+    refreshContext: () => {},
+});
+
+const appConfigValue = buildAppConfigValue();
 
 describe('CreateTokenModal', () => {
     // Using legacy props format for test compatibility
@@ -75,13 +86,39 @@ describe('CreateTokenModal', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         mockCreateAccessToken.mockResolvedValue({ data: { createAccessToken: { accessToken: 'test-token' } } });
+        // SimpleSelect only mounts the trigger once IntersectionObserver reports visible.
+        vi.stubGlobal(
+            'IntersectionObserver',
+            vi.fn((callback: IntersectionObserverCallback) => {
+                const observer = {
+                    observe: vi.fn((element: Element) => {
+                        callback(
+                            [{ isIntersecting: true, target: element } as IntersectionObserverEntry],
+                            observer as unknown as IntersectionObserver,
+                        );
+                    }),
+                    unobserve: vi.fn(),
+                    disconnect: vi.fn(),
+                    root: null,
+                    rootMargin: '',
+                    thresholds: [],
+                    takeRecords: () => [],
+                };
+                return observer;
+            }),
+        );
     });
 
-    const renderWithRouter = (component: React.ReactNode) => {
+    const renderWithRouter = (
+        component: React.ReactNode,
+        configValue: ReturnType<typeof buildAppConfigValue> = appConfigValue,
+    ) => {
         return render(
-            <CustomThemeProvider>
-                <MemoryRouter>{component}</MemoryRouter>
-            </CustomThemeProvider>,
+            <AppConfigContext.Provider value={configValue}>
+                <CustomThemeProvider>
+                    <MemoryRouter>{component}</MemoryRouter>
+                </CustomThemeProvider>
+            </AppConfigContext.Provider>,
         );
     };
 
@@ -117,6 +154,31 @@ describe('CreateTokenModal', () => {
             fireEvent.click(cancelButton);
 
             expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+        });
+
+        it('should create token with durationIso by default', async () => {
+            renderWithRouter(<CreateTokenModal {...defaultProps} />);
+
+            const nameInput = screen.getByTestId('create-access-token-name');
+            fireEvent.change(nameInput, { target: { value: 'my-token' } });
+
+            const createButton = document.getElementById('createTokenButton');
+            if (createButton) {
+                fireEvent.click(createButton);
+            }
+
+            await waitFor(() => {
+                expect(mockCreateAccessToken).toHaveBeenCalledWith({
+                    variables: {
+                        input: expect.objectContaining({
+                            actorUrn: 'urn:li:corpuser:test-user',
+                            type: AccessTokenType.Personal,
+                            name: 'my-token',
+                            durationIso: 'P30D',
+                        }),
+                    },
+                });
+            });
         });
     });
 
@@ -162,6 +224,7 @@ describe('CreateTokenModal', () => {
                             actorUrn: 'urn:li:corpuser:service:test-service-account',
                             type: AccessTokenType.ServiceAccount,
                             name: 'my-token',
+                            durationIso: 'P30D',
                         }),
                     },
                 });
@@ -202,6 +265,76 @@ describe('CreateTokenModal', () => {
                         }),
                     },
                 });
+            });
+        });
+    });
+
+    describe('when never-expire is disallowed', () => {
+        const noExpiryDisabledConfig = buildAppConfigValue({ allowNoExpiry: false });
+
+        it('should omit Never from duration options and create with durationIso only', async () => {
+            renderWithRouter(<CreateTokenModal {...defaultProps} />, noExpiryDisabledConfig);
+
+            expect(screen.getByText('expires (P30D)')).toBeInTheDocument();
+            expect(screen.queryByText('never')).not.toBeInTheDocument();
+
+            await waitFor(() => {
+                expect(screen.getByTestId('create-token-duration-base')).toBeInTheDocument();
+            });
+            fireEvent.click(screen.getByTestId('create-token-duration-base'));
+            await waitFor(() => {
+                expect(screen.getByTestId('option-P30D')).toBeInTheDocument();
+            });
+            expect(screen.queryByTestId('option-NO_EXPIRY')).not.toBeInTheDocument();
+
+            const nameInput = screen.getByTestId('create-access-token-name');
+            fireEvent.change(nameInput, { target: { value: 'finite-token' } });
+
+            const createButton = document.getElementById('createTokenButton');
+            if (createButton) {
+                fireEvent.click(createButton);
+            }
+
+            await waitFor(() => {
+                expect(mockCreateAccessToken).toHaveBeenCalledTimes(1);
+                const {
+                    variables: { input },
+                } = mockCreateAccessToken.mock.calls[0][0];
+                expect(input).toEqual(
+                    expect.objectContaining({
+                        name: 'finite-token',
+                        durationIso: 'P30D',
+                    }),
+                );
+                expect(input.duration).toBeUndefined();
+            });
+        });
+
+        it('should not lock remote executor to Never when never-expire is disallowed', async () => {
+            renderWithRouter(<CreateTokenModal {...defaultProps} forRemoteExecutor />, noExpiryDisabledConfig);
+
+            expect(screen.getByText('expires (P30D)')).toBeInTheDocument();
+            expect(screen.queryByText('never')).not.toBeInTheDocument();
+
+            const nameInput = screen.getByTestId('create-access-token-name');
+            fireEvent.change(nameInput, { target: { value: 'remote-finite' } });
+
+            const createButton = document.getElementById('createTokenButton');
+            if (createButton) {
+                fireEvent.click(createButton);
+            }
+
+            await waitFor(() => {
+                expect(mockCreateAccessToken).toHaveBeenCalledTimes(1);
+                const {
+                    variables: { input },
+                } = mockCreateAccessToken.mock.calls[0][0];
+                expect(input).toEqual(
+                    expect.objectContaining({
+                        durationIso: 'P30D',
+                    }),
+                );
+                expect(input.duration).toBeUndefined();
             });
         });
     });

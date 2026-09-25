@@ -15,23 +15,6 @@
             ]
         }
     },
-    "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports": {
-        "method": "GET",
-        "status_code": 200,
-        "json": {
-            "value": [
-                {
-                    "datasetId": "5e033fd1-385c-4f0c-8a61-58910cc25194",
-                    "id": "5e420b19-ee14-4bba-ab4b-1e1063847f37",
-                    "reportType": "PowerBIReport",
-                    "name": "EmployeeReport",
-                    "description": "Test report",
-                    "webUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5e420b19-ee14-4bba-ab4b-1e1063847f37",
-                    "embedUrl": "https://app.powerbi.com/reportEmbed?reportId=5e420b19-ee14-4bba-ab4b-1e1063847f37&groupId=64ed5cad-7c10-4684-8180-826122881108"
-                }
-            ]
-        }
-    },
     "https://api.powerbi.com/v1.0/myorg/groups/64ed5cad-7c10-4684-8180-826122881108/reports/5e420b19-ee14-4bba-ab4b-1e1063847f37/pages": {
         "method": "GET",
         "status_code": 200,
@@ -41,22 +24,6 @@
                     "displayName": "Employees",
                     "name": "ReportSection",
                     "order": "0"
-                }
-            ]
-        }
-    },
-    "https://api.powerbi.com/v1.0/myorg/admin/reports/5e420b19-ee14-4bba-ab4b-1e1063847f37/users": {
-        "method": "GET",
-        "status_code": 200,
-        "json": {
-            "value": [
-                {
-                    "identifier": "john.doe@acryldata.io",
-                    "displayName": "John Doe",
-                    "emailAddress": "john.doe@acryldata.io",
-                    "datasetUserAccessRight": "ReadWrite",
-                    "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                    "principalType": "User"
                 }
             ]
         }
@@ -130,6 +97,7 @@
                             "reportType": "PowerBIReport",
                             "id": "5e420b19-ee14-4bba-ab4b-1e1063847f37",
                             "name": "EmployeeReport",
+                            "description": "Test report",
                             "datasetId": "5e033fd1-385c-4f0c-8a61-58910cc25194",
                             "createdDateTime": "2025-03-13T20:55:46.43",
                             "modifiedDateTime": "2025-04-04T03:01:30.633",

@@ -236,7 +236,8 @@ platform_filter: null # or omit the field
 ```
 
 - Processes all NATIVE documents (sourceType=NATIVE)
-- Ignores EXTERNAL documents from other platforms
+- Also processes EXTERNAL documents from every platform (`include_external_documents`
+  defaults to true); set `platform_filter` to restrict them to specific platforms
 
 **Specific Platforms:**
 
@@ -339,6 +340,69 @@ embedding:
 - Fails if mismatch detected
 - Prevents broken semantic search
 
+**In-Process ONNX (matches the GMS built-in provider):**
+
+```yaml
+embedding:
+  provider: onnx
+  model: snowflake_arctic_embed_s
+  model_embedding_key: snowflake_arctic_embed_s # Must match server!
+  onnx_model_dir: /datahub/models/snowflake_arctic_embed_s # or ONNX_EMBEDDING_MODEL_DIR
+  onnx_pooling: cls # must match the GMS provider's pooling
+```
+
+- Embeds documents locally with the same ONNX model GMS uses for queries, so no
+  cloud embedding provider is required.
+- Requires the `onnx-embeddings` extra: `pip install 'acryl-datahub[datahub-documents,onnx-embeddings]'`.
+- `onnx_model_dir` must contain the same `model.onnx` (or `model_quantized.onnx`)
+  and `tokenizer.json` as the GMS query-side provider, or kNN results will not
+  match. Falls back to the `ONNX_EMBEDDING_MODEL_DIR` environment variable.
+- The document side (this connector) and the query side (GMS) are configured
+  independently. A mismatch in model, tokenizer, or `onnx_pooling` between the two
+  produces **no error** — it silently collapses kNN recall, because the two sides
+  write and query vectors in different spaces. Both providers log their effective
+  model, pooling, and truncation length at startup; compare those log lines across
+  GMS and the executor when recall looks wrong.
+
+**Classical (deterministic hashing; CI and smoke tests only):**
+
+Not semantic search: a testing provider that ranks by hashed lexical overlap, for
+CI, smoke tests and quickstarts that need the full pipeline with zero external
+dependencies. Server-side configuration is all that is needed: set
+`EMBEDDING_PROVIDER_TYPE=classical` and `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`
+on GMS (it refuses the provider without the opt-in and logs a warning while it is
+active) and leave the recipe's `embedding` section empty (it is loaded from the
+server). To pin it explicitly in the recipe instead:
+
+```yaml
+embedding:
+  provider: classical
+  model: hash-v1-2048
+  model_embedding_key: hash_v1_2048 # Must match server!
+```
+
+- A stateless, non-neural embedding: words plus boundary-marked character
+  bigrams/trigrams are SHA-256 feature-hashed into a fixed-width integer vector.
+  No API key, endpoint, or model download, and nothing extra to install. GMS
+  computes query vectors with the identical algorithm.
+- The ingestion CLI must know this provider, which ships in the same release as
+  the server side. An older CLI pointed at a `classical` server cannot map the
+  provider: it logs `Unsupported provider from server: classical` while loading
+  the server embedding config and ingests documents without embeddings, so
+  upgrade the CLI (on managed instances, the executor's CLI) before switching
+  the server.
+- Quality is lexical, not semantic: results rank by shared words and character
+  fragments (`user_id` scores against `customer_id` through the fragments they
+  share, and no query matches by meaning). Use it for CI, smoke tests and
+  deterministic baselines; a deployment that needs semantic quality without a
+  cloud dependency should use the in-process `onnx` provider above.
+- The model name encodes the algorithm version and vector width
+  (`hash-v1-<dimensions>`), and the storage key is derived from it
+  (`hash_v1_2048`). GMS requires a `semanticSearch.models` entry for that key with
+  the same dimension and a cosine space type. Changing the model name (another
+  width, or a future `v2`) is a new key: existing vectors are not reused and every
+  document must be re-embedded, exactly as when switching any other provider.
+
 **Break-Glass Override (NOT RECOMMENDED):**
 
 ```yaml
@@ -373,6 +437,72 @@ stateful_ingestion:
   # Don't commit new state (dry run)
   ignore_new_state: false
 ```
+
+#### Run Locking (Preventing Overlapping Runs)
+
+This source is often scheduled on a short interval (e.g. every 15 minutes), but a full
+scroll + embedding pass can take longer than the interval. Without coordination, a new run
+could start while the previous one is still working, causing both to re-embed the same
+documents and race on the `SemanticContent` aspect. To prevent this, the source acquires a
+**distributed lock** before processing.
+
+##### How It Works
+
+- The lock is a lightweight lease backed by an internal `dataHubStepState` entity, which
+  DataHub uses as a general-purpose key/value store. The lease payload (status, run id,
+  expiry) lives in that entity's properties map.
+- Lease writes are committed **synchronously to the primary store (MySQL)**, so concurrent
+  runs observe each other immediately (no reliance on eventually-consistent search).
+- When a run starts and the lock is already held by another active run, the new run **exits
+  cleanly without processing** (this is reported as a warning, not a failure).
+- While a run holds the lock, it periodically renews (heartbeats) the lease so long jobs
+  keep their lock for the full duration of the run.
+
+##### TTL and Lock Timeout
+
+Each lease carries a **time-to-live (TTL)**. Because the lock holder renews the lease while
+it runs, the TTL only needs to exceed the renewal interval — **not** the total run duration.
+If a run crashes and stops renewing, its lease simply expires after the TTL and the next run
+takes over automatically. After a crash, future runs are blocked for **at most** one TTL.
+
+```yaml
+source:
+  type: datahub-documents
+  config:
+    locking:
+      enabled: true # default
+      # Optional explicit lock id; defaults to
+      # "document-indexing-lock-<ingestion-source-id>"
+      lock_id: null
+      # Lease duration. A crashed run blocks the next run for at most this long.
+      lock_ttl_seconds: 1800 # default: 30 minutes
+      # How often the holder renews its lease while running.
+      # Must be comfortably smaller than lock_ttl_seconds.
+      lock_renewal_interval_seconds: 300 # default: 5 minutes
+```
+
+##### Manually Clearing a Lock
+
+You normally never need to do this — a healthy run releases its lock on completion, and a
+crashed run's lease expires after `lock_ttl_seconds`. If you want to clear a lock
+**immediately** (e.g. you know a run died and don't want to wait out the TTL), delete the
+backing `dataHubStepState` entity.
+
+The lock URN is `urn:li:dataHubStepState:<lock_id>`, where `<lock_id>` is your configured
+`locking.lock_id` or the auto-derived default `document-indexing-lock-<ingestion-source-id>`.
+The exact URN is logged at startup and on every acquire/release:
+
+```text
+Document indexing lock enabled: urn=urn:li:dataHubStepState:document-indexing-lock-datahub-documents, ttl=1800s, ...
+```
+
+Delete it with the CLI:
+
+```bash
+datahub delete --urn "urn:li:dataHubStepState:<lock_id>" --hard -f
+```
+
+Deleting the entity is safe: the next run simply cold-starts a fresh lease.
 
 #### Performance Tuning
 
@@ -506,7 +636,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 **Solution:**
 
 1. Configure semantic search on your DataHub server first
-2. See [Semantic Search Configuration Guide](/docs/how-to/semantic-search-configuration)
+2. See [Semantic Search Configuration Guide](../../../how-to/semantic-search-configuration.md)
 3. Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` in server config
 
 #### Issue: "Server does not support semantic search configuration API"

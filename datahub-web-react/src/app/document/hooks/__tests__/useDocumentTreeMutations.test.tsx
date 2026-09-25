@@ -122,6 +122,7 @@ describe('useDocumentTreeMutations', () => {
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node).toBeTruthy();
                 expect(node?.title).toBe('New Document');
+                expect(result.current.tree.rootUrns[0]).toBe(mockUrn);
             });
         });
 

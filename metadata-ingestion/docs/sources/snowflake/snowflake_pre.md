@@ -30,7 +30,7 @@ grant references on all views in database "<your-database>" to role datahub_role
 grant references on future views in database "<your-database>" to role datahub_role;
 -- Note: Semantic views are covered by the above view grants
 
--- Grant monitor privileges for dynamic tables
+// Required if you have Dynamic Tables and want DataHub to extract them and their lineage.
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
@@ -50,6 +50,24 @@ grant role datahub_role to user datahub_user;
 
 // Optional - required if extracting lineage, usage or tags (without lineage)
 grant imported privileges on database snowflake to role datahub_role;
+
+// Optional - required for INTERNAL marketplace ingestion (private data sharing)
+// This grants access to:
+// - SHOW AVAILABLE LISTINGS (IS_ORGANIZATION = TRUE) for internal marketplace listings
+// - SNOWFLAKE.ACCOUNT_USAGE.DATABASES for identifying imported databases
+// - SNOWFLAKE.DATA_SHARING_USAGE.LISTING_ACCESS_HISTORY for usage statistics
+// - DESCRIBE AVAILABLE LISTING for enriched metadata (if fetch_internal_marketplace_listing_details=true)
+grant imported privileges on database snowflake to role datahub_role;
+
+// For marketplace provider mode (marketplace_mode: provider or both):
+// SHOW SHARES lists shares the role owns or is inheriting from a parent role.
+// DESC SHARE requires OWNERSHIP of the share — Snowflake grants no finer-grained privilege.
+// Marketplace-created shares are typically owned by SYSADMIN. To allow DESC SHARE,
+// grant SYSADMIN to the DataHub role (use SECURITYADMIN to grant roles):
+use role securityadmin;
+grant role sysadmin to role datahub_role;
+
+// Alternatively, set `role: SYSADMIN` directly in your recipe.
 
 // Optional - required if extracting Streamlit Apps
 grant usage on all streamlits in database "<your-database>" to role datahub_role;
@@ -82,6 +100,7 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 - `usage` on `stages` is required to list stages via `SHOW STAGES`. Only needed if `include_stages: true` or `include_pipes: true`.
 - `monitor` on `tasks` is required to list tasks via `SHOW TASKS`. Only needed if `include_tasks: true`.
 - `monitor` on `pipes` is required to list pipes via `SHOW PIPES`. Only needed if `include_pipes: true`.
+- `monitor` on `dynamic tables` is required for DataHub to extract their lineage, both table-level and column-level.
 
 This represents the bare minimum privileges required to extract databases, schemas, views, and tables from Snowflake.
 
@@ -102,14 +121,14 @@ The `SNOWFLAKE` database is a shared database owned by Snowflake. Unlike regular
 
 When you grant `IMPORTED PRIVILEGES`, DataHub will specifically access the following `ACCOUNT_USAGE` tables:
 
-| Table            | Purpose                                                      | Required For                                                      |
-| ---------------- | ------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage | `include_table_lineage`, `include_usage_stats`, `include_queries` |
-| `ACCESS_HISTORY` | Table/view lineage and access patterns                       | `include_table_lineage`, `include_usage_stats`                    |
-| `USERS`          | User email mapping for corp user entities                    | `include_usage_stats` (for user attribution)                      |
-| `TAG_REFERENCES` | Tag metadata extraction                                      | `extract_tags`                                                    |
-| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views           | Always (when views exist)                                         |
-| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)     | `include_table_lineage`                                           |
+| Table            | Purpose                                                              | Required For                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `QUERY_HISTORY`  | Query logs for lineage, usage stats, and semantic view usage/queries | `include_table_lineage`, `include_usage_stats`; for semantic views `semantic_views.enabled` + `semantic_views.include_usage` / `semantic_views.include_queries` |
+| `ACCESS_HISTORY` | Table/view lineage and access patterns                               | `include_table_lineage`, `include_usage_stats`                                                                                                                  |
+| `USERS`          | User email mapping for corp user entities                            | `include_usage_stats` (for user attribution)                                                                                                                    |
+| `TAG_REFERENCES` | Tag metadata extraction                                              | `extract_tags`                                                                                                                                                  |
+| `VIEWS`          | View metadata (DDL, ownership, etc.) for all views                   | Always (when views exist)                                                                                                                                       |
+| `COPY_HISTORY`   | Lineage from `COPY INTO` operations (all stages/sources)             | `include_table_lineage`                                                                                                                                         |
 
 If you cannot grant `IMPORTED PRIVILEGES` due to security policies, the related features (lineage, usage, tags) will not work, and you'll see permission errors in the ingestion logs.
 

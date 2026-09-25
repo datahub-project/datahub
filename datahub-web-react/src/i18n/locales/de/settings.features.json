@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Neue Dokumentation von vorgelagerten zu nachgelagerten Assets basierend auf Lineage-Beziehungen weitergeben.",
+    "docPropagation.assetLevelTitle": "Asset-Level-Weitergabe",
+    "docPropagation.backfillButton": "Befüllen",
+    "docPropagation.backfillTitle": "Bestehende Dokumentation von vorgelagerten zu nachgelagerten Spalten/Assets rückwirkend befüllen",
+    "docPropagation.columnLevelDescription": "Neue Dokumentation von vorgelagerten zu nachgelagerten Spalten basierend auf spaltenbasierten Lineage-Beziehungen weitergeben.",
+    "docPropagation.columnLevelTitle": "Spalten-Level-Weitergabe",
+    "docPropagation.comingSoon": "Demnächst verfügbar!",
+    "docPropagation.description": "Dokumentation automatisch von vorgelagerten zu nachgelagerten Spalten und Assets weitergeben.",
+    "docPropagation.rollbackButton": "Zurücksetzen",
+    "docPropagation.rollbackTitle": "Weitergabe-Änderungen zurücksetzen",
+    "docPropagation.title": "Dokumentationsweitergabe",
+    "docPropagation.updateError": "Dokumentationsweitergabe-Einstellungen konnten nicht aktualisiert werden",
+    "docPropagation.updateSuccess": "Dokumentationsweitergabe-Einstellungen erfolgreich aktualisiert",
+    "learnMore": "Mehr erfahren",
+    "newLabel": "Neu!",
+    "onlyOnCloud": "Nur auf DataHub Cloud verfügbar",
+    "pageSubTitle": "Spezifische Funktionen erkunden und konfigurieren",
+    "pageTitle": "Funktionen"
+}

@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import {
     DATE_TYPE_URN,
     NUMBER_TYPE_URN,
@@ -15,7 +17,7 @@ import {
     VALUE_TYPE_FIELD_NAME,
 } from '@src/app/search/utils/constants';
 import {
-    AllowedValue,
+    AllowedValueInput,
     Entity,
     EntityType,
     FacetFilterInput,
@@ -28,6 +30,27 @@ import {
     StructuredPropertySettings,
 } from '@src/types.generated';
 
+/**
+ * Returns true if the given structured property should be shown for an entity on the given platform.
+ * If the property has no allowedPlatforms restriction, it matches any platform.
+ * If platformUrn is not provided, only unrestricted properties match.
+ */
+export function matchesAllowedPlatforms(
+    property: StructuredPropertyEntity,
+    platformUrn: string | null | undefined,
+): boolean {
+    const allowedPlatforms = property.definition?.allowedPlatforms;
+    if (!allowedPlatforms || allowedPlatforms.length === 0) {
+        // No restriction — applies to all platforms
+        return true;
+    }
+    if (!platformUrn) {
+        // Property is platform-restricted but entity has no platform
+        return false;
+    }
+    return allowedPlatforms.some((p) => p.urn === platformUrn);
+}
+
 export type StructuredProp = {
     displayName?: string;
     qualifiedName?: string;
@@ -35,70 +58,102 @@ export type StructuredProp = {
     description?: string | null;
     valueType?: string;
     entityTypes?: string[];
+    allowedPlatforms?: string[];
     typeQualifier?: {
         allowedTypes?: string[];
     };
     immutable?: boolean;
-    allowedValues?: AllowedValue[];
     settings?: StructuredPropertySettings | null;
 };
 
 export const valueTypes = [
     {
         urn: STRING_TYPE_URN,
-        label: 'Text',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.textLabel');
+        },
         value: 'string',
         cardinality: PropertyCardinality.Single,
-        description: 'A string value',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.textDescription');
+        },
     },
     {
         urn: STRING_TYPE_URN,
-        label: 'Text - List',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.textListLabel');
+        },
         value: 'stringList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A list of string values',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.textListDescription');
+        },
     },
     {
         urn: NUMBER_TYPE_URN,
-        label: 'Number',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.numberLabel');
+        },
         value: 'number',
         cardinality: PropertyCardinality.Single,
-        description: 'An integer or decimal',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.numberDescription');
+        },
     },
     {
         urn: NUMBER_TYPE_URN,
-        label: 'Number - List',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.numberListLabel');
+        },
         value: 'numberList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A list of integers or decimals',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.numberListDescription');
+        },
     },
     {
         urn: URN_TYPE_URN,
-        label: 'Entity',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.entityLabel');
+        },
         value: 'entity',
         cardinality: PropertyCardinality.Single,
-        description: 'A reference to a DataHub asset',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.entityDescription');
+        },
     },
     {
         urn: URN_TYPE_URN,
-        label: 'Entity - List',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.entityListLabel');
+        },
         value: 'entityList',
         cardinality: PropertyCardinality.Multiple,
-        description: 'A reference to a list of DataHub assets',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.entityListDescription');
+        },
     },
     {
         urn: RICH_TEXT_TYPE_URN,
-        label: 'Rich Text',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.richTextLabel');
+        },
         value: 'richText',
         cardinality: PropertyCardinality.Single,
-        description: 'A freeform string of markdown text ',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.richTextDescription');
+        },
     },
     {
         urn: DATE_TYPE_URN,
-        label: 'Date',
+        get label() {
+            return i18next.t('governance.structured-properties:valueType.dateLabel');
+        },
         value: 'date',
         cardinality: PropertyCardinality.Single,
-        description: 'A specific date',
+        get description() {
+            return i18next.t('governance.structured-properties:valueType.dateDescription');
+        },
     },
 ];
 
@@ -154,6 +209,16 @@ export function getDisplayName(structuredProperty: StructuredPropertyEntity) {
     return structuredProperty.definition.displayName || structuredProperty.definition.qualifiedName;
 }
 
+export function getFilteredSortedStructuredProperties(
+    properties: StructuredPropertyEntity[],
+    searchQuery: string,
+): StructuredPropertyEntity[] {
+    const query = searchQuery.toLowerCase();
+    return properties
+        .filter((property) => getDisplayName(property).toLowerCase().includes(query))
+        .sort((propA, propB) => (propB.definition.created?.time || 0) - (propA.definition.created?.time || 0));
+}
+
 export const getValueType = (valueUrn: string, cardinality: PropertyCardinality) => {
     return valueTypes.find((valueType) => valueType.urn === valueUrn && valueType.cardinality === cardinality)?.value;
 };
@@ -173,15 +238,148 @@ export const getNewEntityTypes = (entity: StructuredPropertyEntity, values: Stru
     return values.entityTypes?.filter((type) => !currentTypeUrns.includes(type));
 };
 
-export const getNewAllowedValues = (entity: StructuredPropertyEntity, values: StructuredProp) => {
-    const currentAllowedValues = entity.definition.allowedValues?.map(
-        (val: any) => val.value.numberValue || val.value.stringValue,
-    );
-    return values.allowedValues?.filter(
-        (val: any) =>
-            !(currentAllowedValues?.includes(val.stringValue) || currentAllowedValues?.includes(val.numberValue)),
-    );
+export const getNewAllowedPlatforms = (entity: StructuredPropertyEntity, values: StructuredProp) => {
+    const currentPlatformUrns = entity.definition.allowedPlatforms?.map((platform) => platform.urn);
+    const newPlatforms = values.allowedPlatforms?.filter((urn) => !currentPlatformUrns?.includes(urn));
+    return (newPlatforms?.length || 0) > 0 ? newPlatforms : undefined;
 };
+
+// A row the user just added has no value yet, and the live list is read on every keystroke, so
+// this has to tolerate an empty or missing row.
+export const getAllowedValueKey = (
+    val: { numberValue?: number | string | null; stringValue?: string | null } | undefined | null,
+): number | string | undefined | null => val?.numberValue ?? val?.stringValue;
+
+/**
+ * An allowed value while it is being edited. `rowId` is client-only: rows are reorderable and can
+ * be blank, so neither the value nor the list position can identify a row across renders.
+ */
+export type AllowedValueRow = {
+    rowId: string;
+    isPersisted?: boolean;
+    stringValue?: string | null;
+    // A number row holds the raw text while the user types (e.g. "1." or "-"), coerced on submit.
+    numberValue?: number | string | null;
+    description?: string | null;
+};
+
+let allowedValueRowCounter = 0;
+
+export const createAllowedValueRow = (value?: Omit<AllowedValueRow, 'rowId'>): AllowedValueRow => {
+    allowedValueRowCounter += 1;
+    return { ...value, rowId: `allowed-value-${allowedValueRowCounter}` };
+};
+
+export const toAllowedValueInput = ({
+    stringValue,
+    numberValue,
+    description,
+}: AllowedValueRow): AllowedValueInput | undefined => {
+    const normalizedDescription = description ?? undefined;
+
+    if (numberValue !== null && numberValue !== undefined && String(numberValue).trim() !== '') {
+        const parsedNumber = Number(numberValue);
+        if (Number.isFinite(parsedNumber)) {
+            return { numberValue: parsedNumber, description: normalizedDescription };
+        }
+    }
+
+    if (stringValue !== null && stringValue !== undefined && stringValue.trim() !== '') {
+        return { stringValue, description: normalizedDescription };
+    }
+
+    return undefined;
+};
+
+/** Drops client-only row IDs and blank rows, and coerces numeric input for GraphQL. */
+export const toAllowedValueInputs = (rows: AllowedValueRow[] | undefined): AllowedValueInput[] =>
+    (rows ?? []).flatMap((row) => {
+        const input = toAllowedValueInput(row);
+        return input ? [input] : [];
+    });
+
+export const haveAllowedValuesChanged = (
+    savedRows: AllowedValueRow[] | undefined,
+    currentRows: AllowedValueRow[],
+): boolean => JSON.stringify(toAllowedValueInputs(savedRows)) !== JSON.stringify(toAllowedValueInputs(currentRows));
+
+export type StructuredPropertyFormErrors = {
+    displayName?: string;
+    valueType?: string;
+    entityTypes?: string;
+    qualifiedName?: string;
+    /** Keyed by `AllowedValueRow.rowId`. */
+    allowedValues?: Record<string, string>;
+};
+
+const NO_WHITESPACE_PATTERN = /^\S*$/;
+
+export const validateStructuredProperty = (
+    values: StructuredProp | undefined,
+    allowedValueRows: AllowedValueRow[],
+): StructuredPropertyFormErrors => {
+    const errors: StructuredPropertyFormErrors = {};
+
+    if (!values?.displayName?.trim()) {
+        errors.displayName = i18next.t('governance.structured-properties:create.nameError');
+    }
+    if (!values?.valueType) {
+        errors.valueType = i18next.t('governance.structured-properties:create.propertyTypeError');
+    }
+    if (!values?.entityTypes?.length) {
+        errors.entityTypes = i18next.t('governance.structured-properties:appliesTo.error');
+    }
+    if (values?.qualifiedName && !NO_WHITESPACE_PATTERN.test(values.qualifiedName)) {
+        errors.qualifiedName = i18next.t('governance.structured-properties:advancedOptions.qualifiedNameError');
+    }
+
+    // The list as a whole is optional, but a row the user added has to be filled in or removed.
+    const blankRows = allowedValueRows.filter((row) => toAllowedValueInputs([row]).length === 0);
+    if (blankRows.length) {
+        errors.allowedValues = Object.fromEntries(
+            blankRows.map((row) => [row.rowId, i18next.t('governance.structured-properties:allowedValues.valueError')]),
+        );
+    }
+
+    return errors;
+};
+
+export const hasFormErrors = (errors: StructuredPropertyFormErrors): boolean =>
+    Object.values(errors).some((error) => (typeof error === 'string' ? !!error : Object.keys(error ?? {}).length > 0));
+
+export const getBadgeUrnToReplace = (
+    existingBadgeUrn: string | undefined,
+    savedPropertyUrn: string | undefined,
+    enableBadge: boolean,
+): string | undefined =>
+    enableBadge && existingBadgeUrn && savedPropertyUrn && existingBadgeUrn !== savedPropertyUrn
+        ? existingBadgeUrn
+        : undefined;
+
+type BadgeReplacement = {
+    existingBadgeUrn?: string;
+    savedPropertyUrn?: string;
+    enableBadge: boolean;
+    updateBadge: (urn: string, enabled: boolean) => Promise<unknown>;
+};
+
+export async function replaceAssetBadge({
+    existingBadgeUrn,
+    savedPropertyUrn,
+    enableBadge,
+    updateBadge,
+}: BadgeReplacement): Promise<void> {
+    const badgeUrnToReplace = getBadgeUrnToReplace(existingBadgeUrn, savedPropertyUrn, enableBadge);
+    if (!badgeUrnToReplace || !savedPropertyUrn) return;
+
+    try {
+        await updateBadge(badgeUrnToReplace, false);
+    } catch (error) {
+        // Roll the newly saved property back so the previous badge remains authoritative.
+        await updateBadge(savedPropertyUrn, false);
+        throw error;
+    }
+}
 
 export const isEntityTypeSelected = (selectedType: string) => {
     if (selectedType === 'entity' || selectedType === 'entityList') return true;
@@ -199,9 +397,12 @@ export const isStringOrNumberTypeSelected = (selectedType: string) => {
     return false;
 };
 
-export const canBeAssetBadge = (selectedType: string, allowedValues?: AllowedValue[]) => {
+export const canBeAssetBadge = (selectedType: string, allowedValues?: AllowedValueInput[]) => {
     if (selectedType === 'string' || selectedType === 'number') {
-        return !!allowedValues?.length;
+        return (allowedValues ?? []).some((value) => {
+            const key = getAllowedValueKey(value);
+            return key !== undefined && key !== null && String(key).trim() !== '';
+        });
     }
     return false;
 };

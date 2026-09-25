@@ -1,0 +1,28 @@
+{
+  "value": [
+    {
+      "name": "DIM_DAY",
+      "label": "Day Dimension",
+      "spaceName": "S1",
+      "assetRelationalMetadataUrl": "https://test.eu10.hcs.cloud.sap/edmx/S1/DIM_DAY/$metadata",
+      "supportsAnalyticalQueries": false,
+      "hasParameters": false
+    },
+    {
+      "name": "FACT_SALES",
+      "label": "Sales Fact Table",
+      "spaceName": "S1",
+      "assetRelationalMetadataUrl": "https://test.eu10.hcs.cloud.sap/edmx/S1/FACT_SALES/$metadata",
+      "supportsAnalyticalQueries": false,
+      "hasParameters": false
+    },
+    {
+      "name": "STAGING_RAW",
+      "label": "Staging Raw (unexposed)",
+      "spaceName": "S1",
+      "assetRelationalMetadataUrl": null,
+      "supportsAnalyticalQueries": false,
+      "hasParameters": false
+    }
+  ]
+}

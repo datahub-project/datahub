@@ -4,8 +4,9 @@ import CheckIcon from '@mui/icons-material/Check';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Button, Select, message } from 'antd';
-import { orderBy } from 'lodash';
+import orderBy from 'lodash/orderBy';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
@@ -68,6 +69,7 @@ const Subtitle = styled.div`
     text-align: center;
     font: 400 13px Mulish;
     line-height: 21px;
+    opacity: 0.6;
     margin-bottom: 28px;
 `;
 
@@ -259,12 +261,15 @@ const DEFAULT_PERSONA = PersonaType.TECHNICAL_USER;
 
 // TODO: Make section ordering dynamic based on populated data.
 export const IntroduceYourselfMainContent = () => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const themeConfig = useTheme();
     const userContext = useUserContext();
     const { refetchUser, user } = userContext;
     const defaultDataPlatforms = useGetDataPlatforms();
     const [updateCorpUserMutation, { loading }] = useUpdateCorpUserPropertiesMutation();
     const [updateUserViewSettingMutation] = useUpdateCorpUserViewsSettingsMutation();
+
     const history = useHistory();
     const authenticatedUser = useUserContext();
     const currentUserUrn = authenticatedUser?.user?.urn || '';
@@ -296,7 +301,7 @@ export const IntroduceYourselfMainContent = () => {
                 limit: 10,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         skip: !currentUserUrn,
     });
 
@@ -360,7 +365,7 @@ export const IntroduceYourselfMainContent = () => {
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to provision a default view. An unexpected error occurred.`,
+                    content: t('introduceYourself.errorProvisionView'),
                     duration: 3,
                 });
             });
@@ -398,7 +403,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error('Failed to save user details. :(');
+                message.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
@@ -423,7 +428,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error('Failed to save user details. :(');
+                message.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
@@ -457,12 +462,12 @@ export const IntroduceYourselfMainContent = () => {
     return (
         <Container>
             <Content>
-                <Title>Before we begin</Title>
-                <Subtitle>Tell us more about yourself, so we can personalize your experience</Subtitle>
+                <Title>{t('introduceYourself.mainTitle')}</Title>
+                <Subtitle>{t('introduceYourself.mainSubtitle')}</Subtitle>
                 <SelectWrapper>
                     <AccountCircleOutlinedIcon />
                     <Select
-                        placeholder="Select your Role"
+                        placeholder={t('introduceYourself.rolePlaceholder')}
                         suffixIcon={<KeyboardArrowDownOutlinedIcon />}
                         data-testid="introduce-role-select"
                         size="large"
@@ -481,10 +486,11 @@ export const IntroduceYourselfMainContent = () => {
                 <SelectWrapper>
                     <SettingsOutlinedIcon />
                     <Select
-                        placeholder="Optional - Select your Data Tools"
+                        placeholder={t('introduceYourself.dataToolsPlaceholder')}
                         size="large"
                         style={selectStyles}
                         onChange={(value) => setSelectedPlatforms(value)}
+                        data-testid="introduce-data-source-select"
                         options={platforms.map((platform) => {
                             const { urn } = platform.platform;
                             const isChecked = !!selectedPlatforms.includes(urn);
@@ -493,10 +499,12 @@ export const IntroduceYourselfMainContent = () => {
                                 EntityType.DataPlatform,
                                 platform.platform,
                             );
+                            const platformNameForTestId =
+                                platform.platform.name?.toLowerCase().replace(/\s+/g, '-') || '';
                             return {
                                 value: platform.platform.urn,
                                 label: (
-                                    <SelectOption>
+                                    <SelectOption data-testid={`platform-option-${platformNameForTestId}`}>
                                         <Tooltip title={displayName} placement="left" mouseEnterDelay={0.5}>
                                             <PsuedoCheckBox checked={isChecked}>
                                                 {isChecked && <CheckIcon />}
@@ -539,11 +547,11 @@ export const IntroduceYourselfMainContent = () => {
                     loading={loading}
                     disabled={!hasPersona}
                 >
-                    Get Started
+                    {t('introduceYourself.getStarted')}
                 </DoneButton>
                 <Footer>
-                    <Tooltip placement="bottom" title="Continue to DataHub">
-                        <SkipButton onClick={onSkip}>Skip</SkipButton>
+                    <Tooltip placement="bottom" title={t('introduceYourself.continueTo')}>
+                        <SkipButton onClick={onSkip}>{tc('skip')}</SkipButton>
                     </Tooltip>
                 </Footer>
             </Content>

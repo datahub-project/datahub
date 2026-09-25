@@ -2,7 +2,7 @@
 
 Microsoft Fabric OneLake is a storage and lakehouse platform. Learn more in the [official Microsoft Fabric OneLake documentation](https://learn.microsoft.com/fabric/onelake/onelake-overview).
 
-The DataHub integration for Microsoft Fabric OneLake covers workspace, lakehouse, and warehouse containers, table datasets with schema metadata, and view datasets with view definitions and view-to-table lineage parsed from the view SQL. It also captures stateful deletion detection.
+The DataHub integration for Microsoft Fabric OneLake covers workspace, lakehouse, and warehouse containers, table datasets with schema metadata, and view datasets with view definitions and view-to-table lineage parsed from the view SQL. It also extracts query usage statistics from the SQL Analytics Endpoint's `queryinsights` views, and captures stateful deletion detection.
 
 ## Concept Mapping
 

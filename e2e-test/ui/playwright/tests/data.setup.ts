@@ -42,6 +42,7 @@ setup('seed all test data', async () => {
       resolve(__dirname, 'business-attributes/fixtures/data.json'),
       resolve(__dirname, 'search/fixtures/data.json'),
       resolve(__dirname, 'incidents-v2/fixtures/data.json'),
+      resolve(__dirname, 'views/fixtures/data.json'),
     ];
 
     const allUrns: string[] = [];
@@ -102,7 +103,7 @@ setup('seed all test data', async () => {
       // Cleanup config file
       try {
         fs.unlinkSync(configPath);
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors
       }
 

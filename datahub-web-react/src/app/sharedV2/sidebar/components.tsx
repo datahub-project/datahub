@@ -1,24 +1,8 @@
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import React from 'react';
-import styled, { useTheme } from 'styled-components';
+import { useTheme } from 'styled-components';
 
 import { RotatingButton } from '@app/shared/components';
-
-export const SidebarWrapper = styled.div<{ width: number; $isShowNavBarRedesign?: boolean }>`
-    max-height: 100%;
-    width: ${(props) => props.width}px;
-    min-width: ${(props) => props.width}px;
-    display: ${(props) => (props.width ? 'block' : 'none')};
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    ${(props) => !props.$isShowNavBarRedesign && 'margin-bottom: 12px;'}
-    ${(props) =>
-        props.$isShowNavBarRedesign &&
-        `
-        box-shadow: ${props.theme.colors.shadowSm};
-    `}
-`;
 
 export function RotatingTriangle({
     isOpen,
@@ -36,7 +20,7 @@ export function RotatingTriangle({
             size="small"
             type="ghost"
             deg={isOpen ? 90 : 0}
-            icon={<ChevronRightIcon style={{ color: theme.colors.text }} />}
+            icon={<ChevronRightIcon style={{ color: theme.colors.icon }} />}
             onClick={onClick}
             data-testid={dataTestId}
         />

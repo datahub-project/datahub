@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -11,7 +12,7 @@ export const EntityTypeLabel = styled.div<{ showBorder?: boolean }>`
     ${(props) =>
         props.showBorder &&
         `
-        border-bottom: 1px solid ${props.theme.colors.bgSurface};
+        border-bottom: 1px solid ${props.theme.colors.border};
         padding-bottom: 2px;
         `}
 `;
@@ -28,13 +29,14 @@ interface Props {
 }
 
 export default function SectionHeader({ entityType }: Props) {
+    const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
     const isDatasetType = entityType === EntityType.Dataset;
 
     return (
         <EntityTypeLabel showBorder>
             {entityRegistry.getCollectionName(entityType)}
-            {isDatasetType && <SubtypesDescription>tables, topics, views, and more</SubtypesDescription>}
+            {isDatasetType && <SubtypesDescription>{t('autoComplete.datasetsSubtypes')}</SubtypesDescription>}
         </EntityTypeLabel>
     );
 }

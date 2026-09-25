@@ -2,6 +2,9 @@
 description: "Run scheduled batch metadata ingestion from the CLI using DataHub recipes to extract metadata from source systems in bulk."
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # CLI Ingestion
 
 Batch ingestion involves extracting metadata from a source system in bulk. Typically, this happens on a predefined schedule using the [Metadata Ingestion](../docs/components.md#ingestion-framework) framework.
@@ -9,13 +12,20 @@ The metadata that is extracted includes point-in-time instances of dataset, char
 
 ## Installing DataHub CLI
 
+On macOS or Linux, the simplest install is via Homebrew:
+
+```bash
+brew install datahub-project/tap/datahub
+datahub version
+```
+
+Or via pip on any platform:
+
 :::note Required Python Version
-Installing DataHub CLI requires Python 3.6+.
+Installing DataHub CLI via pip requires Python 3.10+.
 :::
 
-Run the following commands in your terminal:
-
-```
+```bash
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 python3 -m datahub version
@@ -50,6 +60,11 @@ standards review and community testing.
 
 Create a [Recipe](recipe_overview.md) yaml file that defines the source and sink for metadata, as shown below.
 
+<Tabs>
+<TabItem value="oss" label="OSS / Self-Hosted" default>
+
+No token is needed when authentication is disabled.
+
 ```yaml
 # example-recipe.yml
 
@@ -65,16 +80,42 @@ source:
 sink:
   type: "datahub-rest"
   config:
-    server: "https://<your domain name>.acryl.io/gms"
-    token: <Your API key>
+    server: "http://localhost:8080"
 ```
+
+</TabItem>
+
+<TabItem value="cloud" label="DataHub Cloud">
+
+```yaml
+# example-recipe.yml
+
+# MySQL source configuration
+source:
+  type: mysql
+  config:
+    username: root
+    password: password
+    host_port: localhost:3306
+
+# Recipe sink configuration.
+sink:
+  type: "datahub-rest"
+  config:
+    server: "https://<your-instance>.acryl.io/gms"
+    token: <your-token>
+```
+
+</TabItem>
+</Tabs>
+
+For Docker and Kubernetes server addresses, see the [DataHub sink reference](sink_docs/datahub.md).
 
 The **source** configuration block defines where to extract metadata from. This can be an OLTP database system, a data warehouse, or something as simple as a file. Each source has custom configuration depending on what is required to access metadata from the source. To see configurations required for each supported source, refer to the [Sources](source_overview.md) documentation.
 
 The **sink** configuration block defines where to push metadata into. Each sink type requires specific configurations, the details of which are detailed in the [Sinks](sink_overview.md) documentation.
 
-To configure your instance of DataHub as the destination for ingestion, set the "server" field of your recipe to point to your DataHub Cloud instance's domain suffixed by the path `/gms`, as shown below.
-A complete example of a DataHub recipe file, which reads from MySQL and writes into a DataHub instance:
+Set the `server` field to the address of your DataHub instance's GMS API: `http://localhost:8080` for a local OSS deployment, or `https://<your-instance>.acryl.io/gms` for DataHub Cloud.
 
 For more information and examples on configuring recipes, please refer to [Recipes](recipe_overview.md).
 
@@ -85,7 +126,7 @@ In DataHub Cloud deployments, only the `datahub-rest` sink is supported, which s
 1. **server**: the location of the REST API exposed by your instance of DataHub
 2. **token**: a unique API key used to authenticate requests to your instance's REST API
 
-The token can be retrieved by logging in as admin. You can go to Settings page and generate a Personal Access Token with your desired expiration date.
+Any user with the **Generate Personal Access Tokens** platform privilege can create one. Navigate to **Settings → Access Tokens** and click **Generate Personal Access Token**, choosing your desired expiration date.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/home-(1).png"/>
@@ -118,15 +159,15 @@ Learn more about scheduling ingestion in the [Scheduling Ingestion Guide](/metad
 
 ## Reference
 
-Please refer the following pages for advanced guids on CLI ingestion.
+Please refer the following pages for advanced guides on CLI ingestion.
 
 - [Reference for `datahub ingest` command](../docs/cli.md#ingest)
 - [UI Ingestion Guide](../docs/ui-ingestion.md)
 
 :::tip Compatibility
 
-DataHub server uses a 3 digit versioning scheme, while the CLI uses a 4 digit scheme. For example, if you're using DataHub server version 0.10.0, you should use CLI version 0.10.0.x, where x is a patch version.
-We do this because we do CLI releases at a much higher frequency than server releases, usually every few days vs twice a month.
+DataHub server uses a 3 digit versioning scheme, while the CLI uses a 4 digit scheme. For example, if you're using DataHub server version 1.5.0, you should use CLI version 1.5.0.7, where the last digit is a patch version.
+We do this because we do CLI releases at a much higher frequency than server releases — CLI patches ship roughly weekly, while server releases happen roughly every couple of months.
 
 For ingestion sources, any breaking changes will be highlighted in the [release notes](../docs/how/updating-datahub.md). When fields are deprecated or otherwise changed, we will try to maintain backwards compatibility for two server releases, which is about 4-6 weeks. The CLI will also print warnings whenever deprecated options are used.
 :::

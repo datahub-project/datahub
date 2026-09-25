@@ -20,8 +20,11 @@ public final class Es8KnnQueryBuilder {
     knnInner.put("query_vector", req.queryVector());
     knnInner.put("k", req.k());
     knnInner.put("num_candidates", req.numCandidates());
-    // NOTE: kNN-clause `filter` would run in nested chunk context — only useful for chunk-level
-    // filters. Root-level filters (entityType, platform, urn, etc.) go in bool.filter below.
+    // Inside the kNN clause Elasticsearch applies a filter on root fields (entityType, platform,
+    // urn and the like) to the parent documents of the nested vectors, before the search, so only
+    // matching documents are considered instead of non-matches being dropped from the top k.
+    // (From 9.2, a filter on the nested chunk fields applies to the chunks instead.)
+    req.filter().ifPresent(f -> knnInner.put("filter", f));
 
     Map<String, Object> nested = new LinkedHashMap<>();
     nested.put("path", nestedPath);
@@ -33,20 +36,12 @@ public final class Es8KnnQueryBuilder {
 
     Map<String, Object> bool = new LinkedHashMap<>();
     bool.put("must", must);
-    // Root-level filter placement — works on root document fields (entityType, platform, urn,
-    // etc.).
-    // Note: this is post-filter (after kNN candidates returned). Pagination math in
-    // SemanticEntitySearchService uses 1.2x oversampling; for restrictive filters this may
-    // be slightly insufficient. A future improvement could use ES 8's top-level knn query
-    // clause with a separate filter context, but that requires restructuring the nested-vector
-    // layout.
-    req.filter().ifPresent(f -> bool.put("filter", List.of(f)));
 
     Map<String, Object> body = new LinkedHashMap<>();
     body.put("size", req.k());
     body.put("track_total_hits", false);
     if (!req.fieldsToFetch().isEmpty()) {
-      body.put("_source", req.fieldsToFetch());
+      body.put("_source", Map.of("includes", req.fieldsToFetch()));
     }
     body.put("query", Map.of("bool", bool));
     return body;

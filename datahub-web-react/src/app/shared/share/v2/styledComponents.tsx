@@ -3,12 +3,12 @@ import styled from 'styled-components';
 
 export const StyledMenuItem = styled(Menu.Item)`
     min-width: 120px;
-    background-color: #fff !important;
+    background-color: ${(props) => props.theme.colors.bg} !important;
     height: 28px;
     font-size: 12px;
     font-weight: 300;
     padding: 12px;
-    color: #46507b;
+    color: ${(props) => props.theme.colors.textSecondary};
     :hover {
         background-color: transparent;
     }

@@ -54,7 +54,7 @@ function ConnectionCapabilityView({ success, capability, displayMessage, tooltip
         <CapabilityWrapper>
             <CapabilityName>
                 {success ? <StyledCheck /> : <StyledClose />}
-                {number ? <NumberWrapper>{number}.</NumberWrapper> : ''}
+                {number ? <NumberWrapper>{`${number}.`}</NumberWrapper> : ''}
                 {capability}
             </CapabilityName>
             <CapabilityMessage success={success}>

@@ -197,8 +197,9 @@ We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
 # Assumes: ../gradlew :metadata-ingestion:installDev and venv is activated
-ruff check src/ tests/
-mypy src/ tests/
+# Checks everything ruff and mypy are configured to see, examples/ included.
+ruff check .
+mypy .
 ```
 
 or you can run from root of the repository
@@ -338,16 +339,16 @@ cd metadata-ingestion-modules/airflow-plugin
 # Run all tests.
 tox
 
-# Run a specific environment.
-# These are defined in the `tox.ini` file
-tox -e py310-airflow26
+# Run a specific environment (py311-airflow30, py311-airflow31, py311-airflow32).
+# Defined in the `tox.ini` file.
+tox -e py311-airflow31
 
 # Run a specific test.
-tox -e py310-airflow26 -- tests/integration/test_plugin.py
+tox -e py311-airflow31 -- tests/integration/test_plugin.py
 
 # Update all golden files.
 tox -- --update-golden-files
 
 # Update golden files for a specific environment.
-tox -e py310-airflow26 -- --update-golden-files
+tox -e py311-airflow31 -- --update-golden-files
 ```

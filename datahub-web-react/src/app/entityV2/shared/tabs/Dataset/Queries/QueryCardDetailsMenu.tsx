@@ -1,6 +1,7 @@
 import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
 import { Dropdown, Menu, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -18,6 +19,8 @@ type Props = {
 };
 
 export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     const [deleteQueryMutation] = useDeleteQueryMutation();
     const [showConfirmationModal, setShowConfirmationModa] = useState(false);
 
@@ -26,7 +29,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Deleted Query!`,
+                        content: t('queryCard.deleteSuccess'),
                         duration: 3,
                     });
                     onDeleted?.(urn);
@@ -34,7 +37,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
             })
             .catch(() => {
                 message.destroy();
-                message.error({ content: 'Failed to delete Query! An unexpected error occurred' });
+                message.error({ content: t('queryCard.deleteError') });
             });
     };
 
@@ -48,7 +51,7 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
                             onClick={() => setShowConfirmationModa(true)}
                             data-testid={`query-delete-button-${index}`}
                         >
-                            <DeleteOutlined /> &nbsp; Delete
+                            <DeleteOutlined /> &nbsp; {tc('delete')}
                         </Menu.Item>
                     </Menu>
                 }
@@ -60,8 +63,8 @@ export default function QueryCardDetailsMenu({ urn, onDeleted, index }: Props) {
                 isOpen={showConfirmationModal}
                 handleClose={() => setShowConfirmationModa(false)}
                 handleConfirm={deleteQuery}
-                modalTitle="Delete Query"
-                modalText="Are you sure you want to delete this query?"
+                modalTitle={t('queryCard.deleteConfirmTitle')}
+                modalText={t('queryCard.deleteConfirmBody')}
             />
         </>
     );

@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { insertModuleIntoRows } from '@app/homeV3/context/hooks/utils/moduleOperationsUtils';
@@ -6,6 +7,7 @@ import { filterNonExistentStructuredProperties } from '@app/homeV3/context/hooks
 import { DEFAULT_TEMPLATE_URN } from '@app/homeV3/modules/constants';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import useShowToast from '@app/homeV3/toast/useShowToast';
+import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 
 import { useUpdateAssetSettingsMutation } from '@graphql/settings.generated';
 import {
@@ -58,12 +60,14 @@ export function useTemplateOperations(
     personalTemplate: PageTemplateFragment | null,
     templateType: PageTemplateSurfaceType,
 ) {
-    const { urn, refetch } = useEntityContext();
+    const { urn } = useEntityContext();
+    const { bypassCacheForUrn } = useReloadableContext();
     const [upsertPageTemplateMutation] = useUpsertPageTemplateMutation();
     const [updateUserHomePageSettings] = useUpdateUserHomePageSettingsMutation();
     const [updateAssetSettings] = useUpdateAssetSettingsMutation();
     const [deletePageTemplate] = useDeletePageTemplateMutation();
 
+    const { t } = useTranslation('home.v3');
     const { showToast } = useShowToast();
 
     // Helper function to update template state with a new module
@@ -232,23 +236,20 @@ export function useTemplateOperations(
                         updateUserHomePageSettings({
                             variables: { input: { pageTemplate: data.upsertPageTemplate.urn } },
                         });
-                        showToast(
-                            'You’ve edited your home page',
-                            `To reset your home page click "Reset to Organization Default"`,
-                            'edited-home-page-toast',
-                        );
+                        showToast(t('toast.editedTitle'), t('toast.editedDescription'), 'edited-home-page-toast');
                     } else if (templateType === PageTemplateSurfaceType.AssetSummary) {
                         setPersonalTemplate(data.upsertPageTemplate);
                         updateAssetSettings({
                             variables: { input: { urn, summary: { template: data.upsertPageTemplate.urn } } },
-                        }).then(() => refetch?.());
+                        }).then(() => bypassCacheForUrn(urn));
                     }
                 } else {
-                    refetch?.(); // updates entityData that gets cached on a profile page for summary tab
+                    bypassCacheForUrn(urn);
                 }
             });
         },
         [
+            t,
             upsertPageTemplateMutation,
             updateUserHomePageSettings,
             setPersonalTemplate,
@@ -256,7 +257,7 @@ export function useTemplateOperations(
             templateType,
             updateAssetSettings,
             urn,
-            refetch,
+            bypassCacheForUrn,
         ],
     );
 

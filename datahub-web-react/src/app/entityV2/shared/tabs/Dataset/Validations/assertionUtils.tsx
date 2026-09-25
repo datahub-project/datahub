@@ -1,4 +1,5 @@
 import { Location } from 'history';
+import i18next from 'i18next';
 import QueryString from 'query-string';
 import React from 'react';
 import { DefaultTheme } from 'styled-components';
@@ -9,6 +10,7 @@ import {
     AssertionResultType,
     AssertionStdParameter,
     AssertionStdParameterType,
+    StringMapEntry,
 } from '@types';
 
 import AssertionErrorIcon from '@images/assertion_error_dot.svg?react';
@@ -30,6 +32,12 @@ export const sortAssertions = (a, b) => {
     }
     return b?.runEvents?.runEvents[0]?.timestampMillis - a?.runEvents?.runEvents[0]?.timestampMillis;
 };
+
+const NATIVE_RESULTS_COLLATOR = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+
+export function sortNativeResults(entries: StringMapEntry[]): StringMapEntry[] {
+    return [...entries].sort((a, b) => NATIVE_RESULTS_COLLATOR.compare(a.key, b.key));
+}
 
 /**
  * Returns the display color associated with an AssertionResultType
@@ -64,21 +72,21 @@ export const getResultErrorMessage = (result: AssertionResult) => {
 
     switch (errorType) {
         case AssertionResultErrorType.SourceConnectionError:
-            return 'Unable to connect to source data platform. Please check the connection.';
+            return i18next.t('entity.profile.validations:error.unableToConnect');
         case AssertionResultErrorType.SourceQueryFailed:
-            return 'Failed to evaluate query against the source platform.';
+            return i18next.t('entity.profile.validations:error.failedEvaluateQuery');
         case AssertionResultErrorType.InsufficientData:
-            return 'Not enough data to evaluate assertion.';
+            return i18next.t('entity.profile.validations:error.notEnoughData');
         case AssertionResultErrorType.InvalidParameters:
-            return 'Invalid parameters. Please check the assertion configuration.';
+            return i18next.t('entity.profile.validations:error.invalidParameters');
         case AssertionResultErrorType.InvalidSourceType:
-            return 'Invalid source type selected. Please select different source type in assertion configuration.';
+            return i18next.t('entity.profile.validations:error.invalidSourceType');
         case AssertionResultErrorType.UnsupportedPlatform:
-            return 'Unsupported platform.';
+            return i18next.t('entity.profile.validations:error.unsupportedPlatform');
         case AssertionResultErrorType.CustomSqlError:
-            return 'Custom SQL query resulted in an error.';
+            return i18next.t('entity.profile.validations:error.customSqlError');
         default:
-            return 'An unknown error occurred.';
+            return i18next.t('entity.profile.validations:error.unknownError');
     }
 };
 

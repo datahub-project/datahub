@@ -18,19 +18,24 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.ClassicalEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
+import com.linkedin.metadata.search.embedding.OnnxEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.OpenAIEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.VertexAiEmbeddingProvider;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.function.Supplier;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 /**
  * Unit tests for the vertex_ai branch in {@link EmbeddingProviderFactory}.
@@ -92,6 +97,16 @@ public class EmbeddingProviderFactoryTest {
     field.setAccessible(true);
     field.set(factory, configProvider);
 
+    return factory;
+  }
+
+  private static TestableFactory factoryWithConfigAndAwsCredentials(
+      EmbeddingProviderConfiguration embeddingConfig) throws Exception {
+    TestableFactory factory = factoryWithConfig(embeddingConfig);
+    Field awsField =
+        EmbeddingProviderFactory.class.getDeclaredField("defaultAwsCredentialsProvider");
+    awsField.setAccessible(true);
+    awsField.set(factory, mock(AwsCredentialsProvider.class));
     return factory;
   }
 
@@ -172,16 +187,18 @@ public class EmbeddingProviderFactoryTest {
 
   /**
    * Until the ingestion-side client supports propagating non-default dimensions, the factory must
-   * reject any non-default outputDimensionality to prevent server/client embedding-dimension
-   * mismatch that would silently break kNN search.
+   * reject any non-default outputDimensionality to prevent server/client embedding-dimension Guard
+   * was removed — any positive outputDimensionality is now accepted.
    */
   @Test
-  public void rejectsVertexAiWithNonDefaultDimensions() {
+  public void acceptsVertexAiWithNonDefaultDimensions() {
     EmbeddingProviderConfiguration config =
         configWithVertexAi("my-gcp-project", "us-central1", "gemini-embedding-001", 1024);
 
     EmbeddingProviderFactory factory = new TestableFactory();
-    assertThrows(IllegalStateException.class, () -> factory.createVertexAiProvider(config));
+    EmbeddingProvider provider = factory.createVertexAiProvider(config);
+    assertNotNull(provider);
+    assertTrue(provider instanceof VertexAiEmbeddingProvider);
   }
 
   /** Routes through {@code getInstance()} switch-case with type="vertex_ai". */
@@ -340,7 +357,7 @@ public class EmbeddingProviderFactoryTest {
     EmbeddingProviderConfiguration config =
         configWithBedrock("us-west-2", "cohere.embed-english-v3");
 
-    TestableFactory factory = factoryWithConfig(config);
+    TestableFactory factory = factoryWithConfigAndAwsCredentials(config);
     EmbeddingProvider provider = factory.getInstance();
 
     assertNotNull(provider);
@@ -355,11 +372,36 @@ public class EmbeddingProviderFactoryTest {
     EmbeddingProviderConfiguration config =
         configWithBedrock("us-east-1", "amazon.titan-embed-text-v2:0");
 
-    TestableFactory factory = factoryWithConfig(config);
+    TestableFactory factory = factoryWithConfigAndAwsCredentials(config);
     EmbeddingProvider provider = factory.getInstance();
 
     assertNotNull(provider);
     assertTrue(provider instanceof AwsBedrockEmbeddingProvider);
+  }
+
+  @Test
+  public void rejectsAwsBedrockWithoutSharedCredentialsProvider() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithBedrock("us-west-2", "cohere.embed-english-v3");
+
+    IllegalStateException error =
+        expectThrows(IllegalStateException.class, () -> factoryWithConfig(config).getInstance());
+
+    assertTrue(error.getMessage().contains("DefaultCredentialsProvider"));
+  }
+
+  @Test
+  public void rejectsAwsBedrockWithoutBedrockRegion() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithBedrock("us-west-2", "cohere.embed-english-v3");
+    config.getBedrock().setAwsRegion(" ");
+
+    IllegalStateException error =
+        expectThrows(
+            IllegalStateException.class,
+            () -> factoryWithConfigAndAwsCredentials(config).getInstance());
+
+    assertTrue(error.getMessage().contains("bedrock.awsRegion"));
   }
 
   // ------- OpenAI provider tests -------
@@ -491,6 +533,322 @@ public class EmbeddingProviderFactoryTest {
 
     assertNotNull(provider);
     assertTrue(provider instanceof CohereEmbeddingProvider);
+  }
+
+  // ------- ONNX provider tests -------
+
+  private static EmbeddingProviderConfiguration configWithOnnx(String modelName, String modelDir) {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("onnx");
+    EmbeddingProviderConfiguration.OnnxConfig o = new EmbeddingProviderConfiguration.OnnxConfig();
+    o.setModelName(modelName);
+    o.setModelDir(modelDir);
+    config.setOnnx(o);
+    return config;
+  }
+
+  private static TestableFactory factoryWithOnnxConfig(
+      EmbeddingProviderConfiguration embeddingConfig,
+      Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models)
+      throws Exception {
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEmbeddingProvider(embeddingConfig);
+    if (models != null) {
+      semanticConfig.setModels(models);
+    }
+
+    EntityIndexConfiguration entityIndexConfig = new EntityIndexConfiguration();
+    entityIndexConfig.setSemanticSearch(semanticConfig);
+
+    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
+    esConfig.setEntityIndex(entityIndexConfig);
+
+    ConfigurationProvider configProvider = mock(ConfigurationProvider.class);
+    when(configProvider.getElasticSearch()).thenReturn(esConfig);
+
+    TestableFactory factory = new TestableFactory();
+    Field field = EmbeddingProviderFactory.class.getDeclaredField("configurationProvider");
+    field.setAccessible(true);
+    field.set(factory, configProvider);
+
+    return factory;
+  }
+
+  @Test
+  public void rejectsOnnxWithNullConfig() throws Exception {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("onnx");
+    config.setOnnx(null);
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("ONNX configuration block is missing"),
+        "expected 'ONNX configuration block is missing' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWithNullModelName() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx(null, "/some/dir");
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("ONNX model name is required"),
+        "expected 'ONNX model name is required' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWithBlankModelName() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("  ", "/some/dir");
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsOnnxWithNullModelDir() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("my_model", null);
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("ONNX model directory is required"),
+        "expected 'ONNX model directory is required' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWithBlankModelDir() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("my_model", "   ");
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsOnnxWhenModelNotInModelsMap() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("unknown_model", "/some/dir");
+
+    java.util.Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models =
+        new java.util.HashMap<>();
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig modelConfig =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(384);
+    models.put("snowflake_arctic_embed_s", modelConfig);
+
+    TestableFactory factory = factoryWithOnnxConfig(config, models);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("does not match any entry"),
+        "expected 'does not match any entry' in message, got: " + ex.getMessage());
+    assertTrue(
+        ex.getMessage().contains("unknown_model"),
+        "expected model name in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWhenModelsMapIsNull() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("my_model", "/some/dir");
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("does not match any entry"),
+        "expected 'does not match any entry' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWhenModelDirDoesNotExist() throws Exception {
+    EmbeddingProviderConfiguration config =
+        configWithOnnx("snowflake_arctic_embed_s", "/nonexistent/onnx/model/dir");
+
+    java.util.Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models =
+        new java.util.HashMap<>();
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig modelConfig =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(384);
+    models.put("snowflake_arctic_embed_s", modelConfig);
+
+    TestableFactory factory = factoryWithOnnxConfig(config, models);
+    // Passes config validation, then fails constructing the provider because the model dir is
+    // absent.
+    IllegalArgumentException ex =
+        expectThrows(IllegalArgumentException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("Model directory does not exist"),
+        "expected 'Model directory does not exist' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void validateOnnxProviderDimensionReturnsProviderOnMatch() {
+    java.util.Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models =
+        new java.util.HashMap<>();
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig modelConfig =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(384);
+    models.put("m", modelConfig);
+
+    OnnxEmbeddingProvider provider = mock(OnnxEmbeddingProvider.class);
+    when(provider.getOutputDimension()).thenReturn(384);
+
+    TestableFactory factory = new TestableFactory();
+    EmbeddingProvider result = factory.validateOnnxProviderDimension(provider, models, "m");
+
+    assertEquals(result, provider);
+  }
+
+  @Test
+  public void validateOnnxProviderDimensionThrowsAndClosesOnMismatch() {
+    java.util.Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models =
+        new java.util.HashMap<>();
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig modelConfig =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(768);
+    models.put("m", modelConfig);
+
+    OnnxEmbeddingProvider provider = mock(OnnxEmbeddingProvider.class);
+    when(provider.getOutputDimension()).thenReturn(384);
+
+    TestableFactory factory = new TestableFactory();
+    IllegalStateException ex =
+        expectThrows(
+            IllegalStateException.class,
+            () -> factory.validateOnnxProviderDimension(provider, models, "m"));
+    assertTrue(
+        ex.getMessage().contains("does not match the configured vectorDimension"),
+        "expected dimension-mismatch message, got: " + ex.getMessage());
+    // Provider must be closed to release native resources when validation fails.
+    verify(provider).close();
+  }
+
+  // ------- Classical provider tests -------
+  // factoryWithOnnxConfig is the generic config + models wiring, reused as-is.
+
+  private static EmbeddingProviderConfiguration configWithClassical(String model) {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("classical");
+    config.getClassical().setModel(model);
+    config.getClassical().setAcknowledgeLexicalOnly(true);
+    return config;
+  }
+
+  private static Map<String, ModelEmbeddingConfig> modelsWith(
+      String key, int dims, String spaceType) {
+    ModelEmbeddingConfig modelConfig = new ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(dims);
+    modelConfig.setSpaceType(spaceType);
+    return Map.of(key, modelConfig);
+  }
+
+  @Test
+  public void instantiatesClassicalProviderViaGetInstance() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "cosinesimil"));
+
+    EmbeddingProvider provider = factory.getInstance();
+
+    assertTrue(
+        provider instanceof ClassicalEmbeddingProvider,
+        "expected ClassicalEmbeddingProvider, got: " + provider.getClass().getName());
+    assertEquals(provider.embed("id", null).length, 2048);
+  }
+
+  /** The provider is lexical, not semantic: startup refuses it without the explicit opt-in. */
+  @Test
+  public void rejectsClassicalWithoutLexicalOnlyAcknowledgement() throws Exception {
+    EmbeddingProviderConfiguration config = configWithClassical("hash-v1-2048");
+    config.getClassical().setAcknowledgeLexicalOnly(false);
+    TestableFactory factory =
+        factoryWithOnnxConfig(config, modelsWith("hash_v1_2048", 2048, "cosinesimil"));
+
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY"),
+        "expected opt-in hint, got: " + ex.getMessage());
+  }
+
+  /** Elasticsearch names the metric "cosine"; OpenSearch "cosinesimil". Both are accepted. */
+  @Test
+  public void acceptsClassicalWithElasticsearchCosineSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-256"), modelsWith("hash_v1_256", 256, "cosine"));
+
+    assertTrue(factory.getInstance() instanceof ClassicalEmbeddingProvider);
+  }
+
+  @Test
+  public void rejectsClassicalWithMalformedModelName() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v9-2048"), modelsWith("hash_v9_2048", 2048, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalWhenModelKeyMissingFromModelsMap() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"),
+            modelsWith("text_embedding_3_large", 3072, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalOnDimensionMismatch() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 1024, "cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsClassicalOnNonCosineSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "l2"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  /** The mapping translator matches case-sensitively, so a case variant must fail here too. */
+  @Test
+  public void rejectsClassicalOnCaseVariantSpaceType() throws Exception {
+    TestableFactory factory =
+        factoryWithOnnxConfig(
+            configWithClassical("hash-v1-2048"), modelsWith("hash_v1_2048", 2048, "Cosinesimil"));
+
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  /** A yaml without the classical block must fail with the configuration hint, not an NPE. */
+  @Test
+  public void rejectsClassicalWhenClassicalConfigBlockMissing() throws Exception {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("classical");
+    config.setClassical(null);
+    TestableFactory factory =
+        factoryWithOnnxConfig(config, modelsWith("hash_v1_2048", 2048, "cosinesimil"));
+
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("CLASSICAL_EMBEDDING_MODEL"),
+        "expected configuration hint, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsClassicalWhenModelsMapMissing() throws Exception {
+    TestableFactory factory = factoryWithOnnxConfig(configWithClassical("hash-v1-2048"), null);
+
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("semanticSearch.models"),
+        "expected missing-models message, got: " + ex.getMessage());
   }
 
   // ------- getInstance() NoOp paths -------

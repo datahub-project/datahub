@@ -444,6 +444,23 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         "json": {"entries": [], "total": 0, "nextPage": None},
     }
 
+    # Default dataset-sources mocks. Sigma Dataset warehouse resolution calls
+    # /datasets/{id}/sources for any dataset-backed element whose SQL named no
+    # tables, which is most tests. Without these the call is unmocked, the error
+    # is caught into a warning, and the suite stays green while quietly
+    # exercising the failure path. An empty list means "no warehouse source".
+    for _default_dataset_id in (
+        "8891fd40-5470-4ff2-a74f-6e61ee44d3fc",
+        "bd6b86e8-cd4a-4b25-ab65-f258c2a68a8f",
+    ):
+        api_vs_response[
+            f"https://aws-api.sigmacomputing.com/v2/datasets/{_default_dataset_id}/sources"
+        ] = {
+            "method": "GET",
+            "status_code": 200,
+            "json": [],
+        }
+
     # Default /v2/connections mock (one Snowflake connection). Every Sigma
     # integration test now exercises the connection registry build at
     # SigmaSource.__init__, so this default keeps existing tests from hitting
@@ -6791,6 +6808,16 @@ _WH_CHART_PAGE_ID = "chart-wh-page-01"
 _WH_CHART_DM_FED_ELEM_ID = "dmFedElem01"
 _WH_CHART_LEGACY_SD_ELEM_ID = "legacySdElem01"
 
+# BFS entity-level test (C2) — independent from _WH_* fixtures above.
+_BFS_CONN_ID = "bfs-conn-0000-0000-000000000001"
+_BFS_INODE_ID = "bfs-inode-000-0000-000000000001"
+_BFS_URL_ID = "bfsUrlId001"
+_BFS_WORKSPACE_ID = "bfs-ws-0000-0000-000000000001"
+_BFS_WORKBOOK_ID = "bfs-wb-0000-0000-000000000001"
+_BFS_PAGE_ID = "bfs-page-01"
+_BFS_ELEM_ID = "bfsDirectElem01"
+_BFS_TABLE_NODE_ID = f"inode-{_BFS_URL_ID}"
+
 
 def _get_chart_warehouse_qualified_overrides() -> Dict[str, Dict]:
     """Fixture overrides for the chart warehouse-qualified InputFields test.
@@ -7114,6 +7141,10 @@ def test_sigma_chart_input_fields_warehouse_qualified(
     assert report.chart_input_fields_warehouse_table_lookup_failed == 0
     assert report.chart_input_fields_warehouse_path_unparseable == 0
     assert report.chart_input_fields_warehouse_unknown_connection == 0
+    # No BFS type=table nodes in element lineage -> entity-level path not exercised here
+    assert report.chart_warehouse_upstream_emitted == 0
+    assert report.chart_warehouse_table_name_unmatched == 0
+    assert report.chart_warehouse_table_node_skipped == 0
 
     # Verify the actual schemaFieldUrn for dmFedElem01.customer_id
     expected_warehouse_schema_field_urn = (
@@ -7143,6 +7174,273 @@ def test_sigma_chart_input_fields_warehouse_qualified(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_chart_warehouse_qualified.json",
+    )
+
+
+def _get_chart_bfs_warehouse_upstream_overrides() -> Dict[str, Dict]:
+    """Fixture for entity-level ChartInfo.inputs via BFS type=table node.
+
+    Topology:
+      Workbook _BFS_WORKBOOK_ID / page _BFS_PAGE_ID
+        bfsDirectElem01: per-element lineage BFS has a direct type=table upstream
+                         node inode-<_BFS_URL_ID> named "ORDERS". No SQL query.
+
+      Per-element lineage /lineage/elements/bfsDirectElem01:
+        type=table  inode-<_BFS_URL_ID>  name="ORDERS"
+
+      Workbook-level lineage /v2/workbooks/{id}/lineage:
+        type=table  ORDERS  inodeId=_BFS_INODE_ID  /files -> path="Connection Root/TESTDB/PUBLIC"
+
+      Expected:
+        chart_warehouse_upstream_emitted == 1
+        ChartInfo.inputs for bfsDirectElem01 contains snowflake dataset URN for testdb.public.orders
+    """
+    return {
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": _BFS_WORKSPACE_ID,
+                        "name": "Test Org",
+                        "createdBy": "owner-bfs",
+                        "updatedBy": "owner-bfs",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _BFS_CONN_ID,
+                        "name": "Test Snowflake",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "host": "test-account.snowflakecomputing.com",
+                        "warehouse": "COMPUTE_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workbookId": _BFS_WORKBOOK_ID,
+                        "workbookUrlId": "bfs-wb-url-id",
+                        "ownerId": "owner-bfs",
+                        "createdBy": "owner-bfs",
+                        "updatedBy": "owner-bfs",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                        "name": "BFS Test Workbook",
+                        "url": "https://app.sigmacomputing.com/test-org/workbook/bfs-wb-url-id",
+                        "path": "Test Org",
+                        "latestVersion": 1,
+                        "isArchived": False,
+                        "workspaceId": _BFS_WORKSPACE_ID,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": _BFS_WORKBOOK_ID,
+                        "urlId": "bfs-wb-url-id",
+                        "name": "BFS Test Workbook",
+                        "type": "workbook",
+                        "parentId": _BFS_WORKSPACE_ID,
+                        "parentUrlId": "bfs-ws-url-id",
+                        "permission": "edit",
+                        "path": "Test Org",
+                        "badge": None,
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [{"pageId": _BFS_PAGE_ID, "name": "BFS Page"}],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/pages/{_BFS_PAGE_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _BFS_ELEM_ID,
+                        "type": "table",
+                        "name": "Direct BFS Element",
+                        "columns": [],
+                        "vizualizationType": "levelTable",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Per-element lineage: direct type=table upstream node.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/lineage/elements/{_BFS_ELEM_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_bfs": {
+                        "nodeId": "tgt_bfs",
+                        "elementId": _BFS_ELEM_ID,
+                        "name": "Direct BFS Element",
+                        "type": "sheet",
+                    },
+                    _BFS_TABLE_NODE_ID: {
+                        "nodeId": _BFS_TABLE_NODE_ID,
+                        "type": "table",
+                        "name": "ORDERS",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": _BFS_TABLE_NODE_ID,
+                        "target": "tgt_bfs",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/elements/{_BFS_ELEM_ID}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # Workbook-level lineage: type=table ORDERS.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _BFS_CONN_ID,
+                        "name": "ORDERS",
+                        "type": "table",
+                        "inodeId": _BFS_INODE_ID,
+                    },
+                ]
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/files/{_BFS_INODE_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": _BFS_INODE_ID,
+                "urlId": _BFS_URL_ID,
+                "name": "ORDERS",
+                "type": "table",
+                "path": "Connection Root/TESTDB/PUBLIC",
+                "badge": None,
+                "isArchived": False,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_chart_bfs_warehouse_entity_upstream(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Entity-level ChartInfo.inputs contains a warehouse Dataset URN when an
+    element's BFS graph has a direct type=table upstream node.
+
+    Assertions:
+      - chart_warehouse_upstream_emitted == 1
+      - ChartInfo.inputs for bfsDirectElem01 contains the snowflake Dataset URN
+    """
+    override_data = _get_chart_bfs_warehouse_upstream_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_chart_bfs_warehouse_upstream_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_data_models=False,
+            chart_sources_platform_mapping={},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    assert report.chart_warehouse_upstream_emitted == 1, (
+        f"expected 1 BFS warehouse upstream emitted; got {report.chart_warehouse_upstream_emitted}"
+    )
+    assert report.chart_warehouse_table_name_unmatched == 0
+    assert report.chart_warehouse_table_node_skipped == 0
+
+    expected_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,testdb.public.orders,PROD)"
+    )
+    bfs_chart_urn = f"urn:li:chart:(sigma,{_BFS_ELEM_ID})"
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    chart_info_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == bfs_chart_urn
+        and mce.get("aspectName") == "chartInfo"
+    ]
+    assert len(chart_info_aspects) == 1, (
+        f"expected 1 chartInfo aspect for {bfs_chart_urn}"
+    )
+    inputs = chart_info_aspects[0]["aspect"]["json"].get("inputs", [])
+    input_urns = [inp.get("string") for inp in inputs]
+    assert expected_dataset_urn in input_urns, (
+        f"warehouse Dataset URN not in ChartInfo.inputs. Got: {input_urns}"
     )
 
 
@@ -7503,3 +7801,186 @@ def test_sigma_ingest_workbook_customsql(pytestconfig, tmp_path, requests_mock):
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_workbook_customsql.json",
     )
+
+
+@pytest.mark.integration
+def test_dataset_warehouse_upstream_survives_empty_element_sql(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A dataset-backed element's /query returns empty SQL, and the edge survives.
+
+    Sigma retired datasets as a data source on 2026-09-15. A workbook element
+    reading through a dataset still answers ``/elements/{id}/query`` with HTTP
+    200, but the body no longer carries SQL -- so the dataset's url id cannot be
+    found in a query string any more, and that string match was the only way the
+    Sigma Dataset -> warehouse table edge was derived.
+
+    ``/datasets/{id}/sources`` still names the source table by inode and
+    ``/connections/paths/{inodeId}`` still resolves it to a connection plus a
+    path, so the edge is recoverable structurally rather than textually. Shapes
+    below are the ones the live API returns.
+    """
+    output_path = f"{tmp_path}/sigma_dataset_inode_mces.json"
+
+    override_data: Dict[str, Dict] = {
+        # Post-deprecation: 200 with no SQL, for EVERY element whose lineage
+        # names the dataset. Emptying only one leaves the other's SQL to supply
+        # the warehouse side, and the edge resolves for the wrong reason.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/Ml9C5ezT5W/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/tQJu5N1l81/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {},
+        },
+        # The structural route that still works.
+        "https://aws-api.sigmacomputing.com/v2/datasets/8891fd40-5470-4ff2-a74f-6e61ee44d3fc/sources": {
+            "method": "GET",
+            "status_code": 200,
+            "json": [
+                {"type": "table", "inodeId": "14139218-f19c-408f-bcb5-be88ee9f3659"}
+            ],
+        },
+        # Column formulas referencing the warehouse table by its short name.
+        # This is what drives the chart inputFields bridge: the per-element
+        # warehouse index is built from dataset_inputs, so without the dataset
+        # entry these columns fall back to self-references.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"elementId": "Ml9C5ezT5W", "name": "Pk", "formula": "[PETS/Pk]"},
+                    {
+                        "elementId": "Ml9C5ezT5W",
+                        "name": "Status",
+                        "formula": "[PETS/Status]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # Carries the connectionId, so the warehouse URN is built through the
+        # connection registry rather than chart_sources_platform_mapping.
+        # conn-test-snowflake is the default /v2/connections mock entry.
+        "https://aws-api.sigmacomputing.com/v2/connections/paths/14139218-f19c-408f-bcb5-be88ee9f3659": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "connectionId": "conn-test-snowflake",
+                "path": ["LONG_TAIL_COMPANIONS", "ADOPTION", "PETS"],
+            },
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                # No chart_sources_platform_mapping: the platform now comes from
+                # the connection registry, so this route must resolve without it.
+                # Data Models are off because this fixture has no /dataModels
+                # mock; leaving them on banks a caught pagination warning and
+                # defeats the no-warnings assertion below.
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "ingest_data_models": False,
+                },
+            },
+            "sink": {"type": "file", "config": {"filename": output_path}},
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    sigma_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)"
+    )
+    expected_upstream = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "long_tail_companions.adoption.pets,PROD)"
+    )
+    upstreams = [
+        u["dataset"]
+        for mce in mces
+        if mce.get("entityUrn") == sigma_dataset_urn
+        and mce.get("aspectName") == "upstreamLineage"
+        for u in mce["aspect"]["json"]["upstreams"]
+    ]
+    assert expected_upstream in upstreams, (
+        "Sigma Dataset -> warehouse edge must be derived from "
+        "/datasets/{id}/sources + /connections/paths/{inodeId} when the element "
+        "SQL is empty"
+    )
+
+    # The same missing dict entry also dropped the Sigma Dataset from
+    # ChartInfo.inputs, so assert that edge came back for both dataset-backed
+    # charts rather than trusting the upstreamLineage aspect alone.
+    inputs_by_chart = {
+        mce["entityUrn"]: [i["string"] for i in mce["aspect"]["json"]["inputs"]]
+        for mce in mces
+        if mce.get("aspectName") == "chartInfo"
+    }
+    for element_id in ("Ml9C5ezT5W", "tQJu5N1l81"):
+        chart_urn = f"urn:li:chart:(sigma,{element_id})"
+        assert sigma_dataset_urn in inputs_by_chart[chart_urn], (
+            f"chart {element_id} must keep its Sigma Dataset input; "
+            f"got {inputs_by_chart[chart_urn]}"
+        )
+
+    # /sources is fetched once per dataset, not once per referencing element:
+    # two charts read this dataset, and the cache must collapse that to one
+    # call. Guards the cache against a refactor that resolves per element.
+    sources_calls = [
+        r
+        for r in requests_mock.request_history
+        if r.path.endswith("/v2/datasets/8891fd40-5470-4ff2-a74f-6e61ee44d3fc/sources")
+    ]
+    assert len(sources_calls) == 1, (
+        f"expected exactly 1 /sources call for the dataset, got {len(sources_calls)}"
+    )
+
+    # The third symptom: chart columns sourced through the dataset fell back to
+    # self-references, because the per-element warehouse index is built from
+    # dataset_inputs. Columns carrying a [PETS/...] formula must now point at the
+    # Snowflake column; columns with no formula have nothing to bridge and
+    # correctly stay self-referencing.
+    fields = {
+        f["schemaField"]["fieldPath"]: f["schemaFieldUrn"]
+        for mce in mces
+        if mce.get("entityUrn") == "urn:li:chart:(sigma,Ml9C5ezT5W)"
+        and mce.get("aspectName") == "inputFields"
+        for f in mce["aspect"]["json"]["fields"]
+    }
+    for column in ("Pk", "Status"):
+        assert fields[column] == (
+            f"urn:li:schemaField:({expected_upstream},{column})"
+        ), (
+            f"column {column} should resolve to the warehouse column; got {fields[column]}"
+        )
+    assert fields["Profile Id"].startswith(
+        "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W)"
+    ), "a column with no formula has nothing to bridge and stays a self-reference"
+
+    report = _sigma_report(pipeline)
+    assert report.dataset_warehouse_upstream_from_inode == 1, (
+        "counter is per dataset, not per referencing element; got "
+        f"{report.dataset_warehouse_upstream_from_inode}"
+    )
+    assert report.dataset_warehouse_unknown_connection == 0
+    assert report.dataset_sources_lookup_failed == 0
+    assert report.connection_path_lookup_failed == 0
+    # No endpoint was left unmocked and no failure path was taken: a caught
+    # exception here would otherwise pass silently, since goldens and counters
+    # above would both still look right.
+    assert not report.warnings, f"unexpected warnings: {list(report.warnings)}"

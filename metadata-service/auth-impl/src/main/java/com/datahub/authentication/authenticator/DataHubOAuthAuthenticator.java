@@ -168,8 +168,6 @@ public class DataHubOAuthAuthenticator implements Authenticator {
     try {
       String jwtToken = context.getRequestHeaders().get(AUTHORIZATION_HEADER_NAME);
 
-      log.info("Request headers are: {}", context.getRequestHeaders());
-
       if (jwtToken == null
           || (!jwtToken.startsWith("Bearer ") && !jwtToken.startsWith("bearer "))) {
         throw new AuthenticationException("Invalid Authorization header");
@@ -237,14 +235,14 @@ public class DataHubOAuthAuthenticator implements Authenticator {
       trustedIssuers.add(issuer);
 
       Jws<Claims> claims =
-          Jwts.parserBuilder()
+          Jwts.parser()
               .setSigningKeyResolver(
                   new DataHubOAuthSigningKeyResolver(
                       trustedIssuers, matchingProvider.getJwksUri(), providerAlgorithm))
               .build()
-              .parseClaimsJws(token);
+              .parseSignedClaims(token);
 
-      Claims body = claims.getBody();
+      Claims body = claims.getPayload();
 
       // Extract subject (userIdClaim)
       final String subject = body.get(providerUserIdClaim, String.class);

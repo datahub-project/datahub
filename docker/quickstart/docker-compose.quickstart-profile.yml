@@ -5,6 +5,7 @@ services:
     profiles:
     - quickstart
     - quickstart-backend
+    - quickstart-opensearch2
     depends_on:
       datahub-gms-quickstart:
         condition: service_healthy
@@ -12,6 +13,8 @@ services:
     environment:
       ACTIONS_CONFIG: ''
       ACTIONS_EXTRA_PACKAGES: ''
+      AWS_PROFILE: null
+      AWS_SDK_LOAD_CONFIG: '1'
       DATAHUB_GMS_HOST: datahub-gms
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_GMS_PROTOCOL: http
@@ -26,6 +29,7 @@ services:
       METADATA_AUDIT_EVENT_NAME: MetadataAuditEvent_v4
       METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME: MetadataChangeLog_Versioned_v1
       SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+      UV_LINK_MODE: hardlink
     hostname: actions
     image: acryldata/datahub-actions:${DATAHUB_VERSION}-slim
     networks:
@@ -46,6 +50,7 @@ services:
     profiles:
     - quickstart
     - quickstart-backend
+    - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -55,11 +60,14 @@ services:
       CONFIG_ENTITY_REGISTRY_USE_OPTIMIZED_LOADING: 'true'
       DATAHUB_BASE_PATH: /
       DATAHUB_GMS_BASE_PATH: /
+      DATAHUB_OBJECT_STORAGE_URI: file:///tmp/datahub-object-storage
       DATAHUB_SERVER_TYPE: quickstart
+      DATAHUB_SYSTEM_CLIENT_SECRET: ${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}
       DATAHUB_TELEMETRY_ENABLED: 'false'
       DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       DATAHUB_UPGRADE_HISTORY_KAFKA_CONSUMER_GROUP_ID: generic-duhe-consumer-job-client-gms
+      DEV_TOOLING_ENABLED: 'false'
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
       EBEAN_DATASOURCE_HOST: mysql:3306
       EBEAN_DATASOURCE_PASSWORD: datahub
@@ -89,8 +97,11 @@ services:
       JAVA_OPTS: -Xms1g -Xmx1g
       KAFKA_BOOTSTRAP_SERVER: broker:29092
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+      LOG_AGGREGATOR_ENDPOINT: ''
       MAE_CONSUMER_ENABLED: 'true'
       MCE_CONSUMER_ENABLED: 'true'
+      MCL_CONSUMER_BATCH_ENABLED: 'true'
+      MCP_CONSUMER_BATCH_ENABLED: 'true'
       METADATA_SERVICE_AUTH_ENABLED: 'false'
       NEO4J_HOST: http://neo4j:7474
       NEO4J_PASSWORD: datahub
@@ -108,6 +119,13 @@ services:
       STRICT_URN_VALIDATION_ENABLED: 'true'
       THEME_V2_DEFAULT: 'true'
       UI_INGESTION_ENABLED: 'true'
+      USAGE_AGGREGATION_ALIGNMENT_PERIOD_SECONDS: '3600'
+      USAGE_AGGREGATION_ENABLED: 'true'
+      USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS: '30'
+      USAGE_AGGREGATION_INCLUDE_AGENT_NAME: 'true'
+      VIEW_AUTHORIZATION_ENABLED: 'false'
+      ZDU_STAGE_10: 'true'
+      ZDU_STAGE_20: 'true'
       UI_INGESTION_DEFAULT_CLI_VERSION: ${UI_INGESTION_DEFAULT_CLI_VERSION}
     expose:
     - '4319'
@@ -149,6 +167,7 @@ services:
     profiles:
     - quickstart
     - quickstart-frontend
+    - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
         condition: service_completed_successfully
@@ -161,6 +180,7 @@ services:
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PLAY_MEM_BUFFER_SIZE: 10MB
       DATAHUB_SECRET: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      DATAHUB_SYSTEM_CLIENT_SECRET: ${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}
       DATAHUB_TRACKING_TOPIC: DataHubUsageEvent_v1
       ELASTIC_CLIENT_HOST: elasticsearch
       ELASTIC_CLIENT_PORT: '9200'
@@ -171,6 +191,7 @@ services:
       JAVA_OPTS: -Xms512m -Xmx512m -Dhttp.port=9002 -Dconfig.file=datahub-frontend/conf/application.conf -Djava.security.auth.login.config=datahub-frontend/conf/jaas.conf
         -Dlogback.configurationFile=datahub-frontend/conf/logback.xml -Dlogback.debug=false -Dpidfile.path=/dev/null
       KAFKA_BOOTSTRAP_SERVER: broker:29092
+      LOG_AGGREGATOR_ENDPOINT: ''
       PLAY_HTTP_CONTEXT: /
       THEME_V2_DEFAULT: 'true'
     expose:
@@ -191,6 +212,33 @@ services:
       bind:
         create_host_path: true
   kafka-broker:
+    profiles:
+    - quickstart
+    - quickstart-backend
+    - quickstart-actions
+    - quickstart-frontend
+    - quickstart-storage
+    - quickstart-cassandra
+    - quickstart-postgres-cdc
+    - quickstart-consumers
+    - quickstart-consumers-cdc
+    - debug
+    - debug-min
+    - debug-datahub-actions
+    - debug-frontend
+    - debug-backend
+    - debug-postgres-cdc
+    - debug-cassandra
+    - debug-consumers
+    - debug-consumers-cdc
+    - debug-neo4j
+    - debug-elasticsearch
+    - debug-opensearch2
+    - debug-opensearch3
+    - debug-backend-aws
+    - debug-aws
+    - quickstart-opensearch2
+    - quickstart-opensearch3
     command:
     - /bin/bash
     - -c
@@ -231,12 +279,12 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
-      timeout: 5s
-      interval: 1s
-      retries: 5
+      - kafka-broker-api-versions --bootstrap-server broker:29092 >/dev/null 2>&1
+      timeout: 10s
+      interval: 5s
+      retries: 12
       start_period: 1m0s
-    image: confluentinc/cp-kafka:8.0.0
+    image: confluentinc/cp-kafka:8.2.2
     networks:
       default: null
     ports:
@@ -266,8 +314,12 @@ services:
     - debug-consumers-cdc
     - debug-neo4j
     - debug-elasticsearch
+    - debug-opensearch2
+    - debug-opensearch3
     - debug-backend-aws
     - debug-aws
+    - quickstart-opensearch2
+    - quickstart-opensearch3
     command:
     - --character-set-server=utf8mb4
     - --collation-server=utf8mb4_bin
@@ -310,6 +362,7 @@ services:
     - quickstart-storage
     - quickstart-cassandra
     - quickstart-postgres
+    - quickstart-postgres-consumers
     - quickstart-postgres-cdc
     - quickstart-consumers
     - quickstart-consumers-cdc
@@ -320,12 +373,15 @@ services:
     - debug-backend
     - debug-postgres
     - debug-postgres-cdc
+    - debug-postgres-consumers
     - debug-cassandra
     - debug-consumers
     - debug-consumers-cdc
     - debug-neo4j
     - debug-backend-aws
     - debug-aws
+    - debug-opensearch2
+    - quickstart-opensearch2
     environment:
       DISABLE_SECURITY_PLUGIN: 'true'
       ES_JAVA_OPTS: -Xms256m -Xmx512m -Dlog4j2.formatMsgNoLookups=true
@@ -335,7 +391,7 @@ services:
     healthcheck:
       test:
       - CMD-SHELL
-      - curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      - curl -sS --fail "http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s"
       timeout: 15s
       interval: 5s
       retries: 10
@@ -360,6 +416,7 @@ services:
     - quickstart-consumers
     - quickstart-frontend
     - quickstart-backend
+    - quickstart-opensearch2
     command:
     - -u
     - SystemUpdate
@@ -384,6 +441,7 @@ services:
       DATAHUB_GMS_PORT: '8080'
       DATAHUB_PRECREATE_TOPICS: 'true'
       DATAHUB_SQL_SETUP_ENABLED: 'true'
+      DATAHUB_SYSTEM_CLIENT_SECRET: ${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}
       DATAHUB_TOKEN_SERVICE_SALT: ${DATAHUB_TOKEN_SERVICE_SALT}
       DATAHUB_TOKEN_SERVICE_SIGNING_KEY: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}
       EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
@@ -405,6 +463,7 @@ services:
       GRAPH_SERVICE_IMPL: elasticsearch
       KAFKA_BOOTSTRAP_SERVER: broker:29092
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+      LOG_AGGREGATOR_ENDPOINT: ''
       NEO4J_HOST: http://neo4j:7474
       NEO4J_PASSWORD: datahub
       NEO4J_URI: bolt://neo4j
@@ -416,6 +475,9 @@ services:
       SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: 'true'
       SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: 'true'
       USE_CONFLUENT_SCHEMA_REGISTRY: 'false'
+      VIEW_AUTHORIZATION_ENABLED: 'false'
+      ZDU_STAGE_10: 'true'
+      ZDU_STAGE_20: 'true'
     hostname: datahub-system-update
     image: acryldata/datahub-upgrade:${DATAHUB_VERSION}
     labels:

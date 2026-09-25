@@ -46,8 +46,7 @@ public class Es8KnnQueryBuilderTest {
 
     @SuppressWarnings("unchecked")
     Map<String, Object> query = (Map<String, Object>) body.get("query");
-    // Filters go in outer bool.filter to support root-level doc fields (platform, urn, entityType)
-    assertTrue(query.containsKey("bool"), "query should wrap bool for root-level filter support");
+    assertTrue(query.containsKey("bool"), "query should wrap the nested kNN in a bool");
     assertFalse(query.containsKey("nested"), "nested is inside bool.must, not at query root");
 
     Map<String, Object> bool = extractBool(body);
@@ -74,9 +73,9 @@ public class Es8KnnQueryBuilderTest {
   }
 
   @Test
-  public void testFilterPlacedInOuterBoolForRootFieldAccess() {
-    // Root-level filters (platform, urn, entityType, _index) cannot be referenced inside a nested
-    // kNN clause in ES 8 — they must live in the outer bool.filter.
+  public void testFilterPlacedInsideKnnForPreFiltering() {
+    // Inside the kNN clause the filter applies to the vectors' parent documents, so root-level
+    // filters (platform, urn, entityType, _index) pre-filter instead of trimming the top k.
     Map<String, Object> filterClause = Map.of("term", Map.of("platform", "snowflake"));
     KnnSearchRequest req =
         KnnSearchRequest.builder()
@@ -89,19 +88,10 @@ public class Es8KnnQueryBuilderTest {
 
     Map<String, Object> body = Es8KnnQueryBuilder.build(req);
 
-    // Filter must be in outer bool.filter, NOT inside knn clause
-    Map<String, Object> bool = extractBool(body);
-    assertTrue(
-        bool.containsKey("filter"), "filter must be in outer bool.filter for root-field access");
-    @SuppressWarnings("unchecked")
-    List<Map<String, Object>> filterList = (List<Map<String, Object>>) bool.get("filter");
-    assertEquals(
-        filterList.get(0), filterClause, "The filter map should be the exact one provided");
-
-    // Confirm filter is NOT inside knn inner block
     Map<String, Object> knnInner = extractKnnInner(body);
+    assertEquals(knnInner.get("filter"), filterClause, "filter must be inside the knn clause");
     assertFalse(
-        knnInner.containsKey("filter"), "filter must NOT be inside knn clause (nested context)");
+        extractBool(body).containsKey("filter"), "filter must not be a post-filter on the bool");
   }
 
   @Test
@@ -154,7 +144,10 @@ public class Es8KnnQueryBuilderTest {
 
     assertTrue(
         body.containsKey("_source"), "Body should contain _source when fieldsToFetch is set");
-    assertEquals(body.get("_source"), List.of("urn", "name"), "_source should match fieldsToFetch");
+    assertEquals(
+        body.get("_source"),
+        Map.of("includes", List.of("urn", "name")),
+        "_source should use includes format for ES 8 client compatibility");
   }
 
   @Test(

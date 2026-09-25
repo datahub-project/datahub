@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { DateInterval, TimeRange } from '@src/types.generated';
 
@@ -10,32 +12,56 @@ export enum LookbackWindowType {
 }
 
 export const GRAPH_LOOKBACK_WINDOWS: { [key in LookbackWindowType]: LookbackWindow } = {
-    [LookbackWindowType.Week]: { text: 'Last Week', windowSize: { interval: DateInterval.Week, count: 1 } },
-    [LookbackWindowType.Month]: { text: 'Last 30 Days', windowSize: { interval: DateInterval.Day, count: 30 } },
-    [LookbackWindowType.Quarter]: { text: 'Last 3 Months', windowSize: { interval: DateInterval.Month, count: 3 } },
-    [LookbackWindowType.HalfOfYear]: { text: 'Last 6 Months', windowSize: { interval: DateInterval.Month, count: 6 } },
-    [LookbackWindowType.Year]: { text: 'Last Year', windowSize: { interval: DateInterval.Year, count: 1 } },
+    [LookbackWindowType.Week]: {
+        get text() {
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.lastWeek');
+        },
+        windowSize: { interval: DateInterval.Week, count: 1 },
+    },
+    [LookbackWindowType.Month]: {
+        get text() {
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.last30Days');
+        },
+        windowSize: { interval: DateInterval.Day, count: 30 },
+    },
+    [LookbackWindowType.Quarter]: {
+        get text() {
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.last3Months');
+        },
+        windowSize: { interval: DateInterval.Month, count: 3 },
+    },
+    [LookbackWindowType.HalfOfYear]: {
+        get text() {
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.last6Months');
+        },
+        windowSize: { interval: DateInterval.Month, count: 6 },
+    },
+    [LookbackWindowType.Year]: {
+        get text() {
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.lastYear');
+        },
+        windowSize: { interval: DateInterval.Year, count: 1 },
+    },
 };
 
-export const GRAPH_LOOKBACK_WINDOWS_OPTIONS = [
-    ...Object.entries(GRAPH_LOOKBACK_WINDOWS).map(([key, value]) => ({
+export const getGraphLookbackWindowsOptions = () =>
+    Object.entries(GRAPH_LOOKBACK_WINDOWS).map(([key, value]) => ({
         label: value.text,
         value: key,
-    })),
-];
+    }));
 
 const getTimeRangeLabel = (value: TimeRange) => {
     switch (value) {
         case TimeRange.Week:
-            return 'Last Week';
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.lastWeek');
         case TimeRange.Month:
-            return 'Last 30 days';
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.last30Days');
         case TimeRange.Quarter:
-            return 'Last 3 months';
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.last3Months');
         case TimeRange.HalfYear:
-            return 'Last 6 months';
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.last6Months');
         case TimeRange.Year:
-            return 'Last Year';
+            return i18next.t('entity.profile.stats:lookbackWindowOptions.lastYear');
         default:
             return value;
     }
@@ -49,7 +75,8 @@ const QUERY_COUNT_TIME_RANGE_OPTIONS = [
     TimeRange.Year,
 ];
 
-export const AGGRAGATION_TIME_RANGE_OPTIONS = Object.values(QUERY_COUNT_TIME_RANGE_OPTIONS).map((value) => ({
-    label: getTimeRangeLabel(value),
-    value,
-}));
+export const getAggregationTimeRangeOptions = () =>
+    QUERY_COUNT_TIME_RANGE_OPTIONS.map((value) => ({
+        label: getTimeRangeLabel(value),
+        value,
+    }));

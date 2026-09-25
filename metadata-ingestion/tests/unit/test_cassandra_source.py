@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+from types import SimpleNamespace
 from typing import Any, Dict, List, Tuple
 
 # Unit tests for CassandraAPI SSL Configuration
@@ -90,6 +91,115 @@ def test_no_properties_in_mappings_schema() -> None:
     assert fields == []
 
 
+def _schema_row_with_extensions(extensions: Dict[str, Any]) -> SimpleNamespace:
+    return SimpleNamespace(
+        keyspace_name="ks",
+        table_name="tbl",
+        view_name="vw",
+        base_table_name="tbl",
+        include_all_columns=True,
+        where_clause="",
+        bloom_filter_fp_chance=0.01,
+        caching={"keys": "ALL"},
+        comment="",
+        compaction={"class": "SizeTieredCompactionStrategy"},
+        compression={"class": "LZ4Compressor"},
+        crc_check_chance=1.0,
+        dclocal_read_repair_chance=0.0,
+        default_time_to_live=0,
+        extensions=extensions,
+        gc_grace_seconds=864000,
+        max_index_interval=2048,
+        memtable_flush_period_in_ms=0,
+        min_index_interval=128,
+        read_repair_chance=0.0,
+        speculative_retry="99p",
+    )
+
+
+def _api_returning_row(row: SimpleNamespace) -> CassandraAPI:
+    api = CassandraAPI(
+        CassandraSourceConfig.model_validate(_get_base_config_dict()),
+        MagicMock(spec=SourceReport),
+    )
+    api.get = MagicMock(return_value=[row])  # type: ignore[method-assign]
+    return api
+
+
+# b"\xff\xfe" is not valid UTF-8, so it exercises the base64 fallback path.
+_INVALID_UTF8_BYTES = b"\xff\xfe"
+_VALID_UTF8_BYTES = b'{"cipher":"AES256"}'
+
+
+def test_get_tables_decodes_valid_utf8_extension() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions({"scylla_encryption_options": _VALID_UTF8_BYTES})
+    )
+
+    tables = api.get_tables("ks")
+
+    assert len(tables) == 1
+    assert tables[0].extensions == {"scylla_encryption_options": '{"cipher":"AES256"}'}
+    json.dumps(tables[0].extensions)
+    api.report.warning.assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_get_tables_base64_encodes_invalid_utf8_extension_and_warns() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions({"scylla_encryption_options": _INVALID_UTF8_BYTES})
+    )
+
+    tables = api.get_tables("ks")
+
+    assert len(tables) == 1
+    assert tables[0].extensions == {"scylla_encryption_options": "base64://4="}
+    json.dumps(tables[0].extensions)
+    api.report.warning.assert_called_once()  # type: ignore[attr-defined]
+    assert "ks.tbl" in str(api.report.warning.call_args)  # type: ignore[attr-defined]
+
+
+def test_get_tables_leaves_non_bytes_extension_values_untouched() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions(
+            {"already_text": "not bytes", "binary_value": _INVALID_UTF8_BYTES}
+        )
+    )
+
+    tables = api.get_tables("ks")
+
+    assert tables[0].extensions == {
+        "already_text": "not bytes",
+        "binary_value": "base64://4=",
+    }
+
+
+def test_get_views_decodes_valid_utf8_extension() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions({"scylla_encryption_options": _VALID_UTF8_BYTES})
+    )
+
+    views = api.get_views("ks")
+
+    assert len(views) == 1
+    assert views[0].extensions == {"scylla_encryption_options": '{"cipher":"AES256"}'}
+    json.dumps(views[0].extensions)
+    api.report.warning.assert_not_called()  # type: ignore[attr-defined]
+
+
+def test_get_views_base64_encodes_invalid_utf8_extension_and_warns() -> None:
+    api = _api_returning_row(
+        _schema_row_with_extensions({"scylla_encryption_options": _INVALID_UTF8_BYTES})
+    )
+
+    views = api.get_views("ks")
+
+    assert len(views) == 1
+    assert views[0].extensions == {"scylla_encryption_options": "base64://4="}
+    json.dumps(views[0].extensions)
+    api.report.warning.assert_called_once()  # type: ignore[attr-defined]
+    assert "ks.vw" in str(api.report.warning.call_args)  # type: ignore[attr-defined]
+
+
 def _get_base_config_dict() -> dict:
     return {
         "contact_point": "localhost",
@@ -111,6 +221,25 @@ def test_authenticate_no_ssl():
         mock_cluster.assert_called_once()
         assert mock_cluster.call_args[1].get("ssl_context") is None
         report.failure.assert_not_called()
+
+
+def test_close_shuts_down_session_and_cluster():
+    config_dict = _get_base_config_dict()
+    config = CassandraSourceConfig.model_validate(config_dict)
+    report = MagicMock(spec=SourceReport)
+    api = CassandraAPI(config, report)
+
+    with patch(
+        "datahub.ingestion.source.cassandra.cassandra_api.Cluster"
+    ) as mock_cluster:
+        mock_session = MagicMock()
+        mock_cluster.return_value.connect.return_value = mock_session
+        assert api.authenticate()
+
+        api.close()
+
+        mock_session.shutdown.assert_called_once()
+        mock_cluster.return_value.shutdown.assert_called_once()
 
 
 def test_authenticate_ssl_ca_certs():

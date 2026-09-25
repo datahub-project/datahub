@@ -8,12 +8,14 @@ const Wrapper = styled.div<{
     dragging: boolean;
     isGhost: boolean;
     isSearchedEntity: boolean;
+    highlighted: boolean;
 }>`
     width: ${LINEAGE_NODE_WIDTH}px;
 
-    background-color: ${(props) => props.theme.colors.bg};
+    // Same color as a column connected to the hovered / selected column, see Column.tsx
+    background-color: ${({ highlighted, theme }) => (highlighted ? theme.colors.bgHover : theme.colors.bg)};
     border-radius: 12px;
-    border: 1px solid ${({ selected, theme }) => (selected ? theme.colors.textBrand : theme.colors.border)};
+    border: 1px solid ${({ selected, theme }) => (selected ? theme.colors.borderSelected : theme.colors.border)};
     box-shadow: ${({ isSearchedEntity, theme }) =>
         isSearchedEntity ? `0 0 4px 4px ${theme.colors.border}` : theme.colors.shadowXs};
 
@@ -38,13 +40,21 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     dragging: boolean;
     isGhost: boolean;
     isSearchedEntity: boolean;
+    /** Whether the node as a whole is part of the highlighted column lineage, e.g. a metric reading a column. */
+    highlighted?: boolean;
     children?: React.ReactNode;
 }
 
 /** Base component to wrap graph nodes */
-export default function NodeWrapper({ urn, children, ...props }: Props) {
+export default function NodeWrapper({ urn, children, highlighted = false, ...props }: Props) {
     return (
-        <Wrapper data-testid={`lineage-node-${urn}`} {...props}>
+        <Wrapper
+            data-testid={`lineage-node-${urn}`}
+            // eslint-disable-next-line i18next/no-literal-string
+            data-lineage-highlighted={highlighted ? 'true' : 'false'}
+            highlighted={highlighted}
+            {...props}
+        >
             {children}
         </Wrapper>
     );

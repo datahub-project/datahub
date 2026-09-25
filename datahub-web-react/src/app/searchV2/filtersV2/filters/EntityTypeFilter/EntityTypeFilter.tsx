@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import useOptions from '@app/searchV2/filtersV2/filters/EntityTypeFilter/hooks/useOptions';
 import useValues from '@app/searchV2/filtersV2/filters/hooks/useValues';
@@ -8,6 +9,7 @@ import { NestedSelectOption } from '@src/alchemy-components/components/Select/Ne
 import { FilterOperator } from '@src/types.generated';
 
 export default function EntityTypeFilter({ fieldName, facetState, appliedFilters, onUpdate }: FilterComponentProps) {
+    const { t } = useTranslation('search');
     const values = useValues(appliedFilters);
     const options = useOptions(facetState, values);
     const initialValues = useMemo(() => options.filter((option) => values.includes(option.value)), [values, options]);
@@ -38,7 +40,7 @@ export default function EntityTypeFilter({ fieldName, facetState, appliedFilters
             renderCustomOptionText={(option) => option.displayName}
             showClear
             shouldDisplayConfirmationFooter
-            selectLabelProps={{ variant: 'labeled', label: 'Types' }}
+            selectLabelProps={{ variant: 'labeled', label: t('filtersV2.entityTypeFilter.label') }}
         />
     );
 }

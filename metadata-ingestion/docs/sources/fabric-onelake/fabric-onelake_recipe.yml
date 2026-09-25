@@ -76,6 +76,19 @@ source:
     #   trust_server_certificate: "no"  # Trust server certificate (default: "no")
     #   query_timeout: 30  # Timeout for SQL queries in seconds (default: 30)
 
+    # Optional: Query usage extraction. Reads queryinsights.exec_requests_history
+    # on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires sql_endpoint.enabled=true.
+    # Fabric retains queryinsights for 30 days.
+    # usage:
+    #   include_usage_statistics: true   # Master toggle (default: true)
+    #   skip_failed_queries: true        # Filter rows where status != 'Succeeded' (default: true)
+    #   include_operational_stats: true  # Emit per-query operation aspects (default: true)
+    #   include_top_n_queries: true
+    #   top_n_queries: 10
+    #   bucket_duration: DAY
+    #   # start_time: "2026-04-01T00:00:00Z"
+    #   # end_time:   "2026-05-01T00:00:00Z"
+
 sink:
   type: datahub-rest
   config:

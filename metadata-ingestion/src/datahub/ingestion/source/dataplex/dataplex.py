@@ -32,7 +32,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
@@ -45,16 +44,26 @@ from datahub.ingestion.source.dataplex.dataplex_context import DataplexContext
 from datahub.ingestion.source.dataplex.dataplex_entries import (
     DataplexEntriesProcessor,
 )
+from datahub.ingestion.source.dataplex.dataplex_export import (
+    DATAPLEX_API_ROOT,
+    GCP_SCOPES,
+    build_authed_session,
+    build_storage_client,
+    iter_exported_entries,
+    read_export_targets,
+    run_exports,
+)
 from datahub.ingestion.source.dataplex.dataplex_glossary import (
     DataplexGlossaryProcessor,
 )
+from datahub.ingestion.source.dataplex.dataplex_helpers import parse_gcs_path
 from datahub.ingestion.source.dataplex.dataplex_lineage import DataplexLineageExtractor
+from datahub.ingestion.source.dataplex.dataplex_platform_resource_repository import (
+    DataplexPlatformResourceRepository,
+)
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -82,7 +91,7 @@ def _resolve_project_numbers(
 
 @platform_name("Google Cloud Knowledge Catalog (Dataplex)", id="dataplex")
 @config_class(DataplexConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
@@ -120,11 +129,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
     """Source to ingest metadata from Google Dataplex Universal Catalog.
 
     To add support for a new Dataplex entry type, first define its identity model
-    in ``dataplex_ids.py`` by adding a SchemaKey class at the correct level in the
-    existing hierarchy (for example project -> instance -> database -> table). Then
-    register the entry type in ``DATAPLEX_ENTRY_TYPE_MAPPINGS`` with required fields:
-    DataHub platform, DataHub entity type (Container or Dataset), subtype constant
-    from ``subtypes.py``, FQN regex, parent-entry regex (if applicable), and key classes.
+    in ``dataplex_ids.py`` by adding a ContainerKey class at the correct level in
+    the existing hierarchy (for example project -> instance -> database -> table)
+    and the FQN / parent-entry regexes it needs. Then add a small ``EntryMapper``
+    subclass in ``dataplex_mappers.py`` that declares the DataHub platform, its
+    main entity type (Container or Dataset), the subtype constant from
+    ``subtypes.py``, and delegates to the shared ``build_dataset`` /
+    ``build_container`` helper; finally register the mapper in ``ENTRY_MAPPERS``.
     FQN formats and parent hierarchy must be derived from:
     https://cloud.google.com/dataplex/docs/fully-qualified-names
 
@@ -231,7 +242,9 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
         creds = self.config.get_credentials()
         credentials = (
-            service_account.Credentials.from_service_account_info(creds)
+            service_account.Credentials.from_service_account_info(
+                creds, scopes=GCP_SCOPES
+            )
             if creds
             else None
         )
@@ -241,8 +254,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         # Shared context — all processors read/write to this single object.
         self.ctx_data = DataplexContext(config=self.config, credentials=credentials)
 
-        # Catalog client for Entry Groups and Entries extraction
-        self.catalog_client = dataplex_v1.CatalogServiceClient(credentials=credentials)
+        # Catalog client for Entry Groups and Entries extraction. Not needed in
+        # export mode, where entries arrive pre-fetched from the metadata
+        # export's GCS output instead of per-entry Catalog API calls.
+        self.catalog_client: Optional[dataplex_v1.CatalogServiceClient] = (
+            dataplex_v1.CatalogServiceClient(credentials=credentials)
+            if self.config.extraction_method == "api"
+            else None
+        )
 
         # Initialize redundant lineage run skip handler for stateful lineage ingestion.
         # TODO: Wire this into DataplexLineageExtractor execution flow so lineage API calls
@@ -283,6 +302,31 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
             ctx=self.ctx_data,
         )
 
+        # Reconciles synced-back glossary terms against previously ingested
+        # platform resources. Requires a DataHub graph connection to read/write
+        # the side-index, so it is unavailable in dry-run / file-sink pipelines.
+        self.platform_resource_repository: Optional[
+            DataplexPlatformResourceRepository
+        ] = None
+        if self.ctx.graph is not None:
+            self.platform_resource_repository = DataplexPlatformResourceRepository(
+                self.ctx.graph
+            )
+        elif (
+            self.config.include_glossaries
+            or self.config.include_glossary_term_associations
+        ):
+            # Both the Phase-1 glossary-term suppression (under include_glossaries)
+            # and the Phase-2 association reconciliation (under
+            # include_glossary_term_associations) need the graph, so warn for either.
+            self.report.warning(
+                title="Glossary term reconciliation disabled",
+                message="No DataHub graph connection is available, so synced-back "
+                "glossary terms cannot be reconciled. Ingesting native Dataplex term "
+                "URNs as-is. Provide a datahub-rest sink or stateful ingestion to "
+                "enable reconciliation.",
+            )
+
         # Glossary processor — only instantiated when glossary ingestion is enabled.
         self.glossary_processor: Optional[DataplexGlossaryProcessor] = None
         if self.config.include_glossaries:
@@ -292,7 +336,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
 
             if self.config.include_glossary_term_associations:
                 # Project numbers are required for the lookupEntryLinks term entry path.
-                # Requires roles/resourcemanager.projectViewer on all configured projects.
+                # Requires a role granting resourcemanager.projects.get (e.g. roles/browser)
+                # on all configured projects.
                 try:
                     self.ctx_data.project_numbers = _resolve_project_numbers(
                         self._project_ids, credentials
@@ -302,7 +347,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                         title="Failed to resolve GCP project numbers",
                         message=(
                             "Could not resolve project numbers via the Resource Manager API. "
-                            "Ensure the service account has roles/resourcemanager.projectViewer "
+                            "Ensure the service account has a role granting "
+                            "resourcemanager.projects.get (e.g. roles/browser) "
                             "on all configured projects."
                         ),
                         context=str(self._project_ids),
@@ -312,9 +358,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 raw_creds = (
                     credentials
                     if credentials is not None
-                    else google.auth.default(
-                        scopes=["https://www.googleapis.com/auth/cloud-platform"]
-                    )[0]
+                    else google.auth.default(scopes=GCP_SCOPES)[0]
                 )
                 self.ctx_data.authed_session = (
                     google.auth.transport.requests.AuthorizedSession(raw_creds)
@@ -325,6 +369,7 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 glossary_client=glossary_client,
                 report=self.report.glossary_report,
                 source_report=self.report,
+                platform_resource_repository=self.platform_resource_repository,
             )
 
     @staticmethod
@@ -336,16 +381,84 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         `project_labels`, we first resolve at least one project via the Cloud
         Resource Manager API (which validates those credentials/permissions)
         and then list entry groups on the first resolved project.
+
+        In export mode, the probe verifies metadataJobs READ access (listing)
+        on the runner project and that the export bucket is accessible. It does
+        NOT verify permission to create metadata jobs
+        (roles/dataplex.metadataJobOwner), so a successful test does not
+        guarantee job submission will succeed at ingestion time. In read_export
+        mode, only storage read access is probed: each configured path must be
+        listable and non-empty.
         """
         test_report = TestConnectionReport()
         try:
             config = DataplexConfig.model_validate(config_dict)
             creds = config.get_credentials()
             credentials = (
-                service_account.Credentials.from_service_account_info(creds)
+                service_account.Credentials.from_service_account_info(
+                    creds, scopes=GCP_SCOPES
+                )
                 if creds
                 else None
             )
+
+            if config.extraction_method == "read_export":
+                assert config.read_export_config is not None
+                storage_client = build_storage_client(None, credentials)
+                for target in read_export_targets(config.read_export_config):
+                    gcs = parse_gcs_path(target.output_path)
+                    probe = list(
+                        storage_client.list_blobs(
+                            gcs.bucket, prefix=gcs.list_prefix, max_results=1
+                        )
+                    )
+                    if not probe:
+                        test_report.basic_connectivity = CapabilityReport(
+                            capable=False,
+                            failure_reason=(
+                                f"No objects found under export path "
+                                f"'{target.output_path}' for location "
+                                f"'{target.location}'."
+                            ),
+                        )
+                        return test_report
+                test_report.basic_connectivity = CapabilityReport(capable=True)
+                return test_report
+
+            if config.extraction_method == "export":
+                assert config.export_config is not None
+                runner_project = config.export_config.export_job_runner_project
+                storage_client = build_storage_client(runner_project, credentials)
+
+                # Export mode exercises the metadataJobs API on the job runner
+                # project and the export bucket instead of Catalog listing —
+                # for every configured entries location, since ingestion will
+                # submit one job per location. The listing probe only proves
+                # read access — create permission
+                # (roles/dataplex.metadataJobOwner) cannot be verified without
+                # actually submitting a job.
+                session = build_authed_session(credentials)
+                for location in config.entries_locations:
+                    resp = session.get(
+                        f"{DATAPLEX_API_ROOT}/projects/{runner_project}"
+                        f"/locations/{location}/metadataJobs?pageSize=1"
+                    )
+                    resp.raise_for_status()
+
+                    bucket_name = config.export_config.bucket_for_location(location)
+                    if not storage_client.bucket(bucket_name).exists():
+                        test_report.basic_connectivity = CapabilityReport(
+                            capable=False,
+                            failure_reason=(
+                                f"Export bucket '{bucket_name}' for location "
+                                f"'{location}' does not exist or is not "
+                                "accessible."
+                            ),
+                        )
+                        return test_report
+
+                test_report.basic_connectivity = CapabilityReport(capable=True)
+                return test_report
 
             if config.project_ids:
                 project_id: Optional[str] = config.project_ids[0]
@@ -394,39 +507,69 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
         """Return the ingestion report."""
         return self.report
 
-    def get_workunit_processors(self) -> list[Optional[MetadataWorkUnitProcessor]]:
-        """
-        Get workunit processors for stateful ingestion.
+    def _get_entries_workunits_via_export(self) -> Iterable[MetadataWorkUnit]:
+        """Entries stage for ``extraction_method: export`` and ``read_export``.
 
-        Returns processors for:
-        - Stale entity removal (deletion detection)
+        ``export`` submits one metadata EXPORT job per entries location, waits
+        for them to finish, then streams the exported JSONL from GCS through
+        the same filter + mapper pipeline as the API path (populating the
+        lineage side-channel identically). ``read_export`` submits no jobs: the
+        pre-existing output paths from ``read_export_config`` are read
+        directly instead.
         """
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
+        storage_project: Optional[str] = None
+        if self.config.extraction_method == "read_export":
+            read_export_config = self.config.read_export_config
+            assert read_export_config is not None  # enforced by config validation
+            with self.report.new_stage("Resolving pre-existing Dataplex export output"):
+                targets = read_export_targets(read_export_config)
+        else:
+            export_config = self.config.export_config
+            assert export_config is not None  # enforced by config validation
+            storage_project = export_config.export_job_runner_project
+            with self.report.new_stage("Submitting Dataplex metadata export jobs"):
+                session = build_authed_session(self._credentials)
+                targets = run_exports(
+                    config=self.config,
+                    project_ids=self._project_ids,
+                    session=session,
+                    report=self.report,
+                )
+
+        with self.report.new_stage("Reading Dataplex export output from GCS"):
+            storage_client = build_storage_client(storage_project, self._credentials)
+            for target in targets:
+                entries = iter_exported_entries(
+                    storage_client=storage_client,
+                    target=target,
+                    report=self.report,
+                )
+                yield from auto_workunit(
+                    self.entries_processor.process_exported_entries(entries)
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""
-        with self.report.new_stage(
-            "Processing entries from Universal Catalog (parallel)"
-        ):
-            try:
-                yield from auto_workunit(
-                    self.entries_processor.process_entries(
-                        project_ids=self._project_ids,
-                        max_workers=self.config.max_workers_entries,
+        if self.config.extraction_method in ("export", "read_export"):
+            yield from self._get_entries_workunits_via_export()
+        else:
+            with self.report.new_stage(
+                "Processing entries from Universal Catalog (parallel)"
+            ):
+                try:
+                    yield from auto_workunit(
+                        self.entries_processor.process_entries(
+                            project_ids=self._project_ids,
+                            max_workers=self.config.max_workers_entries,
+                        )
                     )
-                )
-            except exceptions.GoogleAPICallError as exc:
-                self.report.warning(
-                    title="Failed to process Dataplex entries",
-                    message="Error while extracting entries from Universal Catalog.",
-                    context=str(self._project_ids),
-                    exc=exc,
-                )
+                except exceptions.GoogleAPICallError as exc:
+                    self.report.warning(
+                        title="Failed to process Dataplex entries",
+                        message="Error while extracting entries from Universal Catalog.",
+                        context=str(self._project_ids),
+                        exc=exc,
+                    )
 
         if self.config.include_glossaries and self.glossary_processor:
             with self.report.new_stage(
@@ -451,14 +594,13 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 ):
                     try:
                         yield from self.glossary_processor.process_term_associations(
-                            project_ids=self.config.project_ids,
                             max_workers=self.config.max_workers_glossary,
                         )
                     except Exception as exc:
                         self.report.warning(
                             title="Failed to extract term-asset associations",
                             message="Error while calling lookupEntryLinks.",
-                            context=str(self.config.project_ids),
+                            context=str(self._project_ids),
                             exc=exc,
                         )
 

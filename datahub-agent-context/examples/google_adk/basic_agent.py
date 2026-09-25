@@ -27,13 +27,19 @@ import os
 import sys
 import warnings
 
-import google.auth
-from google.adk.agents import Agent
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.adk.tools.bigquery import BigQueryCredentialsConfig, BigQueryToolset
-from google.adk.tools.bigquery.config import BigQueryToolConfig, WriteMode
-from google.genai import types
+import google.auth  # type: ignore[import-not-found]
+from google.adk.agents import Agent  # type: ignore[import-not-found]
+from google.adk.runners import Runner  # type: ignore[import-not-found]
+from google.adk.sessions import InMemorySessionService  # type: ignore[import-not-found]
+from google.adk.tools.bigquery import (  # type: ignore[import-not-found]
+    BigQueryCredentialsConfig,
+    BigQueryToolset,
+)
+from google.adk.tools.bigquery.config import (  # type: ignore[import-not-found]
+    BigQueryToolConfig,
+    WriteMode,
+)
+from google.genai import types  # type: ignore[import-not-found]
 
 from datahub.sdk.main_client import DataHubClient
 from datahub_agent_context.google_adk_tools import (
@@ -177,13 +183,17 @@ async def main() -> None:
             ),
         )
         extra_tools.append(bigquery_toolset)
-        print(f"{GREEN}BigQuery tools enabled{' (project: ' + compute_project + ')' if compute_project else ''}{RESET}")
+        print(
+            f"{GREEN}BigQuery tools enabled{' (project: ' + compute_project + ')' if compute_project else ''}{RESET}"
+        )
     except google.auth.exceptions.DefaultCredentialsError:
-        print(f"{DIM}BigQuery tools disabled (no GCP credentials found — run 'gcloud auth application-default login' to enable){RESET}")
+        print(
+            f"{DIM}BigQuery tools disabled (no GCP credentials found — run 'gcloud auth application-default login' to enable){RESET}"
+        )
 
     # Add Cloud-only tools (Ask DataHub AI assistant) — requires DataHub Cloud
     # Remove this line if connecting to an OSS DataHub instance
-    tools += build_google_adk_cloud_tools(client, ask_datahub=True)
+    datahub_tools += build_google_adk_cloud_tools(client, ask_datahub=True)
 
     # Create agent
     agent = Agent(

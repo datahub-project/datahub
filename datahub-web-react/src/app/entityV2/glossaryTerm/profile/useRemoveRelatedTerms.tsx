@@ -1,4 +1,5 @@
 import { Modal, message } from 'antd';
+import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
@@ -10,6 +11,8 @@ import { useRemoveRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
 import { DataHubPageModuleType, TermRelationshipType } from '@types';
 
 function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationshipType, displayName: string) {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
@@ -29,17 +32,17 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
         })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: `Failed to remove: \n ${e.message || ''}`, duration: 3 });
+                message.error({ content: t('glossaryTerm.removeError', { error: e.message || '' }), duration: 3 });
             })
             .finally(() => {
                 message.loading({
-                    content: 'Removing...',
+                    content: t('glossaryTerm.removing'),
                     duration: 2,
                 });
                 setTimeout(() => {
                     refetch();
                     message.success({
-                        content: `Removed Glossary Term!`,
+                        content: t('glossaryTerm.removedSuccess'),
                         duration: 2,
                     });
                     // Reload modules
@@ -53,13 +56,15 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
 
     function onRemove() {
         Modal.confirm({
-            title: `Remove ${displayName}`,
-            content: `Are you sure you want to remove this ${entityRegistry.getEntityName(entityType)}?`,
+            title: t('glossaryTerm.removeConfirmTitle', { name: displayName }),
+            content: t('glossaryTerm.removeConfirmBody', {
+                entityType: entityRegistry.getEntityName(entityType),
+            }),
             onOk() {
                 handleRemoveRelatedTerms();
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });

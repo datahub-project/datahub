@@ -32,3 +32,22 @@ class Event(metaclass=ABCMeta):
         """
         Convert the event into its JSON representation.
         """
+
+
+class PlaceholderEvent(Event):
+    """An Event that carries no payload and does not support serialization.
+
+    It holds no data; as_json / from_json raise. It exists only to occupy the
+    non-optional ``event`` slot of an EventEnvelope when there is no event payload.
+    """
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "PlaceholderEvent":
+        raise NotImplementedError(
+            "PlaceholderEvent has no payload and cannot be deserialized"
+        )
+
+    def as_json(self) -> str:
+        raise NotImplementedError(
+            "PlaceholderEvent has no payload and cannot be serialized"
+        )

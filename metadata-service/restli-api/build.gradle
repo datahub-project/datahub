@@ -20,8 +20,5 @@ dependencies {
     restClientCompile(externalDependency.grpcProtobuf) {
       because("CVE-2023-1428, CVE-2023-32731")
     }
-    restClientCompile(externalDependency.grpcNettyShaded) {
-      because("Align grpc-netty-shaded with grpcVersion (embedded Netty in that jar)")
-    }
   }
 }

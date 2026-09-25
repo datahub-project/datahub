@@ -10,11 +10,11 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.common.base_client import BaseFabricClient
+from datahub.ingestion.source.fabric.common.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricLakehouse,
     FabricTable,
     FabricWarehouse,
-    FabricWorkspace,
 )
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeClientReport
 
@@ -37,10 +37,10 @@ def _parse_table_name(full_name: str) -> tuple[str, str]:
         schema_name, table_name = full_name.rsplit(".", 1)
     else:
         from datahub.ingestion.source.fabric.onelake.constants import (
-            DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE,
+            FABRIC_SQL_DEFAULT_SCHEMA,
         )
 
-        schema_name = DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
+        schema_name = FABRIC_SQL_DEFAULT_SCHEMA
         table_name = full_name
     return schema_name, table_name
 

@@ -1,5 +1,6 @@
 import { SimpleSelect } from '@components';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     EXECUTION_REQUEST_STATUS_ABORTED,
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function ResultStatusFilter({ defaultValues, onUpdate }: Props) {
+    const { t } = useTranslation('ingestion');
     const [values, setValues] = useState<string[]>(defaultValues || [RESULT_STATUS_ALL_VALUE]);
 
     const onUpdateHandler = useCallback(
@@ -34,22 +36,22 @@ export default function ResultStatusFilter({ defaultValues, onUpdate }: Props) {
     return (
         <SimpleSelect
             options={[
-                { label: 'All Statuses', value: RESULT_STATUS_ALL_VALUE },
-                { label: 'Success', value: EXECUTION_REQUEST_STATUS_SUCCESS },
-                { label: 'Failed', value: EXECUTION_REQUEST_STATUS_FAILURE },
-                { label: 'Running', value: EXECUTION_REQUEST_STATUS_RUNNING },
-                { label: 'Cancelled', value: EXECUTION_REQUEST_STATUS_CANCELLED },
-                { label: 'Aborted', value: EXECUTION_REQUEST_STATUS_ABORTED },
-                { label: 'Rolled Back', value: EXECUTION_REQUEST_STATUS_ROLLED_BACK },
-                { label: 'Rolling Back', value: EXECUTION_REQUEST_STATUS_ROLLING_BACK },
-                { label: 'Rollback Failed', value: EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED },
-                { label: 'Duplicate', value: EXECUTION_REQUEST_STATUS_DUPLICATE },
+                { label: t('filters.allStatuses'), value: RESULT_STATUS_ALL_VALUE },
+                { label: t('status.success'), value: EXECUTION_REQUEST_STATUS_SUCCESS },
+                { label: t('status.failed'), value: EXECUTION_REQUEST_STATUS_FAILURE },
+                { label: t('status.running'), value: EXECUTION_REQUEST_STATUS_RUNNING },
+                { label: t('status.cancelled'), value: EXECUTION_REQUEST_STATUS_CANCELLED },
+                { label: t('status.aborted'), value: EXECUTION_REQUEST_STATUS_ABORTED },
+                { label: t('status.rolledBack'), value: EXECUTION_REQUEST_STATUS_ROLLED_BACK },
+                { label: t('status.rollingBack'), value: EXECUTION_REQUEST_STATUS_ROLLING_BACK },
+                { label: t('status.rollbackFailed'), value: EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED },
+                { label: t('status.duplicate'), value: EXECUTION_REQUEST_STATUS_DUPLICATE },
             ]}
             values={values}
             onUpdate={onUpdateHandler}
             showClear={false}
             width="fit-content"
-            placeholder="Result Status"
+            placeholder={t('filters.resultStatus')}
         />
     );
 }

@@ -1,0 +1,9 @@
+{
+    "copyLink.tooltip": "Megosztható hivatkozás másolása erre az entitásra.",
+    "copyName.label": "Név másolása",
+    "copyName.tooltip": "A(z) {{type}} teljes nevének másolása",
+    "copyUrn.label": "URN másolása",
+    "copyUrn.tooltip": "A(z) {{type}} URN-jének másolása. Az URN egyedileg azonosít egy entitást a DataHubban.",
+    "email.label": "E-mail",
+    "email.tooltip": "A(z) {{type}} megosztása e-mailben"
+}

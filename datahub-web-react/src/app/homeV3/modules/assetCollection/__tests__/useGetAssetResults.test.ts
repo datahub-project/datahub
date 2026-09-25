@@ -23,7 +23,7 @@ vi.mock('@graphql/search.generated', () => ({
 
 describe('useGetAssetResults', () => {
     const mockAppliedFilters = new Map();
-    const mockFilters = [{ field: 'testField', value: 'testValue' }];
+    const mockFilters = [{ field: 'testField', values: ['testValue'] }];
     const mockOrFilters = [{ or: 'filters' }];
     const mockData = {
         searchAcrossEntities: {
@@ -124,8 +124,8 @@ describe('useGetAssetResults', () => {
 
     it('should handle appliedFilters with multiple fields', () => {
         const multiFilters = [
-            { field: 'testField', value: 'testValue' },
-            { field: 'anotherField', value: 'anotherValue' },
+            { field: 'testField', values: ['testValue'] },
+            { field: 'anotherField', values: ['anotherValue'] },
         ];
         convertFiltersMapToFiltersMock.mockReturnValue(multiFilters);
         renderHook(() => useGetAssetResults({ searchQuery: 'foo', appliedFilters: new Map([['k', { filters: [] }]]) }));

@@ -5,7 +5,7 @@ from typing import Type
 
 from sqlalchemy.engine import Engine
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
 
@@ -62,6 +62,12 @@ def get_adapter(
         )
 
         adapter_class = MySQLAdapter
+    elif platform_lower in ("mssql", "sqlserver"):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.mssql import (
+            MSSQLAdapter,
+        )
+
+        adapter_class = MSSQLAdapter
     elif platform_lower == "redshift":
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.redshift import (
             RedshiftAdapter,
@@ -100,6 +106,6 @@ def get_adapter(
 
         adapter_class = GenericAdapter
 
-    logger.debug(f"Using {adapter_class.__name__} for platform '{platform}'")
+    logger.info(f"Using {adapter_class.__name__} for platform '{platform}'")
 
     return adapter_class(config, report, base_engine)

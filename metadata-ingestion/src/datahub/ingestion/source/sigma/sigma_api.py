@@ -28,6 +28,7 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    ConnectionPath,
     CustomSqlEntry,
     DataModelElementUpstream,
     DatasetUpstream,
@@ -41,6 +42,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelElement,
     SigmaDataset,
     WarehouseInodeRaw,
+    WarehouseTableUpstream,
     Workbook,
     WorkbookLineageTableEntry,
     Workspace,
@@ -48,6 +50,14 @@ from datahub.ingestion.source.sigma.data_classes import (
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+# Statuses /datasets/{id}/sources uses for "cannot resolve this dataset". Sigma
+# answers 409 inode_archived rather than 404 for an unresolvable dataset
+# (verified live), so both are treated the same.
+_DATASET_SOURCES_NOT_FOUND_STATUSES = frozenset({404, 409})
+# Not-founds with zero successes before escalating from info to a warning.
+_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD = 3
+
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -62,6 +72,21 @@ class SigmaAPI:
         # report summary readable on large tenants with repeated unknown
         # node types.
         self._unknown_lineage_node_types_warned: Set[str] = set()
+        # Sigma's dataset API is deprecated. Once the endpoint is concluded
+        # removed -- a 410, or a 404/409 a re-probe confirms -- it is not called
+        # again for the rest of the run rather than retried per dataset.
+        self._dataset_sources_endpoint_gone = False
+        # Set once any /sources call returns 200, which proves the endpoint
+        # exists and downgrades a later not-found to a per-dataset miss.
+        # A dataset whose /sources answered 200 this run, re-queried to tell
+        # "endpoint removed" from "this dataset is gone". Also stands in for
+        # "anything has succeeded", so the two cannot drift apart. It is cleared
+        # if that dataset later turns out to be archived.
+        self._known_good_dataset_id: Optional[str] = None
+        # Sticky: unlike _known_good_dataset_id this is never cleared, since a
+        # later 404 should not be read as "nothing ever worked".
+        self._dataset_sources_succeeded = False
+        self._dataset_sources_not_found_warned = False
         self.session = requests.Session()
 
         # Configure retry strategy for 429/503 with exponential backoff.
@@ -289,6 +314,11 @@ class SigmaAPI:
                     dataset = SigmaDataset.model_validate(dataset_dict)
 
                     if dataset.datasetId not in dataset_files_metadata:
+                        # Counted as well as dropped: _get_files_metadata returns
+                        # {} on failure, which silently drops every dataset. The
+                        # counter lets the warehouse route tell that apart from a
+                        # workspace_pattern exclusion.
+                        self.report.datasets_dropped_missing_file_metadata += 1
                         self.report.datasets.dropped(
                             f"{dataset.name} ({dataset.datasetId}) (missing file metadata)"
                         )
@@ -334,6 +364,23 @@ class SigmaAPI:
 
             return datasets
         except Exception as e:
+            # Deliberately a report warning, not only a log line: /v2/datasets is
+            # part of the same deprecated dataset API as /sources, so its removal
+            # is a plausible cause. Without this the downstream effect (no
+            # datasetId, so no warehouse lookup) surfaces only as an info that
+            # blames workspace_pattern.
+            self.report.datasets_listing_failed += 1
+            self.report.warning(
+                title="Sigma dataset listing failed",
+                message=(
+                    "/v2/datasets could not be listed, so no Sigma Dataset "
+                    "warehouse lineage can be resolved this run. The exception is "
+                    "attached: a 404/410 suggests Sigma has removed the "
+                    "deprecated dataset API, while a validation or transport "
+                    "error points at one payload or at connectivity."
+                ),
+                exc=e,
+            )
             self._log_http_error(
                 message=f"Unable to fetch sigma datasets. Exception: {e}"
             )
@@ -421,7 +468,37 @@ class SigmaAPI:
         elif source_type == "join":
             queue.append(source_node_id)  # pass-through
         elif source_type == "table":
-            pass  # terminal; warehouse lineage comes from SQL parsing
+            # nodeId format: "inode-{urlId}". Strip prefix; name is used for
+            # name-based resolution in SigmaSource via wb_warehouse_table_index.
+            if not isinstance(source_node_id, str) or not source_node_id.startswith(
+                "inode-"
+            ):
+                self.report.chart_warehouse_table_node_skipped += 1
+                logger.debug(
+                    "Sigma chart BFS table node has unexpected nodeId format: "
+                    "node=%s, element=%s, workbook=%s",
+                    source_node_id,
+                    element.name,
+                    workbook.name,
+                )
+                return
+            url_id = source_node_id[len("inode-") :]
+            name = source_node.get(Constant.NAME)
+            if not url_id or not isinstance(name, str) or not name:
+                self.report.chart_warehouse_table_node_skipped += 1
+                logger.debug(
+                    "Sigma chart BFS table node missing url_id or name: "
+                    "node=%s, name=%r, element=%s, workbook=%s",
+                    source_node_id,
+                    name,
+                    element.name,
+                    workbook.name,
+                )
+                return
+            upstream_sources[source_node_id] = WarehouseTableUpstream(
+                url_id=url_id,
+                name=name,
+            )
         elif source_type == "customSQL":
             pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
         else:
@@ -443,9 +520,9 @@ class SigmaAPI:
         self, element: Element, workbook: Workbook
     ) -> Dict[str, ElementUpstream]:
         """Return upstream sources keyed by nodeId, admitting Sigma Dataset
-        (``dataset``) and intra-workbook element (``sheet``) nodes. Walks
-        through ``join`` pass-through nodes. Warehouse tables (``table``)
-        come from the SQL-parse path and are skipped here.
+        (``dataset``), intra-workbook element (``sheet``), data-model
+        (``data-model``), and direct warehouse table (``table``) nodes. Walks
+        through ``join`` pass-through nodes.
 
         BFS from the queried element's sheet node, following edges in
         reverse (target-to-source), so only reachable upstreams are
@@ -634,10 +711,15 @@ class SigmaAPI:
 
     def get_workbook_column_formulas(
         self, workbook_id: str
-    ) -> Dict[str, Dict[str, Optional[str]]]:
+    ) -> Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, str]]]:
         """Fetch per-element column formulas from GET /workbooks/{id}/columns.
 
-        Returns: elementId -> {column_name: formula_or_None}
+        Returns a tuple:
+          - elementId -> {column_name: formula_or_None}
+          - elementId -> {column_name: raw_columnId}
+
+        The raw_columnId for warehouse-backed columns is "inode-{tableUrlId}/{NATIVE_NAME}";
+        for DM-backed columns it is an opaque hash with no slash.
 
         The /columns endpoint is the authoritative source for column formulas
         in production; the page-elements endpoint returns columns as plain strings.
@@ -648,6 +730,7 @@ class SigmaAPI:
         error_ctx = f"Unable to fetch column formulas for workbook {workbook_id}."
         warnings_before = self.report.warnings.total_elements
         result: Dict[str, Dict[str, Optional[str]]] = {}
+        col_ids: Dict[str, Dict[str, str]] = {}
         for col in self._paginated_raw_entries(
             f"{self.config.api_url}/workbooks/{workbook_id}/columns",
             error_ctx,
@@ -656,11 +739,14 @@ class SigmaAPI:
             elem_id = col.get(Constant.ELEMENTID)
             name = col.get(Constant.NAME)
             formula: Optional[str] = col.get("formula") or None
+            column_id: str = col.get("columnId") or ""
             if elem_id and name:
                 result.setdefault(elem_id, {})[name] = formula
+                if column_id:
+                    col_ids.setdefault(elem_id, {})[name] = column_id
         if self.report.warnings.total_elements > warnings_before:
             self.report.column_formulas_fetch_partial += 1
-        return result
+        return result, col_ids
 
     def get_page_elements(
         self,
@@ -669,6 +755,7 @@ class SigmaAPI:
         column_formulas_by_element: Optional[
             Dict[str, Dict[str, Optional[str]]]
         ] = None,
+        column_ids_by_element: Optional[Dict[str, Dict[str, str]]] = None,
     ) -> List[Element]:
         try:
             elements: List[Element] = []
@@ -696,6 +783,10 @@ class SigmaAPI:
                     element.column_formulas = column_formulas_by_element.get(
                         element.elementId, {}
                     )
+                if column_ids_by_element is not None:
+                    element.column_id_by_name = column_ids_by_element.get(
+                        element.elementId, {}
+                    )
                 if (
                     self.config.extract_lineage
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
@@ -718,12 +809,13 @@ class SigmaAPI:
             column_formulas_by_element: Optional[
                 Dict[str, Dict[str, Optional[str]]]
             ] = None
+            column_ids_by_element: Optional[Dict[str, Dict[str, str]]] = None
             if (
                 self.config.extract_lineage
                 and self.config.workbook_lineage_pattern.allowed(workbook.name)
             ):
-                column_formulas_by_element = self.get_workbook_column_formulas(
-                    workbook.workbookId
+                column_formulas_by_element, column_ids_by_element = (
+                    self.get_workbook_column_formulas(workbook.workbookId)
                 )
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages"
@@ -735,6 +827,7 @@ class SigmaAPI:
                     workbook,
                     page,
                     column_formulas_by_element=column_formulas_by_element,
+                    column_ids_by_element=column_ids_by_element,
                 )
                 pages.append(page)
             return pages
@@ -801,8 +894,8 @@ class SigmaAPI:
                     break
                 if cursor_key in seen_cursors:
                     self.report.warning(
-                        message=f"{error_ctx} Pagination cursor repeated; aborting.",
-                        context=f"url={base_url}, cursor={cursor}, "
+                        message="Pagination cursor repeated; aborting",
+                        context=f"{error_ctx} url={base_url}, cursor={cursor}, "
                         f"entries_so_far={len(raw_entries)}",
                     )
                     break
@@ -870,8 +963,8 @@ class SigmaAPI:
                 self.report.pagination_malformed_entries_dropped += 1
                 if malformed_warned < self._MAX_MALFORMED_WARNINGS_PER_ENDPOINT:
                     self.report.warning(
-                        message=f"{error_ctx} Dropped malformed entry.",
-                        context=f"entry={entry!r}",
+                        message="Dropped malformed entry",
+                        context=f"{error_ctx} entry={entry!r}",
                         exc=ve,
                     )
                     malformed_warned += 1
@@ -902,7 +995,12 @@ class SigmaAPI:
             f"{self.config.api_url}/dataModels/{data_model_id}/columns",
             SigmaDataModelColumn,
             f"Unable to fetch columns for data model '{data_model_id}'.",
-            dedup_key=lambda column: column.columnId,
+            # Dedup by (elementId, columnId): Sigma reuses warehouse-native
+            # columnIds (e.g. CUSTOMER_ID) across customSQL elements that share
+            # a warehouse passthrough column. Keying on columnId alone silently
+            # drops all but the first occurrence, removing real passthrough
+            # columns from consumer elements' schemaMetadata.
+            dedup_key=lambda column: (column.elementId, column.columnId),
         )
 
     def _get_data_model_lineage_entries(
@@ -1171,6 +1269,353 @@ class SigmaAPI:
             element.source_ids = source_ids_by_element.get(element.elementId, [])
 
         data_model.elements = elements
+
+    def _dataset_sources_gone_for(self, dataset_id: str) -> bool:
+        """Whether /sources now fails for a dataset that answered 200 earlier.
+
+        410 counts as well as the not-found statuses: it is the strongest
+        removal signal the endpoint can give, so a re-probe that returns it must
+        not be read as "this dataset is fine".
+        """
+        url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}/sources"
+        try:
+            return self._get_api_call(url).status_code in (
+                _DATASET_SOURCES_NOT_FOUND_STATUSES | {410}
+            )
+        except Exception as e:
+            # Reported, not just logged: a probe that cannot answer leaves the
+            # route on, so an operator seeing missing lineage needs to know the
+            # check itself failed rather than concluded "alive".
+            self.report.warning(
+                title="Sigma dataset sources re-probe failed",
+                message=(
+                    "Could not re-check /datasets/{id}/sources for a dataset that "
+                    "resolved earlier this run, so the endpoint is assumed still "
+                    "available. If Sigma has removed it, lineage will be missing "
+                    "without the 'endpoint unavailable' warning."
+                ),
+                context=f"dataset_id={dataset_id}",
+                exc=e,
+            )
+            return False
+
+    def _reference_says_endpoint_gone(self, dataset_id: str) -> bool:
+        """Whether a dead reference dataset points at endpoint removal.
+
+        Asked when /sources has stopped answering for the dataset that worked
+        earlier. ``GET /v2/datasets/{id}`` then distinguishes three cases:
+
+        - **200** -- the dataset is there but its /sources is not: the endpoint
+          went away. Latch.
+        - **404/410** -- the dataset API path itself is gone, which is removal a
+          step further along. Latch, rather than rotating and reporting that the
+          API "still responds" when it plainly does not.
+        - **anything else**, notably 409 inode_archived -- the reference was
+          archived mid-run, so it says nothing about the endpoint. Rotate. A
+          transient 5xx lands here too, which is the safe side: rotating costs
+          one dataset, latching wrongly costs every dataset after it.
+        """
+        url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}"
+        try:
+            return self._get_api_call(url).status_code in (200, 404, 410)
+        except Exception:
+            logger.debug(
+                "Reference probe failed for %r; rotating rather than latching.",
+                dataset_id,
+            )
+            return False
+
+    def _dataset_api_is_gone(self, dataset_id: str) -> bool:
+        """Whether the deprecated dataset API itself has been removed.
+
+        Called only to disambiguate a 404 from /sources. ``GET /v2/datasets/{id}``
+        Only 404/410 count: those are path-level. A dataset Sigma cannot resolve
+        answers 409 inode_archived (verified live), which proves the API is
+        answering and the problem is that one dataset.
+        """
+        url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}"
+        try:
+            return self._get_api_call(url).status_code in (404, 410)
+        except Exception:
+            # Cannot tell; assume alive so one flaky probe does not disable the
+            # route for the rest of the run.
+            logger.debug("Dataset API probe failed for %r; assuming alive.", dataset_id)
+            return False
+
+    def _mark_dataset_sources_gone(self, dataset_id: str, status: int) -> None:
+        """Latch the dataset-sources endpoint as removed and warn once."""
+        if not self._dataset_sources_endpoint_gone:
+            self._dataset_sources_endpoint_gone = True
+            self.report.dataset_sources_endpoint_removed += 1
+            self.report.warning(
+                title="Sigma dataset sources endpoint unavailable",
+                # Constant: StructuredLogs keys entries on title+message, and an
+                # interpolated status would make each one distinct. The status
+                # belongs in context.
+                message=(
+                    "/datasets/{id}/sources is no longer answering. Sigma retired "
+                    "the dataset API on 2026-09-15, so it has most likely been "
+                    "removed. No Sigma Dataset will get warehouse upstreamLineage "
+                    "for the rest of this run; migrate datasets to Data Models."
+                ),
+                context=f"dataset_id={dataset_id}, http_status={status}",
+            )
+
+    def get_dataset_sources(self, dataset_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Fetch the raw ``/datasets/{datasetId}/sources`` entries, or None on failure.
+
+        Shape is ``[{"type": "table", "inodeId": "<uuid>"}, ...]`` -- a bare
+        list, not the ``{"entries": [...]}`` envelope other Sigma endpoints use,
+        and not paginated. A non-list body is a failure rather than coerced, so
+        an envelope change surfaces instead of silently resolving zero sources.
+
+        Sigma marks this endpoint deprecated alongside the rest of the dataset
+        API, so this whole route is a stopgap: it exists to keep lineage alive
+        for datasets that have not been migrated to Data Models yet, and will
+        stop returning anything once Sigma removes it. A 410 therefore latches
+        the endpoint as gone; a 404 is disambiguated against
+        ``GET /v2/datasets/{id}`` first, since one deleted dataset also 404s.
+        """
+        if self._dataset_sources_endpoint_gone:
+            # Counted so operators can see how much lineage the latch cost.
+            self.report.dataset_sources_skipped_endpoint_gone += 1
+            return None
+        logger.debug("Fetching sources for dataset '%s'.", dataset_id)
+        url = f"{self.config.api_url}/datasets/{quote(dataset_id, safe='')}/sources"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code == 410:
+                # 410 Gone is unambiguous: the endpoint is retired. Latch at once.
+                self._mark_dataset_sources_gone(dataset_id, 410)
+                return None
+            if response.status_code in _DATASET_SOURCES_NOT_FOUND_STATUSES:
+                # Ambiguous on its own: the endpoint may be retired, or just this
+                # dataset may have been deleted or re-permissioned since the
+                # listing (workbooks are processed long after it). Note Sigma
+                # answers 409 inode_archived, not 404, for a dataset it cannot
+                # resolve -- verified against a live tenant -- so both statuses
+                # land here.
+                status = response.status_code
+                known_good = self._known_good_dataset_id
+                if known_good is not None:
+                    # Cheapest decisive check: re-ask for a dataset whose
+                    # /sources answered 200 earlier this run.
+                    if self._dataset_sources_gone_for(known_good):
+                        # /sources failed for the reference too. Two causes: the
+                        # endpoint is gone, or that dataset was archived mid-run
+                        # (operators do this while migrating). Ask the dataset
+                        # API which.
+                        if self._reference_says_endpoint_gone(known_good):
+                            # Either the reference is still there and its
+                            # /sources is not, or the dataset API path has gone
+                            # too. Both mean removal.
+                            self._mark_dataset_sources_gone(dataset_id, status)
+                            return None
+                        # The reference was archived (or the probe could not
+                        # answer), so it proves nothing about the endpoint.
+                        # Forget it and let the next success pick a live one;
+                        # latching here would disable the route for every
+                        # dataset processed afterwards.
+                        logger.debug(
+                            "Known-good dataset %r no longer exists; dropping it "
+                            "as the re-probe reference.",
+                            known_good,
+                        )
+                        self._known_good_dataset_id = None
+                elif self._dataset_api_is_gone(dataset_id):
+                    # No reference to consult -- either nothing has succeeded
+                    # yet, or the previous reference was just rotated away. Fall
+                    # back to asking whether the dataset API path still answers.
+                    self._mark_dataset_sources_gone(dataset_id, status)
+                    return None
+                self.report.dataset_sources_lookup_failed += 1
+                self.report.dataset_sources_not_found += 1
+                if (
+                    not self._dataset_sources_succeeded
+                    and self.report.dataset_sources_not_found
+                    >= _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
+                ):
+                    # Every dataset missing and none ever resolved is not a run of
+                    # deleted datasets. Escalate once: identical infos collapse
+                    # into a single entry, so the run would otherwise look clean
+                    # while losing all dataset lineage.
+                    if not self._dataset_sources_not_found_warned:
+                        self._dataset_sources_not_found_warned = True
+                        self.report.warning(
+                            title="Sigma dataset sources unavailable for every dataset",
+                            message=(
+                                "/datasets/{id}/sources has not resolved for any "
+                                "dataset this run. Sigma is retiring the dataset "
+                                "API, so the endpoint may be partially removed; no "
+                                "Sigma Dataset will get warehouse upstreamLineage. "
+                                "Migrate datasets to Data Models."
+                            ),
+                            context=(
+                                f"not_found={self.report.dataset_sources_not_found}, "
+                                f"last_dataset_id={dataset_id}"
+                            ),
+                        )
+                else:
+                    self.report.info(
+                        title="Sigma dataset sources not found for one dataset",
+                        message=(
+                            "/datasets/{id}/sources did not resolve while the "
+                            "dataset API itself still responds, so this dataset "
+                            "was most likely deleted or re-permissioned after the "
+                            "listing. Its warehouse upstreamLineage will be "
+                            "missing."
+                        ),
+                        context=f"dataset_id={dataset_id}, http_status={status}",
+                    )
+                return None
+            if response.status_code == 429:
+                self.report.dataset_sources_lookup_failed += 1
+                self.report.dataset_sources_lookup_rate_limited += 1
+                self.report.warning(
+                    title="Sigma API rate-limited on /datasets/{id}/sources",
+                    message=(
+                        "Retry budget exhausted on a 429. Warehouse upstream will be "
+                        "missing for this Sigma Dataset. Re-run the ingestion to recover."
+                    ),
+                    context=f"dataset_id={dataset_id}, http_status=429",
+                )
+                return None
+            if response.status_code != 200:
+                self.report.dataset_sources_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /datasets/{id}/sources lookup returned non-200",
+                    message=(
+                        "Unable to resolve the warehouse tables behind a Sigma "
+                        "Dataset. Its warehouse upstreamLineage will be missing, "
+                        "and chart columns reading through it fall back to "
+                        "self-references."
+                    ),
+                    context=f"dataset_id={dataset_id}, http_status={response.status_code}",
+                )
+                return None
+            entries = response.json()
+            if not isinstance(entries, list):
+                self.report.dataset_sources_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /datasets/{id}/sources returned an unexpected shape",
+                    message=(
+                        "Expected a bare JSON list of source entries. Warehouse "
+                        "upstream resolution is skipped for this Sigma Dataset. "
+                        "Individual entries are validated by the caller, which "
+                        "skips a malformed one rather than losing the rest."
+                    ),
+                    context=f"dataset_id={dataset_id}, body_type={type(entries).__name__}",
+                )
+                return None
+            self._dataset_sources_succeeded = True
+            if self._known_good_dataset_id is None:
+                self._known_good_dataset_id = dataset_id
+            return entries
+        except Exception as e:
+            self.report.dataset_sources_lookup_failed += 1
+            self.report.warning(
+                title="Sigma /datasets/{id}/sources lookup failed",
+                message=(
+                    "Exception while fetching the sources of a Sigma Dataset; "
+                    "its warehouse upstream is skipped."
+                ),
+                context=f"dataset_id={dataset_id}",
+                exc=e,
+            )
+            return None
+
+    def get_connection_path(self, inode_id: str) -> Optional[ConnectionPath]:
+        """Resolve a warehouse-table inode to its connection and path components.
+
+        ``GET /v2/connections/paths/{inodeId}`` returns
+        ``{"connectionId": "<uuid>", "path": ["DB", "SCHEMA", "TABLE"]}``.
+
+        Preferred over ``/files/{inodeId}`` for warehouse tables: it carries the
+        ``connectionId`` (so the URN can be built through the connection
+        registry like every other warehouse route) and gives the path already
+        split into components instead of a ``Connection Root/...`` string.
+
+        Callers cache; this always makes a live call.
+        """
+        logger.debug("Fetching connection path for inode '%s'.", inode_id)
+        url = f"{self.config.api_url}/connections/paths/{quote(inode_id, safe='')}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code == 429:
+                self.report.connection_path_lookup_failed += 1
+                self.report.connection_path_lookup_rate_limited += 1
+                self.report.warning(
+                    title="Sigma API rate-limited on /connections/paths lookup",
+                    message=(
+                        "Retry budget exhausted on a 429. Warehouse upstream will be "
+                        "missing for this table. Re-run the ingestion to recover."
+                    ),
+                    context=f"inode_id={inode_id}, http_status=429",
+                )
+                return None
+            if response.status_code != 200:
+                self.report.connection_path_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /connections/paths lookup returned non-200",
+                    message=(
+                        "Unable to resolve a warehouse table's connection and path. "
+                        "Warehouse upstream will be missing for this table."
+                    ),
+                    context=f"inode_id={inode_id}, http_status={response.status_code}",
+                )
+                return None
+            body = response.json()
+            if not isinstance(body, dict):
+                # Explicit, like get_dataset_sources: otherwise body.get() raises
+                # and is reported as a generic exception.
+                self.report.connection_path_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /connections/paths returned an unexpected body",
+                    message=(
+                        "Expected a JSON object with connectionId and path; "
+                        "warehouse upstream is skipped for this table."
+                    ),
+                    context=f"inode_id={inode_id}, body_type={type(body).__name__}",
+                )
+                return None
+            connection_id = body.get("connectionId")
+            path = body.get("path")
+            if not isinstance(connection_id, str) or not connection_id:
+                self.report.connection_path_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /connections/paths response missing connectionId",
+                    message=(
+                        "Cannot map the table to a warehouse platform without a "
+                        "connectionId; warehouse upstream is skipped."
+                    ),
+                    context=f"inode_id={inode_id}, keys={sorted(body)!r}",
+                )
+                return None
+            if (
+                not isinstance(path, list)
+                or not path
+                or not all(isinstance(p, str) and p for p in path)
+            ):
+                self.report.connection_path_lookup_failed += 1
+                self.report.warning(
+                    title="Sigma /connections/paths returned an unexpected path",
+                    message=(
+                        "Expected `path` to be a list of non-empty strings; "
+                        "warehouse upstream is skipped for this table."
+                    ),
+                    context=f"inode_id={inode_id}, path={path!r}",
+                )
+                return None
+            return ConnectionPath(connection_id=connection_id, path=path)
+        except Exception as e:
+            self.report.connection_path_lookup_failed += 1
+            self.report.warning(
+                title="Sigma /connections/paths lookup failed",
+                message="Exception while resolving a table's connection path; warehouse upstream skipped.",
+                context=f"inode_id={inode_id}",
+                exc=e,
+            )
+            return None
 
     def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
         """Fetch /files/{inodeId} and return the raw JSON dict, or None on

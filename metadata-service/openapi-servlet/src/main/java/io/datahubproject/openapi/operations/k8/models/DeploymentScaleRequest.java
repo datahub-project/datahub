@@ -11,8 +11,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Request to scale a deployment's replicas and/or resources. All fields are optional, but at least
- * one of replicas or resources should be provided.
+ * Request to scale a deployment's replicas and/or resources.
+ *
+ * <p>Autoscaling mode rules:
+ *
+ * <ul>
+ *   <li>{@code replicas} set → scale the deployment; pauses autoscaling if configured
+ *   <li>{@code autoscalingMode: "activate"} → resume autoscaling; {@code replicas} must be omitted
+ *   <li>{@code autoscalingMode: "activate"} + {@code resources} → resume autoscaling and update
+ *       container resource limits/requests in the same call
+ *   <li>{@code resources} alone → update container resources without touching autoscaling
+ * </ul>
  */
 @Data
 @Builder
@@ -21,13 +30,24 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(
     description =
-        "Request to scale deployment. At least one of replicas or resources should be provided.")
+        "Request to scale a deployment. Use replicas to scale (pauses autoscaling if configured), "
+            + "autoscalingMode=active to resume autoscaling, "
+            + "or resources to update container limits/requests.")
 public class DeploymentScaleRequest {
 
   @Nullable
   @Min(0)
   @Schema(description = "Desired number of replicas", example = "3", nullable = true)
   private Integer replicas;
+
+  @Nullable
+  @Schema(
+      description =
+          "Autoscaling mode. Set to \"activate\" to resume autoscaling (replicas must be omitted).",
+      example = "activate",
+      allowableValues = {"activate"},
+      nullable = true)
+  private String autoscalingMode;
 
   @Nullable
   @Schema(

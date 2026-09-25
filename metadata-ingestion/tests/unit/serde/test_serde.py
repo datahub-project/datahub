@@ -325,7 +325,7 @@ def test_reserved_keywords() -> None:
         or_=[
             models.ConjunctiveCriterionClass(
                 and_=[
-                    models.CriterionClass(field="foo", value="var", negated=True),
+                    models.CriterionClass(field="foo", values=["var"], negated=True),
                 ]
             )
         ]

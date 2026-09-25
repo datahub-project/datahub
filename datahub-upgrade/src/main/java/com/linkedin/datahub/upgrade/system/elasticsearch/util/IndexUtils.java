@@ -3,6 +3,7 @@ package com.linkedin.datahub.upgrade.system.elasticsearch.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -19,9 +20,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -53,11 +57,13 @@ public class IndexUtils {
   private IndexUtils() {}
 
   private static List<ReindexConfig> _reindexConfigs = new ArrayList<>();
+  private static Map<String, ESIndexBuilder> _indexBuilders = new HashMap<>();
 
   /** Clears the cached reindex configs. Visible for testing. */
   @com.google.common.annotations.VisibleForTesting
   public static void clearReindexConfigCache() {
     _reindexConfigs = new ArrayList<>();
+    _indexBuilders = new HashMap<>();
   }
 
   public static List<ReindexConfig> getIndicesNeedingReindex(
@@ -74,6 +80,20 @@ public class IndexUtils {
         .collect(Collectors.toList());
   }
 
+  public static List<ReindexConfig> getIndicesNeedingReindexOrBuild(
+      OperationContext opContext,
+      List<ElasticSearchIndexed> services,
+      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
+      throws IOException {
+    final List<ReindexConfig> reindexConfigs =
+        getAllReindexConfigs(opContext, services, structuredProperties);
+
+    // Get indices to update
+    return reindexConfigs.stream()
+        .filter(reindexConfig -> !reindexConfig.exists() || reindexConfig.requiresReindex())
+        .collect(Collectors.toList());
+  }
+
   public static List<ReindexConfig> getAllReindexConfigs(
       OperationContext opContext,
       List<ElasticSearchIndexed> elasticSearchIndexedList,
@@ -82,20 +102,45 @@ public class IndexUtils {
     // Avoid locking & reprocessing
     List<ReindexConfig> reindexConfigs = new ArrayList<>(_reindexConfigs);
     if (reindexConfigs.isEmpty()) {
+      Map<String, ESIndexBuilder> builders = new HashMap<>();
       for (ElasticSearchIndexed elasticSearchIndexed : elasticSearchIndexedList) {
-        reindexConfigs.addAll(
-            elasticSearchIndexed.buildReindexConfigs(opContext, structuredProperties));
+        List<ReindexConfig> serviceConfigs =
+            elasticSearchIndexed.buildReindexConfigs(opContext, structuredProperties);
+        reindexConfigs.addAll(serviceConfigs);
+        for (ReindexConfig config : serviceConfigs) {
+          builders.put(config.name(), elasticSearchIndexed.getIndexBuilder(config.name()));
+        }
       }
       _reindexConfigs = new ArrayList<>(reindexConfigs);
+      _indexBuilders = builders;
     }
 
     return reindexConfigs;
   }
 
+  /**
+   * Index builder recorded while collecting reindex configs. Call {@link #getAllReindexConfigs}
+   * first. Groups upgrade work by the cluster that owns the index.
+   */
+  @Nonnull
+  public static ESIndexBuilder requireIndexBuilder(@Nonnull String indexName) {
+    ESIndexBuilder builder = _indexBuilders.get(indexName);
+    if (builder == null) {
+      throw new IllegalStateException(
+          "No index builder recorded for '"
+              + indexName
+              + "'; call getAllReindexConfigs before mutating that index");
+    }
+    return builder;
+  }
+
   public static boolean validateWriteBlock(
-      SearchClientShim<?> esClient, String indexName, boolean expectedState)
+      OperationContext opContext,
+      SearchClientShim<?> esClient,
+      String indexName,
+      boolean expectedState)
       throws IOException, InterruptedException {
-    final String finalIndexName = resolveAlias(esClient, indexName);
+    final String finalIndexName = resolveAlias(opContext, esClient, indexName);
 
     GetSettingsRequest request =
         new GetSettingsRequest()
@@ -105,7 +150,8 @@ public class IndexUtils {
 
     int count = INDEX_BLOCKS_WRITE_RETRY;
     while (count > 0) {
-      GetSettingsResponse response = esClient.getIndexSettings(request, RequestOptions.DEFAULT);
+      GetSettingsResponse response =
+          esClient.getIndexSettings(opContext, request, RequestOptions.DEFAULT);
       if (response
           .getSetting(finalIndexName, INDEX_BLOCKS_WRITE_SETTING)
           .equals(String.valueOf(expectedState))) {
@@ -121,12 +167,14 @@ public class IndexUtils {
     return false;
   }
 
-  public static String resolveAlias(SearchClientShim<?> esClient, String indexName)
+  public static String resolveAlias(
+      OperationContext opContext, SearchClientShim<?> esClient, String indexName)
       throws IOException {
     String finalIndexName = indexName;
 
     GetAliasesResponse aliasResponse =
-        esClient.getIndexAliases(new GetAliasesRequest(indexName), RequestOptions.DEFAULT);
+        esClient.getIndexAliases(
+            opContext, new GetAliasesRequest(indexName), RequestOptions.DEFAULT);
 
     if (!aliasResponse.getAliases().isEmpty()) {
       Set<String> indices = aliasResponse.getAliases().keySet();
@@ -298,11 +346,13 @@ public class IndexUtils {
    * @throws IOException if the request fails
    */
   public static RawResponse performGetRequest(
-      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents, String endpoint)
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String endpoint)
       throws IOException {
     log.info("GET => {}", endpoint);
     Request request = new Request("GET", endpoint);
-    return esComponents.getSearchClient().performLowLevelRequest(request);
+    return esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 
   /**
@@ -315,6 +365,7 @@ public class IndexUtils {
    * @throws IOException if the request fails
    */
   public static RawResponse performPutRequest(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String endpoint,
       String jsonBody)
@@ -322,7 +373,7 @@ public class IndexUtils {
     log.info("PUT => {}", endpoint);
     Request request = new Request("PUT", endpoint);
     request.setJsonEntity(jsonBody);
-    return esComponents.getSearchClient().performLowLevelRequest(request);
+    return esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 
   /**
@@ -335,6 +386,7 @@ public class IndexUtils {
    * @throws IOException if the request fails
    */
   public static RawResponse performPostRequest(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String endpoint,
       String jsonBody)
@@ -342,7 +394,7 @@ public class IndexUtils {
     log.info("POST => {}", endpoint);
     Request request = new Request("POST", endpoint);
     request.setJsonEntity(jsonBody);
-    return esComponents.getSearchClient().performLowLevelRequest(request);
+    return esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 
   /**
@@ -356,6 +408,7 @@ public class IndexUtils {
    * @throws IOException if the request fails
    */
   public static RawResponse performPutRequestWithParams(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String endpoint,
       String queryParams,
@@ -365,6 +418,6 @@ public class IndexUtils {
     log.info("PUT => {}", fullEndpoint);
     Request request = new Request("PUT", fullEndpoint);
     request.setJsonEntity(jsonBody);
-    return esComponents.getSearchClient().performLowLevelRequest(request);
+    return esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 }

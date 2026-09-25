@@ -2,7 +2,7 @@
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
 <!--
 Grouping Elasticsearch and OpenSearch tests into a suite reduce testcontainers.
-There are currently 3 implementations. Group them into separate tests and thus
+There are currently Elasticsearch 8 and OpenSearch implementations. Group them into separate tests and thus
 allow only 1 container per impl. The search implementation tests are run in
 parallel followed by everything else.
 -->
@@ -12,6 +12,8 @@ parallel followed by everything else.
     <suite-file path="testng-opensearch.xml"/>
     <suite-file path="testng-es8.xml"/>
     <suite-file path="testng-sql-opt.xml"/>
-    <suite-file path="testng-es7-cassandra-neo4j.xml"/>
+    <suite-file path="testng-cassandra-neo4j.xml"/>
+    <suite-file path="testng-postgresql.xml"/>
+    <suite-file path="testng-mysql.xml"/>
 </suite-files>
 </suite>

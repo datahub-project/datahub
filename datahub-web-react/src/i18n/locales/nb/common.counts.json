@@ -1,0 +1,16 @@
+{
+    "columnCount_one": "{{count}} kolonne",
+    "columnCount_other": "{{count}} kolonner",
+    "matchCount_one": "{{count}} treff",
+    "matchCount_other": "{{count}} treff",
+    "ownerCount_one": "{{count}} eier",
+    "ownerCount_other": "{{count}} eiere",
+    "queryCount_one": "{{count}} spørring",
+    "queryCount_other": "{{count}} spørringer",
+    "rowCount_one": "{{count}} rad",
+    "rowCount_other": "{{count}} rader",
+    "tagCount_one": "{{count}} Tag",
+    "tagCount_other": "{{count}} Tagger",
+    "termCount_one": "{{count}} begrep",
+    "termCount_other": "{{count}} begreper"
+}

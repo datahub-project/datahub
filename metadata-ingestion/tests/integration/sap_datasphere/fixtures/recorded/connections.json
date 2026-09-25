@@ -1,0 +1,66 @@
+[
+  {
+    "name": "BW4_DSP",
+    "businessName": "BW4_DSP",
+    "typeId": "ABAP",
+    "creation_date": "2026-05-26 11:03:50.498000000 UTC",
+    "creator": "AA",
+    "realtimeReplicationStatus": "INACTIVE"
+  },
+  {
+    "name": "BWMODELTRANSFER",
+    "businessName": "BWMODELTRANSFER",
+    "typeId": "SAPBWMODELTRANSFER",
+    "creation_date": "2026-05-26 11:03:31.180000000 UTC",
+    "creator": "AA",
+    "realtimeReplicationStatus": "INACTIVE"
+  },
+  {
+    "name": "CLOUD_STORAGE",
+    "businessName": "CLOUD_STORAGE",
+    "typeId": "S3",
+    "creation_date": "2026-05-26 11:03:38.819000000 UTC",
+    "creator": "AA",
+    "realtimeReplicationStatus": "NOTAPPLICABLE"
+  },
+  {
+    "name": "GCP_STORAGE",
+    "businessName": "GCP_STORAGE",
+    "typeId": "GCS",
+    "creation_date": "2026-05-26 11:03:27.953000000 UTC",
+    "creator": "AA",
+    "realtimeReplicationStatus": "NOTAPPLICABLE"
+  },
+  {
+    "name": "HANA_CLOUD",
+    "businessName": "HANA_CLOUD",
+    "typeId": "HANA",
+    "creation_date": "2026-05-26 11:03:23.171000000 UTC",
+    "creator": "AA",
+    "realtimeReplicationStatus": "INACTIVE"
+  },
+  {
+    "name": "MSSQL_1",
+    "businessName": "MSSQL",
+    "typeId": "MSSQL",
+    "creation_date": "2026-05-26 11:03:42.492000000 UTC",
+    "creator": "AA",
+    "realtimeReplicationStatus": "INACTIVE"
+  },
+  {
+    "name": "S4_CLOUD_PUBLIC",
+    "businessName": "S4_CLOUD_PUBLIC",
+    "typeId": "SAPS4HANACLOUD",
+    "creation_date": "2026-05-26 11:03:47.317000000 UTC",
+    "creator": "AA",
+    "realtimeReplicationStatus": "NOTAPPLICABLE"
+  },
+  {
+    "name": "S4_HANA",
+    "businessName": "S4_HANA",
+    "typeId": "ABAP",
+    "creation_date": "2026-05-26 11:03:35.134000000 UTC",
+    "creator": "AA",
+    "realtimeReplicationStatus": "INACTIVE"
+  }
+]

@@ -1,10 +1,11 @@
 """Databricks Unity Catalog connection configuration."""
 
+import re
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import pydantic
-from databricks.sdk import WorkspaceClient
+from databricks.sdk import WorkspaceClient, useragent
 from pydantic import Field, model_validator
 
 from datahub._version import nice_version_name
@@ -16,6 +17,30 @@ DATABRICKS = "databricks"
 # User agent entry for Databricks connections.
 # Keep this stable to avoid needing to coordinate version bumps across internal components.
 DATABRICKS_USER_AGENT_ENTRY = "datahub"
+
+_SEMVER_3_PART = re.compile(r"^(\d+)\.(\d+)\.(\d+)")
+
+
+def _sanitize_semver(raw_version: str) -> str:
+    """Coerce a DataHub version string into a SemVer string accepted by the Databricks SDK.
+
+    The Databricks SDK validates product_version against a strict major.minor.patch
+    regex when registered via useragent.with_product(). Although the WorkspaceClient
+    constructor path skips that validation, downstream Databricks telemetry parsers
+    can still drop or mis-attribute invalid versions, so we normalize here.
+
+    DataHub release versions can have a 4th segment (e.g. "1.5.0.19") and the dev
+    sentinel is a human-readable phrase. Both are stripped down to a SemVer-shaped
+    string; unrecognized inputs fall back to a marked dev version.
+    """
+    match = _SEMVER_3_PART.match(raw_version)
+    if match:
+        return f"{match.group(1)}.{match.group(2)}.{match.group(3)}"
+    return "0.0.0-dev"
+
+
+_SANITIZED_PRODUCT_VERSION = _sanitize_semver(nice_version_name())
+_SQL_USER_AGENT_ENTRY = f"{DATABRICKS_USER_AGENT_ENTRY}/{_SANITIZED_PRODUCT_VERSION}"
 
 
 class UnityCatalogConnectionConfig(ConfigModel):
@@ -92,10 +117,15 @@ class UnityCatalogConnectionConfig(ConfigModel):
 
 
 def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceClient:
+    # Register DataHub as a Databricks partner so requests are attributed in the
+    # `partner/datahub` slot of the User-Agent header — this is the token Databricks's
+    # partner-usage telemetry keys on. with_partner mutates SDK-global state but
+    # appending the same partner twice is harmless.
+    useragent.with_partner(DATABRICKS_USER_AGENT_ENTRY)
     workspace_client = WorkspaceClient(
         host=config.workspace_url,
         product=DATABRICKS_USER_AGENT_ENTRY,
-        product_version=nice_version_name(),
+        product_version=_SANITIZED_PRODUCT_VERSION,
         token=config.token.get_secret_value() if config.token else None,
         azure_tenant_id=config.azure_auth.tenant_id if config.azure_auth else None,
         azure_client_id=config.azure_auth.client_id if config.azure_auth else None,
@@ -120,7 +150,7 @@ def create_workspace_client(config: UnityCatalogConnectionConfig) -> WorkspaceCl
 def get_sql_connection_params(workspace_client: WorkspaceClient) -> dict[str, Any]:
     return {
         "server_hostname": workspace_client.config.host.replace("https://", ""),
-        "user_agent_entry": DATABRICKS_USER_AGENT_ENTRY,
+        "user_agent_entry": _SQL_USER_AGENT_ENTRY,
         # Don't use workspace_client.config.sql_http_path because it adds
         # `sdk-feature/sql-http-path` to the user-agent, which causes errors from the
         # Databricks endpoint: `{user_agent} is not supported for SQL warehouses`.

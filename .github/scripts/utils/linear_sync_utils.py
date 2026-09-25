@@ -5,7 +5,7 @@ import importlib
 import random
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, NamedTuple
 
 import requests
 
@@ -124,6 +124,42 @@ def graphql(
     return body.get("data") or {}
 
 
+class IssueDisplay(NamedTuple):
+    """Linear issue fields useful for notifications (empty strings if absent)."""
+
+    identifier: str
+    url: str
+    title: str
+
+
+_ISSUE_DISPLAY_QUERY = """
+query IssueDisplayById($id: String!) {
+  issue(id: $id) {
+    identifier
+    url
+    title
+  }
+}
+"""
+
+
+def get_issue_display(api_key: str, issue_id: str) -> IssueDisplay:
+    """Return identifier, URL, and title for a Linear issue id."""
+    data = graphql(api_key, _ISSUE_DISPLAY_QUERY, {"id": issue_id})
+    issue = data.get("issue") or {}
+    return IssueDisplay(
+        identifier=str(issue.get("identifier") or ""),
+        url=str(issue.get("url") or ""),
+        title=str(issue.get("title") or ""),
+    )
+
+
+def get_issue_identifier_url(api_key: str, issue_id: str) -> tuple[str, str]:
+    """Return ``(identifier, url)`` for a Linear issue id."""
+    d = get_issue_display(api_key, issue_id)
+    return (d.identifier, d.url)
+
+
 def resolve_linear_repo_label_map() -> dict[str, str]:
     return dict(DEFAULT_LINEAR_REPO_LABEL_MAP)
 
@@ -201,6 +237,29 @@ query TeamIssueLabelByName($teamId: ID!, $name: String!) {
     return str(found) if found else None
 
 
+def find_workspace_label_by_name(api_key: str, label_name: str) -> str | None:
+    """Resolve a non-group issue label by name across the workspace (name is unique)."""
+    q = """
+query WorkspaceIssueLabelByName($name: String!) {
+  issueLabels(
+    filter: {
+      name: { eq: $name }
+      isGroup: { eq: false }
+    }
+    first: 1
+  ) {
+    nodes { id name }
+  }
+}
+"""
+    data = graphql(api_key, q, {"name": label_name})
+    nodes = (data.get("issueLabels") or {}).get("nodes") or []
+    if not nodes:
+        return None
+    found = nodes[0].get("id")
+    return str(found) if found else None
+
+
 def create_team_label(
     api_key: str, team_id: str, label_name: str, color_hex: str
 ) -> str:
@@ -233,20 +292,50 @@ mutation IssueLabelCreate($input: IssueLabelCreateInput!) {
     return str(lid)
 
 
-def get_or_create_team_label_id(api_key: str, team_id: str, label_name: str) -> str:
-    existing = find_team_label_by_name(api_key, team_id, label_name)
+def create_workspace_label(api_key: str, label_name: str, color_hex: str) -> str:
+    """Create a workspace-level label (omit teamId so Linear does not enforce per-team names)."""
+    m = """
+mutation IssueLabelCreate($input: IssueLabelCreateInput!) {
+  issueLabelCreate(input: $input) {
+    success
+    issueLabel { id name color }
+  }
+}
+"""
+    data = graphql(
+        api_key,
+        m,
+        {
+            "input": {
+                "name": label_name,
+                "color": color_hex,
+            }
+        },
+    )
+    result = data.get("issueLabelCreate") or {}
+    if not result.get("success"):
+        raise RuntimeError(f"issueLabelCreate failed: {data}")
+    issue_label = result.get("issueLabel") or {}
+    lid = issue_label.get("id")
+    if not lid:
+        raise RuntimeError(f"issueLabelCreate returned no id: {data}")
+    return str(lid)
+
+
+def get_or_create_workspace_label_id(api_key: str, label_name: str) -> str:
+    existing = find_workspace_label_by_name(api_key, label_name)
     if existing:
         return existing
     try:
-        return create_team_label(api_key, team_id, label_name, random_label_color_hex())
+        return create_workspace_label(api_key, label_name, random_label_color_hex())
     except RuntimeError as e:
         em = str(e).lower()
         if any(
             x in em for x in ("existing", "already", "duplicate", " unique", "constraint")
         ):
-            existing_after_race = find_team_label_by_name(api_key, team_id, label_name)
-            if existing_after_race:
-                return existing_after_race
+            existing_after = find_workspace_label_by_name(api_key, label_name)
+            if existing_after:
+                return existing_after
         raise
 
 

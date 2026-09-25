@@ -17,7 +17,7 @@ Centralized Management allows governance of all physical children at the logical
 <tr><td>Documentation</td><td>✅ The description shown on the logical parent is copied to physical children. If the child has its own description, that will be shown instead.</td></tr>
 <tr><td>Ownership</td><td>✅️ Owners are replicated on physical children. If the same user is an owner for multiple ownership types, only one ownership type replicated.</td></tr>
 <tr><td>Structured Properties</td><td>✅ Structured properties are replicated on physical children. If the child has an existing value for the same property, it will be replaced, even if that property is multi-valued.</td></tr>
-<tr><td>Domains</td><td>❌ Domains are not propagated.</td></tr>
+<tr><td>Domains</td><td>✅ Domains are replicated on physical children. Propagated domains do not overwrite a pre-existing domain and remain hidden until the user-set domain is removed.</td></tr>
 <tr><td>Data Products</td><td>❌ Data products are not propagated.</td></tr>
 <tr><td>Data Quality Assertions</td><td>❌ Assertions are not propagated.</td></tr>
 </table>
@@ -31,7 +31,7 @@ You can hover over propagated attributes to see when and from where this informa
 
 ## Getting Started
 
-Centralized Management requires two automations. They currently must be created manually. This can be done via the [GraphQL](../../../api/graphql) mutations below.
+Centralized Management requires one automation. It currently must be created manually. This can be done via the [GraphQL](../../../api/graphql) mutation below.
 
 :::note
 You can execute these mutations by visiting `<your-datahub-url>/api/graphiql`.
@@ -60,11 +60,8 @@ mutation UpsertLogicalModelsPropagationAutomation {
                   "terms": {},
                   "documentation": {},
                   "ownership": {},
-                  "structured_properties": {}
-                },
-                "origin_urn_resolution": {
-                  "lookup_type": "relationship",
-                  "relationship_type": "PhysicalInstanceOf"
+                  "structured_properties": {},
+                  "domains": {}
                 },
                 "target_urn_resolution": [
                   {
@@ -72,57 +69,6 @@ mutation UpsertLogicalModelsPropagationAutomation {
                     "relationship_type": "PhysicalInstanceOf"
                   }
                 ]
-              }
-            }
-          }
-        }
-        """
-        executorId: "default"
-      }
-    }
-  )
-}
-```
-
-:::note Logical Model Platform
-If you are using a custom platform for your logical models, make sure to update the `query` field in the next mutation accordingly. If you have multiple logical platforms, you can specify multiple as so: `platform:(platformA platformB)`.
-:::
-
-```graphql
-mutation UpsertSchemaFieldPropagationAutomation {
-  upsertActionPipeline(
-    urn: "urn:li:dataHubAction:schema-field"
-    input: {
-      name: "Schema Fields"
-      category: "System"
-      type: "datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action"
-      description: "Propagate tags, terms, and documentation on SchemaMetadata / EditableSchemaMetadata to aspects directly on schema fields"
-      config: {
-        recipe: """
-        {
-          "name": "schema fields",
-          "action": {
-            "type": "datahub_integrations.propagation.propagation_v2.propagation_v2_action.PropagationV2Action",
-            "config": {
-              "enabled": true,
-              "propagation_rule": {
-                "metadata_propagated": {
-                  "tags": {
-                    "omit_attribution_is_propagated": true
-                  },
-                  "terms": {
-                    "omit_attribution_is_propagated": true
-                  },
-                  "documentation": {
-                    "omit_attribution_is_propagated": true
-                  }
-                },
-                "origin_urn_resolution": {
-                  "lookup_type": "entity",
-                  "entity_type": "dataset",
-                  "query": "platform:logical"
-                },
-                "target_urn_resolution": "schema_field"
               }
             }
           }

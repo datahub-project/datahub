@@ -1,6 +1,8 @@
 import { Popover } from '@components';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import i18next from 'i18next';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
@@ -30,22 +32,37 @@ type Props = {
     timeProperty?: 'lastModified' | 'lastRefreshed' | 'lastUpdated';
 };
 
+// Lazy getters so i18next.t is invoked at access time (after i18n is initialized),
+// not at module import time.
 const descriptors = {
     lastModified: {
-        sectionTitle: 'Last Modified',
-        tooltip: 'Last modified',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastModified.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastModified.tooltip');
+        },
     },
     lastRefreshed: {
-        sectionTitle: 'Data Last Refreshed',
-        tooltip: 'Data last refreshed',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastRefreshed.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastRefreshed.tooltip');
+        },
     },
     lastUpdated: {
-        sectionTitle: 'Last Updated',
-        tooltip: 'Last updated',
+        get sectionTitle() {
+            return i18next.t('entity.preview:freshness.lastUpdated.sectionTitle');
+        },
+        get tooltip() {
+            return i18next.t('entity.preview:freshness.lastUpdated.tooltip');
+        },
     },
 };
 
 const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
+    const { t } = useTranslation('entity.preview');
     const lastUpdatedAgo = toRelativeTimeString(time);
 
     if (!time || time === 0) return null;
@@ -65,7 +82,7 @@ const Freshness = ({ time, timeProperty, showDate = true }: Props) => {
 
     return (
         <Popover
-            content={<PopoverContent>{`${updateType} ${lastUpdatedAgo}`}</PopoverContent>}
+            content={<PopoverContent>{t('freshness.popoverContent', { updateType, lastUpdatedAgo })}</PopoverContent>}
             placement="bottom"
             showArrow={false}
         >

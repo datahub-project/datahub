@@ -1,6 +1,7 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -16,6 +17,8 @@ import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { SchemaField } from '@types';
+
+const FIELD_PATH_SEPARATOR = '.';
 
 const FieldHeaderWrapper = styled.div`
     padding: 16px;
@@ -96,6 +99,7 @@ interface Props {
 }
 
 export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath }: Props) {
+    const { t: tc } = useTranslation('common.labels');
     const { config } = useAppConfig();
     const displayName = translateFieldPath(expandedField.fieldPath || '');
     const entityRegistry = useEntityRegistry();
@@ -116,10 +120,10 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                                 )}/Lineage`
                             }
                         >
-                            {displayName.split('.').pop()}
+                            {displayName.split(FIELD_PATH_SEPARATOR).pop()}
                         </StyleLink>
                     ) : (
-                        displayName.split('.').pop()
+                        displayName.split(FIELD_PATH_SEPARATOR).pop()
                     )}
                     <StyledDivider type="vertical" />
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
@@ -128,7 +132,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     {expandedField.nullable && <NullableLabel />}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
                 </TitleWrapper>
-                <FieldText>Column</FieldText>
+                <FieldText>{tc('column')}</FieldText>
             </NameTypesWrapper>
             <RightGroup>
                 <MenuWrapper>

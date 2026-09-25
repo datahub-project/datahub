@@ -5,9 +5,11 @@ from enum import Enum
 import pytest
 import sqlglot
 
+from datahub.sql_parsing import sqlglot_utils
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sql_parsing_common import QueryType, get_dialect_str
 from datahub.sql_parsing.sqlglot_lineage import (
     _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
     sqlglot_lineage,
@@ -15,16 +17,42 @@ from datahub.sql_parsing.sqlglot_lineage import (
 from datahub.sql_parsing.sqlglot_utils import (
     PLACEHOLDER_BACKWARD_FINGERPRINT_NORMALIZATION,
     _sanitize_snowflake_ddl,
+    _sanitize_tsql_temp_tables,
     generalize_query,
     generalize_query_fast,
     get_dialect,
     get_query_fingerprint,
     is_dialect_instance,
+    parse_statement,
+    parse_statements_and_pick,
 )
 
 
 def test_update_from_select():
     assert {"returning", "this"} == _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
+
+
+def test_glue_and_athena_use_trino_dialect():
+    # Glue catalog views are Athena/Presto views (Trino SQL). Without this mapping,
+    # Glue/Athena view-SQL parsing silently fails and no lineage is produced.
+    assert get_dialect_str("glue") == "trino"
+    assert get_dialect_str("athena") == "trino"
+    assert is_dialect_instance(get_dialect("glue"), "trino")
+
+
+def test_informix_uses_postgres_dialect():
+    # sqlglot has no Informix dialect; Tableau / query lineage / aggregators
+    # resolve platform="informix" via get_dialect_str. Must map to postgres
+    # (same shape as HANA) or get_dialect("informix") raises.
+    assert get_dialect_str("informix") == "postgres"
+    assert is_dialect_instance(get_dialect("informix"), "postgres")
+
+
+def test_fabricspark_uses_spark_dialect():
+    # dbt-fabricspark reports adapter_type "fabricspark", which sqlglot does
+    # not know. Map to spark (Spark 3+), not spark2 or sqlglot's "fabric" (T-SQL).
+    assert get_dialect_str("fabricspark") == "spark"
+    assert is_dialect_instance(get_dialect("fabricspark"), "spark")
 
 
 def test_is_dialect_instance():
@@ -36,6 +64,14 @@ def test_is_dialect_instance():
     redshift = get_dialect("redshift")
     assert is_dialect_instance(redshift, ["redshift", "snowflake"])
     assert is_dialect_instance(redshift, ["postgres", "snowflake"])
+
+
+def test_mysql_compatible_dialects():
+    # TiDB and MariaDB speak the MySQL wire protocol; they must resolve to the
+    # MySQL dialect, otherwise sqlglot raises "Unknown dialect" and view/query
+    # lineage parsing silently produces nothing.
+    for platform in ["mysql", "mariadb", "tidb"]:
+        assert is_dialect_instance(get_dialect(platform), "mysql")
 
 
 def test_query_types():
@@ -206,6 +242,52 @@ def test_redshift_query_fingerprint():
     )
 
 
+def test_redshift_copy_credentials_generalization():
+    # Regression: `COPY ... CREDENTIALS '<secret>'` used to crash generalization
+    # with `TypeError: 'Placeholder' object is not iterable`. The credentials
+    # literal was replaced with a Placeholder, which flips sqlglot's
+    # credentials_sql dispatch onto the Snowflake key=value path that iterates
+    # the node.
+    copy_sql = (
+        "COPY my_schema.my_table FROM 's3://my-bucket/data' "
+        "CREDENTIALS 'aws_access_key_id=EXAMPLE;aws_secret_access_key=EXAMPLESECRET' "
+        "FORMAT AS PARQUET"
+    )
+
+    generalized = generalize_query(copy_sql, dialect="redshift")
+
+    # The secret must never leak into the generalized (stored) query text.
+    assert "EXAMPLESECRET" not in generalized
+    assert "CREDENTIALS" in generalized
+
+    # Fingerprinting must succeed and be independent of the actual secret, so
+    # two COPYs differing only in credentials share a fingerprint.
+    other_creds_sql = (
+        "COPY my_schema.my_table FROM 's3://my-bucket/data' "
+        "CREDENTIALS 'aws_access_key_id=OTHER;aws_secret_access_key=OTHERSECRET' "
+        "FORMAT AS PARQUET"
+    )
+    assert get_query_fingerprint(copy_sql, "redshift") == get_query_fingerprint(
+        other_creds_sql, "redshift"
+    )
+
+
+def test_get_query_fingerprint_survives_generalization_error(monkeypatch):
+    # Defense in depth: if generalization raises an unexpected error (e.g. a
+    # sqlglot generator bug on an exotic statement), fingerprinting must fall
+    # back to the raw text rather than propagating and killing the pipeline.
+    def _boom(*args: object, **kwargs: object) -> str:
+        raise TypeError("simulated sqlglot generator failure")
+
+    monkeypatch.setattr(sqlglot_utils, "generalize_query", _boom)
+
+    raw_query = "SELECT * FROM my_table"
+    fingerprint = get_query_fingerprint(raw_query, "redshift")
+    # Pin the fallback path: the fingerprint must be the hash of the raw text,
+    # proving generalization was bypassed rather than merely "didn't raise".
+    assert fingerprint == generate_hash(raw_query)
+
+
 def test_query_fingerprint_with_secondary_id():
     query = "SELECT * FROM users WHERE id = 123"
 
@@ -366,3 +448,102 @@ def test_snowflake_governance_ddl_lineage(sql: str, expected_in_tables: list) ->
     )
     assert result.debug_info.table_error is None, result.debug_info.table_error
     assert sorted(result.in_tables) == sorted(expected_in_tables)
+
+
+@pytest.mark.parametrize(
+    "sql, expected",
+    [
+        # --- #<digit> temp names: must be bracketed so sqlglot stops lexing the
+        # leading digits as a NUMBER (otherwise the whole statement fails to parse) ---
+        (
+            "SELECT a INTO #63114Actual FROM real_src",
+            "SELECT a INTO [#63114Actual] FROM real_src",
+        ),
+        (
+            "SELECT a FROM #2025CourseCompletions",
+            "SELECT a FROM [#2025CourseCompletions]",
+        ),
+        # Global (##) temp table
+        ("SELECT a FROM ##2025Global", "SELECT a FROM [##2025Global]"),
+        # Bare #<digit>
+        ("DROP TABLE #1", "DROP TABLE [#1]"),
+        # --- Must NOT be modified ---
+        # Letter-leading temp names parse fine already
+        ("SELECT a FROM #temp", "SELECT a FROM #temp"),
+        # Already bracketed
+        ("SELECT a FROM [#63114Actual]", "SELECT a FROM [#63114Actual]"),
+        # #<digit> inside a string literal is data, not a table
+        ("SELECT '#123 order' AS c FROM t", "SELECT '#123 order' AS c FROM t"),
+        # #<digit> inside a line comment
+        ("SELECT a FROM t -- ticket #123\n", "SELECT a FROM t -- ticket #123\n"),
+        # #<digit> inside a block comment
+        ("SELECT a FROM t /* see #123 */", "SELECT a FROM t /* see #123 */"),
+        # No temp table at all
+        ("SELECT a FROM t WHERE id > 0", "SELECT a FROM t WHERE id > 0"),
+    ],
+)
+def test_sanitize_tsql_temp_tables(sql: str, expected: str) -> None:
+    assert _sanitize_tsql_temp_tables(sql) == expected
+
+
+def test_tsql_digit_leading_temp_table_lineage() -> None:
+    """A #<digit> temp-table target must not blow up parsing and lose the real source.
+
+    Without the sanitizer, sqlglot raises 'Expected table name but got NUMBER' and the
+    whole statement's lineage (including the real FROM source) is lost.
+    """
+    resolver = SchemaResolver(platform="mssql")
+    result = sqlglot_lineage(
+        "SELECT a, b INTO #63114Actual FROM mydb.dbo.real_src",
+        schema_resolver=resolver,
+        override_dialect="mssql",
+    )
+    assert result.debug_info.table_error is None, result.debug_info.table_error
+    assert any("real_src" in t for t in result.in_tables), result.in_tables
+
+
+@pytest.mark.parametrize(
+    "sql, dialect",
+    [
+        # Semicolon with attached line comment → Block([Create, Semicolon])
+        ("CREATE VIEW v AS SELECT 1 FROM t; -- trailing comment", "snowflake"),
+        # Semicolon with attached block comment → Block([Create, Semicolon])
+        ("CREATE VIEW v AS SELECT 1 FROM t; /* trailing */", "snowflake"),
+        # T-SQL BEGIN/END wrapper → Block([Command, EndStatement])
+        ("BEGIN SELECT 1; END;", "tsql"),
+        # T-SQL BEGIN/END + trailing comment → Block([Command, EndStatement, Semicolon])
+        ("BEGIN SELECT 1; END; -- done", "tsql"),
+    ],
+)
+def test_parse_statement_filters_noop_block_nodes(sql: str, dialect: str) -> None:
+    """Semicolon and EndStatement nodes in a Block must be filtered.
+
+    A trailing semicolon with an attached comment (e.g. "; -- foo") causes
+    sqlglot to produce Block([stmt, Semicolon]). T-SQL BEGIN/END produces
+    Block([stmt, EndStatement]). Both are no-op delimiter nodes that must be
+    discarded so parse_statement can unwrap to the single real statement.
+    """
+    result = parse_statement(sql, get_dialect(dialect))
+    assert not isinstance(result, sqlglot.exp.Block)
+    assert not isinstance(result, (sqlglot.exp.Semicolon, sqlglot.exp.EndStatement))
+
+
+@pytest.mark.parametrize(
+    "sql, dialect",
+    [
+        # Semicolon with attached comment → parse() returns [Select, Semicolon]
+        ("SELECT * FROM t; -- generated by dbt", "snowflake"),
+        # CTE + trailing comment → parse() returns [Select, Semicolon]
+        ("WITH cte AS (SELECT 1) SELECT * FROM cte; /* end */", "snowflake"),
+        # T-SQL BEGIN/END → parse() returns [Command, EndStatement]
+        ("BEGIN SELECT 1; END;", "tsql"),
+    ],
+)
+def test_parse_statements_and_pick_filters_noop_nodes(sql: str, dialect: str) -> None:
+    """Semicolon and EndStatement must not leak into the picked statement.
+
+    Without filtering, a trailing Semicolon from "SELECT 1; -- comment" would
+    be silently picked as the "main query" via statements[-1].
+    """
+    result = parse_statements_and_pick(sql, dialect)
+    assert not isinstance(result, (sqlglot.exp.Semicolon, sqlglot.exp.EndStatement))

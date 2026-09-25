@@ -6,6 +6,7 @@ import static com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
+import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.IntegerArray;
@@ -149,6 +150,21 @@ public final class GraphQueryUtils {
       finalQuery.filter(relationshipQuery);
     }
 
+    // Triplet-based edge filter: OR over (sourceType, destType, relType) triples.
+    // Applied additively — all other filters above still apply.
+    if (graphFilters.getAllowedEdgeTriplets() != null
+        && !graphFilters.getAllowedEdgeTriplets().isEmpty()) {
+      BoolQueryBuilder tripletQuery = QueryBuilders.boolQuery();
+      graphFilters
+          .getAllowedEdgeTriplets()
+          .forEach(
+              pair ->
+                  tripletQuery.should(
+                      GraphFilterUtils.getAggregationFilter(pair, pair.getValue().getDirection())));
+      tripletQuery.minimumShouldMatch(1);
+      finalQuery.filter(tripletQuery);
+    }
+
     // general filter
     Optional.ofNullable(graphFilters.getRelationshipFilter())
         .map(RelationshipFilter::getOr)
@@ -187,14 +203,20 @@ public final class GraphQueryUtils {
     return (path.size() != urnSet.size());
   }
 
-  /** Check if a URN's platform matches any of the provided platforms. */
+  /**
+   * Check if a URN's platform matches any of the provided platforms. Entity types that have no
+   * platform to read match nothing, rather than failing the lineage query they are part of.
+   */
   public static boolean platformMatches(Urn urn, UrnArray platforms) {
+    final DataPlatformUrn platform;
+    try {
+      platform = DataPlatformInstanceUtils.getDataPlatform(urn);
+    } catch (IllegalArgumentException e) {
+      log.warn("Could not read a platform from {}, treating it as unmatched", urn, e);
+      return false;
+    }
     return platforms.stream()
-        .anyMatch(
-            platform ->
-                DataPlatformInstanceUtils.getDataPlatform(urn)
-                    .toString()
-                    .equals(platform.toString()));
+        .anyMatch(candidate -> platform.toString().equals(candidate.toString()));
   }
 
   /** Clone a path by creating a new UrnArray with the same contents. */
