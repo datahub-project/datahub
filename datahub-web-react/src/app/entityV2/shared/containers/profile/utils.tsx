@@ -141,7 +141,11 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
     if (match && match[1]) {
         const selectedTabPath = match[1];
-        const routedTab = tabs.find((tab) => tab.name === selectedTabPath);
+        // Prefer matching on the stable, locale-independent `id`; fall back to `name` for tabs that
+        // don't declare an id. Matching on the translated `name` alone breaks routing under
+        // non-English locales (issue datahub-project/datahub#19658).
+        const routedTab =
+            tabs.find((tab) => tab.id === selectedTabPath) ?? tabs.find((tab) => tab.name === selectedTabPath);
         return routedTab;
     }
     // No match found!
