@@ -17,7 +17,9 @@ def get_entities_from_graph(datahub_graph: DataHubGraph, entity_type: str) -> Li
     if entity_type == "glossary_term":
         return datahub_graph.glossary_terms
     if entity_type == "relationship":
-        return datahub_graph.relationships
+        return datahub_graph.native_relationships or datahub_graph.relationships
+    if entity_type == "rdf_structured_property":
+        return datahub_graph.structured_property_definitions
     return getattr(datahub_graph, f"{entity_type}s", [])
 
 
@@ -112,7 +114,7 @@ def process_post_processing_hooks(
     Yields MCPs as they're generated.
     """
     if hasattr(mcp_builder, "build_post_processing_mcps") and entity_type not in [
-        "structured_property",
+        "rdf_structured_property",
         "glossary_term",
         "domain",
     ]:

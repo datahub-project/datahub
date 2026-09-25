@@ -1428,6 +1428,7 @@ setuptools.setup(
         "datahub.cli.gql": ["*.gql"],
         "datahub.cli.resources": ["*.md"],
         "datahub.cli.datapack.resources": ["*.md", "*.json"],
+        "datahub.ingestion.source.rdf.ontology": ["*.ttl"],
     },
     # Install .pth files that run at interpreter startup:
     # - setproctitle patch avoids a SIGSEGV when a multi-threaded process forks
