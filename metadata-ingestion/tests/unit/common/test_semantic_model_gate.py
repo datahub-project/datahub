@@ -2,7 +2,7 @@ from typing import Optional
 from unittest.mock import MagicMock
 
 from datahub.configuration.common import GraphError
-from datahub.ingestion.source.snowflake.snowflake_semantic_model_gate import (
+from datahub.ingestion.source.common.semantic_model_gate import (
     resolve_emit_semantic_model_entities,
 )
 from datahub.utilities.server_config_util import RestServiceConfig
