@@ -16,7 +16,6 @@ import base64
 import logging
 import os
 import time
-from typing import Optional
 
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
@@ -40,12 +39,12 @@ class AiGatewayEmbeddingProvider(EmbeddingProvider):
     def __init__(
         self,
         model: str,
-        platform: Optional[str],
-        base_url: Optional[str],
-        token_url: Optional[str],
-        client_id: Optional[str],
-        client_secret: Optional[str],
-        dimensions: Optional[int] = None,
+        platform: str | None,
+        base_url: str | None,
+        token_url: str | None,
+        client_id: str | None,
+        client_secret: str | None,
+        dimensions: int | None = None,
         timeout: float = DEFAULT_HTTP_TIMEOUT_SECONDS,
     ):
         resolved_platform = platform or os.environ.get("AI_GATEWAY_PLATFORM")
@@ -89,7 +88,7 @@ class AiGatewayEmbeddingProvider(EmbeddingProvider):
         self._dimensions = dimensions
         self._timeout = timeout
         self._session = build_retrying_session()
-        self._cached_token: Optional[str] = None
+        self._cached_token: str | None = None
         self._token_expires_at: float = 0.0
 
     def embed(self, texts: list[str]) -> EmbeddingResult:
@@ -141,11 +140,11 @@ class AiGatewayEmbeddingProvider(EmbeddingProvider):
             raise RuntimeError(
                 f"Invalid response from AI Gateway: missing or empty 'embeddings' for model {self._model}"
             )
-            
+
         # AI Gateway may return a batch of embeddings (nested array) even for a single input
         if len(embeddings) > 0 and isinstance(embeddings[0], list):
             return embeddings[0]
-            
+
         return embeddings
 
     def _get_access_token(self) -> str:
