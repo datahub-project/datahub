@@ -83,7 +83,7 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 7.  MySQL
 8.  Amazon Redshift
 9.  Amazon Athena
-10. Starburst / Trino (both the `StarburstAad.Contents` and `StarburstPresto.Contents` connectors)
+10. Starburst / Trino
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracle`, and ODBC data sources.
 
