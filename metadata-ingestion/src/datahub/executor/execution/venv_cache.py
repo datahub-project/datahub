@@ -39,7 +39,6 @@ from datahub.executor.execution.venv_utils import (
 if TYPE_CHECKING:
     # Type-only: runner imports this module, so a runtime import is a cycle.
     from datahub.executor.execution.runner import SubprocessRunner
-    from datahub.executor.execution.venv_config import VenvReference
 
 logger = logging.getLogger(__name__)
 
@@ -355,14 +354,11 @@ def evict_stale_entries(
     hours-long ingestion, and deleting a venv a task is running from is
     worse than exceeding the limit.
     """
-    # One pass at a time. DefaultExecutor gives each task its own thread and
-    # event loop, so several builds on different keys reach this within a
-    # second of each other. The per-entry flock only stops two passes picking
-    # the SAME victim; without a pass lock each one independently measures the
-    # same overshoot and frees it in full, so N passes evict N times what was
-    # needed and warm entries well inside the limit are destroyed. Declining
-    # is right rather than merely cheap: the peer holding this is doing this
-    # call's work, and waiting would mean a blocking flock on the event loop.
+    # One pass at a time. The per-entry flock only stops two passes picking
+    # the SAME victim; without this, N concurrent passes each measure the
+    # same overshoot and free it in full, destroying warm entries well inside
+    # the limit. Declining rather than waiting: the peer holding this is
+    # doing this call's work anyway.
     pass_lock = EntryLock(cache_root / EVICT_LOCK_NAME)
     if not pass_lock.try_acquire(exclusive=True).ok:
         logger.debug("venv cache: another eviction pass is running, skipping")
@@ -395,19 +391,14 @@ def _evict_locked(
     now = time.time()
     oldest_first = sorted(entries, key=last_used_at)
 
-    # One walk, oldest first, applying both rules at once: an entry goes if
-    # nothing has used it in max_age_sec, or if the cache is still over its
-    # count. Counting down as we go -- rather than slicing a fixed victim list
-    # up front -- is what lets the pass keep going past an entry it could not
-    # take: a locked entry is in use, and skipping it must not stop the cache
-    # being trimmed, only spare that one venv.
-    # In-use entries DO count toward the limit: they occupy disk, which is
-    # what the limit bounds. The consequence to know is that a node running
-    # more concurrent tasks than DATAHUB_VENV_CACHE_MAX_ENTRIES will churn --
-    # each build evicts a warm idle entry to make room the locked ones are
-    # holding, and the hit rate falls. That is a misconfiguration to
-    # surface, not a case to silently exempt: exempting them would let the
-    # cache grow past the bound an operator sized their volume against.
+    # One walk, oldest first, applying both rules: too old, or still over
+    # the count. Counting down as we go (rather than slicing a victim list up
+    # front) lets the pass continue past an entry it could not take.
+    #
+    # In-use entries DO count toward the limit -- they occupy the disk the
+    # limit bounds. So a node running more concurrent tasks than
+    # DATAHUB_VENV_CACHE_MAX_ENTRIES will churn, which is a misconfiguration
+    # worth surfacing rather than silently exempting.
     remaining = len(entries)
     in_use = 0
     undeletable = 0
@@ -861,14 +852,18 @@ def _resolve_existing_venv(entry: CacheEntry, runner: "SubprocessRunner") -> boo
 
 
 def _publish_cache_entry(
-    venv_reference: "VenvReference", venv_loc: pathlib.Path
-) -> None:
+    lock: Optional[EntryLock], venv_loc: pathlib.Path
+) -> Optional[EntryLock]:
     """Make a freshly built entry reusable, and keep holding it for this run.
+
+    Returns the lock still held afterwards, or None if the hold was lost --
+    the caller stores that back, so losing a hold is visible where the
+    reference lives rather than hidden in a mutation from here.
 
     No-op for an uncached venv, which has no lock and nothing to publish.
     """
-    if venv_reference.lock is None:
-        return
+    if lock is None:
+        return None
 
     # LAST, so a build killed before this point leaves an entry that fails
     # is_venv_complete() and is rebuilt rather than reused empty.
@@ -897,24 +892,20 @@ def _publish_cache_entry(
 
     # A refused downgrade has already dropped the hold (see
     # downgrade_to_shared); re-requesting SHARED is the recovery.
-    if (
-        venv_reference.lock.downgrade_to_shared()
-        or venv_reference.lock.try_acquire(exclusive=False).ok
-    ):
-        return
+    if lock.downgrade_to_shared() or lock.try_acquire(exclusive=False).ok:
+        return lock
 
-    # Nothing left to hold. Carrying the object would only let
-    # finalize_task_output release a lock nobody has, and would report the
-    # entry as protected when eviction is free to take it. The venv itself is
-    # complete and this task is about to run out of it, so the honest state is
-    # "usable, unprotected" -- said out loud, because an eviction pass landing
+    # Nothing left to hold. Reporting the entry as protected would let
+    # finalize_task_output release a lock nobody has. The venv is complete
+    # and this task is about to run out of it, so the honest state is
+    # "usable, unprotected" -- said out loud, because an eviction landing
     # here kills the child with an ImportError on a deleted file.
     logger.warning(
         "Lost the venv cache hold on %s after building it; this run continues "
         "against an entry eviction may reclaim.",
         venv_loc,
     )
-    venv_reference.lock = None
+    return None
 
 
 class VenvCache:
@@ -931,8 +922,10 @@ class VenvCache:
     async def acquire(self, cache_name: CacheName) -> CacheEntry:
         return await _acquire_cache_entry(cache_name, self._tmp_dir)
 
-    def publish(self, venv_reference: "VenvReference", venv_loc: pathlib.Path) -> None:
-        _publish_cache_entry(venv_reference, venv_loc)
+    def publish(
+        self, lock: Optional[EntryLock], venv_loc: pathlib.Path
+    ) -> Optional[EntryLock]:
+        return _publish_cache_entry(lock, venv_loc)
 
     @staticmethod
     def resolve_existing(entry: CacheEntry, runner: "SubprocessRunner") -> bool:
