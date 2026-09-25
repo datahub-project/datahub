@@ -15,6 +15,7 @@ import {
     PopularityTier,
     getBarsStatusFromPopularityTier,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { useExtraSidebarTabs } from '@app/entityV2/shared/containers/profile/useExtraSidebarTabs';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import {
@@ -298,8 +299,9 @@ export function getPopularityColumn(tier: PopularityTier, t: (key: string) => st
 export function useFinalSidebarTabs(
     baseTabs: EntitySidebarTab[],
     sidebarSections: EntitySidebarSection[] | undefined,
-    _contextType: TabContextType,
+    contextType: TabContextType,
 ) {
     const { t } = useTranslation('entity.shared.containers');
-    return useMemo(() => getFinalSidebarTabs(baseTabs, sidebarSections || [], t), [baseTabs, sidebarSections, t]);
+    const extraTabs = useExtraSidebarTabs(baseTabs, contextType);
+    return useMemo(() => getFinalSidebarTabs(extraTabs, sidebarSections || [], t), [extraTabs, sidebarSections, t]);
 }
