@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
@@ -13,7 +14,6 @@ import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertEqualsNoOrder;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
@@ -23,20 +23,27 @@ import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.ChangeAuditStamps;
+import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -69,8 +76,17 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
+import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -93,10 +109,12 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
- * Keyword (non-vector) reads with Search V3 keyword reads on and the V2 entity indices disabled,
- * run against each engine's test container. Entities are written through the V3 update-indices
- * strategy, so no V2 entity index exists under the test prefix: a read that still resolved a V2
- * index would fail with index_not_found, or come back empty through a V2 wildcard.
+ * Keyword (non-vector) reads with Search V3 keyword reads on, run against each engine's test
+ * container. Entities are written through the V3 update-indices strategy only. With the V2 entity
+ * indices disabled no V2 index exists under the test prefix, so a read that still resolved one
+ * would fail with index_not_found, or come back empty through a V2 wildcard. With V2 enabled (see
+ * {@link #isV2Enabled()}) the V2 indices exist but stay empty, so a read routed to V2 finds
+ * nothing.
  *
  * <p>Legacy browse ({@code browse}, {@code getBrowsePaths}) is not covered: it reads browsePaths
  * fields that only exist on V2 mappings.
@@ -112,6 +130,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final Urn ORDERS_CHART = UrnUtils.getUrn("urn:li:chart:(looker,orders_by_region)");
   private static final List<String> ENTITY_TYPES = List.of(DATASET_ENTITY_NAME, CHART_ENTITY_NAME);
   private static final String BROWSE_DELIMITER = "␟";
+  private static final Urn RETENTION_POLICY =
+      UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
 
   private final List<String> createdIndices = new ArrayList<>();
   private OperationContext opContext;
@@ -123,11 +143,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   @Nonnull
   protected abstract ESBulkProcessor getBulkProcessor();
 
+  /** Keep the V2 entity indices enabled next to V3 keyword reads, as before V2 is turned off. */
+  protected boolean isV2Enabled() {
+    return false;
+  }
+
   @BeforeClass
   public void setUp() throws Exception {
     EntityIndexConfiguration entityIndex =
         V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
-            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v2(EntityIndexVersionConfiguration.builder().enabled(isV2Enabled()).build())
             .v3(
                 V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().toBuilder()
                     .keywordReadEnabled(true)
@@ -138,12 +163,30 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
-            new ConfiguredIndexPrefixResolver("keywordv3"),
+            new ConfiguredIndexPrefixResolver(isV2Enabled() ? "keywordv3dual" : "keywordv3"),
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
     MappingsBuilder mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
+    // Both the document transformer and the filter resolver look the definition up
+    StructuredPropertyDefinition retentionPolicy =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(RETENTION_POLICY.getId())
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    MockAspectRetriever aspectRetriever =
+        new MockAspectRetriever(RETENTION_POLICY, retentionPolicy, new Status().setRemoved(false));
+    aspectRetriever.setEntityRegistry(entityRegistry);
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .aspectRetriever(aspectRetriever)
+            .cachingAspectRetriever(
+                TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .build();
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
+            () -> retrieverContext,
             SearchContext.builder()
                 .indexConvention(indexConvention)
                 .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
@@ -178,25 +221,33 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 getBulkProcessor(),
                 SearchWriteAccess.fixed(getBulkProcessor())));
 
-    // Only the seeded entity types' V3 indices; the registry would build one per entity type
-    Map<String, Map<String, Object>> v3Mappings =
-        mappingsBuilder.getIndexMappings(opContext).stream()
+    // Only the seeded entity types' indices; the registry would build one per entity type
+    Map<String, Map<String, Object>> mappings =
+        mappingsBuilder
+            .getIndexMappings(opContext, List.of(Pair.of(RETENTION_POLICY, retentionPolicy)))
+            .stream()
             .collect(
                 Collectors.toMap(
                     MappingsBuilder.IndexMapping::getIndexName,
                     MappingsBuilder.IndexMapping::getMappings));
     for (String entityType : ENTITY_TYPES) {
-      String indexName =
+      List<String> indexNames = new ArrayList<>();
+      indexNames.add(
           indexConvention.getEntityIndexNameV3(
-              opContext, V3IndexKeys.resolve(entityRegistry.getEntitySpec(entityType)));
-      indexBuilder.buildIndex(
-          opContext,
-          indexBuilder.buildReindexState(
-              opContext,
-              indexName,
-              v3Mappings.get(indexName),
-              settingsBuilder.getSettings(config.getIndex(), indexName)));
-      createdIndices.add(indexName);
+              opContext, V3IndexKeys.resolve(entityRegistry.getEntitySpec(entityType))));
+      if (isV2Enabled()) {
+        indexNames.add(indexConvention.getEntityIndexName(opContext, entityType));
+      }
+      for (String indexName : indexNames) {
+        indexBuilder.buildIndex(
+            opContext,
+            indexBuilder.buildReindexState(
+                opContext,
+                indexName,
+                mappings.get(indexName),
+                settingsBuilder.getSettings(config.getIndex(), indexName)));
+        createdIndices.add(indexName);
+      }
     }
 
     new UpdateIndicesV3Strategy(
@@ -212,7 +263,15 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 events(
                     ORDERS,
                     new DatasetProperties().setName("orders"),
-                    browsePaths("prod", "sales")),
+                    browsePaths("prod", "sales"),
+                    new StructuredProperties()
+                        .setProperties(
+                            new StructuredPropertyValueAssignmentArray(
+                                new StructuredPropertyValueAssignment()
+                                    .setPropertyUrn(RETENTION_POLICY)
+                                    .setValues(
+                                        new PrimitivePropertyValueArray(
+                                            PrimitivePropertyValue.create("90d")))))),
                 CUSTOMERS,
                 events(
                     CUSTOMERS,
@@ -240,14 +299,14 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   @Test
-  public void testNoV2EntityIndexExists() throws IOException {
+  public void testV2EntityIndexExistsOnlyWhenEnabled() throws IOException {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     for (String entityType : ENTITY_TYPES) {
       String v2Index = indexConvention.getEntityIndexName(opContext, entityType);
-      assertFalse(indexExists(v2Index), v2Index);
+      assertEquals(indexExists(v2Index), isV2Enabled(), v2Index);
     }
-    for (String v3Index : createdIndices) {
-      assertTrue(indexExists(v3Index), v3Index);
+    for (String index : createdIndices) {
+      assertTrue(indexExists(index), index);
     }
   }
 
@@ -294,6 +353,53 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .flatMap(agg -> agg.getFilterValues().stream().map(FilterValue::getValue))
             .collect(Collectors.toList()),
         List.of(DATASET_ENTITY_NAME));
+  }
+
+  @Test
+  public void testStructuredPropertyFilter() {
+    String field = "structuredProperties." + RETENTION_POLICY.getId();
+    assertUrns(
+        searchService
+            .filter(opContext, DATASET_ENTITY_NAME, QueryUtils.newFilter(field, "90d"), null, 0, 10)
+            .getEntities(),
+        ORDERS);
+    assertEquals(
+        searchService.aggregateByValue(opContext, List.of(DATASET_ENTITY_NAME), field, null, 10),
+        Map.of("90d", 1L));
+  }
+
+  @Test
+  public void testLineageUrnFilter() {
+    // The filter LineageSearchService sends for a batch of related entities
+    DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setMetadataChangeProposal(new MetadataChangeProposalConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .getSideEffects()
+        .setSchemaField(new MetadataChangeProposalConfig.SchemaFieldSideEffectsConfig());
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+
+    Filter lineageFilter =
+        QueryUtils.buildFilterWithUrns(appConfig, Set.of(ORDERS, ORDERS_CHART), null);
+    assertUrns(
+        searchService.search(fulltext, ENTITY_TYPES, "*", lineageFilter, null, 0, 10).getEntities(),
+        ORDERS,
+        ORDERS_CHART);
+
+    // A facet filter picked on the lineage tab is combined with the URN criterion
+    Filter facetedLineageFilter =
+        QueryUtils.buildFilterWithUrns(
+            appConfig,
+            Set.of(ORDERS, CUSTOMERS),
+            QueryUtils.newFilter("platform", HIVE.toString()));
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "*", facetedLineageFilter, null, 0, 10)
+            .getEntities(),
+        ORDERS);
   }
 
   @Test
