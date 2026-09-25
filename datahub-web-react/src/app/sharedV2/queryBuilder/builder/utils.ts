@@ -78,36 +78,31 @@ export function convertLogicalPredicateToOrFilters(
         // it's a LogicalPredicate
         switch (pred.operator) {
             case LogicalOperatorType.AND: {
+                // De Morgan's Law: if negated, NOT(AND) acts like OR
+                if (isNegated) {
+                    return (pred as LogicalPredicate).operands
+                        .flatMap((op) => convertLogicalPredicateToOrFilters(op, true))
+                        .filter((andFilter): andFilter is AndFilterInput => !!andFilter);
+                }
                 const andResults = (pred as LogicalPredicate).operands
                     .map((op) => convertLogicalPredicateToOrFilters(op, isNegated))
                     .filter((filters): filters is AndFilterInput[] => !!filters);
                 return andResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
             }
-            case LogicalOperatorType.OR:
+            case LogicalOperatorType.OR: {
+                // De Morgan's Law: if negated, NOT(OR) acts like AND
+                if (isNegated) {
+                    const orResults = (pred as LogicalPredicate).operands
+                        .map((op) => convertLogicalPredicateToOrFilters(op, true))
+                        .filter((filters): filters is AndFilterInput[] => !!filters);
+                    return orResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+                }
                 return (pred as LogicalPredicate).operands
                     .flatMap((op) => convertLogicalPredicateToOrFilters(op, isNegated))
                     .filter((andFilter): andFilter is AndFilterInput => !!andFilter);
+            }
             case LogicalOperatorType.NOT: {
                 const logicalOp = pred as LogicalPredicate;
-                // De Morgan's Law: NOT(AND) → OR, NOT(OR) → AND
-                if (logicalOp.operands.length === 1 && isLogicalPredicate(logicalOp.operands[0])) {
-                    const inner = logicalOp.operands[0] as LogicalPredicate;
-                    let swappedOp = inner.operator;
-                    if (inner.operator === LogicalOperatorType.AND) {
-                        swappedOp = LogicalOperatorType.OR;
-                    } else if (inner.operator === LogicalOperatorType.OR) {
-                        swappedOp = LogicalOperatorType.AND;
-                    }
-                    return convertLogicalPredicateToOrFilters(
-                        {
-                            type: 'logical',
-                            operator: swappedOp,
-                            operands: inner.operands,
-                        },
-                        !isNegated,
-                    );
-                }
-                // Fallback: process operands with inverted negation
                 const notResults = logicalOp.operands
                     .map((op) => convertLogicalPredicateToOrFilters(op, !isNegated))
                     .filter((filters): filters is AndFilterInput[] => !!filters);

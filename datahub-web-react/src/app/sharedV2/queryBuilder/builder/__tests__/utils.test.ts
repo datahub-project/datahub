@@ -640,6 +640,57 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
             expect(orFilters?.[0].and?.[0].negated).toBe(true); // platform != mysql
             expect(orFilters?.[0].and?.[1].negated).toBe(true); // platform != postgres
         });
+
+        it('should handle NOT(OR) with nested AND (Cartesian product)', () => {
+            // NOT(OR(A, AND(B, C))) = ((NOT A) AND (NOT B)) OR ((NOT A) AND (NOT C))
+            const predicate: LogicalPredicate = {
+                type: 'logical',
+                operator: LogicalOperatorType.NOT,
+                operands: [
+                    {
+                        type: 'logical',
+                        operator: LogicalOperatorType.OR,
+                        operands: [
+                            {
+                                type: 'property',
+                                property: 'field1',
+                                operator: 'equals',
+                                values: ['A'],
+                            },
+                            {
+                                type: 'logical',
+                                operator: LogicalOperatorType.AND,
+                                operands: [
+                                    {
+                                        type: 'property',
+                                        property: 'field2',
+                                        operator: 'equals',
+                                        values: ['B'],
+                                    },
+                                    {
+                                        type: 'property',
+                                        property: 'field3',
+                                        operator: 'equals',
+                                        values: ['C'],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            };
+            const orFilters = convertLogicalPredicateToOrFilters(predicate);
+            expect(orFilters).toBeDefined();
+            expect(orFilters?.length).toBe(2);
+
+            expect(orFilters?.[0].and?.length).toBe(2);
+            expect(orFilters?.[0].and?.some((f) => f.field === 'field1' && f.negated)).toBe(true);
+            expect(orFilters?.[0].and?.some((f) => f.field === 'field2' && f.negated)).toBe(true);
+
+            expect(orFilters?.[1].and?.length).toBe(2);
+            expect(orFilters?.[1].and?.some((f) => f.field === 'field1' && f.negated)).toBe(true);
+            expect(orFilters?.[1].and?.some((f) => f.field === 'field3' && f.negated)).toBe(true);
+        });
     });
 
     describe('convertLogicalPredicateToOrFilters: Edge Cases & Error Handling', () => {
