@@ -1020,6 +1020,51 @@ def test_external_table_deferred_in_get_workunits():
     assert deferred.schema_name == "ds"
 
 
+def test_ddl_confirms_no_partition_by_distinguishes_undetermined():
+    """A positive 'unpartitioned' answer requires the DDL to parse AND declare no
+    PARTITION BY. A parse failure or a present PARTITION BY clause is undetermined
+    (False), so the external-table path skips rather than full-scans.
+    """
+    confirms = PartitionDiscovery._ddl_confirms_no_partition_by
+    assert confirms("CREATE TABLE t (a INT64, b STRING)") is True
+    assert confirms("CREATE TABLE t (a INT64) PARTITION BY DATE(a)") is False
+    assert confirms("this is not valid sql (((") is False
+
+
+def test_external_table_undetermined_ddl_skips_not_full_scans():
+    """An external table whose partition columns can't be resolved and whose DDL fails to
+    parse (no hive-partitioning syntax) is undetermined, so discovery returns None (skip)
+    rather than [] (which the profiler treats as confirmed-unpartitioned and full-scans).
+    A cleanly-parsed DDL with no partitioning still returns [] (genuinely unpartitioned).
+    """
+    discovery = PartitionDiscovery(make_config())
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        return []  # no INFORMATION_SCHEMA / sample rows
+
+    undetermined = make_table(
+        name="ext_bad_ddl", external=True, ddl="NOT PARSEABLE DDL ((("
+    )
+    assert (
+        discovery._get_external_table_partition_filters(
+            undetermined, "test-project-123456", "ds", execute
+        )
+        is None
+    )
+
+    unpartitioned = make_table(
+        name="ext_plain",
+        external=True,
+        ddl="CREATE EXTERNAL TABLE ext_plain (a INT64, b STRING)",
+    )
+    assert (
+        discovery._get_external_table_partition_filters(
+            unpartitioned, "test-project-123456", "ds", execute
+        )
+        == []
+    )
+
+
 def test_partition_discovery_cache_avoids_repeat_info_schema_queries():
     """The dataset-level partition metadata cache should be populated with a single
     INFORMATION_SCHEMA.COLUMNS query for the whole dataset, so per-table calls hit

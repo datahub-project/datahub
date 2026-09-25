@@ -148,6 +148,21 @@ class PartitionDiscovery:
             )
         return partition_cols_with_types
 
+    @staticmethod
+    def _ddl_confirms_no_partition_by(ddl: str) -> bool:
+        # A positive "unpartitioned" answer requires the DDL to parse AND contain no
+        # PARTITION BY clause. A parse failure, or a PARTITION BY whose columns could not
+        # be extracted, returns False (undetermined) so the caller skips the table rather
+        # than treating it as unpartitioned and full-scanning a possibly-partitioned one.
+        try:
+            parsed = sqlglot.parse_one(ddl, dialect="bigquery")
+        except Exception:
+            return False
+        return not any(
+            isinstance(prop, PartitionedByProperty)
+            for prop in parsed.find_all(Property)
+        )
+
     def get_partition_columns_from_ddl(
         self,
         table: BigqueryTable,
@@ -1437,8 +1452,24 @@ class PartitionDiscovery:
                         context=f"{project}.{schema}.{table.name}",
                     )
                     return None
-                # DDL is present, has no hive-partitioning options, and no PARTITION BY
-                # columns: this is a genuinely unpartitioned external table.
+                if not self._ddl_confirms_no_partition_by(table.ddl):
+                    # An empty column result is only proof of an unpartitioned table when
+                    # the DDL parsed cleanly and declared no PARTITION BY. A parse failure,
+                    # or a PARTITION BY clause whose columns could not be extracted, leaves
+                    # the status unknown — treat it as undetermined (skip) rather than a
+                    # confirmed-unpartitioned full scan of a possibly-partitioned table.
+                    warn(
+                        self.report,
+                        logger,
+                        title="External table partition status undetermined",
+                        message="The external table DDL could not be parsed, or declares a "
+                        "partition clause whose columns could not be extracted; profiling "
+                        "was skipped to avoid a full scan.",
+                        context=f"{project}.{schema}.{table.name}",
+                    )
+                    return None
+                # DDL is present, parses cleanly, has no hive-partitioning options, and no
+                # PARTITION BY columns: this is a genuinely unpartitioned external table.
                 logger.debug(
                     f"No partition columns found for external table {table.name}"
                 )
