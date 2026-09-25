@@ -126,4 +126,34 @@ public class EmbeddingProviderConfigurationTest {
 
     Assert.assertNull(config.getModelId());
   }
+
+  @Test
+  public void testGetModelId_AiGatewayReturnsAiGatewayModel() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("ai-gateway");
+    config.getAiGateway().setModel("gemini-embedding-001");
+
+    Assert.assertEquals(config.getModelId(), "gemini-embedding-001");
+  }
+
+  @Test
+  public void testGetModelId_AiGatewayWithNullAiGatewayConfigReturnsNull() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("ai-gateway");
+    config.setAiGateway(null);
+
+    Assert.assertNull(config.getModelId());
+  }
+
+  @Test
+  public void testGetModelId_AiGatewayWithNullModelInAiGatewayConfigReturnsNull() {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("ai-gateway");
+    EmbeddingProviderConfiguration.AiGatewayConfig a =
+        new EmbeddingProviderConfiguration.AiGatewayConfig();
+    a.setModel(null);
+    config.setAiGateway(a);
+
+    Assert.assertNull(config.getModelId());
+  }
 }
