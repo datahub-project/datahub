@@ -688,6 +688,10 @@ class SQLAlchemyQueryCombiner:
                 logger.debug("Failed to execute flat group", exc_info=e)
                 group_queue = {k: fut for k, fut in members if not fut.done}
                 if group_queue:
+                    # Without a rollback the failed flat query leaves Postgres/
+                    # Redshift in an aborted transaction (25P02), so the CTE
+                    # re-route would always fail too.
+                    self._rollback_quietly(members[0][1].conn)
                     try:
                         self._execute_cte_combine(group_queue)
                         self.report.flat_group_cte_recoveries += 1
@@ -811,6 +815,18 @@ class SQLAlchemyQueryCombiner:
         # N queued aggregates collapsed into one scan over the same table.
         self.report.scans_avoided += len(members) - 1
 
+    @staticmethod
+    def _rollback_quietly(conn: Connection) -> None:
+        # SA 2.0 has no autocommit, so after a failed statement e.g. Postgres/
+        # Redshift return 25P02 ("current transaction is aborted") for every
+        # later statement until a rollback. Everything the combiner runs is a
+        # read-only profiling SELECT whose results are already materialized, so
+        # rolling back loses nothing.
+        try:
+            conn.rollback()
+        except Exception as rollback_err:
+            logger.debug(f"Rollback before retrying queries failed: {rollback_err}")
+
     def _execute_futures_serially(self, futures: List["_QueryFuture"]) -> None:
         # Scoped to specific futures, so a failed flat group resolves only its
         # own. The skip-done guard is load-bearing for the whole-queue caller,
@@ -827,14 +843,8 @@ class SQLAlchemyQueryCombiner:
             logger.debug(f"[{query_id}] SQL: {str(query_future.query)}")
 
             # The failed combined query (or a preceding fallback query) may have
-            # left the transaction aborted -- SA 2.0 has no autocommit, so e.g.
-            # Postgres/Redshift return 25P02 for every later statement until a
-            # rollback. These are read-only profiling SELECTs whose results are
-            # already materialized, so rolling back is safe.
-            try:
-                query_future.conn.rollback()
-            except Exception as rollback_err:
-                logger.debug(f"Rollback before fallback query failed: {rollback_err}")
+            # left the transaction aborted.
+            self._rollback_quietly(query_future.conn)
 
             with PerfTimer() as timer:
                 try:

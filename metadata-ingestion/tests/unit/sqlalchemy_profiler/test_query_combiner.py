@@ -7,7 +7,8 @@ implementation, no exact-error-message assertions.
 
 import dataclasses
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from unittest.mock import patch
 
 import pytest
 import sqlalchemy as sa
@@ -864,6 +865,45 @@ class TestFlattenPath:
         assert (
             combiner.report.scans_avoided == good_count - MAX_QUERIES_TO_COMBINE_AT_ONCE
         )
+
+    def test_flat_group_failure_rolls_back_before_cte_reroute(self, engine, test_table):
+        # SA 2.0 has no autocommit: on Postgres/Redshift a failed flat query
+        # leaves the transaction aborted (25P02), so the CTE re-route must roll
+        # back first or it fails too. SQLite doesn't abort, so assert ordering.
+        queries = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(2)
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        calls: List[str] = []
+        real_cte_combine = combiner._execute_cte_combine
+
+        def _cte_combine(queue: Any) -> None:
+            calls.append("cte")
+            real_cte_combine(queue)
+
+        with (
+            engine.connect() as conn,
+            combiner.activate() as qc,
+            patch.object(
+                combiner,
+                "_execute_flat_select",
+                side_effect=sa.exc.OperationalError("SELECT", {}, Exception("x")),
+            ),
+            patch.object(combiner, "_execute_cte_combine", side_effect=_cte_combine),
+            patch.object(
+                type(conn),
+                "rollback",
+                autospec=True,
+                side_effect=lambda self: calls.append("rollback"),
+            ),
+        ):
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert calls[:2] == ["rollback", "cte"]
+        assert combiner.report.flat_group_cte_recoveries == 1
+        assert all(c.exc is None and c.result.scalar() == 3 for c in caps)
 
     def test_same_name_different_object_tables_not_grouped(self, engine):
         # Two Table objects named "t" must not group, or the flat SELECT
