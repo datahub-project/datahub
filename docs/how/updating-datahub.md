@@ -619,6 +619,77 @@ Requirements:
 
 - **(Spark lineage)** The `acryl-spark-lineage` agent now shades its bundled OpenLineage under `io.acryl.shaded.io.openlineage` instead of exposing it at `io.openlineage`. This lets the agent run alongside environments that ship their own OpenLineage on the Spark classpath — notably **Amazon EMR 7.12+ / SageMaker Unified Studio (DataZone)**, whose built-in `/usr/share/aws/datazone-openlineage-spark/lib/` jars previously collided with the agent's copy and failed the Spark job. The destructive workaround (`rm -rf /usr/share/aws/datazone-openlineage-spark/lib/`) is no longer needed; both DataHub and DataZone lineage can be captured on the same cluster. The user-facing listener (`datahub.spark.DatahubSparkListener`) and all `spark.datahub.*` / `spark.openlineage.*` config are unchanged — no recipe changes required. The OpenLineage extension SPI (`io.openlineage.spark.extension.*`), which data-source connectors implement at its canonical name, is intentionally left unrelocated. **Action:** only required if you depended on the agent transitively exposing `io.openlineage.*` classes to your own code (rare) — reference the shaded coordinates instead.
 
+## v1.6.0.3
+
+Patch release for v1.6.0 — authorization tightening, SecretService caller guard, Python **3.11+** on this LTS hotfix line, and CVE dependency bumps. Full changelog: [v1.6.0.2...v1.6.0.3](https://github.com/datahub-project/datahub/compare/v1.6.0.2...v1.6.0.3). GitHub: [v1.6.0.3](https://github.com/datahub-project/datahub/releases/tag/v1.6.0.3).
+
+Requirements:
+
+- CLI / Python SDK: 1.6.0.3 (Python **3.11+**)
+- Helm Chart: 1.1.2
+
+**Upgrade path:** From v1.6.0 / v1.6.0.1 / v1.6.0.2 this is a drop-in image bump plus a CLI/SDK upgrade. Recreate ingestion venvs. No ZDU or Helm chart change is required.
+
+### Breaking Changes
+
+- #19703 **(CLI / Python)** Python 3.10 support is dropped on the **v1.6.0 LTS hotfix line**. `acryl-datahub`, plugin packages, `acryl-datahub-actions`, and `datahub-agent-context` on this line require **Python 3.11+**. This does **not** remove Python 3.10 support from `master`. **Action:** Upgrade to Python 3.11 or later before installing or upgrading v1.6.0.3 packages.
+
+- #17995 **(GMS / Secrets)** `SECRET_SERVICE_CALLER_GUARD_MODE` now defaults to **`ENFORCE`**. Browser sessions and user Personal Access Tokens **can no longer** call `getSecretValues` or otherwise decrypt UI secrets through GraphQL. **Action:** If you relied on admins or automation using a user PAT to read plaintext secret values via `getSecretValues`, migrate to [**datahub-actions**](../actions/actions/executor.md) with system client credentials (`DATAHUB_SYSTEM_CLIENT_ID` / `DATAHUB_SYSTEM_CLIENT_SECRET`) or set `SECRET_SERVICE_CALLER_GUARD_MODE=AUDIT` temporarily during rollout. Scheduled UI ingestion via **datahub-actions** is unaffected. See [Environment Variables](../deploy/environment-vars.md) and [Ingestion executor security](../docker/ingestion-executor-security.md).
+
+- #17995 **(Java / Plugin API)** `SecretService.encrypt` and `SecretService.decrypt` no-context overloads are removed; use `encrypt(OperationContext, String)` and `decrypt(OperationContext, String)`. Custom GMS plugins must pass `OperationContext` from the request, or `null` for background jobs (allowed by the guard).
+
+- #19872 **(GMS / GraphQL patchEntity)** `patchEntity` and `patchEntities` take the entity type used for authorization from the target URN rather than from the optional `entityType` argument. A request whose `entityType` disagrees with the URN, or whose URN cannot be parsed, is rejected as unauthorized. The mutations also accept the entity type's own management privilege as an alternative to **Edit Entity**. **Action:** none for clients that omit `entityType` or pass the URN's actual type; fix any client that passes a mismatched value.
+
+- #19750 **(GMS / Asset summary settings writes)** The `updateAssetSettings` GraphQL mutation and any write to the `assetSettings` aspect now require **Edit Entity** or **Manage Asset Summary** on the target asset. Previously the GraphQL mutation performed no authorization check. Toggle via `metadataChangeProposal.validation.aspectAuthorization.assetSettings.enabled` (default `true`). **Action:** grant **Manage Asset Summary** (or **Edit Entity**) to automation that writes `assetSettings` outside the UI.
+
+- #19750 **(GMS / Compliance form assignment writes)** `batchAssignForm`, `batchRemoveForm`, and `createDynamicFormAssignment` now require **Manage Compliance Forms**. Aspect-layer enforcement applies to assigning or unassigning forms; prompt completion of already-assigned forms is unchanged. Toggle via `metadataChangeProposal.validation.aspectAuthorization.formAssignment.enabled` (default `true`). **Action:** grant **Manage Compliance Forms** to automation that assigns forms outside the UI.
+
+- #19750 **(GMS / Analytics API)** `POST /openapi/v2/analytics/datahub_usage_events/_search` now requires **Analytics API access** (`GET_ANALYTICS_PRIVILEGE`) or **Manage System Operations**. **View Analytics** still grants the in-app dashboard. **Action:** grant **Analytics API access** to any service account that calls this endpoint.
+
+- #19967 **(GMS / all APIs)** The `corpUserCredentials` aspect on `corpuser` entities now requires **Manage User Credentials** to read, across GraphQL `aspects`, OpenAPI, and Rest.li. Requests for the aspect alone return 403 (or an empty list in GraphQL); whole-entity reads succeed with the aspect omitted. **Action:** none unless an integration reads this aspect with a non-admin token, in which case grant **Manage User Credentials**.
+
+- #19894 **(CLI / Python)** `urllib3` is floored at **>=2.5.0,<3.0** (lock / images **>=2.7.0**). Optional extras that pull `unstructured` / `unstructured-ingest` (`notion`, `confluence`, `unstructured`, `datahub-documents`) pin patched releases for CVE-2026-71428 (`unstructured==0.24.1`, `unstructured-ingest==1.4.28`). `acryl-datahub[elasticsearch]` now depends on `opensearch-py>=3.0.0,<4.0.0`. The `profiling-ge` extra is no longer part of `[all]`. **Action:** rebuild ingestion venvs/images. Elasticsearch source `api_key` must be a `[id, api_key]` list or a base64-encoded string. Installing `acryl-datahub` with **Airflow 2.x constraint files** (urllib3 1.26.x) is unsatisfiable.
+
+- #19873 / #19894 **(CLI / Python)** `confluent-kafka` is raised to **>=2.15.1,<3.0.0**. **Action:** rebuild ingestion and actions images; recreate venvs.
+
+- #19601 **(Ingestion / Dependencies)** `acryl-datahub` no longer caps `setuptools`, so it installs alongside `setuptools>=83` (CVE-2026-59890). A `pkg_resources` compatibility shim covers `redshift`/`cockroachdb` dialects. **Action:** none.
+
+### Known Issues
+
+### Potential Downtime
+
+### Other Notable Changes
+
+**Security and authorization:**
+
+- #19848 **(Frontend)** Opt-in Play security headers via `DATAHUB_SECURITY_HEADERS_FRAME_OPTIONS`, `DATAHUB_SECURITY_HEADERS_CONTENT_TYPE_OPTIONS`, and `DATAHUB_SECURITY_HEADERS_REFERRER_POLICY`. Unset variables omit those headers. CSP remains `DATAHUB_CSP_*`.
+- #19539 **(GraphQL)** `getSecretValues` isolates per-secret decryption failures instead of failing the whole batch.
+
+**Ingestion and CLI:**
+
+- #19921 **(CLI / Python)** `snowflake-connector-python` floored at **>=4.7.3** (CVE-2026-15925 and follow-up pin). **Action:** rebuild ingestion venvs/images.
+- #19983 **(CLI / Python)** `aiohttp` 3.14.3 (CVE-2026-69244); `vcrpy>=8.2.0`.
+- #19894 **(CLI / Python)** `pip` 26.2.1 (CVE-2026-13346); `click>=8.3.3` (CVE-2026-7246); `deepdiff>=8.6.2` (CVE-2026-33155); `anyio>=4.14.2`; `soupsieve>=2.9.0`.
+
+**Documents:**
+
+- #18654 **(Documents)** Additive `semanticText` embedding-source aspect so document embeddings can be sourced independently.
+
+**Dependency CVE bumps:**
+
+- #19700 Spring Framework / Boot / Security / Kafka latest 7.0 / 4.0 patches.
+- #19701 Jackson **2.22.2** and Apache Parquet **1.18.1** (shaded jackson-databind 2.22.2; CVE-2026-54512 / 54513).
+- #19556 mariadb-java-client **2.7.14** (CVE-2026-55856 / 55857 / 55858).
+- libthrift **0.24.0** (CVE-2026-48586); Bouncy Castle jdk18on **1.86**; Wolfi zlib refresh (CVE-2026-85091).
+- #19894, #19967 Remaining Java and Python CVE dependency bumps on the v1.6.0 line.
+
+### Environment Variables
+
+- `SECRET_SERVICE_CALLER_GUARD_MODE` (default `ENFORCE`) — Restrict who can decrypt UI secrets. `AUDIT` logs without blocking during rollout.
+- `DATAHUB_SECURITY_HEADERS_FRAME_OPTIONS` / `_CONTENT_TYPE_OPTIONS` / `_REFERRER_POLICY` — Opt-in Play response headers on the frontend.
+- `metadataChangeProposal.validation.aspectAuthorization.assetSettings.enabled` (default `true`) — Toggle asset-settings write authorization.
+- `metadataChangeProposal.validation.aspectAuthorization.formAssignment.enabled` (default `true`) — Toggle form-assignment write authorization.
+
 ## v1.6.0.2
 
 Patch release for v1.6.0 — security and authorization hardening plus CVE dependency bumps. No new features; no schema or model changes.
