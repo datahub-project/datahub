@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.query;
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
@@ -106,6 +107,7 @@ import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.explain.ExplainResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.client.indices.GetMappingsRequest;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -132,6 +134,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:postgres,sales.customers,PROD)");
   private static final Urn ORDERS_CHART = UrnUtils.getUrn("urn:li:chart:(looker,orders_by_region)");
   private static final List<String> ENTITY_TYPES = List.of(DATASET_ENTITY_NAME, CHART_ENTITY_NAME);
+  // Its indices get no documents, so the dynamic _search.tier_N fields stay unmapped in its V3
+  // index
+  private static final String EMPTY_ENTITY_TYPE = GLOSSARY_TERM_ENTITY_NAME;
   private static final String BROWSE_DELIMITER = "␟";
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
@@ -232,7 +237,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 getBulkProcessor(),
                 SearchWriteAccess.fixed(getBulkProcessor())));
 
-    // Only the seeded entity types' indices; the registry would build one per entity type
+    // Only the seeded entity types' indices plus the empty one; the registry would build one per
+    // entity type
     Map<String, Map<String, Object>> mappings =
         mappingsBuilder
             .getIndexMappings(opContext, List.of(Pair.of(RETENTION_POLICY, retentionPolicy)))
@@ -241,7 +247,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 Collectors.toMap(
                     MappingsBuilder.IndexMapping::getIndexName,
                     MappingsBuilder.IndexMapping::getMappings));
-    for (String entityType : ENTITY_TYPES) {
+    for (String entityType :
+        Stream.concat(ENTITY_TYPES.stream(), Stream.of(EMPTY_ENTITY_TYPE))
+            .collect(Collectors.toList())) {
       List<String> indexNames = new ArrayList<>();
       indexNames.add(
           indexConvention.getEntityIndexNameV3(
@@ -538,6 +546,60 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
           sort.getValue(),
           sort.getKey().toString());
     }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSearchWithEmptyIndex() throws IOException {
+    // No document reached the empty index, so the tier fields the queries name are unmapped there
+    String emptyIndex =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(
+                opContext,
+                V3IndexKeys.resolve(
+                    opContext.getEntityRegistry().getEntitySpec(EMPTY_ENTITY_TYPE)));
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            getSearchClient()
+                .getIndexMapping(
+                    OperationFingerprint.EMPTY,
+                    new GetMappingsRequest().indices(emptyIndex),
+                    RequestOptions.DEFAULT)
+                .mappings()
+                .get(emptyIndex)
+                .sourceAsMap()
+                .get("properties");
+    Map<String, Object> searchFields =
+        (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
+    assertTrue(searchFields.keySet().stream().noneMatch(field -> field.startsWith("tier_")));
+
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    for (String query : List.of("orders", "\"orders\"")) {
+      assertUrns(
+          searchService
+              .search(
+                  fulltext,
+                  List.of(EMPTY_ENTITY_TYPE, DATASET_ENTITY_NAME),
+                  query,
+                  null,
+                  null,
+                  0,
+                  10)
+              .getEntities(),
+          ORDERS);
+      assertEquals(
+          searchService
+              .search(fulltext, List.of(EMPTY_ENTITY_TYPE), query, null, null, 0, 10)
+              .getNumEntities()
+              .intValue(),
+          0,
+          query);
+    }
+    assertEquals(
+        urns(searchService.autoComplete(opContext, EMPTY_ENTITY_TYPE, "ord", null, null, 10)),
+        List.of());
   }
 
   @Test
