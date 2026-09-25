@@ -135,6 +135,30 @@ def create_dbt_node(name: str = "my_table") -> DBTNode:
     )
 
 
+def create_semantic_model_node(name: str = "my_metrics") -> DBTNode:
+    """A semantic model, carrying the borrowed database/schema of the model it sits on."""
+    return DBTNode(
+        database="warehouse_db",
+        schema="warehouse_schema",
+        name=name,
+        alias=None,
+        comment="",
+        description="",
+        language="yaml",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name=f"semantic_model.jaffle_shop.{name}",
+        dbt_file_path=f"models/semantic_models/{name}.yml",
+        dbt_package_name="jaffle_shop",
+        node_type="semantic_model",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+
+
 def target_platform_workunit_aspects(source: DBTCoreSource, node: DBTNode) -> List:
     return [
         wu.metadata.aspect
@@ -519,3 +543,25 @@ def test_no_warning_when_display_name_left_at_default_without_target_platform_in
     with warnings.catch_warnings():
         warnings.simplefilter("error", ConfigurationWarning)
         create_dbt_source(config_overrides={"target_platform_instance": None})
+
+
+def test_semantic_model_emits_no_target_platform_entity() -> None:
+    """A semantic model is never materialized, so there is no warehouse table to
+    describe - the connector used to fabricate one at the backing model's address."""
+    source = create_dbt_source()
+
+    assert (
+        list(source.create_target_platform_mces([create_semantic_model_node()])) == []
+    )
+
+
+def test_semantic_model_emits_no_siblings() -> None:
+    """Neither sibling-primary setting should pair a semantic model with a warehouse
+    entity, because there is nothing on the warehouse side to be its sibling."""
+    node = create_semantic_model_node()
+
+    for dbt_is_primary_sibling in (True, False):
+        source = create_dbt_source(
+            config_overrides={"dbt_is_primary_sibling": dbt_is_primary_sibling}
+        )
+        assert source._should_create_sibling_relationships(node) is False
