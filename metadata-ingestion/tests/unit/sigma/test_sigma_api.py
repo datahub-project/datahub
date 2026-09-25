@@ -1182,7 +1182,7 @@ class TestAssembleDataModelFileMetaFallback:
 
     @pytest.mark.parametrize(
         ("second_page", "complete"),
-        [("ok", True), ("dies", False), ("bad-row", False)],
+        [("ok", True), ("dies", False), ("bad-row", False), ("repeats", False)],
     )
     def test_columns_complete_says_whether_columns_arrived_whole(
         self, second_page: str, complete: bool
@@ -1192,7 +1192,7 @@ class TestAssembleDataModelFileMetaFallback:
         column = {"columnId": "c1", "name": "Id", "elementId": "e1"}
 
         def _pages(url: str) -> Any:
-            if "page=" not in url:
+            if "page=" not in url or second_page == "repeats":
                 return _paginated_response([column], next_page=2)
             if second_page == "dies":
                 raise requests.exceptions.HTTPError(
@@ -2394,6 +2394,18 @@ class TestDataModelElementOwner:
             )
         ]
         return dm
+
+    @pytest.mark.parametrize("complete", [True, False])
+    def test_columns_complete_reaches_the_schema_record(self, complete: bool) -> None:
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        dm.columns_complete = complete
+        urn = source._gen_data_model_element_urn(dm, dm.elements[0])
+
+        with patch.object(source.sigma_api, "get_user_name", return_value=None):
+            list(source._gen_data_model_workunit(dm, {"elem-1": urn}))
+
+        assert (urn in source._dm_element_field_paths) is complete
 
     def test_owner_emitted_when_createdBy_resolves_and_ingest_owner_true(
         self,
