@@ -361,8 +361,8 @@ class SigmaAPI:
             # lineage" reply, once per element, so retrying would cost ~12s of
             # backoff each.
             status_forcelist=[429, 502, 503, 504],
-            # Same as urllib3's default, which already excludes POST; pinned so
-            # the token and refresh POSTs stay unreplayed if that changes.
+            # Only GET is read here. urllib3's default already excludes POST;
+            # pinned so the token and refresh POSTs stay unreplayed regardless.
             allowed_methods=frozenset({"GET"}),
             backoff_factor=2,
             raise_on_status=False,

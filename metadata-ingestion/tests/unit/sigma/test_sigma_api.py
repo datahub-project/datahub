@@ -1,5 +1,5 @@
 import datetime as _dt
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, nullcontext
 from typing import Any, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -3975,6 +3975,43 @@ class TestFailureRemedies:
     """The failure message is fixed so report_log can group it, so the
     per-listing remedy lives in the context -- and leads it, because the
     context is truncated at 1000 chars."""
+
+    @pytest.mark.parametrize(
+        ("call", "stub_files"),
+        [
+            (lambda api: api.fill_workspaces(), True),
+            (lambda api: api._get_files_metadata(file_type=Constant.WORKBOOK), False),
+            (lambda api: api.get_sigma_datasets(), True),
+            (lambda api: api.get_sigma_workbooks(), True),
+            (lambda api: api.get_data_models(), True),
+        ],
+        ids=["workspaces", "files", "datasets", "workbooks", "data-models"],
+    )
+    def test_a_network_error_on_every_listing_is_transient(
+        self, call: Any, stub_files: bool
+    ) -> None:
+        """Each site passes transient itself; one that lost it would call an
+        outage a connector bug."""
+        api = _create_sigma_api()
+        with (
+            patch.object(
+                SigmaAPI,
+                "_get_api_call",
+                side_effect=requests.exceptions.ConnectionError("reset"),
+            ),
+            patch.object(
+                SigmaAPI,
+                "_get_files_metadata",
+                return_value={},
+            )
+            if stub_files
+            else nullcontext(),
+        ):
+            call(api)
+
+        context = _contexts(api.report.failures)
+        assert "Transient" in context
+        assert "Neither refused nor transient" not in context
 
     @pytest.mark.parametrize(
         "toggle",
