@@ -222,6 +222,10 @@ public class AiGatewayEmbeddingProvider implements EmbeddingProvider {
               + modelToUse);
     }
 
+    if (embeddingsNode.get(0) != null && embeddingsNode.get(0).isArray()) {
+      embeddingsNode = embeddingsNode.get(0);
+    }
+
     int size = embeddingsNode.size();
     float[] embedding = new float[size];
     for (int i = 0; i < size; i++) {

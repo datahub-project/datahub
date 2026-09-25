@@ -141,6 +141,11 @@ class AiGatewayEmbeddingProvider(EmbeddingProvider):
             raise RuntimeError(
                 f"Invalid response from AI Gateway: missing or empty 'embeddings' for model {self._model}"
             )
+            
+        # AI Gateway may return a batch of embeddings (nested array) even for a single input
+        if len(embeddings) > 0 and isinstance(embeddings[0], list):
+            return embeddings[0]
+            
         return embeddings
 
     def _get_access_token(self) -> str:
