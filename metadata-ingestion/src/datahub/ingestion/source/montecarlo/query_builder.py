@@ -112,11 +112,15 @@ _MONITOR_FALLBACK_SELECTION = (
 )
 _CUSTOM_RULE_FALLBACK_SELECTION = (
     "uuid\n    ruleName\n    ruleType\n    description\n    customSql\n    "
-    "priority\n    entityMcons"
+    "priority\n    entityMcons\n"
+    "    comparisons {\n"
+    "      comparisonType\n      operator\n      metric\n      field\n      fields\n"
+    "      threshold\n      upperThreshold\n      lowerThreshold\n"
+    "      customMetric { uuid metricName }\n    }"
 )
 _ALERT_FALLBACK_SELECTION = (
-    "id\n    type\n    severity\n    priority\n    status\n    createdTime\n"
-    "    monitorUuids\n    assets { mcon }"
+    "id\n    type\n    subTypes\n    severity\n    priority\n    status\n    "
+    "createdTime\n    monitorUuids\n    assets { mcon }"
 )
 
 
@@ -219,6 +223,10 @@ class _TypeField:
 @dataclass
 class _TypeShape:
     fields: Dict[str, _TypeField] = field(default_factory=dict)
+    # True when the __type call raised (network/auth blip), not when the
+    # type exists and is empty. An empty successful shape means drop nested
+    # selections; a failed one means keep a known-good nested selection.
+    introspection_failed: bool = False
 
 
 def _unwrap_type(type_dict: Optional[Dict[str, Any]]) -> tuple:
@@ -258,6 +266,21 @@ def _parse_type_shape(response: Dict[str, Any]) -> _TypeShape:
     return shape
 
 
+def _emit_desired_selection(desired: DesiredFields, indent: str) -> str:
+    """Emit a GraphQL selection from a desired-field tree without intersecting
+    against a live shape. Used when a nested type's introspection failed so
+    the parent field is still requested instead of being dropped."""
+    lines = []
+    for fname, sub in desired.items():
+        if sub is None:
+            lines.append(f"{indent}{fname}")
+        elif isinstance(sub, dict):
+            lines.append(f"{indent}{fname} {{")
+            lines.append(_emit_desired_selection(sub, indent + "    "))
+            lines.append(f"{indent}}}")
+    return "\n".join(lines)
+
+
 def _build_selection_with_subshapes(
     desired: DesiredFields,
     shape: _TypeShape,
@@ -268,7 +291,8 @@ def _build_selection_with_subshapes(
     GraphQL selection string (camelCase field names). Fields absent from the
     live shape are silently dropped; object fields recurse into their element
     type's shape (looked up from ``object_shapes``, keyed by object type name).
-    can introspect element types once and pass the shapes down for recursion."""
+    If a nested type's introspection failed, emit the desired sub-selection
+    rather than omitting the parent field."""
     lines = []
     for fname, sub in desired.items():
         live = shape.fields.get(fname)
@@ -280,9 +304,12 @@ def _build_selection_with_subshapes(
             if not live.is_object or not live.object_type_name:
                 continue
             sub_shape = object_shapes.get(live.object_type_name, _TypeShape())
-            sub_lines = _build_selection_with_subshapes(
-                sub, sub_shape, object_shapes, indent + "    "
-            )
+            if sub_shape.introspection_failed:
+                sub_lines = _emit_desired_selection(sub, indent + "    ")
+            else:
+                sub_lines = _build_selection_with_subshapes(
+                    sub, sub_shape, object_shapes, indent + "    "
+                )
             if not sub_lines.strip():
                 # Object field present but none of its desired sub-fields exist;
                 # request an empty selection would be invalid, so skip the field.
@@ -448,7 +475,7 @@ class IntrospectingQueryBuilder:
                 context=f"type={type_name}",
                 exc=e,
             )
-            self._shapes[type_name] = _TypeShape()
+            self._shapes[type_name] = _TypeShape(introspection_failed=True)
             return self._shapes[type_name]
         shape = _parse_type_shape(response)
         self._shapes[type_name] = shape

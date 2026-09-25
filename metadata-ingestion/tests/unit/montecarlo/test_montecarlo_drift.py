@@ -254,6 +254,15 @@ def test_builder_falls_back_when_introspection_fails() -> None:
     # so those monitors still resolve warehouse assets and comparisons.
     assert "resourceId" in query
     assert "comparisons" in query
+    # CustomRule / Alert fallbacks keep their nested blocks so a failed
+    # parent introspection does not emit no-comparison / no-subTypes records.
+    custom_q = builder.custom_rules_query()
+    assert "comparisons" in custom_q
+    assert "operator" in custom_q
+    assert "customMetric" in custom_q
+    alert_q = builder.alerts_query()
+    assert "subTypes" in alert_q
+    assert "assets" in alert_q
     assert any("introspection failed" in w for w in warnings)
     drift = builder.check_drift(strict=False, types=["Monitor"])
     assert drift.verdict == DriftVerdict.PROCEED
@@ -300,6 +309,65 @@ def test_builder_fallback_does_not_poison_other_types() -> None:
     assert drift.per_type["Alert"].verdict == DriftVerdict.PROCEED
     # Monitor failed but Alert was still introspected.
     assert "Alert" in calls
+
+
+def test_builder_keeps_comparisons_when_nested_introspection_fails() -> None:
+    # A failed __type call for Comparison must not drop the parent
+    # comparisons field. Monitor introspection succeeded, so the Monitor
+    # fallback is not used; the desired Comparison selection is emitted
+    # instead of an empty sub-selection.
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "Monitor":
+            return _introspect_response(
+                _live_monitor_shape(include_custom_sql=False, include_severity=False)
+            )
+        if type_name == "Comparison":
+            raise RuntimeError("transient blip on Comparison only")
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    query = builder.monitors_query()
+    assert "comparisons" in query
+    assert "operator" in query
+    assert "metric" in query
+    assert "customMetric" in query
+    # Parent Monitor was introspected successfully, so drifted fields stay
+    # dropped and the renamed replacements stay requested.
+    assert "customSql" not in query
+    assert "severity" not in query
+    assert "whereCondition" in query
+    assert "priority" in query
+    assert "uuid" in query
+
+
+def test_custom_rule_keeps_comparisons_when_nested_introspection_fails() -> None:
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        type_name = variables.get("name", "")
+        if type_name == "CustomRule":
+            return _introspect_response(
+                {
+                    "uuid": "SCALAR:UUID",
+                    "ruleName": "SCALAR:String",
+                    "ruleType": "SCALAR:String",
+                    "description": "SCALAR:String",
+                    "customSql": "SCALAR:String",
+                    "entityMcons": "SCALAR:String",
+                    "priority": "SCALAR:String",
+                    "comparisons": "OBJECT:Comparison",
+                }
+            )
+        if type_name == "Comparison":
+            raise RuntimeError("transient blip on Comparison only")
+        return {"mc_type": {"fields": []}}
+
+    builder = IntrospectingQueryBuilder(fake_call, lambda **kwargs: None)
+    query = builder.custom_rules_query()
+    assert "comparisons" in query
+    assert "operator" in query
+    assert "customMetric" in query
+    assert "customSql" in query
+    assert "uuid" in query
 
 
 def test_builder_only_introspects_desired_nested_types() -> None:
