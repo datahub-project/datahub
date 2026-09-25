@@ -369,7 +369,7 @@ class BigqueryProfiler(GenericProfiler):
 
         if self._should_sample(rows_count):
             # Do NOT emit TABLESAMPLE here. The SQLAlchemy profiler adapter
-            # (_setup_sampling, mirrored by the GE profiler) already runs a single
+            # (_setup_sampling) already runs a single
             # TABLESAMPLE on the source table when use_sampling is on and no LIMIT is
             # configured. Emitting it here as well would double-sample (adapter re-samples
             # the materialized custom-SQL result) and change the default profiling path
@@ -443,8 +443,7 @@ class BigqueryProfiler(GenericProfiler):
             "dataset": schema_name,
             "table_name": bq_table.name,
             # Pass the row count the crawl already collected so the SQLAlchemy
-            # profiler's sampling decision avoids a COUNT(*). The GE profiler
-            # ignores it (it has **kwargs and recomputes rowCount itself).
+            # profiler's sampling decision avoids a COUNT(*).
             "row_count": bq_table.rows_count,
         }
 
