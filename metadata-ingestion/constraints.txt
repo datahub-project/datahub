@@ -18,7 +18,7 @@ aiofiles==25.1.0
     # via unstructured-client
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.5
+aiohttp==3.14.3
     # via
     #   acryl-datahub
     #   aiobotocore
@@ -1549,6 +1549,7 @@ types-urllib3==1.26.25.14
 typing-extensions==4.15.0
     # via
     #   acryl-datahub
+    #   aiohttp
     #   aiosignal
     #   alembic
     #   anyio
@@ -1653,7 +1654,7 @@ uvicorn-worker==0.4.0
     # via feast
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
-vcrpy==8.1.1
+vcrpy==8.3.0
     # via acryl-datahub
 vertica-python==1.4.0
     # via vertica-sqlalchemy-dialect
