@@ -24,11 +24,14 @@ _CONNECTION_ID = "connectionId"
 _PATH = "path"
 _JOIN_KIND = "join"
 _UNION_KIND = "union"
-# Every source kind in Sigma's published data model examples is one of these.
-# Single-source kinds are ones /columns formulas already reach. A transpose is
-# valid Sigma that this parser does not map: its upstream columns appear only
-# in `columnsToMerge`. Any other kind -- a renamed "join", say -- is drift.
-_SINGLE_SOURCE_KINDS = frozenset({"warehouse-table", "table", "sql", "csv-table"})
+# Every source kind in Sigma's create-spec schema and published examples is one
+# of these. Single-source kinds are ones /columns formulas already reach; a
+# `data-model` source is an element of another Data Model. A transpose is valid
+# Sigma this parser does not map: its upstream columns appear only in
+# `columnsToMerge`. Any other kind -- a renamed "join", say -- is drift.
+_SINGLE_SOURCE_KINDS = frozenset(
+    {"warehouse-table", "table", "sql", "csv-table", "data-model"}
+)
 _UNMAPPED_KINDS = frozenset({"transpose"})
 _MATCHES = "matches"
 _SOURCES = "sources"
@@ -43,13 +46,24 @@ _INNER_JOIN_TYPE = "inner"
 # for an inner join -- so a missing or unknown one is reported, not scored.
 _OUTER_JOIN_TYPES = frozenset({"left-outer", "right-outer", "full-outer", "lookup"})
 _KNOWN_JOIN_TYPES = _OUTER_JOIN_TYPES | {_INNER_JOIN_TYPE}
-# Only equality says two columns hold the same value. The others make a column a
-# join participant without making it equal. The set is what Sigma's data model
-# write API accepted when probed; an operator outside it is reported, so a wrong
-# entry fails closed. A missing `op` is equality: Sigma's published join
-# example omits it.
-_EQUALITY_OPS = frozenset({"="})
-_KNOWN_OPS = _EQUALITY_OPS | {"!=", "<", "<=", ">", ">=", "within", "intersects"}
+# Only equality says two columns hold the same value; the others make a column a
+# join participant without making it equal. These are the operators Sigma's
+# data model write API accepts and stores verbatim. The UI's null-safe `<=>` and
+# `<!=>` are stored as `is-not-distinct-from` and `is-distinct-from`; `<=>`
+# itself is rejected. An operator outside the set is reported, so a wrong entry
+# fails closed. A missing `op` is equality: Sigma's published join example
+# omits it.
+_EQUALITY_OPS = frozenset({"=", "is-not-distinct-from"})
+_KNOWN_OPS = _EQUALITY_OPS | {
+    "!=",
+    "is-distinct-from",
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "within",
+    "intersects",
+}
 
 
 @dataclass(frozen=True)
@@ -103,11 +117,12 @@ class JoinPredicate:
     edges to warehouse tables is its call. Identical predicates in different
     joins are not deduplicated.
 
-    Each side's column is attributed to that join entry's own ``left`` /
-    ``right`` descriptor. Sigma's published example has a single join; for a
-    chained join, whether a later entry's descriptor names the element its
-    column actually comes from is unverified, so a consumer must check each
-    column against that element's real columns before emitting an edge.
+    Each side's column belongs to that join entry's own ``left`` / ``right``
+    descriptor, including in a chained join. Sigma's schema requires each
+    entry's ``left`` to be the primary source or an earlier entry's ``right``,
+    and its write API resolves each side's formula against that descriptor --
+    naming a column the descriptor does not own is rejected as "Column
+    reference not found".
     """
 
     join_element_id: str

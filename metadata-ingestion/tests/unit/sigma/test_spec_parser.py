@@ -107,6 +107,95 @@ def test_the_published_join_example_yields_its_one_pair() -> None:
     assert index.unrecognised_element_count == 0
 
 
+def _stored_table(
+    element_id: str, name: str, columns: List[Tuple[str, str]]
+) -> Dict[str, Any]:
+    return {
+        "id": element_id,
+        "kind": "table",
+        "name": name,
+        "source": dict(_WAREHOUSE_SIDE),
+        "columns": [
+            {"id": cid, "formula": "[TABLE/Key]", "name": cname}
+            for cid, cname in columns
+        ],
+        "order": [cid for cid, _ in columns],
+    }
+
+
+def test_a_chained_join_attributes_each_key_to_its_own_entry() -> None:
+    """A spec Sigma stored for C chained onto B and D onto A, structure
+    verbatim, table and column names generic. Each entry's `left` names the
+    element that owns its left column: Sigma's write API rejects a spec where
+    it does not ("Column reference not found")."""
+    el = lambda i: {"elementId": i, "kind": "table"}  # noqa: E731
+    join = {
+        "kind": "join",
+        "joins": [
+            {
+                "left": el("pA"),
+                "right": el("pB"),
+                "columns": [{"left": "[A Key]", "right": "[B Key]"}],
+                "joinType": "inner",
+            },
+            {
+                "left": el("pB"),
+                "right": el("pC"),
+                "columns": [
+                    {
+                        "left": "[B Link Key]",
+                        "right": "[C Key]",
+                        "op": "is-not-distinct-from",
+                    }
+                ],
+                "joinType": "left-outer",
+            },
+            {
+                "left": el("pA"),
+                "right": el("pD"),
+                "columns": [{"left": "[A Key]", "right": "[D Key]"}],
+                "joinType": "inner",
+            },
+        ],
+        "primarySource": el("pA"),
+    }
+    spec = {
+        "schemaVersion": 1,
+        "pages": [
+            {
+                "elements": [
+                    _stored_table("pA", "A", [("a_key", "A Key")]),
+                    _stored_table(
+                        "pB", "B", [("b_key", "B Key"), ("b_ckey", "B Link Key")]
+                    ),
+                    _stored_table("pC", "C", [("c_key", "C Key")]),
+                    _stored_table("pD", "D", [("d_key", "D Key")]),
+                    {"id": "pJoin", "kind": "table", "name": "J", "source": join},
+                ]
+            }
+        ],
+    }
+    index = parse_data_model_spec(spec)
+
+    assert [
+        (
+            p.left.element_id,
+            p.left.column,
+            p.right.element_id,
+            p.right.column,
+            p.is_outer,
+        )
+        for p in index.pairs
+    ] == [
+        ("pA", "A Key", "pB", "B Key", False),
+        ("pB", "B Link Key", "pC", "C Key", True),
+        ("pA", "A Key", "pD", "D Key", False),
+    ]
+    assert index.unreadable_join_element_ids == []
+    assert index.unrecognised_element_count == 0
+    assert index.is_supported_schema
+
+
 def test_the_published_union_example_keeps_its_warehouse_branch() -> None:
     """The first branch is a warehouse table, not an element."""
     source = {
@@ -245,6 +334,11 @@ def test_an_unknown_join_type_is_reported_not_scored() -> None:
         ("!=", False, True),
         ("<", False, True),
         ("WITHIN", False, True),
+        # Null-safe equality, as the spec stores the UI's `<=>`.
+        ("is-not-distinct-from", True, True),
+        ("is-distinct-from", False, True),
+        # The UI symbol itself is not a stored spelling.
+        ("<=>", False, False),
         # Unknown, e.g. a renamed "=": reported, not silently declined.
         ("eq", False, False),
         ("", False, False),
@@ -425,7 +519,9 @@ def test_an_unknown_source_kind_is_counted_not_assumed_single_source(
     assert index.unrecognised_element_count == 1
 
 
-@pytest.mark.parametrize("kind", ["warehouse-table", "table", "sql", "csv-table"])
+@pytest.mark.parametrize(
+    "kind", ["warehouse-table", "table", "sql", "csv-table", "data-model"]
+)
 def test_a_published_single_source_kind_is_quiet(kind: str) -> None:
     index = parse_data_model_spec(_spec({"kind": kind}))
     assert index.unrecognised_element_count == 0
