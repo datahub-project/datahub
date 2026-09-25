@@ -193,6 +193,45 @@ public class ContainerExpansionRewriterTest
         "Expected rewrite");
   }
 
+  /** Search V3 entity indices filter on the root field, which has no .keyword subfield. */
+  @Test
+  public void testTermsQueryRewriteOnFieldWithoutKeywordSuffix() {
+    when(mockGraphRetriever.scrollRelatedEntities(
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
+            eq(
+                QueryUtils.newDisjunctiveFilter(
+                    buildCriterion("urn", Condition.EQUAL, List.of(childUrn)))),
+            eq(Set.of(CONTAINER_ENTITY_NAME)),
+            eq(EMPTY_FILTER),
+            eq(Set.of("IsPartOf")),
+            eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING)),
+            eq(Edge.EDGE_SORT_CRITERION),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                1,
+                1,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf", childUrn, parentUrn, RelationshipDirection.OUTGOING, null))));
+
+    assertEquals(
+        getTestRewriter()
+            .rewrite(
+                opContext,
+                QueryFilterRewriterContext.builder()
+                    .condition(Condition.ANCESTORS_INCL)
+                    .searchType(QueryFilterRewriterSearchType.STRUCTURED_SEARCH)
+                    .queryFilterRewriteChain(mock(QueryFilterRewriteChain.class))
+                    .build(false),
+                QueryBuilders.termsQuery("container", childUrn)),
+        QueryBuilders.termsQuery("container", childUrn, parentUrn));
+  }
+
   @Test
   public void testTermsQueryRewritePagination() {
     ContainerExpansionRewriter test =

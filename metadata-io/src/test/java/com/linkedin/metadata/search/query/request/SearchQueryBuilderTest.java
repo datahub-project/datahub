@@ -7,6 +7,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -37,6 +38,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsUtils;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.util.Pair;
@@ -51,6 +53,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.MatchResult;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.opensearch.index.query.BoolQueryBuilder;
@@ -261,6 +265,132 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Test
+  public void testQueryBuilderV3UsesTierFields() {
+    SearchQueryBuilder v3Builder = new SearchQueryBuilder(testQueryConfig, null, true);
+    List<EntitySpec> datasets = List.of(opContext.getEntityRegistry().getEntitySpec("dataset"));
+
+    String fulltext = v3Builder.buildQuery(opContext, datasets, "testQuery", true).toString();
+    assertTrue(fulltext.contains("simple_query_string"));
+    assertTrue(fulltext.contains("_search.tier_1.full_stemmed"));
+    assertTrue(fulltext.contains("_search.tier_2.full_removed_sep"));
+    assertTrue(fulltext.contains("_search.entityName"));
+    assertTrue(fulltext.contains("match_phrase_prefix"));
+    // V2 subfields and analyzers do not exist on V3 indices
+    assertFalse(fulltext.contains(URN_SEARCH_ANALYZER));
+    assertFalse(fulltext.contains("\"analyzer\""));
+    assertFalse(fulltext.contains(".delimited"));
+    assertFalse(fulltext.contains(".keyword"));
+
+    String structured = v3Builder.buildQuery(opContext, datasets, "testQuery", false).toString();
+    assertTrue(structured.contains("query_string"));
+    assertTrue(structured.contains("_search.tier_1.full"));
+    assertFalse(structured.contains(".delimited"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testQueryBuilderV3TiersFollowAnnotations() throws IOException {
+    // The test entity has no searchTier annotations, so only the tier the V3 base mapping copies
+    // the urn into is searched
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            MultiEntityMappingsUtils.loadMappingConfigurationFromResource(
+                    V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().getMappingConfig())
+                .get("properties");
+    List<String> urnCopyTo =
+        (List<String>) ((Map<String, Object>) properties.get("urn")).get("copy_to");
+
+    String query =
+        new SearchQueryBuilder(testQueryConfig, null, true)
+            .buildQuery(opContext, List.of(TestEntitySpecBuilder.getSpec()), "testQuery", true)
+            .toString();
+    assertEquals(
+        Pattern.compile("_search\\.tier_\\d+\\.full")
+            .matcher(query)
+            .results()
+            .map(MatchResult::group)
+            .collect(Collectors.toSet()),
+        urnCopyTo.stream().map(tier -> tier + ".full").collect(Collectors.toSet()));
+  }
+
+  @Test
+  public void testQueryBuilderV3PhrasePrefixCoversEveryTier() {
+    // Quoted queries skip the simple query with the default search config, so the phrase prefix
+    // must reach descriptions (tier 2), not only names
+    Map<String, Float> phrasePrefixBoosts =
+        getV3PrefixAndExactMatchClauses("\"test query\"").stream()
+            .filter(MatchPhrasePrefixQueryBuilder.class::isInstance)
+            .map(MatchPhrasePrefixQueryBuilder.class::cast)
+            .collect(
+                Collectors.toMap(
+                    MatchPhrasePrefixQueryBuilder::fieldName,
+                    MatchPhrasePrefixQueryBuilder::boost));
+    // (1/N) * prefixFactor * caseSensitivityFactor
+    assertEquals(phrasePrefixBoosts.get("_search.tier_1.full"), 4.2f, 0.001f);
+    assertEquals(phrasePrefixBoosts.get("_search.tier_2.full"), 2.1f, 0.001f);
+  }
+
+  @Test
+  public void testQueryBuilderV3KeepsV2RelevancyShape() {
+    // The search config export reads the simple query group and the exact/prefix group by position
+    BoolQueryBuilder relevancy =
+        (BoolQueryBuilder)
+            ((FunctionScoreQueryBuilder)
+                    new SearchQueryBuilder(testQueryConfig, null, true)
+                        .buildQuery(
+                            opContext,
+                            List.of(opContext.getEntityRegistry().getEntitySpec("dataset")),
+                            "*",
+                            true))
+                .query();
+    List<QueryBuilder> simpleQueries = ((BoolQueryBuilder) relevancy.should().get(0)).should();
+    assertFalse(simpleQueries.isEmpty());
+    for (QueryBuilder simpleQuery : simpleQueries) {
+      // No analyzer: each tier subfield applies its own search analyzer
+      assertNull(((SimpleQueryStringBuilder) simpleQuery).analyzer());
+    }
+    assertTrue(relevancy.should().get(1) instanceof BoolQueryBuilder);
+  }
+
+  @Test
+  public void testQueryBuilderV3ExactMatchKeepsCaseOnlyOnUrn() {
+    // Tier keywords and the entity name are normalized; the urn keeps case
+    Set<String> exactTerms =
+        getV3PrefixAndExactMatchClauses("Test_Table").stream()
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
+            .map(
+                term ->
+                    String.join(
+                        " ",
+                        term.fieldName(),
+                        term.caseInsensitive() ? "insensitive" : "sensitive",
+                        String.valueOf(term.boost()),
+                        String.valueOf(term.queryName())))
+            .collect(Collectors.toSet());
+    assertEquals(
+        exactTerms,
+        Set.of(
+            "_search.tier_1 insensitive 10.0 null",
+            "_search.entityName insensitive 10.0 null",
+            "urn sensitive 10.0 urn",
+            "urn insensitive 7.0 urn"));
+  }
+
+  private List<QueryBuilder> getV3PrefixAndExactMatchClauses(String query) {
+    FunctionScoreQueryBuilder result =
+        (FunctionScoreQueryBuilder)
+            new SearchQueryBuilder(testQueryConfig, null, true)
+                .buildQuery(
+                    opContext,
+                    List.of(opContext.getEntityRegistry().getEntitySpec("dataset")),
+                    query,
+                    true);
+    // After the simple query
+    return ((BoolQueryBuilder) ((BoolQueryBuilder) result.query()).should().get(1)).should();
   }
 
   @Test
