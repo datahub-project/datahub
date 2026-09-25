@@ -550,3 +550,107 @@ class TestExtractGraphSchemaFromEntryAspects:
         entry = Mock(spec=dataplex_v1.Entry)
         entry.aspects = {"655216118709.global.graph-schema": aspect}
         assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None
+
+
+class TestComplexColumns:
+    """Structured columns expand to v2 fieldPaths; flat columns are unchanged."""
+
+    @staticmethod
+    def _entry(columns: list) -> dataplex_v1.Entry:
+        aspect = Mock()
+        aspect.data = {"fields": columns}
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.schema": aspect}
+        return entry
+
+    def test_repeated_record_becomes_array_of_struct(self) -> None:
+        entry = self._entry(
+            [
+                {
+                    "name": "items",
+                    "dataType": "RECORD",
+                    "mode": "REPEATED",
+                    "description": "line items",
+                    "fields": [
+                        {"name": "item_id", "dataType": "INT64", "mode": "REQUIRED"},
+                        {"name": "label", "dataType": "STRING"},
+                    ],
+                }
+            ]
+        )
+
+        schema = extract_schema_from_entry_aspects(entry, "my_table", "bigquery")
+
+        assert schema is not None
+        paths = [schema_field.fieldPath for schema_field in schema.fields]
+        assert paths == [
+            "[version=2.0].[type=struct].[type=array].[type=struct].items",
+            "[version=2.0].[type=struct].[type=array].[type=struct].items.[type=long].item_id",
+            "[version=2.0].[type=struct].[type=array].[type=struct].items.[type=string].label",
+        ]
+        assert isinstance(schema.fields[0].type.type, ArrayTypeClass)
+        assert schema.fields[0].nativeDataType == "ARRAY<RECORD>"
+        assert schema.fields[0].description == "line items"
+        # REQUIRED children stay non-nullable; the rest default to nullable.
+        assert schema.fields[1].nullable is False
+        assert schema.fields[2].nullable is True
+
+    def test_hive_style_native_type_is_parsed(self) -> None:
+        entry = self._entry(
+            [{"name": "tags", "dataType": "array<struct<key:string,value:string>>"}]
+        )
+
+        schema = extract_schema_from_entry_aspects(entry, "my_table", "hive")
+
+        assert schema is not None
+        paths = [schema_field.fieldPath for schema_field in schema.fields]
+        assert paths[0].endswith(".tags")
+        assert any(path.endswith(".tags.[type=string].key") for path in paths)
+        assert any(path.endswith(".tags.[type=string].value") for path in paths)
+
+    def test_flat_columns_keep_their_plain_path(self) -> None:
+        entry = self._entry(
+            [
+                {"name": "col_a", "dataType": "STRING"},
+                {"name": "col_b", "dataType": "INT64"},
+            ]
+        )
+
+        schema = extract_schema_from_entry_aspects(entry, "my_table", "bigquery")
+
+        assert schema is not None
+        assert [schema_field.fieldPath for schema_field in schema.fields] == [
+            "col_a",
+            "col_b",
+        ]
+        assert all(schema_field.nullable for schema_field in schema.fields)
+
+    def test_bare_record_without_children_stays_flat(self) -> None:
+        """No structure to expand, and a plain fieldPath avoids churning the
+        schemaField URNs that column docs and tags hang off."""
+        entry = self._entry([{"name": "payload", "dataType": "RECORD"}])
+
+        schema = extract_schema_from_entry_aspects(entry, "my_table", "bigquery")
+
+        assert schema is not None
+        assert [schema_field.fieldPath for schema_field in schema.fields] == ["payload"]
+        assert isinstance(schema.fields[0].type.type, RecordTypeClass)
+
+    def test_repeated_scalar_becomes_an_array(self) -> None:
+        entry = self._entry(
+            [{"name": "labels", "dataType": "STRING", "mode": "REPEATED"}]
+        )
+
+        schema = extract_schema_from_entry_aspects(entry, "my_table", "bigquery")
+
+        assert schema is not None
+        assert isinstance(schema.fields[0].type.type, ArrayTypeClass)
+        assert schema.fields[0].nativeDataType == "ARRAY<STRING>"
+
+    def test_unparseable_complex_type_falls_back_to_a_flat_row(self) -> None:
+        entry = self._entry([{"name": "broken", "dataType": "struct<<<"}])
+
+        schema = extract_schema_from_entry_aspects(entry, "my_table", "hive")
+
+        assert schema is not None
+        assert [schema_field.fieldPath for schema_field in schema.fields] == ["broken"]

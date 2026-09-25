@@ -210,6 +210,8 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_TRAINING_JOB = "Training Job"
     VERTEX_ENDPOINT = "Endpoint"
     VERTEX_DATASET = "Dataset"
+    VERTEX_FEATURE_GROUP = "Feature Group"
+    VERTEX_FEATURE_ONLINE_STORE = "Feature Online Store"
     VERTEX_PROJECT = "Project"
     VERTEX_PIPELINE = "Pipeline"
     VERTEX_PIPELINE_TASK = "Task"

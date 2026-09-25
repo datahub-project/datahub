@@ -3,11 +3,23 @@
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from google.cloud import dataplex_v1
 
+from datahub.utilities.ratelimiter import TokenBucket
+
 logger = logging.getLogger(__name__)
+
+SECONDS_PER_MINUTE = 60.0
+
+
+def calls_per_minute_bucket(max_calls_per_minute: int) -> TokenBucket:
+    """Token bucket pacing at ``max_calls_per_minute`` sustained calls."""
+    return TokenBucket(
+        rate=max_calls_per_minute / SECONDS_PER_MINUTE,
+        capacity=max_calls_per_minute,
+    )
 
 
 @dataclass(frozen=True)
@@ -25,6 +37,10 @@ class EntryDataTuple:
     datahub_platform: str
     datahub_dataset_name: str
     datahub_dataset_urn: str
+    # fieldPaths of the emitted schemaMetadata; a tuple keeps the dataclass hashable.
+    schema_field_paths: Tuple[str, ...] = ()
+    # From the entry's ``storage`` aspect, when it points at GCS.
+    storage_gcs_bucket: Optional[str] = None
 
 
 @dataclass(frozen=True)

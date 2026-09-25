@@ -296,6 +296,144 @@ class DataplexConfig(
         "Lineage API calls automatically retry transient errors (timeouts, rate limits) with exponential backoff.",
     )
 
+    include_column_lineage: bool = Field(
+        default=False,
+        description="Whether to extract column-level lineage via column-scoped "
+        "Data Lineage API lookups. For each entry that has table-level lineage, "
+        "one extra search_links call is issued per batch of 20 columns per "
+        "parent that returned links, so this multiplies Data Lineage API read "
+        "volume. Lower 'max_workers_lineage' to slow that volume down: the pool "
+        "size is the binding constraint on sustained call rate, while "
+        "'lineage_max_calls_per_minute' is a ceiling that only engages once the "
+        "pool can outrun it. Requires both 'include_lineage' and "
+        "'include_schema'; if either is off, column lineage is disabled with a "
+        "warning rather than failing the source.",
+    )
+
+    dpms_hive_metastore_service: Optional[str] = Field(
+        default=None,
+        description="Fallback '{project}.{location}.{service}' used to resolve "
+        "'hive_metastore:...' lineage FQNs (which is how Spark and Dataproc "
+        "jobs report lineage) to Dataproc Metastore table URNs when the "
+        "(database, table) pair is not found among the tables ingested in this "
+        "run. Leave unset to fall through to 'include_hive_metastore_nodes' "
+        "handling.",
+    )
+
+    include_hive_metastore_nodes: bool = Field(
+        default=True,
+        description="Whether 'hive_metastore:...' upstreams that match no "
+        "Dataproc Metastore table in this run — the table lives only in a "
+        "Dataproc cluster's own metastore, with no catalog entry — are emitted "
+        "as lineage-only datasets on the 'hive' platform named "
+        "'{database}.{table}', the same treatment GCS bucket upstreams get. "
+        "When false, those upstream edges are skipped and counted in the "
+        "report. Only affects lineage FQNs that would otherwise be dropped as "
+        "unparseable.",
+    )
+
+    include_lineage_operations: bool = Field(
+        default=False,
+        description="Whether to attach the producing GCP operation (process) "
+        "to each lineage edge as a DataHub Query entity, rendered as an "
+        "operation node on the edge in the UI. Adds batchSearchLinkProcesses, "
+        "getProcess and listRuns Data Lineage API reads (through the same rate "
+        "limiter; one getProcess and one single-row listRuns per distinct "
+        "process per run thanks to caching). Requires 'include_lineage'; when "
+        "off, lineage output is byte-identical to before this feature existed.",
+    )
+
+    include_lineage_operation_sql: bool = Field(
+        default=False,
+        description="Whether to fetch the real SQL text (plus job metadata) "
+        "for BigQuery-origin operations from the BigQuery Jobs API. The Data "
+        "Lineage API stores only the job id, never the statement. Needs "
+        "roles/bigquery.resourceViewer on the compute projects, because jobs "
+        "are private to their creator by default, and the google-cloud-bigquery "
+        "package, which the dataplex extra does not install. Failures degrade "
+        "to a synthetic statement. Requires 'include_lineage_operations'.",
+    )
+
+    lineage_operation_origin_types: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Allow/deny patterns matched against a GCP process's "
+        "origin sourceType (BIGQUERY, DATAFLOW, COMPOSER, DATAPROC, "
+        "DATA_FUSION, VERTEX_AI, CUSTOM, ...). Denied origins keep their "
+        "lineage edges but get no operation node — the escape hatch when "
+        "another connector already owns query nodes for those tables.",
+    )
+
+    lineage_operation_attribute_allowlist: List[str] = Field(
+        default_factory=lambda: [
+            "sql",
+            "bigquery_job_id",
+            "job_id",
+            "process_id",
+            "process_name",
+            "dag_id",
+            "task_id",
+            "airflow_dag_id",
+            "airflow_task_id",
+            "spark.app.name",
+            "spark.app.id",
+        ],
+        description="Process attribute keys copied into the operation node's "
+        "custom properties. Attributes are producer-controlled free-form maps "
+        "of up to 100 entries, so only allowlisted keys are hoisted; values "
+        "are truncated to 1000 characters.",
+    )
+
+    include_storage_lineage: bool = Field(
+        default=False,
+        description="Whether to derive a bucket -> table lineage edge from a "
+        "Dataproc Metastore table's own 'storage' aspect. Dataplex never "
+        "reports that hop through the Data Lineage API, so it is the only way "
+        "to see where such a table's files actually live. Off by default "
+        "because it adds an upstream that no previous run emitted.",
+    )
+
+    include_lineage_only_upstreams: bool = Field(
+        default=False,
+        description="Whether to materialize minimal entities for lineage "
+        "upstreams this run does not otherwise ingest — GCS buckets, "
+        "uncatalogued hive tables, and tables in projects outside the "
+        "configured scope. Without them the edge exists in the graph but the "
+        "node is invisible in the UI, because searchAcrossLineage only returns "
+        "entities that carry a status aspect. Writes are guarded: a URN that "
+        "already exists and is soft-deleted is never revived, and a container "
+        "this connector did not create is never overwritten. Needs a DataHub "
+        "graph connection for those checks; without one, only nodes whose URN "
+        "namespace belongs to this connector are written.",
+    )
+
+    remove_stale_lineage: bool = Field(
+        default=True,
+        description="Whether lineage mirrors the live Data Lineage API state. "
+        "Default true: each run overwrites the upstreamLineage aspect with the "
+        "edges the API currently reports. Set to false for STICKY lineage, "
+        "where new edges are merged with the previously persisted aspect (so "
+        "an edge the API no longer reports — for example past its retention "
+        "window — is preserved) and lineage-only upstream entities are exempt "
+        "from stale-metadata removal. Merging needs the DataHub graph client; "
+        "dry runs without one emit the fresh state only. Either way, entities "
+        "that disappear from the source are still soft-deleted by stateful "
+        "ingestion.",
+    )
+
+    resolve_pubsub_subscriptions: bool = Field(
+        default=False,
+        description="Whether 'pubsub:subscription:...' upstream lineage FQNs "
+        "(how Dataflow reports Pub/Sub sources) are resolved to their backing "
+        "topic via the Pub/Sub Admin API, using one cached get_subscription "
+        "call per distinct subscription per run. The resulting edge points at "
+        "the topic's dataset URN — identical to the URN of an ingested Pub/Sub "
+        "topic — so the edge joins the catalogued topic entity. Off by "
+        "default: enabling it needs pubsub.subscriptions.get "
+        "(roles/pubsub.viewer) on each subscription's project. Any failure "
+        "(missing dependency, missing permission, deleted topic) skips the "
+        "edge with a warning, which is exactly the behavior when this is off.",
+    )
+
     lineage_locations: List[str] = Field(
         default_factory=lambda: list(DEFAULT_LINEAGE_LOCATIONS),
         description="List of GCP regions to scan for Dataplex lineage data. "
@@ -311,7 +449,7 @@ class DataplexConfig(
     lineage_max_retries: int = Field(
         default=3,
         ge=1,
-        le=10,
+        le=20,
         description="Maximum number of retry attempts for lineage API calls when encountering transient errors "
         "(timeouts, rate limits, service unavailable). Each attempt uses exponential backoff. "
         "Higher values increase resilience but may slow down ingestion. Default: 3.",
@@ -320,10 +458,22 @@ class DataplexConfig(
     lineage_retry_backoff_multiplier: float = Field(
         default=1.0,
         ge=0.1,
-        le=10.0,
+        le=30.0,
         description="Multiplier for exponential backoff between lineage API retry attempts (in seconds). "
-        "Wait time formula: multiplier * (2 ^ attempt_number), capped between 2-10 seconds. "
+        "Wait time formula: multiplier * (2 ^ attempt_number), floored at 2 seconds and capped at "
+        "'lineage_retry_max_wait_seconds'. "
         "Higher values reduce API load but increase ingestion time. Default: 1.0.",
+    )
+
+    lineage_retry_max_wait_seconds: int = Field(
+        default=65,
+        ge=2,
+        le=600,
+        description="Upper cap (seconds) on the exponential backoff between lineage API retries. "
+        "Defaults to just over the Data Lineage API's 60-second per-minute quota window so that a "
+        "retry can land in a fresh window instead of burning every attempt inside the same "
+        "exhausted one. Only reached with a raised 'lineage_max_retries' / "
+        "'lineage_retry_backoff_multiplier'. Default: 65.",
     )
 
     max_workers_entries: int = Field(
@@ -345,6 +495,26 @@ class DataplexConfig(
         "(search_links API calls). Lineage lookup volume scales with entries × "
         "lineage_locations, so parallelism here has a large impact on total "
         "ingestion time. Increase for large entry × location matrices. Default: 10.",
+    )
+
+    lineage_max_calls_per_minute: int = Field(
+        default=1000,
+        ge=1,
+        description="Client-side rate limit for Data Lineage API read calls, "
+        "enforced across all lineage worker threads so the connector paces "
+        "itself instead of relying on 429-and-retry. Google documents the read "
+        "quota as 1000 requests/minute/project/user/region, which is the "
+        "default here; lower it when several pipelines share the same quota. "
+        "Default: 1000.",
+    )
+
+    glossary_lookup_max_calls_per_minute: int = Field(
+        default=600,
+        ge=1,
+        description="Client-side rate limit for Dataplex lookupEntryLinks read "
+        "calls, enforced across all glossary worker threads so the term-asset "
+        "association scan paces itself instead of provoking 429s. Only applies "
+        "when 'include_glossary_term_associations' is enabled. Default: 600.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -466,6 +636,50 @@ class DataplexConfig(
                 "when include_glossaries is enabled."
             )
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_column_lineage_dependencies(self) -> "DataplexConfig":
+        """Column lineage needs table lineage and schemas; degrade rather than fail.
+
+        Turning ``include_lineage`` off must stay a safe escape hatch.
+        """
+        unmet = [
+            name
+            for name, enabled in (
+                ("include_lineage", self.include_lineage),
+                ("include_schema", self.include_schema),
+            )
+            if not enabled
+        ]
+        if self.include_column_lineage and unmet:
+            logger.warning(
+                "Disabling 'include_column_lineage': it requires %s to be enabled. "
+                "Column-level lineage will be skipped; table-level lineage and the "
+                "rest of Dataplex ingestion are unaffected. Set "
+                "'include_column_lineage: false' explicitly to silence this.",
+                " and ".join(f"'{name}'" for name in unmet),
+            )
+            self.include_column_lineage = False
+        return self
+
+    @model_validator(mode="after")
+    def validate_lineage_operation_dependencies(self) -> "DataplexConfig":
+        """Same degrade-don't-raise contract as column lineage."""
+        if self.include_lineage_operations and not self.include_lineage:
+            logger.warning(
+                "Disabling 'include_lineage_operations': it requires "
+                "'include_lineage' to be enabled. Set "
+                "'include_lineage_operations: false' explicitly to silence this."
+            )
+            self.include_lineage_operations = False
+        if self.include_lineage_operation_sql and not self.include_lineage_operations:
+            logger.warning(
+                "Disabling 'include_lineage_operation_sql': it requires "
+                "'include_lineage_operations' to be enabled. Set "
+                "'include_lineage_operation_sql: false' explicitly to silence this."
+            )
+            self.include_lineage_operation_sql = False
         return self
 
     @model_validator(mode="after")

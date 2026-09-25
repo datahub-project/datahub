@@ -109,6 +109,10 @@ def _resolve_project_numbers(
     "Optionally enabled via configuration `include_lineage`",
 )
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Optionally enabled via configuration `include_column_lineage`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
 )
@@ -288,6 +292,8 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                     source_report=self.report,
                     lineage_client=self.lineage_client,
                     redundant_run_skip_handler=redundant_lineage_run_skip_handler,
+                    graph=self.ctx.graph,
+                    credentials=credentials,
                 )
             )
         else:
@@ -547,6 +553,14 @@ class DataplexSource(StatefulIngestionSourceBase, TestableSource):
                 yield from auto_workunit(
                     self.entries_processor.process_exported_entries(entries)
                 )
+
+    def close(self) -> None:
+        # The base close commits ingestion state, so it must run regardless.
+        try:
+            if self.lineage_extractor is not None:
+                self.lineage_extractor.close()
+        finally:
+            super().close()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Main function to fetch and yield workunits for various Dataplex resources."""

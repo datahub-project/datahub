@@ -43,6 +43,33 @@ source:
     # include_lineage: true   # Extract lineage (default: true)
     # include_schema: true    # Extract schema metadata (default: true)
 
+    # Optional: Column-level lineage. Requires include_lineage and
+    # include_schema; multiplies Data Lineage API read volume.
+    # include_column_lineage: true
+
+    # Optional: attach the producing GCP process to each edge as an
+    # operation node (a DataHub Query entity).
+    # include_lineage_operations: true
+    # include_lineage_operation_sql: true  # needs roles/bigquery.resourceViewer
+    # lineage_operation_origin_types:
+    #   deny:
+    #     - "BIGQUERY"
+
+    # Optional: upstreams the Data Lineage API reports that are not catalog
+    # entries (GCS buckets, cluster-local hive tables, Pub/Sub subscriptions).
+    # include_storage_lineage: true         # bucket -> table edge from the storage aspect
+    # resolve_pubsub_subscriptions: true    # needs roles/pubsub.viewer
+    # include_hive_metastore_nodes: true    # default: true
+    # dpms_hive_metastore_service: "my-gcp-project.us-west1.my-service"
+
+    # Optional: materialize minimal entities for upstreams that are not
+    # ingested, so the nodes render in the UI lineage graph.
+    # include_lineage_only_upstreams: true
+
+    # Optional: set to false for sticky lineage — merge new edges with the
+    # previously persisted aspect instead of overwriting it.
+    # remove_stale_lineage: true
+
     # Optional: Extraction method (default: api)
     # Use 'export' for central-catalog / federated setups where assets surface
     # in a catalog project via Dataplex catalog linking and list_entries returns
@@ -65,9 +92,12 @@ source:
     #   export_paths:
     #     us: "gs://my-export-bucket-us/dataplex-exports"
 
-    # Optional: Lineage retry settings
-    # lineage_max_retries: 3                    # Max retry attempts (range: 1-10, default: 3)
-    # lineage_retry_backoff_multiplier: 1.0     # Backoff delay multiplier (range: 0.1-10.0, default: 1.0)
+    # Optional: Lineage retry and rate-limit settings
+    # lineage_max_retries: 3                    # Max retry attempts (range: 1-20, default: 3)
+    # lineage_retry_backoff_multiplier: 1.0     # Backoff delay multiplier (range: 0.1-30.0, default: 1.0)
+    # lineage_retry_max_wait_seconds: 65        # Backoff cap, just past the 60s quota window
+    # lineage_max_calls_per_minute: 1000        # Client-side Data Lineage API read ceiling
+    # glossary_lookup_max_calls_per_minute: 600 # Same, for lookupEntryLinks reads
 
     # Optional: Filtering patterns for entries
     # filter_config:

@@ -10,6 +10,7 @@ from google.cloud import dataplex_v1
 
 from datahub.ingestion.source.dataplex.dataplex_config import DataplexConfig
 from datahub.ingestion.source.dataplex.dataplex_mappers import (
+    _CONTAINER_STUB_RENDERING,
     ENTRY_MAPPERS,
     ContainerIdentity,
     DatasetIdentity,
@@ -18,12 +19,15 @@ from datahub.ingestion.source.dataplex.dataplex_mappers import (
     _extract_description,
     _extract_display_name,
     _extract_entry_group_id,
+    dataproc_metastore_table_urn,
     dataset_urn_from_fqn_only,
     get_entry_mapper,
     is_lineage_supported,
+    lineage_stub_spec_from_fqn_only,
 )
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
+from datahub.sdk.mlmodel import MLModel
 
 ENTRY_TYPE_PREFIX = "projects/123/locations/global/entryTypes/"
 
@@ -174,6 +178,30 @@ CASES = [
         "Table",
     ),
     (
+        "vertexai-feature-group",
+        "vertex_ai:featuregroup:my-project.us-west2.my_feature_group",
+        "",
+        "Dataset",
+        "my-project.us-west2.my_feature_group",
+        "Feature Group",
+    ),
+    (
+        "vertexai-feature-online-store",
+        "vertex_ai:featureonlinestore:my-project.us-west2.my_store",
+        "",
+        "Dataset",
+        "my-project.us-west2.my_store",
+        "Feature Online Store",
+    ),
+    (
+        "vertexai-model-version",
+        "vertex_ai:model:my-project.us-west2.123456.1",
+        "",
+        "MLModel",
+        "my-project.us-west2.123456.1",
+        None,
+    ),
+    (
         "dataproc-metastore-service",
         "dataproc_metastore:my-project.us-west1.my-service",
         "",
@@ -225,7 +253,20 @@ def test_mapper_builds_expected_entity(
     assert result is not None
     assert result.main_entity is not None
 
-    # Every entry also emits its owning project container as an additional entity.
+    if main_type == "MLModel":
+        # An MLModel has no DataHub container parent, no subtype slot, and is
+        # not a lineage node.
+        assert isinstance(result.main_entity, MLModel)
+        assert result.additional_entities == []
+        assert result.lineage_entry is None
+        assert dataset_name is not None
+        assert result.main_entity.urn.urn() == (
+            f"urn:li:mlModel:(urn:li:dataPlatform:{mapper.datahub_platform},"
+            f"{dataset_name},PROD)"
+        )
+        return
+
+    # Every other entry also emits its owning project container.
     assert len(result.additional_entities) == 1
     project_container = result.additional_entities[0]
     assert isinstance(project_container, Container)
@@ -582,3 +623,82 @@ def test_extract_entry_group_id_and_unknown_fallback() -> None:
     )
     # No entryGroups segment -> "unknown".
     assert _extract_entry_group_id("projects/p/locations/us/entries/e") == "unknown"
+
+
+@pytest.mark.parametrize(
+    "short_name,fqn,parent_entry,main_type,dataset_name,expected_subtype", CASES
+)
+def test_container_stub_rendering_matches_the_container_mappers(
+    short_name: str,
+    fqn: str,
+    parent_entry: str,
+    main_type: str,
+    dataset_name: Optional[str],
+    expected_subtype: Optional[str],
+) -> None:
+    """The subtype used when materializing a lineage-only upstream's container
+    chain must be the one the entries stage emits for that same level."""
+    if main_type != "Container":
+        return
+    mapper = ENTRY_MAPPERS[short_name]
+    identity = mapper.datahub_identity
+    assert isinstance(identity, ContainerIdentity)
+    _display_field, subtype = _CONTAINER_STUB_RENDERING[identity.key_class]
+    assert subtype == expected_subtype
+
+
+def test_lineage_stub_spec_mirrors_the_entries_stage_hierarchy() -> None:
+    spec = lineage_stub_spec_from_fqn_only(
+        "dataproc_metastore:my-project.us-west1.my-service.my_database.my_table"
+    )
+
+    assert spec is not None
+    assert spec.platform == "dataproc-metastore"
+    assert spec.dataset_name == "my-project.us-west1.my-service.my_database.my_table"
+    assert spec.display_name == "my_table"
+    assert [container.display_name for container in spec.containers] == [
+        "my_database",
+        "my-service",
+        "my-project",
+    ]
+    assert [container.subtype for container in spec.containers] == [
+        "Database",
+        "Service",
+        "Project",
+    ]
+    # Each level's parent is the next element in the chain.
+    parent_key = spec.containers[0].key.parent_key()
+    assert parent_key is not None
+    assert parent_key.as_urn() == spec.containers[1].key.as_urn()
+
+
+def test_lineage_stub_spec_returns_none_for_unknown_shapes() -> None:
+    assert lineage_stub_spec_from_fqn_only("unknown:my-project.thing") is None
+
+
+def test_dataproc_metastore_table_urn_matches_the_mapper() -> None:
+    """A resolved hive_metastore upstream must land on exactly the URN the
+    entries stage mints for the same table."""
+    result = ENTRY_MAPPERS["dataproc-metastore-table"].map(
+        _make_entry(
+            short_name="dataproc-metastore-table",
+            fqn="dataproc_metastore:my-project.us-west1.my-service.my_database.my_table",
+            parent_entry="projects/my-project/locations/us-west1/entryGroups/@dataprocmetastore/entries/"
+            "metastore.googleapis.com/projects/my-project/locations/us-west1/services/my-service/databases/my_database",
+        ),
+        _ctx(),
+    )
+    assert result is not None and result.main_entity is not None
+    entries_urn = result.main_entity.urn.urn()
+
+    assert (
+        dataproc_metastore_table_urn(
+            project_id="my-project",
+            location="us-west1",
+            service_id="my-service",
+            database_id="my_database",
+            table_id="my_table",
+            env="PROD",
+        )
+        == entries_urn
+    )

@@ -5,11 +5,16 @@ Mapping-oriented behavior (entry type -> DataHub entities) is tested in
 building blocks that live in ``dataplex_ids.py``.
 """
 
+from typing import Optional
+
 import pytest
 
 from datahub.ingestion.source.dataplex.dataplex_ids import (
     BIGQUERY_TABLE_FQN_REGEX,
     PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM,
+    PUBSUB_TOPIC_FQN_REGEX,
+    VERTEX_AI_FEATURE_GROUP_FQN_REGEX,
+    VERTEX_AI_MODEL_FQN_REGEX,
     DataplexBigQueryProject,
     DataplexCloudSqlMySqlDatabase,
     DataplexProjectId,
@@ -98,3 +103,57 @@ def test_project_schema_key_class_by_platform_covers_supported_platforms() -> No
     }
     for key_class in PROJECT_SCHEMA_KEY_CLASS_BY_PLATFORM.values():
         assert issubclass(key_class, DataplexProjectId)
+
+
+@pytest.mark.parametrize(
+    "fqn,expected",
+    [
+        (
+            "pubsub:topic:my-project.my-topic",
+            {"project_id": "my-project", "topic_id": "my-topic"},
+        ),
+        # Topic ids may legally contain periods; project ids cannot, so the
+        # first dot is still an unambiguous delimiter.
+        (
+            "pubsub:topic:my-project.orders.v2",
+            {"project_id": "my-project", "topic_id": "orders.v2"},
+        ),
+        ("pubsub:topic:my-project", None),
+    ],
+)
+def test_pubsub_topic_fqn_accepts_dotted_topic_ids(
+    fqn: str, expected: Optional[dict]
+) -> None:
+    assert parse_with_regex(PUBSUB_TOPIC_FQN_REGEX, fqn) == expected
+
+
+@pytest.mark.parametrize(
+    "fqn,expected",
+    [
+        (
+            "vertex_ai:featuregroup:my-project.us-west2.my_group",
+            {
+                "project_id": "my-project",
+                "location": "us-west2",
+                "feature_group_id": "my_group",
+            },
+        ),
+        (
+            "vertex_ai:featureonlinestore:my-project.us-west2.my_store",
+            None,
+        ),
+    ],
+)
+def test_vertex_ai_feature_group_fqn(fqn: str, expected: Optional[dict]) -> None:
+    assert parse_with_regex(VERTEX_AI_FEATURE_GROUP_FQN_REGEX, fqn) == expected
+
+
+def test_vertex_ai_model_fqn_carries_the_version() -> None:
+    assert parse_with_regex(
+        VERTEX_AI_MODEL_FQN_REGEX, "vertex_ai:model:my-project.us-west2.123456.1"
+    ) == {
+        "project_id": "my-project",
+        "location": "us-west2",
+        "model_id": "123456",
+        "version": "1",
+    }
