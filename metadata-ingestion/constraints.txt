@@ -18,7 +18,7 @@ aiofiles==25.1.0
     # via unstructured-client
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.5
+aiohttp==3.14.3
     # via
     #   acryl-datahub
     #   aiobotocore
@@ -1549,6 +1549,7 @@ types-urllib3==1.26.25.14
 typing-extensions==4.15.0
     # via
     #   acryl-datahub
+    #   aiohttp
     #   aiosignal
     #   alembic
     #   anyio
