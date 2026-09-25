@@ -22,7 +22,8 @@ export class MFEFrameworkPage {
 
   // Slot (entity.detail.tab) selectors
   readonly entityHeader = () => this.page.getByTestId('entity-header-test-id');
-  readonly entityTabHeader = (tabName: string) => this.page.getByTestId(`${tabName}-entity-tab-header`);
+  // Entity tab headers are test-id'd by the tab's stable path; a slot tab's path is `mfe-<entry id>`.
+  readonly entityTabHeader = (tabPath: string) => this.page.getByTestId(`${tabPath}-entity-tab-header`);
   readonly slotContainer = () => this.page.getByTestId('mfe-slot-container');
   readonly slotCtx = () => this.page.getByTestId('mfe-slot-ctx');
   readonly notFoundPage = () => this.page.getByRole('button', { name: 'Back to Home' });

@@ -12,12 +12,14 @@ import { TIMEOUTS } from '../../utils/constants';
 test.use({ featureName: 'mfeframework' });
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,mfe_slot_test_dataset,PROD)';
+const TAB_ID = 'rogue-stub';
 const TAB_LABEL = 'Rogue Stub';
+const TAB_PATH = `mfe-${TAB_ID}`;
 const HOST_LOAD_TIMEOUT_MS = 5000;
 
 const TAB_MFE = `subNavigationMode: false
 microFrontends:
-  - id: rogue-stub
+  - id: ${TAB_ID}
     label: ${TAB_LABEL}
     remoteEntry: http://localhost:3002/remoteEntry.js
     module: rogueMFE/mount
@@ -71,7 +73,7 @@ test.describe('MFE Framework — misbehaving entity.detail.tab remotes', () => {
       await route.fulfill({ status: 200, contentType: 'application/javascript', body: WIDE_REMOTE });
     });
     await mfePage.gotoDataset(DATASET_URN);
-    await mfePage.entityTabHeader(TAB_LABEL).click();
+    await mfePage.entityTabHeader(TAB_PATH).click();
 
     await expect(mfePage.errorMessage(TAB_LABEL)).toBeVisible({ timeout: HOST_LOAD_TIMEOUT_MS + TIMEOUTS.LONG });
     await expect(mfePage.entityHeader()).toBeVisible();
@@ -80,7 +82,7 @@ test.describe('MFE Framework — misbehaving entity.detail.tab remotes', () => {
   test('an unreachable remote (connection refused) shows the not-available state', async ({ page }) => {
     await page.route('**/remoteEntry.js', (route) => route.abort('connectionrefused'));
     await mfePage.gotoDataset(DATASET_URN);
-    await mfePage.entityTabHeader(TAB_LABEL).click();
+    await mfePage.entityTabHeader(TAB_PATH).click();
 
     await expect(mfePage.errorMessage(TAB_LABEL)).toBeVisible({ timeout: TIMEOUTS.LONG });
     await expect(mfePage.entityHeader()).toBeVisible();
@@ -89,7 +91,7 @@ test.describe('MFE Framework — misbehaving entity.detail.tab remotes', () => {
   test('content wider than the pane does not add horizontal scroll to the page', async ({ page }) => {
     await mfePage.mockRemoteEntry(200, WIDE_REMOTE);
     await mfePage.gotoDataset(DATASET_URN);
-    await mfePage.entityTabHeader(TAB_LABEL).click();
+    await mfePage.entityTabHeader(TAB_PATH).click();
     await expect(page.getByTestId('rogue-wide')).toBeAttached({ timeout: TIMEOUTS.LONG });
 
     const overflow = await page.evaluate(() => ({
@@ -106,7 +108,7 @@ test.describe('MFE Framework — misbehaving entity.detail.tab remotes', () => {
   test('content taller than the pane scrolls inside the tab, not the whole page', async ({ page }) => {
     await mfePage.mockRemoteEntry(200, TALL_REMOTE);
     await mfePage.gotoDataset(DATASET_URN);
-    await mfePage.entityTabHeader(TAB_LABEL).click();
+    await mfePage.entityTabHeader(TAB_PATH).click();
     await expect(page.getByText('row 1', { exact: true })).toBeVisible({ timeout: TIMEOUTS.LONG });
 
     const pageScroll = await page.evaluate(
@@ -116,13 +118,13 @@ test.describe('MFE Framework — misbehaving entity.detail.tab remotes', () => {
     await page.getByText('row 150', { exact: true }).scrollIntoViewIfNeeded();
     await expect(page.getByText('row 150', { exact: true })).toBeInViewport();
     await expect(mfePage.entityHeader()).toBeInViewport();
-    await expect(mfePage.entityTabHeader(TAB_LABEL)).toBeInViewport();
+    await expect(mfePage.entityTabHeader(TAB_PATH)).toBeInViewport();
   });
 
   test('a remote that navigates the window steers the host (same-origin, not sandboxed)', async ({ page }) => {
     await mfePage.mockRemoteEntry(200, NAVIGATE_REMOTE);
     await mfePage.gotoDataset(DATASET_URN);
-    await mfePage.entityTabHeader(TAB_LABEL).click();
+    await mfePage.entityTabHeader(TAB_PATH).click();
 
     // Documents current behaviour: MFEs run in the host's JS context and can call window.location.
     await expect(page).toHaveURL(/\/glossary/, { timeout: TIMEOUTS.LONG });
