@@ -1,25 +1,9 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Popover } from '@components';
-import { Empty, Typography } from 'antd';
-import { TooltipPlacement } from 'antd/es/tooltip';
+import { Popover, Text } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
-
-import NoDocs from '@images/no-docs.svg';
-
-const StyledEmpty = styled(Empty)`
-    display: flex;
-    gap: 10px;
-    align-items: center;
-
-    .ant-empty-image {
-        margin: 0;
-        height: 50px;
-    }
-`;
 
 const SectionWrapper = styled.div`
     border-radius: 0 0 10px 10px;
@@ -29,39 +13,33 @@ const SectionWrapper = styled.div`
     height: 100%;
 `;
 
-const ContentContainer = styled.div`
+const HeaderRow = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
+`;
+
+const TitleGroup = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const SectionTitle = styled(Text)`
+    margin: 0;
+`;
+
+const StyledInfo = styled(Info)`
+    margin-left: 8px;
+    color: ${(props) => props.theme.colors.textTertiary};
+`;
+
+const EmptyText = styled(Text)`
     margin-top: 12px;
-`;
-
-const LeftContainer = styled.div`
-    display: flex;
-`;
-
-const RightContainer = styled.div`
-    display: flex;
-    align-self: flex-start;
-`;
-
-const SectionTitle = styled(Typography.Text)`
-    font-size: 16px;
-    font-weight: 700;
-    color: ${(props) => props.theme.colors.text};
-`;
-
-const Description = styled(Typography.Text)`
-    font-size: 14px;
-    font-weight: 700;
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
-const StyledInfoOutlined = styled(InfoCircleOutlined)`
-    margin-left: 8px;
-    font-size: 12px;
-    color: ${(props) => props.theme.colors.textTertiary};
-`;
+type TooltipPlacement = React.ComponentProps<typeof Popover>['placement'];
 
 interface Props {
     sectionName?: string;
@@ -84,34 +62,33 @@ export default function EmptyQueriesSection({
     tooltip,
     tooltipPosition,
 }: Props) {
-    const { t } = useTranslation('entity.profile.queries');
-    const description = emptyText || t('emptyQueries.noHighlightedQueries');
-
     return (
         <SectionWrapper>
-            <div>
-                <SectionTitle>{sectionName}</SectionTitle>
-                {tooltip && (
-                    <Popover content={tooltip} placement={tooltipPosition}>
-                        <StyledInfoOutlined />
-                    </Popover>
-                )}
-            </div>
-            <ContentContainer>
-                <LeftContainer>
-                    <StyledEmpty description={<Description>{description}</Description>} image={NoDocs} />
-                </LeftContainer>
-                <RightContainer>
-                    {showButton && (
-                        <AddButton
-                            dataTestId="add-query-button"
-                            buttonLabel={buttonLabel}
-                            isButtonDisabled={isButtonDisabled}
-                            onButtonClick={onButtonClick}
-                        />
+            <HeaderRow>
+                <TitleGroup>
+                    <SectionTitle type="span" size="lg" weight="bold">
+                        {sectionName}
+                    </SectionTitle>
+                    {tooltip && (
+                        <Popover content={tooltip} placement={tooltipPosition}>
+                            <StyledInfo size={12} />
+                        </Popover>
                     )}
-                </RightContainer>
-            </ContentContainer>
+                </TitleGroup>
+                {showButton && (
+                    <AddButton
+                        dataTestId="add-query-button"
+                        buttonLabel={buttonLabel}
+                        isButtonDisabled={isButtonDisabled}
+                        onButtonClick={onButtonClick}
+                    />
+                )}
+            </HeaderRow>
+            {emptyText && (
+                <EmptyText type="span" weight="bold">
+                    {emptyText}
+                </EmptyText>
+            )}
         </SectionWrapper>
     );
 }

@@ -51,7 +51,11 @@ export const usePopularQueries = ({
 
     const entityFilter = getQueryEntitiesFilter(entityUrn, siblingUrn);
     const andFilters = getAndFilters(selectedColumnsFilter, selectedUsersFilter, [entityFilter]);
-    const { data: popularQueriesData, loading } = useListQueriesQuery({
+    const {
+        data: newData,
+        previousData,
+        loading,
+    } = useListQueriesQuery({
         variables: {
             input: {
                 start,
@@ -64,6 +68,12 @@ export const usePopularQueries = ({
         skip: !entityUrn || !canViewQueries,
         fetchPolicy: 'cache-first',
     });
+
+    // `cache-first` clears `data` whenever paging or filtering changes the variables, which would
+    // collapse `total` to 0 and unmount the pagination control mid-interaction. Falling back to the
+    // previous result keeps the count stable until the new one lands — the same pattern used by the
+    // glossary and domain sidebar aggregations.
+    const popularQueriesData = newData ?? previousData;
 
     const popularQueriesList = [...(popularQueriesData?.listQueries?.queries || [])] as QueryEntity[];
 

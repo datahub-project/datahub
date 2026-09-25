@@ -24,7 +24,8 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText, canVi
     const entityFilter = getQueryEntitiesFilter(entityUrn, siblingUrn);
 
     const {
-        data: highlightedQueriesData,
+        data: newData,
+        previousData,
         client,
         loading,
     } = useListQueriesQuery({
@@ -40,6 +41,10 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText, canVi
         skip: !entityUrn || !canViewQueries,
         fetchPolicy: 'cache-first',
     });
+
+    // Same `cache-first` + previousData pattern as usePopularQueries: keep total/rows stable while
+    // paging or sorting so pagination does not unmount and the table does not flash empty.
+    const highlightedQueriesData = newData ?? previousData;
 
     const queries = [...(highlightedQueriesData?.listQueries?.queries || [])] as QueryEntity[];
 
