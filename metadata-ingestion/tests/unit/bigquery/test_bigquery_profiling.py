@@ -337,6 +337,49 @@ def test_date_named_string_column_reaches_strategic_dates():
     assert filters == ["`event_date` = '2025-01-15'"]
 
 
+def test_non_date_only_table_applies_configured_fallback():
+    """A table whose only partition columns are non-date (e.g. region) still has its
+    configured fallback_partition_values applied when direct discovery fails. Without a
+    configured value there is no way to pin a partition, so the table returns None (skip)
+    rather than an unpruned full scan.
+    """
+
+    class NonDateDiscovery(PartitionDiscovery):
+        def _get_partition_column_types(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, str]:
+            return {"region": "STRING"}
+
+        def _get_partition_info_from_table_query(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, PartitionValue]:
+            return {}
+
+        def _get_partitions_with_sampling(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
+            return None
+
+    table = make_table(name="region_tbl")
+
+    configured = NonDateDiscovery(
+        make_config(fallback_partition_values={"region": "emea"})
+    )
+    filters = configured._find_real_partition_values(
+        table, "test-project-123456", "ds", ["region"], lambda *a, **k: []
+    )
+    assert filters == ["`region` = 'emea'"]
+
+    # No configured fallback: a non-date-only table can't pin a partition, so skip it.
+    unconfigured = NonDateDiscovery(make_config())
+    assert (
+        unconfigured._find_real_partition_values(
+            table, "test-project-123456", "ds", ["region"], lambda *a, **k: []
+        )
+        is None
+    )
+
+
 def test_strategic_candidates_prefer_latest_over_completion_order():
     # Both today and yesterday have data, but the yesterday probe finishes first. The
     # results must be consumed in candidate preference order (today first), so today
@@ -1080,6 +1123,37 @@ def test_sampling_projects_ingestion_time_pseudo_column():
     assert "_PARTITIONTIME" in filters[0] and "2024-11-20" in filters[0]
 
 
+def test_sampling_infers_temporal_type_for_untyped_datetime():
+    """When INFORMATION_SCHEMA.COLUMNS and DDL are both unavailable the partition column
+    type is unknown (""). A sampled DATETIME/TIMESTAMP value must still be widened to its
+    partition's half-open range, not emitted as a single-instant equality that profiles
+    only one row of the partition.
+    """
+    discovery = PartitionDiscovery(make_config())
+    table = make_table(name="untyped_ts")
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        if "INFORMATION_SCHEMA" in query or "DDL" in query:
+            raise Exception("metadata unavailable")
+        if "SELECT 1" in query:  # _verify_partition_has_data
+            return [SimpleNamespace(cnt=1)]
+        # date-sample / tablesample query returns a naive DATETIME value
+        return [SimpleNamespace(event_ts=datetime(2024, 11, 20, 8, 30, 0))]
+
+    filters = discovery._get_partitions_with_sampling(
+        table,
+        "my-project",
+        "ds",
+        execute,
+        known_columns=["event_ts"],
+        known_column_types={},  # unknown type — inference must come from the value
+    )
+
+    assert filters is not None and len(filters) == 1
+    # A half-open range (>= .. AND < ..), not a single-instant equality.
+    assert ">=" in filters[0] and "<" in filters[0]
+
+
 def test_strategic_candidate_path_emits_half_open_range_for_timestamp():
     """The strategic-candidate discovery path (_test_date_candidate) must delegate a
     TIMESTAMP partition column to the same half-open range logic as direct discovery, so
@@ -1662,6 +1736,13 @@ def test_infer_component_type_uses_int64_only_for_genuine_int():
     assert infer("", "12") == ""  # Hive-style string component stays quoted
     assert infer("", True) == ""  # bool is not an INT64 column
     assert infer("STRING", 5) == "STRING"  # known type wins
+    # A discovered temporal value is typed so _value_filter can widen it to a range:
+    # tz-aware datetime -> TIMESTAMP (BigQuery reads TIMESTAMP back as UTC), naive
+    # datetime -> DATETIME, plain date -> DATE.
+    assert infer("", datetime(2024, 11, 20, 8, tzinfo=timezone.utc)) == "TIMESTAMP"
+    assert infer("", datetime(2024, 11, 20, 8)) == "DATETIME"
+    assert infer("", date(2024, 11, 20)) == "DATE"
+    assert infer("DATE", datetime(2024, 11, 20, 8)) == "DATE"  # known type wins
 
 
 def test_filters_from_partition_values_infers_int64_for_untyped_int():
