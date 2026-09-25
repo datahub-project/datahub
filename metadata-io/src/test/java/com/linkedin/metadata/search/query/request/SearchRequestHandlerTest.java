@@ -775,6 +775,13 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     String valueCounts =
         v3Handler.getAggregationRequest(operationContext, "platform", null, 10).source().toString();
     assertTrue(valueCounts.contains("\"field\":\"platform\""), valueCounts);
+    // A caller that names the V2 .keyword subfield counts the V3 root field
+    String keywordValueCounts =
+        v3Handler
+            .getAggregationRequest(operationContext, "platform.keyword", null, 10)
+            .source()
+            .toString();
+    assertTrue(keywordValueCounts.contains("\"field\":\"platform\""), keywordValueCounts);
   }
 
   /**

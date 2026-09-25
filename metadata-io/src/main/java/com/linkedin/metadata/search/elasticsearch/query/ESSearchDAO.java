@@ -418,9 +418,7 @@ public class ESSearchDAO {
             .distinct()
             .collect(Collectors.toList());
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    Filter transformedFilters =
-        transformFilterForEntities(
-            opContext, postFilters, indexConvention, rewriteEntityTypeToIndex());
+    Filter transformedFilters = transformFilter(opContext, postFilters, indexConvention);
 
     SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
@@ -458,8 +456,7 @@ public class ESSearchDAO {
       @Nullable Integer size) {
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
-    Filter transformedFilters =
-        transformFilterForEntities(opContext, filters, indexConvention, rewriteEntityTypeToIndex());
+    Filter transformedFilters = transformFilter(opContext, filters, indexConvention);
     final SearchRequest searchRequest =
         SearchRequestHandler.getBuilder(
                 opContext,
@@ -532,8 +529,7 @@ public class ESSearchDAO {
             entityName,
             query,
             field,
-            transformFilterForEntities(
-                opContext, requestParams, indexConvention, rewriteEntityTypeToIndex()),
+            transformFilter(opContext, requestParams, indexConvention),
             limit);
     req.indices(entityIndexName(opContext, entityName));
     return Pair.of(req, builder);
@@ -605,8 +601,7 @@ public class ESSearchDAO {
             .getAggregationRequest(
                 opContext,
                 field,
-                transformFilterForEntities(
-                    opContext, requestParams, indexConvention, rewriteEntityTypeToIndex()),
+                transformFilter(opContext, requestParams, indexConvention),
                 limit);
     // An empty list must fall through to the operation-scoped patterns, not to the else branch:
     // an empty indices array makes Elasticsearch search ALL indices, letting aggregates span
@@ -829,9 +824,7 @@ public class ESSearchDAO {
 
     String[] indexArray = entityIndexNames(opContext, entities);
 
-    Filter transformedFilters =
-        transformFilterForEntities(
-            opContext, postFilters, indexConvention, rewriteEntityTypeToIndex());
+    Filter transformedFilters = transformFilter(opContext, postFilters, indexConvention);
 
     boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
 
@@ -998,6 +991,21 @@ public class ESSearchDAO {
 
   private boolean rewriteEntityTypeToIndex() {
     return !EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex());
+  }
+
+  /**
+   * V2 rewrites {@code _entityType} filters onto index names. V3 documents store the entity type,
+   * so the filter is normalized for the V3 fields instead. Doing it here gives the query and the
+   * facets extracted from the response the same filter values.
+   */
+  @Nullable
+  private Filter transformFilter(
+      @Nonnull OperationContext opContext,
+      @Nullable Filter filter,
+      @Nonnull IndexConvention indexConvention) {
+    return rewriteEntityTypeToIndex()
+        ? transformFilterForEntities(opContext, filter, indexConvention)
+        : ESUtils.toV3EntityFilter(opContext, filter);
   }
 
   @Nonnull

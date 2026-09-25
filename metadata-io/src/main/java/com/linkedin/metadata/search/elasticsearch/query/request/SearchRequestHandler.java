@@ -422,6 +422,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     SearchRequest searchRequest = new SearchRequest();
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filter);
 
+    final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
     searchSourceBuilder.size(0);
@@ -430,8 +431,8 @@ public class SearchRequestHandler extends BaseRequestHandler {
             .field(
                 ESUtils.toKeywordField(
                     opContext,
-                    field,
-                    EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration),
+                    readV3 ? ESUtils.toV3EntityField(field) : field,
+                    readV3,
                     opContext.getAspectRetriever()))
             .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
     searchRequest.source(searchSourceBuilder);

@@ -34,8 +34,10 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.FilterValue;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
@@ -268,17 +270,23 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS);
     // The UI sends entity type enum names; V3 stores the registry entity name
+    SearchResult byType =
+        searchService.filter(
+            opContext,
+            DATASET_ENTITY_NAME,
+            QueryUtils.newFilter("_entityType", "DATASET"),
+            null,
+            0,
+            10);
+    assertEquals(byType.getNumEntities(), 2);
+    // The facets built from the response see the same value as the query, so the Type facet
+    // does not list the filter value a second time
     assertEquals(
-        searchService
-            .filter(
-                opContext,
-                DATASET_ENTITY_NAME,
-                QueryUtils.newFilter("_entityType", "DATASET"),
-                null,
-                0,
-                10)
-            .getNumEntities(),
-        2);
+        byType.getMetadata().getAggregations().stream()
+            .filter(agg -> agg.getName().equals("_entityType"))
+            .flatMap(agg -> agg.getFilterValues().stream().map(FilterValue::getValue))
+            .collect(Collectors.toList()),
+        List.of(DATASET_ENTITY_NAME));
   }
 
   @Test

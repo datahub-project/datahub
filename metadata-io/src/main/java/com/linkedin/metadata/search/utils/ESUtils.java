@@ -916,13 +916,21 @@ public class ESUtils {
         .collect(Collectors.toCollection(CriterionArray::new));
   }
 
+  /**
+   * Drops an explicit {@code .keyword} suffix, which Search V3 root fields cannot expose.
+   * Structured property fields keep it: they resolve through the property definition.
+   */
+  @Nonnull
+  public static String toV3EntityField(@Nonnull String field) {
+    return field.endsWith(KEYWORD_SUFFIX)
+            && !field.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
+        ? StringUtils.removeEnd(field, KEYWORD_SUFFIX)
+        : field;
+  }
+
   private static Criterion toV3EntityCriterion(
       @Nonnull OperationContext opContext, @Nonnull Criterion criterion) {
-    String field = criterion.getField();
-    if (field.endsWith(KEYWORD_SUFFIX)
-        && !field.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-      field = StringUtils.removeEnd(field, KEYWORD_SUFFIX);
-    }
+    final String field = toV3EntityField(criterion.getField());
     final boolean entityType = field.equalsIgnoreCase(INDEX_VIRTUAL_FIELD);
     if (!entityType && field.equals(criterion.getField())) {
       return criterion;
@@ -946,12 +954,14 @@ public class ESUtils {
 
   private static String v3EntityTypeValue(
       @Nonnull OperationContext opContext, @Nonnull String value) {
+    EntitySpec entitySpec;
     try {
-      return opContext.getEntityRegistry().getEntitySpec(value.replace("_", "")).getName();
+      entitySpec = opContext.getEntityRegistry().getEntitySpec(value.replace("_", ""));
     } catch (IllegalArgumentException e) {
-      // Unknown entity type: keep the value so the filter matches nothing, as on V2
-      return value;
+      entitySpec = null;
     }
+    // Unknown entity type: keep the value so the filter matches nothing, as on V2
+    return entitySpec != null ? entitySpec.getName() : value;
   }
 
   /**
