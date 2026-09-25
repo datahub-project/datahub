@@ -16,6 +16,8 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -120,6 +122,67 @@ public class AutocompleteRequestHandlerTest {
             QueryFilterRewriteChain.EMPTY,
             testQueryConfig,
             TEST_SEARCH_SERVICE_CONFIG);
+  }
+
+  /** A handler built for V2 first must not be reused when V3 keyword read is requested. */
+  @Test
+  public void testGetBuilderKeepsV2AndV3HandlersApart() {
+    ElasticSearchConfiguration v3Config =
+        testQueryConfig.toBuilder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+                    .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                    .build())
+            .build();
+    EntitySpec spec = TestEntitySpecBuilder.getSpec();
+    AutocompleteRequestHandler v2Handler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            spec,
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            testQueryConfig,
+            TEST_SEARCH_SERVICE_CONFIG);
+    AutocompleteRequestHandler v3Handler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            spec,
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            v3Config,
+            TEST_SEARCH_SERVICE_CONFIG);
+    Assert.assertNotSame(v3Handler, v2Handler);
+    Assert.assertSame(
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            spec,
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            v3Config,
+            TEST_SEARCH_SERVICE_CONFIG),
+        v3Handler);
+
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("keyPart1", Condition.EQUAL, "value")))));
+    String v3Request =
+        v3Handler
+            .getSearchRequest(mockOpContext, null, "input", null, filter, 10)
+            .source()
+            .toString();
+    Assert.assertTrue(v3Request.contains("\"terms\":{\"keyPart1\":"), v3Request);
+    String v2Request =
+        handler
+            .getSearchRequest(mockOpContext, null, "input", null, filter, 10)
+            .source()
+            .toString();
+    Assert.assertTrue(v2Request.contains("\"terms\":{\"keyPart1.keyword\":"), v2Request);
   }
 
   private static final QueryConfiguration TEST_QUERY_CONFIG =

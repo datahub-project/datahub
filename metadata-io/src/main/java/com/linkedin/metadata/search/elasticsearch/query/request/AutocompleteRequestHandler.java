@@ -54,7 +54,8 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   private final List<Pair<String, String>> _defaultAutocompleteFields;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
 
-  private static final Map<EntitySpec, AutocompleteRequestHandler>
+  // Keyed by the V3 read decision too: a handler builds V2 or V3 field names from its configuration
+  private static final Map<Pair<EntitySpec, Boolean>, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
   private final CustomizedQueryHandler customizedQueryHandler;
@@ -118,7 +119,9 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
-        entitySpec,
+        Pair.of(
+            entitySpec,
+            EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())),
         k ->
             new AutocompleteRequestHandler(
                 systemOperationContext,

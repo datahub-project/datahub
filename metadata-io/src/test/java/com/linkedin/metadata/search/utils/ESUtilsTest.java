@@ -299,6 +299,8 @@ public class ESUtilsTest {
     assertFalse(and.get(3).hasValues());
     assertEquals(result.getCriteria().get(0).getField(), "domains");
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+    // The search DAO and the request handlers both normalize, so a second pass changes nothing
+    assertEquals(ESUtils.toV3EntityFilter(opContext, result), result);
   }
 
   @Test
