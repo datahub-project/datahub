@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
@@ -64,6 +65,7 @@ import org.opensearch.common.lucene.search.function.FieldValueFactorFunction;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.ExistsQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
@@ -1268,6 +1270,21 @@ public class AutocompleteRequestHandlerTest {
     assertTrue(highlightNames.contains("name"));
     assertTrue(highlightNames.contains("_search.tier_1.full"));
     assertTrue(highlights.stream().allMatch(highlight -> highlight.noMatchSize() == null));
+
+    // A urn request matches the default fields, so it highlights them too
+    assertEquals(
+        getV3SearchSource(DATASET_ENTITY_NAME, "ord", "urn").highlighter().fields().stream()
+            .map(HighlightBuilder.Field::name)
+            .collect(Collectors.toSet()),
+        highlightNames);
+  }
+
+  @Test
+  public void testV3RequestedNonStringFieldMatchesNothing() {
+    // The engine rejects a prefix on a date field, and a bool without clauses matches everything
+    assertEquals(
+        getV3AutocompleteClauses(getV3SearchSource(CHART_ENTITY_NAME, "2024", "lastModifiedAt")),
+        List.of(new MatchNoneQueryBuilder()));
   }
 
   @Test

@@ -466,6 +466,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .search(fulltext, List.of(DATASET_ENTITY_NAME), "orders", null, null, 0, 10)
             .getEntities(),
         ORDERS);
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "ORDERS", null, null, 0, 10)
+            .getEntities(),
+        ORDERS);
 
     SearchResult acrossEntities =
         searchService.search(
@@ -565,6 +570,23 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEqualsNoOrder(urns(keyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
     assertEqualsNoOrder(
         keyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
+    // A urn request matches and highlights the default fields
+    assertEqualsNoOrder(
+        urns(searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "sales", "urn", null, 10))
+            .toArray(),
+        new Urn[] {ORDERS, CUSTOMERS});
+
+    // Mixed-case input: tier text lowercases it and root prefixes ignore case, so upper case
+    // "SALES" can only match through the case-insensitive prefix on the key id
+    AutoCompleteResult upperName =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ORD", null, null, 10);
+    assertEquals(urns(upperName), List.of(ORDERS));
+    assertEquals(upperName.getSuggestions(), List.of("orders"));
+    AutoCompleteResult upperKeyId =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "SALES", null, null, 10);
+    assertEqualsNoOrder(urns(upperKeyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
+    assertEqualsNoOrder(
+        upperKeyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
 
     // A requested field is the only one matched, not the entity name
     AutoCompleteResult tool =
@@ -573,6 +595,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(tool.getSuggestions(), List.of("looker"));
     assertEquals(
         urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "ord", "tool", null, 10)),
+        List.of());
+    // A requested date field takes no prefix query and matches nothing
+    assertEquals(
+        urns(
+            searchService.autoComplete(
+                opContext, CHART_ENTITY_NAME, "2024", "lastModifiedAt", null, 10)),
         List.of());
   }
 

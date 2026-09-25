@@ -63,6 +63,17 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   // Entity names copy into tier 1, whose text subfield is stored, so it can highlight
   private static final String V3_TIER_1_TEXT_FIELD = "_search.tier_1.full";
   private static final String V3_ENTITY_NAME_FIELD = "_search.entityName";
+  // Types Search V3 maps to keyword or text roots (FieldTypeMapper), which take a prefix query
+  private static final Set<SearchableAnnotation.FieldType> V3_PREFIX_FIELD_TYPES =
+      Set.of(
+          SearchableAnnotation.FieldType.KEYWORD,
+          SearchableAnnotation.FieldType.TEXT,
+          SearchableAnnotation.FieldType.TEXT_PARTIAL,
+          SearchableAnnotation.FieldType.WORD_GRAM,
+          SearchableAnnotation.FieldType.URN,
+          SearchableAnnotation.FieldType.URN_PARTIAL,
+          SearchableAnnotation.FieldType.BROWSE_PATH,
+          SearchableAnnotation.FieldType.BROWSE_PATH_V2);
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
@@ -220,11 +231,12 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
     ESUtils.buildSortOrder(searchSourceBuilder, null, List.of(entitySpec));
 
-    // Apply highlight field configuration
+    // Apply highlight field configuration. On V3 a urn request matches the default fields, so it
+    // highlights them too
     HighlightBuilder highlightBuilder =
         buildConfiguredHighlights(
             opContext,
-            field,
+            v3KeywordReadEnabled && defaultFields ? null : field,
             customizedQueryHandler.resolveFieldConfiguration(
                 opContext.getSearchContext().getSearchFlags(),
                 CustomConfiguration::getAutoCompleteFieldConfigDefault));
@@ -356,12 +368,13 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
             .should(QueryBuilders.matchBoolPrefixQuery(V3_TIER_1_TEXT_FIELD, query))
             .should(QueryBuilders.prefixQuery(V3_ENTITY_NAME_FIELD, query).caseInsensitive(true));
       }
-      // Fields without a search tier have no text copy, so each field is also prefix matched on
-      // its root value. Every urn starts with "urn:", so default urn fields only take urn input:
-      // any other prefix of it would scan every document. A requested field always keeps its
-      // prefix, since a bool without clauses would match every document
+      // Fields without a search tier have no text copy, so each string field is also prefix
+      // matched on its root value; the engine rejects a prefix on other types. Every urn starts
+      // with "urn:", so default urn fields only take urn input: any other prefix of it would scan
+      // every document
       final boolean urnInput = query.regionMatches(true, 0, "urn:", 0, 4);
       autocompleteFields.stream()
+          .filter(pair -> isPrefixField(pair.getLeft()))
           .filter(pair -> !defaultFields || urnInput || !isUrnField(pair.getLeft()))
           .forEach(
               pair ->
@@ -369,6 +382,10 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                       QueryBuilders.prefixQuery(pair.getLeft(), query)
                           .caseInsensitive(true)
                           .boost(Float.parseFloat(pair.getRight()))));
+      if (finalQuery.should().isEmpty()) {
+        // A requested field no prefix can match: a bool without clauses would match everything
+        finalQuery.should(new MatchNoneQueryBuilder());
+      }
       return finalQuery;
     }
 
@@ -446,6 +463,13 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     return fieldName.equalsIgnoreCase("urn")
         || fieldTypes.contains(SearchableAnnotation.FieldType.URN)
         || fieldTypes.contains(SearchableAnnotation.FieldType.URN_PARTIAL);
+  }
+
+  /** The urn, or a field whose Search V3 root is a keyword or text field. */
+  private boolean isPrefixField(@Nonnull String fieldName) {
+    Set<SearchableAnnotation.FieldType> fieldTypes = searchableFieldTypes.get(fieldName);
+    return fieldName.equalsIgnoreCase("urn")
+        || (fieldTypes != null && V3_PREFIX_FIELD_TYPES.containsAll(fieldTypes));
   }
 
   public AutoCompleteResult extractResult(
