@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import warnings
+from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional, Sequence, Type, Union
+from typing import Dict, List, Optional, Sequence, Type, Union
 
 from typing_extensions import Self, TypeAlias
 
 from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     AiContextClass,
     DerivedMetricInputClass,
@@ -17,7 +20,13 @@ from datahub.metadata.schema_classes import (
     MetricUpstreamsClass,
     StatusClass,
 )
-from datahub.metadata.urns import DatasetUrn, MetricUrn, SemanticModelUrn, Urn
+from datahub.metadata.urns import (
+    DatasetUrn,
+    MetricUrn,
+    SchemaFieldUrn,
+    SemanticModelUrn,
+    Urn,
+)
 from datahub.sdk._semantic_shared import (
     AiContextInput,
     DialectExpressionInput,
@@ -44,6 +53,7 @@ from datahub.sdk._shared import (
     TermsInputType,
 )
 from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.utilities.urns.error import InvalidUrnError
 
 __all__ = [
     "AiContextInput",
@@ -53,11 +63,75 @@ __all__ = [
     "MetricExpressionInputType",
     "SemanticModelInputType",
     "UpstreamDatasetInputType",
+    "UpstreamFieldInputType",
 ]
 
 SemanticModelInputType: TypeAlias = Union[str, SemanticModelUrn]
 DerivedFromInputType: TypeAlias = Union[str, MetricUrn]
 UpstreamDatasetInputType: TypeAlias = Union[str, DatasetUrn]
+UpstreamFieldInputType: TypeAlias = Union[str, SchemaFieldUrn]
+
+
+@dataclass(frozen=True)
+class _ResolvedUpstreams:
+    """Wire-ready content for one ``metricUpstreams`` write.
+
+    Invariants, established by :func:`_resolve_upstreams` and relied on by
+    :meth:`Metric.set_upstreams` without re-checking:
+
+    - For every ``f`` in ``fields``, ``DatasetUrn.from_string(f.parent)`` is
+      present in ``datasets``. This is the server-side
+      MetricUpstreamsValidator rule, satisfied by construction.
+    - Neither list contains duplicates. Equality is exact URN string
+      equality, the same comparison the validator uses. No case folding.
+    - ``datasets`` order: the caller's explicit datasets in caller order,
+      then derived parents not already present, in ``fields`` order.
+    """
+
+    datasets: List[DatasetUrn]
+    fields: List[SchemaFieldUrn]
+
+
+def _resolve_upstreams(
+    datasets: Sequence[UpstreamDatasetInputType],
+    fields: Sequence[UpstreamFieldInputType],
+) -> _ResolvedUpstreams:
+    """Parse inputs, derive field parents, and union them into one write.
+
+    Raises ``SdkUsageError`` if a field is not a schemaField URN or if a
+    field's parent is not a dataset URN. A bad dataset input still raises
+    ``InvalidUrnError``, matching today's ``set_upstreams`` dataset parsing.
+    """
+    seen_ds: Dict[str, DatasetUrn] = {}
+    for dataset in as_input_list(datasets):
+        dataset_urn = DatasetUrn.from_string(str(dataset))
+        seen_ds.setdefault(str(dataset_urn), dataset_urn)
+
+    seen_fields: Dict[str, SchemaFieldUrn] = {}
+    for field in as_input_list(fields):
+        try:
+            field_urn = (
+                field
+                if isinstance(field, SchemaFieldUrn)
+                else SchemaFieldUrn.from_string(str(field))
+            )
+        except InvalidUrnError as exc:
+            raise SdkUsageError(
+                f"upstream_fields entry is not a schemaField URN: {field!r}"
+            ) from exc
+        try:
+            parent = DatasetUrn.from_string(field_urn.parent)
+        except InvalidUrnError as exc:
+            raise SdkUsageError(
+                f"schemaField {field_urn} parent is not a dataset URN"
+            ) from exc
+        seen_fields.setdefault(str(field_urn), field_urn)
+        seen_ds.setdefault(str(parent), parent)
+
+    return _ResolvedUpstreams(
+        datasets=list(seen_ds.values()),
+        fields=list(seen_fields.values()),
+    )
 
 
 class Metric(
@@ -79,13 +153,14 @@ class Metric(
     URNs) and each logical dataset's ``upstreamLineage``.
 
     This builder emits semantic-model-backed metrics; ``semantic_model`` is
-    required. Pass ``upstream_datasets`` with the logical-dataset URNs the
-    metric reads from so lineage is authored.
+    required. Pass ``upstream_datasets`` and/or ``upstream_fields`` so lineage
+    is authored. Field parents are added to ``datasetUpstreams`` automatically.
 
     ``metricRelationships`` is always emitted (even with empty ``derivedFrom``)
     so ``hasParentMetric`` indexes as false. ``metricUpstreams`` is likewise
-    always emitted (even with empty ``datasetUpstreams``) so re-emits clear
-    stale upstreams. ``metricInfo.expression`` is optional and is omitted when
+    always emitted with both ``datasetUpstreams`` and ``fieldUpstreams``
+    present (empty when there are none) so re-emits clear stale table and
+    column edges. ``metricInfo.expression`` is optional and is omitted when
     not provided.
 
     Server compatibility: requires a server build that includes the
@@ -115,6 +190,7 @@ class Metric(
         expression: Optional[MetricExpressionInputType] = None,
         derived_from: Optional[Sequence[DerivedFromInputType]] = None,
         upstream_datasets: Optional[Sequence[UpstreamDatasetInputType]] = None,
+        upstream_fields: Optional[Sequence[UpstreamFieldInputType]] = None,
         ai_context: Optional[AiContextInput] = None,
         owners: Optional[OwnersInputType] = None,
         links: Optional[LinksInputType] = None,
@@ -148,8 +224,12 @@ class Metric(
             self.set_ai_context(ai_context)
         # Always emit metricRelationships so hasParentMetric indexes as false.
         self.set_derived_from(derived_from or [])
-        # Always emit metricUpstreams so re-emits clear stale datasetUpstreams.
-        self.set_upstream_datasets(upstream_datasets or [])
+        # Always emit metricUpstreams with both lists so re-emits clear stale
+        # dataset and column edges.
+        self.set_upstreams(
+            datasets=upstream_datasets or [],
+            fields=upstream_fields or [],
+        )
         if owners is not None:
             self.set_owners(owners)
         if links is not None:
@@ -292,23 +372,76 @@ class Metric(
 
     @property
     def upstream_datasets(self) -> List[str]:
+        """Dataset URN strings in ``datasetUpstreams``, including field parents."""
         upstreams = self._get_aspect(MetricUpstreamsClass)
         if upstreams is None or upstreams.datasetUpstreams is None:
             return []
         return [edge.destinationUrn for edge in upstreams.datasetUpstreams]
 
+    @property
+    def upstream_fields(self) -> List[str]:
+        """schemaField URN strings in ``fieldUpstreams``.
+
+        ``[]`` when the aspect or the list is absent (a graph-hydrated metric
+        from an older writer).
+        """
+        upstreams = self._get_aspect(MetricUpstreamsClass)
+        if upstreams is None or upstreams.fieldUpstreams is None:
+            return []
+        return [edge.destinationUrn for edge in upstreams.fieldUpstreams]
+
+    def set_upstreams(
+        self,
+        *,
+        datasets: Sequence[UpstreamDatasetInputType] = (),
+        fields: Sequence[UpstreamFieldInputType] = (),
+    ) -> None:
+        """Replace this metric's data-flow lineage in one snapshot write.
+
+        ``datasets`` are table-level upstreams. ``fields`` are column-level
+        upstreams; each one's parent dataset is added to ``datasetUpstreams``
+        automatically. Both aspect lists are always written; omitting
+        ``fields`` writes ``fieldUpstreams = []``, which clears prior column
+        edges.
+
+        ``metricUpstreams`` is a snapshot, not a patch. After
+        ``client.entities.get(...)``, omitting ``fields`` drops any
+        server-side column lineage. To keep columns, pass them
+        (``fields=self.upstream_fields``) or emit a full snapshot from the
+        source without hydrating.
+
+        For semantic-model-backed metrics, datasets and field parents should
+        be Semantic Model Dataset URNs so lineage flows Metric → SMD →
+        physical.
+        """
+        resolved = _resolve_upstreams(datasets, fields)
+        aspect = self._ensure_metric_upstreams()
+        aspect.datasetUpstreams = [
+            EdgeClass(destinationUrn=str(dataset_urn))
+            for dataset_urn in resolved.datasets
+        ]
+        aspect.fieldUpstreams = [
+            EdgeClass(destinationUrn=str(field_urn)) for field_urn in resolved.fields
+        ]
+
     def set_upstream_datasets(
         self, upstream_datasets: Sequence[UpstreamDatasetInputType]
     ) -> None:
-        """Set the logical (or physical) dataset URNs this metric reads from.
+        """Deprecated: use :meth:`set_upstreams` instead.
 
-        For semantic-model-backed metrics these should be Semantic Model
-        Dataset URNs so lineage flows Metric → SMD → Physical Dataset.
+        Equivalent to ``set_upstreams(datasets=upstream_datasets)``, so it
+        also writes ``fieldUpstreams = []``. The constructor kwarg
+        ``upstream_datasets=`` is not deprecated.
         """
-        self._ensure_metric_upstreams().datasetUpstreams = [
-            EdgeClass(destinationUrn=str(DatasetUrn.from_string(str(ds))))
-            for ds in as_input_list(upstream_datasets)
-        ]
+        warnings.warn(
+            "Metric.set_upstream_datasets() is deprecated. Use "
+            "Metric.set_upstreams(datasets=..., fields=...) instead. "
+            "Omitting fields writes fieldUpstreams=[] and clears column "
+            "lineage on a graph-hydrated metric.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        self.set_upstreams(datasets=upstream_datasets)
 
     @property
     def ai_context(self) -> Optional[AiContextClass]:
