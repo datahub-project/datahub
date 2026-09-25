@@ -1706,9 +1706,12 @@ class BigQuerySchemaGenerator:
     ) -> Dict[str, TableListItem]:
         table_items: Dict[str, TableListItem] = {}
         sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
+        shard_counts: Dict[str, int] = defaultdict(int)
         # Every table id in the dataset, including ones dropped by the filters below.
         # Whether an un-suffixed table physically exists is a fact about BigQuery, so
-        # it must not depend on which tables the recipe happens to select.
+        # it must not depend on which tables the recipe happens to select. Otherwise an
+        # un-suffixed view hidden by include_views/view_pattern would let the copies
+        # take its URN, and they would lose it again once the view is ingested.
         all_table_ids: Set[str] = set()
 
         for table in self.schema_api.list_tables(dataset_name, project_id):
@@ -1743,6 +1746,7 @@ class BigQuerySchemaGenerator:
                         self.report.report_dropped(qualified_base)
                         continue
 
+                shard_counts[base_name] += 1
                 if base_name not in sharded_tables:
                     sharded_tables[base_name] = (table, shard)
                 else:
@@ -1796,7 +1800,9 @@ class BigQuerySchemaGenerator:
             if base_name in all_table_ids and self._collides_with_base_table(
                 project_id, dataset_name, table.table_id, base_name
             ):
-                self.report.num_sharded_tables_shadowed_by_base_table += 1
+                self.report.num_sharded_tables_shadowed_by_base_table += shard_counts[
+                    base_name
+                ]
                 self.report.warning(
                     title="Date-suffixed tables skipped",
                     message="Table(s) with a date suffix were skipped because a table "

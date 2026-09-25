@@ -1082,7 +1082,8 @@ def test_table_processing_logic_date_suffixed_copies_of_a_real_table(
     assert sorted(tables) == ["my-sharded-table_20251121", "my-table"]
     assert source.report.num_sharded_tables_scanned == 4
     assert source.report.num_sharded_tables_deduped == 2
-    assert source.report.num_sharded_tables_shadowed_by_base_table == 1
+    # Counts both skipped copies, not the one family they belong to.
+    assert source.report.num_sharded_tables_shadowed_by_base_table == 2
 
 
 @patch.object(BigQuerySchemaApi, "get_tables_for_dataset")
