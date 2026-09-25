@@ -1,5 +1,6 @@
 """Unit tests for Doris SQLAlchemy dialect."""
 
+from typing import Any, Dict
 from unittest.mock import Mock, patch
 
 import pytest
@@ -264,7 +265,7 @@ class TestDorisDialect:
         ]
 
         # The Inspector shares one info_cache across a table's reflection calls.
-        kw = {"schema": "my_db", "info_cache": {}}
+        kw: Dict[str, Any] = {"schema": "my_db", "info_cache": {}}
         with patch.object(
             dialect.__class__.__bases__[0],
             "_setup_parser",
@@ -291,7 +292,7 @@ class TestDorisDialect:
         assert isinstance(columns[2]["type"], VARIANT)
         assert columns[0]["nullable"] is False
         assert columns[1]["nullable"] is True
-        assert columns[1]["full_type"] == "DECIMALV3(20,6)"
+        assert columns[1]["full_type"] == "DECIMALV3(20,6)"  # type: ignore[typeddict-item]
 
         # No DDL to parse, so these degrade to empty rather than raising.
         assert pk_constraint == {"constrained_columns": [], "name": None}

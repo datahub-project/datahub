@@ -120,9 +120,9 @@ class ClickHouseAdapter(PlatformAdapter):
         batched_failed = False
         try:
             levels = ", ".join(str(q) for q in quantiles)
-            expr = sa.literal_column(f"quantiles({levels})({quoted_column})").label(
-                "quantiles"
-            )
+            expr: Label = sa.literal_column(
+                f"quantiles({levels})({quoted_column})"
+            ).label("quantiles")
             query = sa.select(expr).select_from(table)
             raw = conn.execute_rows(query).scalar()
         except SQLAlchemyError as e:

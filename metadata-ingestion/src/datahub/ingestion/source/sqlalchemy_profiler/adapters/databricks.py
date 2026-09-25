@@ -4,15 +4,14 @@ import logging
 import re
 from typing import Any, Dict, List, Optional, Type
 
+import databricks.sqlalchemy.base as databricks_dialect_base
 import sqlalchemy as sa
-from databricks.sqlalchemy import DatabricksDialect
-from databricks.sqlalchemy.dialect import (
-    DatabricksDate,
-    DatabricksDecimal,
-    DatabricksTimestamp,
+from databricks.sqlalchemy._parse import (
+    GET_COLUMNS_TYPE_MAP,
+    parse_column_info_from_tgetcolumnsresponse,
 )
 from sqlalchemy.sql import sqltypes
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 from sqlalchemy.sql.type_api import TypeEngine
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
@@ -23,89 +22,62 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
 
 logger = logging.getLogger(__name__)
 
-# Copied from databricks-sqlalchemy 1.0.2 (bundled in databricks-sql-connector
-# >=2.8.0,<3.0.0). The vendor keeps this map as a function local with no VARIANT or
-# TIMESTAMP_NTZ/LTZ entry, so reflection raises KeyError and aborts the whole table.
-# "timestamp_ntz", "timestamp_ltz" and "variant" are DataHub additions.
-# TODO: Drop this patch when moving off databricks-sql-connector <3.0.0 -- v2 of the
-# dialect replaced _type_map with parse_column_info_from_tgetcolumnsresponse.
-# Re-check the copy on any connector bump: get_columns is overwritten
-# unconditionally, so an upstream fix inside the pinned range would be discarded.
-_DATABRICKS_COLUMN_TYPE_MAP: Dict[str, Type[TypeEngine]] = {
-    "boolean": sqltypes.Boolean,
-    "smallint": sqltypes.SmallInteger,
-    "int": sqltypes.Integer,
-    "bigint": sqltypes.BigInteger,
-    "float": sqltypes.Float,
-    "double": sqltypes.Float,
-    "string": sqltypes.String,
-    "varchar": sqltypes.String,
-    "char": sqltypes.String,
-    "binary": sqltypes.String,
-    "array": sqltypes.String,
-    "map": sqltypes.String,
-    "struct": sqltypes.String,
-    "uniontype": sqltypes.String,
-    "decimal": DatabricksDecimal,
-    "timestamp": DatabricksTimestamp,
-    "timestamp_ntz": DatabricksTimestamp,
-    "timestamp_ltz": DatabricksTimestamp,
-    "date": DatabricksDate,
+# databricks-sqlalchemy reflects columns with a bare GET_COLUMNS_TYPE_MAP[...] lookup
+# (and a regex .group(0) that assumes TYPE_NAME is non-empty), so one unmapped type --
+# e.g. TIMESTAMP_LTZ -- raises and aborts reflection for the whole table. These
+# overrides take precedence over the vendor map. VARIANT is reflected as NULL so the
+# profiler skips it rather than issuing aggregates it cannot compute.
+_DATABRICKS_COLUMN_TYPE_OVERRIDES: Dict[str, Type[TypeEngine]] = {
     "variant": sqltypes.NullType,
+    "timestamp_ltz": GET_COLUMNS_TYPE_MAP["timestamp"],
 }
 
 
-def map_databricks_column_type(type_name: Optional[str]) -> Type[TypeEngine]:
+def _base_type_name(type_name: Optional[str]) -> Optional[str]:
     match = re.search(r"^\w+", type_name or "")
-    if not match:
+    return match.group(0).lower() if match else None
+
+
+def map_databricks_column_type(type_name: Optional[str]) -> Type[TypeEngine]:
+    base = _base_type_name(type_name)
+    if base is None:
         logger.info(
             "Databricks returned an unparseable column type %r; reflecting it as NULL, "
             "so this column will be skipped for profiling.",
             type_name,
         )
         return sqltypes.NullType
-    base = match.group(0).lower()
-    mapped = _DATABRICKS_COLUMN_TYPE_MAP.get(base)
+    mapped = _DATABRICKS_COLUMN_TYPE_OVERRIDES.get(base) or GET_COLUMNS_TYPE_MAP.get(
+        base
+    )
     if mapped is None:
         logger.info(
             "No SQLAlchemy type mapping for Databricks type %r; reflecting it as NULL, "
             "so this column will be skipped for profiling. If Databricks has added a "
-            "new type, add it to _DATABRICKS_COLUMN_TYPE_MAP.",
+            "new type, add it to _DATABRICKS_COLUMN_TYPE_OVERRIDES.",
             base,
         )
         return sqltypes.NullType
     return mapped
 
 
-def _patched_get_columns(
-    self: DatabricksDialect,
-    connection: Any,
-    table_name: str,
-    schema: Optional[str] = None,
-    **kwargs: Any,
-) -> List[Dict[str, Any]]:
-    with self.get_connection_cursor(connection) as cur:
-        resp = cur.columns(
-            catalog_name=self.catalog,
-            schema_name=schema or self.schema,
-            table_name=table_name,
-        ).fetchall()
-
-    columns: List[Dict[str, Any]] = []
-    for col in resp:
-        columns.append(
-            {
-                "name": col.COLUMN_NAME,
-                "type": map_databricks_column_type(col.TYPE_NAME),
-                "nullable": bool(col.NULLABLE),
-                "default": col.COLUMN_DEF,
-                "autoincrement": col.IS_AUTO_INCREMENT != "NO",
-            }
-        )
-    return columns
+def _tolerant_parse_column_info(thrift_resp_row: Any) -> Dict[str, Any]:
+    base = _base_type_name(thrift_resp_row.TYPE_NAME)
+    if base in GET_COLUMNS_TYPE_MAP and base not in _DATABRICKS_COLUMN_TYPE_OVERRIDES:
+        # Vendor path keeps DECIMAL precision/scale and column comments.
+        return dict(parse_column_info_from_tgetcolumnsresponse(thrift_resp_row))
+    return {
+        "name": thrift_resp_row.COLUMN_NAME,
+        "type": map_databricks_column_type(thrift_resp_row.TYPE_NAME),
+        "nullable": bool(thrift_resp_row.NULLABLE),
+        "default": thrift_resp_row.COLUMN_DEF,
+        "comment": getattr(thrift_resp_row, "REMARKS", None) or None,
+    }
 
 
-DatabricksDialect.get_columns = _patched_get_columns  # type: ignore[method-assign]
+# DatabricksDialect.get_columns resolves the parser through this module global.
+_parser_attr = "parse_column_info_from_tgetcolumnsresponse"
+setattr(databricks_dialect_base, _parser_attr, _tolerant_parse_column_info)
 
 
 class DatabricksAdapter(PlatformAdapter):

@@ -3,13 +3,13 @@ import logging
 import re
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List, Mapping, Optional, Sequence, Type
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Type, cast
 
 from sqlalchemy import text
 from sqlalchemy.dialects.mysql.pymysql import MySQLDialect_pymysql
 from sqlalchemy.dialects.mysql.reflection import ReflectedState
 from sqlalchemy.engine import Connection, reflection
-from sqlalchemy.engine.interfaces import ReflectedColumn  # noqa: F401 (type comment)
+from sqlalchemy.engine.interfaces import ReflectedColumn
 from sqlalchemy.exc import SAWarning, SQLAlchemyError
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
@@ -271,7 +271,9 @@ class DorisDialect(MySQLDialect_pymysql):
             # it fails too (the same missing grant that killed SHOW CREATE TABLE, a
             # dropped connection) the exception propagates and the caller drops the
             # table, which must not then also be reported as successfully reflected.
-            state.columns = self._describe_columns(connection, full_name)
+            state.columns = cast(
+                List[ReflectedColumn], self._describe_columns(connection, full_name)
+            )
             self.reflection_fallbacks[full_name] = ReflectionFallback(
                 error=str(e),
                 expected=_EXPECTED_DDL_REFUSAL_PATTERN.search(str(e)) is not None,

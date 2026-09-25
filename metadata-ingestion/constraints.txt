@@ -28,9 +28,7 @@ aioitertools==0.13.0 ; python_full_version >= '3.11' and python_full_version < '
 aiosignal==1.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via aiohttp
 alembic==1.18.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via
-    #   databricks-sql-connector
-    #   starrocks
+    # via starrocks
 annotated-doc==0.0.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   fastapi
@@ -231,7 +229,7 @@ click-spinner==0.1.10 ; python_full_version >= '3.11' and python_full_version < 
     # via acryl-datahub
 clickhouse-driver==0.2.10 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via clickhouse-sqlalchemy
-clickhouse-sqlalchemy==0.2.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
+clickhouse-sqlalchemy==0.3.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 cloudpathlib==0.25.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via weasel
@@ -305,7 +303,11 @@ databricks-sdk==0.97.0 ; python_full_version >= '3.11' and python_full_version <
     # via
     #   acryl-datahub
     #   mlflow-skinny
-databricks-sql-connector==2.9.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
+databricks-sql-connector==4.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   acryl-datahub
+    #   databricks-sqlalchemy
+databricks-sqlalchemy==2.0.10 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 dataclasses-json==0.6.7 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via pycarlo
@@ -514,7 +516,6 @@ graphql-core==3.2.8 ; python_full_version >= '3.11' and python_full_version < '3
 greenlet==3.3.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
-    #   clickhouse-sqlalchemy
     #   sqlalchemy
 grpc-google-iam-v1==0.14.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
@@ -593,7 +594,7 @@ hypothesis==6.152.7 ; python_full_version >= '3.11' and python_full_version < '3
     # via acryl-datahub
 ibm-db==3.2.8 ; (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'x86_64') or (python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'darwin')
     # via ibm-db-sa
-ibm-db-sa==0.4.3 ; (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'x86_64') or (python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'darwin')
+ibm-db-sa==0.4.4 ; (python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine == 'x86_64') or (python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'darwin')
     # via acryl-datahub
 id==1.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via twine
@@ -825,7 +826,6 @@ numpy==1.26.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   acryl-datahub
     #   blis
     #   dask
-    #   databricks-sql-connector
     #   datasketches
     #   db-dtypes
     #   feast
@@ -905,7 +905,15 @@ packaging==24.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   thinc
     #   twine
     #   weasel
-pandas==2.1.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
+pandas==2.1.4 ; python_full_version >= '3.11' and python_full_version < '3.13'
+    # via
+    #   acryl-datahub
+    #   dask
+    #   dask-expr
+    #   databricks-sql-connector
+    #   db-dtypes
+    #   feast
+pandas==2.3.3 ; python_full_version == '3.13.*'
     # via
     #   acryl-datahub
     #   dask
@@ -1010,7 +1018,7 @@ pyarrow==18.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   dask-expr
-    #   databricks-sql-connector
+    #   databricks-sqlalchemy
     #   db-dtypes
     #   deltalake
     #   feast
@@ -1025,8 +1033,10 @@ pyasn1-modules==0.4.2 ; python_full_version >= '3.11' and python_full_version < 
     # via
     #   google-auth
     #   python-ldap
-pyathena==2.25.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
+pyathena==3.36.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
+pybreaker==1.4.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via databricks-sql-connector
 pycarlo==0.15.291 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 pycparser==3.0 ; python_full_version >= '3.11' and python_full_version < '3.14' and implementation_name != 'PyPy'
@@ -1071,6 +1081,7 @@ pyiceberg-core==0.6.0 ; python_full_version >= '3.11' and python_full_version < 
     # via pyiceberg
 pyjwt==2.13.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
+    #   databricks-sql-connector
     #   feast
     #   msal
     #   simple-salesforce
@@ -1139,11 +1150,13 @@ python-dateutil==2.9.0.post0 ; python_full_version >= '3.11' and python_full_ver
     #   aiobotocore
     #   botocore
     #   croniter
+    #   databricks-sql-connector
     #   google-cloud-bigquery
     #   moto
     #   opensearch-py
     #   pandas
     #   pendulum
+    #   pyathena
     #   python-liquid
     #   strictyaml
     #   tableschema
@@ -1366,10 +1379,8 @@ six==1.17.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   markdownify
     #   python-dateutil
     #   tableschema
-    #   thrift
     #   thrift-sasl
     #   vertica-python
-    #   vertica-sqlalchemy-dialect
 slack-sdk==3.18.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 smart-open==7.5.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1399,12 +1410,12 @@ spacy-legacy==3.0.12 ; python_full_version >= '3.11' and python_full_version < '
     # via spacy
 spacy-loggers==1.0.5 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via spacy
-sqlalchemy==1.4.44 ; python_full_version >= '3.11' and python_full_version < '3.14'
+sqlalchemy==2.0.54 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   alembic
     #   clickhouse-sqlalchemy
-    #   databricks-sql-connector
+    #   databricks-sqlalchemy
     #   dataflows-tabulator
     #   feast
     #   geoalchemy2
@@ -1419,21 +1430,18 @@ sqlalchemy==1.4.44 ; python_full_version >= '3.11' and python_full_version < '3.
     #   starrocks
     #   teradatasqlalchemy
     #   trino
-    #   vertica-sqlalchemy-dialect
 sqlalchemy-bigquery==1.16.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-sqlalchemy-cockroachdb==1.4.6 ; python_full_version >= '3.11' and python_full_version < '3.14'
+sqlalchemy-cockroachdb==2.0.4 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-sqlalchemy-hana==3.0.3 ; python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine != 'aarch64' and platform_machine != 'arm64'
+sqlalchemy-hana==4.6.1 ; python_full_version >= '3.11' and python_full_version < '3.14' and platform_machine != 'aarch64' and platform_machine != 'arm64'
     # via acryl-datahub
-sqlalchemy-pytds==0.3.5 ; python_full_version >= '3.11' and python_full_version < '3.14'
+sqlalchemy-pytds==1.0.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-sqlalchemy-redshift==0.8.14 ; python_full_version >= '3.11' and python_full_version < '3.14'
+sqlalchemy-redshift==1.0.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-sqlalchemy2-stubs==0.0.2a38 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via
-    #   acryl-datahub
-    #   sqlalchemy
+sqlalchemy-vertica-python==0.6.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via acryl-datahub
 sqlglot==30.12.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
@@ -1478,7 +1486,7 @@ tenacity==8.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   pyiceberg
 teradatasql==20.0.0.52 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via teradatasqlalchemy
-teradatasqlalchemy==20.0.0.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
+teradatasqlalchemy==20.0.0.9 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 textual==8.0.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via memray
@@ -1486,7 +1494,7 @@ thinc==8.3.13 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via spacy
 thoughtspot-rest-api==2.0.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-thrift==0.16.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+thrift==0.24.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-pyhive
     #   databricks-sql-connector
@@ -1626,7 +1634,8 @@ typing-extensions==4.16.0 ; python_full_version >= '3.11' and python_full_versio
     #   referencing
     #   simple-salesforce
     #   snowflake-connector-python
-    #   sqlalchemy2-stubs
+    #   sqlalchemy
+    #   sqlalchemy-hana
     #   starlette
     #   tableauserverclient
     #   textual
@@ -1694,9 +1703,7 @@ uvloop==0.22.1 ; python_full_version >= '3.11' and python_full_version < '3.14' 
 vcrpy==8.3.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 vertica-python==1.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via vertica-sqlalchemy-dialect
-vertica-sqlalchemy-dialect==0.0.8.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via acryl-datahub
+    # via sqlalchemy-vertica-python
 wasabi==1.1.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   spacy
