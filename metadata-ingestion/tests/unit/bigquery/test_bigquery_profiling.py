@@ -560,6 +560,56 @@ def test_inconclusive_detection_skips_partitioned_table():
     assert filters is None
 
 
+def test_probe_recovered_require_filter_table_skipped_when_values_unavailable():
+    """Partition columns recovered from the require-filter probe prove the table enforces
+    require_partition_filter, even though partition_info is absent on this path. If no
+    partition values can then be discovered, the table must be skipped (None), not
+    profiled with an unfiltered query that BigQuery would reject.
+    """
+
+    class ProbeRequireFilterDiscovery(PartitionDiscovery):
+        def _get_partition_columns_from_schema(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[List[str], bool]:
+            return [], False  # COLUMNS lookup failed -> the probe runs
+
+        def _probe_required_partition_columns(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[List[str], Optional[str]]:
+            return ["event_date"], "requires filter over column(s) event_date"
+
+        def _get_partition_column_types(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, str]:
+            return {"event_date": "DATE"}
+
+        def _get_partition_filters_from_information_schema(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
+            return None
+
+        def _find_real_partition_values(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
+            return None
+
+        def _get_partitions_with_sampling(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
+            return None
+
+    discovery = ProbeRequireFilterDiscovery(make_config())
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="probe_require_filter"),  # no partition_info / max_partition_id
+        "test-project-123456",
+        "ds",
+        lambda q, j, c: [],
+    )
+
+    assert filters is None
+
+
 def test_authoritative_empty_columns_skips_probe():
     """A successful, empty COLUMNS result is definitive (unpartitioned), so the probe
     fallback must not run and the table is profiled unfiltered ([]).
@@ -1305,6 +1355,51 @@ def test_fallback_date_component_unknown_type_scans_all():
     assert result == "`year` IS NOT NULL"
 
 
+def test_configured_int_fallback_infers_int64_for_untyped_column():
+    """A user-configured integer fallback on a column with no known type must emit
+    `col = 5` (INT64), not `col = '5'` — BigQuery rejects INT64 = STRING. Covers the
+    fallback-filter builder path (_create_fallback_filter_for_column -> _value_filter).
+    """
+    discovery = PartitionDiscovery(make_config(fallback_partition_values={"shard": 5}))
+
+    result = discovery._create_fallback_filter_for_column(
+        make_table(name="int_fallback"), "shard", datetime(2026, 3, 1), ""
+    )
+
+    assert result == "`shard` = 5"
+
+
+def test_process_non_date_columns_infers_int64_for_composite_constraint():
+    """A discovered INT64 pick for one non-date column must constrain the next column as
+    `col = 5`, not `col = '5'`: an untyped int would be quoted, BigQuery rejects
+    INT64 = STRING, and later composite-key columns would end up unconstrained.
+    """
+    discovery = PartitionDiscovery(make_config())
+    queries: List[str] = []
+
+    def execute(query: str, job_config: Any, context: str) -> list:
+        queries.append(query)
+        if "shard" in context:
+            return [SimpleNamespace(val=5, record_count=100)]
+        return [SimpleNamespace(val="emea", record_count=50)]
+
+    result_values: Dict[str, Any] = {}
+    discovery._process_non_date_columns(
+        ["shard", "region"],
+        "`p`.`d`.`t`",
+        [],
+        {},  # empty type map — forces inference
+        10,
+        execute,
+        make_table(),
+        result_values,
+    )
+
+    region_query = next(q for q in queries if "region" in q)
+    assert "`shard` = 5" in region_query
+    assert "`shard` = '5'" not in region_query
+
+
 def test_partition_column_types_backfills_pseudo_columns():
     """INFORMATION_SCHEMA.COLUMNS never lists the ingestion-time pseudo-columns, so
     get_partition_column_types must backfill their fixed BigQuery types
@@ -1707,3 +1802,39 @@ def test_sampling_probe_bounds_job_config():
     assert result is not None
     assert int(captured["job_config"].job_timeout_ms) == 25000
     assert int(captured["job_config"].maximum_bytes_billed) == 4096
+
+
+def test_test_date_candidate_int_fallback_infers_int64():
+    """When a strategic-candidate column isn't a date component but has a configured
+    integer fallback, the emitted filter must be `col = 5` (INT64), not `col = '5'`
+    (rejected on an INT64 column).
+    """
+
+    class LiveProbe(PartitionDiscovery):
+        def _verify_partition_has_data(self, *args: Any, **kwargs: Any) -> bool:
+            return True
+
+        def _enhance_partition_filters_with_actual_values(
+            self,
+            table: BigqueryTable,
+            project: str,
+            schema: str,
+            required_columns: List[str],
+            initial_filters: List[str],
+            *args: Any,
+            **kwargs: Any,
+        ) -> Optional[List[str]]:
+            return initial_filters
+
+    discovery = LiveProbe(make_config(fallback_partition_values={"shard": 5}))
+    result = discovery._test_date_candidate(
+        make_table(),
+        "test-project-123456",
+        "ds",
+        datetime(2024, 3, 9, tzinfo=timezone.utc),
+        "strategic candidate",
+        ["shard"],
+        {},  # empty type map — shard has no known type
+        lambda q, j, c: [],
+    )
+    assert result == ["`shard` = 5"]

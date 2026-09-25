@@ -278,6 +278,14 @@ class PartitionDiscovery:
             required_partition_columns = schema_columns
 
         probe_error: Optional[str] = None
+        # Whether the partition columns were recovered from the require-filter probe. A
+        # non-empty probe result is BigQuery's "requires filter over column(s)" error,
+        # which is raised *only* for require_partition_filter=TRUE tables — so it is proof
+        # the table enforces a partition filter even though table.partition_info is absent
+        # on this path (that absence is why we had to probe). The final skip decision must
+        # honour this, otherwise a later failed value fetch would emit an unfiltered query
+        # that BigQuery rejects.
+        partition_filter_required_by_probe = False
         if not required_partition_columns and not schema_authoritative:
             # Only probe when the authoritative COLUMNS lookup failed. A successful,
             # empty COLUMNS result is definitive, so re-probing would be wasted work.
@@ -288,6 +296,7 @@ class PartitionDiscovery:
             # is positional); ordered dedup rather than sorted(), which would bind
             # partition-id components to the wrong columns downstream.
             required_partition_columns = list(dict.fromkeys(probed_columns))
+            partition_filter_required_by_probe = bool(required_partition_columns)
 
         if not required_partition_columns:
             if table.external:
@@ -389,7 +398,9 @@ class PartitionDiscovery:
         # No usable partition values. An unfiltered query would be rejected on a
         # require-filter table and is unbounded on an external table, so skip those;
         # other tables are profiled unfiltered (bounded by the row/size limit).
-        requires_filter = bool(
+        # partition_filter_required_by_probe covers the case where partition_info is
+        # absent but the probe proved the table enforces require_partition_filter.
+        requires_filter = partition_filter_required_by_probe or bool(
             table.partition_info and table.partition_info.require_partition_filter
         )
         if requires_filter or table.external:
@@ -924,10 +935,17 @@ class PartitionDiscovery:
 
                 result_values[col_name] = chosen_result.val
                 # Constrain the remaining non-date columns to this pick so the composite
-                # key stays internally consistent.
+                # key stays internally consistent. Infer the type from the discovered
+                # value when the type map has no entry, so a genuine INT64 pick is emitted
+                # as `col = 5`, not `col = '5'` (BigQuery rejects INT64 = STRING and would
+                # then leave later composite-key columns unconstrained).
                 combined_filters.append(
                     self._create_safe_filter(
-                        col_name, chosen_result.val, column_types.get(col_name, "")
+                        col_name,
+                        chosen_result.val,
+                        self._infer_component_type(
+                            column_types.get(col_name, ""), chosen_result.val
+                        ),
                     )
                 )
 
@@ -1476,8 +1494,15 @@ class PartitionDiscovery:
                         )
                 elif col in self.config.profiling.fallback_partition_values:
                     fallback_val = self.config.profiling.fallback_partition_values[col]
+                    # A user-configured integer fallback on an untyped column must stay
+                    # unquoted (`col = 5`), so infer INT64 from the value when the type is
+                    # unknown; create_safe_filter would otherwise reject it on INT64.
                     filters.append(
-                        self._create_safe_filter(col, fallback_val, col_data_type)
+                        self._create_safe_filter(
+                            col,
+                            fallback_val,
+                            self._infer_component_type(col_data_type, fallback_val),
+                        )
                     )
                 else:
                     filters.append(FilterBuilder.is_not_null(col))
@@ -1774,7 +1799,16 @@ class PartitionDiscovery:
         if col_name in self.config.profiling.fallback_partition_values:
             fallback_value = self.config.profiling.fallback_partition_values[col_name]
             try:
-                return self._value_filter(table, col_name, fallback_value, col_type)
+                # Infer INT64 from a genuine integer fallback when the column type is
+                # unknown, so _value_filter/create_safe_filter emit `col = 5` rather than
+                # `col = '5'` (rejected on an INT64 column). A str value stays untyped and
+                # keeps compact-partition-id handling.
+                return self._value_filter(
+                    table,
+                    col_name,
+                    fallback_value,
+                    self._infer_component_type(col_type, fallback_value),
+                )
             except ValueError as e:
                 logger.warning(f"Invalid fallback value for {col_name}: {e}")
                 return FilterBuilder.is_not_null(col_name)

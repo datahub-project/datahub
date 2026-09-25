@@ -1678,8 +1678,8 @@ def test_deferred_external_single_partition_label_and_cache():
     ):
         result = profiler._discover_external_partition_filter(deferred)
 
-    assert result is not None
-    assert result.batch_kwargs.get("partition") == "20230101"
+    assert result.request is not None
+    assert result.request.batch_kwargs.get("partition") == "20230101"
     mock_cache.assert_called_once_with("test-project", "test_dataset", "ext_events")
     assert "cached_partition_metadata" in mock_filters.call_args.kwargs
 
@@ -1756,9 +1756,9 @@ def test_deferred_external_unreliable_row_count_cleared_for_bounded_scan():
     ):
         result = profiler._discover_external_partition_filter(deferred)
 
-    assert result is not None
-    assert result.batch_kwargs.get("custom_sql")
-    assert result.table.rows_count is None
+    assert result.request is not None
+    assert result.request.batch_kwargs.get("custom_sql")
+    assert result.request.table.rows_count is None
 
 
 def test_deferred_external_unreliable_row_count_cleared_with_partition_filter():
@@ -1794,9 +1794,9 @@ def test_deferred_external_unreliable_row_count_cleared_with_partition_filter():
     ):
         result = profiler._discover_external_partition_filter(deferred)
 
-    assert result is not None
-    assert "event_date" in result.batch_kwargs.get("custom_sql", "")
-    assert result.table.rows_count is None
+    assert result.request is not None
+    assert "event_date" in result.request.batch_kwargs.get("custom_sql", "")
+    assert result.request.table.rows_count is None
 
 
 def test_deferred_external_discovery_skips_when_partition_profiling_disabled():
@@ -1830,7 +1830,51 @@ def test_deferred_external_discovery_skips_when_partition_profiling_disabled():
     ):
         result = profiler._discover_external_partition_filter(deferred)
 
-    assert result is None
+    # The worker no longer mutates the report off-thread; it records the skip and the
+    # main-thread consumer appends it to the report.
+    assert result.request is None
+    assert result.partition_profiling_disabled == "test-project.test_dataset.ext_events"
+
+
+def test_deferred_external_disabled_skip_applied_on_main_thread():
+    # The full deferred flow must apply the worker's recorded partition-profiling-disabled
+    # skip to the report on the main thread (the worker no longer touches it directly).
+    config = create_test_config(partition_profiling_enabled=False)
+    report = BigQueryV2Report()
+    profiler = BigqueryProfiler(config, report)
+
+    external_table = create_test_table(name="ext_events", external=True)
+    with patch.object(
+        PartitionDiscovery, "get_required_partition_filters", return_value=[]
+    ):
+        request = profiler.get_profile_request(
+            external_table, "test_dataset", "test-project"
+        )
+    assert request is not None
+    deferred = DeferredExternalTable(
+        request=request,
+        bq_table=external_table,
+        db_name="test-project",
+        schema_name="test_dataset",
+    )
+
+    with (
+        patch.object(
+            PartitionDiscovery,
+            "get_required_partition_filters",
+            return_value=["`event_date` = '2023-01-01'"],
+        ),
+        patch(
+            "datahub.ingestion.source.sql.sql_generic_profiler.GenericProfiler.generate_profile_workunits",
+            return_value=[],
+        ),
+    ):
+        list(
+            profiler.generate_profile_workunits_with_deferred_partitions(
+                [], [deferred], max_workers=1, platform="bigquery", profiler_args={}
+            )
+        )
+
     assert (
         "test-project.test_dataset.ext_events"
         in report.profiling_skipped_partition_profiling_disabled
