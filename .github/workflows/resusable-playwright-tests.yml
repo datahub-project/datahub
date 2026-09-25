@@ -233,6 +233,9 @@ jobs:
           BASE_URL: "http://localhost:9002"
           PLAYWRIGHT_REUSE_SERVER: "1"
           WORKERS_PER_SHARD: ${{ inputs.workers_per_shard }}
+          # The scale test measures wall-clock time. Forks run on slower GitHub-hosted
+          # runners, where the same test also fails on unrelated Yarn Classic PRs.
+          SCALE_BUDGET_FACTOR: ${{ inputs.test_runner_type == 'ubuntu-latest' && '3' || '1' }}
           # Blob reporter's default output filename (report.zip) only gets a shard suffix
           # when --shard is set (see playwright/lib/runner/index.js _defaultReportName). We
           # no longer pass --shard, so every shard job would collide on the same filename
