@@ -22,6 +22,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import io.datahubproject.metadata.context.OperationContext;
@@ -301,13 +302,7 @@ public class AnalyticsService {
     if (!v3EntityIndex) {
       return dimensions;
     }
-    return dimensions.stream()
-        .map(
-            field ->
-                field.endsWith(SearchUtil.KEYWORD_SUFFIX)
-                    ? field.substring(0, field.length() - SearchUtil.KEYWORD_SUFFIX.length())
-                    : field)
-        .collect(Collectors.toList());
+    return dimensions.stream().map(ESUtils::toV3EntityField).collect(Collectors.toList());
   }
 
   private List<BarSegment> extractBarSegmentsFromAggregations(
