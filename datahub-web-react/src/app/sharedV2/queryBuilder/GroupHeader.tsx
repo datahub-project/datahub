@@ -1,17 +1,16 @@
 import { Tooltip } from '@components';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { Button } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { LogicalOperatorType } from '@app/sharedV2/queryBuilder/builder/types';
-import {
-    ActionsContainer,
-    CardIcons,
-    OperationButton,
-    ToolbarContainer,
-} from '@app/sharedV2/queryBuilder/styledComponents';
-import { Button as ButtonComponent, Icon } from '@src/alchemy-components';
+import { ActionsContainer, OperationButton, ToolbarContainer } from '@app/sharedV2/queryBuilder/styledComponents';
+import { Button as ButtonComponent } from '@src/alchemy-components';
+
+const OperatorButtons = styled.div`
+    display: flex;
+`;
 
 interface Props {
     onAddPropertyPredicate: () => void;
@@ -68,7 +67,7 @@ const GroupHeader = ({
 
     return (
         <ToolbarContainer>
-            <Button.Group>
+            <OperatorButtons>
                 <Tooltip showArrow={false} title={t('group.andTooltip')}>
                     <OperationButton
                         variant="text"
@@ -96,7 +95,7 @@ const GroupHeader = ({
                         {t('group.noneLabel')}
                     </OperationButton>
                 </Tooltip>
-            </Button.Group>
+            </OperatorButtons>
             <ActionsContainer>
                 <ButtonComponent
                     variant="text"
@@ -114,16 +113,16 @@ const GroupHeader = ({
                         {t('group.addGroup')}
                     </ButtonComponent>
                 )}
-                <CardIcons>
-                    {showDeleteButton && (
-                        <Icon
-                            icon={Trash}
-                            size="md"
-                            onClick={() => onDeletePredicate(index)}
-                            data-testid="query-builder-delete-button"
-                        />
-                    )}
-                </CardIcons>
+                {showDeleteButton && (
+                    <ButtonComponent
+                        variant="text"
+                        color="red"
+                        icon={{ icon: Trash, size: 'lg', color: 'iconError' }}
+                        isCircle
+                        onClick={() => onDeletePredicate(index)}
+                        data-testid="query-builder-delete-button"
+                    />
+                )}
             </ActionsContainer>
         </ToolbarContainer>
     );

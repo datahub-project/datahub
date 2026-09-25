@@ -1,10 +1,10 @@
 import { Tooltip } from '@components';
-// eslint-disable-next-line rulesdir/no-antd-imports -- moved from a grandfathered path; type-only
-import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import styled from 'styled-components';
 
 import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
+
+type TooltipPlacement = NonNullable<React.ComponentProps<typeof Tooltip>['placement']>;
 
 const StyledActionButtonContainer = styled.div`
     display: flex;

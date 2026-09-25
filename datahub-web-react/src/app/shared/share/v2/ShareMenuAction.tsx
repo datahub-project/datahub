@@ -1,39 +1,22 @@
+import { Menu } from '@components';
 import { ShareNetwork } from '@phosphor-icons/react/dist/csr/ShareNetwork';
-import { Dropdown } from 'antd';
 import React from 'react';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import {
     ActionMenuItem,
     ENTITY_HEADER_ACTION_ICON_SIZE,
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
-import ShareButtonMenu from '@app/shared/share/v2/ShareButtonMenu';
-import { StyledMenu } from '@app/shared/share/v2/styledComponents';
+import { useShareMenuItems } from '@app/shared/share/v2/useShareMenuItems';
 
 export default function ShareMenuAction() {
-    const { urn, entityType, entityData } = useEntityData();
-    const subType = (entityData?.subTypes?.typeNames?.length && entityData?.subTypes?.typeNames?.[0]) || undefined;
-    const name = entityData?.name;
+    const items = useShareMenuItems();
 
     return (
-        <ActionMenuItem key="share">
-            <Dropdown
-                trigger={['hover']}
-                overlay={
-                    <StyledMenu selectable={false}>
-                        <ShareButtonMenu
-                            urn={urn}
-                            entityType={entityType}
-                            subType={subType}
-                            name={name}
-                            qualifiedName={entityData?.properties?.qualifiedName}
-                        />
-                    </StyledMenu>
-                }
-            >
+        <Menu items={items} trigger={['hover']} placement="bottomRight">
+            <ActionMenuItem key="share" data-testid="share-menu-action">
                 <ShareNetwork size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
-            </Dropdown>
-        </ActionMenuItem>
+            </ActionMenuItem>
+        </Menu>
     );
 }
