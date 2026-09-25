@@ -573,6 +573,73 @@ describe('Query Builder Utils - convertLogicalPredicateToOrFilters()', () => {
             // Both filters should have negated: true
             expect(orFilters?.some((filter) => filter.and?.some((f) => f.negated))).toBe(true);
         });
+
+        it('should apply De Morgan Law: NOT(AND) becomes OR', () => {
+            // NOT(Domain=A AND Owner=B) = (Domain!=A) OR (Owner!=B)
+            const predicate: LogicalPredicate = {
+                type: 'logical',
+                operator: LogicalOperatorType.NOT,
+                operands: [
+                    {
+                        type: 'logical',
+                        operator: LogicalOperatorType.AND,
+                        operands: [
+                            {
+                                type: 'property',
+                                property: 'domain',
+                                operator: 'equals',
+                                values: ['A'],
+                            },
+                            {
+                                type: 'property',
+                                property: 'owner',
+                                operator: 'equals',
+                                values: ['B'],
+                            },
+                        ],
+                    },
+                ],
+            };
+            const orFilters = convertLogicalPredicateToOrFilters(predicate);
+            expect(orFilters).toBeDefined();
+            expect(orFilters?.length).toBe(2); // OR produces separate items
+            expect(orFilters?.[0].and?.[0].negated).toBe(true); // domain != A
+            expect(orFilters?.[1].and?.[0].negated).toBe(true); // owner != B
+        });
+
+        it('should apply De Morgan Law: NOT(OR) becomes AND', () => {
+            // NOT(Platform=P1 OR Platform=P2) = (Platform!=P1) AND (Platform!=P2)
+            const predicate: LogicalPredicate = {
+                type: 'logical',
+                operator: LogicalOperatorType.NOT,
+                operands: [
+                    {
+                        type: 'logical',
+                        operator: LogicalOperatorType.OR,
+                        operands: [
+                            {
+                                type: 'property',
+                                property: 'platform',
+                                operator: 'equals',
+                                values: ['mysql'],
+                            },
+                            {
+                                type: 'property',
+                                property: 'platform',
+                                operator: 'equals',
+                                values: ['postgres'],
+                            },
+                        ],
+                    },
+                ],
+            };
+            const orFilters = convertLogicalPredicateToOrFilters(predicate);
+            expect(orFilters).toBeDefined();
+            expect(orFilters?.length).toBe(1); // AND combines into single item
+            expect(orFilters?.[0].and?.length).toBe(2); // Two conditions in AND
+            expect(orFilters?.[0].and?.[0].negated).toBe(true); // platform != mysql
+            expect(orFilters?.[0].and?.[1].negated).toBe(true); // platform != postgres
+        });
     });
 
     describe('convertLogicalPredicateToOrFilters: Edge Cases & Error Handling', () => {
