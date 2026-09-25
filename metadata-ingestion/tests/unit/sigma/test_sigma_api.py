@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 
 from datahub.configuration.common import AllowDenyPattern
@@ -3775,7 +3776,7 @@ class TestRepeatedLookupsAreAskedOnce:
     ) -> None:
         """The repeat that actually happens, and the loss that hides in it.
 
-        lru_cache already collapses the per-FILE case -- File.path is the
+        _file_path_walks already collapses the per-FILE case -- File.path is the
         FOLDER's path, so every file in a folder shares the walk's key.
         Sibling folders don't: each walks up and hits the same ancestor. A
         refusal there is the same answer every time, so it is asked once; a
@@ -3805,6 +3806,24 @@ class TestRepeatedLookupsAreAskedOnce:
         # Counted once per ancestor either way: the walk dedupes the count
         # separately from the cache, so a re-ask does not inflate it.
         assert api.report.child_entity_listing_failed == 1
+
+    @pytest.mark.parametrize(
+        ("status", "expected_calls"),
+        [(400, 1), (500, 3)],
+        ids=["a-refusal-is-cached", "a-blip-is-not-cached-until-the-cap"],
+    )
+    def test_files_in_one_folder_after_a_failed_walk(
+        self, status: int, expected_calls: int
+    ) -> None:
+        """Files in one folder share the walk's key, so a cached blip would
+        drop every later file in it. Re-asking stops at the cap, or a node
+        that keeps failing is retried once per file."""
+        api = _create_sigma_api()
+        with _dead_call(api, status=status) as call:
+            for _ in range(5):
+                assert api.get_workspace_id_from_file_path("f1", "ws/dir") is None
+
+        assert call.call_count == expected_calls
 
     def test_the_walk_names_the_file_and_stays_terse(self) -> None:
         """The walk's own failure text is a report context too."""
@@ -3963,15 +3982,16 @@ class TestFailureRemedies:
         ids=["mandatory-listing", "optional-listing"],
     )
     @pytest.mark.parametrize(
-        ("status", "expect", "toggle_allowed"),
+        ("status", "transient", "expect", "toggle_allowed"),
         [
-            (401, "rejected this connector's credentials", False),
-            (403, "Grant the token the scope", True),
-            (429, "Transient", False),
-            (404, "gone or was never present", True),
-            (500, "Transient", False),
-            (None, "Transient", False),
-            (418, "Neither refused nor transient", True),
+            (401, True, "rejected this connector's credentials", False),
+            (403, False, "Grant the token the scope", True),
+            (429, True, "Transient", False),
+            (404, False, "gone or was never present", True),
+            (500, True, "Transient", False),
+            (None, True, "Transient", False),
+            (None, False, "Neither refused nor transient", True),
+            (418, False, "Neither refused nor transient", True),
         ],
         ids=[
             "rejected",
@@ -3980,12 +4000,14 @@ class TestFailureRemedies:
             "gone",
             "server-error",
             "no-response",
+            "internal-error",
             "odd",
         ],
     )
     def test_the_remedy_follows_the_status(
         self,
         status: Optional[int],
+        transient: bool,
         expect: str,
         toggle_allowed: bool,
         toggle: Optional[str],
@@ -4000,7 +4022,11 @@ class TestFailureRemedies:
         """
         api = _create_sigma_api()
         api._record_enumeration_failure(
-            what="a listing", context="ctx", status=status, optional_feature=toggle
+            what="a listing",
+            context="ctx",
+            status=status,
+            transient=transient,
+            optional_feature=toggle,
         )
 
         context = _contexts(api.report.failures)
@@ -4811,6 +4837,79 @@ class TestMalformedPageShape:
         context = _contexts(api.report.failures)
         assert "rows_dropped=3" in context
         assert "rows_parsed=1" in context
+
+    @pytest.mark.parametrize("row", [None, 3, "x"], ids=["null", "int", "str"])
+    def test_non_dict_rows_count_as_dropped(self, row: object) -> None:
+        """A listing of nulls used to read as an empty tenant: dropped before
+        the dropped-vs-parsed check, so the run passed and soft-deleted every
+        Data Model."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"entries": [row, row, row], "nextPage": None}
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            got = api._paginated_entries(
+                "https://example.invalid/v2/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        assert got == []
+        assert api.report.entity_enumeration_failed == 1
+        assert "rows_dropped=3" in _contexts(api.report.failures)
+
+    def test_an_undecodable_first_page_is_not_counted_as_read(self) -> None:
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.side_effect = requests.exceptions.JSONDecodeError("bad", "", 0)
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            api._paginated_entries(
+                "https://example.invalid/v2/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        assert "pages_read=0" in _contexts(api.report.failures)
+
+    @pytest.mark.parametrize("model", [Workspace, Element])
+    def test_a_before_validator_leaves_a_non_dict_row_to_pydantic(
+        self, model: Any
+    ) -> None:
+        """Otherwise `.get` on the row raises AttributeError, which the
+        listings read as a connector bug rather than an unparseable row."""
+        with pytest.raises(ValidationError):
+            model.model_validate(None)
+
+    def test_a_null_workspace_row_is_an_unparseable_row(self) -> None:
+        """The validator's `.get` on None raised AttributeError, which read as
+        "Transient: re-run" for a row that fails every run."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"entries": [None], "nextPage": None}
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            api.fill_workspaces()
+
+        context = _contexts(api.report.failures)
+        assert "cannot parse" in context
+        assert "Transient" not in context
+
+    def test_a_connector_bug_is_not_called_transient(self) -> None:
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{"workspaceId": "ws-1"}],
+            "nextPage": None,
+        }
+        with (
+            patch.object(SigmaAPI, "_get_api_call", return_value=page),
+            patch.object(Workspace, "model_validate", side_effect=TypeError("bug")),
+        ):
+            api.fill_workspaces()
+
+        context = _contexts(api.report.failures)
+        assert "Neither refused nor transient" in context
+        assert "Transient" not in context
 
     def test_one_folder_is_walked_once_for_both_file_types(self) -> None:
         """entity_removing must not be part of the cache key: a folder

@@ -50,7 +50,11 @@ class Workspace(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def update_values(cls, values: Dict) -> Dict:
+    def update_values(cls, values: object) -> object:
+        # A non-dict row must reach pydantic, which reports it as a
+        # ValidationError; `.get` on it would raise AttributeError instead.
+        if not isinstance(values, dict):
+            return values
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
         # Update name if presonal workspace.
@@ -170,6 +174,8 @@ class Element(BaseModel):
           - Replaces `columns` with a plain list of names (backward-compatible).
           - Populates `column_formulas` with the name->formula mapping.
         """
+        if not isinstance(values, dict):
+            return values
         raw_columns = values.get("columns", [])
         if raw_columns and any(isinstance(col, dict) for col in raw_columns):
             column_names: List[str] = []

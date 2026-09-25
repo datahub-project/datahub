@@ -300,12 +300,17 @@ def _error_code(
     return code if isinstance(code, str) and code else None
 
 
+_MAX_TRANSIENT_FAILURES_PER_NODE = 3
+
+
 @dataclass(frozen=True)
 class _FilePathWalk:
     """Where a file-path walk ended: its workspace, or the ancestor that died."""
 
     workspace_id: Optional[str]
     failed_ancestor: Optional[str]
+    # A failure worth re-asking, so the walk is not cached.
+    transient: bool = False
 
 
 class SigmaAPI:
@@ -321,6 +326,9 @@ class SigmaAPI:
         # Separate from what has been COUNTED -- see _note_file_path_loss.
         self._file_path_lookup_failed: Set[str] = set()
         self._file_path_loss_counted: Set[str] = set()
+        self._file_path_walks: Dict[Tuple[str, str], _FilePathWalk] = {}
+        # Transient failures per workspace or folder id; see _should_latch.
+        self._transient_failures: Dict[str, int] = {}
         self.users: Dict[str, str] = {}
         # Track source_type values we've already warned about to keep the
         # report summary readable on large tenants with repeated unknown
@@ -353,8 +361,8 @@ class SigmaAPI:
             # lineage" reply, once per element, so retrying would cost ~12s of
             # backoff each.
             status_forcelist=[429, 502, 503, 504],
-            # Explicit, not inherited: the two POSTs here are the token and
-            # refresh calls, which must not be replayed.
+            # Same as urllib3's default, which already excludes POST; pinned so
+            # the token and refresh POSTs stay unreplayed if that changes.
             allowed_methods=frozenset({"GET"}),
             backoff_factor=2,
             raise_on_status=False,
@@ -394,6 +402,7 @@ class SigmaAPI:
         unparseable_row: bool = False,
         malformed_response: bool = False,
         status: Optional[int] = None,
+        transient: bool = False,
     ) -> None:
         """A call that ENUMERATES entities failed, so entities are missing.
 
@@ -452,11 +461,12 @@ class SigmaAPI:
             if not optional_feature:
                 remedy += " This listing cannot be turned off."
             toggle_helps = True
-        elif status is None or status == 429 or status >= 500:
+        elif transient or status == 429 or (status is not None and status >= 500):
             # 429 belongs here: it says it is temporary, and _is_transient
             # treats it that way for the caches. This branch must stay ABOVE
             # the catch-all, or an outage is answered by soft-deleting
-            # everything. An internal error lands here too.
+            # everything. An internal error (no status, not transient) does
+            # not: it repeats every run.
             remedy = (
                 "Transient: Sigma failed to answer, answered that it is rate "
                 "limited, or did not answer at all. Re-run -- the context "
@@ -465,8 +475,8 @@ class SigmaAPI:
             toggle_helps = False
         else:
             remedy = (
-                "Neither refused nor transient, so an odd status is more "
-                "likely a bug in this connector than anything to configure."
+                "Neither refused nor transient, so this is more likely a bug "
+                "in this connector than anything to configure."
             )
             toggle_helps = True
         if optional_feature and toggle_helps:
@@ -642,9 +652,7 @@ class SigmaAPI:
             # and dataset in this workspace when ingest_shared_entities is
             # False. Bounded to one workspace, so it takes the child-listing
             # rule. The 403 above is a steady state, counted separately.
-            if not _is_transient(e):
-                # Latching a blip would drop the whole workspace where
-                # re-asking for the next child could have succeeded.
+            if self._should_latch(workspace_id, e):
                 self._workspace_lookup_failed.add(workspace_id)
             if (
                 # With shared entities ON the caller keeps the workbook or
@@ -689,6 +697,7 @@ class SigmaAPI:
                 unparseable_row=isinstance(e, _UNREADABLE_ROW),
                 malformed_response=_is_malformed_response(e),
                 status=_http_status(e),
+                transient=_is_transient(e),
             )
 
     @functools.lru_cache()
@@ -731,19 +740,36 @@ class SigmaAPI:
         walked twice. The cached walk reports which ancestor died; this
         wrapper decides what that costs.
         """
-        walk = self._walk_to_workspace(parent_id, path)
+        walk = self._file_path_walks.get((parent_id, path))
+        if walk is None:
+            walk = self._walk_to_workspace(parent_id, path)
+            if not walk.transient:
+                self._file_path_walks[(parent_id, path)] = walk
         if walk.failed_ancestor is not None:
             self._note_file_path_loss(walk.failed_ancestor, entity_removing)
         return walk.workspace_id
 
-    @functools.lru_cache()
+    def _should_latch(self, node_id: str, e: BaseException) -> bool:
+        """Whether a failed workspace or folder is remembered as dead.
+
+        A transient failure is re-asked, since latching a blip drops every
+        child under the node. Only up to a cap: a node that keeps failing
+        would otherwise be retried, at full backoff, once per child.
+        """
+        if not _is_transient(e):
+            return True
+        failures = self._transient_failures.get(node_id, 0) + 1
+        self._transient_failures[node_id] = failures
+        return failures >= _MAX_TRANSIENT_FAILURES_PER_NODE
+
     def _walk_to_workspace(self, parent_id: str, path: str) -> "_FilePathWalk":
         try:
             path_list = path.split("/")
             while len(path_list) != 1:  # means current parent id is folder's id
                 if parent_id in self._file_path_lookup_failed:
                     # Known-broken ancestor. The repeat this prevents is
-                    # SIBLING FOLDERS; lru_cache collapses the per-file case.
+                    # SIBLING FOLDERS; _file_path_walks collapses the per-file
+                    # case.
                     return _FilePathWalk(workspace_id=None, failed_ancestor=parent_id)
                 response = self._get_api_call(
                     f"{self.config.api_url}/files/{parent_id}"
@@ -759,11 +785,12 @@ class SigmaAPI:
                 message=f"Unable to find workspace id using file path "
                 f"'{path}'. Exception: {e}"
             )
-            if not _is_transient(e):
-                # Same rule as get_workspace: latching a folder on a blip
-                # drops every sibling subtree under it, unretried.
+            latched = self._should_latch(parent_id, e)
+            if latched:
                 self._file_path_lookup_failed.add(parent_id)
-            return _FilePathWalk(workspace_id=None, failed_ancestor=parent_id)
+            return _FilePathWalk(
+                workspace_id=None, failed_ancestor=parent_id, transient=not latched
+            )
 
     def _note_file_path_loss(self, ancestor_id: str, entity_removing: bool) -> None:
         """Count a broken ancestor once, for the callers that lose an entity.
@@ -838,6 +865,7 @@ class SigmaAPI:
                     unparseable_row=isinstance(e, _UNREADABLE_ROW),
                     malformed_response=_is_malformed_response(e),
                     status=_http_status(e),
+                    transient=_is_transient(e),
                     # Only reached from get_sigma_datasets, which
                     # ingest_datasets=False skips, so it shares that remedy.
                     optional_feature=(
@@ -948,6 +976,7 @@ class SigmaAPI:
                 unparseable_row=isinstance(e, _UNREADABLE_ROW),
                 malformed_response=_is_malformed_response(e),
                 status=_http_status(e),
+                transient=_is_transient(e),
             )
             # Partial rows, not []: the run fails either way, so keeping the
             # pages already read leaves those entities fresh.
@@ -1417,8 +1446,31 @@ class SigmaAPI:
         scoped_to_parent: bool = False,
         optional_feature: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Page through a Sigma list endpoint and return raw ``entries``
-        dicts. Handles both pagination shapes (``nextPage`` and
+        """The dict rows of :meth:`_paginated_rows`."""
+        return [
+            row
+            for row in self._paginated_rows(
+                base_url,
+                error_ctx,
+                silent_statuses=silent_statuses,
+                enumerates_entities=enumerates_entities,
+                scoped_to_parent=scoped_to_parent,
+                optional_feature=optional_feature,
+            )
+            if isinstance(row, dict)
+        ]
+
+    def _paginated_rows(
+        self,
+        base_url: str,
+        error_ctx: str,
+        silent_statuses: Tuple[int, ...] = (),
+        enumerates_entities: bool = False,
+        scoped_to_parent: bool = False,
+        optional_feature: Optional[str] = None,
+    ) -> List[object]:
+        """Page through a Sigma list endpoint and return every ``entries``
+        row as sent, dict or not. Handles both pagination shapes (``nextPage`` and
         ``nextPageToken``) and guards against pathological proxies that
         return the same cursor twice in a row (which would otherwise loop
         forever and accumulate duplicates). HTTP/JSON errors abort
@@ -1446,7 +1498,7 @@ class SigmaAPI:
         # pagination does not collide with existing params.
         separator = "&" if "?" in base_url else "?"
         url = base_url
-        raw_entries: List[Dict[str, Any]] = []
+        raw_entries: List[object] = []
         # Cycle protection: a broken proxy (or caching layer) can echo the
         # same ``nextPage`` / ``nextPageToken`` back on every call. Track
         # (kind, value) tuples so a cycle that crosses cursor types is also
@@ -1465,19 +1517,18 @@ class SigmaAPI:
                     return raw_entries
                 first_page = False
                 response.raise_for_status()
-                # After raise_for_status, so pages_read is pages actually READ:
-                # 0 means the first page itself failed.
-                pages_read += 1
                 response_dict = _envelope(response.json())
+                # After decoding, so pages_read is pages actually READ: 0 means
+                # the first page itself failed.
+                pages_read += 1
                 entries = response_dict.get(Constant.ENTRIES)
                 if enumerates_entities and not isinstance(entries, list):
                     # `.get(..., [])` made a page with NO `entries` look like
                     # a page with none: zero rows, nothing reported, and
                     # everything soft-deleted.
                     raise KeyError(Constant.ENTRIES)
-                for entry in entries or []:
-                    if isinstance(entry, dict):
-                        raw_entries.append(entry)
+                if isinstance(entries, list):
+                    raw_entries.extend(entries)
                 if enumerates_entities and not (
                     Constant.NEXTPAGE in response_dict
                     or Constant.NEXTPAGETOKEN in response_dict
@@ -1557,6 +1608,7 @@ class SigmaAPI:
                     # Without this the only paginated run-wide listing --
                     # /dataModels -- reads a 403 as "transient, re-run".
                     status=_http_status(e),
+                    transient=_is_transient(e),
                     # A missing `entries`, an unknown cursor name and a
                     # non-JSON body are all "the wrong shape".
                     malformed_response=_is_malformed_response(e),
@@ -1592,7 +1644,7 @@ class SigmaAPI:
     ) -> List[T]:
         """Page through a Sigma list endpoint, parsing each entry into
         ``model_cls``. Shares pagination / cycle-protection logic with
-        :meth:`_paginated_raw_entries`. Per-entry ``ValidationError``
+        :meth:`_paginated_rows`. Per-entry ``ValidationError``
         drops only that entry (so one malformed row cannot empty the
         whole list). ``dedup_key`` lets callers collapse duplicates by
         a natural key so an echoed pagination cursor (or server-side
@@ -1607,7 +1659,9 @@ class SigmaAPI:
         malformed_warned = 0
         malformed_dropped = 0
         first_malformed = ""
-        for entry in self._paginated_raw_entries(
+        # Every row, not just dicts: a null row must fail model_validate and
+        # count as dropped, or a listing of nulls reads as an empty tenant.
+        for entry in self._paginated_rows(
             base_url,
             error_ctx,
             enumerates_entities=enumerates_entities,
@@ -2705,6 +2759,7 @@ class SigmaAPI:
                 unparseable_row=isinstance(e, _UNREADABLE_ROW),
                 malformed_response=_is_malformed_response(e),
                 status=_http_status(e),
+                transient=_is_transient(e),
             )
             # Partial rows, not []: the run fails either way, so keeping the
             # pages already read leaves those entities fresh.

@@ -649,8 +649,8 @@ class SigmaSourceConfig(
         "this to ``False`` once that endpoint has gone for your tenant: the "
         "call is not made and the run stops failing. Sigma Datasets a "
         "previous run emitted are then soft-deleted. Data Model elements "
-        "that read one lose the warehouse table behind it; workbook elements "
-        "do only when their SQL names no warehouse table.",
+        "that read one lose that upstream edge; workbook elements are "
+        "linked straight to the warehouse table when their SQL names it.",
     )
     ingest_data_models: bool = pydantic.Field(
         default=True,
