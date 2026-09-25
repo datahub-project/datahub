@@ -35,7 +35,6 @@ from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution.runner import (
     LogHolder,
-    VenvReference,
 )
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
@@ -43,6 +42,7 @@ from datahub.executor.execution.sub_process_task_common import (
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
+from datahub.executor.execution.venv_config import VenvReference
 from datahub.masking.masking_filter import SecretMaskingFilter
 
 logger = logging.getLogger(__name__)

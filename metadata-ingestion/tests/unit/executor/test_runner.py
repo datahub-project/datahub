@@ -17,18 +17,10 @@ import pytest
 
 from datahub.executor.execution import venv_utils
 from datahub.executor.execution.runner import (
-    VENV_NO_DATAHUB,
-    VENV_VERSION_BUNDLED,
-    VENV_VERSION_LATEST,
-    VENV_VERSION_NATIVE,
     LogHolder,
     SubprocessRunner,
-    VenvConfig,
-    VenvReference,
     _acquire_cache_entry,
     _bundled_constraints_path,
-    _expand_pip_req,
-    _extra_env_vars_cache_suffix,
     _scrub_direct_url_credentials,
     _validate_wheel_url,
     setup_venv,
@@ -36,6 +28,19 @@ from datahub.executor.execution.runner import (
 )
 from datahub.executor.execution.task import TaskError
 from datahub.executor.execution.venv_cache import EntryLock
+from datahub.executor.execution.venv_config import (
+    CacheName,
+    VenvConfig,
+    VenvReference,
+    _expand_pip_req,
+    _extra_env_vars_cache_suffix,
+)
+from datahub.executor.execution.venv_utils import (
+    VENV_NO_DATAHUB,
+    VENV_VERSION_BUNDLED,
+    VENV_VERSION_LATEST,
+    VENV_VERSION_NATIVE,
+)
 from datahub.masking.secret_registry import SecretRegistry
 
 
@@ -2709,7 +2714,8 @@ class TestVenvCacheInSetupVenv:
 
         with pytest.raises(PermissionError):
             await _acquire_cache_entry(
-                ref.venv_loc.name.removeprefix("venv-"), tmp_path / "exec-2", True
+                CacheName(ref.venv_loc.name.removeprefix("venv-"), True, False),
+                tmp_path / "exec-2",
             )
 
         monkeypatch.undo()
@@ -2805,7 +2811,8 @@ class TestVenvCacheInSetupVenv:
         )
 
         entry = await _acquire_cache_entry(
-            ref.venv_loc.name.removeprefix("venv-"), tmp_path / "exec-2", True
+            CacheName(ref.venv_loc.name.removeprefix("venv-"), True, False),
+            tmp_path / "exec-2",
         )
 
         assert entry.lock is None
@@ -2850,7 +2857,8 @@ class TestVenvCacheInSetupVenv:
         )
 
         entry = await _acquire_cache_entry(
-            ref.venv_loc.name.removeprefix("venv-"), tmp_path / "exec-2", True
+            CacheName(ref.venv_loc.name.removeprefix("venv-"), True, False),
+            tmp_path / "exec-2",
         )
 
         assert entry.ready and entry.lock is not None, (

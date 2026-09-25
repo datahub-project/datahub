@@ -3,7 +3,6 @@ import collections
 import contextlib
 import dataclasses
 import functools
-import hashlib
 import json
 import logging
 import os
@@ -15,27 +14,19 @@ import sys
 import time
 from collections.abc import Generator, Iterator
 from datetime import datetime, timezone
-from typing import Annotated, Any, Mapping, Optional, Union
+from typing import Mapping, Optional, Union
 from urllib.parse import urlparse, urlsplit, urlunsplit
 
 # Note: BaseExceptionGroup handling removed for Python 3.9 compatibility
 import anyio
 import anyio.abc
 import anyio.streams.text
-import pydantic
-from expandvars import (
-    ExpandvarsException,
-    UnboundVariable,
-    expand as _expandvars_expand,
-)
-from packaging.requirements import InvalidRequirement, Requirement
 
 # TODO: promote to a public config_loader helper.
 from datahub.configuration.config_loader import _extract_env_var_names
 from datahub.executor.common.env_config import (
     get_bundled_venv_path,
     get_dependency_resolution_enabled,
-    get_venv_cache_enabled,
     get_venv_cache_latest_ttl_sec,
     get_venv_cache_max_age_sec,
     get_venv_cache_max_entries,
@@ -45,9 +36,21 @@ from datahub.executor.execution.venv_cache import (
     entry_lock_path,
     evict_stale_entries,
 )
+from datahub.executor.execution.venv_config import (
+    CacheName,
+    VenvConfig,
+    VenvReference,
+    _pages_wheel_url,
+)
 from datahub.executor.execution.venv_utils import (
     COMPLETE_MARKER,
+    VENV_NO_DATAHUB,
+    VENV_VERSION_BUNDLED,
+    VENV_VERSION_LATEST,
+    VENV_VERSION_NATIVE,
+    VenvKind,
     built_at,
+    classify_version,
     is_venv_complete,
     mark_venv_complete,
     touch_last_used,
@@ -57,31 +60,6 @@ from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
-
-
-def _expand_pip_req(req: str) -> str:
-    """Expand ${VAR:-default} templates in a pip requirement string.
-
-    Only expands entries that contain ${, so plain pip specs and URLs with bare
-    $ mid-string (e.g. ?sig=$TOKEN) are passed through unchanged.
-
-    Uses nounset semantics — matching config_loader.py's pattern — so that
-    ${VAR} with no default raises a RuntimeError rather than silently expanding
-    to an empty string and producing a blank pip requirement that uv skips.
-    """
-    if "${" not in req:
-        return req
-    try:
-        return _expandvars_expand(req, nounset=True)
-    except UnboundVariable as e:
-        raise RuntimeError(
-            f"pip requirement {req!r} references unset environment variable {e}. "
-            "Set the variable or add a default (e.g. ${VAR:-fallback})."
-        ) from e
-    except ExpandvarsException as e:
-        raise RuntimeError(
-            f"pip requirement {req!r} has invalid environment variable syntax: {e}"
-        ) from e
 
 
 def referenced_env_values(
@@ -109,18 +87,7 @@ _DEFAULT_MAX_BYTES_PER_LINE = 2**12  # 4kb
 # Doing 90% of that so we have some buffer for other things.
 _DEFAULT_MAX_LOG_SIZE_BYTES = int(0.9 * 2**18)  # 90% of 1mb
 
-VENV_VERSION_LATEST = "latest"
-VENV_VERSION_BUNDLED = "bundled"
-VENV_VERSION_NATIVE = "native"
-VENV_NO_DATAHUB = "NO_ACRYL_DATAHUB"
-
 BUNDLED_VENV_PATH_ENV = "DATAHUB_BUNDLED_VENV_PATH"
-
-
-def _pages_wheel_url(base_url: str) -> str:
-    """Build the wheel download URL for a DataHub Pages dev build, with cache-busting timestamp."""
-    now = datetime.now(tz=timezone.utc)
-    return f"{base_url}/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl?ts={now.timestamp()}"
 
 
 def _validate_wheel_url(url: str) -> bool:
@@ -255,109 +222,6 @@ class LogHolder:
     def get_lines(self) -> list[str]:
         """Get the lines as a list for compatibility with existing code."""
         return list(self._lines)
-
-
-def pydantic_parse_json(v: Any) -> Any:
-    if isinstance(v, str):
-        return json.loads(v)
-    return v
-
-
-class VenvConfig(pydantic.BaseModel):
-    version: str = VENV_VERSION_LATEST
-    main_plugin: Union[str, None] = None
-    extra_pip_requirements: Annotated[
-        list[str], pydantic.BeforeValidator(pydantic_parse_json)
-    ] = []
-    extra_pip_plugins: Annotated[
-        list[str], pydantic.BeforeValidator(pydantic_parse_json)
-    ] = []
-    extra_env_vars: Annotated[dict, pydantic.BeforeValidator(pydantic_parse_json)] = {}
-    requirements_file: Union[pathlib.Path, None] = None
-
-    def set_main_plugin(self, plugin: str) -> None:
-        self.main_plugin = plugin
-
-    def resolve_pip_requirements(self) -> list[str]:
-        """Expand env-var templates in extra_pip_requirements."""
-        return [_expand_pip_req(r) for r in self.extra_pip_requirements]
-
-    def get_stable_venv_name(
-        self, expanded_pip_reqs: Union[list[str], None] = None
-    ) -> Union[str, None]:
-        if self.requirements_file is not None:
-            suffix = hashlib.sha256()
-            suffix.update(self.requirements_file.read_bytes())
-            return f"req-{suffix.digest().hex()[:16]}"
-
-        if self.main_plugin is None:
-            return None
-        if (
-            self.version == VENV_VERSION_LATEST
-            or self.version == VENV_VERSION_NATIVE
-            or self.version == VENV_VERSION_BUNDLED
-            or self.version == VENV_NO_DATAHUB
-            or self.version.startswith("http")
-        ):
-            return None
-
-        # Generate a stable name for the venv.
-        # Hash the expanded values so that changing DATAHUB_INTEGRATIONS_PACKAGE_SPEC
-        # (or any other env-var template) forces a new venv rather than reusing a
-        # cached one with the old spec. Callers may pass pre-expanded reqs (from
-        # resolve_pip_requirements()) so that hash time and install time use the same
-        # os.environ snapshot.
-        suffix = hashlib.sha256()
-        suffix.update(self.version.encode("utf-8"))
-        reqs_for_hash = (
-            expanded_pip_reqs
-            if expanded_pip_reqs is not None
-            else self.resolve_pip_requirements()
-        )
-        suffix.update(str(reqs_for_hash).encode("utf-8"))
-        suffix.update(str(self.extra_pip_plugins).encode("utf-8"))
-
-        return f"{self.main_plugin}-{suffix.digest().hex()[:16]}"
-
-    def get_acryl_datahub_requirement_line(self) -> str:
-        plugins = ""
-        plugins_list = filter(None, [self.main_plugin, *self.extra_pip_plugins])
-        if plugins_list:
-            plugins = f"[{','.join(plugins_list)}]"
-
-        if self.version == VENV_VERSION_LATEST:
-            return f"acryl-datahub{plugins}"
-        elif self.version == VENV_NO_DATAHUB:
-            return "# acryl-datahub is explicitly not requested."
-        elif self.version.startswith("http"):
-            url = (
-                self.version
-                if self.version.endswith(".whl")
-                else _pages_wheel_url(self.version)
-            )
-            return f"acryl-datahub{plugins} @ {url}"
-        else:
-            return f"acryl-datahub{plugins}=={self.version}"
-
-
-@dataclasses.dataclass
-class VenvReference:
-    venv_loc: pathlib.Path
-    venv_config: VenvConfig
-    # Held for the task's life when this venv came from the cache, so eviction
-    # cannot delete it mid-run. None for ephemeral venvs and whenever the cache
-    # is off or unusable. finalize_task_output releases it.
-    lock: Optional["EntryLock"] = None
-
-    def command(self, cmd: str) -> str:
-        return str(self.venv_loc / "bin" / cmd)
-
-    def extra_envs(self) -> dict[str, str]:
-        return {
-            **self.venv_config.extra_env_vars,
-            # TODO: Do we need to add this?
-            # "VIRTUAL_ENV": str(self.venv_loc),
-        }
 
 
 # Simplified exception group handling for anyio task groups
@@ -496,149 +360,6 @@ class SubprocessRunner:
                     await self._process.wait()
 
 
-def _node_local_stable_name(
-    venv_config: VenvConfig, expanded_pip_reqs: list[str]
-) -> Optional[str]:
-    """A cache name for the versions get_stable_venv_name() refuses.
-
-    It refuses `latest` because a moving target could be stale indefinitely.
-    Here the window is bounded explicitly instead: an entry older than
-    DATAHUB_VENV_CACHE_LATEST_TTL_HOURS is expired and the next claimant
-    rebuilds it. The cache also being node-local is a second, much looser
-    bound on top of that -- not the argument for it, since a long-lived pod
-    would otherwise serve one resolution of `latest` for as long as it ran.
-
-    Dev-build wheel URLs are included, for the opposite reason: the build
-    pipeline hands out a per-deployment address, which names exactly one
-    immutable build, so it is a content address in a way `latest` is not. A
-    new commit is a new deployment and therefore a new key.
-
-    They were excluded over storage -- every wheel tested leaves an entry
-    behind. evict_stale_entries reclaims those on both axes: a dev-build entry
-    is dropped once the cache is over DATAHUB_VENV_CACHE_MAX_ENTRIES, and also
-    once nothing has used it for DATAHUB_VENV_CACHE_MAX_AGE_HOURS, so a
-    one-off wheel test no longer lives as long as the pod does.
-
-    A branch alias served from the same host DOES move, and hashing one would
-    pin a stale build if nothing else intervened. _is_fresh_hit covers that:
-    every URL version is treated as moving and expires after
-    DATAHUB_VENV_CACHE_LATEST_TTL_HOURS. Nothing in the pipeline emits such a
-    URL --
-    it publishes the deployment address -- so this is only reachable by
-    hand-writing one.
-
-    Only the VENV becomes reusable. The PACKAGE cache stays bypassed for dev
-    builds (UV_NO_CACHE=1 in setup_venv) and must: every dev wheel ships as the
-    same name and version, so a cache keyed on those would hand one commit's
-    build to another. Different cache, different key, different argument.
-    """
-    version = venv_config.version
-    if venv_config.main_plugin is None:
-        return None
-    is_dev_build = version.startswith(("http://", "https://"))
-    if version != VENV_VERSION_LATEST and not is_dev_build:
-        return None
-    suffix = hashlib.sha256()
-    # The version STRING, not the URL the install resolves to: _pages_wheel_url
-    # appends a cache-busting timestamp, so hashing the resolved URL would make
-    # every run a miss and quietly restore the behaviour this removes.
-    suffix.update(version.encode("utf-8"))
-    # The list the caller already expanded, never a fresh resolve_pip_requirements():
-    # get_stable_venv_name() documents that the hash and the install must see one
-    # os.environ snapshot, and re-expanding here would let a template that changed
-    # between the two reads name the entry after requirements nobody installs.
-    suffix.update(str(expanded_pip_reqs).encode("utf-8"))
-    suffix.update(str(venv_config.extra_pip_plugins).encode("utf-8"))
-    # "latest" keeps its existing shape so entries built before this survive.
-    tag = "dev" if is_dev_build else VENV_VERSION_LATEST
-    return f"{venv_config.main_plugin}-{tag}-{suffix.digest().hex()[:16]}"
-
-
-def _extra_env_vars_cache_suffix(extra_env_vars: Mapping[str, object]) -> str:
-    """Short digest distinguishing cache entries that differ only in extra_env_vars.
-
-    extra_env_vars is user-supplied per recipe (package index URLs, private-
-    index credentials) and IS merged into the environment the venv is built
-    and installed under (`venv_env`/`install_env` in setup_venv), but
-    get_stable_venv_name() does not hash it. Two recipes differing only in
-    extra_env_vars would therefore share one node-local cache entry, and one
-    of them would silently get a venv built against the other's index. Before
-    the cache was pod-global, that collision was impossible: the name lived
-    under the per-execution tmp_dir.
-
-    Hashing here rather than using the value is safe even though these can be
-    secrets -- this is a truncated digest, not the value. 16 hex characters,
-    not 8: the whole job of this suffix is to keep two different package
-    indexes apart, so a collision reintroduces exactly the bug it exists to
-    prevent, and 32 bits is a birthday collision at a few tens of thousands
-    of distinct environments. Widening it costs nothing but directory-name
-    length.
-
-    Each field is LENGTH-PREFIXED rather than delimited. Widening the digest
-    only addresses accidental collisions; framing pairs as `key=value\\n`
-    leaves a structural one wide open, because a value containing a newline
-    impersonates an extra pair. `{"A": "b", "C": "d"}` and `{"A": "b\\nC=d"}`
-    digest identically under that framing, and so do
-    `{"CREDS": ..., "UV_INDEX_URL": "https://prod/simple"}` and the single key
-    that absorbs the second pair into its value. These values are unvalidated
-    beyond json.loads and routinely hold multi-line content -- service-account
-    JSON, PEM keys, pip/uv config -- so the collision needs no malice to
-    happen, and on a shared executor pod a deliberate one is trivial to
-    construct. A length prefix cannot be forged from inside a field.
-    """
-    digest = hashlib.sha256()
-    for key, value in sorted(extra_env_vars.items()):
-        for field in (key.encode("utf-8"), str(value).encode("utf-8")):
-            digest.update(f"{len(field)}:".encode("ascii"))
-            digest.update(field)
-    return digest.hexdigest()[:16]
-
-
-def _name_dynamic_venv(
-    venv_config: VenvConfig, expanded_pip_reqs: list[str]
-) -> tuple[str, bool]:
-    """Pick the venv's name and whether it is cacheable.
-
-    A pinned version always gets a stable name. Two more join it while the
-    cache is on:
-
-      - `latest`, a moving target, whose staleness is bounded by
-        DATAHUB_VENV_CACHE_LATEST_TTL_HOURS rather than by how long the pod
-        happens to live. It is also the default for every recipe, so excluding it
-        would leave the cache almost never hit -- and sharing one entry makes
-        a probe and the ingestion run it predicts install the same version,
-        which resolving twice does not.
-      - A dev-build wheel URL, which unlike `latest` names one immutable
-        build. Excluded until now over storage, which evict_stale_entries now
-        bounds by both entry count and age. It is the only
-        version a probe can run before the `recipe probe` command ships, so
-        leaving it uncacheable made every probe re-download its wheel --
-        about 4.4s of a 7-9s probe, every time.
-
-    Everything else still gets a random, per-run name.
-
-    The kill switch is consulted BEFORE _node_local_stable_name, not after:
-    with the cache disabled, both must fall back to today's ephemeral random
-    name exactly, not keep a stable cache-shaped name that just happens to
-    live under tmp_dir. A pinned version keeps its stable name either way --
-    that's today's behaviour too.
-    """
-    cache_enabled = get_venv_cache_enabled()
-    stable_name = venv_config.get_stable_venv_name(expanded_pip_reqs=expanded_pip_reqs)
-    if stable_name is None and cache_enabled:
-        stable_name = _node_local_stable_name(venv_config, expanded_pip_reqs)
-    cacheable = stable_name is not None and cache_enabled
-    if cacheable and venv_config.extra_env_vars:
-        # An empty dict -- the overwhelmingly common case -- must leave the
-        # name byte-identical to today, so this only applies when there is
-        # something to distinguish.
-        assert stable_name is not None
-        suffix = _extra_env_vars_cache_suffix(venv_config.extra_env_vars)
-        stable_name = f"{stable_name}-{suffix}"
-    venv_name = stable_name or f"eph-{hashlib.sha256(os.urandom(32)).hexdigest()[:16]}"
-    return venv_name, cacheable
-
-
 # How long setup_venv is willing to wait for a peer that holds the same cache
 # entry. Deliberately far too short to "wait for the build": a real venv build
 # takes minutes, and a task that has one holds the entry SHARED for its whole
@@ -683,88 +404,6 @@ class _CacheEntry:
     # builds nothing. Usually paired with a SHARED `lock`, but not always --
     # a downgrade that loses its hold leaves a usable entry and no lock.
     ready: bool
-
-
-def _is_pinned_requirement(req: str) -> bool:
-    """Whether this requirement names one immutable artifact.
-
-    Only an exact-version pin does. A direct URL does NOT: the artifact
-    behind an address can be republished, which is the same reason
-    _node_local_stable_name treats a dev-build wheel URL as a moving target.
-
-    `==` alone is not enough to call it exact. PEP 440 prefix matching uses
-    the same operator, so `pkg==1.2.*` resolves to 1.2.3 today and 1.2.9
-    tomorrow while the cache key -- built from the requirement STRING --
-    never changes. `===` has no prefix form: it is arbitrary equality, a
-    literal string comparison, so it really is immutable.
-
-    An unparseable requirement counts as unpinned. Being wrong that way costs
-    a periodic rebuild; being wrong the other way freezes the entry for the
-    pod's life.
-    """
-    try:
-        parsed = Requirement(req)
-    except InvalidRequirement:
-        return False
-    if parsed.url:
-        return False
-    return any(
-        spec.operator == "==="
-        or (spec.operator == "==" and not spec.version.endswith(".*"))
-        for spec in parsed.specifier
-    )
-
-
-def _requirements_file_is_pinned(path: pathlib.Path) -> bool:
-    """Whether every line of a requirements file names an immutable artifact.
-
-    Unreadable counts as unpinned, for the same reason an unparseable
-    requirement does.
-    """
-    try:
-        lines = path.read_text().splitlines()
-    except OSError:
-        return False
-    for raw in lines:
-        line = raw.split("#", 1)[0].strip()
-        if not line or line.startswith("-"):
-            # Blank, comment, or a pip flag (-r, --index-url). A nested -r
-            # is not followed, so treat any flag line as unpinnable.
-            if line.startswith("-"):
-                return False
-            continue
-        if not _is_pinned_requirement(line):
-            return False
-    return True
-
-
-def _resolves_to_moving_target(
-    venv_config: VenvConfig, expanded_pip_reqs: list[str]
-) -> bool:
-    """Whether this venv's contents can differ tomorrow under the same key.
-
-    The cache key is built from requirement STRINGS, not from what they
-    resolve to, so "immutable" has to be judged on the strings.
-
-    `version` alone is not enough, and that was the gap: a pinned CLI
-    version with `extra_pip_requirements: ["some-lib"]` produced a stable
-    name and no TTL, so the pod served day-one's resolution of that
-    dependency for its whole life -- and a daily schedule keeps the
-    last-used marker fresh, so the age-based eviction never fired either.
-    Before this cache existed, a stable-named venv still lived under the
-    per-execution directory and was rebuilt every run, so nothing was frozen.
-
-    The common case -- no extra requirements -- is unchanged: the answer
-    still comes down to `version`.
-    """
-    version = venv_config.version
-    if version == VENV_VERSION_LATEST or version.startswith(("http://", "https://")):
-        return True
-    if any(not _is_pinned_requirement(req) for req in expanded_pip_reqs):
-        return True
-    if venv_config.requirements_file is not None:
-        return not _requirements_file_is_pinned(venv_config.requirements_file)
-    return False
 
 
 def _is_fresh_hit(venv_loc: pathlib.Path, *, moving: bool) -> bool:
@@ -839,7 +478,7 @@ def _discard_incomplete(venv_loc: pathlib.Path) -> bool:
 
 
 async def _acquire_cache_entry(
-    venv_name: str, tmp_dir: pathlib.Path, cacheable: bool, *, moving: bool = False
+    cache_name: CacheName, tmp_dir: pathlib.Path
 ) -> _CacheEntry:
     """Resolve a dynamic venv against the cache and take the lock guarding it.
 
@@ -873,6 +512,11 @@ async def _acquire_cache_entry(
     That key could then never be built, hit or evicted again for the life of
     the process, and every task on it would fall back to a full per-run build.
     """
+    venv_name, cacheable, moving = (
+        cache_name.name,
+        cache_name.cacheable,
+        cache_name.moving,
+    )
     venv_loc = pathlib.Path(venv_location(venv_name, str(tmp_dir), cacheable=cacheable))
     if not cacheable:
         return _CacheEntry(venv_loc, None, False, False)
@@ -1062,33 +706,21 @@ async def _install_extra_requirements(
     install -r` and nothing reads it afterwards, so it does not outlive the
     install.
 
-    It used to, and the venv cache is what made that matter. `venv_loc` for a
-    cacheable venv is the node-local cache root, which get_venv_cache_path
-    places outside exec_out_dir on purpose -- "deliberately not inside ... the
-    directory finalize_task_output removes when a task ends". So the token
-    stopped being cleaned up at all: it sat in a directory that survives by
-    design and is shared by every task on the node, until LRU eviction
-    happened to reclaim it. Before the cache it went into exec_out_dir and was
-    removed with the run.
-
-    Extracted from setup_venv rather than inlined: the cleanup pushed that
-    function one step past ruff's complexity limit, and this is a self
-    contained step with its own invariant to state.
+    For a cacheable venv `venv_loc` is the cache root, which
+    get_venv_cache_path deliberately places outside the directory
+    finalize_task_output removes -- so nothing else would ever clean this up,
+    and the entry is readable by every task on the node.
     """
     extra_req_file = venv_loc / "extra-requirements.txt"
     removed = False
-    # The try opens BEFORE the file is created, not before the install. Once
-    # the path is chosen, every later step can fail with the token already on
-    # disk: write_text can hit a full or read-only filesystem, and the log
-    # appends after it can raise too. Opening the try at the install instead
-    # left those failures leaking the credential into the node-local cache,
-    # which nothing cleans up because it deliberately outlives the task.
+    # The try opens before the file is CREATED, not before the install: once
+    # the path is chosen, write_text and the log appends can each fail with
+    # the token already on disk.
     try:
-        # 0600 before the contents are written rather than after, so there is
-        # no window at the ambient umask -- the cache directory itself is
-        # umask-default and may be group- or world-readable. chmod as well as
-        # touch(mode=...), because mode only applies when touch CREATES the
-        # file and a discarded incomplete venv can leave a stale one behind.
+        # 0600 before the contents are written, so there is no window at the
+        # ambient umask. chmod as well as touch(mode=...), because mode only
+        # applies when touch creates the file and a discarded incomplete venv
+        # can leave a stale one behind.
         extra_req_file.touch(mode=0o600, exist_ok=True)
         extra_req_file.chmod(0o600)
         extra_req_file.write_text("\n".join(expanded_pip_reqs))
@@ -1332,13 +964,8 @@ async def setup_venv(
     # requirements file see the same os.environ snapshot.
     expanded_pip_reqs = venv_config.resolve_pip_requirements()
 
-    venv_name, cacheable = _name_dynamic_venv(venv_config, expanded_pip_reqs)
-    entry = await _acquire_cache_entry(
-        venv_name,
-        tmp_dir,
-        cacheable,
-        moving=_resolves_to_moving_target(venv_config, expanded_pip_reqs),
-    )
+    cache_name = venv_config.cache_name(expanded_pip_reqs)
+    entry = await _acquire_cache_entry(cache_name, tmp_dir)
     venv_loc, lock = entry.venv_loc, entry.lock
 
     venv_reference = VenvReference(
@@ -1395,7 +1022,7 @@ async def setup_venv(
             plugins = f"[{','.join(plugins_list)}]" if plugins_list else ""
 
             url = ""
-            is_dev_build = version.startswith(("http://", "https://"))
+            is_dev_build = classify_version(version) is VenvKind.DEV_BUILD
             if is_dev_build:
                 if not _validate_wheel_url(version):
                     raise RuntimeError(

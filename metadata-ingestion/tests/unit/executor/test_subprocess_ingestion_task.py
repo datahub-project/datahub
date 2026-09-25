@@ -18,8 +18,6 @@ from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution.runner import (
     LogHolder,
     SubprocessRunner,
-    VenvConfig,
-    VenvReference,
     referenced_env_values,
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
@@ -32,6 +30,10 @@ from datahub.executor.execution.sub_process_task_common import (
     SubProcessTaskUtil,
 )
 from datahub.executor.execution.task import TaskError
+from datahub.executor.execution.venv_config import (
+    VenvConfig,
+    VenvReference,
+)
 from datahub.executor.report.execution_report import ExecutionReport
 from datahub.executor.request.execution_request import ExecutionRequest
 from datahub.masking.constants import MASKING_ERROR_MESSAGE

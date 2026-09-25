@@ -35,12 +35,14 @@ from datahub.executor.execution import venv_utils
 from datahub.executor.execution.runner import (
     LogHolder,
     SubprocessRunner,
-    VenvConfig,
-    VenvReference,
     referenced_env_values,
     setup_venv,
 )
 from datahub.executor.execution.task import TaskError
+from datahub.executor.execution.venv_config import (
+    VenvConfig,
+    VenvReference,
+)
 from datahub.executor.execution.wrapper_common import VENV_LOCK_FD_ENV
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.constants import SENTINEL_MESSAGES

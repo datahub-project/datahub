@@ -5,6 +5,7 @@ Everything here answers a question about a venv without touching one. Anything
 with a side effect belongs in venv_cache.
 """
 
+import enum
 import hashlib
 import logging
 import pathlib
@@ -14,10 +15,48 @@ from datahub.executor.common.env_config import get_venv_cache_path
 
 logger = logging.getLogger(__name__)
 
-# Version constants
+# Version constants. Defined once here and imported everywhere else: runner
+# carried a second copy, and the two only agreed by inspection.
 VENV_VERSION_LATEST = "latest"
 VENV_VERSION_BUNDLED = "bundled"
 VENV_VERSION_NATIVE = "native"
+VENV_NO_DATAHUB = "NO_ACRYL_DATAHUB"
+
+_DEV_BUILD_SCHEMES = ("http://", "https://")
+
+
+class VenvKind(enum.Enum):
+    """What `VenvConfig.version` asks for, classified once.
+
+    The classification was five string comparisons spread across the module,
+    and two of them disagreed: `startswith("http")` accepts `httpfoo://`,
+    while `startswith(("http://", "https://"))` does not. Which one ran
+    decided whether a version was treated as a dev build -- and therefore
+    whether it was cacheable -- so they had to be the same test.
+    """
+
+    LATEST = "latest"
+    BUNDLED = "bundled"
+    NATIVE = "native"
+    NO_DATAHUB = "no_datahub"
+    DEV_BUILD = "dev_build"
+    PINNED = "pinned"
+
+
+def classify_version(version: str) -> VenvKind:
+    """Which kind of venv a version string asks for."""
+    if version == VENV_VERSION_LATEST or not version:
+        return VenvKind.LATEST
+    if version == VENV_VERSION_BUNDLED:
+        return VenvKind.BUNDLED
+    if version == VENV_VERSION_NATIVE:
+        return VenvKind.NATIVE
+    if version == VENV_NO_DATAHUB:
+        return VenvKind.NO_DATAHUB
+    if version.startswith(_DEV_BUILD_SCHEMES):
+        return VenvKind.DEV_BUILD
+    return VenvKind.PINNED
+
 
 # Every directory the venv cache owns is named with this prefix. Eviction
 # filters on it, so it must not drift from venv_location -- the cache root can
