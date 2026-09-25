@@ -2,6 +2,8 @@ package io.datahubproject.openapi.schema.registry;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.registry.SchemaRegistryService;
+import io.datahubproject.schema_registry.openapi.generated.Association;
+import io.datahubproject.schema_registry.openapi.generated.AssociationBatchResponse;
 import io.datahubproject.schema_registry.openapi.generated.CompatibilityCheckResponse;
 import io.datahubproject.schema_registry.openapi.generated.Config;
 import io.datahubproject.schema_registry.openapi.generated.ConfigUpdateRequest;
@@ -12,6 +14,7 @@ import io.datahubproject.schema_registry.openapi.generated.RegisterSchemaRespons
 import io.datahubproject.schema_registry.openapi.generated.Schema;
 import io.datahubproject.schema_registry.openapi.generated.SchemaString;
 import io.datahubproject.schema_registry.openapi.generated.SubjectVersion;
+import io.swagger.api.AssociationsApi;
 import io.swagger.api.CompatibilityApi;
 import io.swagger.api.ConfigApi;
 import io.swagger.api.ContextsApi;
@@ -50,7 +53,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @RequiredArgsConstructor
 public class SchemaRegistryController
-    implements CompatibilityApi,
+    implements AssociationsApi,
+        CompatibilityApi,
         ConfigApi,
         ContextsApi,
         DefaultApi,
@@ -832,5 +836,91 @@ public class SchemaRegistryController
 
     // If neither subject nor id is provided, return empty list
     return ResponseEntity.ok(List.of());
+  }
+
+  @Override
+  public ResponseEntity<List<Association>> getAssociationsByResourceName(
+      String resourceNamespace,
+      String resourceName,
+      String resourceType,
+      List<String> associationType,
+      String lifecycle,
+      Integer offset,
+      Integer limit) {
+    return emptyAssociations();
+  }
+
+  @Override
+  public ResponseEntity<List<Association>> getAssociationsByResourceId(
+      String resourceId,
+      String resourceType,
+      List<String> associationType,
+      String lifecycle,
+      Integer offset,
+      Integer limit) {
+    return emptyAssociations();
+  }
+
+  @Override
+  public ResponseEntity<List<Association>> getAssociationsBySubject(
+      String subject,
+      String resourceType,
+      List<String> associationType,
+      String lifecycle,
+      Integer offset,
+      Integer limit) {
+    return emptyAssociations();
+  }
+
+  @Override
+  public ResponseEntity<Void> createAssociation(
+      Map<String, Object> body, String context, Boolean dryRun) {
+    return associationsWriteUnsupported();
+  }
+
+  @Override
+  public ResponseEntity<Void> createOrUpdateAssociation(
+      String resourceId, Map<String, Object> body, String context, Boolean dryRun) {
+    return associationsWriteUnsupported();
+  }
+
+  @Override
+  public ResponseEntity<Void> deleteAssociations(
+      String resourceId,
+      String resourceType,
+      List<String> associationType,
+      Boolean cascadeLifecycle,
+      Boolean dryRun) {
+    return associationsWriteUnsupported();
+  }
+
+  @Override
+  public ResponseEntity<Void> mutateAssociations(
+      Map<String, Object> body, String context, Boolean dryRun) {
+    return associationsWriteUnsupported();
+  }
+
+  @Override
+  public ResponseEntity<Void> mutateAssociationsAlias(
+      Map<String, Object> body, String context, Boolean dryRun) {
+    return associationsWriteUnsupported();
+  }
+
+  @Override
+  public ResponseEntity<AssociationBatchResponse> batchGetAssociations(
+      Map<String, Object> body, Boolean includeSchemas) {
+    return ResponseEntity.ok(new AssociationBatchResponse().results(List.of()));
+  }
+
+  /**
+   * INTERNAL schema registry does not persist Stream Governance links. Clients only need a 200 so
+   * Avro serializers keep going.
+   */
+  private static ResponseEntity<List<Association>> emptyAssociations() {
+    return ResponseEntity.ok(List.of());
+  }
+
+  private static ResponseEntity<Void> associationsWriteUnsupported() {
+    return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
   }
 }

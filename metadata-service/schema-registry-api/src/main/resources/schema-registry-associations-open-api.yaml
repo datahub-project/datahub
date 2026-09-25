@@ -1,0 +1,282 @@
+openapi: 3.0.1
+info:
+  title: Confluent Schema Registry Associations (INTERNAL stub)
+  version: v1
+  description: >
+    Stream Governance Associations API subset used by newer Confluent Schema Registry
+    clients. DataHub's INTERNAL registry does not persist associations. GET endpoints
+    return an empty list; write endpoints are unsupported.
+paths:
+  /associations:
+    post:
+      summary: Create an association.
+      operationId: createAssociation
+      parameters:
+        - name: context
+          in: query
+          schema:
+            type: string
+        - name: dryRun
+          in: query
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssociationCreateOrUpdateRequest"
+      responses:
+        "501":
+          description: INTERNAL registry does not persist associations.
+  /associations/resources/{resourceId}:
+    get:
+      summary: Get a list of associations by resource ID.
+      operationId: getAssociationsByResourceId
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: associationType
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: lifecycle
+          in: query
+          schema:
+            type: string
+            enum: [STRONG, WEAK]
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: List of associations (always empty for INTERNAL)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Association"
+    put:
+      summary: Create or update an association.
+      operationId: createOrUpdateAssociation
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: context
+          in: query
+          schema:
+            type: string
+        - name: dryRun
+          in: query
+          schema:
+            type: boolean
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssociationCreateOrUpdateRequest"
+      responses:
+        "501":
+          description: INTERNAL registry does not persist associations.
+    delete:
+      summary: Delete associations.
+      operationId: deleteAssociations
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: associationType
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: cascadeLifecycle
+          in: query
+          schema:
+            type: boolean
+        - name: dryRun
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "501":
+          description: INTERNAL registry does not persist associations.
+  /associations/resources/{resourceNamespace}/{resourceName}:
+    get:
+      summary: Get a list of associations by resource name.
+      operationId: getAssociationsByResourceName
+      parameters:
+        - name: resourceNamespace
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: resourceName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: associationType
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: lifecycle
+          in: query
+          schema:
+            type: string
+            enum: [STRONG, WEAK]
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: List of associations (always empty for INTERNAL)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Association"
+  /associations/subjects/{subject}:
+    get:
+      summary: Get a list of associations by subject.
+      operationId: getAssociationsBySubject
+      parameters:
+        - name: subject
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: resourceType
+          in: query
+          schema:
+            type: string
+        - name: associationType
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: lifecycle
+          in: query
+          schema:
+            type: string
+            enum: [STRONG, WEAK]
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            format: int32
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+      responses:
+        "200":
+          description: List of associations (always empty for INTERNAL)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Association"
+  /associations:batch:
+    post:
+      summary: Mutate associations in batch.
+      operationId: mutateAssociations
+      responses:
+        "501":
+          description: INTERNAL registry does not persist associations.
+  /associations:batchGet:
+    post:
+      summary: Get associations in batch.
+      operationId: batchGetAssociations
+      responses:
+        "200":
+          description: Empty batch results for INTERNAL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssociationBatchResponse"
+  /associations:batchMutate:
+    post:
+      summary: Mutate associations in batch (Confluent client alias).
+      operationId: mutateAssociationsAlias
+      responses:
+        "501":
+          description: INTERNAL registry does not persist associations.
+components:
+  schemas:
+    Association:
+      type: object
+      properties:
+        subject:
+          type: string
+        guid:
+          type: string
+        resourceName:
+          type: string
+        resourceNamespace:
+          type: string
+        resourceId:
+          type: string
+        resourceType:
+          type: string
+        associationType:
+          type: string
+        lifecycle:
+          type: string
+          enum: [STRONG, WEAK]
+        frozen:
+          type: boolean
+    AssociationCreateOrUpdateRequest:
+      type: object
+    AssociationBatchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
