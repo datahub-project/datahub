@@ -8,7 +8,6 @@ import {
 } from '@app/ingestV2/executions/constants';
 import useRefresh from '@app/ingestV2/executions/hooks/useRefresh';
 import useRefreshInterval from '@app/ingestV2/shared/hooks/useRefreshInterval';
-import { TabType } from '@app/ingestV2/types';
 
 import { EntityType, ExecutionRequest } from '@types';
 
@@ -35,7 +34,7 @@ const getExecutionRequest = (urn: string, status: string): ExecutionRequest => {
     };
 };
 
-const selectedTab = TabType.RunHistory;
+const isActive = true;
 const isLoading = false;
 
 describe('useRefresh Hook', () => {
@@ -47,7 +46,7 @@ describe('useRefresh Hook', () => {
 
     it('does not trigger refresh interval when no execution requests are active', () => {
         const executionRequests = [getExecutionRequest('1', EXECUTION_REQUEST_STATUS_SUCCESS)];
-        renderHook(() => useRefresh(executionRequests, refresh, isLoading, selectedTab));
+        renderHook(() => useRefresh(executionRequests, refresh, isLoading, isActive));
 
         // Verify useRefreshInterval is called with hasRunningExecutions returning false
         expect(mockedUseRefreshInterval).toHaveBeenCalledWith(refresh, false, false);
@@ -60,7 +59,7 @@ describe('useRefresh Hook', () => {
             getExecutionRequest('1', EXECUTION_REQUEST_STATUS_RUNNING),
             getExecutionRequest('2', EXECUTION_REQUEST_STATUS_SUCCESS),
         ];
-        renderHook(() => useRefresh(executionRequests, refresh, isLoading, selectedTab));
+        renderHook(() => useRefresh(executionRequests, refresh, isLoading, isActive));
 
         const hasRunningExecutions = mockedUseRefreshInterval.mock.calls[0][2];
         expect(hasRunningExecutions).toBe(true);
@@ -68,7 +67,7 @@ describe('useRefresh Hook', () => {
 
     it('triggers refresh interval when at least one execution is rolling back', () => {
         const executionRequests = [getExecutionRequest('1', EXECUTION_REQUEST_STATUS_ROLLING_BACK)];
-        renderHook(() => useRefresh(executionRequests, refresh, isLoading, selectedTab));
+        renderHook(() => useRefresh(executionRequests, refresh, isLoading, isActive));
 
         const hasRunningExecutions = mockedUseRefreshInterval.mock.calls[0][2];
         expect(hasRunningExecutions).toBe(true);
@@ -78,7 +77,7 @@ describe('useRefresh Hook', () => {
         const firstRequest = getExecutionRequest('1', EXECUTION_REQUEST_STATUS_SUCCESS);
         const secondRequest = getExecutionRequest('1', EXECUTION_REQUEST_STATUS_RUNNING);
 
-        const { rerender } = renderHook(({ requests }) => useRefresh(requests, refresh, isLoading, selectedTab), {
+        const { rerender } = renderHook(({ requests }) => useRefresh(requests, refresh, isLoading, isActive), {
             initialProps: { requests: [firstRequest] },
         });
 
@@ -95,20 +94,20 @@ describe('useRefresh Hook', () => {
         const executionRequests = [getExecutionRequest('1', EXECUTION_REQUEST_STATUS_RUNNING)];
         const mockRefresh = vi.fn();
 
-        renderHook(() => useRefresh(executionRequests, mockRefresh, isLoading, selectedTab));
+        renderHook(() => useRefresh(executionRequests, mockRefresh, isLoading, isActive));
         expect(mockedUseRefreshInterval).toHaveBeenCalledWith(mockRefresh, false, true);
     });
 
-    it('should not trigger refresh interval when selected tab is not Run History', () => {
+    it('should not trigger refresh interval when the tab is not active', () => {
         const executionRequests = [getExecutionRequest('1', EXECUTION_REQUEST_STATUS_RUNNING)];
-        renderHook(() => useRefresh(executionRequests, refresh, isLoading, TabType.Sources));
+        renderHook(() => useRefresh(executionRequests, refresh, isLoading, false));
 
         expect(mockedUseRefreshInterval).toHaveBeenCalledWith(refresh, false, false);
     });
 
     it('should not trigger refresh interval when loading is true', () => {
         const executionRequests = [getExecutionRequest('1', EXECUTION_REQUEST_STATUS_RUNNING)];
-        renderHook(() => useRefresh(executionRequests, refresh, true, selectedTab));
+        renderHook(() => useRefresh(executionRequests, refresh, true, isActive));
 
         expect(mockedUseRefreshInterval).toHaveBeenCalledWith(refresh, true, true);
     });
