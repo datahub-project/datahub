@@ -116,13 +116,13 @@ and the recipe probe — pay that rebuild to do a few seconds of work. The
 executor therefore keeps reusable venvs in a node-local cache outside the
 per-execution directory.
 
-| Variable                                  | Meaning                                                                                                                                                 |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`DATAHUB_VENV_CACHE_ENABLED`**          | **`false`** restores a freshly built venv per run (default **`true`**). See the note below about reclaiming what the cache already wrote.               |
-| **`DATAHUB_VENV_CACHE_PATH`**             | Cache root (default **`<tmp_dir>/_venv_cache`**, i.e. **`/tmp/datahub/ingest/_venv_cache`**).                                                           |
-| **`DATAHUB_VENV_CACHE_MAX_ENTRIES`**      | How many venvs to keep (default **`10`**). Least-recently-used entries are removed once the cache exceeds it.                                           |
-| **`DATAHUB_VENV_CACHE_MAX_AGE_HOURS`**    | Drop an entry nothing has used in this long, whatever the count (default **`24`**).                                                                     |
-| **`DATAHUB_VENV_CACHE_LATEST_TTL_HOURS`** | How long a venv built from a **moving** version (`latest`, or a dev-build wheel URL) is reused before being rebuilt and re-resolved (default **`24`**). |
+| Variable                                  | Meaning                                                                                                                                   |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **`DATAHUB_VENV_CACHE_ENABLED`**          | **`false`** restores a freshly built venv per run (default **`true`**). See the note below about reclaiming what the cache already wrote. |
+| **`DATAHUB_VENV_CACHE_PATH`**             | Cache root (default **`<tmp_dir>/_venv_cache`**, i.e. **`/tmp/datahub/ingest/_venv_cache`**).                                             |
+| **`DATAHUB_VENV_CACHE_MAX_ENTRIES`**      | How many venvs to keep (default **`10`**). Least-recently-used entries are removed once the cache exceeds it.                             |
+| **`DATAHUB_VENV_CACHE_MAX_AGE_HOURS`**    | Drop an entry nothing has used in this long, whatever the count (default **`24`**).                                                       |
+| **`DATAHUB_VENV_CACHE_LATEST_TTL_HOURS`** | How long a venv built from a **moving** version (`latest`) is reused before being rebuilt and re-resolved (default **`24`**).             |
 
 The cache is bounded by **entry count and age, not by bytes**. Sizing it in bytes would mean
 measuring it, and measuring a venv means walking tens of thousands of files per entry on every
@@ -143,7 +143,7 @@ cache growing into a pod eviction if the entry count is set higher than the volu
 A venv in use by a running task is never evicted.
 
 **Staleness.** An entry expires only if something in it can resolve differently tomorrow. That is
-the case when `version` is `latest` or a dev-build wheel URL, **or** when any
+the case when `version` is `latest`, **or** when any
 `extra_pip_requirements` entry (or a line in a `requirements_file`) is not pinned to an exact
 version — `some-lib` and `some-lib>=1.0` can both change under a cache key built from the
 requirement string, so a pinned `version` alone does not make the venv immutable. A direct URL

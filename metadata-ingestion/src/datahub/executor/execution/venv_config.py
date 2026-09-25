@@ -197,22 +197,20 @@ def _node_local_stable_name(
     DATAHUB_VENV_CACHE_LATEST_TTL_HOURS. Without that bound a long-lived pod
     would serve one resolution of `latest` for as long as it ran.
 
-    A dev-build wheel URL is the opposite case: the pipeline publishes a
-    per-deployment address naming exactly one immutable build, so it is a
-    content address and a new commit is a new key. A hand-written branch
-    alias would move instead, which _is_fresh_hit covers by treating every
-    URL version as moving.
-
-    Only the VENV is reused. The PACKAGE cache stays bypassed for dev builds
-    (UV_NO_CACHE=1 in setup_venv) and must: every dev wheel ships the same
-    name and version, so a cache keyed on those would hand one commit's build
-    to another.
+    Dev-build wheel URLs are deliberately NOT cached, for a disk reason
+    rather than a correctness one. Their install sets UV_NO_CACHE=1 -- it
+    must, because every dev wheel ships the same name and version, so uv's
+    package cache would hand one commit's build to another -- and that
+    applies to the whole dependency tree. Nothing in such an entry is a
+    hardlink into the package cache, so unlike every other entry it costs
+    its full apparent size, and DATAHUB_VENV_CACHE_MAX_ENTRIES bounds a
+    COUNT on the assumption that entries are mostly links. A handful of
+    them is several GB of real disk.
     """
     version = venv_config.version
     if venv_config.main_plugin is None:
         return None
-    is_dev_build = classify_version(version) is VenvKind.DEV_BUILD
-    if version != VENV_VERSION_LATEST and not is_dev_build:
+    if version != VENV_VERSION_LATEST:
         return None
     suffix = hashlib.sha256()
     # The version STRING, not the URL the install resolves to: _pages_wheel_url
@@ -225,8 +223,9 @@ def _node_local_stable_name(
     # names the entry after requirements nobody installs.
     suffix.update(str(expanded_pip_reqs).encode("utf-8"))
     suffix.update(str(venv_config.extra_pip_plugins).encode("utf-8"))
-    tag = "dev" if is_dev_build else VENV_VERSION_LATEST
-    return f"{venv_config.main_plugin}-{tag}-{suffix.digest().hex()[:16]}"
+    return (
+        f"{venv_config.main_plugin}-{VENV_VERSION_LATEST}-{suffix.digest().hex()[:16]}"
+    )
 
 
 def _extra_env_vars_cache_suffix(extra_env_vars: Mapping[str, object]) -> str:
@@ -260,7 +259,7 @@ def _name_dynamic_venv(
 ) -> CacheName:
     """Pick the venv's name and whether it is cacheable.
 
-    A pinned version always gets a stable name. Two more join it while the
+    A pinned version always gets a stable name. One more joins it while the
     cache is on:
 
       - `latest`, a moving target, whose staleness is bounded by
@@ -269,14 +268,8 @@ def _name_dynamic_venv(
         would leave the cache almost never hit -- and sharing one entry makes
         a probe and the ingestion run it predicts install the same version,
         which resolving twice does not.
-      - A dev-build wheel URL, which unlike `latest` names one immutable
-        build. Excluded until now over storage, which evict_stale_entries now
-        bounds by both entry count and age. It is the only
-        version a probe can run before the `recipe probe` command ships, so
-        leaving it uncacheable made every probe re-download its wheel --
-        about 4.4s of a 7-9s probe, every time.
-
-    Everything else still gets a random, per-run name.
+    Everything else -- dev-build wheel URLs included, see
+    _node_local_stable_name -- gets a random, per-run name.
 
     The kill switch is consulted BEFORE _node_local_stable_name, not after:
     with the cache disabled, both must fall back to today's ephemeral random
@@ -308,8 +301,8 @@ def _is_pinned_requirement(req: str) -> bool:
     """Whether this requirement names one immutable artifact.
 
     Only an exact-version pin does. A direct URL does NOT: the artifact
-    behind an address can be republished, which is the same reason
-    _node_local_stable_name treats a dev-build wheel URL as a moving target.
+    behind an address can be republished, so an entry keyed on the URL would
+    be pinned to whatever that address served first.
 
     `==` alone is not enough to call it exact. PEP 440 prefix matching uses
     the same operator, so `pkg==1.2.*` resolves to 1.2.3 today and 1.2.9
@@ -377,7 +370,7 @@ def _resolves_to_moving_target(
     still comes down to `version`.
     """
     version = venv_config.version
-    if classify_version(version) in (VenvKind.LATEST, VenvKind.DEV_BUILD):
+    if classify_version(version) is VenvKind.LATEST:
         return True
     if any(not _is_pinned_requirement(req) for req in expanded_pip_reqs):
         return True

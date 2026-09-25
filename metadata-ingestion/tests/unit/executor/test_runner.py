@@ -1871,13 +1871,12 @@ class TestVenvCacheInSetupVenv:
     # Every version whose name the cache is willing to reuse. The two existing
     # identity tests only used a pinned version, which routes through
     # get_stable_venv_name -- so _node_local_stable_name, the function that
-    # makes `latest` (the default for EVERY recipe) and dev wheels cacheable,
+    # makes `latest` (the default for EVERY recipe) cacheable,
     # had no identity coverage at all. Deleting both of its hash inputs left
     # the whole suite green.
     CACHEABLE_VERSIONS = [
         pytest.param("0.15.0.1", id="pinned"),
         pytest.param("latest", id="latest"),
-        pytest.param("https://b983b409.datahub-wheels.pages.dev/", id="dev-wheel"),
     ]
 
     async def _build_counting_installs(
@@ -1969,49 +1968,43 @@ class TestVenvCacheInSetupVenv:
         )
         assert second_installs, "the second plugin set reused an entry"
 
-    async def test_a_dev_build_is_cached_but_its_packages_are_not(
+    async def test_a_dev_build_is_not_cached(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """A dev wheel URL names one immutable build, so the VENV is reusable.
+        """Dev wheels stay ephemeral, for a disk reason rather than identity.
 
-        This reverses an earlier decision that excluded dev builds, on the
-        grounds that they set UV_NO_CACHE=1 to stop pods over-consuming
-        storage. That conflated two caches. UV_NO_CACHE governs the PACKAGE
-        cache and must stay, because every dev wheel ships as the same name
-        and version -- a cache keyed on those would hand one commit's build to
-        another. The venv cache is keyed on the version STRING, which for a
-        wheel is a deployment address naming exactly one build, so it is a
-        content address in a way `latest` is not. Storage is bounded by
-        evict_stale_entries, which did not exist when the exclusion was
-        written.
+        Their install sets UV_NO_CACHE=1 -- it must, because every dev wheel
+        ships the same name and version, so uv's PACKAGE cache would hand one
+        commit's build to another -- and that applies to the whole dependency
+        tree. So nothing in such a venv is a hardlink into the package cache
+        and it costs its full apparent size, while
+        DATAHUB_VENV_CACHE_MAX_ENTRIES bounds a COUNT on the assumption that
+        entries are mostly links. A handful would be several GB of real disk.
 
-        Both halves are asserted here on purpose: reuse, and the package cache
-        still being bypassed. Turning UV_NO_CACHE off would look like a tidy
-        follow-up and would silently reintroduce the cross-commit collision.
+        Both halves are asserted: no cache entry, and the package cache still
+        bypassed. Re-enabling either alone reintroduces a different bug.
         """
         monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
         url = "https://b983b409.datahub-wheels.pages.dev/"
 
         first = self._mock_execute()
         ref = await self._setup(tmp_path / "exec-1", url, first)
-        assert ref.lock is not None, "a dev build should now take a cache entry"
-        ref.lock.release()
+        assert ref.lock is None, (
+            "a dev build took a cache entry; those carry no hardlink savings "
+            "and the count-based limit cannot bound their disk"
+        )
+        assert "eph-" in ref.venv_loc.name, (
+            "a dev build should get an ephemeral per-run name"
+        )
+        assert (tmp_path / "exec-1") in ref.venv_loc.parents, (
+            "a dev build venv must live under the per-execution directory"
+        )
 
         install_calls = [c for c in first.call_args_list if "install" in c[0][0]]
         assert install_calls, "the first build must actually install"
         assert all(
             (c.kwargs.get("env") or {}).get("UV_NO_CACHE") == "1" for c in install_calls
         ), "the package cache must stay bypassed for a dev build"
-
-        second = self._mock_execute()
-        ref2 = await self._setup(tmp_path / "exec-2", url, second)
-        assert ref2.lock is not None
-        ref2.lock.release()
-
-        assert ref2.venv_loc == ref.venv_loc, "the second run should reuse the entry"
-        assert not [c for c in second.call_args_list if "install" in c[0][0]], (
-            "a cached dev build was rebuilt instead of reused"
-        )
 
     async def test_a_partially_built_entry_is_rebuilt_not_reused(
         self, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
