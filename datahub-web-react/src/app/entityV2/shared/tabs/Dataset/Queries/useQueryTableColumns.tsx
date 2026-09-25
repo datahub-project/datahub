@@ -2,6 +2,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
+import { Column } from '@components/components/Table/types';
+
 import TopUsersFacepile from '@app/entityV2/shared/containers/profile/sidebar/shared/TopUsersFacepile';
 import QueryComponent from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 import {
@@ -16,10 +18,13 @@ import { Sorting } from '@app/sharedV2/sorting/useSorting';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
 
-import { ActorWithDisplayNameFragment } from '@graphql/query.generated';
 import { CorpUser, Entity } from '@types';
 
 const DATE_FORMAT = 'MM/DD/YYYY';
+
+function compareNullableNumbers(a?: number | null, b?: number | null): number {
+    return (a ?? 0) - (b ?? 0);
+}
 
 const UsersWrapper = styled.div`
     display: flex;
@@ -28,63 +33,45 @@ const UsersWrapper = styled.div`
 `;
 
 interface Props {
-    queries: Query[];
-    hoveredQueryUrn: string | null;
     showDetails?: boolean;
-    // The antd list still passes these. Editing moved off the card, so the column does not forward them.
-    showEdit?: boolean;
-    showDelete?: boolean;
     onDeleted?: (query) => void;
     onEdited?: (query) => void;
     sorting?: Sorting;
     showPagination: boolean;
 }
 
-export default function useQueryTableColumns({
-    queries,
-    hoveredQueryUrn,
-    showDetails,
-    onDeleted,
-    onEdited,
-    sorting,
-    showPagination,
-}: Props) {
+export default function useQueryTableColumns({ showDetails, onDeleted, onEdited, sorting, showPagination }: Props) {
     const { t } = useTranslation('entity.profile.queries');
     const { t: tc } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistryV2();
     // only rely on backend sorting if we provide a sorting config and we are paginating
     const shouldRelyOnBackendSorting = sorting && showPagination;
 
-    const titleColumn = {
+    const titleColumn: Column<Query> = {
         title: tc('title'),
-        dataIndex: 'title',
         key: 'name',
-        field: 'name',
-        sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.title?.localeCompare(queryB.title),
-        render: (queryTitle: string) => {
-            return <div>{queryTitle}</div>;
+        sorter: shouldRelyOnBackendSorting
+            ? true
+            : (queryA, queryB) => (queryA.title ?? '').localeCompare(queryB.title ?? ''),
+        render: (query) => {
+            return <div>{query.title}</div>;
         },
     };
 
-    const descriptionColumn = {
+    const descriptionColumn: Column<Query> = {
         title: t('queryCard.columnDescription'),
-        dataIndex: 'description',
         key: 'description',
-        // Give the cell a min-width so the auto-layout table can't squeeze it to min-content, which
-        // would wrap the markdown one word (or character) per line when the side panel is open.
-        className: 'description',
-        render: (description: string) => <QueryDescription description={description} />,
+        minWidth: '240px',
+        render: (query) => <QueryDescription description={query.description} />,
     };
 
-    const queryTextColumn = (width?: string | number) => ({
+    const queryTextColumn = (width = '450px'): Column<Query> => ({
         title: t('queryCard.columnQueryText'),
-        dataIndex: 'query',
         key: 'query',
-        render: (rowQuery: string) => {
-            const query = queries.find(({ query: q }) => q === rowQuery);
-            if (!query) return null;
+        width,
+        render: (query) => {
             return (
-                <div style={{ width: width || 450 }}>
+                <div style={{ width }}>
                     <QueryComponent
                         title={query.title || undefined}
                         description={query.description || undefined}
@@ -99,11 +86,10 @@ export default function useQueryTableColumns({
         },
     });
 
-    const createdByColumn = {
+    const createdByColumn: Column<Query> = {
         title: t('queryCard.columnCreatedBy'),
-        dataIndex: 'createdBy',
         key: 'createdBy',
-        width: 85,
+        width: '140px',
         sorter: shouldRelyOnBackendSorting
             ? false // we don't support sorting by createdBy on backend since it is a text field
             : (queryA, queryB) => {
@@ -112,25 +98,24 @@ export default function useQueryTableColumns({
                   const createdByB = entityRegistry.getDisplayName(queryB.createdBy.type, queryB.createdBy);
                   return createdByA.localeCompare(createdByB);
               },
-        render: (createdBy: ActorWithDisplayNameFragment) => {
-            return <QueryCreatedBy createdBy={createdBy} />;
+        render: (query) => {
+            return <QueryCreatedBy createdBy={query.createdBy ?? undefined} />;
         },
     };
 
-    const createdDateColumn = {
+    const createdDateColumn: Column<Query> = {
         title: t('queryCard.columnDateCreated'),
-        dataIndex: 'createdTime',
         key: 'dateCreated',
-        field: 'createdAt',
-        sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.createdTime - queryB.createdTime,
-        render: (date: number) => {
-            return <div>{dayjs(date).format(DATE_FORMAT)}</div>;
+        sorter: shouldRelyOnBackendSorting
+            ? true
+            : (queryA, queryB) => compareNullableNumbers(queryA.createdTime, queryB.createdTime),
+        render: (query) => {
+            return <div>{dayjs(query.createdTime).format(DATE_FORMAT)}</div>;
         },
     };
 
-    const powersColumn = {
+    const powersColumn: Column<Query> = {
         title: t('queryCard.columnPowers'),
-        dataIndex: 'poweredEntity',
         key: 'powers',
         sorter: (queryA, queryB) => {
             if (!queryA.poweredEntity || !queryB.poweredEntity) return 0;
@@ -138,7 +123,8 @@ export default function useQueryTableColumns({
             const createdByB = entityRegistry.getDisplayName(queryB.poweredEntity.type, queryB.poweredEntity);
             return createdByA.localeCompare(createdByB);
         },
-        render: (entity: Entity) => {
+        render: (query) => {
+            const entity = query.poweredEntity as Entity;
             if (!entity) return null;
             return (
                 <div>
@@ -148,11 +134,10 @@ export default function useQueryTableColumns({
         },
     };
 
-    const topUsersColumn = {
+    const topUsersColumn: Column<Query> = {
         title: t('queryCard.columnTopUsers'),
-        dataIndex: 'usedBy',
         key: 'usedBy',
-        className: 'usedBy',
+        minWidth: '100px',
         sorter: shouldRelyOnBackendSorting
             ? false
             : (queryA, queryB) => {
@@ -161,34 +146,28 @@ export default function useQueryTableColumns({
                   const usedByB = entityRegistry.getDisplayName(queryB.usedBy[0].type, queryB.usedBy[0]);
                   return usedByA.localeCompare(usedByB);
               },
-        render: (usedBy: CorpUser[]) => {
+        render: (query) => {
             return (
                 <UsersWrapper>
-                    <TopUsersFacepile users={usedBy} max={3} checkExistence={false} />
+                    <TopUsersFacepile users={query.usedBy as CorpUser[]} max={3} checkExistence={false} />
                 </UsersWrapper>
             );
         },
     };
 
-    const columnsColumn = {
+    const columnsColumn: Column<Query> = {
         title: tc('columns'),
         key: 'columns',
-        width: 105,
-        render: (query: Query) => <ColumnsColumn query={query} />,
+        width: '105px',
+        render: (query) => <ColumnsColumn query={query} />,
     };
 
-    const editColumn = {
+    const editColumn: Column<Query> = {
         title: '',
         key: 'edit',
-        width: 80,
-        render: (query: Query) => (
-            <EditDeleteColumn
-                query={query}
-                onEdited={onEdited}
-                onDeleted={onDeleted}
-                hoveredQueryUrn={hoveredQueryUrn}
-            />
-        ),
+        width: '80px',
+        alignment: 'right',
+        render: (query) => <EditDeleteColumn query={query} onEdited={onEdited} onDeleted={onDeleted} />,
     };
 
     return {
