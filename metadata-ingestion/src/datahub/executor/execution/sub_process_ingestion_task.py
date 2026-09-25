@@ -313,14 +313,13 @@ class SubProcessIngestionTask(Task):
             pass_fds=lock_fds,
         )
 
-        try:
-            assert process.stdin is not None
-            process.stdin.write(stdin_envelope.encode("utf-8"))
-            process.stdin.close()
-        except BaseException:
-            # The child already exists and owns the lock descriptor, so
-            # there is nothing to protect here any more.
-            raise
+        # Deliberately unguarded: the child already exists and owns its own
+        # lock descriptor, so a failure writing the envelope has nothing to
+        # unwind here. That is the point of the handoff -- before it, this
+        # needed an `except` to release a lock the parent still held.
+        assert process.stdin is not None
+        process.stdin.write(stdin_envelope.encode("utf-8"))
+        process.stdin.close()
 
         return process, venv_ref
 

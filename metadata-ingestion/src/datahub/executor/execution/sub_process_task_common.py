@@ -737,7 +737,15 @@ class SubProcessTaskUtil:
         # in continuous use throughout.
         #
         # touch_last_used swallows its own OSError, so this cannot raise.
-        if venv_ref is not None:
+        #
+        # Only for a venv we hold as a CACHE ENTRY, which is what the lock
+        # means. Stamping unconditionally wrote .datahub-venv-last-used into
+        # whatever the run happened to use -- sys.prefix for `native`, and the
+        # image's /opt/datahub/venvs/... for `bundled`. Neither is in the cache
+        # root, so nothing ever reads those markers; it was writing into the
+        # interpreter's own directory and into a read-only image path for no
+        # effect.
+        if venv_ref is not None and venv_ref.lock is not None:
             venv_utils.touch_last_used(Path(venv_ref.venv_loc))
 
         # AFTER the stamp, and only this process's copy. The child inherited

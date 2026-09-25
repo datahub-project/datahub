@@ -40,7 +40,11 @@ from datahub.executor.common.env_config import (
     get_venv_cache_max_age_sec,
     get_venv_cache_max_entries,
 )
-from datahub.executor.execution.venv_cache import EntryLock, evict_stale_entries
+from datahub.executor.execution.venv_cache import (
+    EntryLock,
+    entry_lock_path,
+    evict_stale_entries,
+)
 from datahub.executor.execution.venv_utils import (
     COMPLETE_MARKER,
     built_at,
@@ -497,9 +501,12 @@ def _node_local_stable_name(
 ) -> Optional[str]:
     """A cache name for the versions get_stable_venv_name() refuses.
 
-    It refuses `latest` because a moving target could be stale indefinitely,
-    and that holds for a cache outliving the process. This one is node-local
-    and dies with the pod, so the staleness window is the pod's lifetime.
+    It refuses `latest` because a moving target could be stale indefinitely.
+    Here the window is bounded explicitly instead: an entry older than
+    DATAHUB_VENV_CACHE_LATEST_TTL_HOURS is expired and the next claimant
+    rebuilds it. The cache also being node-local is a second, much looser
+    bound on top of that -- not the argument for it, since a long-lived pod
+    would otherwise serve one resolution of `latest` for as long as it ran.
 
     Dev-build wheel URLs are included, for the opposite reason: the build
     pipeline hands out a per-deployment address, which names exactly one
@@ -593,10 +600,11 @@ def _name_dynamic_venv(
     """Pick the venv's name and whether it is cacheable.
 
     A pinned version always gets a stable name. Two more join it while the
-    cache is on, both because this cache is node-local and dies with the pod:
+    cache is on:
 
-      - `latest`, a moving target, whose staleness is therefore bounded by the
-        pod's life. It is also the default for every recipe, so excluding it
+      - `latest`, a moving target, whose staleness is bounded by
+        DATAHUB_VENV_CACHE_LATEST_TTL_HOURS rather than by how long the pod
+        happens to live. It is also the default for every recipe, so excluding it
         would leave the cache almost never hit -- and sharing one entry makes
         a probe and the ingestion run it predicts install the same version,
         which resolving twice does not.
@@ -877,7 +885,7 @@ async def _acquire_cache_entry(
             False,
         )
 
-    lock = EntryLock(venv_loc.parent / f"{venv_loc.name}.lock")
+    lock = EntryLock(entry_lock_path(venv_loc))
     # A complete entry that is only past its TTL. Worth remembering: if no
     # attempt ever wins EXCLUSIVE to refresh it, serving the stale venv beats
     # the per-run build that would otherwise be the fallback. See below.
@@ -1040,8 +1048,14 @@ async def _install_extra_requirements(
     venv_loc: pathlib.Path,
     expanded_pip_reqs: list[str],
     venv_env: dict[str, str],
-) -> None:
+) -> bool:
     """Install extra_pip_requirements, leaving no credential on disk.
+
+    Returns whether the requirements file is known to be gone. False means the
+    expanded token may still be in the entry, so the caller must not publish
+    it to the shared cache -- the same contract as
+    _scrub_direct_url_credentials, and for the same reason: an entry other
+    tasks can reach must not carry a credential.
 
     These are the EXPANDED requirements: a private index URL arrives here with
     its token already substituted in. The file is only an input to `uv pip
@@ -1062,6 +1076,7 @@ async def _install_extra_requirements(
     contained step with its own invariant to state.
     """
     extra_req_file = venv_loc / "extra-requirements.txt"
+    removed = False
     # The try opens BEFORE the file is created, not before the install. Once
     # the path is chosen, every later step can fail with the token already on
     # disk: write_text can hit a full or read-only filesystem, and the log
@@ -1085,12 +1100,14 @@ async def _install_extra_requirements(
         )
     finally:
         # In a `finally` because an install failing on a bad token is exactly
-        # the run whose requirements file must not be left behind. Guarded for
-        # the reason mark_venv_complete is: a full or read-only cache
-        # filesystem must not turn a build that otherwise succeeded into a
-        # failure.
+        # the run whose requirements file must not be left behind. Guarded so
+        # a full or read-only cache filesystem cannot turn a build that
+        # otherwise succeeded into a failure -- but the failure is REPORTED
+        # rather than only logged, because "the file is still there" and "the
+        # entry is safe to share" are the same question.
         try:
             extra_req_file.unlink(missing_ok=True)
+            removed = True
         except OSError:
             logger.warning(
                 "Could not remove %s; it holds expanded requirements and may "
@@ -1098,6 +1115,7 @@ async def _install_extra_requirements(
                 extra_req_file,
                 exc_info=True,
             )
+    return removed
 
 
 def _scrub_direct_url_credentials(venv_loc: pathlib.Path) -> bool:
@@ -1321,7 +1339,7 @@ async def setup_venv(
         cacheable,
         moving=_resolves_to_moving_target(venv_config, expanded_pip_reqs),
     )
-    venv_loc, lock, cacheable = entry.venv_loc, entry.lock, entry.cacheable
+    venv_loc, lock = entry.venv_loc, entry.lock
 
     venv_reference = VenvReference(
         venv_loc=venv_loc,
@@ -1421,23 +1439,33 @@ async def setup_venv(
             await runner.execute(install_cmd, env=install_env)
 
         # Pass 2: Install extra_pip_requirements without constraints.
+        requirements_removed = True
         if venv_config.requirements_file is None and expanded_pip_reqs:
-            await _install_extra_requirements(
+            requirements_removed = await _install_extra_requirements(
                 runner, venv_loc, expanded_pip_reqs, venv_env
             )
 
         # Before the entry is published, so a credential never becomes
         # visible to another task through the cache. A venv that could not be
-        # fully scrubbed is deliberately NOT published: it stays unmarked,
+        # fully cleaned is deliberately NOT published: it stays unmarked,
         # this run uses it, and the next claimant discards and rebuilds it
         # rather than inheriting someone else's token.
-        if _scrub_direct_url_credentials(venv_loc):
+        #
+        # Two independent ways a token can still be in there, and BOTH gate
+        # publication: the expanded requirements file itself, and what uv
+        # copied out of it into direct_url.json. The scrub runs either way --
+        # it is worth doing for this run's own venv even when the entry will
+        # not be shared.
+        scrubbed = _scrub_direct_url_credentials(venv_loc)
+        if requirements_removed and scrubbed:
             _publish_cache_entry(venv_reference, venv_loc)
         else:
             logger.warning(
-                "Not publishing %s to the venv cache: a credential recorded "
-                "by the installer could not be redacted.",
+                "Not publishing %s to the venv cache: %s.",
                 venv_loc,
+                "the expanded requirements file could not be removed"
+                if not requirements_removed
+                else "a credential recorded by the installer could not be redacted",
             )
 
         return venv_reference

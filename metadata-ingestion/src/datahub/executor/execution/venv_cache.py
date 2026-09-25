@@ -28,6 +28,18 @@ logger = logging.getLogger(__name__)
 _TRANSIENT_OPEN_ERRNOS = frozenset({errno.EMFILE, errno.ENFILE, errno.ENOMEM})
 
 
+def entry_lock_path(venv_loc: pathlib.Path) -> pathlib.Path:
+    """The lock file guarding one cache entry.
+
+    Defined once because eviction and the build path must agree: eviction
+    only skips an in-use entry if it takes the SAME lock the user of that
+    entry holds. Two independent `parent / f"{name}.lock"` expressions were
+    correct only by coincidence, and a change to either would have made
+    eviction delete directories out from under running tasks.
+    """
+    return venv_loc.parent / f"{venv_loc.name}.lock"
+
+
 class EntryLock:
     """An flock on one cache entry.
 
@@ -43,10 +55,6 @@ class EntryLock:
         self._lock_path = lock_path
         self._fd: Optional[int] = None
         self._unusable = False
-
-    @property
-    def lock_path(self) -> pathlib.Path:
-        return self._lock_path
 
     @property
     def held(self) -> bool:
@@ -72,7 +80,19 @@ class EntryLock:
         OS thread and with it the whole event loop the task runs on -- no
         in-loop timeout could even fire to rescue it. Waiting is the caller's
         job, as `await asyncio.sleep` between attempts.
+
+        Raises if this lock is already held. Acquiring twice used to overwrite
+        `_fd`, which leaks the first descriptor for the life of the process:
+        the kernel keeps that hold until the fd closes, so the entry can never
+        be taken exclusively again -- not by a rebuild, and not by eviction,
+        which skips anything it cannot take. Upgrading or downgrading is what
+        `downgrade_to_shared` is for; a second acquire is a bug in the caller.
         """
+        if self._fd is not None:
+            raise RuntimeError(
+                f"EntryLock({self._lock_path}) is already held; acquiring again "
+                "would leak the current descriptor and pin the entry forever"
+            )
         mode = (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB
         self._unusable = False
         try:
@@ -319,7 +339,7 @@ def _evict_locked(
 
 def _remove_entry(venv: pathlib.Path) -> bool:
     """Take the entry exclusively and delete it. False when it is in use."""
-    lock = EntryLock(venv.parent / f"{venv.name}.lock")
+    lock = EntryLock(entry_lock_path(venv))
     if not lock.acquire(exclusive=True):
         logger.debug("venv cache: %s is in use, not evicting", venv)
         return False

@@ -3158,3 +3158,55 @@ async def test_a_failure_after_the_token_is_written_does_not_leave_it_behind(
     assert not written[0].exists(), (
         f"{written[0]} survived a failure before the install, still holding the token"
     )
+
+
+async def test_a_requirements_file_that_cannot_be_deleted_is_not_published(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A token still on disk must not become a shared cache entry.
+
+    The unlink is best-effort so that a read-only or full cache filesystem
+    cannot fail a build which otherwise succeeded. But "the requirements file
+    is still there" and "this entry is safe for every other task on the node
+    to reuse" are the same question, so the failure has to gate publication
+    the way a failed direct_url.json scrub already does. Publishing marks a
+    known-unredacted credential COMPLETE in a directory the whole node reads.
+    """
+    monkeypatch.setenv("PIP_INDEX_TOKEN", "index-token-value-3")
+    runner = SubprocessRunner(LogHolder())
+
+    async def mock_execute(command, env=None, cwd=None):
+        if "venv" in command:
+            venv_path = Path(command[-1])
+            venv_path.mkdir(parents=True, exist_ok=True)
+            (venv_path / "bin").mkdir(exist_ok=True)
+            (venv_path / "bin" / "python").touch()
+
+    real_unlink = pathlib.Path.unlink
+
+    def refuse_unlink(self: pathlib.Path, *args: object, **kwargs: object) -> None:
+        if self.name == "extra-requirements.txt":
+            raise OSError(30, "Read-only file system")
+        real_unlink(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(pathlib.Path, "unlink", refuse_unlink)
+
+    with patch.object(runner, "execute", AsyncMock(side_effect=mock_execute)):
+        venv_ref = await setup_venv(
+            VenvConfig(
+                version="1.3.0",
+                main_plugin="snowflake",
+                extra_pip_requirements=["pkg @ https://u:${PIP_INDEX_TOKEN}@x/simple"],
+            ),
+            runner,
+            tmp_path,
+        )
+
+    loc = pathlib.Path(venv_ref.venv_loc)
+    assert (loc / "extra-requirements.txt").exists(), (
+        "precondition: the unlink was supposed to be refused"
+    )
+    assert not (loc / venv_utils.COMPLETE_MARKER).exists(), (
+        f"{loc} still holds the expanded requirements but was published to the "
+        "shared cache, so every later task on the node can read the token"
+    )
