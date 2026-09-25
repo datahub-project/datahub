@@ -134,6 +134,14 @@ export function getEntityPath(
     }${tabParamsString}`;
 }
 
+/**
+ * The URL segment that addresses a tab. Falls back to the caption, so built-in tabs keep the exact
+ * URLs they have today and only tabs that opt in get a stable one.
+ */
+export function getTabRouteKey(tab: EntityTab): string {
+    return tab.routeKey ?? tab.name;
+}
+
 export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const { pathname } = useLocation();
     const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
@@ -141,7 +149,7 @@ export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
     const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
     if (match && match[1]) {
         const selectedTabPath = match[1];
-        const routedTab = tabs.find((tab) => tab.name === selectedTabPath);
+        const routedTab = tabs.find((tab) => getTabRouteKey(tab) === selectedTabPath);
         return routedTab;
     }
     // No match found!

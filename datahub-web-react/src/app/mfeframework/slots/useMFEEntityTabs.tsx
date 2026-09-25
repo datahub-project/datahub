@@ -11,10 +11,10 @@ export function mfeConfigToEntityTab(config: MFEConfig, entityType: string): Ent
     const iconName = config.navIcon;
     return {
         id: `mfe-${config.id}`,
-        // The tab is addressed in the URL by `name`, so renaming `label` changes its deep link.
-        // Separating the two needs a `routeKey` on EntityTab plus routing changes in the host; that
-        // is a wider change to the shared tab model and is deliberately not part of this one.
         name: config.label,
+        // Addressing, deliberately separate from presentation: the URL segment comes from the stable
+        // `id`, so renaming — or translating — the caption never breaks an existing deep link.
+        routeKey: `mfe-${config.id}`,
         icon: iconName ? () => getLazyIcon(iconName) : undefined,
         component: () => <MFEEntityTab config={config} />,
         display: {

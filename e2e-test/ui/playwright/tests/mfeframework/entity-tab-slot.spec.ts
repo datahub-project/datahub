@@ -22,6 +22,8 @@ const TAB_LABEL = 'One Click Access';
 const NAV_LABEL = 'Nav Stub Playwright';
 const NAV_PATH = '/nav-stub-mfe';
 const CONTRACT_VERSION = '1.0.0';
+// Slot tabs are addressed in the URL by `mfe-<id>`, independent of the caption.
+const TAB_ROUTE_KEY = `mfe-${TAB_ID}`;
 
 const tabEntry = (overrides = '') => `
   - id: ${TAB_ID}
@@ -183,13 +185,21 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     await expect(page.getByText('col_a')).toBeVisible({ timeout: TIMEOUTS.LONG });
   });
 
-  test('deep-links to the slot tab by name', async () => {
+  test('deep-links to the slot tab by a route key that survives renaming the caption', async () => {
     await mfePage.mockFetchForMFEConfig(TAB_MFE);
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
-    await mfePage.gotoDataset(DATASET_URN, TAB_LABEL);
 
+    // The tab is addressed by its stable id, not the caption, so the link does not depend on the
+    // label's wording or on which locale rendered it.
+    await mfePage.gotoDataset(DATASET_URN, TAB_ROUTE_KEY);
     const ctx = await mfePage.readSlotCtx();
     expect((ctx.entity as { urn: string }).urn).toBe(DATASET_URN);
+
+    // Same link, entry relabelled: still resolves to the same tab.
+    await mfePage.mockFetchForMFEConfig(TAB_MFE.replace(`label: ${TAB_LABEL}`, 'label: Totally Renamed'));
+    await mfePage.gotoDataset(DATASET_URN, TAB_ROUTE_KEY);
+    await expect(mfePage.entityTabHeader('Totally Renamed')).toBeVisible({ timeout: TIMEOUTS.LONG });
+    expect(((await mfePage.readSlotCtx()).entity as { urn: string }).urn).toBe(DATASET_URN);
   });
 
   test('keeps nav.page MFEs in the sidebar and keeps slot MFEs out of it', async ({ page }) => {

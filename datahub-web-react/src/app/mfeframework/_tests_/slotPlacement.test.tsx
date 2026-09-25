@@ -225,6 +225,10 @@ describe('mfeConfigToEntityTab', () => {
         expect(tab.name).toBe('Access');
         expect(tab.id).toBe('mfe-access-tab');
         // Addressing is independent of the caption, so renaming the label keeps deep links working.
+        expect(tab.routeKey).toBe('mfe-access-tab');
+        const renamed = mfeConfigToEntityTab(tabConfig({ label: 'Renamed' }), 'DATASET');
+        expect(renamed.name).toBe('Renamed');
+        expect(renamed.routeKey).toBe('mfe-access-tab');
     });
 });
 
