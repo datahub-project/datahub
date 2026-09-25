@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.search.embedding.AiGatewayEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.AwsBedrockEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.ClassicalEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.CohereEmbeddingProvider;
