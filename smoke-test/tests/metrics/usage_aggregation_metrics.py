@@ -420,6 +420,51 @@ def corpuser_entity_exists(auth_session, corp_user_urn: str) -> bool:
     return response.status_code == 200
 
 
+def warm_up_actor_class_cache(
+    traffic_session,
+    scrape_session,
+    gms_url: str,
+    corp_user_urn: str,
+    actor_class: str,
+) -> None:
+    """Generate OpenAPI traffic until the entity client cache reflects the expected actor_class.
+
+    PR #19476 switched CorpUserFlags to the CachingAspectRetriever which
+    caches corpUserInfo for ~20s.  After setup writes isSupportUser (or
+    similar), requests arriving before the cache expires are tagged with
+    the stale actor_class.
+
+    Uses OpenAPI (not GraphQL) so the warm-up traffic lands in a separate
+    Prometheus series (request_api=openapi) and cannot contaminate a
+    caller's GraphQL metric baseline.
+    """
+    openapi_tags = aggregation_tags(
+        actor_class, usage_operation="metadata_read", request_api="openapi"
+    )
+
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(35),
+        wait=tenacity.wait_fixed(3),
+        reraise=True,
+    )
+    def _poll() -> None:
+        generate_openapi_corpuser_read_traffic(traffic_session, corp_user_urn, repeat=1)
+        content = get_prometheus_metrics(scrape_session, gms_url)
+        samples = find_metric_samples(content, OUTPUT_BYTES_METRIC, openapi_tags)
+        assert samples, (
+            f"Waiting for actor_class cache refresh: no {OUTPUT_BYTES_METRIC} "
+            f"samples yet with tags {openapi_tags}"
+        )
+
+    logger.info(
+        "Warming up actor_class cache via OpenAPI traffic until %s appears with %s",
+        OUTPUT_BYTES_METRIC,
+        openapi_tags,
+    )
+    _poll()
+    logger.info("Actor class cache warm-up complete")
+
+
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(25),
     wait=tenacity.wait_fixed(3),
