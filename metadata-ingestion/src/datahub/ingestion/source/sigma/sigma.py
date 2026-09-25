@@ -1,7 +1,18 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Set, Tuple
+from typing import (
+    Any,
+    Collection,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -225,6 +236,16 @@ def _normalize_element_name(name: str) -> str:
     return name.casefold()
 
 
+def _match_name(name: str, candidates: Collection[str]) -> Optional[str]:
+    """The candidate a ref's name means: exact, else the one case-insensitive
+    match. Several case variants are ambiguous, so None."""
+    if name in candidates:
+        return name
+    folded = _normalize_element_name(name)
+    matches = {c for c in candidates if _normalize_element_name(c) == folded}
+    return next(iter(matches)) if len(matches) == 1 else None
+
+
 def _case_flag_is_explicit(conn_override: Optional[WarehouseConnectionConfig]) -> bool:
     """Whether this connection's recipe entry set convert_urns_to_lowercase itself.
 
@@ -431,10 +452,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._workbook_customsql_formula_fields: Dict[str, List[InputFieldClass]] = {}
         # DM element Dataset URN -> the field paths this run emitted for it. Data
         # Models are emitted before workbooks, so a chart ref to a DM element can
-        # be checked against the columns that element really has.
+        # be checked against the columns that element really has. Only complete
+        # schemas are recorded; see SigmaDataModel.columns_complete.
         self._dm_element_field_paths: Dict[str, Set[str]] = {}
-        # The last workbook element index and its normalized form. Rebuilding
-        # it on every exact-name miss would walk the whole workbook each time.
+        # The last workbook element index and its case-folded form, so an
+        # exact-name miss does not re-walk the whole workbook.
         self._normalized_index_memo: Optional[
             Tuple[Dict[str, List[Element]], Dict[str, List[Element]]]
         ] = None
@@ -2333,7 +2355,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def _gen_data_model_element_schema_metadata(
-        self, element_dataset_urn: str, element: SigmaDataModelElement
+        self,
+        element_dataset_urn: str,
+        element: SigmaDataModelElement,
+        columns_complete: bool = True,
     ) -> MetadataWorkUnit:
         # Dedup by ``fieldPath`` within the element: Sigma can return two
         # columns with the same name (e.g. a calculated field shadowing a
@@ -2378,9 +2403,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     description=column.label or None,
                 )
             )
-        self._dm_element_field_paths[element_dataset_urn] = {
-            field.fieldPath for field in fields
-        }
+        # A partial schema would refuse real columns it never received.
+        if columns_complete:
+            self._dm_element_field_paths[element_dataset_urn] = {
+                field.fieldPath for field in fields
+            }
         schema_metadata = SchemaMetadataClass(
             schemaName=element.name,
             platform=builder.make_data_platform_urn(self.platform),
@@ -2972,7 +2999,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 yield dpi_aspect
 
             yield self._gen_data_model_element_schema_metadata(
-                element_dataset_urn, element
+                element_dataset_urn, element, data_model.columns_complete
             )
 
             # Propagate DM-level ownership (``data_model.createdBy``) onto
@@ -3614,8 +3641,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def _normalized_element_index(
         self, wb_element_index: Dict[str, List[Element]]
     ) -> Dict[str, List[Element]]:
-        # Compared with `is`, not id(): indexes are built and dropped per
-        # workbook, so a freed one's id can be reused by the next.
         memo = self._normalized_index_memo
         if memo is not None and memo[0] is wb_element_index:
             return memo[1]
@@ -3625,24 +3650,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._normalized_index_memo = (wb_element_index, normalized)
         return normalized
 
-    @staticmethod
-    def _upstream_field_for_ref(ref: BracketRef, upstream: Element) -> Optional[str]:
+    def _upstream_field_for_ref(
+        self, ref: BracketRef, upstream: Element
+    ) -> Optional[str]:
         """The column a ref names, as a name the upstream element has, or None.
 
         Sigma sometimes writes a ref's column part as a column ID rather than a
-        display name; that is translated. A column the upstream does not have
-        would be a dangling edge, so it is refused. An upstream whose columns
-        are unknown passes the ref through unchecked.
+        display name; that is translated. Only slash-free IDs reach here: a
+        warehouse ID (``inode-<id>/<NAME>``) makes a 3+ segment ref, which is
+        refused earlier. A column the upstream does not have would be a
+        dangling edge, so it is refused. An upstream whose columns are unknown
+        passes the ref through unchecked.
         """
         if ref.column is None or not upstream.columns:
             return ref.column
-        by_folded_name = {column.casefold(): column for column in upstream.columns}
-        exact = by_folded_name.get(ref.column.casefold())
-        if exact is not None:
-            return exact
+        field = _match_name(ref.column, upstream.columns)
+        if field is not None:
+            return field
         for name, column_id in upstream.column_id_by_name.items():
             if column_id == ref.column:
                 return name
+        self._note_column_not_found(ref)
         return None
 
     def _dm_upstream_field_for_ref(self, ref: BracketRef, dm_urn: str) -> Optional[str]:
@@ -3655,7 +3683,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         known = self._dm_element_field_paths.get(dm_urn)
         if ref.column is None or not known:
             return ref.column
-        return {path.casefold(): path for path in known}.get(ref.column.casefold())
+        field = _match_name(ref.column, known)
+        if field is None:
+            self._note_column_not_found(ref)
+        return field
+
+    def _note_column_not_found(self, ref: BracketRef) -> None:
+        self.reporter.chart_input_fields_column_not_found += 1
+        logger.debug("Formula ref %s names a column its upstream lacks.", ref.raw)
 
     def _resolve_chart_formula_upstream(
         self,
@@ -3670,14 +3705,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
 
-        This method is a pure predicate: it never increments any reporter counter.
-        All column-level counting (resolved / self_ref_fallback / skipped_parameter
+        Column-level counting (resolved / self_ref_fallback / skipped_parameter
         / skipped_sibling) happens in the caller (_build_element_input_fields) so
-        every chart column lands in exactly one counter bucket regardless of how
-        many refs its formula contains.
+        every chart column lands in exactly one bucket. The per-ref counters
+        incremented here (case_mismatch, column_not_found,
+        multi_segment_refused) say why a ref was refused.
 
         Returns None for parameter and bare-sibling refs (caller handles those
-        at the column level).  Returns (upstream_urn, ref.column) on success.
+        at the column level). On success returns the upstream URN and the
+        column as the upstream spells it.
 
         Resolution order:
           1. is_parameter -> None.
@@ -3713,6 +3749,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # (source A, column "B/C") names a column no upstream has, so it would
         # emit a dangling edge; leave it unresolved instead.
         if len(ref.segments) > 2:
+            self.reporter.chart_input_fields_multi_segment_refused += 1
+            logger.debug("Formula ref %s has 3+ segments; not resolved.", ref.raw)
             return None
 
         maybe_candidates = self._workbook_element_candidates(ref, wb_element_index)
@@ -3741,7 +3779,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             # Step 3b: DataModelElementUpstream match, keyed by the element's
             # own spelling (the ref may differ in case).
-            dm_urn = dm_upstream_urn_by_element_name.get(candidates[0].name)
+            dm_name = _match_name(candidates[0].name, dm_upstream_urn_by_element_name)
+            dm_urn = dm_upstream_urn_by_element_name.get(dm_name) if dm_name else None
             if dm_urn:
                 dm_field = self._dm_upstream_field_for_ref(ref, dm_urn)
                 return (dm_urn, dm_field) if dm_field is not None else None
@@ -3771,7 +3810,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # is an upstream of this chart without being exposed as a page element.
             # Check dm_upstream_urn_by_element_name directly before falling through
             # to the warehouse-table short-name index.
-            dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
+            dm_name = _match_name(ref.source, dm_upstream_urn_by_element_name)
+            dm_urn = dm_upstream_urn_by_element_name.get(dm_name) if dm_name else None
             if dm_urn:
                 dm_field = self._dm_upstream_field_for_ref(ref, dm_urn)
                 return (dm_urn, dm_field) if dm_field is not None else None
@@ -4694,6 +4734,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._workbook_customsql_registered_urns.clear()
         self._workbook_customsql_formula_fields.clear()
         self._dm_element_field_paths.clear()
+        self._normalized_index_memo = None
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the

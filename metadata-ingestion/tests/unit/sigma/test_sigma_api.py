@@ -1180,6 +1180,36 @@ class TestAssembleDataModelFileMetaFallback:
             "filtering and rendering agree on a single workspace per DM"
         )
 
+    @pytest.mark.parametrize(
+        ("second_page", "complete"),
+        [("ok", True), ("dies", False), ("bad-row", False)],
+    )
+    def test_columns_complete_says_whether_columns_arrived_whole(
+        self, second_page: str, complete: bool
+    ) -> None:
+        api = _create_sigma_api()
+        dm = self._dm()
+        column = {"columnId": "c1", "name": "Id", "elementId": "e1"}
+
+        def _pages(url: str) -> Any:
+            if "page=" not in url:
+                return _paginated_response([column], next_page=2)
+            if second_page == "dies":
+                raise requests.exceptions.HTTPError(
+                    "500 Server Error", response=MagicMock(status_code=500)
+                )
+            row = column if second_page == "ok" else {"name": 3}
+            return _paginated_response([row])
+
+        with (
+            patch.object(api, "_get_data_model_elements", return_value=[]),
+            patch.object(api, "_get_data_model_lineage_entries", return_value=[]),
+            patch.object(SigmaAPI, "_get_api_call", side_effect=_pages),
+        ):
+            api._assemble_data_model(dm, None)
+
+        assert dm.columns_complete is complete
+
     def test_none_file_meta_is_safe(self) -> None:
         api = _create_sigma_api()
         dm = self._dm(workspaceId=None, path=None, urlId=None, badge=None)
@@ -1921,6 +1951,20 @@ class TestSchemaMetadataEmission:
         return SigmaDataModelElement.model_validate(
             {"elementId": "elem1", "name": "Elem 1", "columns": columns}
         )
+
+    def test_only_a_complete_schema_is_recorded_for_ref_checks(self) -> None:
+        """A partial schema would refuse real columns it never received."""
+        source = _create_sigma_source()
+        element = self._make_element([{"columnId": "c1", "name": "Id"}])
+        urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-test.elem1,PROD)"
+
+        source._gen_data_model_element_schema_metadata(
+            urn, element, columns_complete=False
+        )
+        assert urn not in source._dm_element_field_paths
+
+        source._gen_data_model_element_schema_metadata(urn, element)
+        assert source._dm_element_field_paths[urn] == {"Id"}
 
     def test_field_order_is_stable_across_columns_reorder(self) -> None:
         """Maj-2 regression: Sigma's ``/columns`` endpoint has no

@@ -78,6 +78,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
+    source.reporter.chart_input_fields_column_not_found = 0
+    source.reporter.chart_input_fields_multi_segment_refused = 0
     source.reporter.chart_input_fields_warehouse_column_bridged = 0
     source.reporter.chart_input_fields_warehouse_column_bridge_unresolved = 0
     source.reporter.chart_input_fields_multi_ref_extra = 0
@@ -399,6 +401,49 @@ class TestResolveChartFormulaUpstream:
             _make_ref("Src", "Missing"), {"Src": [elem]}, upstream_ids={"sourceElem"}
         )
         assert result is None
+        assert self.src.reporter.chart_input_fields_column_not_found == 1
+
+    @pytest.mark.parametrize(
+        ("ref_column", "expected"),
+        [("Amount", "Amount"), ("amount", "amount"), ("AMOUNT", None)],
+    )
+    def test_column_exact_match_beats_a_case_variant(
+        self, ref_column: str, expected: Optional[str]
+    ) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount", "amount"])
+        result = self._resolve(
+            _make_ref("Src", ref_column), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == (("urn:source", expected) if expected else None)
+
+    @pytest.mark.parametrize(
+        ("ref_column", "expected"),
+        [("Amount", "Amount"), ("amount", "amount"), ("AMOUNT", None)],
+    )
+    def test_dm_column_exact_match_beats_a_case_variant(
+        self, ref_column: str, expected: Optional[str]
+    ) -> None:
+        # A set: the winner must not depend on string hashing.
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = {"Amount", "amount"}
+        result = self._resolve(
+            _make_ref("Orders", ref_column), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == ((dm_urn, expected) if expected else None)
+
+    def test_dm_upstream_off_the_page_matches_case_insensitively(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        result = self._resolve(
+            _make_ref("orders", "Id"), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Id")
+
+    def test_the_folded_index_follows_the_workbook(self) -> None:
+        first = {"Src": [_make_element("sourceElem", "Src")]}
+        second = {"Other": [_make_element("sourceElem", "Other")]}
+        assert self._resolve(_make_ref("src", "A"), first, {"sourceElem"})
+        assert self._resolve(_make_ref("other", "A"), second, {"sourceElem"})
+        assert self._resolve(_make_ref("src", "A"), second, {"sourceElem"}) is None
 
     def test_sibling_with_unknown_columns_passes_ref_through(self) -> None:
         elem = _make_element("sourceElem", "Src")
@@ -434,6 +479,7 @@ class TestResolveChartFormulaUpstream:
             _make_ref("Src", "Rel/Col"), {"Src": [elem]}, upstream_ids={"sourceElem"}
         )
         assert result is None
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 1
 
     def test_exact_workbook_name_without_lineage_match_falls_through_to_warehouse(
         self,
