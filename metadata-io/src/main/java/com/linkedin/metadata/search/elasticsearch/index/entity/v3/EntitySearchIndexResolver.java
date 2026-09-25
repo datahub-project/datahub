@@ -106,6 +106,12 @@ public final class EntitySearchIndexResolver {
     if (!shouldReadV3(entityIndex) || entityNames.isEmpty()) {
       return null;
     }
-    return QueryBuilders.termsQuery(INDEX_VIRTUAL_FIELD, entityNames);
+    // Callers often pass entity registry keys, which are lower-cased (glossaryterm), while V3
+    // stores the entity name (glossaryTerm). Entity names are unique ignoring case.
+    BoolQueryBuilder query = QueryBuilders.boolQuery().minimumShouldMatch(1);
+    for (String entityName : entityNames) {
+      query.should(QueryBuilders.termQuery(INDEX_VIRTUAL_FIELD, entityName).caseInsensitive(true));
+    }
+    return query;
   }
 }

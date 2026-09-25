@@ -28,8 +28,9 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.core.rest.RestStatus;
+import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
-import org.opensearch.index.query.TermsQueryBuilder;
+import org.opensearch.index.query.TermQueryBuilder;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.filter.Filter;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
@@ -123,10 +124,12 @@ public class PlatformEntityCountsTest {
             .getIndexConvention()
             .getEntityIndexNameV3(opContext, "dataset");
     assertEquals(request.indices()[0], expectedIndex);
-    assertTrue(request.source().query() instanceof TermsQueryBuilder);
-    TermsQueryBuilder terms = (TermsQueryBuilder) request.source().query();
-    assertEquals(terms.fieldName(), "_entityType");
-    assertTrue(terms.values().contains("dataset"));
+    assertTrue(request.source().query() instanceof BoolQueryBuilder);
+    TermQueryBuilder term =
+        (TermQueryBuilder) ((BoolQueryBuilder) request.source().query()).should().get(0);
+    assertEquals(term.fieldName(), "_entityType");
+    assertEquals(term.value(), "dataset");
+    assertTrue(term.caseInsensitive());
     assertEquals(platformAggField(request), "platform");
   }
 

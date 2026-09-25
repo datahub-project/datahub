@@ -279,8 +279,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             0,
             10);
     assertEquals(byType.getNumEntities(), 2);
-    // The facets built from the response see the same value as the query, so the Type facet
-    // does not list the filter value a second time
+    // Facet extraction gets the same value as the query, so the Type facet does not list the
+    // filter value a second time next to its bucket
     assertEquals(
         byType.getMetadata().getAggregations().stream()
             .filter(agg -> agg.getName().equals("_entityType"))
@@ -301,6 +301,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   public void testDocCount() {
     assertEquals(searchService.docCount(opContext, DATASET_ENTITY_NAME, null), 2L);
     assertEquals(searchService.docCount(opContext, CHART_ENTITY_NAME, null), 1L);
+    // Callers pass registry keys, which are lower-cased (glossaryterm for glossaryTerm), so the
+    // stored entity type must match ignoring case
+    assertEquals(searchService.docCount(opContext, "DATASET", null), 2L);
   }
 
   @Test

@@ -996,7 +996,8 @@ public class ESSearchDAO {
   /**
    * V2 rewrites {@code _entityType} filters onto index names. V3 documents store the entity type,
    * so the filter is normalized for the V3 fields instead. Doing it here gives the query and the
-   * facets extracted from the response the same filter values.
+   * facets extracted from the response the same filter values. The request handlers normalize
+   * again, so the normalization must stay idempotent.
    */
   @Nullable
   private Filter transformFilter(

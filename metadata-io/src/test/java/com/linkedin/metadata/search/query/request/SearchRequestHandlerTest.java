@@ -716,11 +716,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     assertTrue(
         query.filter().stream()
-            .filter(TermsQueryBuilder.class::isInstance)
-            .map(TermsQueryBuilder.class::cast)
+            .filter(BoolQueryBuilder.class::isInstance)
+            .flatMap(bool -> ((BoolQueryBuilder) bool).should().stream())
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
             .anyMatch(
-                terms ->
-                    terms.fieldName().equals("_entityType") && terms.values().contains("dataset")));
+                term -> term.fieldName().equals("_entityType") && term.value().equals("dataset")));
   }
 
   /**
