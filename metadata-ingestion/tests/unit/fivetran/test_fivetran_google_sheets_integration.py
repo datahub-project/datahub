@@ -98,6 +98,7 @@ class TestFivetranGoogleSheetsIntegration:
             mock_log_reader.fivetran_log_database = "test_db"
             mock_log_api.return_value = mock_log_reader
             self.source = FivetranSource(self.config, self.ctx)
+            self.mock_log_reader = mock_log_reader
 
             # Mock the API client
             self.mock_api_client = Mock()
@@ -179,7 +180,7 @@ class TestFivetranGoogleSheetsIntegration:
             )
 
         self.mock_api_client.get_connection_details_by_id.side_effect = _details
-        self.source.log_reader.get_allowed_connectors_list.return_value = [
+        self.mock_log_reader.get_allowed_connectors_list.return_value = [
             budget,
             actuals,
         ]
