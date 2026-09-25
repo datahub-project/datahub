@@ -891,10 +891,17 @@ class PartitionDiscovery:
 
                 result_values[col_name] = chosen_result.val
                 # Constrain the remaining non-date columns to this pick so the composite
-                # key stays internally consistent.
+                # key stays internally consistent. Infer the type from the discovered
+                # value when the type map has no entry, so a genuine INT64 pick is emitted
+                # as `col = 5`, not `col = '5'` (BigQuery rejects INT64 = STRING and would
+                # then leave later composite-key columns unconstrained).
                 combined_filters.append(
                     self._create_safe_filter(
-                        col_name, chosen_result.val, column_types.get(col_name, "")
+                        col_name,
+                        chosen_result.val,
+                        self._infer_component_type(
+                            column_types.get(col_name, ""), chosen_result.val
+                        ),
                     )
                 )
 
@@ -1395,8 +1402,15 @@ class PartitionDiscovery:
                         )
                 elif col in self.config.profiling.fallback_partition_values:
                     fallback_val = self.config.profiling.fallback_partition_values[col]
+                    # A user-configured integer fallback on an untyped column must stay
+                    # unquoted (`col = 5`), so infer INT64 from the value when the type is
+                    # unknown; create_safe_filter would otherwise reject it on INT64.
                     filters.append(
-                        self._create_safe_filter(col, fallback_val, col_data_type)
+                        self._create_safe_filter(
+                            col,
+                            fallback_val,
+                            self._infer_component_type(col_data_type, fallback_val),
+                        )
                     )
                 else:
                     filters.append(FilterBuilder.is_not_null(col))
@@ -1693,7 +1707,16 @@ class PartitionDiscovery:
         if col_name in self.config.profiling.fallback_partition_values:
             fallback_value = self.config.profiling.fallback_partition_values[col_name]
             try:
-                return self._value_filter(table, col_name, fallback_value, col_type)
+                # Infer INT64 from a genuine integer fallback when the column type is
+                # unknown, so _value_filter/create_safe_filter emit `col = 5` rather than
+                # `col = '5'` (rejected on an INT64 column). A str value stays untyped and
+                # keeps compact-partition-id handling.
+                return self._value_filter(
+                    table,
+                    col_name,
+                    fallback_value,
+                    self._infer_component_type(col_type, fallback_value),
+                )
             except ValueError as e:
                 logger.warning(f"Invalid fallback value for {col_name}: {e}")
                 return FilterBuilder.is_not_null(col_name)
