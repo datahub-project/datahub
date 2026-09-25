@@ -12,6 +12,7 @@ import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStack
 
 import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { useGetRecommendations } from '@app/shared/recommendation';
 import { useOwnershipTypes } from '@app/sharedV2/owners/useOwnershipTypes';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -29,14 +30,7 @@ function OwnerOption({ option }: OwnerOptionProps) {
     if (!item) return <>{option.label}</>;
     const avatarUrl =
         item.type === EntityType.CorpUser ? (item as CorpUser).editableProperties?.pictureLink || undefined : undefined;
-    return (
-        <Avatar
-            name={entityRegistry.getDisplayName(item.type, item)}
-            imageUrl={avatarUrl}
-            showInPill
-            type={mapEntityTypeToAvatarType(item.type)}
-        />
-    );
+    return <OwnerLabel name={entityRegistry.getDisplayName(item.type, item)} avatarUrl={avatarUrl} type={item.type} />;
 }
 
 const Container = styled.div`
