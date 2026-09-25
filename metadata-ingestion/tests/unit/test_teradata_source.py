@@ -4702,7 +4702,7 @@ class TestHistoricalTableCheckLogging:
         """A transient connectivity error increments historical_lineage_check_failures."""
         source = _create_source_patched()
 
-        transient_exc = OperationalError("connect timed out", None, None)
+        transient_exc = OperationalError("connect timed out", None, Exception())
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = transient_exc
 
@@ -4887,50 +4887,63 @@ class TestCategorizeTeradataError:
             # --- timeout ---
             (PoolTimeoutError("pool exhausted"), "timeout"),
             (TimeoutError("timed out"), "timeout"),
-            (OperationalError("request timed out", None, None), "timeout"),
-            (DatabaseError("i/o timeout during query", None, None), "timeout"),
+            (OperationalError("request timed out", None, Exception()), "timeout"),
+            (DatabaseError("i/o timeout during query", None, Exception()), "timeout"),
             # timeout wins even when permission keywords also appear
             (
                 OperationalError(
-                    "request timed out — permission check failed", None, None
+                    "request timed out — permission check failed", None, Exception()
                 ),
                 "timeout",
             ),
             # --- permission ---
             (
-                OperationalError("permission denied for table foo", None, None),
+                OperationalError("permission denied for table foo", None, Exception()),
                 "permission",
             ),
-            (DatabaseError("access denied to database bar", None, None), "permission"),
-            (DatabaseError("no access to object", None, None), "permission"),
+            (
+                DatabaseError("access denied to database bar", None, Exception()),
+                "permission",
+            ),
+            (DatabaseError("no access to object", None, Exception()), "permission"),
             (
                 DatabaseError(
-                    "[Error 3523] user does not have SELECT access", None, None
+                    "[Error 3523] user does not have SELECT access", None, Exception()
                 ),
                 "permission",
             ),
             (
-                OperationalError("[Error 8017] The UserId is invalid.", None, None),
+                OperationalError(
+                    "[Error 8017] The UserId is invalid.", None, Exception()
+                ),
                 "permission",
             ),
             # --- parse ---
-            (DatabaseError("syntax error in SQL statement", None, None), "parse"),
-            (DatabaseError("parse error near token SELECT", None, None), "parse"),
             (
-                DatabaseError("[Error 3706] Syntax error: expected name.", None, None),
+                DatabaseError("syntax error in SQL statement", None, Exception()),
+                "parse",
+            ),
+            (
+                DatabaseError("parse error near token SELECT", None, Exception()),
+                "parse",
+            ),
+            (
+                DatabaseError(
+                    "[Error 3706] Syntax error: expected name.", None, Exception()
+                ),
                 "parse",
             ),
             (
                 DatabaseError(
                     "[Error 3707] Syntax error, expected something between 'x' and 'y'.",
                     None,
-                    None,
+                    Exception(),
                 ),
                 "parse",
             ),
             (
                 NotSupportedError(
-                    "Feature not supported by this Teradata driver", None, None
+                    "Feature not supported by this Teradata driver", None, Exception()
                 ),
                 "parse",
             ),
@@ -4939,21 +4952,31 @@ class TestCategorizeTeradataError:
             (ValueError("bad value"), "unknown"),
             # Three additional paths exercised by production code:
             # standalone "timeout" keyword (no "timed out" substring)
-            (DatabaseError("query execution timeout", None, None), "timeout"),
+            (DatabaseError("query execution timeout", None, Exception()), "timeout"),
             # error code 3003 (logon failed)
-            (DatabaseError("[Error 3003] Logon failed.", None, None), "permission"),
-            # "authentication failed" keyword
             (
-                OperationalError("authentication failed for user foo", None, None),
+                DatabaseError("[Error 3003] Logon failed.", None, Exception()),
                 "permission",
             ),
-            (DatabaseError("invalid sql: missing FROM clause", None, None), "parse"),
+            # "authentication failed" keyword
+            (
+                OperationalError(
+                    "authentication failed for user foo", None, Exception()
+                ),
+                "permission",
+            ),
+            (
+                DatabaseError("invalid sql: missing FROM clause", None, Exception()),
+                "parse",
+            ),
             # Authoritative code wins over incidental keywords in the detail
             # text: a parse [Error 3706] whose message also contains "timeout"
             # must classify as PARSE, not TIMEOUT.
             (
                 DatabaseError(
-                    "[Error 3706] Syntax error near 'timeout' column.", None, None
+                    "[Error 3706] Syntax error near 'timeout' column.",
+                    None,
+                    Exception(),
                 ),
                 "parse",
             ),
@@ -4963,7 +4986,7 @@ class TestCategorizeTeradataError:
                 DatabaseError(
                     "[Error 3523] user lacks access; cursor timeout in context",
                     None,
-                    None,
+                    Exception(),
                 ),
                 "permission",
             ),
@@ -5127,7 +5150,7 @@ class TestSchemaDiscoveryFailureCounter:
     def test_all_retries_exhausted_increments_counter_once(self):
         """Even when every attempt fails transiently, the counter only goes up by 1."""
         source = _create_source_patched({"retry_max_attempts": 3})
-        transient = OperationalError("connect timed out", None, None)
+        transient = OperationalError("connect timed out", None, Exception())
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [transient, transient, transient]
 
@@ -5163,7 +5186,7 @@ class TestSchemaDiscoveryFailureCounter:
         good_conn = MagicMock()
         good_inspector = MagicMock()
         good_inspector.get_schema_names.return_value = ["db1"]
-        transient = OperationalError("connect timed out", None, None)
+        transient = OperationalError("connect timed out", None, Exception())
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [transient, good_conn]
 
@@ -5223,11 +5246,11 @@ class TestViewProcessingErrorCounters:
         [
             (PoolTimeoutError("pool exhausted"), "view_timeout_errors"),
             (
-                OperationalError("permission denied for table foo", None, None),
+                OperationalError("permission denied for table foo", None, Exception()),
                 "view_permission_errors",
             ),
             (
-                DatabaseError("syntax error in SQL statement", None, None),
+                DatabaseError("syntax error in SQL statement", None, Exception()),
                 "view_parse_errors",
             ),
             (RuntimeError("unexpected crash"), "view_unknown_errors"),
@@ -5256,8 +5279,8 @@ class TestViewProcessingErrorCounters:
         """Two views failing with different errors produce independent sub-counts."""
         source = _create_source_patched({"max_workers": 1})
         errors = [
-            OperationalError("permission denied", None, None),
-            DatabaseError("syntax error near token", None, None),
+            OperationalError("permission denied", None, Exception()),
+            DatabaseError("syntax error near token", None, Exception()),
         ]
         mock_conn = _make_mock_conn()
         mock_inspector = _make_mock_inspector("testdb")
@@ -5353,12 +5376,14 @@ class TestViewProcessingErrorCounters:
         [
             (PoolTimeoutError("pool exhausted"), "view_timeout_errors"),
             (
-                DatabaseError("[Error 3523] user has no SELECT access", None, None),
+                DatabaseError(
+                    "[Error 3523] user has no SELECT access", None, Exception()
+                ),
                 "view_permission_errors",
             ),
             (
                 DatabaseError(
-                    "[Error 3706] Syntax error in view definition", None, None
+                    "[Error 3706] Syntax error in view definition", None, Exception()
                 ),
                 "view_parse_errors",
             ),
@@ -5483,8 +5508,11 @@ class TestViewProcessingErrorCounters:
         "exc, expected_fragment",
         [
             (PoolTimeoutError("pool exhausted"), "timed out"),
-            (OperationalError("permission denied", None, None), "Permission denied"),
-            (DatabaseError("syntax error", None, None), "SQL parse error"),
+            (
+                OperationalError("permission denied", None, Exception()),
+                "Permission denied",
+            ),
+            (DatabaseError("syntax error", None, Exception()), "SQL parse error"),
             (RuntimeError("exploded"), "Unexpected error"),
         ],
         ids=["timeout", "permission", "parse", "unknown"],
@@ -5775,7 +5803,7 @@ class TestLineageQueryTimingReport:
             patch.object(
                 source,
                 "_execute_with_cursor_fallback",
-                side_effect=DatabaseError("simulated DB failure", None, None),
+                side_effect=DatabaseError("simulated DB failure", None, Exception()),
             ),
             patch.object(
                 source,

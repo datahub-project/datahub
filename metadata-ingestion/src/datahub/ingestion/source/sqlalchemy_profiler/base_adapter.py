@@ -419,9 +419,7 @@ class PlatformAdapter(ABC):
         if sample_clause:
             # The sample clause must survive, so this one cannot be flattened.
             query = (
-                sa.select(sa.func.count())
-                .select_from(table)
-                .suffix_with(sample_clause)
+                sa.select(sa.func.count()).select_from(table).suffix_with(sample_clause)
             )
             count_result: Any = conn.execute_single_row(query).scalar()
         else:
@@ -682,7 +680,7 @@ class PlatformAdapter(ABC):
                 # to be described as required by the query combiner, which is
                 # wrong: quantiles run on the main greenlet (see
                 # ProfilingConnection.execute_rows) and are never combined.
-                percentile_expr = sa.literal_column(
+                percentile_expr: Label = sa.literal_column(
                     f"PERCENTILE_CONT({q}) WITHIN GROUP (ORDER BY {quoted_column})"
                 ).label("percentile")
                 query = sa.select(percentile_expr).select_from(table)

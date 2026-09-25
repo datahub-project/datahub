@@ -132,10 +132,9 @@ def is_single_row_query(query: Any) -> bool:
     Total by design: this is called on whatever reached Connection.execute, so
     it answers False for a non-statement rather than raising.
 
-    In practice a raw SQL string is the only non-Executable that gets this far.
-    SQLAlchemy itself rejects every other kind (None, a Table, an int) with
-    ObjectNotExecutableError, so there is nothing extra to report about them. A
-    raw string executes fine, simply never batches, and shows up in
+    SQLAlchemy 2.0 rejects every non-Executable (a raw string, None, a Table)
+    with ObjectNotExecutableError, so the isinstance check is only a guard. An
+    untagged text() clause executes fine, simply never batches, and shows up in
     uncombined_queries_in_greenlet like any other unbatched query.
     """
     if not isinstance(query, sqlalchemy.sql.Executable):
