@@ -628,7 +628,20 @@ class PartitionDiscovery:
         # a synthesized component (always str) can't be typed this way.
         if col_type:
             return col_type
-        return "INT64" if isinstance(value, int) and not isinstance(value, bool) else ""
+        # bool is an int subclass; exclude it before the int check.
+        if isinstance(value, bool):
+            return ""
+        if isinstance(value, int):
+            return "INT64"
+        # datetime is a date subclass, so check it first. A discovered temporal value
+        # must be typed so _value_filter widens it to a granularity-aware range instead
+        # of a single-instant equality (which profiles one row of the partition). A
+        # BigQuery TIMESTAMP reads back tz-aware (UTC), DATETIME naive, DATE as date.
+        if isinstance(value, datetime):
+            return "TIMESTAMP" if value.tzinfo is not None else "DATETIME"
+        if isinstance(value, date):
+            return "DATE"
+        return ""
 
     def _value_filter(
         self,
@@ -1275,8 +1288,17 @@ class PartitionDiscovery:
 
             filters = []
             for col_name, val in sampled_values.items():
+                # Infer the type from the sampled value when INFORMATION_SCHEMA.COLUMNS
+                # and DDL were both unavailable (the type map holds ""): a sampled
+                # TIMESTAMP/DATETIME/DATE must be widened to its partition's range, not
+                # emitted as a single-instant equality that profiles one row.
                 filter_str = self._value_filter(
-                    table, col_name, val, partition_cols_with_types.get(col_name, "")
+                    table,
+                    col_name,
+                    val,
+                    self._infer_component_type(
+                        partition_cols_with_types.get(col_name, ""), val
+                    ),
                 )
                 filters.append(filter_str)
                 logger.debug(f"Found partition value from sample: {col_name}={val}")
@@ -1566,6 +1588,23 @@ class PartitionDiscovery:
         )
 
         if not (has_date_types or has_date_components or has_date_like_names):
+            # Strategic date candidates only produce useless IS NOT NULL filters for
+            # non-date columns, so they are skipped here. But a user-configured
+            # fallback_partition_values for a non-date column (e.g. region/batch) still
+            # pins a real partition, so honour it before giving up — otherwise those
+            # tables are skipped (require-filter) or full-scanned instead of profiling
+            # the configured partition.
+            if any(
+                col in self.config.profiling.fallback_partition_values
+                for col in required_columns
+            ):
+                logger.debug(
+                    f"No date-like columns in {table.name}, but configured "
+                    f"fallback_partition_values apply; using fallback filters"
+                )
+                return self._get_fallback_partition_filters(
+                    table, project, schema, required_columns, column_types
+                )
             logger.debug(
                 f"No date-type columns in {table.name} and direct query returned nothing; "
                 f"skipping strategic date candidates"
