@@ -29,10 +29,8 @@ type PartitionSpecLike = {
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-const SCOPE_KEY: Record<ProfileScopeKind | 'queryUnknown' | 'partitionUnknown', Record<ScopeVariant, string>> = {
+const SCOPE_KEY: Record<'fullTable' | 'partition' | 'partitionUnknown', Record<ScopeVariant, string>> = {
     fullTable: { long: 'profileScope.fullTable', short: 'profileScope.short.fullTable' },
-    query: { long: 'profileScope.query', short: 'profileScope.short.sample' },
-    queryUnknown: { long: 'profileScope.queryUnknown', short: 'profileScope.short.queryUnknown' },
     partition: { long: 'profileScope.partition', short: 'profileScope.short.partition' },
     partitionUnknown: { long: 'profileScope.partitionUnknown', short: 'profileScope.short.partitionUnknown' },
 };
@@ -73,24 +71,24 @@ export function getProfileScope(partitionSpec?: PartitionSpecLike): ProfileScope
     return { kind: 'partition', detail: partition };
 }
 
-function visibleDetail(scope: ProfileScope, variant: ScopeVariant): string | undefined {
-    if (!scope.detail) return undefined;
-    if (variant === 'short' && scope.kind === 'query' && isSamplePartition(scope.detail)) {
-        return sampleCaptionDetail(scope.detail);
+function formatQueryScope(t: Translate, detail: string | undefined, variant: ScopeVariant): string {
+    if (!detail) {
+        return t(variant === 'long' ? 'profileScope.queryUnknown' : 'profileScope.short.queryUnknown');
     }
-    return scope.detail;
+    if (variant === 'long') return t('profileScope.query', { detail });
+
+    if (!isSamplePartition(detail)) return t('profileScope.short.query', { detail });
+
+    const sampleDetail = sampleCaptionDetail(detail);
+    if (!sampleDetail) return t('profileScope.short.sampleUnknown');
+    return t('profileScope.short.sample', { detail: sampleDetail });
 }
 
 function formatProfileScope(t: Translate, scope: ProfileScope, variant: ScopeVariant): string {
     if (scope.kind === 'fullTable') return t(SCOPE_KEY.fullTable[variant]);
-
-    const detail = visibleDetail(scope, variant);
-    if (scope.kind === 'query') {
-        if (!detail) return t(SCOPE_KEY.queryUnknown[variant]);
-        return t(SCOPE_KEY.query[variant], { detail });
-    }
-    if (!detail) return t(SCOPE_KEY.partitionUnknown[variant]);
-    return t(SCOPE_KEY.partition[variant], { detail });
+    if (scope.kind === 'query') return formatQueryScope(t, scope.detail, variant);
+    if (!scope.detail) return t(SCOPE_KEY.partitionUnknown[variant]);
+    return t(SCOPE_KEY.partition[variant], { detail: scope.detail });
 }
 
 export function formatColumnStatsSubtitle(t: Translate, scope: ProfileScope | null, reportedAt?: string): string {

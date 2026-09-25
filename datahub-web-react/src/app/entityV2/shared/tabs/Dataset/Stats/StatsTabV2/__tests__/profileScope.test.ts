@@ -127,6 +127,24 @@ describe('formatLatestStatsCaption', () => {
         expect(caption).toBe('Sample (sample rows 109186) · reported 4/17/2026');
     });
 
+    it('keeps a bare SAMPLE labeled as a sample', () => {
+        const scope = getProfileScope({ type: 'QUERY', partition: 'SAMPLE' });
+
+        expect(formatLatestStatsCaption(translate, scope, '4/17/2026')).toBe('Sample · reported 4/17/2026');
+        expect(formatColumnStatsSubtitle(translate, scope, '4/17/2026')).toBe(
+            'View latest stats for each column. Computed from SAMPLE. Reported 4/17/2026.',
+        );
+    });
+
+    it('does not call a non-sample query id a sample', () => {
+        const scope = getProfileScope({ type: 'QUERY', partition: 'Query_abc123' });
+
+        expect(formatLatestStatsCaption(translate, scope, '4/17/2026')).toBe('Query Query_abc123 · reported 4/17/2026');
+        expect(formatColumnStatsSubtitle(translate, scope, '4/17/2026')).toBe(
+            'View latest stats for each column. Computed from Query_abc123. Reported 4/17/2026.',
+        );
+    });
+
     it('labels a limit query as a query instead of its JSON payload', () => {
         const caption = formatLatestStatsCaption(
             translate,
