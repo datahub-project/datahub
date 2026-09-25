@@ -1,14 +1,11 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { ThemeProvider } from 'styled-components';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { Button } from '@components/components/Button';
 import { ToastRenderer, toast } from '@components/components/Toast';
 import { ToastVariant } from '@components/components/Toast/types';
-
-import themes from '@conf/theme/themes';
 
 const meta: Meta = {
     title: 'Components / Toast',
@@ -21,10 +18,10 @@ const meta: Meta = {
     },
     decorators: [
         (Story) => (
-            <ThemeProvider theme={themes.themeV2}>
+            <>
                 <ToastRenderer />
                 <Story />
-            </ThemeProvider>
+            </>
         ),
     ],
 };

@@ -38,40 +38,49 @@ function getVariantColors(theme: DefaultTheme, variant: ToastVariant) {
             bg: theme.colors.bgSurfaceSuccess,
             bgHover: theme.colors.bgSurfaceSuccessHover,
             icon: theme.colors.iconSuccess,
-            text: theme.colors.textSuccess,
+            text: theme.colors.textOnSurfaceSuccess,
         },
         error: {
             bg: theme.colors.bgSurfaceError,
             bgHover: theme.colors.bgSurfaceErrorHover,
             icon: theme.colors.iconError,
-            text: theme.colors.textError,
+            text: theme.colors.textOnSurfaceError,
         },
         warning: {
             bg: theme.colors.bgSurfaceWarning,
             bgHover: theme.colors.bgSurfaceWarningHover,
             icon: theme.colors.iconWarning,
-            text: theme.colors.textWarning,
+            text: theme.colors.textOnSurfaceWarning,
         },
         info: {
             bg: theme.colors.bgSurfaceInfo,
             bgHover: theme.colors.bgSurfaceInformationHover,
             icon: theme.colors.iconInformation,
-            text: theme.colors.textInformation,
+            text: theme.colors.textOnSurfaceInformation,
         },
         loading: {
             bg: theme.colors.bgSurfaceInfo,
             bgHover: theme.colors.bgSurfaceInformationHover,
             icon: theme.colors.iconInformation,
-            text: theme.colors.textInformation,
+            text: theme.colors.textOnSurfaceInformation,
         },
     };
     return map[variant];
 }
 
-export const ToastContainer = styled.div`
+export const ToastContainer = styled.div<{ $placement?: 'topRight' | 'bottomRight' | 'bottomCenter' }>`
     position: fixed;
-    top: ${spacing.md};
-    right: ${spacing.md};
+    ${({ $placement }) =>
+        $placement === 'bottomRight' || $placement === 'bottomCenter'
+            ? `bottom: calc(${spacing.md} + var(--security-markings-banner-height, 0px));`
+            : `top: ${spacing.md};`}
+    right: ${({ $placement }) => {
+        if ($placement === 'bottomCenter') return 'auto';
+        if ($placement === 'bottomRight') return `calc(${spacing.md} + 56px)`;
+        return spacing.md;
+    }};
+    left: ${({ $placement }) => ($placement === 'bottomCenter' ? '50%' : 'auto')};
+    transform: ${({ $placement }) => ($placement === 'bottomCenter' ? 'translateX(-50%)' : 'none')};
     z-index: ${zIndices.toast};
     display: flex;
     flex-direction: column;

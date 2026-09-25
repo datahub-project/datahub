@@ -12,6 +12,8 @@ interface ToastAction {
 export interface ToastOptions {
     /** Duration in seconds. 0 = persistent. Defaults vary by variant. */
     duration?: number;
+    /** Viewport corner used by the toast renderer. */
+    placement?: 'topRight' | 'bottomRight' | 'bottomCenter';
     /** Optional action buttons (retry, undo, etc.) */
     actions?: ToastAction[];
     /** Unique key to update/replace an existing toast */

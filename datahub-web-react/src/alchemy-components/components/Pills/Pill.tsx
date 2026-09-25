@@ -88,6 +88,14 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
         }
 
+        const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+            if (!clickable || !onPillClick || (event.key !== 'Enter' && event.key !== ' ')) {
+                return;
+            }
+            event.preventDefault();
+            event.currentTarget.click();
+        };
+
         const renderIcon = (
             icon: NonNullable<PillProps['leftIcon']>,
             onClick?: (e: React.MouseEvent<HTMLElement>) => void,
@@ -135,6 +143,9 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
                 id={id}
                 data-testid={dataTestId ?? 'pill-container'}
                 onClick={onPillClick}
+                onKeyDown={handleKeyDown}
+                role={clickable ? 'button' : undefined}
+                tabIndex={clickable ? 0 : undefined}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
                 onFocus={onFocus}
