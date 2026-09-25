@@ -43,20 +43,15 @@ class SqlAlchemyTableDataReader(DataReader):
             column_values: Dict[str, list] = defaultdict(list)
             table = self._table(table_id)
 
-            query: Any
-
-            # limit doesn't compile properly for oracle so we will append rownum to query string later
+            query = sa.select(sa.text("*")).select_from(table)
             if self.connection.dialect.name.lower() == "oracle":
-                raw_query = sa.select(sa.text("*")).select_from(table)
-
-                query = str(
-                    raw_query.compile(
-                        self.connection, compile_kwargs={"literal_binds": True}
-                    )
-                )
-                query += "\nWHERE ROWNUM <= %d" % sample_size
+                # LIMIT compiles to FETCH FIRST (12c+) or a ROWNUM subquery
+                # depending on the server version; a plain ROWNUM predicate works
+                # on every Oracle version. Kept on the statement rather than
+                # appended to compiled SQL: SA 2.0 only executes Executables.
+                query = query.where(sa.literal_column("ROWNUM") <= sample_size)
             else:
-                query = sa.select(sa.text("*")).select_from(table).limit(sample_size)
+                query = query.limit(sample_size)
             query_results = self.connection.execute(query)
 
             # Not ideal - creates a parallel structure in column_values. Can we use pandas here ?

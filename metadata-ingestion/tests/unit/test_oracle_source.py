@@ -1621,18 +1621,27 @@ class TestOracleQueryExtraction:
 
 
 def test_oracle_sample_query_uses_where_rownum():
+    from sqlalchemy.dialects import oracle
+    from sqlalchemy.sql import Select
+
     mock_conn = MagicMock()
     mock_conn.dialect.name = "oracle"
     mock_conn.execute.return_value.fetchall.return_value = []
 
-    with patch("datahub.ingestion.source.sql.sqlalchemy_data_reader.sa"):
-        reader = SqlAlchemyTableDataReader.__new__(SqlAlchemyTableDataReader)
-        reader.connection = mock_conn
-        reader.get_sample_data_for_table(["test_schema", "test_table"], sample_size=100)
+    reader = SqlAlchemyTableDataReader.__new__(SqlAlchemyTableDataReader)
+    reader.connection = mock_conn
+    reader.get_sample_data_for_table(["test_schema", "test_table"], sample_size=100)
 
     executed_query = mock_conn.execute.call_args[0][0]
-    assert "WHERE ROWNUM <= 100" in executed_query
-    assert "AND ROWNUM" not in executed_query
+    # SA 2.0 rejects raw strings with ObjectNotExecutableError.
+    assert isinstance(executed_query, Select)
+    sql = str(
+        executed_query.compile(
+            dialect=oracle.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "WHERE ROWNUM <= 100" in sql
+    assert "FETCH FIRST" not in sql
 
 
 def test_sql_type_list_renders_quoted_in_list():
