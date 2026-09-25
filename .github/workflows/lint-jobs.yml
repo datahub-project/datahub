@@ -454,6 +454,9 @@ jobs:
       - name: Check GraphQL prettier
         run: |
           ./gradlew :datahub-web-react:graphqlPrettierCheck
+      - name: Check i18n locale files use flat keys
+        run: |
+          ./gradlew :datahub-web-react:yarnI18nFlatKeysCheck
       - name: Check i18n locale parity
         run: |
           ./gradlew :datahub-web-react:yarnI18nParityCheck
