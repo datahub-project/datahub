@@ -338,12 +338,11 @@ public class OidcConfigs extends SsoConfigs {
       // Seed access-control fields from env/static config first so they survive dynamic SSO
       // refresh when the JSON omits them (see #18591).
       seedAccessControlFromConfig(configs);
-      // Dynamic SSO still controls methods that use a client secret. Preserve a static
-      // private_key_jwt method when the JSON omits it, so its local key remains usable.
-      if (PRIVATE_KEY_JWT_METHOD.equals(
-          getOptional(configs, OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH, null))) {
-        clientAuthenticationMethod = PRIVATE_KEY_JWT_METHOD;
-      }
+      clientAuthenticationMethod =
+          getOptional(
+              configs,
+              OIDC_CLIENT_AUTHENTICATION_METHOD_CONFIG_PATH,
+              DEFAULT_OIDC_CLIENT_AUTHENTICATION_METHOD);
       if (jsonNode.has(CLIENT_ID)) {
         clientId = jsonNode.get(CLIENT_ID).asText();
       }
