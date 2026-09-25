@@ -123,12 +123,14 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
     const schemaFieldUrn = generateSchemaFieldUrn(fieldPath, urn) || '';
     const siblingSchemaFieldUrn =
         !isSeparateSiblings && siblingUrn ? generateSchemaFieldUrn(fieldPath, siblingUrn) || '' : '';
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
 
     const { popularQueries, loading, total, selectedColumnsFilter, setSelectedColumnsFilter } = usePopularQueries({
         entityUrn: urn,
         siblingUrn,
         filterText: '',
         defaultSelectedColumns: [schemaFieldUrn || '', siblingSchemaFieldUrn],
+        canViewQueries,
     });
 
     useEffect(() => {

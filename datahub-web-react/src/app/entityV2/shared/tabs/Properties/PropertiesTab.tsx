@@ -14,7 +14,6 @@ import {
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
-import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import Loading from '@app/shared/Loading';
@@ -67,7 +66,6 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     const {
         structuredPropertyRows,
         expandedRowsFromFilter,
-        structuredPropertyRowsRaw,
         loading: structuredPropertiesLoading,
     } = useStructuredProperties(entityRegistry, fieldPath || null, filterText, fieldEntity);
 
@@ -86,12 +84,6 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
 
     useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
 
-    const entityUrnsToHydrate = structuredPropertyRowsRaw
-        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
-        .filter(Boolean);
-
-    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
-
     const propertyTableColumns = [
         {
             width: '40%',
@@ -105,8 +97,8 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                 <ValuesColumn
                     propertyRow={propertyRow}
                     filterText={filterText}
-                    hydratedEntityMap={hydratedEntityMap}
                     renderType={renderType}
+                    scopeKey={fieldPath ? `${entityData?.urn}:${fieldPath}` : (entityData?.urn ?? '')}
                 />
             ),
         },

@@ -22,6 +22,13 @@ public class EntityIndexVersionConfiguration {
    */
   private boolean keywordReadEnabled;
 
+  /**
+   * When true, semantic (kNN) search reads document vectors from V3 indices instead of the V2
+   * semantic indices. Separate from {@link #keywordReadEnabled} so keyword and semantic reads cut
+   * over independently. Ignored when V3 is disabled.
+   */
+  private boolean semanticReadEnabled;
+
   /** V2 only: coalesce multiple updates to the same (urn, aspect) within a batch. */
   private boolean coalesceBatchUpdates;
 

@@ -12,7 +12,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -35,6 +37,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -148,12 +151,15 @@ public class EntitiesController {
             : new HashSet<>(Arrays.asList(aspectNames));
     Throwable exceptionally = null;
     try {
+      Map<Urn, EntityResponse> serviceResponse =
+          _entityService.getEntitiesV2(opContext, entityName, entityUrns, projectedAspects);
+      EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(
+          opContext, serviceResponse);
       return ResponseEntity.ok(
           UrnResponseMap.builder()
               .responses(
                   MappingUtil.mapServiceResponse(
-                      _entityService.getEntitiesV2(
-                          opContext, entityName, entityUrns, projectedAspects),
+                      SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, serviceResponse),
                       _objectMapper))
               .build());
     } catch (Exception e) {
