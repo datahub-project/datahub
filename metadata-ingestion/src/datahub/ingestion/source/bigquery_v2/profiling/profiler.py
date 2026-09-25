@@ -1,7 +1,6 @@
 import logging
 import threading
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
 
@@ -61,6 +60,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +84,17 @@ class DeferredExternalTable:
     bq_table: BigqueryTable
     db_name: str
     schema_name: str
+
+
+@dataclass
+class _DeferredPartitionResult:
+    # Result of deferred external-partition discovery for one table. The discovery worker
+    # runs on a background thread, so it must not touch the shared report directly; it
+    # records the intended report mutations here and the main thread applies them while
+    # consuming results. warnings is a list of (title, message, context) to emit.
+    request: Optional[TableProfilerRequest] = None
+    warnings: List[Tuple[str, str, str]] = field(default_factory=list)
+    partition_profiling_disabled: Optional[str] = None
 
 
 @dataclass
@@ -139,8 +150,9 @@ class BigqueryProfiler(GenericProfiler):
         self._partition_metadata_cache: Dict[
             Tuple[str, str], Dict[str, CachedPartitionMetadata]
         ] = {}
-        # External-table discovery runs the cache lookups from a ThreadPoolExecutor, so
-        # the check-then-populate and the hit/miss counters must be serialized. Without
+        # External-table discovery runs the cache lookups from parallel discovery
+        # workers, so the check-then-populate and the hit/miss counters must be
+        # serialized. Without
         # this, workers for tables in the same dataset each see an empty cache and run the
         # dataset-wide INFORMATION_SCHEMA query concurrently, defeating the cache.
         self._cache_lock = threading.Lock()
@@ -778,10 +790,13 @@ class BigqueryProfiler(GenericProfiler):
 
     def _discover_external_partition_filter(
         self, deferred: DeferredExternalTable
-    ) -> Optional[TableProfilerRequest]:
+    ) -> _DeferredPartitionResult:
         request = deferred.request
         bq_table = deferred.bq_table
         table_ref = f"{deferred.db_name}.{deferred.schema_name}.{bq_table.name}"
+        # Runs on a background thread, so report mutations are recorded here and applied
+        # by the main-thread consumer rather than calling self.report directly.
+        warnings: List[Tuple[str, str, str]] = []
 
         try:
             logger.info(
@@ -804,13 +819,15 @@ class BigqueryProfiler(GenericProfiler):
                 # Mirror the internal path (get_profile_request) which reports skips
                 # via the report: an external table that requires a filter we can't
                 # build is dropped from output, and operators need to see why.
-                self.report.warning(
-                    title="External table skipped during profiling",
-                    message="Could not construct required partition filters for this "
-                    "external table; profiling was skipped to avoid a full scan.",
-                    context=table_ref,
+                warnings.append(
+                    (
+                        "External table skipped during profiling",
+                        "Could not construct required partition filters for this "
+                        "external table; profiling was skipped to avoid a full scan.",
+                        table_ref,
+                    )
                 )
-                return None
+                return _DeferredPartitionResult(warnings=warnings)
 
             if (
                 partition_filters
@@ -822,10 +839,9 @@ class BigqueryProfiler(GenericProfiler):
                 # partition_profiling_enabled=False by skipping it rather than emitting
                 # partition-filtered SQL.
                 logger.info(f"Skipping partition profiling (disabled): {table_ref}")
-                self.report.profiling_skipped_partition_profiling_disabled.append(
-                    table_ref
+                return _DeferredPartitionResult(
+                    warnings=warnings, partition_profiling_disabled=table_ref
                 )
-                return None
 
             partition_where = ""
             if partition_filters:
@@ -841,12 +857,15 @@ class BigqueryProfiler(GenericProfiler):
                 else:
                     # Mirror the internal path: discovery produced filters but all
                     # failed validation, so this external table is profiled unfiltered.
-                    self.report.warning(
-                        title="Partition filters rejected during profiling",
-                        message="Discovered partition filters for this external table "
-                        "failed validation; profiling will proceed without a partition "
-                        "filter (full scan), or fail if the table requires one.",
-                        context=table_ref,
+                    warnings.append(
+                        (
+                            "Partition filters rejected during profiling",
+                            "Discovered partition filters for this external table "
+                            "failed validation; profiling will proceed without a "
+                            "partition filter (full scan), or fail if the table "
+                            "requires one.",
+                            table_ref,
+                        )
                     )
 
             safe_table_ref = build_safe_table_reference(
@@ -887,7 +906,7 @@ class BigqueryProfiler(GenericProfiler):
             if partition_label is not None:
                 request.batch_kwargs["partition"] = partition_label
 
-            return request
+            return _DeferredPartitionResult(request=request, warnings=warnings)
 
         except (
             ValueError,
@@ -899,13 +918,37 @@ class BigqueryProfiler(GenericProfiler):
             # discovery / validation realistically raises (bad identifiers, missing
             # request plumbing, BigQuery API/IAM/quota errors) — an unexpected error
             # should surface loudly rather than silently drop the table.
-            self.report.warning(
-                title="External table skipped during profiling",
-                message="Partition discovery failed for this external table; "
-                "profiling was skipped.",
-                context=f"{table_ref}: {e}",
+            warnings.append(
+                (
+                    "External table skipped during profiling",
+                    "Partition discovery failed for this external table; "
+                    "profiling was skipped.",
+                    f"{table_ref}: {e}",
+                )
             )
-            return None
+            return _DeferredPartitionResult(warnings=warnings)
+
+    def _deferred_partition_worker(
+        self, deferred: DeferredExternalTable
+    ) -> Iterable[_DeferredPartitionResult]:
+        # Generator wrapper for ThreadedIteratorExecutor. A worker exception would be
+        # re-raised by the executor and abort discovery for every remaining table, so
+        # swallow the unexpected errors _discover_external_partition_filter does not
+        # already handle (RetryError, token RefreshError, TimeoutError, connection drops)
+        # and surface them as a main-thread warning instead.
+        try:
+            yield self._discover_external_partition_filter(deferred)
+        except Exception as e:
+            yield _DeferredPartitionResult(
+                warnings=[
+                    (
+                        "External table skipped during profiling",
+                        "Partition discovery worker failed with an unexpected error; "
+                        "profiling was skipped for this table.",
+                        f"{deferred.request.pretty_name}: {e}",
+                    )
+                ]
+            )
 
     def generate_profile_workunits_with_deferred_partitions(
         self,
@@ -919,7 +962,7 @@ class BigqueryProfiler(GenericProfiler):
 
         # Normalize once so both the partition-discovery executor below and the parent
         # generate_profile_workunits flow get a valid worker count; a misconfigured
-        # max_workers <= 0 would otherwise make ThreadPoolExecutor raise ValueError.
+        # max_workers <= 0 would otherwise make the executor raise ValueError.
         max_workers = max(1, max_workers)
 
         if deferred_external:
@@ -936,38 +979,27 @@ class BigqueryProfiler(GenericProfiler):
             }:
                 self._populate_partition_metadata_cache(project, dataset)
 
-            with ThreadPoolExecutor(
-                max_workers=min(max_workers, len(deferred_external))
-            ) as executor:
-                future_to_deferred = {
-                    executor.submit(self._discover_external_partition_filter, d): d
-                    for d in deferred_external
-                }
-
-                for future in as_completed(future_to_deferred):
-                    deferred = future_to_deferred[future]
-                    try:
-                        result = future.result()
-                    except Exception as e:
-                        # The worker only catches the errors partition discovery
-                        # realistically raises; anything else (RetryError, token
-                        # RefreshError, TimeoutError, connection drops) would otherwise
-                        # propagate out of as_completed and abort profiling for every
-                        # remaining table. Report and continue instead.
-                        self.report.warning(
-                            title="External table skipped during profiling",
-                            message="Partition discovery worker failed with an "
-                            "unexpected error; profiling was skipped for this table.",
-                            context=f"{deferred.request.pretty_name}: {e}",
-                        )
-                        continue
-                    if result is not None:
-                        # Account external tables as profiled only now that partition
-                        # discovery has returned a usable request (see get_workunits,
-                        # which defers this for external tables).
-                        self.report.report_entity_profiled(result.pretty_name)
-                        self._tables_profiled += 1
-                        processed_requests.append(result)
+            # ThreadedIteratorExecutor yields results on the main thread as workers
+            # complete, so all report mutations (warnings, skip accounting, profiled
+            # counters) happen here rather than off-thread inside the worker.
+            for result in ThreadedIteratorExecutor.process(
+                worker_func=self._deferred_partition_worker,
+                args_list=[(d,) for d in deferred_external],
+                max_workers=min(max_workers, len(deferred_external)),
+            ):
+                for title, message, context in result.warnings:
+                    self.report.warning(title=title, message=message, context=context)
+                if result.partition_profiling_disabled is not None:
+                    self.report.profiling_skipped_partition_profiling_disabled.append(
+                        result.partition_profiling_disabled
+                    )
+                if result.request is not None:
+                    # Account external tables as profiled only now that partition
+                    # discovery has returned a usable request (see get_workunits,
+                    # which defers this for external tables).
+                    self.report.report_entity_profiled(result.request.pretty_name)
+                    self._tables_profiled += 1
+                    processed_requests.append(result.request)
 
         if processed_requests:
             yield from super().generate_profile_workunits(
