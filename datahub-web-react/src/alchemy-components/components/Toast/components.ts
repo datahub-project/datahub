@@ -74,11 +74,7 @@ export const ToastContainer = styled.div<{ $placement?: 'topRight' | 'bottomRigh
         $placement === 'bottomRight' || $placement === 'bottomCenter'
             ? `bottom: calc(${spacing.md} + var(--security-markings-banner-height, 0px));`
             : `top: ${spacing.md};`}
-    right: ${({ $placement }) => {
-        if ($placement === 'bottomCenter') return 'auto';
-        if ($placement === 'bottomRight') return `calc(${spacing.md} + 56px)`;
-        return spacing.md;
-    }};
+    right: ${({ $placement }) => ($placement === 'bottomCenter' ? 'auto' : spacing.md)};
     left: ${({ $placement }) => ($placement === 'bottomCenter' ? '50%' : 'auto')};
     transform: ${({ $placement }) => ($placement === 'bottomCenter' ? 'translateX(-50%)' : 'none')};
     z-index: ${zIndices.toast};
