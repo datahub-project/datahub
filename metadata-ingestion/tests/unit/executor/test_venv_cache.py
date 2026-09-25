@@ -21,8 +21,13 @@ from datahub.executor.execution import venv_cache, venv_utils
 from datahub.executor.execution.venv_cache import (
     EntryLock,
     LockOutcome,
+    RemovalOutcome,
+    _fd_is_file_at,
+    _remove_entry,
+    entry_lock_path,
     evict_stale_entries,
 )
+from datahub.executor.execution.venv_utils import COMPLETE_MARKER
 
 
 def _open_fd_count() -> int:
@@ -605,3 +610,76 @@ def test_evicting_an_entry_never_touches_the_package_cache_it_links_into(
         assert os.stat(shared).st_nlink == links_before - 1, (
             "removal should drop exactly one link and leave the data in place"
         )
+
+
+def test_evicting_an_entry_removes_its_lock_file_too(tmp_path: pathlib.Path) -> None:
+    """Otherwise .lock files accumulate one per distinct key, forever.
+
+    Every dev-wheel deployment is a new key, so the count grows with
+    deployments rather than with the number of venvs actually cached.
+    """
+    root = tmp_path / "cache"
+    venv = root / "venv-plugin-abc"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "python").touch()
+    (venv / COMPLETE_MARKER).touch()
+    lock_path = entry_lock_path(venv)
+    creator = EntryLock(lock_path)
+    creator.try_acquire(exclusive=True)  # creates the lock file
+    creator.release()  # not held: an in-use entry is correctly skipped
+    assert lock_path.exists()
+
+    assert _remove_entry(venv) is RemovalOutcome.REMOVED
+    assert not venv.exists()
+    assert not lock_path.exists(), (
+        "the lock file outlived the entry it guarded; these accumulate one "
+        "per cache key and nothing else removes them"
+    )
+
+
+def test_a_descriptor_whose_lock_file_was_swept_does_not_count_as_held(
+    tmp_path: pathlib.Path,
+) -> None:
+    """The re-check that makes unlinking a .lock safe at all.
+
+    A claimant can open the lock file, have a sweep unlink it, and then flock
+    its own descriptor successfully -- a hold on an inode no one else can
+    reach, which excludes nothing. The next claimant creates a fresh inode
+    and flocks that, and both processes believe they own the entry.
+    """
+    lock_path = tmp_path / "entry.lock"
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        assert _fd_is_file_at(fd, lock_path)
+
+        lock_path.unlink()
+        assert not _fd_is_file_at(fd, lock_path), (
+            "a descriptor for an unlinked path was reported as current"
+        )
+
+        os.close(os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644))
+        assert not _fd_is_file_at(fd, lock_path), (
+            "a descriptor for the REPLACED inode was reported as current; "
+            "two processes would each believe they hold the entry"
+        )
+    finally:
+        os.close(fd)
+
+
+def test_an_undeletable_entry_is_not_reported_as_in_use(
+    tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """IN_USE and FAILED used to share one `False`.
+
+    That made the churn warning advise raising MAX_ENTRIES over a root-owned
+    file or a busy mount, where raising the limit does nothing.
+    """
+    venv = tmp_path / "cache" / "venv-plugin-xyz"
+    (venv / "bin").mkdir(parents=True)
+    (venv / COMPLETE_MARKER).touch()
+
+    def refuse_rmtree(*args: object, **kwargs: object) -> None:
+        raise OSError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr(shutil, "rmtree", refuse_rmtree)
+    assert _remove_entry(venv) is RemovalOutcome.FAILED

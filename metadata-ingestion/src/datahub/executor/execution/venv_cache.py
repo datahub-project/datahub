@@ -60,6 +60,34 @@ def entry_lock_path(venv_loc: pathlib.Path) -> pathlib.Path:
     return venv_loc.parent / f"{venv_loc.name}.lock"
 
 
+def _fd_is_file_at(fd: int, path: pathlib.Path) -> bool:
+    """Whether `fd` still refers to the file currently at `path`.
+
+    False once the path has been unlinked or replaced: the descriptor is
+    then a hold on an inode nobody else can reach, which excludes nothing.
+    """
+    try:
+        held = os.fstat(fd)
+        current = os.stat(path)
+    except OSError:
+        return False
+    return (held.st_ino, held.st_dev) == (current.st_ino, current.st_dev)
+
+
+class RemovalOutcome(enum.Enum):
+    """Why an entry was or was not evicted.
+
+    REMOVED and IN_USE used to share `False` with FAILED, so an undeletable
+    directory counted as in use -- and the churn warning then told an
+    operator to raise MAX_ENTRIES over a root-owned file or an EBUSY mount,
+    which does nothing.
+    """
+
+    REMOVED = "removed"
+    IN_USE = "in_use"
+    FAILED = "failed"
+
+
 class LockOutcome(enum.Enum):
     """Why an acquire did or did not succeed.
 
@@ -161,6 +189,15 @@ class EntryLock:
             # ENOLCK/EINVAL on a filesystem without lock support.
             os.close(fd)
             return LockOutcome.UNAVAILABLE
+        # The hold is only meaningful if this descriptor is still the file
+        # AT this path. A sweep may have unlinked it between our open() and
+        # our flock(), in which case the next claimant creates a new inode
+        # and flocks a different file -- two processes each believing they
+        # hold the entry. Re-checking here is what lets _remove_entry unlink
+        # the lock at all; without it the file had to be kept forever.
+        if not _fd_is_file_at(fd, self._lock_path):
+            os.close(fd)
+            return LockOutcome.CONTENDED
         self._fd = fd
         return LockOutcome.ACQUIRED
 
@@ -345,6 +382,7 @@ def _evict_locked(
     # cache grow past the bound an operator sized their volume against.
     remaining = len(entries)
     in_use = 0
+    undeletable = 0
     evicted = 0
     for venv in oldest_first:
         too_old = now - last_used_at(venv) > max_age_sec
@@ -352,11 +390,22 @@ def _evict_locked(
             # Oldest first, so every entry after this one is younger and the
             # count only shrinks. Nothing further can qualify.
             break
-        if _remove_entry(venv):
+        outcome = _remove_entry(venv)
+        if outcome is RemovalOutcome.REMOVED:
             evicted += 1
             remaining -= 1
-        else:
+            STATS.evicted += 1
+        elif outcome is RemovalOutcome.IN_USE:
             in_use += 1
+        else:
+            undeletable += 1
+    if undeletable:
+        logger.warning(
+            "venv cache: %d entr(ies) could not be deleted (permissions, a "
+            "busy mount, or a partial removal). Raising the limit will not "
+            "help; the cache root needs attention.",
+            undeletable,
+        )
     if in_use >= max_entries:
         logger.warning(
             "venv cache: %d of %d entries are in use, at or above the limit "
@@ -370,12 +419,13 @@ def _evict_locked(
     return evicted
 
 
-def _remove_entry(venv: pathlib.Path) -> bool:
-    """Take the entry exclusively and delete it. False when it is in use."""
-    lock = EntryLock(entry_lock_path(venv))
+def _remove_entry(venv: pathlib.Path) -> RemovalOutcome:
+    """Take the entry exclusively and delete it, lock file included."""
+    lock_path = entry_lock_path(venv)
+    lock = EntryLock(lock_path)
     if not lock.try_acquire(exclusive=True).ok:
         logger.debug("venv cache: %s is in use, not evicting", venv)
-        return False
+        return RemovalOutcome.IN_USE
     try:
         # Invalidate before removing. rmtree raises on the FIRST failure,
         # having already deleted an arbitrary prefix of the tree, and
@@ -396,18 +446,19 @@ def _remove_entry(venv: pathlib.Path) -> bool:
         # directory is logged as a warning below so it is at least visible.
         (venv / COMPLETE_MARKER).unlink(missing_ok=True)
         shutil.rmtree(venv)
-        # The .lock file beside it is deliberately left behind. Unlinking
-        # it would break mutual exclusion rather than tidy up: a peer
-        # already holding it holds an fd on that inode, so the next two
-        # claimants would create a NEW inode and flock a different file
-        # from the peer -- two processes each believing they hold the
-        # entry. The files are empty and bounded by the number of distinct
-        # cache keys, so the inodes are the cheaper side of that trade.
+        # The .lock goes too, under the EXCLUSIVE hold we still have. Safe
+        # only because try_acquire re-checks that its descriptor is still
+        # the file at this path: a peer that opened the old inode before
+        # this unlink fails that check and retries against the new one,
+        # rather than flocking a file nobody else can see. Without the
+        # unlink these accumulate one per distinct key forever, and every
+        # dev-wheel deployment is a new key.
+        lock_path.unlink(missing_ok=True)
         logger.info("venv cache: evicted %s", venv)
-        return True
+        return RemovalOutcome.REMOVED
     except OSError:
         logger.warning("venv cache: could not evict %s", venv, exc_info=True)
-        return False
+        return RemovalOutcome.FAILED
     finally:
         lock.release()
 
