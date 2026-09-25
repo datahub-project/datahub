@@ -312,7 +312,6 @@ datahub-kafka = [
 datahub-lineage-file = []
 
 datahub-lite = [
-    "duckdb>=1.0.0,<2.0.0",
     "fastapi<0.129.0",
     "uvicorn<0.41.0",
 ]
@@ -420,6 +419,10 @@ druid = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+]
+
+duckdb = [
+    "duckdb>=1.0.0,<2.0.0",
 ]
 
 dynamodb = [
@@ -1161,7 +1164,7 @@ vertica = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
 ]
 
-# All plugins (excluding: airflow, confluence, datahub-documents, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
+# All plugins (excluding: airflow, confluence, datahub-documents, datahub-lite, debug-recording, duckdb, feast, great-expectations, mssql-odbc, notion, onnx-embeddings, sqlmesh, unstructured)
 all = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
