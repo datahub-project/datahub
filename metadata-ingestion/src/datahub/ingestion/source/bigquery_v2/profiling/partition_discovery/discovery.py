@@ -245,6 +245,14 @@ class PartitionDiscovery:
             required_partition_columns = schema_columns
 
         probe_error: Optional[str] = None
+        # Whether the partition columns were recovered from the require-filter probe. A
+        # non-empty probe result is BigQuery's "requires filter over column(s)" error,
+        # which is raised *only* for require_partition_filter=TRUE tables — so it is proof
+        # the table enforces a partition filter even though table.partition_info is absent
+        # on this path (that absence is why we had to probe). The final skip decision must
+        # honour this, otherwise a later failed value fetch would emit an unfiltered query
+        # that BigQuery rejects.
+        partition_filter_required_by_probe = False
         if not required_partition_columns and not schema_authoritative:
             # Only probe when the authoritative COLUMNS lookup failed. A successful,
             # empty COLUMNS result is definitive, so re-probing would be wasted work.
@@ -255,6 +263,7 @@ class PartitionDiscovery:
             # is positional); ordered dedup rather than sorted(), which would bind
             # partition-id components to the wrong columns downstream.
             required_partition_columns = list(dict.fromkeys(probed_columns))
+            partition_filter_required_by_probe = bool(required_partition_columns)
 
         if not required_partition_columns:
             if table.external:
@@ -356,7 +365,9 @@ class PartitionDiscovery:
         # No usable partition values. An unfiltered query would be rejected on a
         # require-filter table and is unbounded on an external table, so skip those;
         # other tables are profiled unfiltered (bounded by the row/size limit).
-        requires_filter = bool(
+        # partition_filter_required_by_probe covers the case where partition_info is
+        # absent but the probe proved the table enforces require_partition_filter.
+        requires_filter = partition_filter_required_by_probe or bool(
             table.partition_info and table.partition_info.require_partition_filter
         )
         if requires_filter or table.external:

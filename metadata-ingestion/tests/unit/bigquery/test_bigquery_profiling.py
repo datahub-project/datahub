@@ -556,6 +556,56 @@ def test_inconclusive_detection_skips_partitioned_table():
     assert filters is None
 
 
+def test_probe_recovered_require_filter_table_skipped_when_values_unavailable():
+    """Partition columns recovered from the require-filter probe prove the table enforces
+    require_partition_filter, even though partition_info is absent on this path. If no
+    partition values can then be discovered, the table must be skipped (None), not
+    profiled with an unfiltered query that BigQuery would reject.
+    """
+
+    class ProbeRequireFilterDiscovery(PartitionDiscovery):
+        def _get_partition_columns_from_schema(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[List[str], bool]:
+            return [], False  # COLUMNS lookup failed -> the probe runs
+
+        def _probe_required_partition_columns(
+            self, *args: Any, **kwargs: Any
+        ) -> Tuple[List[str], Optional[str]]:
+            return ["event_date"], "requires filter over column(s) event_date"
+
+        def _get_partition_column_types(
+            self, *args: Any, **kwargs: Any
+        ) -> Dict[str, str]:
+            return {"event_date": "DATE"}
+
+        def _get_partition_filters_from_information_schema(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
+            return None
+
+        def _find_real_partition_values(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
+            return None
+
+        def _get_partitions_with_sampling(
+            self, *args: Any, **kwargs: Any
+        ) -> Optional[List[str]]:
+            return None
+
+    discovery = ProbeRequireFilterDiscovery(make_config())
+
+    filters = discovery.get_required_partition_filters(
+        make_table(name="probe_require_filter"),  # no partition_info / max_partition_id
+        "test-project-123456",
+        "ds",
+        lambda q, j, c: [],
+    )
+
+    assert filters is None
+
+
 def test_authoritative_empty_columns_skips_probe():
     """A successful, empty COLUMNS result is definitive (unpartitioned), so the probe
     fallback must not run and the table is profiled unfiltered ([]).
