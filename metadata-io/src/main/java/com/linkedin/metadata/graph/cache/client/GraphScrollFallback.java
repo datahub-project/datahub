@@ -8,7 +8,6 @@ import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -92,11 +91,12 @@ public final class GraphScrollFallback {
         result =
             graphRetriever.scrollRelatedEntities(
                 spec.getScrollSourceEntityTypes(),
-                null,
+                QueryUtils.EMPTY_FILTER,
                 spec.getScrollDestinationEntityTypes(),
                 destinationFilter,
                 Set.of(spec.getRelationshipType()),
-                new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING),
+                QueryUtils.newRelationshipFilter(
+                    QueryUtils.EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
