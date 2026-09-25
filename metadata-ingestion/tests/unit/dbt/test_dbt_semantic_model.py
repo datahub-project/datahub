@@ -3,6 +3,7 @@ from unittest import mock
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -37,10 +38,11 @@ from datahub.metadata.schema_classes import (
     SemanticModelInfoClass,
     SemanticModelPropertiesClass,
     SemanticModelRelationshipClass,
+    StructuredPropertiesClass,
     SubTypesClass,
     UpstreamLineageClass,
 )
-from datahub.sdk.semantic_model import SemanticModel
+from datahub.sdk.semantic_model import SemanticModel, SemanticModelDataset
 
 _A = TypeVar("_A")
 
@@ -163,7 +165,7 @@ def _annotations(
 
 
 def _metrics(raw: Dict[str, Any]) -> List[DBTMetric]:
-    return extract_dbt_metrics(manifest_metrics=raw, tag_prefix="")
+    return extract_dbt_metrics(manifest_metrics=raw, tag_prefix="").metrics
 
 
 _ORDERS = {
@@ -226,6 +228,30 @@ def test_no_dataset_aspect_other_than_semantic_model_properties_is_written():
             for urn, _ in _aspects(workunits, forbidden)
             if urn.startswith("urn:li:dataset:")
         ]
+
+
+def test_an_unvetted_field_aspect_is_dropped_rather_than_emitted(monkeypatch):
+    # The dbt path writes schemaField-anchored aspects of its own
+    # (structuredProperties, from column_meta_mapping), so "anchored on a
+    # field" is not on its own a licence to emit.
+    real_as_mcps = SemanticModelDataset.as_mcps
+
+    def with_extra(self: SemanticModelDataset, **kwargs: Any) -> Any:
+        mcps = real_as_mcps(self, **kwargs)
+        field_urn = str(mcps[-1].entityUrn)
+        return mcps + [
+            MetadataChangeProposalWrapper(
+                entityUrn=field_urn,
+                aspect=StructuredPropertiesClass(properties=[]),
+            )
+        ]
+
+    monkeypatch.setattr(SemanticModelDataset, "as_mcps", with_extra)
+    mapper = _mapper()
+    workunits = _emit(mapper, [_sm_node("orders", _ORDERS)])
+
+    assert not _aspects(workunits, StructuredPropertiesClass)
+    assert mapper.report.warnings
 
 
 def test_dataset_urn_follows_convert_urns_to_lowercase():
@@ -619,6 +645,54 @@ def test_metric_relationships_and_upstreams_are_always_emitted():
     assert _aspects(workunits, MetricUpstreamsClass)
 
 
+def test_a_create_metric_measure_with_no_name_does_not_abort_the_run():
+    # MetricUrn rejects an empty id with InvalidUrnError, which is not an
+    # SdkUsageError, so it would escape every guard and end the whole run.
+    mapper = _mapper()
+    workunits = _emit(
+        mapper,
+        [
+            _sm_node(
+                "orders",
+                {
+                    "measures": [
+                        {"agg": "sum", "create_metric": True},
+                        {"name": "total", "agg": "sum", "create_metric": True},
+                    ]
+                },
+            )
+        ],
+    )
+
+    assert [urn for urn, _ in _aspects(workunits, MetricInfoClass)] == [
+        "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,total)"
+    ]
+    assert mapper.report.warnings
+
+
+def test_a_measure_dropped_as_a_duplicate_gets_no_metric():
+    # Its metric's expression would qualify a field path the dataset's
+    # annotated fields do not contain.
+    mapper = _mapper()
+    workunits = _emit(
+        mapper,
+        [
+            _sm_node(
+                "orders",
+                {
+                    "entities": [{"name": "amount", "type": "primary"}],
+                    "measures": [
+                        {"name": "amount", "agg": "sum", "create_metric": True}
+                    ],
+                },
+            )
+        ],
+    )
+
+    assert not _aspects(workunits, MetricInfoClass)
+    assert mapper.report.warnings
+
+
 def test_two_create_metric_measures_sharing_a_name_emit_one_metric():
     mapper = _mapper()
     measure = {"name": "total", "agg": "sum", "create_metric": True}
@@ -735,6 +809,45 @@ def test_ratio_metric_renders_both_sides_of_the_division():
         _expression_of(info[aov].expression).expression
         == "sum(orders.order_total) / count(orders.order_count)"
     )
+
+
+def test_a_ratio_keeps_lineage_to_the_dataset_its_expression_reads():
+    # Its sides resolve to metrics for derivedFrom, but the expression is
+    # rendered from the underlying measures, so the Metric -> Semantic Model
+    # Dataset edge has to survive too.
+    node = _sm_node("orders", _ORDERS)
+    metrics = _metrics(
+        {
+            "metric.jaffle_shop.order_total": {
+                "name": "order_total",
+                "type": "simple",
+                "type_params": {"measure": {"name": "order_total"}},
+            },
+            "metric.jaffle_shop.aov": {
+                "name": "aov",
+                "type": "ratio",
+                "type_params": {
+                    "numerator": {"name": "order_total"},
+                    "denominator": {"name": "order_count"},
+                },
+            },
+        }
+    )
+    workunits = _emit(_mapper(), [node], metrics)
+
+    upstreams = {
+        urn: aspect for urn, aspect in _aspects(workunits, MetricUpstreamsClass)
+    }
+    aov = "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,aov)"
+    assert _destinations(upstreams[aov].datasetUpstreams) == [
+        node.get_urn("dbt", "PROD", None)
+    ]
+    rels = {
+        urn: aspect for urn, aspect in _aspects(workunits, MetricRelationshipsClass)
+    }
+    assert _destinations(rels[aov].derivedFrom) == [
+        "urn:li:metric:(urn:li:dataPlatform:dbt,jaffle_shop,order_total)"
+    ]
 
 
 def test_unresolvable_metric_reference_is_dropped_with_a_warning():
@@ -1055,6 +1168,27 @@ def test_a_project_level_failure_leaves_the_datasets_alone():
     ]
 
 
+def test_one_unbuildable_dataset_does_not_cost_the_project(monkeypatch):
+    # The SDK validates at construction as well as at emit time.
+    real_init = SemanticModelDataset.__init__
+
+    def selective_init(self: SemanticModelDataset, **kwargs: Any) -> None:
+        if kwargs["alias"] == "bad":
+            raise SdkUsageError("unrepresentable")
+        real_init(self, **kwargs)
+
+    monkeypatch.setattr(SemanticModelDataset, "__init__", selective_init)
+    mapper = _mapper()
+    workunits = _emit(mapper, [_sm_node("bad", _ORDERS), _sm_node("good", _CUSTOMERS)])
+
+    aliases = {
+        aspect.alias for _, aspect in _aspects(workunits, SemanticModelPropertiesClass)
+    }
+    assert aliases == {"good"}
+    assert mapper.report.num_semantic_model_datasets_dropped == 1
+    assert mapper.report.warnings
+
+
 def test_an_unexpected_error_is_not_laundered_into_a_warning(monkeypatch):
     # Only SdkUsageError is a user modelling problem; anything else is a bug
     # in this mapper and must crash rather than be silently reported.
@@ -1108,6 +1242,13 @@ def test_a_malformed_entry_costs_only_that_entry():
     assert parsed.discarded == ["measures[0] is str, expected an object"]
 
 
+def test_an_explicit_null_agg_is_absent_not_malformed():
+    parsed = parse_semantic_model({"measures": [{"name": "total", "agg": None}]})
+
+    assert parsed.definition.measures[0].aggregation is None
+    assert not parsed.discarded
+
+
 def test_a_non_object_type_params_costs_only_the_granularity():
     parsed = parse_semantic_model(
         {"dimensions": [{"name": "d", "type": "time", "type_params": "oops"}]}
@@ -1136,18 +1277,18 @@ def test_camel_case_keys_from_the_dbt_cloud_api_are_read():
 
 
 def test_a_malformed_metric_costs_only_that_metric():
-    report = DBTSourceReport()
-    metrics = extract_dbt_metrics(
+    parsed = extract_dbt_metrics(
         manifest_metrics={
             "metric.p.bad": {"name": "bad", "type_params": "not an object"},
             "metric.p.good": {"name": "good", "type": "simple"},
         },
         tag_prefix="",
-        report=report,
     )
 
-    assert [m.name for m in metrics] == ["good"]
-    assert report.warnings
+    assert [m.name for m in parsed.metrics] == ["good"]
+    # Handed back rather than reported at parse time; the source reports it
+    # only on a run that would have emitted metrics.
+    assert [key for key, _ in parsed.unreadable] == ["metric.p.bad"]
 
 
 def test_a_bare_string_measure_reference_from_dbt_1_6_is_read():

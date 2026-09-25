@@ -42,6 +42,7 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTExposure,
     DBTMetric,
     DBTMetricInput,
+    DBTMetricsParse,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
@@ -591,7 +592,9 @@ def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBT
             f"type_params is {type(type_params).__name__}, expected an object"
         )
 
-    metric_type = metric_node.get("type") or METRIC_TYPE_SIMPLE
+    # Rendered into a subTypes aspect, so a non-string would fail at
+    # serialization; fall back to the same default as an absent type.
+    metric_type = _optional_str_value(metric_node.get("type")) or METRIC_TYPE_SIMPLE
 
     measures = _metric_inputs(type_params.get("input_measures"))
     single_measure = _metric_input(type_params.get("measure"))
@@ -634,10 +637,15 @@ def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBT
     cumulative = cumulative if isinstance(cumulative, dict) else {}
 
     return DBTMetric(
-        name=metric_node.get("name", ""),
+        # Coerced like expr and grain_to_date below: a manifest can hold
+        # anything, `name` becomes a urn id and `label` becomes metricInfo.name,
+        # and a non-string reaching either fails at serialization in the sink,
+        # outside every guard this source has. A non-string name is dropped to
+        # "" and skipped by the emitter, like an absent one.
+        name=_optional_str_value(metric_node.get("name")) or "",
         unique_id=key,
-        label=metric_node.get("label"),
-        description=metric_node.get("description"),
+        label=_optional_str_value(metric_node.get("label")),
+        description=_optional_str_value(metric_node.get("description")),
         type=metric_type,
         measures=_dedupe_metric_inputs(measures),
         input_metrics=_dedupe_metric_inputs(input_metrics),
@@ -657,34 +665,31 @@ def _parse_metric(key: str, metric_node: Dict[str, Any], tag_prefix: str) -> DBT
 
 
 def extract_dbt_metrics(
-    manifest_metrics: Dict[str, Dict[str, Any]],
-    tag_prefix: str,
-    report: Optional[DBTSourceReport] = None,
-) -> List[DBTMetric]:
-    """Extract dbt metrics from the manifest.json metrics section (dbt 1.6+)."""
+    manifest_metrics: Dict[str, Dict[str, Any]], tag_prefix: str
+) -> DBTMetricsParse:
+    """Extract dbt metrics from the manifest.json metrics section (dbt 1.6+).
+
+    Unreadable entries are returned rather than reported here: metrics are
+    parsed on every run but only used when semanticModel/metric emission is
+    on, and a warning about skipping a metric that was never going to be
+    emitted is noise for everyone else. The caller reports them at the point
+    of use.
+    """
     metrics: List[DBTMetric] = []
+    unreadable: List[Tuple[str, Exception]] = []
     for key, metric_node in manifest_metrics.items():
         # Per entry: one unreadable metric must not cost the project every
         # other one.
         try:
             parsed = _parse_metric(key, metric_node, tag_prefix)
         except Exception as e:
-            # Logged unconditionally, reported when there is a report: `report`
-            # is optional for callers outside a source, and a dropped metric
-            # must never be invisible.
+            # Logged unconditionally, so a dropped metric is never invisible
+            # even on a run that does not reach the report.
             logger.warning(f"Could not read dbt metric {key}: {e}", exc_info=True)
-            if report is not None:
-                report.warning(
-                    title="Could not read a dbt metric",
-                    message="Skipping this metric; the manifest entry did not "
-                    "have the expected shape. Every other metric is still "
-                    "ingested.",
-                    context=key,
-                    exc=e,
-                )
+            unreadable.append((key, e))
             continue
         metrics.append(parsed)
-    return metrics
+    return DBTMetricsParse(metrics=metrics, unreadable=unreadable)
 
 
 def _resolve_database_schema(
@@ -699,6 +704,13 @@ def _resolve_database_schema(
     # appears in a real manifest and reading only it left this branch dead,
     # silently deferring every semantic model to the depends_on fallback.
     # `schema` is kept as a fallback for hand-written fixtures.
+    #
+    # This is inert today, and deliberately so: the only caller is
+    # extract_semantic_models, and for a semantic model nothing reads the
+    # resolved database/schema. get_db_fqn returns the dbt unique id,
+    # exists_in_target_platform is False, _is_allowed_materialized_node
+    # short-circuits, and get_custom_properties does not carry either. The
+    # branch is repaired so that it is correct if any of that changes.
     schema = node_relation.get("schema_name") or node_relation.get("schema")
 
     if database and schema:
@@ -1196,7 +1208,6 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         self._metrics = extract_dbt_metrics(
             manifest_metrics=manifest_metrics,
             tag_prefix=self.config.tag_prefix,
-            report=self.report,
         )
 
         # Extract semantic models from manifest (dbt 1.6+)

@@ -7381,7 +7381,11 @@
     "aspectName": "metricUpstreams",
     "aspect": {
         "json": {
-            "datasetUpstreams": []
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.sample_dbt.payments,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {

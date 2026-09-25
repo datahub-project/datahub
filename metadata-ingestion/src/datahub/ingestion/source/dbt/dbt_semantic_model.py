@@ -22,12 +22,18 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
 )
 from datahub.metadata.schema_classes import (
+    AiContextClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     DialectClass,
     ERModelRelationshipCardinalityClass,
+    SchemaMetadataClass,
+    SemanticFieldAnnotationClass,
     SemanticFieldTypeClass,
     SemanticModelPropertiesClass,
+    StatusClass,
     SubTypesClass,
 )
 from datahub.metadata.urns import MetricUrn, SchemaFieldUrn, SemanticModelUrn
@@ -58,18 +64,41 @@ _TARGET_PLATFORM_TO_DIALECT: Dict[str, str] = {
 _SEMANTIC_MODEL_DEPENDS_ON_PREFIX = "semantic_model."
 _METRIC_DEPENDS_ON_PREFIX = "metric."
 
-# The only dataset-anchored aspect this mapper contributes. Everything else the
-# SDK's SemanticModelDataset builds - datasetProperties, schemaMetadata,
-# subTypes, status, dataPlatformInstance - is already written for this urn by
-# the connector's ordinary dbt dataset path, which carries the dbt provenance
-# (dbt_unique_id, dbt_file_path, language), the real descriptions, tags, owners
-# and upstream lineage, and runs them through write_semantics so a PATCH run
-# merges with server-side edits. Re-emitting them from here would be a plain
-# UPSERT of a much thinner aspect and would silently undo all of that, so the
-# dataset MCPs are filtered down to this one. Field-anchored MCPs
-# (semanticFieldAnnotation, aiContext) are kept by urn prefix instead: nothing
-# else writes them.
+# Everything this mapper is allowed to add to a dataset the ordinary dbt path
+# already emitted, as an allow-list rather than a deny-list.
+#
+# That path owns datasetProperties (with the dbt provenance: dbt_unique_id,
+# dbt_file_path, language), schemaMetadata, subTypes, status,
+# dataPlatformInstance, tags, owners and upstreamLineage, and runs them through
+# write_semantics so a PATCH run merges with server-side edits. Re-emitting any
+# of them from here would be a plain UPSERT of a much thinner aspect and would
+# silently undo all of that. The SDK's SemanticModelDataset builds most of them,
+# so its MCPs are filtered down to these.
+#
+# Field-anchored aspects are named too, not matched on the schemaField urn
+# prefix: the dbt path also writes schemaField-anchored aspects of its own
+# (structuredProperties, from column_meta_mapping), so "anchored on a field"
+# is not on its own a safe proxy for "nothing else writes this". If a future
+# SDK version adds a field aspect, it is dropped here until it is named -
+# which is the right way round, since dropping is recoverable and overwriting
+# a dbt-written aspect is not.
 _ADDITIVE_DATASET_ASPECTS = frozenset({SemanticModelPropertiesClass.ASPECT_NAME})
+_ADDITIVE_FIELD_ASPECTS = frozenset(
+    {SemanticFieldAnnotationClass.ASPECT_NAME, AiContextClass.ASPECT_NAME}
+)
+
+# What the SDK is known to build and this mapper deliberately drops, so that
+# anything outside both sets is a new aspect nobody has decided about and is
+# worth telling the operator we dropped.
+_DBT_PATH_OWNED_DATASET_ASPECTS = frozenset(
+    {
+        DatasetPropertiesClass.ASPECT_NAME,
+        SchemaMetadataClass.ASPECT_NAME,
+        SubTypesClass.ASPECT_NAME,
+        StatusClass.ASPECT_NAME,
+        DataPlatformInstanceClass.ASPECT_NAME,
+    }
+)
 
 _SCHEMA_FIELD_URN_PREFIX = f"urn:li:{SchemaFieldUrn.ENTITY_TYPE}:"
 
@@ -159,6 +188,23 @@ class _MeasureIndex:
 
 
 @dataclass(frozen=True)
+class _AnnotatedFields:
+    """The fields that were annotated, and the measures among them.
+
+    `measures` is exactly the subset of the model's measures that became a
+    measure field. Anything unnamed, or dropped as a duplicate of an entity or
+    dimension, is absent - so building metrics from this list rather than from
+    the raw definition keeps two things out: a metric whose urn id would be
+    empty (`MetricUrn` rejects that with an `InvalidUrnError`, which is not an
+    `SdkUsageError` and would abort the run), and a metric whose synthesized
+    expression references a field path the dataset does not carry.
+    """
+
+    fields: Dict[str, SemanticFieldInput]
+    measures: List[DBTSemanticMeasure]
+
+
+@dataclass(frozen=True)
 class _PreparedModel:
     """One dbt semantic model, resolved into everything emission needs."""
 
@@ -166,6 +212,7 @@ class _PreparedModel:
     definition: DBTSemanticModelDefinition
     alias: str
     fields: Dict[str, SemanticFieldInput]
+    measures: List[DBTSemanticMeasure]
     dataset: SemanticModelDataset
 
 
@@ -348,12 +395,27 @@ class DbtSemanticModelMapper:
             if self._is_additive(mcp)
         ]
 
-    @staticmethod
-    def _is_additive(mcp: MetadataChangeProposalWrapper) -> bool:
+    def _is_additive(self, mcp: MetadataChangeProposalWrapper) -> bool:
         entity_urn = mcp.entityUrn or ""
-        if entity_urn.startswith(_SCHEMA_FIELD_URN_PREFIX):
+        allowed = (
+            _ADDITIVE_FIELD_ASPECTS
+            if entity_urn.startswith(_SCHEMA_FIELD_URN_PREFIX)
+            else _ADDITIVE_DATASET_ASPECTS
+        )
+        if mcp.aspectName in allowed:
             return True
-        return mcp.aspectName in _ADDITIVE_DATASET_ASPECTS
+        if mcp.aspectName not in _DBT_PATH_OWNED_DATASET_ASPECTS:
+            # An aspect in neither set is one a newer SDK started producing and
+            # nobody has decided about. Dropped, but not silently.
+            self.report.warning(
+                title="Unrecognized dbt semantic model aspect was not emitted",
+                message="The DataHub SDK produced an aspect this connector has "
+                "not vetted as safe to layer onto an already-emitted dbt "
+                "dataset, so it was dropped rather than risk overwriting what "
+                "the dbt path wrote.",
+                context=f"{mcp.aspectName} on {entity_urn}",
+            )
+        return False
 
     def _common_aspects(self) -> List[BrowsePathsV2Class]:
         """Browse path for the entities this mapper emits.
@@ -411,7 +473,8 @@ class DbtSemanticModelMapper:
             if definition is None:
                 continue  # unreachable: filtered by _has_definition
             alias = alias_by_dbt_name[node.dbt_name]
-            fields = self._semantic_fields(node, definition)
+            annotated = self._semantic_fields(node, definition)
+            fields = annotated.fields
             if not fields:
                 self.report.warning(
                     title="dbt semantic model has no usable fields",
@@ -423,26 +486,41 @@ class DbtSemanticModelMapper:
                 )
                 self.report.semantic_models_skipped.append(node.dbt_name)
                 continue
+            try:
+                # Deliberately minimal. `name` reproduces the urn the dbt path
+                # already emitted for this node, and nothing else the Dataset
+                # builder can set is passed, because every other aspect belongs
+                # to that path. See `_ADDITIVE_DATASET_ASPECTS`.
+                dataset = SemanticModelDataset(
+                    platform=DBT_PLATFORM,
+                    name=self._dataset_name(node),
+                    semantic_model=self.model_urn,
+                    alias=alias,
+                    schema=list(fields.values()),
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+            except SdkUsageError as e:
+                # The SDK validates here as well as at emit time, so one
+                # unrepresentable model must not cost the project the rest.
+                self.report.warning(
+                    title="Could not build a dbt semantic model dataset",
+                    message="Skipping this semantic model's semantic-model "
+                    "aspects; the dataset itself is emitted as usual.",
+                    context=node.dbt_name,
+                    exc=e,
+                )
+                self.report.semantic_models_skipped.append(node.dbt_name)
+                self.report.num_semantic_model_datasets_dropped += 1
+                continue
             models.append(
                 _PreparedModel(
                     node=node,
                     definition=definition,
                     alias=alias,
                     fields=fields,
-                    # Deliberately minimal. `name` reproduces the urn the dbt
-                    # path already emitted for this node, and nothing else the
-                    # Dataset builder can set is passed, because every other
-                    # aspect belongs to that path. See
-                    # `_ADDITIVE_DATASET_ASPECTS`.
-                    dataset=SemanticModelDataset(
-                        platform=DBT_PLATFORM,
-                        name=self._dataset_name(node),
-                        semantic_model=self.model_urn,
-                        alias=alias,
-                        schema=list(fields.values()),
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
-                    ),
+                    measures=annotated.measures,
+                    dataset=dataset,
                 )
             )
         return models
@@ -504,10 +582,11 @@ class DbtSemanticModelMapper:
                 alias = f"{base}_{suffix}"
             if alias != node.name:
                 self.report.warning(
-                    title="Duplicate dbt semantic model name",
-                    message="Two semantic models resolve to the same name, so "
-                    "this one was given a disambiguated alias. Relationships "
-                    "and expressions refer to it by that alias, not its name.",
+                    title="dbt semantic model did not get its own name as alias",
+                    message="This semantic model's name was blank or already "
+                    "taken by another semantic model, so it was given a "
+                    "disambiguated alias. Relationships and expressions refer "
+                    "to it by that alias, not by its name.",
                     context=f"{node.dbt_name} -> {alias}",
                 )
             taken.add(key(alias))
@@ -516,7 +595,7 @@ class DbtSemanticModelMapper:
 
     def _semantic_fields(
         self, node: DBTNode, definition: DBTSemanticModelDefinition
-    ) -> Dict[str, SemanticFieldInput]:
+    ) -> _AnnotatedFields:
         """Build the annotated field set, keyed by field path.
 
         dbt only enforces name uniqueness within each of entities/dimensions/
@@ -550,11 +629,14 @@ class DbtSemanticModelMapper:
                 "dimension",
                 self._dimension_field(dimension),
             )
-        for measure in definition.measures:
-            self._add_field(
+        measures = [
+            measure
+            for measure in definition.measures
+            if self._add_field(
                 fields, node, measure.name, "measure", self._measure_field(measure)
             )
-        return fields
+        ]
+        return _AnnotatedFields(fields=fields, measures=measures)
 
     def _add_field(
         self,
@@ -563,15 +645,17 @@ class DbtSemanticModelMapper:
         name: str,
         kind: str,
         field_input: SemanticFieldInput,
-    ) -> None:
+    ) -> bool:
+        """Add one field, or report why it was skipped. True when it was added."""
         if not name or not name.strip():
             self.report.warning(
                 title="dbt semantic model field has no name",
                 message="Skipping an unnamed entity, dimension or measure; it "
-                "cannot be annotated.",
+                "cannot be annotated, and a measure without a name has no "
+                "metric urn either.",
                 context=f"{node.dbt_name} ({kind})",
             )
-            return
+            return False
         if name in fields:
             self.report.warning(
                 title="Duplicate dbt semantic model field name",
@@ -580,8 +664,9 @@ class DbtSemanticModelMapper:
                 "precedence over measures).",
                 context=f"{node.dbt_name}.{name} ({kind})",
             )
-            return
+            return False
         fields[name] = field_input
+        return True
 
     @staticmethod
     def _key_entity_names(definition: DBTSemanticModelDefinition) -> Set[str]:
@@ -644,6 +729,12 @@ class DbtSemanticModelMapper:
         the join. The referencing model is the many side, so cardinality is
         N_ONE; a `unique` target is not one-to-one, since dbt documents joining
         a single unique key to multiple foreign keys.
+
+        `unique` and `natural` are both a key and a join source, so two models
+        that each declare the same entity that way produce an edge in each
+        direction. That is deliberate: MetricFlow will join them either way,
+        and dropping one direction would hide a join that a query can use. It
+        does mean such a pair renders as a two-node cycle.
         """
         # Keyed by the folded name so a case-differing reference resolves, and
         # valued with the field path actually present in the target's schema so
@@ -752,7 +843,8 @@ class DbtSemanticModelMapper:
         for prepared in models:
             dataset_urn = str(prepared.dataset.urn)
             index.dataset_urn_by_dbt_name[prepared.node.dbt_name] = dataset_urn
-            for measure in prepared.definition.measures:
+            # prepared.measures, not definition.measures: see _AnnotatedFields.
+            for measure in prepared.measures:
                 key = measure.name.casefold()
                 location = _MeasureLocation(
                     dataset_urn=dataset_urn,
@@ -777,7 +869,8 @@ class DbtSemanticModelMapper:
         """One metric per measure that sets `create_metric: true`."""
         metrics: Dict[str, Metric] = {}
         for prepared in models:
-            for measure in prepared.definition.measures:
+            # prepared.measures, not definition.measures: see _AnnotatedFields.
+            for measure in prepared.measures:
                 if not measure.create_metric:
                     continue
                 key = measure.name.casefold()
@@ -948,6 +1041,19 @@ class DbtSemanticModelMapper:
             measure_input.name for measure_input in metric_definition.measures
         ]
         measure_names.extend(resolved.measure_names)
+        # A ratio's sides usually name other metrics, so they become derivedFrom
+        # edges rather than measure references - but `_ratio_side` still renders
+        # each side as `agg(alias.measure)` whenever the name also resolves to a
+        # measure. Without this the expression would name columns on a dataset
+        # the metric has no upstream edge to, and the documented
+        # Metric -> Semantic Model Dataset -> Physical Dataset chain would be
+        # broken for every ratio built over measures. Names that resolve to no
+        # measure are dropped by `_locate_measure` below.
+        measure_names.extend(
+            side.name
+            for side in (metric_definition.numerator, metric_definition.denominator)
+            if side is not None
+        )
         for measure_name in measure_names:
             located = self._locate_measure(metric_definition, index, measure_name)
             if located and located.dataset_urn not in upstreams:

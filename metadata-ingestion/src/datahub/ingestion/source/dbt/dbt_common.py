@@ -1050,6 +1050,10 @@ class DBTSemanticDimension:
     type: Optional[str]
     description: Optional[str]
     expr: Optional[str]
+    # Parsed but not emitted anywhere yet: semanticFieldAnnotation carries only
+    # `dimension.isTime`, with no field for the grain. Kept because it is the
+    # obvious consumer the moment the aspect grows one, and because losing it
+    # to a malformed `type_params` is worth reporting either way.
     time_granularity: Optional[str] = None
 
     @property
@@ -1177,7 +1181,12 @@ def _agg_or_default(
     `DBTSemanticMeasure.aggregation` is what keeps a non-string out of the
     first-class entities.
     """
-    agg = raw_measure.get("agg", SEMANTIC_MEASURE_AGG_UNKNOWN)
+    # An explicit `"agg": null` is an absent aggregation, not a malformed one:
+    # `.get` with a default would return None for it and report a shape problem
+    # the author does not have.
+    agg = raw_measure.get("agg")
+    if agg is None:
+        return SEMANTIC_MEASURE_AGG_UNKNOWN
     if not isinstance(agg, str):
         discarded.append(
             f"measures[{index}] has a non-string agg, so it is emitted "
@@ -1487,11 +1496,6 @@ class DBTNode:
 
     owner: Optional[str]
 
-    # Semantic view specific fields (only populated when materialization == 'semantic_view')
-    entities: List[Dict[str, Any]] = field(default_factory=list)
-    dimensions: List[Dict[str, Any]] = field(default_factory=list)
-    measures: List[Dict[str, Any]] = field(default_factory=list)
-
     # Populated only for node_type == "semantic_model". The flattened `columns`
     # below are derived from it; this keeps the structure (entity kinds,
     # aggregations, time granularities) that flattening throws away.
@@ -1760,6 +1764,17 @@ class DBTMetric:
         return self.type in METRIC_TYPES_WITH_METRIC_INPUTS
 
 
+@dataclass
+class DBTMetricsParse:
+    """The outcome of parsing a manifest's `metrics` block."""
+
+    metrics: List[DBTMetric] = field(default_factory=list)
+    # Entries that could not be read, as (unique id, cause). Held rather than
+    # reported at parse time so the caller can report them only on a run that
+    # would have emitted them.
+    unreadable: List[Tuple[str, Exception]] = field(default_factory=list)
+
+
 def get_custom_properties(node: DBTNode) -> Dict[str, str]:
     # initialize custom properties to node's meta props
     # (dbt-native node properties)
@@ -1969,7 +1984,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._exposures: List[DBTExposure] = []
         # Top-level `metrics:` definitions, loaded by subclass. dbt Cloud
         # leaves this empty - see report_metric_source_limitations.
-        self._metrics: List[DBTMetric] = []
+        self._metrics: DBTMetricsParse = DBTMetricsParse()
         # dbt project name, part of the semanticModel/metric urns. Set by
         # subclasses during load.
         self._project_name: Optional[str] = None
@@ -2313,7 +2328,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """Return dbt exposures. Subclasses populate self._exposures during load."""
         return self._exposures
 
-    def load_metrics(self) -> List[DBTMetric]:
+    def load_metrics(self) -> DBTMetricsParse:
         """Return dbt metrics. Subclasses populate self._metrics during load."""
         return self._metrics
 
@@ -2564,8 +2579,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ]
             # Resolving the gate probes the server, so only do it once there is
             # something for it to gate.
+            parsed_metrics = self.load_metrics()
             if (
-                semantic_model_nodes or self.load_metrics()
+                semantic_model_nodes
+                or parsed_metrics.metrics
+                or parsed_metrics.unreadable
             ) and self._emit_semantic_model_entities():
                 yield from self._create_semantic_model_workunits(semantic_model_nodes)
         elif self.config.emit_semantic_model_entities:
@@ -2624,8 +2642,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 message="emit_semantic_model_entities was requested, but this "
                 "DataHub server will not accept semanticModel and metric "
                 "entities - see the reason in the context. Semantic models are "
-                "still emitted as datasets with subtype "
-                f"'{DatasetSubTypes.SEMANTIC_MODEL}', exactly as before.",
+                "still emitted as datasets with their usual subtype, exactly "
+                "as before.",
                 context=decision.reason,
             )
         self._emit_semantic_models = decision.enabled
@@ -2697,13 +2715,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         semanticModelProperties plus schemaField-anchored
         semanticFieldAnnotation aspects.
         """
-        metric_definitions = self.load_metrics()
+        parsed_metrics = self.load_metrics()
         self.report_metric_source_limitations()
+        for unique_id, cause in parsed_metrics.unreadable:
+            # Reported here rather than at parse time: this is the first point
+            # at which the metric would actually have been emitted.
+            self.report.warning(
+                title="Could not read a dbt metric",
+                message="Skipping this metric; the manifest entry did not have "
+                "the expected shape. Every other metric is still ingested.",
+                context=unique_id,
+                exc=cause,
+            )
 
         logger.info(
             f"Creating dbt semantic model metadata for "
             f"{len(semantic_model_nodes)} semantic models and "
-            f"{len(metric_definitions)} metrics"
+            f"{len(parsed_metrics.metrics)} metrics"
         )
         # Imported here rather than at module level: dbt_semantic_model imports
         # DBTNode, DBTCommonConfig and DBTSourceReport from this module, so a
@@ -2727,7 +2755,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         )
         yield from mapper.emit(
             semantic_model_nodes=semantic_model_nodes,
-            metric_definitions=metric_definitions,
+            metric_definitions=parsed_metrics.metrics,
         )
 
     def _is_allowed_node(self, node: DBTNode) -> bool:
