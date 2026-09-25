@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Kopioi kysely",
-    "emptyQueries.noHighlightedQueries": "Ei vielä korostettuja kyselyjä",
     "queriesTab.addHighlightedQueryButton": "Lisää korostettu kysely",
     "queriesTab.addHighlightedQueryTooltip": "Lisää korostettu kysely",
     "queriesTab.addUnauthorizedMessage": "Sinulla ei ole käyttöoikeutta lisätä kyselyjä tähän entiteettiin.",

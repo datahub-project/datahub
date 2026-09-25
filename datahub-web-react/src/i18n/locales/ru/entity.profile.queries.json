@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "Скопировать запрос",
-    "emptyQueries.noHighlightedQueries": "Отмеченных запросов пока нет",
     "queriesTab.addHighlightedQueryButton": "Добавить отмеченный запрос",
     "queriesTab.addHighlightedQueryTooltip": "Добавить отмеченный запрос",
     "queriesTab.addUnauthorizedMessage": "У вас нет прав добавлять запросы к этому объекту.",

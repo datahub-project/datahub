@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "复制该查询",
-    "emptyQueries.noHighlightedQueries": "暂无重点查询",
     "queriesTab.addHighlightedQueryButton": "添加重点查询",
     "queriesTab.addHighlightedQueryTooltip": "添加一条重点查询",
     "queriesTab.addUnauthorizedMessage": "你无权为该实体添加查询。",

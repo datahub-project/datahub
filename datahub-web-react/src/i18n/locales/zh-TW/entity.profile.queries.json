@@ -1,6 +1,5 @@
 {
     "copyQuery.tooltip": "複製查詢",
-    "emptyQueries.noHighlightedQueries": "尚無精選查詢",
     "queriesTab.addHighlightedQueryButton": "新增精選查詢",
     "queriesTab.addHighlightedQueryTooltip": "新增一筆精選查詢",
     "queriesTab.addUnauthorizedMessage": "你未獲授權為此實體新增查詢。",
