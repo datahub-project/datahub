@@ -2836,8 +2836,8 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'datahub-lite'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'dev'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'docs'", specifier = "<0.41.0" },
-    { name = "vcrpy", marker = "extra == 'debug-recording'", specifier = ">=8.0.0,<9.0" },
-    { name = "vcrpy", marker = "extra == 'integration-tests'", specifier = ">=8.0.0,<9.0" },
+    { name = "vcrpy", marker = "extra == 'debug-recording'", specifier = ">=8.2.0,<9.0" },
+    { name = "vcrpy", marker = "extra == 'integration-tests'", specifier = ">=8.2.0,<9.0" },
     { name = "vertica-sqlalchemy-dialect", extras = ["vertica-python"], marker = "extra == 'all'", specifier = "==0.0.8.2" },
     { name = "vertica-sqlalchemy-dialect", extras = ["vertica-python"], marker = "extra == 'dev'", specifier = "==0.0.8.2" },
     { name = "vertica-sqlalchemy-dialect", extras = ["vertica-python"], marker = "extra == 'docs'", specifier = "==0.0.8.2" },
@@ -12371,15 +12371,15 @@ wheels = [
 
 [[package]]
 name = "vcrpy"
-version = "8.1.1"
+version = "8.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "wrapt" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b3/07/bcfd5ebd7cb308026ab78a353e091bd699593358be49197d39d004e5ad83/vcrpy-8.1.1.tar.gz", hash = "sha256:58e3053e33b423f3594031cb758c3f4d1df931307f1e67928e30cf352df7709f", size = 85770, upload-time = "2026-01-04T19:22:03.886Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/39/d5/8a1f8eb603e2d35fbb0ecd1e309d0c5c18a0ecfc8c0a8f04088bbc8f833b/vcrpy-8.3.0.tar.gz", hash = "sha256:46d64e77e8d95e5c76c7d9a94ff05d8b38b2ae4e1d4869eb0235024b6fcb5212", size = 96117, upload-time = "2026-07-04T14:27:01.608Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/d7/f79b05a5d728f8786876a7d75dfb0c5cae27e428081b2d60152fb52f155f/vcrpy-8.1.1-py3-none-any.whl", hash = "sha256:2d16f31ad56493efb6165182dd99767207031b0da3f68b18f975545ede8ac4b9", size = 42445, upload-time = "2026-01-04T19:22:02.532Z" },
+    { url = "https://files.pythonhosted.org/packages/34/77/cb4219be91508399cbcb6143bad89462cfb16f6c638458f454a5d46ac95a/vcrpy-8.3.0-py3-none-any.whl", hash = "sha256:bd66e6143746778157f00e2a922527a8d96b2fdc350be8988a45a29c843815b9", size = 46530, upload-time = "2026-07-04T14:27:00.546Z" },
 ]
 
 [[package]]

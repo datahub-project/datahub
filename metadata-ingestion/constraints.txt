@@ -1691,7 +1691,7 @@ uvicorn-worker==0.4.0 ; python_full_version >= '3.11' and python_full_version < 
     # via feast
 uvloop==0.22.1 ; python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
-vcrpy==8.1.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+vcrpy==8.3.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 vertica-python==1.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via vertica-sqlalchemy-dialect

@@ -904,8 +904,10 @@ plugins: Dict[str, Set[str]] = {
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
-        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
-        "vcrpy>=8.0.0,<9.0",
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError);
+        # 8.2.0+ required for aiohttp 3.14, which removed streams.AsyncStreamReaderMixin
+        # that older vcrpy aiohttp stubs subclass.
+        "vcrpy>=8.2.0,<9.0",
         # responses library for HTTP replay - better compatibility with custom SDK transports
         # (e.g., Looker SDK) that break with VCR's urllib3 patching
         "responses>=0.25.0,<1.0",
