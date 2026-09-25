@@ -17,6 +17,10 @@ javac --version
 yum groupinstall "Development Tools" -y
 yum install openssl openssl-devel libffi-devel bzip2-devel wget nodejs -y
 
+# Gradle runs Yarn through Mise, so provision the project-pinned Node and Yarn tools.
+curl -fsSL https://mise.run | MISE_VERSION=v2026.9.11 MISE_INSTALL_PATH=/usr/local/bin/mise sh
+mise install -y node yarn
+
 wget https://www.python.org/ftp/python/3.11.13/Python-3.11.13.tgz
 tar -xf Python-3.11.13.tgz
 cd Python-3.11.13
@@ -31,4 +35,3 @@ py3="$(which python3)"
 rm "$py3"
 ln "$(which python3.11)" "$py3"
 python3 --version
-
