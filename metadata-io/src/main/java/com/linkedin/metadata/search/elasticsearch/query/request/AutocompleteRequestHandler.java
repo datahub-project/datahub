@@ -152,7 +152,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
         EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex());
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            readV3 ? ESUtils.withoutKeywordSuffix(filter) : filter,
+            readV3 ? ESUtils.toV3EntityFilter(opContext, filter) : filter,
             false,
             readV3,
             searchableFieldTypes,

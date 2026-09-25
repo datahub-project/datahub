@@ -254,7 +254,8 @@ public class ESUtilsTest {
   }
 
   @Test
-  public void testWithoutKeywordSuffix() {
+  public void testToV3EntityFilter() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     Filter filter =
         new Filter()
             .setOr(
@@ -270,18 +271,32 @@ public class ESUtilsTest {
                                 buildCriterion(
                                     "structuredProperties.retention.keyword",
                                     Condition.EQUAL,
-                                    "90")))))
+                                    "90"),
+                                buildCriterion(
+                                    "_entityType",
+                                    Condition.EQUAL,
+                                    "DATA_PRODUCT",
+                                    "dataset",
+                                    "NOT_AN_ENTITY"),
+                                new Criterion()
+                                    .setField("owners.keyword")
+                                    .setCondition(Condition.EQUAL)))))
             .setCriteria(
                 new CriterionArray(
                     buildCriterion("domains.keyword", Condition.EQUAL, "urn:li:domain:a")));
 
-    Filter result = ESUtils.withoutKeywordSuffix(filter);
+    Filter result = ESUtils.toV3EntityFilter(opContext, filter);
 
     CriterionArray and = result.getOr().get(0).getAnd();
     assertEquals(
         and.get(0), buildCriterion("platform", Condition.EQUAL, true, "urn:li:dataPlatform:hive"));
     // Structured property names resolve through the property definition
     assertEquals(and.get(1).getField(), "structuredProperties.retention.keyword");
+    // UI and GraphQL send entity type enum names; V3 stores the registry entity name
+    assertEquals(and.get(2).getValues(), List.of("dataProduct", "dataset", "NOT_AN_ENTITY"));
+    // A criterion without values stays without values, so it is still skipped as on V2
+    assertEquals(and.get(3).getField(), "owners");
+    assertFalse(and.get(3).hasValues());
     assertEquals(result.getCriteria().get(0).getField(), "domains");
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }

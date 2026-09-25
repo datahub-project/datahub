@@ -47,8 +47,10 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
+import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 
 @Slf4j
 public class AggregationQueryBuilder {
@@ -188,12 +190,7 @@ public class AggregationQueryBuilder {
       } else {
         aggBuilder =
             facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-                ? AggregationBuilders.terms(inputFacet)
-                    .field(
-                        getAggregationField(
-                            opContext, entityTypeField(), opContext.getAspectRetriever()))
-                    .size(maxTermBuckets)
-                    .minDocCount(0)
+                ? entityTypeAggregation(opContext, inputFacet, maxTermBuckets)
                 : AggregationBuilders.terms(inputFacet)
                     .field(getAggregationField(opContext, facet, opContext.getAspectRetriever()))
                     .size(maxTermBuckets);
@@ -210,6 +207,27 @@ public class AggregationQueryBuilder {
   /** V3 documents store their entity type; V2 derives it from the index name. */
   private String entityTypeField() {
     return v3KeywordReadEnabled ? INDEX_VIRTUAL_FIELD : ES_INDEX_FIELD;
+  }
+
+  private TermsAggregationBuilder entityTypeAggregation(
+      @Nonnull OperationContext opContext, @Nonnull String name, int maxTermBuckets) {
+    TermsAggregationBuilder aggBuilder =
+        AggregationBuilders.terms(name)
+            .field(
+                getAggregationField(opContext, entityTypeField(), opContext.getAspectRetriever()))
+            .size(maxTermBuckets)
+            .minDocCount(0);
+    if (v3KeywordReadEnabled) {
+      // A V3 index can hold several entity types. Report only the requested ones, including those
+      // without hits, like the per-index buckets on V2.
+      aggBuilder.includeExclude(
+          new IncludeExclude(
+              entitySearchAnnotations.keySet().stream()
+                  .map(EntitySpec::getName)
+                  .toArray(String[]::new),
+              null));
+    }
+    return aggBuilder;
   }
 
   private String getAggregationField(

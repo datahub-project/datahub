@@ -248,7 +248,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     final boolean readV3 = EntitySearchIndexResolver.shouldReadV3(entityIndexConfiguration);
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
-            readV3 ? ESUtils.withoutKeywordSuffix(filter) : filter,
+            readV3 ? ESUtils.toV3EntityFilter(opContext, filter) : filter,
             false,
             readV3,
             searchableFieldTypes,

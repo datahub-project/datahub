@@ -10,6 +10,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.datahub.context.OperationFingerprint;
@@ -17,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
@@ -534,9 +536,13 @@ public class ESUtils {
     }
     if (Boolean.TRUE.equals(
         opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {
+      // Timeseries callers skip the suffix too, but this clause targets entity fields
       BoolQueryBuilder filterNonLatestVersions =
           ESUtils.buildFilterNonLatestEntities(
-              opContext, queryFilterRewriteChain, searchableFieldTypes, skipKeywordSuffix);
+              opContext,
+              queryFilterRewriteChain,
+              searchableFieldTypes,
+              skipKeywordSuffix && !isTimeseries);
       finalQueryBuilder.must(filterNonLatestVersions);
     }
     if (!finalQueryBuilder.should().isEmpty()) {
@@ -872,13 +878,18 @@ public class ESUtils {
   }
 
   /**
-   * Returns a copy of the filter without an explicit {@code .keyword} suffix on its fields. Search
-   * V3 entity indices keep keyword fields at the root, and root aliases cannot expose a {@code
-   * .keyword} subfield. Structured property fields are kept as given: they resolve through the
-   * property definition.
+   * Returns a copy of the filter for a Search V3 entity index.
+   *
+   * <p>V3 keeps keyword fields at the root, and root aliases cannot expose a {@code .keyword}
+   * subfield, so an explicit suffix is dropped. Structured property fields are kept as given: they
+   * resolve through the property definition.
+   *
+   * <p>{@code _entityType} holds the registry entity name, so values such as {@code DATA_PRODUCT}
+   * are mapped onto it, as V2 does when it rewrites the filter to index names.
    */
   @Nullable
-  public static Filter withoutKeywordSuffix(@Nullable Filter filter) {
+  public static Filter toV3EntityFilter(
+      @Nonnull OperationContext opContext, @Nullable Filter filter) {
     if (filter == null) {
       return null;
     }
@@ -886,30 +897,61 @@ public class ESUtils {
     if (filter.getOr() != null) {
       result.setOr(
           filter.getOr().stream()
-              .map(and -> new ConjunctiveCriterion().setAnd(withoutKeywordSuffix(and.getAnd())))
+              .map(
+                  and ->
+                      new ConjunctiveCriterion()
+                          .setAnd(toV3EntityCriteria(opContext, and.getAnd())))
               .collect(Collectors.toCollection(ConjunctiveCriterionArray::new)));
     }
     if (filter.getCriteria() != null) {
-      result.setCriteria(withoutKeywordSuffix(filter.getCriteria()));
+      result.setCriteria(toV3EntityCriteria(opContext, filter.getCriteria()));
     }
     return result;
   }
 
-  private static CriterionArray withoutKeywordSuffix(@Nonnull CriterionArray criteria) {
+  private static CriterionArray toV3EntityCriteria(
+      @Nonnull OperationContext opContext, @Nonnull CriterionArray criteria) {
     return criteria.stream()
-        .map(
-            criterion ->
-                criterion.getField().endsWith(KEYWORD_SUFFIX)
-                        && !criterion
-                            .getField()
-                            .startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
-                    ? buildCriterion(
-                        StringUtils.removeEnd(criterion.getField(), KEYWORD_SUFFIX),
-                        criterion.getCondition(),
-                        criterion.isNegated(),
-                        criterion.getValues())
-                    : criterion)
+        .map(criterion -> toV3EntityCriterion(opContext, criterion))
         .collect(Collectors.toCollection(CriterionArray::new));
+  }
+
+  private static Criterion toV3EntityCriterion(
+      @Nonnull OperationContext opContext, @Nonnull Criterion criterion) {
+    String field = criterion.getField();
+    if (field.endsWith(KEYWORD_SUFFIX)
+        && !field.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      field = StringUtils.removeEnd(field, KEYWORD_SUFFIX);
+    }
+    final boolean entityType = field.equalsIgnoreCase(INDEX_VIRTUAL_FIELD);
+    if (!entityType && field.equals(criterion.getField())) {
+      return criterion;
+    }
+    // Copy rather than rebuild: a criterion without values must stay without values
+    Criterion result =
+        new Criterion()
+            .setField(entityType ? INDEX_VIRTUAL_FIELD : field)
+            .setCondition(criterion.getCondition())
+            .setNegated(criterion.isNegated());
+    if (criterion.hasValues()) {
+      result.setValues(
+          entityType
+              ? criterion.getValues().stream()
+                  .map(value -> v3EntityTypeValue(opContext, value))
+                  .collect(Collectors.toCollection(StringArray::new))
+              : criterion.getValues());
+    }
+    return result;
+  }
+
+  private static String v3EntityTypeValue(
+      @Nonnull OperationContext opContext, @Nonnull String value) {
+    try {
+      return opContext.getEntityRegistry().getEntitySpec(value.replace("_", "")).getName();
+    } catch (IllegalArgumentException e) {
+      // Unknown entity type: keep the value so the filter matches nothing, as on V2
+      return value;
+    }
   }
 
   /**

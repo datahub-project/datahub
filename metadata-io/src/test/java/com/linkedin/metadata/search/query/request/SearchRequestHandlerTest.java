@@ -777,9 +777,12 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(valueCounts.contains("\"field\":\"platform\""), valueCounts);
   }
 
-  /** Callers that name the V2 .keyword subfield still filter on the V3 root field. */
+  /**
+   * Callers that name the V2 .keyword subfield, or send entity type enum names as the UI does,
+   * still match the V3 fields.
+   */
   @Test
-  public void testV3FilterDropsExplicitKeywordSuffix() {
+  public void testV3FilterNormalizesCallerFilters() {
     EntityIndexConfiguration entityIndex =
         EntityIndexConfiguration.builder()
             .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
@@ -795,7 +798,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                                 buildCriterion(
                                     "platform.keyword",
                                     Condition.EQUAL,
-                                    "urn:li:dataPlatform:hive")))));
+                                    "urn:li:dataPlatform:hive"),
+                                buildCriterion("_entityType", Condition.EQUAL, "DATA_PRODUCT")))));
 
     String v3Filter =
         SearchRequestHandler.getFilterQuery(
@@ -817,6 +821,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertFalse(v3Filter.contains(".keyword"), v3Filter);
     assertTrue(v3Filter.contains("\"platform\""), v3Filter);
     assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
+    // V3 stores the registry entity name in _entityType
+    assertTrue(v3Filter.contains("\"dataProduct\""), v3Filter);
+    assertFalse(v3Filter.contains("DATA_PRODUCT"), v3Filter);
     // The caller's filter is left as given
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }

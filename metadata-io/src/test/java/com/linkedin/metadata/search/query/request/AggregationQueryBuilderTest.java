@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
@@ -688,22 +689,29 @@ public class AggregationQueryBuilderTest {
     SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
     config.setMaxTermBucketSize(25);
 
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(entitySpec.getName()).thenReturn("dataset");
     AggregationQueryBuilder builder =
         new AggregationQueryBuilder(
-            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of(annotation)), true);
+            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)), true);
 
-    Set<String> facets =
+    List<TermsAggregationBuilder> aggs =
         builder
             .getAggregations(
                 TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
                 ImmutableList.of("test1", "hasTest1", "structuredProperties.hello"))
             .stream()
-            .map(aggB -> ((TermsAggregationBuilder) aggB).field())
-            .collect(Collectors.toSet());
+            .map(TermsAggregationBuilder.class::cast)
+            .collect(Collectors.toList());
     // V3 documents store their entity type, so the type facet does not read _index
     Assert.assertEquals(
-        facets,
+        aggs.stream().map(TermsAggregationBuilder::field).collect(Collectors.toSet()),
         ImmutableSet.of("test1", "hasTest1", "structuredProperties.hello", INDEX_VIRTUAL_FIELD));
+    // A V3 index can hold other entity types; only the requested ones are reported
+    TermsAggregationBuilder entityTypeAgg =
+        aggs.stream().filter(agg -> agg.field().equals(INDEX_VIRTUAL_FIELD)).findFirst().get();
+    Assert.assertEquals(
+        entityTypeAgg.includeExclude(), new IncludeExclude(new String[] {"dataset"}, null));
   }
 
   @Test

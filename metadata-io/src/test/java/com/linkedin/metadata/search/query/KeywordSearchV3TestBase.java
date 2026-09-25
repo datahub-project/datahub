@@ -267,6 +267,18 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         ORDERS);
+    // The UI sends entity type enum names; V3 stores the registry entity name
+    assertEquals(
+        searchService
+            .filter(
+                opContext,
+                DATASET_ENTITY_NAME,
+                QueryUtils.newFilter("_entityType", "DATASET"),
+                null,
+                0,
+                10)
+            .getNumEntities(),
+        2);
   }
 
   @Test
