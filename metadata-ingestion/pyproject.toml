@@ -160,7 +160,7 @@ bigid = [
 bigquery = [
     "cachetools<6.0.0",
     "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
-    "google-cloud-bigquery<4.0.0",
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-logging<4.0.0",
@@ -178,7 +178,7 @@ bigquery = [
 
 bigquery-queries = [
     "cachetools<6.0.0",
-    "google-cloud-bigquery<4.0.0",
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
@@ -193,7 +193,7 @@ bigquery-queries = [
 ]
 
 bigquery-slim = [
-    "google-cloud-bigquery<4.0.0",
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
@@ -481,7 +481,7 @@ fivetran = [
     "cryptography>=50.0.0,<51.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
-    "google-cloud-bigquery<4.0.0",
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
@@ -1199,7 +1199,7 @@ all = [
     "GitPython>=3.1.58,<4.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
-    "google-cloud-bigquery<4.0.0",
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-dataplex<3.0.0",
@@ -1341,7 +1341,7 @@ dev = [
     "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
-    "google-cloud-bigquery<4.0.0",
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-dataplex<3.0.0",
@@ -1534,7 +1534,7 @@ docs = [
     "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery-analyticshub>=0.4.19,<1.0.0",
-    "google-cloud-bigquery<4.0.0",
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-dataplex<3.0.0",
