@@ -63,6 +63,12 @@ QUERY_ID = f"auth-query-{_UNIQUE}"
 QUERY_ENTITY_URN = str(QueryUrn(QUERY_ID))
 SENSITIVE_SQL = "SELECT secret_col FROM sensitive_table"
 
+GET_SUBJECT_DATASET = """
+query dataset($urn: String!) {
+  dataset(urn: $urn) { urn }
+}
+"""
+
 GET_QUERY_ENTITY = """
 query entity($urn: String!) {
   entity(urn: $urn) {
@@ -161,8 +167,21 @@ def _fetch_query_entity(email: str, password: str) -> dict:
     return response.json()
 
 
-def test_query_entity_hidden_without_subject_view():
-    """Query entity SQL not returned without VIEW_ENTITY_PAGE on subject dataset."""
+@with_test_retry(max_attempts=10)
+def _wait_until_subject_dataset_visible():
+    """Proves a freshly granted VIEW_ENTITY_PAGE policy has reached the policy cache: under
+    view authorization the subject dataset itself is hidden until it does. Call this before a
+    negative assertion so "hidden" cannot be satisfied by a policy that isn't live yet."""
+    user_session = login_as(TEST_USER_EMAIL, TEST_USER_PASSWORD)
+    payload = {"query": GET_SUBJECT_DATASET, "variables": {"urn": SUBJECT_DATASET_URN}}
+    response = user_session.post(f"{get_frontend_url()}/api/v2/graphql", json=payload)
+    response.raise_for_status()
+    res = response.json()
+    assert (res.get("data") or {}).get("dataset") is not None, res
+
+
+@with_test_retry(max_attempts=10)
+def _assert_query_sql_hidden():
     res = _fetch_query_entity(TEST_USER_EMAIL, TEST_USER_PASSWORD)
     entity = (res.get("data") or {}).get("entity")
     if entity is None:
@@ -172,8 +191,24 @@ def test_query_entity_hidden_without_subject_view():
     assert statement != SENSITIVE_SQL, res
 
 
-def test_query_entity_visible_with_subject_view(auth_session):
-    """Query entity SQL visible when user can view subject dataset."""
+@with_test_retry(max_attempts=10)
+def _assert_query_sql_visible():
+    res = _fetch_query_entity(TEST_USER_EMAIL, TEST_USER_PASSWORD)
+    entity = (res.get("data") or {}).get("entity")
+    assert entity is not None, res
+    statement = entity.get("properties", {}).get("statement", {}).get("value")
+    assert statement == SENSITIVE_SQL, res
+
+
+def test_query_entity_hidden_without_subject_view():
+    """Query entity SQL not returned for a user holding no privilege on the subject dataset."""
+    _assert_query_sql_hidden()
+
+
+def test_query_entity_hidden_with_only_view_entity_page_on_subject(auth_session):
+    """VIEW_ENTITY_PAGE on the subject dataset no longer reveals the query's SQL: query
+    reads require VIEW_ENTITY_QUERIES (or a privilege implying it). Upgraded policies get
+    it backfilled; a policy created afterwards must grant it explicitly."""
     admin_session = get_frontend_session()
     policy_urn = create_metadata_policy(
         admin_session,
@@ -183,14 +218,28 @@ def test_query_entity_visible_with_subject_view(auth_session):
         user_urn=TEST_USER_URN,
         resource_urn=SUBJECT_DATASET_URN,
     )
+    try:
+        _wait_until_subject_dataset_visible()
+        _assert_query_sql_hidden()
+    finally:
+        remove_policy(policy_urn, admin_session)
 
-    res = _fetch_query_entity(TEST_USER_EMAIL, TEST_USER_PASSWORD)
-    entity = (res.get("data") or {}).get("entity")
-    assert entity is not None, res
-    statement = entity.get("properties", {}).get("statement", {}).get("value")
-    assert statement == SENSITIVE_SQL, res
 
-    remove_policy(policy_urn, admin_session)
+def test_query_entity_visible_with_view_entity_queries_on_subject(auth_session):
+    """Query entity SQL visible when user holds VIEW_ENTITY_QUERIES on the subject dataset."""
+    admin_session = get_frontend_session()
+    policy_urn = create_metadata_policy(
+        admin_session,
+        name=f"Test VIEW_ENTITY_QUERIES subject {_UNIQUE}",
+        description="Grant VIEW_ENTITY_QUERIES on subject dataset",
+        privileges=["VIEW_ENTITY_QUERIES"],
+        user_urn=TEST_USER_URN,
+        resource_urn=SUBJECT_DATASET_URN,
+    )
+    try:
+        _assert_query_sql_visible()
+    finally:
+        remove_policy(policy_urn, admin_session)
 
 
 def test_query_entity_visible_with_edit_queries_on_subject(auth_session):

@@ -585,11 +585,17 @@ plugins: Dict[str, Set[str]] = {
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
+    # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
+    # in its own extra below.
     "datahub-lite": {
-        "duckdb>=1.0.0,<2.0.0",
         "fastapi<0.129.0",
         "uvicorn<0.41.0",
     },
+    # Alternative DataHub Lite storage engine, selected with `lite.type: duckdb`.
+    # The extra is named after the lite implementation key so that the plugin
+    # registry's "pip install acryl-datahub[duckdb]" hint is accurate.
+    "duckdb": {"duckdb>=1.0.0,<2.0.0"},
     # Integrations.
     "airbyte": {"requests"},
     "airflow": {
@@ -927,9 +933,12 @@ all_exclude_plugins: Set[str] = {
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
-    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
-    # simply exclude it.
+    # DataHub Lite is an opt-in local tool, and its `serve` command pulls in a
+    # whole web stack, so we keep it out of the default "all" installation.
     "datahub-lite",
+    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
+    # simply exclude it. DataHub Lite works without it, on sqlite.
+    "duckdb",
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
@@ -1074,6 +1083,7 @@ base_dev_requirements = {
             "kinesis",
             "datahub-rest",
             "datahub-lite",
+            "duckdb",
             "presto",
             "rdf",
             "redash",
