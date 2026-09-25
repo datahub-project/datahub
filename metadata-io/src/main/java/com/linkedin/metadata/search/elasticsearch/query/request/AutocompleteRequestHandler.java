@@ -58,6 +58,9 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   private static final Map<Pair<EntitySpec, Boolean>, AutocompleteRequestHandler>
       AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME = new ConcurrentHashMap<>();
 
+  // Search V3 copies entity names into tier 1; its text subfield is stored, so it can highlight
+  private static final String V3_TIER_1_TEXT_FIELD = "_search.tier_1.full";
+
   private final CustomizedQueryHandler customizedQueryHandler;
 
   private final EntitySpec entitySpec;
@@ -222,9 +225,9 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                 CustomConfiguration::getAutoCompleteFieldConfigDefault));
     if (highlightBuilder != null) {
       if (v3KeywordReadEnabled) {
-        // V3 matches on the tier fields, so root fields must highlight without a field match: a
-        // hit without a highlight is dropped from the suggestions
-        highlightBuilder.fields().forEach(f -> f.requireFieldMatch(false).noMatchSize(200));
+        // Root fields highlight where their prefix matched and tier 1 where a name word matched,
+        // so each suggestion is a matched value. A hit without a highlight is dropped
+        highlightBuilder.field(V3_TIER_1_TEXT_FIELD);
       }
       searchSourceBuilder.highlighter(highlightBuilder);
     }
@@ -330,11 +333,18 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery().minimumShouldMatch(1);
 
     if (v3KeywordReadEnabled) {
-      // Entity names copy into both tier 1 and _search.entityName, so the requested field is not
-      // queried on its own
-      return finalQuery
-          .should(QueryBuilders.matchBoolPrefixQuery("_search.tier_1.full", query))
+      // Entity names copy into tier 1 and _search.entityName. Fields without a search tier have
+      // no text copy, so each autocomplete field is also prefix matched on its root value
+      finalQuery
+          .should(QueryBuilders.matchBoolPrefixQuery(V3_TIER_1_TEXT_FIELD, query))
           .should(QueryBuilders.prefixQuery("_search.entityName", query).caseInsensitive(true));
+      autocompleteFields.forEach(
+          pair ->
+              finalQuery.should(
+                  QueryBuilders.prefixQuery(pair.getLeft(), query)
+                      .caseInsensitive(true)
+                      .boost(Float.parseFloat(pair.getRight()))));
+      return finalQuery;
     }
 
     // Search for exact matches with higher boost and ngram matches

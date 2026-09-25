@@ -17,6 +17,7 @@ import static org.testng.Assert.assertEqualsNoOrder;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathEntry;
@@ -36,6 +37,7 @@ import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
+import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
@@ -43,6 +45,7 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -204,6 +207,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             new GitVersion("0.0.0-test", "123456", Optional.empty()));
     SettingsBuilder settingsBuilder =
         createDelegatingSettingsBuilder(entityIndex, config.getIndex(), indexConvention);
+    // The production query configurations, e.g. quoted queries skip the simple query
+    CustomConfiguration customConfiguration = new CustomConfiguration();
+    customConfiguration.setEnabled(true);
+    customConfiguration.setFile("search_config.yaml");
     searchService =
         new ElasticSearchService(
             indexBuilder,
@@ -212,7 +219,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             mappingsBuilder,
             settingsBuilder,
             new ESSearchDAO(
-                false, config, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG),
+                false,
+                config,
+                customConfiguration.resolve(new YAMLMapper()),
+                QueryFilterRewriteChain.EMPTY,
+                TEST_SEARCH_SERVICE_CONFIG),
             new ESBrowseDAO(
                 config, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG),
             new ESWriteDAO(
@@ -491,6 +502,13 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
           type.getValue());
     }
 
+    // A quoted query runs no simple query, so only the phrase prefix reaches the description
+    assertUrns(
+        searchService
+            .search(fulltext, ENTITY_TYPES, "\"monthly orders\"", null, null, 0, 10)
+            .getEntities(),
+        ORDERS_CHART);
+
     // Keyword sort on the root name alias: upper case sorts first
     assertEquals(
         searchService
@@ -522,14 +540,23 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
 
   @Test
   public void testAutoComplete() {
-    assertEquals(
-        searchService
-            .autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10)
-            .getEntities()
-            .stream()
-            .map(AutoCompleteEntity::getUrn)
-            .collect(Collectors.toList()),
-        List.of(ORDERS));
+    AutoCompleteResult name =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10);
+    assertEquals(urns(name), List.of(ORDERS));
+    assertEquals(name.getSuggestions(), List.of("orders"));
+
+    // Only a later word of the title matches
+    AutoCompleteResult word =
+        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", null, null, 10);
+    assertEquals(urns(word), List.of(ORDERS_CHART));
+    assertEquals(word.getSuggestions(), List.of("Orders by region"));
+
+    // The dataset key id has no search tier, so only its root value holds "sales"
+    AutoCompleteResult keyId =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "sales", null, null, 10);
+    assertEqualsNoOrder(urns(keyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
+    assertEqualsNoOrder(
+        keyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
   }
 
   @Test
@@ -579,6 +606,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 Arrays.stream(ids)
                     .map(id -> new BrowsePathEntry().setId(id))
                     .collect(Collectors.toList())));
+  }
+
+  private static List<Urn> urns(AutoCompleteResult result) {
+    return result.getEntities().stream()
+        .map(AutoCompleteEntity::getUrn)
+        .collect(Collectors.toList());
   }
 
   private static Map<String, Long> groups(BrowseResultV2 result) {

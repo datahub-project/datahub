@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.query.request;
 
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
@@ -10,7 +11,9 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
@@ -64,6 +67,7 @@ import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
 import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.MultiMatchQueryBuilder;
+import org.opensearch.index.query.PrefixQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.TermQueryBuilder;
@@ -112,6 +116,17 @@ public class AutocompleteRequestHandlerTest {
                     .build())
             .build();
   }
+
+  private static final ElasticSearchConfiguration TEST_V3_QUERY_CONFIG =
+      testQueryConfig.toBuilder()
+          .entityIndex(
+              V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
+                  .v3(
+                      V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().toBuilder()
+                          .keywordReadEnabled(true)
+                          .build())
+                  .build())
+          .build();
 
   @BeforeClass
   public void beforeTest() {
@@ -1235,23 +1250,13 @@ public class AutocompleteRequestHandlerTest {
 
   @Test
   public void testV3QueryUsesTierFieldsAndHighlightsRootFields() {
-    ElasticSearchConfiguration v3Config =
-        testQueryConfig.toBuilder()
-            .entityIndex(
-                V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
-                    .v3(
-                        V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().toBuilder()
-                            .keywordReadEnabled(true)
-                            .build())
-                    .build())
-            .build();
     AutocompleteRequestHandler v3Handler =
         new AutocompleteRequestHandler(
             nonMockOpContext,
             nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
             CustomSearchConfiguration.builder().build(),
             QueryFilterRewriteChain.EMPTY,
-            v3Config,
+            TEST_V3_QUERY_CONFIG,
             TEST_SEARCH_SERVICE_CONFIG);
 
     SearchSourceBuilder source =
@@ -1267,12 +1272,82 @@ public class AutocompleteRequestHandlerTest {
     assertFalse(query.contains(".delimited"));
     assertFalse(query.contains(".keyword"));
 
-    // Suggestions come from highlights, so the root field highlights without a field match
+    // Suggestions come from highlights: the root field where its prefix matched, or tier 1 where a
+    // name word matched. A no-match fragment on every root field would surface the urn instead
     List<HighlightBuilder.Field> highlights = source.highlighter().fields();
     assertEquals(
         highlights.stream().map(HighlightBuilder.Field::name).collect(Collectors.toList()),
-        List.of("name"));
-    assertEquals(highlights.get(0).requireFieldMatch(), Boolean.FALSE);
-    assertEquals(highlights.get(0).noMatchSize(), Integer.valueOf(200));
+        List.of("name", "_search.tier_1.full"));
+    assertNull(highlights.get(0).noMatchSize());
+  }
+
+  @Test
+  public void testV3QueryPrefixMatchesFieldsWithoutSearchTier() {
+    // The owner picker sends no field; usernames and full names have no search tier
+    AutocompleteRequestHandler v3Handler =
+        new AutocompleteRequestHandler(
+            nonMockOpContext,
+            nonMockOpContext.getEntityRegistry().getEntitySpec(CORP_USER_ENTITY_NAME),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            TEST_V3_QUERY_CONFIG,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    BoolQueryBuilder wrapper =
+        (BoolQueryBuilder)
+            ((FunctionScoreQueryBuilder)
+                    v3Handler
+                        .getSearchRequest(
+                            nonMockOpContext, CORP_USER_ENTITY_NAME, "jdo", null, null, 10)
+                        .source()
+                        .query())
+                .query();
+    Map<String, Float> prefixBoosts =
+        ((BoolQueryBuilder) extractNestedQuery(wrapper))
+            .should().stream()
+                .filter(PrefixQueryBuilder.class::isInstance)
+                .map(PrefixQueryBuilder.class::cast)
+                .collect(
+                    Collectors.toMap(
+                        PrefixQueryBuilder::fieldName, PrefixQueryBuilder::boost, (a, b) -> a));
+    assertEquals(prefixBoosts.get("ldap").floatValue(), 2.0f);
+    assertEquals(prefixBoosts.get("fullName").floatValue(), 10.0f);
+  }
+
+  @Test
+  public void testGetBuilderCachesHandlersPerConfiguration() {
+    EntitySpec datasetSpec =
+        nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME);
+    AutocompleteRequestHandler v2Handler = getCachedHandler(datasetSpec, testQueryConfig);
+    AutocompleteRequestHandler v3Handler = getCachedHandler(datasetSpec, TEST_V3_QUERY_CONFIG);
+
+    assertSame(getCachedHandler(datasetSpec, testQueryConfig), v2Handler);
+    assertNotSame(v3Handler, v2Handler);
+    String v2Query =
+        v2Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", null, null, 10)
+            .source()
+            .query()
+            .toString();
+    String v3Query =
+        v3Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", null, null, 10)
+            .source()
+            .query()
+            .toString();
+    assertTrue(v2Query.contains(".ngram"));
+    assertFalse(v3Query.contains(".ngram"));
+    assertTrue(v3Query.contains("_search.tier_1.full"));
+  }
+
+  private AutocompleteRequestHandler getCachedHandler(
+      EntitySpec entitySpec, ElasticSearchConfiguration searchConfiguration) {
+    return AutocompleteRequestHandler.getBuilder(
+        nonMockOpContext,
+        entitySpec,
+        CustomSearchConfiguration.builder().build(),
+        QueryFilterRewriteChain.EMPTY,
+        searchConfiguration,
+        TEST_SEARCH_SERVICE_CONFIG);
   }
 }

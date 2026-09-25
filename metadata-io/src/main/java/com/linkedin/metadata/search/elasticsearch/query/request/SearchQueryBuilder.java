@@ -482,7 +482,7 @@ public class SearchQueryBuilder {
     final boolean isExactQuery = customQueryConfig == null || customQueryConfig.isExactMatchQuery();
 
     if (v3KeywordReadEnabled) {
-      return getV3PrefixAndExactMatchQuery(query, isPrefixQuery, isExactQuery);
+      return getV3PrefixAndExactMatchQuery(entitySpecs, query, isPrefixQuery, isExactQuery);
     }
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
@@ -558,25 +558,52 @@ public class SearchQueryBuilder {
   }
 
   /**
-   * Exact matches on the normalized entity name, tier 1 keyword and urn, plus a phrase prefix on
-   * the tier 1 text. The V3 keywords are normalized, so V2's case-sensitive exact boost has no
-   * equivalent.
+   * A phrase prefix on every tier's text, plus exact matches on the entity name, tier 1 keyword and
+   * urn. The tier keywords are normalized, so only the entity name and urn, which keep case, get
+   * V2's case-sensitive exact boost.
    */
   private Optional<QueryBuilder> getV3PrefixAndExactMatchQuery(
-      String query, boolean isPrefixQuery, boolean isExactQuery) {
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      String query,
+      boolean isPrefixQuery,
+      boolean isExactQuery) {
+    final boolean caseSensitivityEnabled =
+        exactMatchConfiguration.getCaseSensitivityFactor() > 0.0f;
+    final float caseSensitivityFactor =
+        caseSensitivityEnabled ? exactMatchConfiguration.getCaseSensitivityFactor() : 1.0f;
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     if (isPrefixQuery) {
-      finalQuery.should(
-          QueryBuilders.matchPhrasePrefixQuery(V3_TIER_FIELD_PREFIX + "1.full", query)
-              .boost(getV3TierBoost(1) * exactMatchConfiguration.getPrefixFactor()));
+      for (int tier : getV3Tiers(entitySpecs)) {
+        finalQuery.should(
+            QueryBuilders.matchPhrasePrefixQuery(V3_TIER_FIELD_PREFIX + tier + ".full", query)
+                .boost(
+                    getV3TierBoost(tier)
+                        * exactMatchConfiguration.getPrefixFactor()
+                        * caseSensitivityFactor));
+      }
     }
     if (isExactQuery) {
       String unquotedQuery = unquote(query);
-      for (String field : List.of(V3_ENTITY_NAME_FIELD, V3_TIER_FIELD_PREFIX + "1", "urn")) {
+      float exactBoost = getV3TierBoost(1) * exactMatchConfiguration.getExactFactor();
+      finalQuery.should(
+          QueryBuilders.termQuery(V3_TIER_FIELD_PREFIX + "1", unquotedQuery)
+              .caseInsensitive(true)
+              .boost(exactBoost));
+      for (String field : List.of(V3_ENTITY_NAME_FIELD, "urn")) {
+        // Named so an exact urn hit shows as matched on the urn
+        String queryName = "urn".equals(field) ? "urn" : null;
+        if (caseSensitivityEnabled) {
+          finalQuery.should(
+              QueryBuilders.termQuery(field, unquotedQuery)
+                  .caseInsensitive(false)
+                  .boost(exactBoost)
+                  .queryName(queryName));
+        }
         finalQuery.should(
             QueryBuilders.termQuery(field, unquotedQuery)
                 .caseInsensitive(true)
-                .boost(getV3TierBoost(1) * exactMatchConfiguration.getExactFactor()));
+                .boost(exactBoost * caseSensitivityFactor)
+                .queryName(queryName));
       }
     }
     return finalQuery.should().isEmpty()
@@ -584,12 +611,8 @@ public class SearchQueryBuilder {
         : Optional.of(finalQuery.minimumShouldMatch(1));
   }
 
-  /**
-   * Text subfields of every tier the entities' {@code searchTier} annotations copy into, plus the
-   * urn's tier. Boost descends with the tier number (1/N).
-   */
-  private static Map<String, Float> getV3TierTextFields(
-      @Nonnull Collection<EntitySpec> entitySpecs) {
+  /** Tiers the entities' {@code searchTier} annotations copy into, plus the urn's tier. */
+  private static SortedSet<Integer> getV3Tiers(@Nonnull Collection<EntitySpec> entitySpecs) {
     SortedSet<Integer> tiers =
         entitySpecs.stream()
             .flatMap(spec -> spec.getSearchableFieldSpecs().stream())
@@ -597,8 +620,14 @@ public class SearchQueryBuilder {
             .flatMap(Optional::stream)
             .collect(Collectors.toCollection(TreeSet::new));
     tiers.add(V3_URN_SEARCH_TIER);
+    return tiers;
+  }
+
+  /** Text subfields of every V3 tier. Boost descends with the tier number (1/N). */
+  private static Map<String, Float> getV3TierTextFields(
+      @Nonnull Collection<EntitySpec> entitySpecs) {
     Map<String, Float> fields = new LinkedHashMap<>();
-    for (int tier : tiers) {
+    for (int tier : getV3Tiers(entitySpecs)) {
       for (String subfield : List.of("full", "full_stemmed", "full_removed_sep")) {
         fields.put(V3_TIER_FIELD_PREFIX + tier + "." + subfield, getV3TierBoost(tier));
       }
