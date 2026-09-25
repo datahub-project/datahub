@@ -137,6 +137,7 @@
     "document.linkRelatedTooltip": "Linkitä liittyviä kohteita tai kontekstidokumentteja",
     "document.name": "Dokumentti",
     "document.namePlural": "Dokumentit",
+    "document.newDocumentPlaceholder": "Uusi dokumentti",
     "document.noChangeHistoryEmpty": "Ei muutoshistoriaa vielä!",
     "document.noContentPlaceholder": "Ei sisältöä",
     "document.previousVersionTitle": "Edellinen versio",
