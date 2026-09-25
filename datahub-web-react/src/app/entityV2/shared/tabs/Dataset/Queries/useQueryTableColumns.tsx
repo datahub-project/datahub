@@ -31,6 +31,7 @@ interface Props {
     queries: Query[];
     hoveredQueryUrn: string | null;
     showDetails?: boolean;
+    // The antd list still passes these. Editing moved off the card, so the column does not forward them.
     showEdit?: boolean;
     showDelete?: boolean;
     onDeleted?: (query) => void;
@@ -43,8 +44,6 @@ export default function useQueryTableColumns({
     queries,
     hoveredQueryUrn,
     showDetails,
-    showEdit,
-    showDelete,
     onDeleted,
     onEdited,
     sorting,
@@ -87,17 +86,12 @@ export default function useQueryTableColumns({
             return (
                 <div style={{ width: width || 450 }}>
                     <QueryComponent
-                        urn={query.urn}
                         title={query.title || undefined}
                         description={query.description || undefined}
                         query={query.query}
                         createdAtMs={query.createdTime}
-                        showDelete={showDelete}
-                        showEdit={showEdit}
                         showDetails={showDetails}
                         showHeader={false}
-                        onDeleted={() => onDeleted?.(query)}
-                        onEdited={(newQuery) => onEdited?.(newQuery)}
                         isCompact
                     />
                 </div>
