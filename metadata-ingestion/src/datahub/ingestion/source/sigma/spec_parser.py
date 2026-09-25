@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import AbstractSet, Any, Dict, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
 
@@ -8,8 +8,13 @@ _SCHEMA_VERSION = "schemaVersion"
 # The `schemaVersion` this parser was written against. A consumer should
 # distrust a read whose `schema_version` differs.
 SUPPORTED_SCHEMA_VERSION = 1
-# A control's `source` binds its value to a column; it carries no lineage.
+# A control's `source` binds its value to a column; it carries no lineage. Its
+# `controlId` is the name a formula uses to read the control as a parameter.
 _CONTROL_ELEMENT_KIND = "control"
+_CONTROL_ID = "controlId"
+# Sigma's schema requires `source` on a table element; other elements, such as
+# a text box or a control's display, may have none.
+_TABLE_ELEMENT_KIND = "table"
 _ELEMENTS = "elements"
 _COLUMNS = "columns"
 _SOURCE = "source"
@@ -106,16 +111,16 @@ class UnionOutputColumn:
 
 @dataclass(frozen=True)
 class JoinPredicate:
-    """An element-to-element key from a join's ON clause.
+    """A key from a join's ON clause.
 
     ``left.column`` and ``right.column`` are the columns the join matches on.
     A side may transform its column (``[A] + 1``, ``Left([A], 3)``), so this is
     key participation, not value equality; ``expression`` keeps each formula.
     Under an outer join the key holds only on matched rows, so consumers score
-    those edges lower. Pairs are element-to-element: a warehouse-table side is
-    read (it is not drift) but not paired, and whether the consumer wants key
-    edges to warehouse tables is its call. Identical predicates in different
-    joins are not deduplicated.
+    those edges lower. Either side may be a warehouse table (``element_id`` is
+    None, ``connection_id`` and ``path`` set); whether to emit a key edge to
+    one is the consumer's call. Identical predicates in different joins are not
+    deduplicated.
 
     Each side's column belongs to that join entry's own ``left`` / ``right``
     descriptor, including in a chained join. Sigma's schema requires each
@@ -141,20 +146,29 @@ class DataModelSpecIndex:
 
     An element whose shape does not match what this parser expects is reported,
     even when part of it was read: partial drift is the likeliest kind, and a
-    consumer should not mistake it for a complete read.
+    consumer should not mistake it for a complete read. ``drift_detected`` is
+    that judgement in one place.
+
+    ``relationships[]`` is deliberately not read as lineage. A relationship is
+    a declared join that moves no data until a formula uses it as
+    ``[Element/Relationship/Column]``; resolving such a ref needs the
+    relationship's target, which is for the resolver of those refs to index.
     """
 
     pairs: List[JoinPredicate] = field(default_factory=list)
     unions: List[UnionOutputColumn] = field(default_factory=list)
     unreadable_join_element_ids: List[str] = field(default_factory=list)
     unreadable_union_element_ids: List[str] = field(default_factory=list)
-    # Elements whose own shape is not recognised: a source that is not an
-    # object, a missing or blank id or kind, or a kind this parser does not
-    # know. A renamed key shows up here instead of as a clean, empty index.
+    # Elements whose own shape is not recognised, so a renamed key shows up
+    # here instead of as a clean, empty index: by kind for an element with an
+    # id and a kind this parser does not know, and as a bare count for one that
+    # cannot be named (a non-object source, a missing or blank id or kind).
+    unrecognised_kind_element_ids: Dict[str, List[str]] = field(default_factory=dict)
     unrecognised_element_count: int = 0
-    # Every element seen, and those with a source. Zero of either is not a real
-    # Data Model: a renamed `pages` or `source` key would otherwise read as one
-    # with nothing to join.
+    # False when `pages`, or a page's `elements`, is not a list: a renamed key
+    # there would otherwise read as an empty model, which is a real thing.
+    structure_readable: bool = True
+    # Every element seen, and those with a source.
     element_count: int = 0
     sourced_element_count: int = 0
     # Valid Sigma this parser reads but does not map, so the lineage left
@@ -171,11 +185,22 @@ class DataModelSpecIndex:
     def is_supported_schema(self) -> bool:
         return self.schema_version == SUPPORTED_SCHEMA_VERSION
 
+    @property
+    def drift_detected(self) -> bool:
+        """Whether the read should not be trusted as complete.
 
-# `relationships[]` is deliberately not read as lineage. A relationship is a
-# declared join that moves no data until a formula uses it as
-# `[Element/Relationship/Column]`; resolving such a ref needs the relationship's
-# target, which is for the resolver of those refs to index.
+        Unmapped kinds and multi-segment refs are valid Sigma, not drift, and an
+        empty model is a real one; a renamed `pages`, `elements` or `source` key
+        shows up through `structure_readable` and the unrecognised counts.
+        """
+        return bool(
+            self.unreadable_join_element_ids
+            or self.unreadable_union_element_ids
+            or self.unrecognised_kind_element_ids
+            or self.unrecognised_element_count
+            or not self.structure_readable
+            or not self.is_supported_schema
+        )
 
 
 @dataclass(frozen=True)
@@ -202,38 +227,60 @@ class _UnionRead:
     multi_segment_refs: bool = False
 
 
-def _iter_spec_elements(spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+@dataclass
+class _Elements:
+    elements: List[Dict[str, Any]]
+    readable: bool
+
+
+def _iter_spec_elements(spec: Dict[str, Any]) -> _Elements:
     pages = spec.get(_PAGES)
     if not isinstance(pages, list):
-        return []
+        return _Elements(elements=[], readable=False)
     elements: List[Dict[str, Any]] = []
+    readable = True
     for page in pages:
         page_elements = page.get(_ELEMENTS) if isinstance(page, dict) else None
         if not isinstance(page_elements, list):
+            readable = False
             continue
-        elements.extend(e for e in page_elements if isinstance(e, dict))
-    return elements
+        for element in page_elements:
+            if isinstance(element, dict):
+                elements.append(element)
+            else:
+                readable = False
+    return _Elements(elements=elements, readable=readable)
 
 
 def _str_or_none(value: Any) -> Optional[str]:
     return value if isinstance(value, str) and value.strip() else None
 
 
-def _join_side_columns(expression: str) -> Optional[Set[str]]:
+def _element_kind(element: Dict[str, Any]) -> str:
+    kind = element.get(_KIND)
+    return kind.strip().lower() if isinstance(kind, str) else ""
+
+
+def _is_control(element: Dict[str, Any]) -> bool:
+    return _element_kind(element) == _CONTROL_ELEMENT_KIND
+
+
+def _join_side_columns(
+    expression: str, parameters: AbstractSet[str]
+) -> Optional[Set[str]]:
     """The distinct columns a join side's formula references, or None for a
     multi-segment ref, which names a relationship or another element.
 
     Sides are formulas, not identifiers: ``[Col A]`` or ``Coalesce([Col A],
     -2)``. Names are compared exactly, so ``[Key]`` and ``[KEY]`` are two
     columns; Sigma's case rule is unverified, and two is the reading that
-    claims less. A ``P_`` ref is a parameter, but a lone ``[P_KEY]`` would mean
-    joining on a constant, so it is read as a column that starts with ``P_``.
+    claims less. ``parameters`` are the model's control ids: a ref to one is a
+    constant, and any other ref is a column, whatever its name looks like.
     """
     refs = extract_bracket_refs(expression)
     if any(ref.column is not None for ref in refs):
         return None
-    columns = [ref for ref in refs if not ref.is_parameter] or refs
-    return {ref.source for ref in columns}
+    return {ref.source for ref in refs if ref.source not in parameters}
 
 
 def _one_column(names: Optional[Set[str]]) -> Optional[str]:
@@ -241,7 +288,7 @@ def _one_column(names: Optional[Set[str]]) -> Optional[str]:
     return next(iter(names)) if names is not None and len(names) == 1 else None
 
 
-def _owner(descriptor: Any) -> Optional[_Owner]:
+def _owner(descriptor: Any, own_data_model_id: Optional[str]) -> Optional[_Owner]:
     """The owner a join side or union branch descriptor names, or None.
 
     Shapes: ``{elementId, ...}`` in this Data Model, ``{dataModelId, elementId,
@@ -258,6 +305,9 @@ def _owner(descriptor: Any) -> Optional[_Owner]:
         # the key to whatever local element shares the id.
         if _DATA_MODEL_ID in descriptor and data_model_id is None:
             return None
+        # This model's own id names a local element.
+        if data_model_id == own_data_model_id:
+            data_model_id = None
         return _Owner(element_id=element_id, data_model_id=data_model_id)
     # A warehouse table needs both: the consumer builds its URN from them, so a
     # side with only one, or a malformed path, is drift.
@@ -291,7 +341,13 @@ def _column_ref(
     )
 
 
-def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
+def _read_join(
+    join: Any,
+    *,
+    join_element_id: str,
+    parameters: AbstractSet[str],
+    own_data_model_id: Optional[str],
+) -> _JoinRead:
     """One entry of a join element's ``joins``.
 
     Readability is decided on SHAPE, before any formula is resolved: a literal
@@ -303,8 +359,8 @@ def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
         return _JoinRead(predicates=[], readable=False)
     raw_type = join.get(_JOIN_TYPE)
     join_type = raw_type.strip().lower() if isinstance(raw_type, str) else ""
-    left_owner = _owner(join.get(_LEFT))
-    right_owner = _owner(join.get(_RIGHT))
+    left_owner = _owner(join.get(_LEFT), own_data_model_id)
+    right_owner = _owner(join.get(_RIGHT), own_data_model_id)
     entries = join.get(_COLUMNS)
     if (
         join_type not in _KNOWN_JOIN_TYPES
@@ -319,10 +375,11 @@ def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
     readable = True
     multi_segment_refs = False
     for entry in entries:
+        # A side is a required formula, so an empty one is not a literal.
         if (
             not isinstance(entry, dict)
-            or not isinstance(entry.get(_LEFT), str)
-            or not isinstance(entry.get(_RIGHT), str)
+            or _str_or_none(entry.get(_LEFT)) is None
+            or _str_or_none(entry.get(_RIGHT)) is None
         ):
             readable = False
             continue
@@ -340,25 +397,19 @@ def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
             continue
         # A literal or composite side is a well-formed predicate, not a key; a
         # multi-segment one is also recorded, since it may be a key we cannot map.
-        left_names = _join_side_columns(entry[_LEFT])
-        right_names = _join_side_columns(entry[_RIGHT])
+        left_names = _join_side_columns(entry[_LEFT], parameters)
+        right_names = _join_side_columns(entry[_RIGHT], parameters)
         if left_names is None or right_names is None:
             multi_segment_refs = True
         left_column = _one_column(left_names)
         right_column = _one_column(right_names)
         if left_column is None or right_column is None:
             continue
+        # A self-join on one column is not an edge.
+        if (left_owner, left_column) == (right_owner, right_column):
+            continue
         left = _column_ref(left_owner, entry[_LEFT], left_column)
         right = _column_ref(right_owner, entry[_RIGHT], right_column)
-        if not left.element_id or not right.element_id:
-            continue
-        # A self-join on one column is not an edge.
-        if (left.element_id, left.data_model_id, left.column) == (
-            right.element_id,
-            right.data_model_id,
-            right.column,
-        ):
-            continue
         predicates.append(
             JoinPredicate(
                 join_element_id=join_element_id,
@@ -374,7 +425,13 @@ def _read_join(join: Any, *, join_element_id: str) -> _JoinRead:
     )
 
 
-def _read_union(source: Dict[str, Any], *, union_element_id: str) -> _UnionRead:
+def _read_union(
+    source: Dict[str, Any],
+    *,
+    union_element_id: str,
+    parameters: AbstractSet[str],
+    own_data_model_id: Optional[str],
+) -> _UnionRead:
     """A ``union`` element's source.
 
     Shape: ``{"kind": "union", "sources": [<descriptor>, ...],
@@ -387,7 +444,7 @@ def _read_union(source: Dict[str, Any], *, union_element_id: str) -> _UnionRead:
     matches = source.get(_MATCHES)
     if not isinstance(sources, list) or not isinstance(matches, list):
         return _UnionRead(columns=[], readable=False)
-    owners = [_owner(branch) for branch in sources]
+    owners = [_owner(branch, own_data_model_id) for branch in sources]
     # A union with sources but no output columns says nothing about what it
     # produces, like a join with no predicates.
     readable = all(owner is not None for owner in owners) and bool(
@@ -422,13 +479,19 @@ def _read_union(source: Dict[str, Any], *, union_element_id: str) -> _UnionRead:
             # A branch is a data flow, not a key: every column it names feeds
             # the output, and a parameter is a constant it can contribute. No
             # column at all is a branch contributing a constant.
-            refs = [r for r in extract_bracket_refs(formula) if not r.is_parameter]
+            refs = extract_bracket_refs(formula)
             if any(r.column is not None for r in refs):
                 multi_segment_refs = True
             owner = owners[position]
             if owner is None:
                 continue
-            for name in sorted({r.source for r in refs if r.column is None}):
+            names = {
+                r.source
+                for r in refs
+                if r.column is None and r.source not in parameters
+            }
+            # Sorted, not formula order: set order would depend on the hash seed.
+            for name in sorted(names):
                 branches.append(
                     _column_ref(owner, formula, name, source_index=position)
                 )
@@ -464,16 +527,28 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
     version = spec.get(_SCHEMA_VERSION)
     if isinstance(version, int) and not isinstance(version, bool):
         index.schema_version = version
+    own_data_model_id = _str_or_none(spec.get(_DATA_MODEL_ID))
+    walked = _iter_spec_elements(spec)
+    index.structure_readable = walked.readable
+    elements = walked.elements
+    parameters = frozenset(
+        control_id
+        for element in elements
+        if _is_control(element)
+        for control_id in [_str_or_none(element.get(_CONTROL_ID))]
+        if control_id
+    )
 
-    for element in _iter_spec_elements(spec):
+    for element in elements:
         index.element_count += 1
         # An element with no source (a text box) has no lineage, nor does a
         # control, whose source only binds its value to a column.
-        element_kind = element.get(_KIND)
-        if _SOURCE not in element or (
-            isinstance(element_kind, str)
-            and element_kind.strip().lower() == _CONTROL_ELEMENT_KIND
-        ):
+        if _is_control(element):
+            continue
+        if _SOURCE not in element:
+            # A text box has no source; a table element always does.
+            if _element_kind(element) == _TABLE_ELEMENT_KIND:
+                index.unrecognised_element_count += 1
             continue
         index.sourced_element_count += 1
         source = element.get(_SOURCE)
@@ -487,7 +562,12 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
             index.unrecognised_element_count += 1
             continue
         if kind == _UNION_KIND:
-            union = _read_union(source, union_element_id=element_id)
+            union = _read_union(
+                source,
+                union_element_id=element_id,
+                parameters=parameters,
+                own_data_model_id=own_data_model_id,
+            )
             index.unions.extend(union.columns)
             if union.multi_segment_refs:
                 index.multi_segment_ref_element_ids.append(element_id)
@@ -502,7 +582,12 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
             readable = True
             multi_segment_refs = False
             for join in joins:
-                read = _read_join(join, join_element_id=element_id)
+                read = _read_join(
+                    join,
+                    join_element_id=element_id,
+                    parameters=parameters,
+                    own_data_model_id=own_data_model_id,
+                )
                 index.pairs.extend(read.predicates)
                 readable = readable and read.readable
                 multi_segment_refs = multi_segment_refs or read.multi_segment_refs
@@ -513,5 +598,5 @@ def parse_data_model_spec(spec: Optional[Dict[str, Any]]) -> DataModelSpecIndex:
         elif kind in _UNMAPPED_KINDS:
             index.unmapped_element_ids.setdefault(kind, []).append(element_id)
         elif kind not in _SINGLE_SOURCE_KINDS:
-            index.unrecognised_element_count += 1
+            index.unrecognised_kind_element_ids.setdefault(kind, []).append(element_id)
     return index

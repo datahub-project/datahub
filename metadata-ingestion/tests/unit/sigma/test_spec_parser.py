@@ -258,10 +258,10 @@ def test_a_side_wrapped_in_a_function_is_still_a_key_equality() -> None:
         ("If(IsNull([Key]), -1, [Key])", "Key"),
         # Key participation, not value equality.
         ("[A] + 1", "A"),
-        # A parameter beside a column is a constant...
-        ("[A] + [P_offset]", "A"),
-        # ...but a lone P_ ref would be joining on a constant, so it is a column.
+        # With no control of that name, a `P_` ref is a column like any other...
         ("[P_KEY]", "P_KEY"),
+        # ...so beside another column it is two columns, not a key.
+        ("[A] + [P_offset]", None),
         ("[A] = [B]", None),
         ("42", None),
         ("[A] = [Other/B]", None),
@@ -412,12 +412,55 @@ def test_a_multi_segment_side_is_recorded_beside_a_clean_join(first: bool) -> No
     assert index.multi_segment_ref_element_ids == ["el-x"]
 
 
-def test_a_warehouse_side_is_read_but_yields_no_pair() -> None:
+def test_a_warehouse_side_is_a_pair_the_consumer_can_map() -> None:
+    """The consumer decides whether to emit a key edge to a warehouse table,
+    so the pair must reach it, with the table's identity."""
     index = _parse_join(
         _one_join([{"left": "[SOME_COL]", "right": _RIGHT_EXPR}], left=_WAREHOUSE_SIDE)
     )
+    pair = index.pairs[0]
+    assert (pair.left.element_id, pair.left.connection_id, pair.left.path) == (
+        None,
+        "conn-1",
+        ("DB", "SCHEMA", "TABLE"),
+    )
+    assert (pair.right.element_id, pair.right.column) == ("el-right", "Col B")
+    assert index.unreadable_join_element_ids == []
+
+
+def test_two_warehouse_tables_on_one_column_are_not_a_self_join() -> None:
+    other = {**_WAREHOUSE_SIDE, "path": ["DB", "SCHEMA", "OTHER"]}
+    index = _parse_join(
+        _one_join([{"left": "[K]", "right": "[K]"}], left=_WAREHOUSE_SIDE, right=other)
+    )
+    assert len(index.pairs) == 1
+
+
+def test_the_models_own_data_model_id_names_a_local_element() -> None:
+    """Otherwise a self-join would look cross-model and be emitted."""
+    own = {**_ELEMENT_SIDE_L, "dataModelId": "dm-self"}
+    spec = _spec(_join_source(_one_join([{"left": "[K]", "right": "[K]"}], right=own)))
+    spec["dataModelId"] = "dm-self"
+    index = parse_data_model_spec(spec)
     assert index.pairs == []
     assert index.unreadable_join_element_ids == []
+
+
+@pytest.mark.parametrize("side", ["", "   "], ids=["empty", "blank"])
+def test_an_empty_join_side_is_drift_not_a_literal(side: str) -> None:
+    """A side is a required formula."""
+    index = _parse_join(_one_join([{"left": side, "right": "[B]"}]))
+    assert index.pairs == []
+    assert index.unreadable_join_element_ids == ["el-x"]
+
+
+def test_a_cross_join_is_read_but_yields_no_pair() -> None:
+    """Sigma builds a cross join with a `True = True` key: no column, no drift."""
+    spec = _spec(_join_source(_one_join([{"left": "True", "right": "True"}])))
+    spec["schemaVersion"] = 1
+    index = parse_data_model_spec(spec)
+    assert index.pairs == []
+    assert not index.drift_detected
 
 
 def test_multiple_joins_and_multi_column_predicates() -> None:
@@ -511,12 +554,14 @@ def test_a_source_with_no_usable_kind_is_counted(kind: Any) -> None:
 def test_an_unknown_source_kind_is_counted_not_assumed_single_source(
     kind: str,
 ) -> None:
-    """A renamed "join" would otherwise stop every join with nothing reported."""
+    """A renamed "join" would otherwise stop every join with nothing reported.
+    Named by kind, so the report says which elements and which kind."""
     source = _join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}]))
     source["kind"] = kind
     index = parse_data_model_spec(_spec(source))
     assert index.pairs == []
-    assert index.unrecognised_element_count == 1
+    assert index.unrecognised_kind_element_ids == {kind: ["el-x"]}
+    assert index.drift_detected
 
 
 @pytest.mark.parametrize(
@@ -824,11 +869,29 @@ def test_a_constant_branch_is_not_drift() -> None:
     assert index.unreadable_union_element_ids == []
 
 
-def test_a_lone_parameter_in_a_union_branch_stays_a_parameter() -> None:
-    """A branch can contribute a parameter's value; only a join key cannot."""
-    index = _parse_union(_union([_el("el-a"), _el("el-b")], ["[P_Region]", "[r]"]))
-    assert _branches(index.unions[0]) == [("el-b", "r")]
+def _with_control(spec: Dict[str, Any], control_id: str) -> Dict[str, Any]:
+    spec["pages"][0]["elements"].append(
+        {"id": f"ctrl-{control_id}", "kind": "control", "controlId": control_id}
+    )
+    return spec
+
+
+@pytest.mark.parametrize("declared", [True, False], ids=["control", "no-control"])
+def test_a_parameter_is_a_declared_control_in_a_union(declared: bool) -> None:
+    """Sigma names a parameter by its control's `controlId`, not by a prefix."""
+    spec = _spec(_union([_el("el-a"), _el("el-b")], ["[Region]", "[r]"]), "el-union")
+    index = parse_data_model_spec(_with_control(spec, "Region") if declared else spec)
+    expected = [("el-b", "r")] if declared else [("el-a", "Region"), ("el-b", "r")]
+    assert _branches(index.unions[0]) == expected
     assert index.unreadable_union_element_ids == []
+
+
+@pytest.mark.parametrize("declared", [True, False], ids=["control", "no-control"])
+def test_a_parameter_is_a_declared_control_on_a_join_side(declared: bool) -> None:
+    """The same rule as a union: a declared control is a constant beside a key."""
+    spec = _spec(_join_source(_one_join([{"left": "[A] + [Offset]", "right": "[B]"}])))
+    index = parse_data_model_spec(_with_control(spec, "Offset") if declared else spec)
+    assert [p.left.column for p in index.pairs] == (["A"] if declared else [])
 
 
 def test_two_warehouse_branches_stay_distinct() -> None:
@@ -945,3 +1008,70 @@ def test_a_declared_relationship_is_not_lineage() -> None:
     index = parse_data_model_spec(spec)
 
     assert len(index.pairs) == 1
+
+
+def test_an_empty_model_is_not_drift() -> None:
+    """A real, freshly created Data Model: one page, no elements."""
+    spec = {
+        "schemaVersion": 1,
+        "pages": [{"id": "p1", "name": "Page 1", "elements": []}],
+    }
+    index = parse_data_model_spec(spec)
+    assert (index.element_count, index.structure_readable) == (0, True)
+    assert not index.drift_detected
+
+
+def test_a_text_element_without_a_source_is_not_drift() -> None:
+    spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
+    spec["schemaVersion"] = 1
+    spec["pages"][0]["elements"].append({"id": "txt-1", "kind": "text"})
+    assert not parse_data_model_spec(spec).drift_detected
+
+
+def test_a_clean_read_is_not_drift() -> None:
+    spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
+    spec["schemaVersion"] = 1
+    assert not parse_data_model_spec(spec).drift_detected
+
+
+@pytest.mark.parametrize(
+    "break_it",
+    [
+        lambda s: s["pages"][0]["elements"][2]["source"].update(kind="join-v2"),
+        lambda s: s["pages"][0]["elements"][2]["source"].update(joins="x"),
+        lambda s: s["pages"][0]["elements"][2].update(id=""),
+        lambda s: s.update(schemaVersion=2),
+        lambda s: s.update(sheets=s.pop("pages")),
+        lambda s: s["pages"][0].update(items=s["pages"][0].pop("elements")),
+        lambda s: [e.update(src=e.pop("source")) for e in s["pages"][0]["elements"]],
+    ],
+    ids=[
+        "unknown-kind",
+        "unreadable-join",
+        "no-id",
+        "schema",
+        "renamed-pages",
+        "renamed-elements",
+        "renamed-source",
+    ],
+)
+def test_every_drift_signal_sets_drift_detected(break_it: Any) -> None:
+    spec = _spec(_join_source(_one_join([{"left": _LEFT_EXPR, "right": _RIGHT_EXPR}])))
+    spec["schemaVersion"] = 1
+    break_it(spec)
+    assert parse_data_model_spec(spec).drift_detected
+
+
+def test_valid_but_unmapped_sigma_is_not_drift() -> None:
+    """A transpose and a relationship ref are recorded, not treated as drift."""
+    spec = _spec(
+        _union([_el("el-a"), _el("el-b")], ["[A] + [Rel/Col]", "[C]"]), "el-union"
+    )
+    spec["schemaVersion"] = 1
+    spec["pages"][0]["elements"].append(
+        {"id": "el-t", "source": {"kind": "transpose", "source": dict(_WAREHOUSE_SIDE)}}
+    )
+    index = parse_data_model_spec(spec)
+    assert index.multi_segment_ref_element_ids == ["el-union"]
+    assert index.unmapped_element_ids == {"transpose": ["el-t"]}
+    assert not index.drift_detected
