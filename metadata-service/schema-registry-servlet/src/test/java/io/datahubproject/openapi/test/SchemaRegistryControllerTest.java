@@ -33,6 +33,10 @@ import com.linkedin.platform.event.v1.EntityChangeEvent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.ServerSocket;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -130,6 +134,25 @@ public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTes
   private <T> AtomicReference<T> getReference(String messageKey) {
     return (AtomicReference<T>)
         references.computeIfAbsent(messageKey, k -> new AtomicReference<>());
+  }
+
+  @Test
+  public void testAssociationsByResourceNameReturnsEmptyListNot404()
+      throws IOException, InterruptedException {
+    HttpClient client = HttpClient.newHttpClient();
+    HttpRequest request =
+        HttpRequest.newBuilder()
+            .uri(
+                URI.create(
+                    "http://localhost:"
+                        + SERVER_PORT
+                        + "/schema-registry/api/associations/resources/-/MetadataChangeLog_Versioned_v1"))
+            .header("Accept", "application/json")
+            .GET()
+            .build();
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    assertEquals(response.statusCode(), 200);
+    assertEquals(response.body().trim(), "[]");
   }
 
   @Test
