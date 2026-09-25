@@ -53,5 +53,9 @@ export const useGetStatsData = () => {
         totalOperations,
         users,
         isSiblingsMode,
+        partitionSpec: latestProfile?.partitionSpec,
+        profileTimestampMillis: latestProfile?.timestampMillis as number | undefined,
+        latestFullTableProfileTime: latestFullTableProfile?.timestampMillis as number | undefined,
+        latestPartitionProfileTime: latestPartitionProfile?.timestampMillis as number | undefined,
     };
 };

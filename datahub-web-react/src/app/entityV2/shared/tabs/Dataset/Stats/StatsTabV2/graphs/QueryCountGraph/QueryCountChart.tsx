@@ -98,6 +98,7 @@ const QueryCountChart = () => {
             )}
             loading={loading}
             isEmpty={chartData.length === 0 || !canViewDatasetUsage}
+            emptyMessage={t('graph.emptyInSelectedRange')}
             emptyContent={!canViewDatasetUsage && <NoPermission statName={t('queryCountChart.statName')} />}
             moreInfoModalContent={<MoreInfoModalContent />}
         />
