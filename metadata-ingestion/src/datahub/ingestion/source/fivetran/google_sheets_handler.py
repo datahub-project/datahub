@@ -195,15 +195,6 @@ class GoogleSheetsConnectorHandler:
                 )
             return
 
-        # Fivetran does not expose the Google workbook or tab title — only
-        # the spreadsheet ID, which is opaque. The named range is the
-        # user-created name in Google Sheets. Use a human-readable
-        # Fivetran connection name for the spreadsheet label and for
-        # named-range browse folders. When several connections sync the
-        # same spreadsheet, pick the lexicographically smallest
-        # connection name so the shared dataset does not flip with
-        # ingest order. URNs stay ID-based so lineage stays stable
-        # across renames.
         connection_name = self._human_readable_name(connector)
         self._record_sheet_connection(sheet_id, connector, connector.connector_id)
         sheet_display_name, sheet_connector_id = self._stable_sheet_label(

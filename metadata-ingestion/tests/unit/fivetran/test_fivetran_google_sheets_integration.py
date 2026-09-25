@@ -6,6 +6,7 @@ import pytest
 import requests
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.fivetran.config import (
     Constant,
     FivetranAPIConfig,
@@ -139,6 +140,68 @@ class TestFivetranGoogleSheetsIntegration:
         assert len(gsheets_datasets) == 2
         display_names = {ds.display_name for ds in gsheets_datasets}
         assert display_names == {"Google Sheets Test", "Test_Range"}
+
+    def test_get_workunits_internal_shared_sheet_uses_min_connection_name(
+        self, make_connection_details
+    ):
+        sheet_url = (
+            "https://docs.google.com/spreadsheets/d/shared_sheet_abc/edit?gid=0#gid=0"
+        )
+        budget = Connector(
+            connector_id="c_budget",
+            connector_name="sales.budget",
+            connector_type=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+            paused=False,
+            sync_frequency=360,
+            destination_id="test_destination",
+            user_id="test_user",
+            lineage=[],
+            jobs=[],
+        )
+        actuals = Connector(
+            connector_id="c_actuals",
+            connector_name="sales.actuals",
+            connector_type=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
+            paused=False,
+            sync_frequency=360,
+            destination_id="test_destination",
+            user_id="test_user",
+            lineage=[],
+            jobs=[],
+        )
+
+        def _details(connection_id: str) -> FivetranConnectionDetails:
+            named_range = "Budget" if connection_id == "c_budget" else "Actuals"
+            return make_connection_details(
+                connector_id=connection_id,
+                sheet_id=sheet_url,
+                named_range=named_range,
+            )
+
+        self.mock_api_client.get_connection_details_by_id.side_effect = _details
+        self.source.log_reader.get_allowed_connectors_list.return_value = [
+            budget,
+            actuals,
+        ]
+
+        workunits = list(self.source.get_workunits_internal())
+        sheets = [
+            wu
+            for wu in workunits
+            if isinstance(wu, Dataset) and wu.subtype == DatasetSubTypes.GOOGLE_SHEETS
+        ]
+        ranges = [
+            wu
+            for wu in workunits
+            if isinstance(wu, Dataset)
+            and wu.subtype == DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE
+        ]
+        assert len(sheets) == 2
+        assert {sheet.display_name for sheet in sheets} == {"sales.actuals"}
+        assert {named_range.display_name for named_range in ranges} == {
+            "Budget",
+            "Actuals",
+        }
 
     def test_google_sheets_lineage_generation(self, make_connection_details):
         """Test lineage generation for Google Sheets connectors."""
