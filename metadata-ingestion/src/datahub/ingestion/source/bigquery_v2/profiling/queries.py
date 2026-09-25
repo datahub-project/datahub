@@ -10,7 +10,6 @@
 # Profiling SELECT fragments, shared by the inline (internal) and deferred (external)
 # custom_sql paths so they cannot drift apart.
 SELECT_ALL = "SELECT * FROM {table_ref}"
-TABLESAMPLE_SYSTEM = "TABLESAMPLE SYSTEM ({sample_percent:.8f} PERCENT)"
 WHERE_CLAUSE = "WHERE {where}"
 LIMIT_CLAUSE = "LIMIT {limit}"
 
