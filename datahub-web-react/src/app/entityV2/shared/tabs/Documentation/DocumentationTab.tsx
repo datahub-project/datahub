@@ -107,7 +107,7 @@ export const DocumentationTab = ({ properties }: { properties?: Props }) => {
                             />
                         </div>
                     </StyledTabToolbar>
-                    <div>
+                    <div data-testid="documentation-tab-content">
                         {displayedDescription ? (
                             [
                                 <Editor

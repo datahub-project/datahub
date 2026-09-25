@@ -13,12 +13,16 @@ import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/as
 
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 
-vi.mock('antd', () => ({
-    message: {
-        success: vi.fn(),
-        error: vi.fn(),
-    },
-}));
+vi.mock('antd', async (importOriginal) => {
+    const original = await importOriginal<any>();
+    return {
+        ...original,
+        message: {
+            success: vi.fn(),
+            error: vi.fn(),
+        },
+    };
+});
 
 vi.mock('react-router', () => ({
     useLocation: vi.fn(),
@@ -144,7 +148,7 @@ describe('useAssertionURNCopyLink', () => {
         });
 
         const expectedUrl = new URL(window.location.href);
-        expectedUrl.searchParams.set('assertion_urn', encodeURIComponent(TEST_URN));
+        expectedUrl.searchParams.set('assertion_urn', TEST_URN);
         expect(mockWriteText).toHaveBeenCalledWith(expectedUrl.href);
     });
 
