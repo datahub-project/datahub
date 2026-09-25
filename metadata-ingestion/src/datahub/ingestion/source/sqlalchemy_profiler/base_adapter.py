@@ -10,7 +10,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnClause, ColumnElement, Label
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -130,12 +130,10 @@ class PlatformAdapter(ABC):
     This design keeps all platform-specific code in one place per platform,
     making the codebase easier to understand and maintain.
 
-    Some methods (eg `get_column_max`, `get_column_min`, etc) return `Any` to preserve native
-    type formatting to match GE behavior.
-    Instead, this `PlatformAdapter` should be more opinionated on the expected data type for those methods, so:
-     - we can have consistent formatting across different sources
-     - no complex formatting depending on native data types, as we currently do in `sqlalchemy_profiler.py`
-       in order to match GE profiler
+    Some methods (eg `get_column_max`, `get_column_min`, etc) return `Any` because
+    database drivers return different native types (int, float, Decimal, etc.).
+    Formatting is handled centrally by `format_profile_value` in
+    `sqlalchemy_profiler.py`, which applies consistent rules by column type.
     """
 
     def __init__(
@@ -331,8 +329,7 @@ class PlatformAdapter(ABC):
           - prevents precision loss on MySQL/Doris (which return DECIMAL(N,4) for
             AVG over integer columns without the cast).
 
-        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Redshift adapter
-        overrides this with an explicit CAST for full precision.
+        Redshift adapter overrides this with an explicit CAST for full precision.
 
         Args:
             column: Column name
@@ -492,8 +489,8 @@ class PlatformAdapter(ABC):
         """
         Get average value for a column.
 
-        Returns the raw database result to preserve native type formatting
-        (e.g., DECIMAL precision) to match GE behavior.
+        Returns the raw database result; formatting is handled by
+        `format_profile_value` in `sqlalchemy_profiler.py`.
 
         Args:
             table: SQLAlchemy table object
@@ -509,7 +506,6 @@ class PlatformAdapter(ABC):
 
         result = conn.execute_aggregate(table, avg_expr).scalar()
 
-        # Return raw result to preserve database-native formatting (like GE does)
         return result
 
     def get_column_stdev(
@@ -525,9 +521,8 @@ class PlatformAdapter(ABC):
           - multiple rows but all-equal: zero variance → return 0.0
           - all-null column: dialect-specific (most return None, Redshift returns 0.0)
         """
-        # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
-        # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
-        # explicitly keeps semantics consistent across dialects.
+        # Some dialects' bare `stddev()` defaults to STDDEV_POP (MySQL, Doris) —
+        # calling stddev_samp explicitly keeps semantics consistent across dialects.
         result = conn.execute_aggregate(
             table, sa.func.stddev_samp(sa.column(column))
         ).scalar()
@@ -546,8 +541,8 @@ class PlatformAdapter(ABC):
     def get_stdev_null_value(self) -> Optional[Any]:
         """
         Value to return when stddev_samp returns NULL and the column has no
-        non-null values. Most dialects return None (matches GE for all-null
-        columns); Redshift returns 0.0 (it returns 0.0 from STDDEV on all-null).
+        non-null values. Most dialects return None; Redshift returns 0.0
+        (it returns 0.0 from STDDEV on all-null).
         """
         return None
 
@@ -608,8 +603,8 @@ class PlatformAdapter(ABC):
                     f"falling back to OFFSET/LIMIT in Python: {e}"
                 )
 
-        # Python-side fallback (mirrors GE's get_column_median for dialects
-        # without a native MEDIAN function: MySQL, Doris, etc.).
+        # Python-side fallback for dialects without a native MEDIAN function
+        # (MySQL, Doris, etc.).
         non_null_count = self.get_column_non_null_count(table, column, conn)
         if non_null_count == 0:
             return None
@@ -735,11 +730,9 @@ class PlatformAdapter(ABC):
         if min_val is None or max_val is None:
             return []
 
-        # Constant column: GE's expect_column_kl_divergence_to_be_less_than fails when
-        # min == max (zero variance), and the surrounding try/except in
-        # ge_data_profiler.py results in no histogram being emitted. Match that:
-        # emit nothing rather than a degenerate 10-bucket histogram where bucket 0
-        # holds all rows and buckets 1-9 are empty.
+        # Constant column: when min == max (zero variance), emit nothing rather
+        # than a degenerate 10-bucket histogram where bucket 0 holds all rows
+        # and buckets 1-9 are empty.
         if max_val == min_val:
             return []
 
@@ -847,15 +840,14 @@ class PlatformAdapter(ABC):
         """
         Get all distinct non-null values with their counts, sorted by value in Python.
 
-        Mirrors the GE profiler's `_get_dataset_column_distinct_value_frequencies`
-        query structure intentionally:
+        The query structure is intentional:
           - `WHERE col IS NOT NULL` filters nulls and (importantly) changes
             predicate pushdown for the Trino JDBC connector so the GROUP BY runs
             Trino-side, where Trino's JSON type supports GROUP BY. Without this
             clause Trino pushes the whole query down to PostgreSQL, which fails
             on `GROUP BY <json column>` because Postgres `json` has no equality
             operator.
-          - `COUNT(<col>)` instead of `COUNT(*)` matches GE's projection exactly.
+          - `COUNT(<col>)` instead of `COUNT(*)` excludes nulls from the count.
           - Sorting is done in Python after fetch because not all column types
             (Trino/Athena JSON) are orderable in SQL.
         """
@@ -896,8 +888,7 @@ class PlatformAdapter(ABC):
         """
         Get actual sample rows from the table (not distinct values).
 
-        This matches GE profiler behavior which uses expect_column_values_to_be_in_set
-        with an empty set to get actual sample rows with duplicates.
+        Returns actual sample rows (not distinct values), which may contain duplicates.
 
         Args:
             table: SQLAlchemy table object

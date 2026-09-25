@@ -1,4 +1,5 @@
-import { get, set } from 'lodash';
+import get from 'lodash/get';
+import set from 'lodash/set';
 import React from 'react';
 
 import dayjs from '@utils/dayjs';

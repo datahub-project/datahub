@@ -484,13 +484,19 @@ public class PolicyEngine {
     }
   }
 
-  // Try numeric comparison first (for doubles); fall back to string comparison
   private boolean structuredPropertyValuesMatch(String resourceValue, String criterionValue) {
-    if (resourceValue.equals(criterionValue)) {
-      return true;
+    // Check if resource value is a double (prefixed with "DOUBLE:")
+    boolean isDouble = resourceValue.startsWith("DOUBLE:");
+    String normalizedValue = isDouble ? resourceValue.substring(7) : resourceValue;
+
+    // For non-double values: exact string match only
+    if (!isDouble) {
+      return normalizedValue.equals(criterionValue);
     }
+
+    // For double values: numeric comparison
     try {
-      return Double.compare(Double.parseDouble(resourceValue), Double.parseDouble(criterionValue))
+      return Double.compare(Double.parseDouble(normalizedValue), Double.parseDouble(criterionValue))
           == 0;
     } catch (NumberFormatException e) {
       return false;
@@ -775,10 +781,6 @@ public class PolicyEngine {
 
     public Map<String, String> getReasonOfDeny() {
       return this.reasonOfDeny;
-    }
-
-    public static PolicyGrantedPrivileges empty() {
-      return new PolicyGrantedPrivileges(Collections.emptyList(), Collections.emptyMap());
     }
   }
 

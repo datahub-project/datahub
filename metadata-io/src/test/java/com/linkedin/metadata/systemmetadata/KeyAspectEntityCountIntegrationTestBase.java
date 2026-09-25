@@ -54,7 +54,9 @@ public abstract class KeyAspectEntityCountIntegrationTestBase
 
   @BeforeClass
   public void setup() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(), getSearchClient());
     systemMetadataService = buildSystemMetadataService();
     keyAspectEntityCountService = buildKeyAspectEntityCountService();
     systemMetadataService.reindexAll(operationContext, Collections.emptySet());

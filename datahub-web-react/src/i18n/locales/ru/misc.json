@@ -181,6 +181,8 @@
     "metrics.homeEmptyTitle": "Метрики пока не загружены",
     "metrics.homeEmptyDescription": "Как только метрики и семантические модели будут загружены из вашей платформы данных, они появятся здесь.",
     "metrics.homeEmptyAction": "Загрузить метрики",
+    "metrics.homeEmptyLearnMore": "Узнать больше",
+    "metrics.homeEmptyMigrationHint": "Уже загружаете Snowflake Semantic Views? <anchor>Как перенести их</anchor> на новую модель.",
     "mfeframework.disabledError": "{{label}} отключено.",
     "mfeframework.notAvailableError": "{{label}} сейчас недоступно",
     "tags.appliedToEntityCount_one": "{{count}} объект",

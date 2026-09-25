@@ -511,6 +511,7 @@ public class GmsGraphQLEngine {
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
   private final SemanticSearchConfiguration semanticSearchConfiguration;
+  private final boolean entityIndexV3Enabled;
 
   private final DatasetType datasetType;
 
@@ -663,6 +664,7 @@ public class GmsGraphQLEngine {
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
     this.semanticSearchConfiguration = args.semanticSearchConfiguration;
+    this.entityIndexV3Enabled = args.entityIndexV3Enabled;
 
     this.datasetType = new DatasetType(entityClient);
     this.roleType = new RoleType(entityClient);
@@ -1156,7 +1158,8 @@ public class GmsGraphQLEngine {
                         this.objectStorageClient != null
                             && this.objectStorageClient.isConfigured()
                             && this.objectStorageClient.supportsPresignedUrls(),
-                        this.semanticSearchConfiguration))
+                        this.semanticSearchConfiguration,
+                        this.entityIndexV3Enabled))
                 .dataFetcher(
                     "latestProductUpdate",
                     new ProductUpdateResolver(
@@ -2332,8 +2335,8 @@ public class GmsGraphQLEngine {
                     new EntityTypeResolver(
                         entityTypes,
                         (env) ->
-                            Optional.ofNullable((Dataset) env.getSource())
-                                .map(Dataset::getLogicalParent)
+                            Optional.ofNullable((SchemaFieldEntity) env.getSource())
+                                .map(SchemaFieldEntity::getLogicalParent)
                                 .orElse(null)))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
