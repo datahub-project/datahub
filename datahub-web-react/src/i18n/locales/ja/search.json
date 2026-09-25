@@ -83,6 +83,7 @@
     "filters.incidents.hasActiveLabel": "アクティブなIncidentがある",
     "filters.incidents.hasResolvedLabel": "解決済みのIncidentがある",
     "filters.incidents.title": "Incident",
+    "filters.moreCount_zero": "もっと見る",
     "filters.moreCount_other": "もっと見る（{{count}}）",
     "filters.pluralizedTypeLabel": "{{type}}",
     "filters.searchFor": "{{name}}を検索",

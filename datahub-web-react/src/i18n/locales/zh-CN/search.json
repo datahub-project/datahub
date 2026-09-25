@@ -83,6 +83,7 @@
     "filters.incidents.hasActiveLabel": "存在活跃事件",
     "filters.incidents.hasResolvedLabel": "存在已解决事件",
     "filters.incidents.title": "事件",
+    "filters.moreCount_zero": "更多",
     "filters.moreCount_other": "更多（{{count}}）",
     "filters.pluralizedTypeLabel": "{{type}}",
     "filters.searchFor": "搜索{{name}}",
