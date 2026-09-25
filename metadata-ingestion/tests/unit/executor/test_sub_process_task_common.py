@@ -1114,7 +1114,7 @@ def test_the_last_used_stamp_happens_while_the_entry_is_still_held(
     venv_loc = tmp_path / "venv-demo"
     venv_loc.mkdir()
     lock = EntryLock(tmp_path / "venv-demo.lock")
-    assert lock.acquire(exclusive=False)
+    assert lock.try_acquire(exclusive=False).ok
 
     venv_ref = Mock()
     venv_ref.venv_loc = str(venv_loc)

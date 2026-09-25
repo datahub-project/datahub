@@ -5,6 +5,7 @@ Everything here answers a question about a venv without touching one. Anything
 with a side effect belongs in venv_cache.
 """
 
+import dataclasses
 import enum
 import hashlib
 import logging
@@ -23,6 +24,15 @@ VENV_VERSION_NATIVE = "native"
 VENV_NO_DATAHUB = "NO_ACRYL_DATAHUB"
 
 _DEV_BUILD_SCHEMES = ("http://", "https://")
+
+
+@dataclasses.dataclass(frozen=True)
+class CacheName:
+    """The cache identity of one venv: what to call it and how to treat it."""
+
+    name: str
+    cacheable: bool
+    moving: bool
 
 
 class VenvKind(enum.Enum):

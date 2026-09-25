@@ -77,7 +77,7 @@ _EXECUTOR = textwrap.dedent(
 
     lock_path, venv_loc, wrapper_pid_file, cli_ready = sys.argv[1:5]
     lock = EntryLock(pathlib.Path(lock_path))
-    if not lock.acquire(exclusive=False):
+    if not lock.try_acquire(exclusive=False).ok:
         sys.exit("could not take the entry SHARED")
     ref = VenvReference(
         venv_loc=pathlib.Path(venv_loc),
@@ -145,7 +145,7 @@ def _read_pid(path: pathlib.Path, executor: subprocess.Popen) -> int:
 def _peer_can_take_exclusive(lock_path: pathlib.Path) -> bool:
     """Whether an evictor could take this entry right now."""
     peer = EntryLock(lock_path)
-    if peer.acquire(exclusive=True):
+    if peer.try_acquire(exclusive=True).ok:
         peer.release()
         return True
     return False

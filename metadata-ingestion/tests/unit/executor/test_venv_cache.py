@@ -18,7 +18,11 @@ from unittest import mock
 import pytest
 
 from datahub.executor.execution import venv_cache, venv_utils
-from datahub.executor.execution.venv_cache import EntryLock, evict_stale_entries
+from datahub.executor.execution.venv_cache import (
+    EntryLock,
+    LockOutcome,
+    evict_stale_entries,
+)
 
 
 def _open_fd_count() -> int:
@@ -45,13 +49,13 @@ def test_two_locks_on_one_entry_do_not_both_get_it_exclusively(
     first = EntryLock(lock_path)
     second = EntryLock(lock_path)
 
-    assert first.acquire(exclusive=True)
+    assert first.try_acquire(exclusive=True).ok
     try:
-        assert not second.acquire(exclusive=True)
+        assert not second.try_acquire(exclusive=True).ok
     finally:
         first.release()
 
-    assert second.acquire(exclusive=True)
+    assert second.try_acquire(exclusive=True).ok
     second.release()
 
 
@@ -64,9 +68,9 @@ def test_a_shared_holder_blocks_an_exclusive_taker(
     user = EntryLock(lock_path)
     evictor = EntryLock(lock_path)
 
-    assert user.acquire(exclusive=False)
+    assert user.try_acquire(exclusive=False).ok
     try:
-        assert not evictor.acquire(exclusive=True)
+        assert not evictor.try_acquire(exclusive=True).ok
     finally:
         user.release()
 
@@ -78,18 +82,18 @@ def test_downgrade_lets_an_evictor_be_refused_but_a_reader_in(
     so it keeps eviction out without keeping other runs out."""
     lock_path = tmp_path / "entry.lock"
     builder = EntryLock(lock_path)
-    assert builder.acquire(exclusive=True)
+    assert builder.try_acquire(exclusive=True).ok
 
     assert builder.downgrade_to_shared()
     reader = EntryLock(lock_path)
     try:
-        assert reader.acquire(exclusive=False)
+        assert reader.try_acquire(exclusive=False).ok
         # Released before the next assertion, otherwise the test's OWN shared
         # hold is what refuses the evictor and the assertion passes even if
         # downgrade_to_shared were replaced by a plain release() -- exactly
         # the regression the sibling test exists to catch.
         reader.release()
-        assert not EntryLock(lock_path).acquire(exclusive=True)
+        assert not EntryLock(lock_path).try_acquire(exclusive=True).ok
     finally:
         reader.release()
         builder.release()
@@ -108,7 +112,7 @@ def test_a_lost_downgrade_reports_failure_instead_of_a_phantom_hold(
     in-process, so the refusal itself is injected.
     """
     lock = EntryLock(tmp_path / "entry.lock")
-    assert lock.acquire(exclusive=True)
+    assert lock.try_acquire(exclusive=True).ok
 
     def refuse_shared(fd: int, operation: int) -> None:
         if operation & fcntl.LOCK_SH:
@@ -131,7 +135,7 @@ def test_a_downgrade_never_blocks(tmp_path: pathlib.Path) -> None:
     and with it the whole event loop -- no in-loop timeout can rescue it.
     """
     lock = EntryLock(tmp_path / "entry.lock")
-    assert lock.acquire(exclusive=True)
+    assert lock.try_acquire(exclusive=True).ok
 
     modes: list[int] = []
     real_flock = fcntl.flock
@@ -150,7 +154,7 @@ def test_a_downgrade_never_blocks(tmp_path: pathlib.Path) -> None:
 def test_release_is_idempotent(tmp_path: pathlib.Path) -> None:
     """It is called from a finally that may also run after an early release."""
     lock = EntryLock(tmp_path / "entry.lock")
-    assert lock.acquire(exclusive=True)
+    assert lock.try_acquire(exclusive=True).ok
     lock.release()
     lock.release()
     assert not lock.held
@@ -174,7 +178,7 @@ def test_an_unwritable_lock_directory_degrades_rather_than_raising(
     try:
         lock = EntryLock(blocked / "entry.lock")
 
-        assert not lock.acquire(exclusive=True)
+        assert not lock.try_acquire(exclusive=True).ok
         assert not lock.held
         lock.release()
     finally:
@@ -190,7 +194,7 @@ def test_acquire_creates_a_missing_cache_root(tmp_path: pathlib.Path) -> None:
     """
     lock = EntryLock(tmp_path / "fresh" / "_venv_cache" / "venv-x.lock")
 
-    assert lock.acquire(exclusive=True)
+    assert lock.try_acquire(exclusive=True).ok
     lock.release()
     assert (tmp_path / "fresh" / "_venv_cache").is_dir()
 
@@ -271,7 +275,7 @@ def test_an_in_use_entry_is_skipped_even_when_it_is_the_oldest(
     spare = _entry(tmp_path, "spare", age_s=5_000)
 
     holder = EntryLock(tmp_path / "venv-inuse.lock")
-    assert holder.acquire(exclusive=False)
+    assert holder.try_acquire(exclusive=False).ok
     try:
         evict_stale_entries(tmp_path, max_entries=1, max_age_sec=_FOREVER)
     finally:
@@ -392,7 +396,7 @@ def test_one_eviction_pass_at_a_time_per_root(tmp_path: pathlib.Path) -> None:
         _entry(tmp_path, f"e{i}", age_s=1000 - i)
 
     blocker = EntryLock(tmp_path / venv_cache.EVICT_LOCK_NAME)
-    assert blocker.acquire(exclusive=True)
+    assert blocker.try_acquire(exclusive=True).ok
     try:
         assert evict_stale_entries(tmp_path, max_entries=1, max_age_sec=_FOREVER) == 0
     finally:
@@ -406,9 +410,9 @@ def test_one_eviction_pass_at_a_time_per_root(tmp_path: pathlib.Path) -> None:
 def test_running_out_of_descriptors_is_not_treated_as_permanent(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """`unusable` means "retrying cannot fix this", and EMFILE is not that.
+    """UNAVAILABLE means "retrying cannot fix this", and EMFILE is not that.
 
-    Marking it unusable makes _acquire_cache_entry break out of its retry loop
+    Returning UNAVAILABLE makes _acquire_cache_entry break out of its retry loop
     AND trip _warn_cache_unavailable_once, whose lru_cache makes the warning
     -- and the operator's picture of the cache -- permanent for the pod, over
     a condition that clears as soon as other descriptors close.
@@ -420,8 +424,9 @@ def test_running_out_of_descriptors_is_not_treated_as_permanent(
 
     monkeypatch.setattr(os, "open", out_of_descriptors)
 
-    assert not lock.acquire(exclusive=True)
-    assert not lock.unusable, (
+    outcome = lock.try_acquire(exclusive=True)
+    assert not outcome.ok
+    assert outcome is LockOutcome.CONTENDED, (
         "EMFILE is transient; treating it as permanent disables the cache for "
         "the life of the pod"
     )
@@ -430,7 +435,7 @@ def test_running_out_of_descriptors_is_not_treated_as_permanent(
 def _peer_can_take_exclusive(lock_path: pathlib.Path) -> bool:
     """Whether some other claimant could evict this entry right now."""
     peer = EntryLock(lock_path)
-    if peer.acquire(exclusive=True):
+    if peer.try_acquire(exclusive=True).ok:
         peer.release()
         return True
     return False
@@ -450,7 +455,7 @@ def test_a_lock_handed_to_a_child_outlives_this_process_releasing_it(
     """
     lock_path = tmp_path / "entry.lock"
     lock = EntryLock(lock_path)
-    assert lock.acquire(exclusive=False)
+    assert lock.try_acquire(exclusive=False).ok
 
     child = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(30)"],
@@ -489,7 +494,7 @@ def test_detaching_must_not_unlock_the_descriptor_the_child_shares(
     """
     lock_path = tmp_path / "entry.lock"
     lock = EntryLock(lock_path)
-    assert lock.acquire(exclusive=False)
+    assert lock.try_acquire(exclusive=False).ok
 
     child = subprocess.Popen(
         [sys.executable, "-c", "import time; time.sleep(30)"],
@@ -526,7 +531,7 @@ def test_the_lock_reaches_the_grandchild_not_just_the_wrapper(
     """
     lock_path = tmp_path / "entry.lock"
     lock = EntryLock(lock_path)
-    assert lock.acquire(exclusive=False)
+    assert lock.try_acquire(exclusive=False).ok
 
     # A stand-in wrapper: re-passes the inherited fd to ITS child, then exits
     # while the grandchild lives on -- exactly the SIGKILL-the-wrapper shape.

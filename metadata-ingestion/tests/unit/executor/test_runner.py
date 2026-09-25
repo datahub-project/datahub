@@ -19,7 +19,6 @@ from datahub.executor.execution import venv_utils
 from datahub.executor.execution.runner import (
     LogHolder,
     SubprocessRunner,
-    _acquire_cache_entry,
     _bundled_constraints_path,
     _scrub_direct_url_credentials,
     _validate_wheel_url,
@@ -27,9 +26,14 @@ from datahub.executor.execution.runner import (
     validate_dependency_resolution_enabled,
 )
 from datahub.executor.execution.task import TaskError
-from datahub.executor.execution.venv_cache import EntryLock
+from datahub.executor.execution.venv_cache import (
+    CacheHit,
+    EntryLock,
+    LockOutcome,
+    UncachedVenv,
+    _acquire_cache_entry,
+)
 from datahub.executor.execution.venv_config import (
-    CacheName,
     VenvConfig,
     VenvReference,
     _expand_pip_req,
@@ -40,6 +44,7 @@ from datahub.executor.execution.venv_utils import (
     VENV_VERSION_BUNDLED,
     VENV_VERSION_LATEST,
     VENV_VERSION_NATIVE,
+    CacheName,
 )
 from datahub.masking.secret_registry import SecretRegistry
 
@@ -2521,13 +2526,13 @@ class TestVenvCacheInSetupVenv:
         lock_path = ref.venv_loc.parent / f"{ref.venv_loc.name}.lock"
 
         other_shared = EntryLock(lock_path)
-        assert other_shared.acquire(exclusive=False), (
+        assert other_shared.try_acquire(exclusive=False).ok, (
             "a downgraded-to-shared lock must allow another shared holder"
         )
         other_shared.release()
 
         other_exclusive = EntryLock(lock_path)
-        assert not other_exclusive.acquire(exclusive=True), (
+        assert not other_exclusive.try_acquire(exclusive=True).ok, (
             "an exclusive lock must still be refused while the build's "
             "shared hold is outstanding -- downgrade_to_shared must not "
             "have released it outright"
@@ -2675,7 +2680,7 @@ class TestVenvCacheInSetupVenv:
         # A peer run holding the same entry SHARED for its whole life, which
         # is exactly what blocks the EXCLUSIVE the rebuild needs.
         peer = EntryLock(built.venv_loc.parent / f"{built.venv_loc.name}.lock")
-        assert peer.acquire(exclusive=False)
+        assert peer.try_acquire(exclusive=False).ok
         try:
             second = self._mock_execute()
             served = await self._setup(tmp_path / "exec-2", VENV_VERSION_LATEST, second)
@@ -2708,7 +2713,7 @@ class TestVenvCacheInSetupVenv:
 
         boom = PermissionError(13, "Permission denied")
         monkeypatch.setattr(
-            "datahub.executor.execution.runner.is_venv_complete",
+            "datahub.executor.execution.venv_cache.is_venv_complete",
             Mock(side_effect=boom),
         )
 
@@ -2721,7 +2726,7 @@ class TestVenvCacheInSetupVenv:
         monkeypatch.undo()
         lock_path = ref.venv_loc.parent / f"{ref.venv_loc.name}.lock"
         probe = EntryLock(lock_path)
-        assert probe.acquire(exclusive=True), (
+        assert probe.try_acquire(exclusive=True).ok, (
             "the shared hold leaked, so this cache key can never be built or "
             "evicted again for the life of the process"
         )
@@ -2763,15 +2768,17 @@ class TestVenvCacheInSetupVenv:
         """
         monkeypatch.setenv("DATAHUB_VENV_CACHE_PATH", str(tmp_path / "cache"))
 
-        real_acquire = EntryLock.acquire
+        real_acquire = EntryLock.try_acquire
 
-        def refuse_shared(self: EntryLock, *, exclusive: bool) -> bool:
-            return exclusive and real_acquire(self, exclusive=True)
+        def refuse_shared(self: EntryLock, *, exclusive: bool) -> LockOutcome:
+            if not exclusive:
+                return LockOutcome.CONTENDED
+            return real_acquire(self, exclusive=True)
 
         monkeypatch.setattr(
             EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
         )
-        monkeypatch.setattr(EntryLock, "acquire", refuse_shared)
+        monkeypatch.setattr(EntryLock, "try_acquire", refuse_shared)
 
         ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
 
@@ -2800,12 +2807,14 @@ class TestVenvCacheInSetupVenv:
         assert ref.lock is not None
         ref.lock.release()
 
-        real_acquire = EntryLock.acquire
+        real_acquire = EntryLock.try_acquire
 
-        def refuse_shared(self: EntryLock, *, exclusive: bool) -> bool:
-            return exclusive and real_acquire(self, exclusive=True)
+        def refuse_shared(self: EntryLock, *, exclusive: bool) -> LockOutcome:
+            if not exclusive:
+                return LockOutcome.CONTENDED
+            return real_acquire(self, exclusive=True)
 
-        monkeypatch.setattr(EntryLock, "acquire", refuse_shared)
+        monkeypatch.setattr(EntryLock, "try_acquire", refuse_shared)
         monkeypatch.setattr(
             EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
         )
@@ -2816,11 +2825,10 @@ class TestVenvCacheInSetupVenv:
         )
 
         assert entry.lock is None
-        assert not entry.ready, (
-            "an unguarded entry was reported ready; eviction can delete it "
-            "while the task's child is executing from it"
+        assert isinstance(entry, UncachedVenv), (
+            "an unguarded entry was reported as a cache hit; eviction can "
+            "delete it while the task's child is executing from it"
         )
-        assert not entry.cacheable
         assert entry.venv_loc != ref.venv_loc, (
             "the fallback must point at a per-run venv, not the shared entry"
         )
@@ -2840,18 +2848,18 @@ class TestVenvCacheInSetupVenv:
         assert ref.lock is not None
         ref.lock.release()
 
-        real_acquire = EntryLock.acquire
+        real_acquire = EntryLock.try_acquire
         # Refuse the FIRST shared acquire (the opportunistic hit) so the
         # exclusive branch is the one that runs, but allow the recovery.
         state = {"refused": False}
 
-        def refuse_first_shared(self: EntryLock, *, exclusive: bool) -> bool:
+        def refuse_first_shared(self: EntryLock, *, exclusive: bool) -> LockOutcome:
             if not exclusive and not state["refused"]:
                 state["refused"] = True
-                return False
+                return LockOutcome.CONTENDED
             return real_acquire(self, exclusive=exclusive)
 
-        monkeypatch.setattr(EntryLock, "acquire", refuse_first_shared)
+        monkeypatch.setattr(EntryLock, "try_acquire", refuse_first_shared)
         monkeypatch.setattr(
             EntryLock, "downgrade_to_shared", lambda self: (self.release(), False)[1]
         )
@@ -2861,7 +2869,7 @@ class TestVenvCacheInSetupVenv:
             tmp_path / "exec-2",
         )
 
-        assert entry.ready and entry.lock is not None, (
+        assert isinstance(entry, CacheHit) and entry.lock is not None, (
             "a recoverable downgrade threw away a usable cache hit"
         )
         assert entry.venv_loc == ref.venv_loc
@@ -2915,7 +2923,7 @@ class TestVenvCacheInSetupVenv:
             return 0
 
         monkeypatch.setattr(
-            "datahub.executor.execution.runner.evict_stale_entries", fake_evict
+            "datahub.executor.execution.venv_cache.evict_stale_entries", fake_evict
         )
 
         ref = await self._setup(tmp_path / "exec-1", "0.15.0.1", self._mock_execute())
@@ -2945,7 +2953,7 @@ class TestVenvCacheInSetupVenv:
             raise OSError("cache root went away mid-pass")
 
         monkeypatch.setattr(
-            "datahub.executor.execution.runner.evict_stale_entries", explode
+            "datahub.executor.execution.venv_cache.evict_stale_entries", explode
         )
 
         with pytest.raises(OSError):
@@ -2953,7 +2961,7 @@ class TestVenvCacheInSetupVenv:
 
         cache_root = tmp_path / "cache"
         lock_path = next(cache_root.glob("*.lock"))
-        assert EntryLock(lock_path).acquire(exclusive=True), (
+        assert EntryLock(lock_path).try_acquire(exclusive=True).ok, (
             "the entry is still locked, so this cache key is dead for the "
             "life of the process"
         )
@@ -2973,7 +2981,7 @@ class TestVenvCacheInSetupVenv:
             raise OSError("disk full")
 
         monkeypatch.setattr(
-            "datahub.executor.execution.runner.mark_venv_complete",
+            "datahub.executor.execution.venv_cache.mark_venv_complete",
             raise_os_error,
         )
 

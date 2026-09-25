@@ -28,6 +28,7 @@ from datahub.executor.execution.venv_utils import (
     VENV_VERSION_BUNDLED,
     VENV_VERSION_LATEST,
     VENV_VERSION_NATIVE,
+    CacheName,
     VenvKind,
     classify_version,
 )
@@ -74,15 +75,6 @@ def _pages_wheel_url(base_url: str) -> str:
     """Build the wheel download URL for a DataHub Pages dev build, with cache-busting timestamp."""
     now = datetime.now(tz=timezone.utc)
     return f"{base_url}/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl?ts={now.timestamp()}"
-
-
-@dataclasses.dataclass(frozen=True)
-class CacheName:
-    """The cache identity of one venv: what to call it and how to treat it."""
-
-    name: str
-    cacheable: bool
-    moving: bool
 
 
 class VenvConfig(pydantic.BaseModel):

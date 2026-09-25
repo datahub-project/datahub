@@ -5,20 +5,40 @@ performing any actual venv creation or management". Everything with a side
 effect lives here.
 """
 
+import asyncio
+import dataclasses
+import enum
 import errno
 import fcntl
+import functools
 import logging
 import os
 import pathlib
 import shutil
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional, Union
 
+from datahub.executor.common.env_config import (
+    get_venv_cache_latest_ttl_sec,
+    get_venv_cache_max_age_sec,
+    get_venv_cache_max_entries,
+)
 from datahub.executor.execution.venv_utils import (
     COMPLETE_MARKER,
     ENTRY_PREFIX,
+    CacheName,
+    built_at,
+    is_venv_complete,
     last_used_at,
+    mark_venv_complete,
+    touch_last_used,
+    venv_location,
 )
+
+if TYPE_CHECKING:
+    # Type-only: runner imports this module, so a runtime import is a cycle.
+    from datahub.executor.execution.runner import SubprocessRunner
+    from datahub.executor.execution.venv_config import VenvReference
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +60,28 @@ def entry_lock_path(venv_loc: pathlib.Path) -> pathlib.Path:
     return venv_loc.parent / f"{venv_loc.name}.lock"
 
 
+class LockOutcome(enum.Enum):
+    """Why an acquire did or did not succeed.
+
+    Replaces a bool plus a separate `unusable` flag the caller had to read
+    before the next acquire reset it -- two values that could disagree, and a
+    second step that was easy to forget.
+
+    CONTENDED is transient: someone holds the entry now and a retry can win
+    it. UNAVAILABLE never resolves by waiting -- an unwritable cache root, or
+    a filesystem with no flock support -- so the caller should stop retrying
+    and fall back to a per-run venv.
+    """
+
+    ACQUIRED = "acquired"
+    CONTENDED = "contended"
+    UNAVAILABLE = "unavailable"
+
+    @property
+    def ok(self) -> bool:
+        return self is LockOutcome.ACQUIRED
+
+
 class EntryLock:
     """An flock on one cache entry.
 
@@ -54,25 +96,12 @@ class EntryLock:
     def __init__(self, lock_path: pathlib.Path) -> None:
         self._lock_path = lock_path
         self._fd: Optional[int] = None
-        self._unusable = False
 
     @property
     def held(self) -> bool:
         return self._fd is not None
 
-    @property
-    def unusable(self) -> bool:
-        """Whether the last failed acquire() failed for a reason retrying cannot fix.
-
-        False after a merely CONTENDED acquire -- someone else
-        holds the entry, and waiting can still win it. True when the lock file
-        could not be opened at all (an unwritable or read-only cache root) or
-        the filesystem does not support flock: retrying those only wastes the
-        caller's time before it falls back to a per-run venv.
-        """
-        return self._unusable
-
-    def acquire(self, *, exclusive: bool) -> bool:
+    def try_acquire(self, *, exclusive: bool) -> LockOutcome:
         """Take the lock, or report that it is not available right now.
 
         Always non-blocking, and there is deliberately no way to ask for
@@ -81,12 +110,11 @@ class EntryLock:
         in-loop timeout could even fire to rescue it. Waiting is the caller's
         job, as `await asyncio.sleep` between attempts.
 
-        Raises if this lock is already held. Acquiring twice used to overwrite
-        `_fd`, which leaks the first descriptor for the life of the process:
-        the kernel keeps that hold until the fd closes, so the entry can never
-        be taken exclusively again -- not by a rebuild, and not by eviction,
-        which skips anything it cannot take. Upgrading or downgrading is what
-        `downgrade_to_shared` is for; a second acquire is a bug in the caller.
+        Raises if this lock is already held: acquiring twice overwrites
+        `_fd`, and the kernel keeps that first hold until the descriptor
+        closes, so the entry could never be taken exclusively again -- not by
+        a rebuild, and not by eviction, which skips what it cannot take.
+        `downgrade_to_shared` is the supported transition.
         """
         if self._fd is not None:
             raise RuntimeError(
@@ -94,7 +122,6 @@ class EntryLock:
                 "would leak the current descriptor and pin the entry forever"
             )
         mode = (fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH) | fcntl.LOCK_NB
-        self._unusable = False
         try:
             # The cache root does not exist on a fresh pod, and a first run
             # must create it rather than degrade: a missing directory is the
@@ -111,28 +138,31 @@ class EntryLock:
             # caller breaks out of its retry loop, and
             # _warn_cache_unavailable_once's lru_cache freezes the operator's
             # picture of a "broken" cache root for the rest of the pod's life.
-            self._unusable = e.errno not in _TRANSIENT_OPEN_ERRNOS
             logger.debug(
                 "venv cache: cannot open lock %s (%s)",
                 self._lock_path,
                 errno.errorcode.get(e.errno or 0, e.errno),
             )
-            return False
+            # Descriptor exhaustion is the one open() failure that clears on
+            # its own, and this cache can cause it: every retained lock holds
+            # an fd for the process's life. Calling that UNAVAILABLE would
+            # make a transient condition permanent -- the caller stops
+            # retrying, and _warn_cache_unavailable_once freezes the
+            # operator's picture of a broken root for the rest of the pod.
+            if e.errno in _TRANSIENT_OPEN_ERRNOS:
+                return LockOutcome.CONTENDED
+            return LockOutcome.UNAVAILABLE
         try:
             fcntl.flock(fd, mode)
         except BlockingIOError:
-            # A contended LOCK_NB. Someone else holds the entry right now,
-            # which is transient -- the caller may retry.
             os.close(fd)
-            return False
+            return LockOutcome.CONTENDED
         except OSError:
-            # ENOLCK/EINVAL on a filesystem without lock support. Means "no
-            # cache", not "fail", and never resolves by waiting.
+            # ENOLCK/EINVAL on a filesystem without lock support.
             os.close(fd)
-            self._unusable = True
-            return False
+            return LockOutcome.UNAVAILABLE
         self._fd = fd
-        return True
+        return LockOutcome.ACQUIRED
 
     @property
     def fileno(self) -> int:
@@ -216,6 +246,9 @@ class EntryLock:
 # One pass at a time per cache root. Each pass reads the whole root and then
 # deletes; without this, concurrent passes each snapshot the same over-limit
 # count and each free the full deficit. See evict_stale_entries.
+_CACHE_LOCK_ATTEMPTS = 10
+_CACHE_LOCK_RETRY_SEC = 0.15
+
 EVICT_LOCK_NAME = ".datahub-venv-evict.lock"
 
 
@@ -266,7 +299,7 @@ def evict_stale_entries(
     # is right rather than merely cheap: the peer holding this is doing this
     # call's work, and waiting would mean a blocking flock on the event loop.
     pass_lock = EntryLock(cache_root / EVICT_LOCK_NAME)
-    if not pass_lock.acquire(exclusive=True):
+    if not pass_lock.try_acquire(exclusive=True).ok:
         logger.debug("venv cache: another eviction pass is running, skipping")
         return 0
     try:
@@ -340,7 +373,7 @@ def _evict_locked(
 def _remove_entry(venv: pathlib.Path) -> bool:
     """Take the entry exclusively and delete it. False when it is in use."""
     lock = EntryLock(entry_lock_path(venv))
-    if not lock.acquire(exclusive=True):
+    if not lock.try_acquire(exclusive=True).ok:
         logger.debug("venv cache: %s is in use, not evicting", venv)
         return False
     try:
@@ -377,3 +410,457 @@ def _remove_entry(venv: pathlib.Path) -> bool:
         return False
     finally:
         lock.release()
+
+
+@dataclasses.dataclass
+class CacheStats:
+    """Counters an operator can read to tell a working cache from a dead one.
+
+    The cache degrades silently on purpose, which makes it invisible: without
+    these, a 90% hit rate and 0% look identical from outside. Kept here as
+    plain counters rather than emitted directly -- the Prometheus helper lives
+    in the executor service, which depends on this package and not the other
+    way round, so it reads these and emits them under its own registry.
+    """
+
+    hits: int = 0
+    builds: int = 0
+    stale_served: int = 0
+    evicted: int = 0
+    fallbacks: dict = dataclasses.field(default_factory=dict)
+
+    def record_fallback(self, reason: str) -> None:
+        self.fallbacks[reason] = self.fallbacks.get(reason, 0) + 1
+        logger.info("venv cache: falling back to a per-run venv (%s)", reason)
+
+    def snapshot(self) -> dict:
+        return {
+            "hits": self.hits,
+            "builds": self.builds,
+            "stale_served": self.stale_served,
+            "evicted": self.evicted,
+            "fallbacks": dict(self.fallbacks),
+        }
+
+
+STATS = CacheStats()
+
+
+@dataclasses.dataclass(frozen=True)
+class UncachedVenv:
+    """A per-run venv under tmp_dir: never locked, never published.
+
+    Either the version is not cacheable, or the cache could not be used for
+    this call. `reason` says which, and reaches the run's own log.
+    """
+
+    venv_loc: pathlib.Path
+    reason: str
+    lock: None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class CacheHit:
+    """A complete, fresh entry held SHARED. The caller builds nothing."""
+
+    venv_loc: pathlib.Path
+    lock: EntryLock
+
+
+@dataclasses.dataclass(frozen=True)
+class CacheBuild:
+    """An entry held EXCLUSIVE that the caller must build and then publish."""
+
+    venv_loc: pathlib.Path
+    lock: EntryLock
+
+
+# Distinct types rather than one record with two booleans: the old shape
+# allowed combinations that cannot occur -- an uncached entry holding a lock,
+# or a "ready" entry that still had to be built -- and every reader had to
+# know which pairs were real.
+CacheEntry = Union[UncachedVenv, CacheHit, CacheBuild]
+
+
+@functools.lru_cache(maxsize=None)
+def _warn_cache_unavailable_once(cache_root: str) -> None:
+    """Warn that the cache root cannot be used -- once per root, not per task.
+
+    The lru_cache IS the once-ness: this runs on every task in a long-lived
+    pod, and a broken cache root stays broken, so logging per call would emit
+    the same line for the pod's lifetime.
+    """
+    logger.warning(
+        "venv cache unavailable at %s (unwritable, or a filesystem without "
+        "flock support); falling back to per-run venvs",
+        cache_root,
+    )
+
+
+def _is_fresh_hit(venv_loc: pathlib.Path, *, moving: bool) -> bool:
+    """Whether this entry may be served, rather than merely being complete.
+
+    Completeness alone is the right question for a pinned version: the name
+    is a content address, so an entry that finished building is the right
+    bytes forever.
+
+    It is not the right question for a moving version, and `latest` is the
+    default for every recipe. With no age bound the hit path never
+    re-resolves: a pod that starts on Monday keeps executing Monday's
+    acryl-datahub until it restarts, so a connector fix published on Tuesday
+    silently never arrives -- and because test-connection deliberately shares
+    the entry, re-testing after the fix reports the old behaviour too. That is
+    the "I shipped the fix, the customer re-ran, still broken" ticket.
+
+    Measured from BUILD time, not last use. touch_last_used fires on every
+    hit, so an age taken from it would make the busiest entry -- the shared
+    `latest` one -- the one thing that never expires.
+    """
+    if not is_venv_complete(venv_loc):
+        return False
+    if not moving:
+        return True
+    age = time.time() - built_at(venv_loc)
+    ttl = get_venv_cache_latest_ttl_sec()
+    if age <= ttl:
+        return True
+    logger.info(
+        "venv cache: %s was built from a moving version %.1f hours ago "
+        "(TTL %.1f hours); rebuilding so it re-resolves.",
+        venv_loc.name,
+        age / 3600,
+        ttl / 3600,
+    )
+    return False
+
+
+def _discard_incomplete(venv_loc: pathlib.Path) -> bool:
+    """Clear a half-built entry so a build can start clean. False if it survives.
+
+    Only safe under an EXCLUSIVE hold on the entry.
+
+    The marker goes first, so a removal that fails part-way leaves something
+    that reads as incomplete rather than a husk the hit path would serve.
+
+    Errors are NOT ignored, which is the whole point. `ignore_errors=True`
+    makes a completely failed discard indistinguishable from a successful
+    one, and the build that follows then either dies forever on that key --
+    `uv venv` on a surviving non-venv directory fails hard with "exists, but
+    it's not a virtual environment" -- or, if pyvenv.cfg happened to survive,
+    recreates the venv over the leftovers and gets stamped COMPLETE, so every
+    later run reuses a venv that may mix two builds' site-packages and
+    nothing on the hit path re-validates. The causes are ordinary: an NFS
+    .nfsXXXX silly-rename, a uid mismatch on a shared volume, a read-only
+    remount. Reporting the failure lets the caller use a per-run venv, which
+    is slower and always correct.
+    """
+    try:
+        (venv_loc / COMPLETE_MARKER).unlink(missing_ok=True)
+        shutil.rmtree(venv_loc)
+        return True
+    except OSError:
+        logger.warning(
+            "Could not discard the incomplete venv at %s; falling back to a "
+            "per-run venv. Clear this directory to re-enable the cache entry.",
+            venv_loc,
+            exc_info=True,
+        )
+        return False
+
+
+async def _acquire_cache_entry(
+    cache_name: CacheName, tmp_dir: pathlib.Path
+) -> CacheEntry:
+    """Resolve a dynamic venv against the cache and take the lock guarding it.
+
+    NO PATH HERE MAY BLOCK INDEFINITELY. flock() is a synchronous syscall, so
+    a blocking acquire inside this coroutine freezes the OS thread and with it
+    the entire event loop the task runs on -- not even an in-loop timeout could
+    fire to rescue it. Every acquire below is non-blocking and all waiting is
+    an `await asyncio.sleep`.
+
+    The protocol, in order:
+
+    1. SHARED, non-blocking. A complete, fresh entry is served immediately.
+       This is the warm hit, it is the common case, and it must never wait: a
+       running task holds its entry SHARED for the whole run, so taking
+       EXCLUSIVE here would make two recipes on the same `latest` entry --
+       the default, and therefore the norm -- serialize behind the longer one.
+    2. Otherwise a build is needed, and building needs EXCLUSIVE. Retry
+       non-blocking on a short budget, re-attempting the shared hit each pass:
+       a peer that finishes its build downgrades to SHARED and keeps it, so an
+       exclusive-only retry could never succeed again once it lost the race.
+    3. Whenever EXCLUSIVE is won, re-check INSIDE the lock -- another process
+       may have finished building while we waited.
+    4. When the budget runs out, someone else is building. Fall back to a
+       per-run venv rather than waiting on them.
+
+    Everything inside an EXCLUSIVE hold runs under a handler that releases it.
+    This function is called ABOVE setup_venv's own `try`, whose
+    `except BaseException` exists precisely to release the lock, so anything
+    raised here -- a bad DATAHUB_VENV_CACHE_* value, an eviction pass hitting
+    an unreadable root -- would otherwise escape with the entry still locked.
+    That key could then never be built, hit or evicted again for the life of
+    the process, and every task on it would fall back to a full per-run build.
+    """
+    venv_name, cacheable, moving = (
+        cache_name.name,
+        cache_name.cacheable,
+        cache_name.moving,
+    )
+    venv_loc = pathlib.Path(venv_location(venv_name, str(tmp_dir), cacheable=cacheable))
+    if not cacheable:
+        return UncachedVenv(venv_loc, reason="version is not cacheable")
+
+    def per_run_fallback(reason: str) -> UncachedVenv:
+        # Every fallback names itself. The cache degrades silently by design,
+        # which left an operator unable to tell a 90% hit rate from 0%: the
+        # run log only ever said "Creating new venv", with no hint that the
+        # cache had been skipped or why.
+        STATS.record_fallback(reason)
+        return UncachedVenv(
+            pathlib.Path(venv_location(venv_name, str(tmp_dir), cacheable=False)),
+            reason=reason,
+        )
+
+    lock = EntryLock(entry_lock_path(venv_loc))
+    # A complete entry that is only past its TTL. Worth remembering: if no
+    # attempt ever wins EXCLUSIVE to refresh it, serving the stale venv beats
+    # the per-run build that would otherwise be the fallback. See below.
+    stale_but_complete = False
+    last = LockOutcome.CONTENDED
+    for attempt in range(_CACHE_LOCK_ATTEMPTS):
+        last = lock.try_acquire(exclusive=False)
+        if last.ok:
+            # Guarded like the exclusive branch below. _is_fresh_hit reaches
+            # Path.exists(), which re-raises EACCES -- an entry made
+            # unreadable by a uid mismatch on a shared volume, or a
+            # part-removed tree. This runs ABOVE setup_venv's own try, so an
+            # escape here would leak the SHARED hold, and EntryLock has no
+            # __del__: every later run on the key would raise again and leak
+            # another fd.
+            try:
+                if _is_fresh_hit(venv_loc, moving=moving):
+                    touch_last_used(venv_loc)
+                    STATS.hits += 1
+                    return CacheHit(venv_loc, lock)
+                stale_but_complete = is_venv_complete(venv_loc)
+            except BaseException:
+                lock.release()
+                raise
+            # Nothing there yet, a build killed midway, or a moving entry past
+            # its TTL. Either way this call has to build, and building needs
+            # the entry exclusively.
+            lock.release()
+        elif last is LockOutcome.UNAVAILABLE:
+            break
+
+        last = lock.try_acquire(exclusive=True)
+        if last.ok:
+            try:
+                if _is_fresh_hit(venv_loc, moving=moving):
+                    touch_last_used(venv_loc)
+                    # flock has no atomic downgrade -- the kernel drops the
+                    # exclusive hold before it looks for conflicts -- so a
+                    # peer granted EXCLUSIVE in that window leaves us with
+                    # nothing. Re-taking SHARED outright is the recovery;
+                    # returning a "ready" entry with no lock is not, because
+                    # the caller then runs a child out of a directory the
+                    # next eviction pass is free to rmtree.
+                    if (
+                        lock.downgrade_to_shared()
+                        or lock.try_acquire(exclusive=False).ok
+                    ):
+                        # Re-validate: the hold was momentarily gone either
+                        # way, and _remove_entry deliberately leaves the
+                        # .lock file behind, so a competing eviction can have
+                        # deleted the directory while the lock we just took
+                        # survived. Without this the child is spawned against
+                        # <venv>/bin/python and dies with FileNotFoundError.
+                        if is_venv_complete(venv_loc):
+                            return CacheHit(venv_loc, lock)
+                        lock.release()
+                    return per_run_fallback("lost the hold after downgrade")
+                # A directory here is a build killed midway, or a moving
+                # entry past its TTL. Either way it must be removed rather
+                # than built on top of, and if it cannot be removed this key
+                # is unusable until an operator clears it.
+                #
+                # Deliberately NOT on a worker thread, unlike the eviction
+                # pass below. This deletes the directory THIS coroutine's
+                # lock protects, and awaiting makes the wait cancellable:
+                # a cancellation would unwind into the handler below,
+                # release the flock, and leave the worker still rmtree-ing
+                # while a peer takes the same key and starts `uv venv` into
+                # the directory being deleted. Blocking the loop for one
+                # half-built venv's unlinks is the lesser cost. (Eviction is
+                # safe to thread because each victim is protected by a lock
+                # the worker itself takes and releases.)
+                if venv_loc.exists() and not _discard_incomplete(venv_loc):
+                    lock.release()
+                    return per_run_fallback("could not discard an incomplete entry")
+                # Eviction runs here and nowhere else: on the build path only,
+                # and after we hold this entry, so it cannot select the
+                # directory we are about to write into (it skips anything it
+                # cannot take exclusively). Also off the loop, and for the
+                # same reason -- an age pass can select every entry at once.
+                await asyncio.to_thread(
+                    evict_stale_entries,
+                    venv_loc.parent,
+                    max_entries=get_venv_cache_max_entries(),
+                    max_age_sec=get_venv_cache_max_age_sec(),
+                )
+            except BaseException:
+                lock.release()
+                raise
+            STATS.builds += 1
+            return CacheBuild(venv_loc, lock)
+        if last is LockOutcome.UNAVAILABLE:
+            break
+
+        if attempt + 1 < _CACHE_LOCK_ATTEMPTS:
+            await asyncio.sleep(_CACHE_LOCK_RETRY_SEC)
+
+    if last is LockOutcome.UNAVAILABLE:
+        _warn_cache_unavailable_once(str(venv_loc.parent))
+        return per_run_fallback("cache root unusable")
+
+    # Stale-while-in-use. Refreshing an expired moving entry needs EXCLUSIVE,
+    # and every in-flight run holds the same entry SHARED for its whole life
+    # -- and `latest` is the default, so essentially every run shares one
+    # entry. On a pod whose runs overlap continuously there may be no instant
+    # inside this budget with zero holders, so the refresh never happens.
+    # Falling through to a per-run build there would make the TTL strictly
+    # worse than not having one: every task would pay a full build forever,
+    # which is the cost this cache exists to remove. Serving the stale venv
+    # is the lesser evil, and the refresh still happens on the first attempt
+    # that finds the entry idle.
+    if stale_but_complete and lock.try_acquire(exclusive=False).ok:
+        # Guarded for the same reason the two branches above are: this sits
+        # ABOVE setup_venv's own try, and is_venv_complete reaches
+        # Path.exists(), which re-raises EACCES -- stranding the hold and
+        # its fd for the life of the process.
+        try:
+            still_there = is_venv_complete(venv_loc)
+        except BaseException:
+            lock.release()
+            raise
+        if still_there:
+            touch_last_used(venv_loc)
+            STATS.stale_served += 1
+            logger.info(
+                "venv cache entry %s is past its TTL but in use by another "
+                "run, so it cannot be rebuilt right now; serving it as-is",
+                venv_loc.name,
+            )
+            return CacheHit(venv_loc, lock)
+        lock.release()
+
+    return per_run_fallback("entry held by another build")
+
+
+def _resolve_existing_venv(entry: CacheEntry, runner: "SubprocessRunner") -> bool:
+    """Whether the entry can be returned as-is, without building anything.
+
+    A cache hit is already decided -- in _acquire_cache_entry, under the lock,
+    which is the only place is_venv_complete() can be trusted, and so is
+    discarding a half-built entry: both need the EXCLUSIVE hold that only
+    exists there. What is left here is the non-cached legacy check, where the
+    interpreter's presence alone is enough since certain systems clean up
+    files in temp directories but not the directories themselves.
+    """
+    venv_loc = entry.venv_loc
+    if isinstance(entry, CacheHit):
+        runner._logs.append(f"Reusing cached venv at {venv_loc}.\n")
+        return True
+
+    if isinstance(entry, UncachedVenv):
+        runner._logs.append(f"Not using the venv cache: {entry.reason}.\n")
+        if venv_loc.exists() and (venv_loc / "bin/python").exists():
+            runner._logs.append(f"venv at {venv_loc} already exists, skipping setup.\n")
+            return True
+    return False
+
+
+def _publish_cache_entry(
+    venv_reference: "VenvReference", venv_loc: pathlib.Path
+) -> None:
+    """Make a freshly built entry reusable, and keep holding it for this run.
+
+    No-op for an uncached venv, which has no lock and nothing to publish.
+    """
+    if venv_reference.lock is None:
+        return
+
+    # LAST, so a build killed before this point leaves an entry that fails
+    # is_venv_complete() and is rebuilt rather than reused empty.
+    try:
+        mark_venv_complete(venv_loc)
+    except OSError:
+        # The cache is an optimisation: a full or read-only cache filesystem
+        # must not fail a build that otherwise succeeded. An unmarked venv just
+        # looks incomplete and gets rebuilt next time -- the same degradation
+        # touch_last_used already accepts.
+        #
+        # WARNING rather than DEBUG, because the degradation is not local to
+        # this run. This entry stays locked SHARED for the task's whole life,
+        # so for as long as that lasts every peer on the same key pays the
+        # full retry budget, finds the entry incomplete, cannot take it
+        # exclusively, and rebuilds per-run. A cache that has silently stopped
+        # caching should be visible without turning on debug logging.
+        logger.warning(
+            "Could not mark venv complete at %s; this entry will be rebuilt "
+            "rather than reused, and peers on the same key will fall back to "
+            "per-run venvs while this task holds it.",
+            venv_loc,
+            exc_info=True,
+        )
+    touch_last_used(venv_loc)
+
+    # flock has no atomic downgrade, so the exclusive hold is already gone by
+    # the time the conversion is refused. Re-requesting SHARED outright is the
+    # recovery and nearly always succeeds -- the window is sub-second.
+    if (
+        venv_reference.lock.downgrade_to_shared()
+        or venv_reference.lock.try_acquire(exclusive=False).ok
+    ):
+        return
+
+    # Nothing left to hold. Carrying the object would only let
+    # finalize_task_output release a lock nobody has, and would report the
+    # entry as protected when eviction is free to take it. The venv itself is
+    # complete and this task is about to run out of it, so the honest state is
+    # "usable, unprotected" -- said out loud, because an eviction pass landing
+    # here kills the child with an ImportError on a deleted file.
+    logger.warning(
+        "Lost the venv cache hold on %s after building it; this run continues "
+        "against an entry eviction may reclaim.",
+        venv_loc,
+    )
+    venv_reference.lock = None
+
+
+class VenvCache:
+    """The node-local venv cache: entry lifecycle, in one place.
+
+    `acquire` resolves a name to an entry and takes the lock guarding it;
+    `publish` marks a built entry reusable. setup_venv is left doing install
+    steps only, which is the point -- the policy used to be spread through it.
+    """
+
+    def __init__(self, tmp_dir: pathlib.Path) -> None:
+        self._tmp_dir = tmp_dir
+
+    async def acquire(self, cache_name: CacheName) -> CacheEntry:
+        return await _acquire_cache_entry(cache_name, self._tmp_dir)
+
+    def publish(self, venv_reference: "VenvReference", venv_loc: pathlib.Path) -> None:
+        _publish_cache_entry(venv_reference, venv_loc)
+
+    @staticmethod
+    def resolve_existing(entry: CacheEntry, runner: "SubprocessRunner") -> bool:
+        return _resolve_existing_venv(entry, runner)
+
+    @staticmethod
+    def stats() -> dict:
+        return STATS.snapshot()
