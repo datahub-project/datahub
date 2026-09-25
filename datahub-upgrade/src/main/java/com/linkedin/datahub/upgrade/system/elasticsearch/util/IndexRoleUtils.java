@@ -51,6 +51,7 @@ public class IndexRoleUtils {
    * with that role for Elasticsearch Cloud environments. The role is configured with cluster
    * monitoring permissions and full access to indices matching the prefix pattern.
    *
+   * @param opContext the operation context
    * @param esComponents the Elasticsearch components factory providing search client access
    * @param roleName the name of the role to create (e.g., "prod_access")
    * @param username the username to create (e.g., "datahub")
@@ -59,6 +60,7 @@ public class IndexRoleUtils {
    * @throws IOException if there's an error reading the role/user templates or making requests
    */
   public static void createElasticsearchCloudUser(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String roleName,
       String username,
@@ -67,21 +69,23 @@ public class IndexRoleUtils {
       throws IOException {
 
     // Create role first
-    createElasticsearchCloudRole(esComponents, roleName, prefix);
+    createElasticsearchCloudRole(opContext, esComponents, roleName, prefix);
 
     // Then create user
-    createElasticsearchCloudUserInternal(esComponents, username, password, roleName);
+    createElasticsearchCloudUserInternal(opContext, esComponents, username, password, roleName);
   }
 
   /**
    * Creates a security role for Elasticsearch Cloud environments.
    *
+   * @param opContext the operation context
    * @param esComponents the Elasticsearch components factory providing search client access
    * @param roleName the name of the role to create
    * @param prefix the index prefix to apply to role permissions
    * @throws IOException if there's an error creating the role
    */
   public static void createElasticsearchCloudRole(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String roleName,
       String prefix)
@@ -101,7 +105,7 @@ public class IndexRoleUtils {
               () -> {
                 try {
                   RawResponse response =
-                      IndexUtils.performPutRequest(esComponents, endpoint, roleJson);
+                      IndexUtils.performPutRequest(opContext, esComponents, endpoint, roleJson);
 
                   int statusCode = response.getStatusLine().getStatusCode();
                   if (statusCode == 200 || statusCode == 201) {
@@ -142,6 +146,7 @@ public class IndexRoleUtils {
   /**
    * Creates a user for Elasticsearch Cloud environments.
    *
+   * @param opContext the operation context
    * @param esComponents the Elasticsearch components factory providing search client access
    * @param username the username to create
    * @param password the password for the user
@@ -149,6 +154,7 @@ public class IndexRoleUtils {
    * @throws IOException if there's an error creating the user
    */
   private static void createElasticsearchCloudUserInternal(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String username,
       String password,
@@ -173,7 +179,7 @@ public class IndexRoleUtils {
                   request.setJsonEntity(userJson);
 
                   RawResponse response =
-                      esComponents.getSearchClient().performLowLevelRequest(request);
+                      esComponents.getSearchClient().performLowLevelRequest(opContext, request);
 
                   int statusCode = response.getStatusLine().getStatusCode();
                   if (statusCode == 200 || statusCode == 201) {
@@ -214,12 +220,14 @@ public class IndexRoleUtils {
   /**
    * Creates a security role for AWS OpenSearch environments.
    *
+   * @param opContext the operation context
    * @param esComponents the Elasticsearch components factory providing search client access
    * @param roleName the name of the role to create
    * @param prefix the index prefix to apply to role permissions
    * @throws IOException if there's an error creating the role
    */
   public static void createAwsOpenSearchRole(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String roleName,
       String prefix)
@@ -238,7 +246,7 @@ public class IndexRoleUtils {
               () -> {
                 try {
                   RawResponse response =
-                      IndexUtils.performPutRequest(esComponents, endpoint, roleJson);
+                      IndexUtils.performPutRequest(opContext, esComponents, endpoint, roleJson);
 
                   int statusCode = response.getStatusLine().getStatusCode();
                   if (statusCode == 200 || statusCode == 201) {
@@ -278,6 +286,7 @@ public class IndexRoleUtils {
   /**
    * Creates a user for AWS OpenSearch environments.
    *
+   * @param opContext the operation context
    * @param esComponents the Elasticsearch components factory providing search client access
    * @param username the username to create
    * @param password the password for the user
@@ -286,15 +295,15 @@ public class IndexRoleUtils {
    * @throws IOException if there's an error creating the user
    */
   public static void createAwsOpenSearchUser(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String username,
       String password,
       String roleName,
-      String iamRoleArn,
-      OperationContext operationContext)
+      String iamRoleArn)
       throws IOException {
     try {
-      ObjectMapper mapper = operationContext.getObjectMapper();
+      ObjectMapper mapper = opContext.getObjectMapper();
 
       // Build the user JSON
       ObjectNode userNode = mapper.createObjectNode();
@@ -332,7 +341,7 @@ public class IndexRoleUtils {
               () -> {
                 try {
                   RawResponse response =
-                      IndexUtils.performPutRequest(esComponents, endpoint, userJson);
+                      IndexUtils.performPutRequest(opContext, esComponents, endpoint, userJson);
 
                   int statusCode = response.getStatusLine().getStatusCode();
                   if (statusCode == 200 || statusCode == 201) {
@@ -394,12 +403,14 @@ public class IndexRoleUtils {
    * <p>This method creates a role mapping that maps an IAM role ARN to an OpenSearch security role.
    * This is used for IAM authentication where no internal user is needed.
    *
+   * @param opContext the operation context
    * @param esComponents the Elasticsearch components factory providing search client access
    * @param roleName the name of the role to map to (e.g., "prod_access")
    * @param iamRoleArn the IAM role ARN to map (e.g., "arn:aws:iam::123456789012:role/datahub")
    * @throws IOException if there's an error creating the role mapping
    */
   public static void createAwsOpenSearchRoleMapping(
+      OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String roleName,
       String iamRoleArn)
@@ -423,7 +434,7 @@ public class IndexRoleUtils {
               () -> {
                 try {
                   RawResponse response =
-                      IndexUtils.performPutRequest(esComponents, endpoint, mappingJson);
+                      IndexUtils.performPutRequest(opContext, esComponents, endpoint, mappingJson);
 
                   int statusCode = response.getStatusLine().getStatusCode();
                   if (statusCode == 200 || statusCode == 201) {

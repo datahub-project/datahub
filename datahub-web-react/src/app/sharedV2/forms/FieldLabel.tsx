@@ -18,7 +18,7 @@ const RequiredMark = styled.span`
 const TooltipIcon = styled(QuestionCircleOutlined)`
     cursor: pointer;
     svg {
-        fill: ${(props) => props.theme.colors.textTertiary};
+        fill: ${(props) => props.theme.colors.icon};
     }
 `;
 

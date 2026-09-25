@@ -17,6 +17,8 @@ guarantees - MCLs are generated in the exact order of database transaction commi
 
 The default deployments do not use CDC. Explicit configuration is required to switch to CDC mode.
 
+**pgQueue messaging:** CDC requires Debezium and Kafka (`datahub.messaging.transport=kafka`). pgQueue mode does not support CDC processing.
+
 ---
 
 ## Key Concepts (Start Here If You're New)

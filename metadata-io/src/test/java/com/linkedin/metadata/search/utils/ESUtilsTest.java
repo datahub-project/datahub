@@ -9,11 +9,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -25,16 +27,22 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.CreatePitRequest;
 import org.opensearch.core.rest.RestStatus;
@@ -60,6 +68,7 @@ public class ESUtilsTest {
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
     Urn dateWithDotsUrn = Urn.createFromString("urn:li:structuredProperty:date_here.with_dot");
+    Urn stewardUrn = Urn.createFromString("urn:li:structuredProperty:steward");
 
     // legacy
     aspectRetriever = mock(AspectRetriever.class);
@@ -71,7 +80,8 @@ public class ESUtilsTest {
     structPropAbFghTenDefinition.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinition.setQualifiedName("ab.fgh.ten");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -83,7 +93,8 @@ public class ESUtilsTest {
     dateWithDotsDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
     dateWithDotsDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "date"));
     dateWithDotsDefinition.setQualifiedName("date_here.with_dot");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(dateWithDotsUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(dateWithDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 dateWithDotsUrn,
@@ -91,13 +102,27 @@ public class ESUtilsTest {
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(dateWithDotsDefinition.data()))));
 
+    StructuredPropertyDefinition stewardDefinition = new StructuredPropertyDefinition();
+    stewardDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    stewardDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    stewardDefinition.setQualifiedName("steward");
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(stewardUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                stewardUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(stewardDefinition.data()))));
+
     StructuredPropertyDefinition structPropUnderscoresAndDotsDefinition =
         new StructuredPropertyDefinition();
     structPropUnderscoresAndDotsDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
     structPropUnderscoresAndDotsDefinition.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinition.setQualifiedName("under.scores.and.dots_make_a_mess");
-    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
@@ -116,7 +141,8 @@ public class ESUtilsTest {
     structPropAbFghTenDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropAbFghTenDefinitionV1.setQualifiedName("ab.fgh.ten");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(abFghTenUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(abFghTenUrn)), anySet()))
         .thenReturn(
             Map.of(
                 abFghTenUrn,
@@ -130,13 +156,53 @@ public class ESUtilsTest {
     structPropUnderscoresAndDotsDefinitionV1.setValueType(
         Urn.createFromString(DATA_TYPE_URN_PREFIX + "string"));
     structPropUnderscoresAndDotsDefinitionV1.setQualifiedName("under.scores.and.dots_make_a_mess");
-    when(aspectRetrieverV1.getLatestAspectObjects(eq(Set.of(underscoresAndDotsUrn)), anySet()))
+    when(aspectRetrieverV1.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(underscoresAndDotsUrn)), anySet()))
         .thenReturn(
             Map.of(
                 underscoresAndDotsUrn,
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropUnderscoresAndDotsDefinitionV1.data()))));
+  }
+
+  /**
+   * Every hierarchical condition has to reach the rewrite chain carrying its own condition -- that
+   * is the seam the rewriters' condition switch keys off, and the single arm in {@code
+   * getQueryBuilderFromCriterionForSingleField} has to serve all three. Every other {@code
+   * ESUtilsTest} case passes {@link QueryFilterRewriteChain#EMPTY} or a bare mock, so the seam was
+   * untested in either direction.
+   */
+  @Test
+  public void testRewriteChainReceivesTheCriterionCondition() {
+    QueryFilterRewriteChain chain = mock(QueryFilterRewriteChain.class);
+    when(chain.rewrite(any(), any(), any())).thenAnswer(invocation -> invocation.getArgument(2));
+
+    OperationContext opContext = mock(OperationContext.class);
+    // EMPTY carries SearchContext's own default flags, which leave `fulltext` unset -- the shape
+    // that used to blow up deriving a search type on the way into the chain.
+    when(opContext.getSearchContext()).thenReturn(SearchContext.EMPTY);
+
+    List<Condition> conditions =
+        List.of(Condition.ANCESTORS_INCL, Condition.DESCENDANTS_INCL, Condition.RELATED_INCL);
+    for (Condition condition : conditions) {
+      ESUtils.getQueryBuilderFromCriterion(
+          buildCriterion("container", condition, "urn:li:container:foo"),
+          false,
+          new HashMap<>(),
+          opContext,
+          chain);
+    }
+
+    ArgumentCaptor<QueryFilterRewriterContext> contexts =
+        ArgumentCaptor.forClass(QueryFilterRewriterContext.class);
+    verify(chain, Mockito.times(conditions.size())).rewrite(any(), contexts.capture(), any());
+    assertEquals(
+        contexts.getAllValues().stream()
+            .map(QueryFilterRewriterContext::getCondition)
+            .collect(Collectors.toList()),
+        conditions,
+        "Expected each condition to reach the rewrite chain unchanged");
   }
 
   @Test
@@ -905,6 +971,230 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
     assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromUrnStructPropEqualsValue() {
+    // URN parents are already keyword (no normalizer); EQUAL must not append .keyword.
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.steward", Condition.EQUAL, "urn:li:corpuser:jdoe");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    String expected =
+        "{\n"
+            + "  \"terms\" : {\n"
+            + "    \"structuredProperties.steward\" : [\n"
+            + "      \"urn:li:corpuser:jdoe\"\n"
+            + "    ],\n"
+            + "    \"boost\" : 1.0,\n"
+            + "    \"_name\" : \"structuredProperties.steward\"\n"
+            + "  }\n"
+            + "}";
+    assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testToKeywordFieldSkipsKeywordSuffixWhenStructuredPropertyDefinitionMissing()
+      throws URISyntaxException {
+    // Transient aspect miss must not fall back to the STRING-like ".keyword" append — that returns
+    // empty for URN/DATE/NUMBER parents (no usable .keyword subfield). Prefer the parent field.
+    Urn missingUrn = Urn.createFromString("urn:li:structuredProperty:transientMiss");
+    AspectRetriever missingRetriever = mock(AspectRetriever.class);
+    when(missingRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(missingRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(missingUrn)), anySet()))
+        .thenReturn(Map.of());
+
+    String resolved =
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.transientMiss",
+            false,
+            missingRetriever);
+
+    assertEquals(resolved, "structuredProperties.transientMiss");
+  }
+
+  @Test
+  public void testToKeywordFieldStripsCallerKeywordSuffixWhenDefinitionMissing()
+      throws URISyntaxException {
+    // If the caller already appended .keyword and definition lookup fails, strip the subfield so
+    // typed parents (URN/DATE/NUMBER) are not queried on a missing multi-field.
+    Urn missingUrn = Urn.createFromString("urn:li:structuredProperty:transientMiss");
+    AspectRetriever missingRetriever = mock(AspectRetriever.class);
+    when(missingRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(missingRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(missingUrn)), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.transientMiss.keyword",
+            false,
+            missingRetriever),
+        "structuredProperties.transientMiss");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedPathWithoutDefinitionInfersStringKeyword() {
+    // Callers sometimes pass an already-resolved versioned ES path. Definition lookup cannot use
+    // that path as an FQN; infer STRING from the type segment and keep .keyword.
+    AspectRetriever emptyRetriever = mock(AspectRetriever.class);
+    when(emptyRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(emptyRetriever.getLatestAspectObjects(any(OperationFingerprint.class), anySet(), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties._versioned.hello.00000000000001.string",
+            false,
+            emptyRetriever),
+        "structuredProperties._versioned.hello.00000000000001.string.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedPathWithoutDefinitionInfersUrnParent() {
+    AspectRetriever emptyRetriever = mock(AspectRetriever.class);
+    when(emptyRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    when(emptyRetriever.getLatestAspectObjects(any(OperationFingerprint.class), anySet(), anySet()))
+        .thenReturn(Map.of());
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties._versioned.owner_ref.00000000000001.urn",
+            false,
+            emptyRetriever),
+        "structuredProperties._versioned.owner_ref.00000000000001.urn");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedUrnSkipsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.steward",
+            false,
+            aspectRetriever),
+        "structuredProperties.steward");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedStringAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            false,
+            aspectRetriever),
+        "structuredProperties.ab_fgh_ten.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldUnversionedDateSkipsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.date_here.with_dot",
+            false,
+            aspectRetriever),
+        "structuredProperties.date_here_with_dot");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedUrnSkipsKeywordSuffix() throws URISyntaxException {
+    Urn versionedUrnSp = Urn.createFromString("urn:li:structuredProperty:owner.ref");
+    AspectRetriever versionedUrnRetriever = mock(AspectRetriever.class);
+    when(versionedUrnRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    StructuredPropertyDefinition versionedUrnDef = new StructuredPropertyDefinition();
+    versionedUrnDef.setVersion("00000000000001");
+    versionedUrnDef.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "urn"));
+    versionedUrnDef.setQualifiedName("owner.ref");
+    when(versionedUrnRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(versionedUrnSp)), anySet()))
+        .thenReturn(
+            Map.of(
+                versionedUrnSp,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(versionedUrnDef.data()))));
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.owner.ref",
+            false,
+            versionedUrnRetriever),
+        "structuredProperties._versioned.owner_ref.00000000000001.urn");
+  }
+
+  @Test
+  public void testToKeywordFieldVersionedStringAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            false,
+            aspectRetrieverV1),
+        "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldUnknownValueTypeAppendsKeywordSuffix() throws URISyntaxException {
+    // UNKNOWN follows the STRING-like path (usesKeywordSubfield=true) so filters still target
+    // .keyword.
+    Urn unknownUrn = Urn.createFromString("urn:li:structuredProperty:mystery");
+    AspectRetriever unknownRetriever = mock(AspectRetriever.class);
+    when(unknownRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    StructuredPropertyDefinition unknownDef = new StructuredPropertyDefinition();
+    unknownDef.setVersion(null, SetMode.REMOVE_IF_NULL);
+    unknownDef.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "other"));
+    unknownDef.setQualifiedName("mystery");
+    when(unknownRetriever.getLatestAspectObjects(
+            any(OperationFingerprint.class), eq(Set.of(unknownUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                unknownUrn,
+                Map.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new Aspect(unknownDef.data()))));
+
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.mystery",
+            false,
+            unknownRetriever),
+        "structuredProperties.mystery.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldNonStructuredPropertyAppendsKeywordSuffix() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class), "myTestField", false, aspectRetriever),
+        "myTestField.keyword");
+  }
+
+  @Test
+  public void testToKeywordFieldSkipKeywordSuffixFlag() {
+    assertEquals(
+        ESUtils.toKeywordField(
+            mock(OperationFingerprint.class),
+            "structuredProperties.ab.fgh.ten",
+            true,
+            aspectRetriever),
+        "structuredProperties.ab_fgh_ten");
   }
 
   @Test
@@ -1714,10 +2004,16 @@ public class ESUtilsTest {
         new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
 
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.createPit(any(CreatePitRequest.class), any())).thenThrow(throttleException);
+    when(mockClient.createPit(any(OperationContext.class), any(CreatePitRequest.class), any()))
+        .thenThrow(throttleException);
 
     // Should throw APIThrottleException with appropriate retry duration
-    ESUtils.computePointInTime(null, "5m", mockClient, "test-index");
+    ESUtils.computePointInTime(
+        TestOperationContexts.systemContextNoSearchAuthorization(),
+        null,
+        "5m",
+        mockClient,
+        "test-index");
   }
 
   @Test
@@ -1728,10 +2024,16 @@ public class ESUtilsTest {
         new OpenSearchStatusException("Too many requests", RestStatus.TOO_MANY_REQUESTS);
 
     when(mockClient.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
-    when(mockClient.createPit(any(CreatePitRequest.class), any())).thenThrow(throttleException);
+    when(mockClient.createPit(any(OperationContext.class), any(CreatePitRequest.class), any()))
+        .thenThrow(throttleException);
 
     try {
-      ESUtils.computePointInTime(null, "5m", mockClient, "test-index");
+      ESUtils.computePointInTime(
+          TestOperationContexts.systemContextNoSearchAuthorization(),
+          null,
+          "5m",
+          mockClient,
+          "test-index");
       fail("Should have thrown APIThrottleException");
     } catch (APIThrottleException e) {
       // Verify the cause is set correctly

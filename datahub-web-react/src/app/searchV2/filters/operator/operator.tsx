@@ -1,4 +1,11 @@
-import { CheckCircleOutlined, PlusCircleOutlined, PlusOutlined, StopOutlined } from '@ant-design/icons';
+import {
+    ApartmentOutlined,
+    CheckCircleOutlined,
+    PlusCircleOutlined,
+    PlusOutlined,
+    StopOutlined,
+} from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 
 import {
@@ -9,9 +16,17 @@ import {
     FrontendFilterOperator,
 } from '@app/searchV2/filters/types';
 import { getIsDateRangeFilter } from '@app/searchV2/filters/utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '@src/app/search/utils/constants';
+import {
+    CONTAINER_FILTER_NAME,
+    DOMAINS_FILTER_NAME,
+    ENTITY_SUB_TYPE_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+} from '@src/app/search/utils/constants';
 
 import { FilterOperator } from '@types';
+
+const HIERARCHICAL_FILTER_FIELDS = new Set([DOMAINS_FILTER_NAME, CONTAINER_FILTER_NAME, PARENT_DOCUMENT_FILTER_NAME]);
 
 /**
  * This is a flat version of the supported search filtering operations that can be applied
@@ -25,8 +40,12 @@ import { FilterOperator } from '@types';
  */
 export const EQUALS_OPERATOR = {
     type: FilterOperatorType.EQUALS,
-    text: 'equals',
-    pluralText: 'is any of',
+    get text() {
+        return i18next.t('search:operator.equals');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.isAnyOf');
+    },
     filter: {
         operator: FilterOperator.Equal,
         negated: false,
@@ -36,8 +55,12 @@ export const EQUALS_OPERATOR = {
 
 export const ALL_EQUALS_OPERATOR = {
     type: FilterOperatorType.ALL_EQUALS,
-    text: 'equals',
-    pluralText: 'is all of',
+    get text() {
+        return i18next.t('search:operator.equals');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.isAllOf');
+    },
     filter: {
         operator: FrontendFilterOperator.AllEqual,
         negated: false,
@@ -47,7 +70,9 @@ export const ALL_EQUALS_OPERATOR = {
 
 export const EXISTS_OPERATOR = {
     type: FilterOperatorType.EXISTS,
-    text: 'exists',
+    get text() {
+        return i18next.t('search:operator.exists');
+    },
     filter: {
         operator: FilterOperator.Exists,
         negated: false,
@@ -57,8 +82,12 @@ export const EXISTS_OPERATOR = {
 
 export const NOT_EQUALS_OPERATOR = {
     type: FilterOperatorType.NOT_EQUALS,
-    text: 'does not equal',
-    pluralText: 'is not any of',
+    get text() {
+        return i18next.t('search:operator.doesNotEqual');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.isNotAnyOf');
+    },
     filter: {
         operator: FilterOperator.Equal,
         negated: true,
@@ -68,7 +97,9 @@ export const NOT_EQUALS_OPERATOR = {
 
 export const NOT_EXISTS_OPERATOR = {
     type: FilterOperatorType.NOT_EXISTS,
-    text: 'does not exist',
+    get text() {
+        return i18next.t('search:operator.doesNotExist');
+    },
     filter: {
         operator: FilterOperator.Exists,
         negated: true,
@@ -76,10 +107,26 @@ export const NOT_EXISTS_OPERATOR = {
     icon: <StopOutlined />,
 };
 
+export const WITHIN_OPERATOR = {
+    type: FilterOperatorType.WITHIN,
+    get text() {
+        return i18next.t('search:operator.within');
+    },
+    filter: {
+        operator: FilterOperator.DescendantsIncl,
+        negated: false,
+    },
+    icon: <ApartmentOutlined />,
+};
+
 const CONTAINS_OPERATOR = {
     type: FilterOperatorType.CONTAINS,
-    text: 'contains',
-    pluralText: 'contains any of',
+    get text() {
+        return i18next.t('search:operator.contains');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.containsAnyOf');
+    },
     filter: {
         operator: FilterOperator.Contain,
         negated: false,
@@ -88,8 +135,12 @@ const CONTAINS_OPERATOR = {
 
 const NOT_CONTAINS_OPERATOR = {
     type: FilterOperatorType.NOT_CONTAINS,
-    text: 'does not contain',
-    pluralText: 'does not contain any of',
+    get text() {
+        return i18next.t('search:operator.doesNotContain');
+    },
+    get pluralText() {
+        return i18next.t('search:operator.doesNotContainAnyOf');
+    },
     filter: {
         operator: FilterOperator.Contain,
         negated: true,
@@ -98,7 +149,9 @@ const NOT_CONTAINS_OPERATOR = {
 
 const GREATER_THAN_OPERATOR = {
     type: FilterOperatorType.GREATER_THAN,
-    text: 'is greater than',
+    get text() {
+        return i18next.t('search:operator.isGreaterThan');
+    },
     filter: {
         operator: FilterOperator.GreaterThan,
         negated: false,
@@ -107,7 +160,9 @@ const GREATER_THAN_OPERATOR = {
 
 const GREATER_THAN_OR_EQUALS_OPERATOR = {
     type: FilterOperatorType.GREATER_THAN_OR_EQUALS,
-    text: 'is greater than or equal to',
+    get text() {
+        return i18next.t('search:operator.isGreaterThanOrEqualTo');
+    },
     filter: {
         operator: FilterOperator.GreaterThanOrEqualTo,
         negated: false,
@@ -116,7 +171,9 @@ const GREATER_THAN_OR_EQUALS_OPERATOR = {
 
 const LESS_THAN_OPERATOR = {
     type: FilterOperatorType.LESS_THAN,
-    text: 'is less than',
+    get text() {
+        return i18next.t('search:operator.isLessThan');
+    },
     filter: {
         operator: FilterOperator.LessThan,
         negated: false,
@@ -125,7 +182,9 @@ const LESS_THAN_OPERATOR = {
 
 const LESS_THAN_OR_EQUALS_OPERATOR = {
     type: FilterOperatorType.LESS_THAN_OR_EQUALS,
-    text: 'is less than or equal to',
+    get text() {
+        return i18next.t('search:operator.isLessThanOrEqualTo');
+    },
     filter: {
         operator: FilterOperator.LessThanOrEqualTo,
         negated: false,
@@ -138,6 +197,7 @@ const SUPPORTED_OPERATORS: FilterOperatorInfo[] = [
     NOT_EQUALS_OPERATOR,
     EXISTS_OPERATOR,
     NOT_EXISTS_OPERATOR,
+    WITHIN_OPERATOR,
     CONTAINS_OPERATOR,
     NOT_CONTAINS_OPERATOR,
     GREATER_THAN_OPERATOR,
@@ -215,6 +275,9 @@ export const getOperatorOptionsForPredicate = (predicate: FilterPredicate, isPlu
             operatorOptions = BASE_CONDITION_TYPES.map((type) => SEARCH_FILTER_CONDITION_TYPE_TO_INFO.get(type)!);
             break;
         /* eslint-enable @typescript-eslint/no-non-null-assertion */
+    }
+    if (HIERARCHICAL_FILTER_FIELDS.has(predicate.field.field)) {
+        operatorOptions = [WITHIN_OPERATOR, ...operatorOptions];
     }
     return applyFiltersToOperatorOptions(predicate.field.field, operatorOptions, isPlural);
 };

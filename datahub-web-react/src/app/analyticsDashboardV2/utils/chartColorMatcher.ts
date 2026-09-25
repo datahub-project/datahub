@@ -32,28 +32,28 @@ function normalizeKey(key: string): string {
  * @returns Hex color string if match found, null otherwise
  */
 export function findDataHubEntityColor(seriesKey: string, theme: DefaultTheme): string | null {
-    const DATAHUB_ENTITY_COLORS = getEntityColorsObject(theme);
+    const datahubEntityColors = getEntityColorsObject(theme);
     const normalized = normalizeKey(seriesKey);
 
     // Direct match
-    if (DATAHUB_ENTITY_COLORS[normalized]) {
-        return DATAHUB_ENTITY_COLORS[normalized];
+    if (datahubEntityColors[normalized]) {
+        return datahubEntityColors[normalized];
     }
 
     // Try removing common suffixes
     const withoutSuffix = normalized.replace(/(type|entity|tab|view)s?$/i, '');
-    if (DATAHUB_ENTITY_COLORS[withoutSuffix]) {
-        return DATAHUB_ENTITY_COLORS[withoutSuffix];
+    if (datahubEntityColors[withoutSuffix]) {
+        return datahubEntityColors[withoutSuffix];
     }
 
     // Try removing "data" prefix (for matching "dataproduct" -> "product")
     const withoutDataPrefix = normalized.replace(/^data/, '');
-    if (DATAHUB_ENTITY_COLORS[withoutDataPrefix]) {
-        return DATAHUB_ENTITY_COLORS[withoutDataPrefix];
+    if (datahubEntityColors[withoutDataPrefix]) {
+        return datahubEntityColors[withoutDataPrefix];
     }
 
     // Partial matching for compound names
-    const matchEntry = Object.entries(DATAHUB_ENTITY_COLORS).find(
+    const matchEntry = Object.entries(datahubEntityColors).find(
         ([entityType]) => normalized.includes(entityType) || entityType.includes(normalized),
     );
 
@@ -66,9 +66,9 @@ export function findDataHubEntityColor(seriesKey: string, theme: DefaultTheme): 
  */
 export function getAllEntityMatches(seriesKey: string, theme: DefaultTheme): Array<{ entity: string; color: string }> {
     const normalized = normalizeKey(seriesKey);
-    const DATAHUB_ENTITY_COLORS = getEntityColorsObject(theme);
+    const datahubEntityColors = getEntityColorsObject(theme);
 
-    return Object.entries(DATAHUB_ENTITY_COLORS)
+    return Object.entries(datahubEntityColors)
         .filter(
             ([entityType]) =>
                 normalized === entityType || normalized.includes(entityType) || entityType.includes(normalized),

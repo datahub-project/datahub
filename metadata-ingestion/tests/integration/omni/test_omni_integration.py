@@ -25,6 +25,7 @@ from datahub.ingestion.source.omni.omni import OmniSource
 from datahub.ingestion.source.omni.omni_config import OmniSourceConfig
 from datahub.testing import mce_helpers
 from tests.integration.omni.fixtures import (
+    DASHBOARD_DOC_DASHBOARD_1,
     FakeOmniClientFull,
 )
 
@@ -299,6 +300,103 @@ def test_semantic_views_upstream_of_physical_tables() -> None:
 
 
 @time_machine.travel(FROZEN_TIME)
+def test_view_to_physical_table_column_lineage() -> None:
+    """Semantic view → physical table lineage emits edges only for passthrough fields.
+
+    The orders view has dimensions (order_id, customer_id, created_at) which are
+    passthrough and should produce edges. The measure (total_revenue = SUM(amount))
+    is computed and must be skipped — ``total_revenue`` does not exist on the
+    physical table.
+    """
+    source = _build_source()
+    events = _collect_workunits(source)
+
+    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    orders_physical_urn = source._physical_dataset_urn(
+        "snowflake", "ANALYTICS_PROD", "PUBLIC", "ORDERS", platform_instance="snowflake"
+    )
+
+    view_lineage = [
+        e
+        for e in events
+        if e["entityUrn"] == orders_view_urn and e["aspectName"] == "upstreamLineage"
+    ]
+    assert view_lineage, f"No upstreamLineage emitted for {orders_view_urn}"
+
+    fine_grained = view_lineage[-1]["aspect"].get("fineGrainedLineages") or []
+    assert len(fine_grained) == 3, (
+        f"Expected 3 fine-grained edges (3 passthrough dimensions, measure skipped); "
+        f"got {len(fine_grained)}"
+    )
+
+    edges = {(edge["upstreams"][0], edge["downstreams"][0]) for edge in fine_grained}
+    passthrough_fields = ["created_at", "customer_id", "order_id"]
+    expected_edges = {
+        (
+            f"urn:li:schemaField:({orders_physical_urn},{field})",
+            f"urn:li:schemaField:({orders_view_urn},{field})",
+        )
+        for field in passthrough_fields
+    }
+    assert edges == expected_edges, (
+        f"View → physical column lineage mismatch.\n"
+        f"Missing: {expected_edges - edges}\n"
+        f"Extra: {edges - expected_edges}"
+    )
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_computed_measures_skipped_in_view_physical_lineage() -> None:
+    """Computed measures (with SQL expressions) must not produce phantom edges.
+
+    total_revenue = SUM(amount) should not create a physical.total_revenue edge
+    because that column does not exist on the physical table.
+    """
+    source = _build_source()
+    events = _collect_workunits(source)
+
+    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    orders_physical_urn = source._physical_dataset_urn(
+        "snowflake", "ANALYTICS_PROD", "PUBLIC", "ORDERS", platform_instance="snowflake"
+    )
+
+    view_lineage = [
+        e
+        for e in events
+        if e["entityUrn"] == orders_view_urn and e["aspectName"] == "upstreamLineage"
+    ]
+    fine_grained = view_lineage[-1]["aspect"].get("fineGrainedLineages") or []
+
+    phantom_urn = f"urn:li:schemaField:({orders_physical_urn},total_revenue)"
+    upstream_urns = {edge["upstreams"][0] for edge in fine_grained}
+    assert phantom_urn not in upstream_urns, (
+        "Computed measure total_revenue should not produce a physical column edge"
+    )
+
+    assert source.report.view_to_physical_column_lineage_skipped_computed > 0
+
+
+@time_machine.travel(FROZEN_TIME)
+def test_view_to_physical_column_lineage_disabled_when_flag_off() -> None:
+    """No fine-grained lineage on view → physical when include_column_lineage=False."""
+    source = _build_source(extra_config={"include_column_lineage": False})
+    events = _collect_workunits(source)
+
+    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    view_lineage = [
+        e
+        for e in events
+        if e["entityUrn"] == orders_view_urn and e["aspectName"] == "upstreamLineage"
+    ]
+    assert view_lineage, f"No upstreamLineage emitted for {orders_view_urn}"
+    fine_grained = view_lineage[-1]["aspect"].get("fineGrainedLineages") or []
+    assert not fine_grained, (
+        f"Fine-grained lineage should be empty when include_column_lineage=False; "
+        f"got {len(fine_grained)} edges"
+    )
+
+
+@time_machine.travel(FROZEN_TIME)
 def test_dashboard_tiles_reference_topics() -> None:
     """Chart/tile entities must list the related topic URN as an input dataset."""
     source = _build_source()
@@ -367,30 +465,62 @@ def test_dashboard_upstream_is_folder_not_topic() -> None:
 
 @time_machine.travel(FROZEN_TIME)
 def test_fine_grained_lineage_emitted_for_dashboard() -> None:
-    """Dashboard dataset must have fine-grained lineage edges from semantic fields."""
+    """Dashboard must have fine-grained lineage mapping semantic view fields to dashboard fields.
+
+    Tile "Revenue by Month" references orders.created_at and orders.total_revenue.
+    Tile "Top Customers" references customers.customer_id and customers.lifetime_value.
+    Each produces a fine-grained edge: upstream = semantic view schemaField,
+    downstream = dashboard schemaField named <view>.<field>.
+    """
     source = _build_source()
     events = _collect_workunits(source)
 
     dashboard_dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:omni,doc-dashboard-1,PROD)"
     )
+    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
+    customers_view_urn = source._semantic_dataset_urn("shared-model-1", "customers")
+
     lineage_events = [
         e
         for e in events
         if e["entityUrn"] == dashboard_dataset_urn
         and e["aspectName"] == "upstreamLineage"
     ]
-    if lineage_events:
-        fine_grained = lineage_events[0]["aspect"].get("fineGrainedLineages") or []
-        assert fine_grained, (
-            "No fine-grained lineage edges emitted for dashboard dataset"
-        )
-        upstream_fields = {
-            u for edge in fine_grained for u in (edge.get("upstreams") or [])
-        }
-        assert any("schemaField" in u for u in upstream_fields), (
-            f"Fine-grained lineage should reference semantic view fields; got: {upstream_fields}"
-        )
+    assert lineage_events, "No upstreamLineage emitted for dashboard dataset"
+
+    fine_grained = lineage_events[0]["aspect"].get("fineGrainedLineages") or []
+    assert len(fine_grained) == 4, (
+        f"Expected 4 fine-grained lineage edges (one per dashboard field); got {len(fine_grained)}"
+    )
+
+    # Collect all edges as (upstream_urn, downstream_urn) pairs
+    edges = {(edge["upstreams"][0], edge["downstreams"][0]) for edge in fine_grained}
+
+    # Verify each semantic view field maps to its dashboard field
+    expected_edges = {
+        (
+            f"urn:li:schemaField:({orders_view_urn},created_at)",
+            f"urn:li:schemaField:({dashboard_dataset_urn},orders.created_at)",
+        ),
+        (
+            f"urn:li:schemaField:({orders_view_urn},total_revenue)",
+            f"urn:li:schemaField:({dashboard_dataset_urn},orders.total_revenue)",
+        ),
+        (
+            f"urn:li:schemaField:({customers_view_urn},customer_id)",
+            f"urn:li:schemaField:({dashboard_dataset_urn},customers.customer_id)",
+        ),
+        (
+            f"urn:li:schemaField:({customers_view_urn},lifetime_value)",
+            f"urn:li:schemaField:({dashboard_dataset_urn},customers.lifetime_value)",
+        ),
+    }
+    assert edges == expected_edges, (
+        f"Fine-grained lineage edges don't match expected.\n"
+        f"Missing: {expected_edges - edges}\n"
+        f"Extra: {edges - expected_edges}"
+    )
 
 
 @time_machine.travel(FROZEN_TIME)
@@ -492,16 +622,25 @@ def test_document_pattern_filters_documents() -> None:
 
 @time_machine.travel(FROZEN_TIME)
 def test_snowflake_names_normalised_to_uppercase() -> None:
-    """Physical Snowflake table URNs must use uppercased identifiers."""
+    """Physical Snowflake table URNs in lineage must use uppercased identifiers.
+
+    Physical datasets are not emitted as entities (BI connector only references them
+    via lineage), so we check the upstream lineage of semantic views.
+    """
     source = _build_source()
     events = _collect_workunits(source)
 
-    physical_urns = [
-        e["entityUrn"]
-        for e in events
-        if "dataPlatform:snowflake" in e.get("entityUrn", "")
-    ]
-    assert physical_urns, "No Snowflake physical dataset URNs emitted"
+    # Collect all Snowflake physical URNs from upstream lineage
+    physical_urns = set()
+    for e in events:
+        if e["aspectName"] == "upstreamLineage":
+            upstreams = e["aspect"].get("upstreams", [])
+            for upstream in upstreams:
+                urn = upstream.get("dataset", "")
+                if "dataPlatform:snowflake" in urn:
+                    physical_urns.add(urn)
+
+    assert physical_urns, "No Snowflake physical dataset URNs in lineage"
     for urn in physical_urns:
         # name part may be prefixed by "platform_instance." — skip that prefix
         name_part = urn.split(",")[1]
@@ -518,50 +657,51 @@ def test_snowflake_names_normalised_to_uppercase() -> None:
 
 
 @time_machine.travel(FROZEN_TIME)
-def test_topic_fetch_failure_falls_back_to_yaml() -> None:
-    """When the topic API returns 404, views should still be extracted from model YAML."""
+def test_inferred_view_schema_contains_all_fields() -> None:
+    """Inferred views must include ALL fields, not just those seen before first emit.
+
+    Regression test: _emit_inferred_view_datasets previously emitted views on
+    first encounter while iterating an unordered set, producing incomplete schemas.
+    """
+
+    class ClientWithInferredView(FakeOmniClientFull):
+        def get_dashboard_document(self, document_id: str) -> Dict[str, Any]:
+            if document_id == "doc-dashboard-1":
+                payload = dict(DASHBOARD_DOC_DASHBOARD_1)
+                payload["queryPresentations"] = list(payload["queryPresentations"]) + [
+                    {
+                        "id": "tile-analytics",
+                        "name": "Page Analytics",
+                        "query": {
+                            "fields": [
+                                "analytics.page_views",
+                                "analytics.sessions",
+                                "analytics.bounce_rate",
+                            ],
+                            "modelId": "shared-model-1",
+                        },
+                    },
+                ]
+                return payload
+            return super().get_dashboard_document(document_id)
+
     source = _build_source()
-
-    # Override topic fetch to always fail
-    class _NoTopicClient(FakeOmniClientFull):
-        def get_topic(self, model_id: str, topic_name: str) -> dict:
-            raise RuntimeError(f"404 Not Found: {topic_name}")
-
-    source.client = _NoTopicClient()  # type: ignore[assignment]
+    source.client = ClientWithInferredView()  # type: ignore[assignment]
     events = _collect_workunits(source)
 
-    orders_view_urn = source._semantic_dataset_urn("shared-model-1", "orders")
-    emitted_urns = {e["entityUrn"] for e in events}
-    assert orders_view_urn in emitted_urns, (
-        f"Semantic view {orders_view_urn} should be extracted from YAML fallback "
-        "when topic API fails"
+    analytics_view_urn = source._semantic_dataset_urn("shared-model-1", "analytics")
+    schema_events = [
+        e
+        for e in events
+        if e["entityUrn"] == analytics_view_urn and e["aspectName"] == "schemaMetadata"
+    ]
+    assert schema_events, (
+        f"No schemaMetadata emitted for inferred view {analytics_view_urn}"
     )
 
-
-@time_machine.travel(FROZEN_TIME)
-def test_model_yaml_failure_logs_warning_but_continues() -> None:
-    """403 on model YAML should log a warning and continue to the next model."""
-    source = _build_source()
-
-    class _YamlForbiddenClient(FakeOmniClientFull):
-        def get_model_yaml(self, model_id: str) -> dict:
-            if model_id == "shared-model-1":
-                raise RuntimeError("403 Forbidden")
-            return {"files": {}}
-
-    source.client = _YamlForbiddenClient()  # type: ignore[assignment]
-    events = _collect_workunits(source)
-
-    # Ingestion should still emit model datasets despite the YAML failure
-    shared_model_urn = source._model_dataset_urn("shared-model-1")
-    emitted_urns = {e["entityUrn"] for e in events}
-    assert shared_model_urn in emitted_urns, (
-        "Model entity should still be emitted even when its YAML fetch fails"
-    )
-    warnings = source.report.warnings
-    assert any("model-yaml-fetch" in str(w) for w in warnings), (
-        "A warning should be logged for the failed YAML fetch"
-    )
+    fields = {f["fieldPath"] for f in schema_events[0]["aspect"].get("fields", [])}
+    expected = {"bounce_rate", "page_views", "sessions"}
+    assert fields == expected, f"Inferred view should have all 3 fields; got: {fields}"
 
 
 # ---------------------------------------------------------------------------
@@ -574,7 +714,7 @@ def test_connection_succeeds_with_valid_credentials() -> None:
     with pytest.MonkeyPatch.context() as mp:
         mp.setattr(
             "datahub.ingestion.source.omni.omni_api.OmniClient.test_connection",
-            lambda self: True,
+            lambda self: None,
         )
         report = OmniSource.test_connection(
             {

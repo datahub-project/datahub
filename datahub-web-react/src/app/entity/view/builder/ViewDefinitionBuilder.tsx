@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
@@ -20,7 +20,7 @@ import { Entity, FacetFilter, FacetFilterInput, LogicalOperator } from '@types';
 const Container = styled.div`
     border-radius: 4px;
     padding: 12px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     border: 1px solid ${ANTD_GRAY[4]};
     margin-bottom: 20px;
 `;
@@ -48,6 +48,7 @@ type Props = {
 export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     // Stores an URN to the resolved entity.
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
+    const attemptedUrnsRef = useRef<Set<string>>(new Set());
 
     // Find the filters requiring entity resolution.
     const filtersToResolve = useMemo(
@@ -71,9 +72,12 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
     const [getEntities, { data: resolvedEntitiesData }] = useGetEntitiesLazyQuery();
 
     useEffect(() => {
-        if (isResolutionRequired(urnsToResolve, entityCache)) {
-            getEntities({ variables: { urns: urnsToResolve } });
+        const attemptedUrns = attemptedUrnsRef.current;
+        if (!isResolutionRequired(urnsToResolve, entityCache, attemptedUrns)) {
+            return;
         }
+        urnsToResolve.forEach((urn) => attemptedUrns.add(urn));
+        getEntities({ variables: { urns: urnsToResolve } });
     }, [urnsToResolve, entityCache, getEntities]);
 
     /**
@@ -84,8 +88,7 @@ export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
      */
     useEffect(() => {
         if (resolvedEntitiesData && resolvedEntitiesData.entities?.length) {
-            const entities: Entity[] = (resolvedEntitiesData?.entities as Entity[]) || [];
-            setEntityCache(buildEntityCache(entities));
+            setEntityCache(buildEntityCache(resolvedEntitiesData.entities));
         }
     }, [resolvedEntitiesData]);
 

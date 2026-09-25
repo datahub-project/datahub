@@ -1,6 +1,7 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
@@ -90,6 +91,7 @@ interface Props {
 }
 
 export function StatsSidebarContent({ properties }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const { expandedField, fieldProfile, profiles } = properties;
 
     const getFieldStatTrendComponent = (statName: string) => {
@@ -117,7 +119,7 @@ export function StatsSidebarContent({ properties }: Props) {
         return (
             <NoDataContainer>
                 <StyledIcon component={NoStatsAvailble} />
-                <Section>No column statistics found</Section>
+                <Section>{t('statsSidebar.noColumnStatsFound')}</Section>
             </NoDataContainer>
         );
     }
@@ -125,47 +127,47 @@ export function StatsSidebarContent({ properties }: Props) {
     const statsData = {
         stats: [
             {
-                name: 'Null Count',
+                name: t('statsSummary.nullCount'),
                 value: fieldProfile.nullCount ? formatNumberWithoutAbbreviation(fieldProfile.nullCount) : null,
                 trend: getFieldStatTrendComponent('nullCount'),
             },
             {
-                name: 'Null %',
+                name: t('statsSummary.nullPercent'),
                 value: decimalToPercentStr(fieldProfile.nullProportion, 2),
                 trend: getFieldStatTrendComponent('nullProportion'),
             },
             {
-                name: 'Distinct Count',
+                name: t('statsSummary.distinctCount'),
                 value: fieldProfile.uniqueCount ? formatNumberWithoutAbbreviation(fieldProfile.uniqueCount) : null,
                 trend: getFieldStatTrendComponent('uniqueCount'),
             },
             {
-                name: 'Distinct %',
+                name: t('statsSummary.distinctPercent'),
                 value: decimalToPercentStr(fieldProfile.uniqueProportion, 2),
                 trend: getFieldStatTrendComponent('uniqueProportion'),
             },
             {
-                name: 'Min',
+                name: t('statsSummary.min'),
                 value: fieldProfile.min ? formatNumberWithoutAbbreviation(fieldProfile.min) : null,
                 trend: getFieldStatTrendComponent('min'),
             },
             {
-                name: 'Max',
+                name: t('statsSummary.max'),
                 value: fieldProfile.max ? formatNumberWithoutAbbreviation(fieldProfile.max) : null,
                 trend: getFieldStatTrendComponent('max'),
             },
             {
-                name: 'Median',
+                name: t('statsSummary.median'),
                 value: fieldProfile.median ? formatNumberWithoutAbbreviation(fieldProfile.median) : null,
                 trend: getFieldStatTrendComponent('median'),
             },
             {
-                name: 'Std Dev',
+                name: t('statsSummary.stdDev'),
                 value: fieldProfile.stdev ? formatNumberWithoutAbbreviation(fieldProfile.stdev) : null,
                 trend: getFieldStatTrendComponent('stdev'),
             },
             {
-                name: 'Sample Values',
+                name: t('statsSummary.sampleValues'),
                 value: fieldProfile.sampleValues
                     ?.filter((value) => value !== undefined)
                     .slice(0, 3)

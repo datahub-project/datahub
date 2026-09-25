@@ -241,7 +241,7 @@
                 {
                     "fieldPath": "generated_message_id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -250,16 +250,6 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:looker:group_label:IDs"
-                            }
-                        ]
-                    },
                     "isPartOfKey": true
                 }
             ],
@@ -502,7 +492,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -511,19 +501,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -532,19 +515,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "source",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -553,19 +529,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "income",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -574,13 +543,6 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -810,7 +772,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -819,19 +781,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -840,19 +795,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "total_income",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -861,13 +809,6 @@
                     },
                     "nativeDataType": "sum",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -1097,7 +1038,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1106,19 +1047,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1127,19 +1061,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "source",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1148,13 +1075,6 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -1384,7 +1304,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1393,19 +1313,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1414,19 +1327,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "taxable_income",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1435,13 +1341,6 @@
                     },
                     "nativeDataType": "sum",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -1666,7 +1565,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1675,19 +1574,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1696,19 +1588,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "source",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1717,19 +1602,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "income",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1738,13 +1616,6 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -1968,7 +1839,7 @@
                 {
                     "fieldPath": "generated_message_id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -1977,16 +1848,6 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:looker:group_label:IDs"
-                            }
-                        ]
-                    },
                     "isPartOfKey": true
                 }
             ],
@@ -2229,7 +2090,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2238,19 +2099,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2259,19 +2113,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "source",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2280,19 +2127,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "income",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2301,13 +2141,6 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -2521,7 +2354,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2530,19 +2363,12 @@
                     },
                     "nativeDataType": "number",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "name",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2551,19 +2377,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "source",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2572,13 +2391,6 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -2808,7 +2620,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2817,19 +2629,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": true
                 },
                 {
                     "fieldPath": "parent_dimension_1",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2838,19 +2643,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "parent_count",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -2859,13 +2657,6 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -3124,7 +2915,7 @@
                 {
                     "fieldPath": "id",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -3133,19 +2924,12 @@
                     },
                     "nativeDataType": "integer",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": true
                 },
                 {
                     "fieldPath": "child_dimension_1",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -3154,19 +2938,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "parent_dimension_1",
                     "nullable": false,
-                    "description": "",
+                    "description": "Dimension. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -3175,19 +2952,12 @@
                     },
                     "nativeDataType": "string",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Dimension"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 },
                 {
                     "fieldPath": "parent_count",
                     "nullable": false,
-                    "description": "",
+                    "description": "Measure. ",
                     "label": "",
                     "type": {
                         "type": {
@@ -3196,13 +2966,6 @@
                     },
                     "nativeDataType": "count",
                     "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
                     "isPartOfKey": false
                 }
             ],
@@ -3254,54 +3017,6 @@
                     "urn": "urn:li:container:78f22c19304954b15e8adb1d9809975e"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Dimension",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Dimension"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:Measure",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "Measure"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1586847600000,
-        "runId": "lookml-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "tag",
-    "entityUrn": "urn:li:tag:looker:group_label:IDs",
-    "changeType": "UPSERT",
-    "aspectName": "tagKey",
-    "aspect": {
-        "json": {
-            "name": "looker:group_label:IDs"
         }
     },
     "systemMetadata": {

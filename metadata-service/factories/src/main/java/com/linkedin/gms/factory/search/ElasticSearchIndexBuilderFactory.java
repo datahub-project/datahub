@@ -2,11 +2,13 @@ package com.linkedin.gms.factory.search;
 
 import static com.linkedin.gms.factory.common.IndexConventionFactory.INDEX_CONVENTION_BEAN;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.linkedin.gms.factory.common.GitVersionFactory;
 import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -32,46 +34,32 @@ public class ElasticSearchIndexBuilderFactory {
   @Qualifier("searchClientShim")
   private SearchClientShim<?> searchClient;
 
-  @Value("${elasticsearch.index.numShards}")
-  private Integer numShards;
-
-  @Value("${elasticsearch.index.numReplicas}")
-  private Integer numReplicas;
-
-  @Value("${elasticsearch.index.numRetries}")
-  private Integer numRetries;
-
-  @Value("${elasticsearch.index.refreshIntervalSeconds}")
-  private Integer refreshIntervalSeconds;
-
   @Value("${elasticsearch.index.settingsOverrides}")
   private String indexSettingOverrides;
 
   @Value("${elasticsearch.index.entitySettingsOverrides}")
   private String entityIndexSettingOverrides;
 
-  @Value("#{new Boolean('${elasticsearch.index.enableSettingsReindex}')}")
-  private boolean enableSettingsReindex;
-
-  @Value("#{new Boolean('${elasticsearch.index.enableMappingsReindex}')}")
-  private boolean enableMappingsReindex;
-
-  @Value("#{new Boolean('${structuredProperties.systemUpdateEnabled}')}")
-  private boolean enableStructuredPropertiesReindex;
-
-  @Value("${elasticsearch.index.maxReindexHours}")
-  private Integer maxReindexHours;
-
   @Bean(name = "elasticSearchIndexSettingsOverrides")
   @Nonnull
   protected Map<String, Map<String, String>> getIndexSettingsOverrides(
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention) {
 
+    // Bootstrap-time Spring wiring — no per-request OperationContext is obtainable here.
     return Stream.concat(
             parseIndexSettingsMap(indexSettingOverrides).entrySet().stream()
-                .map(e -> Map.entry(indexConvention.getIndexName(e.getKey()), e.getValue())),
+                .map(
+                    e ->
+                        Map.entry(
+                            indexConvention.getIndexName(OperationFingerprint.EMPTY, e.getKey()),
+                            e.getValue())),
             parseIndexSettingsMap(entityIndexSettingOverrides).entrySet().stream()
-                .map(e -> Map.entry(indexConvention.getEntityIndexName(e.getKey()), e.getValue())))
+                .map(
+                    e ->
+                        Map.entry(
+                            indexConvention.getEntityIndexName(
+                                OperationFingerprint.EMPTY, e.getKey()),
+                            e.getValue())))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
@@ -81,12 +69,24 @@ public class ElasticSearchIndexBuilderFactory {
       @Qualifier("elasticSearchIndexSettingsOverrides") Map<String, Map<String, String>> overrides,
       final ConfigurationProvider configurationProvider,
       final GitVersion gitVersion) {
+    ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
     return new ESIndexBuilder(
         searchClient,
-        configurationProvider.getElasticSearch(),
+        // Shard and replica counts are per cluster, so the builder gets the primary cluster's
+        // effective view rather than the shared defaults, which carry no sizing.
+        withEffectiveIndex(esConfig, ElasticSearchConfiguration.PRIMARY_CLUSTER),
         configurationProvider.getStructuredProperties(),
         overrides,
         gitVersion);
+  }
+
+  /** Returns {@code esConfig} with {@code index} resolved for the named cluster. */
+  @Nonnull
+  static ElasticSearchConfiguration withEffectiveIndex(
+      @Nonnull ElasticSearchConfiguration esConfig, @Nonnull String clusterName) {
+    return esConfig.toBuilder()
+        .index(esConfig.getCluster(clusterName).effectiveIndex(esConfig.getIndex()))
+        .build();
   }
 
   @Nonnull

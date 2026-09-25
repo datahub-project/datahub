@@ -21,7 +21,7 @@ public class RestrictedServiceTest {
   @Test
   private void testEncryptRestrictedUrn() throws Exception {
     SecretService mockSecretService = mock(SecretService.class);
-    Mockito.when(mockSecretService.encrypt(TEST_DATASET_URN.toString()))
+    Mockito.when(mockSecretService.encrypt(Mockito.any(), Mockito.eq(TEST_DATASET_URN.toString())))
         .thenReturn(ENCRYPED_DATASET_URN);
     final RestrictedService service = new RestrictedService(mockSecretService);
 
@@ -31,7 +31,7 @@ public class RestrictedServiceTest {
   @Test
   private void testDecryptRestrictedUrn() throws Exception {
     SecretService mockSecretService = mock(SecretService.class);
-    Mockito.when(mockSecretService.decrypt(ENCRYPED_DATASET_URN))
+    Mockito.when(mockSecretService.decrypt(Mockito.any(), Mockito.eq(ENCRYPED_DATASET_URN)))
         .thenReturn(TEST_DATASET_URN.toString());
     final RestrictedService service = new RestrictedService(mockSecretService);
 

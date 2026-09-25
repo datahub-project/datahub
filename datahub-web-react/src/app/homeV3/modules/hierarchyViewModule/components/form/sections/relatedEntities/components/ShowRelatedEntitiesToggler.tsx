@@ -1,5 +1,6 @@
 import { Switch, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const Wrapper = styled.div`
@@ -18,13 +19,14 @@ interface Props {
 }
 
 export default function ShowRelatedEntitiesSwitch({ isChecked, onChange }: Props) {
+    const { t } = useTranslation('modules');
     return (
         <Wrapper>
             <LabelContainer>
                 <Text weight="bold" lineHeight="sm">
-                    Show Related Entities
+                    {t('hierarchy.showRelatedEntitiesLabel')}
                 </Text>
-                <Text lineHeight="sm">Show related entities for this term. Toggling shows entities in the module.</Text>
+                <Text lineHeight="sm">{t('hierarchy.showRelatedEntitiesDescription')}</Text>
             </LabelContainer>
             <Switch label="" isChecked={isChecked} onChange={() => onChange(!isChecked)} />
         </Wrapper>

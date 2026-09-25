@@ -31,4 +31,6 @@ export const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
 // Navigation sidebar
 export const NAV_SIDEBAR_ID = 'nav-sidebar';
 export const NAV_SIDEBAR_WIDTH_EXPANDED = 264;
-export const NAV_SIDEBAR_WIDTH_COLLAPSED = 60;
+/** Collapsed nav is fully hidden (0px); expand/collapse togglers sit in the page chrome. */
+export const NAV_SIDEBAR_WIDTH_COLLAPSED = 0;
+export const NAV_SIDEBAR_COLLAPSE_TRANSITION_MS = 180;

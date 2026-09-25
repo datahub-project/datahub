@@ -37,7 +37,7 @@ public class BootstrapManagerTest {
   @Test
   public void testInitialState() {
     List<BootstrapStep> steps = Arrays.asList(mockBlockingStep1, mockAsyncStep);
-    BootstrapManager manager = new BootstrapManager(steps);
+    BootstrapManager manager = new BootstrapManager(steps, 5);
 
     // Initially, blocking steps should not be complete
     assertFalse(manager.areBlockingStepsComplete());
@@ -46,7 +46,7 @@ public class BootstrapManagerTest {
   @Test
   public void testBlockingStepsCompletion() throws Exception {
     List<BootstrapStep> steps = Arrays.asList(mockBlockingStep1, mockBlockingStep2, mockAsyncStep);
-    BootstrapManager manager = new BootstrapManager(steps);
+    BootstrapManager manager = new BootstrapManager(steps, 5);
 
     // Before start, blocking steps not complete
     assertFalse(manager.areBlockingStepsComplete());
@@ -65,7 +65,7 @@ public class BootstrapManagerTest {
   @Test
   public void testOnlyBlockingSteps() throws Exception {
     List<BootstrapStep> steps = Arrays.asList(mockBlockingStep1, mockBlockingStep2);
-    BootstrapManager manager = new BootstrapManager(steps);
+    BootstrapManager manager = new BootstrapManager(steps, 5);
 
     manager.start(operationContext);
 
@@ -80,7 +80,7 @@ public class BootstrapManagerTest {
   @Test
   public void testOnlyAsyncSteps() throws Exception {
     List<BootstrapStep> steps = Arrays.asList(mockAsyncStep);
-    BootstrapManager manager = new BootstrapManager(steps);
+    BootstrapManager manager = new BootstrapManager(steps, 5);
 
     manager.start(operationContext);
 
@@ -91,7 +91,7 @@ public class BootstrapManagerTest {
   @Test
   public void testEmptyStepsList() {
     List<BootstrapStep> steps = Arrays.asList();
-    BootstrapManager manager = new BootstrapManager(steps);
+    BootstrapManager manager = new BootstrapManager(steps, 5);
 
     manager.start(operationContext);
 
@@ -102,7 +102,7 @@ public class BootstrapManagerTest {
   @Test
   public void testAsyncStepExecution() throws Exception {
     List<BootstrapStep> steps = Arrays.asList(mockBlockingStep1, mockAsyncStep);
-    BootstrapManager manager = new BootstrapManager(steps);
+    BootstrapManager manager = new BootstrapManager(steps, 5);
 
     manager.start(operationContext);
 

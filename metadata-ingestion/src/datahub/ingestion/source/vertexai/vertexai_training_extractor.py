@@ -505,7 +505,7 @@ class VertexAITrainingExtractor:
                         job_meta.output_model = model
                         job_meta.output_model_version = model_version
                 except (PermissionDenied, Unauthenticated) as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to fetch model and model version due to permission issue",
                         message=format_api_error_message(
                             e,
@@ -516,7 +516,7 @@ class VertexAITrainingExtractor:
                         exc=e,
                     )
                 except ResourceExhausted as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to fetch model and model version due to quota exceeded",
                         message=format_api_error_message(
                             e,
@@ -527,7 +527,7 @@ class VertexAITrainingExtractor:
                         exc=e,
                     )
                 except (DeadlineExceeded, ServiceUnavailable) as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to fetch model and model version due to timeout or service unavailable",
                         message=format_api_error_message(
                             e,
@@ -547,7 +547,7 @@ class VertexAITrainingExtractor:
                         )
                     )
                 except GoogleAPICallError as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to fetch model and model version",
                         message=format_api_error_message(
                             e,

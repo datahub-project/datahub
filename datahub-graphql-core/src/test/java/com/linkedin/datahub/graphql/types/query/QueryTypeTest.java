@@ -1,9 +1,16 @@
 package com.linkedin.datahub.graphql.types.query;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
+import com.datahub.authentication.Actor;
+import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -19,6 +26,10 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.query.QueryLanguage;
 import com.linkedin.query.QueryProperties;
 import com.linkedin.query.QuerySource;
@@ -28,11 +39,16 @@ import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.execution.DataFetcherResult;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -151,6 +167,245 @@ public class QueryTypeTest {
   }
 
   @Test
+  public void testBatchLoadWithViewAuthorizationEnabled_filtersUnauthorizedQueries()
+      throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+
+    Map<String, EnvelopedAspect> queryAspects = new HashMap<>();
+    queryAspects.put(
+        Constants.QUERY_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_QUERY_PROPERTIES_1.data())));
+    queryAspects.put(
+        Constants.QUERY_SUBJECTS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_QUERY_SUBJECTS_1.data())));
+
+    Mockito.when(
+            client.batchGetV2(
+                any(),
+                Mockito.eq(Constants.QUERY_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_QUERY_URN))),
+                Mockito.eq(QueryType.ASPECTS_TO_FETCH)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.QUERY_ENTITY_NAME)
+                    .setUrn(TEST_QUERY_URN)
+                    .setAspects(new EnvelopedAspectMap(queryAspects))));
+
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
+
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(),
+                eq(ImmutableSet.of(TEST_QUERY_URN)),
+                eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME,
+                    new Aspect(TEST_QUERY_SUBJECTS_1.data()))));
+
+    QueryType type = new QueryType(client);
+    OperationContext userContext = createUserContextWithViewAuth(mockAuthorizer, aspectRetriever);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(userContext);
+
+    List<DataFetcherResult<QueryEntity>> result =
+        type.batchLoad(ImmutableList.of(TEST_QUERY_URN.toString()), mockContext);
+
+    assertEquals(result.size(), 1);
+    assertNull(result.get(0));
+  }
+
+  /**
+   * Query-read authorization is enabled by default (independent of the legacy view-authorization
+   * flag): a direct entity load of a Query urn by an actor lacking {@code VIEW_ENTITY_QUERIES} on
+   * the query's subject dataset must be filtered (null slot).
+   */
+  @Test
+  public void testBatchLoadFiltersQueriesWhenActorLacksViewEntityQueriesAndViewAuthDisabled()
+      throws Exception {
+    EntityClient client = mockClientReturningQuery1();
+    Authorizer mockAuthorizer = queryViewPrivilegeAuthorizer(false);
+    AspectRetriever aspectRetriever = mockQuery1SubjectsAspectRetriever();
+
+    QueryType type = new QueryType(client);
+    OperationContext userContext = createUserContext(mockAuthorizer, aspectRetriever, false);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(userContext);
+
+    List<DataFetcherResult<QueryEntity>> result =
+        type.batchLoad(ImmutableList.of(TEST_QUERY_URN.toString()), mockContext);
+
+    assertEquals(result.size(), 1);
+    assertNull(
+        result.get(0),
+        "Query entity (including its SQL statement) leaked to an actor lacking"
+            + " VIEW_ENTITY_QUERIES on the subject dataset");
+  }
+
+  /** Mirror allow-case: an actor granted VIEW_ENTITY_QUERIES still receives the full entity. */
+  @Test
+  public void testBatchLoadReturnsQueriesWhenActorHasViewEntityQueries() throws Exception {
+    EntityClient client = mockClientReturningQuery1();
+    Authorizer mockAuthorizer = queryViewPrivilegeAuthorizer(true);
+    AspectRetriever aspectRetriever = mockQuery1SubjectsAspectRetriever();
+
+    QueryType type = new QueryType(client);
+    OperationContext userContext = createUserContext(mockAuthorizer, aspectRetriever, false);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(userContext);
+
+    List<DataFetcherResult<QueryEntity>> result =
+        type.batchLoad(ImmutableList.of(TEST_QUERY_URN.toString()), mockContext);
+
+    assertEquals(result.size(), 1);
+    assertNotNull(result.get(0));
+    verifyQuery1(result.get(0).getData());
+  }
+
+  /**
+   * requireAllSubjects plumb-through: with the strict mode configured, a query with two subject
+   * datasets is filtered when the actor holds the privilege on only one of them — even though the
+   * default any-subject mode would have allowed it.
+   */
+  @Test
+  public void testBatchLoadStrictModeFiltersPartialGrantAcrossSubjects() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+    QuerySubjects twoSubjects =
+        new QuerySubjects()
+            .setSubjects(
+                new QuerySubjectArray(
+                    ImmutableList.of(
+                        new QuerySubject().setEntity(TEST_DATASET_URN),
+                        new QuerySubject().setEntity(TEST_DATASET_2_URN))));
+    Map<String, EnvelopedAspect> queryAspects = new HashMap<>();
+    queryAspects.put(
+        Constants.QUERY_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_QUERY_PROPERTIES_1.data())));
+    queryAspects.put(
+        Constants.QUERY_SUBJECTS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(twoSubjects.data())));
+    Mockito.when(
+            client.batchGetV2(
+                any(),
+                Mockito.eq(Constants.QUERY_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_QUERY_URN))),
+                Mockito.eq(QueryType.ASPECTS_TO_FETCH)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.QUERY_ENTITY_NAME)
+                    .setUrn(TEST_QUERY_URN)
+                    .setAspects(new EnvelopedAspectMap(queryAspects))));
+
+    // Grants the query-view privilege group on TEST_DATASET_URN only.
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              boolean allowed =
+                  request
+                      .getResourceSpec()
+                      .map(spec -> TEST_DATASET_URN.toString().equals(spec.getEntity()))
+                      .orElse(false);
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(),
+                eq(ImmutableSet.of(TEST_QUERY_URN)),
+                eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME, new Aspect(twoSubjects.data()))));
+
+    QueryType type = new QueryType(client);
+    OperationContext userContext =
+        createUserContext(
+            mockAuthorizer,
+            aspectRetriever,
+            ViewAuthorizationConfiguration.builder()
+                .enabled(false)
+                .queryEntities(
+                    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+                        .enabled(true)
+                        .requireAllSubjects(
+                            ViewAuthorizationConfiguration.RequireAllSubjectsMode.TRUE)
+                        .build())
+                .build());
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(userContext);
+
+    List<DataFetcherResult<QueryEntity>> result =
+        type.batchLoad(ImmutableList.of(TEST_QUERY_URN.toString()), mockContext);
+
+    assertEquals(result.size(), 1);
+    assertNull(
+        result.get(0),
+        "strict mode: privilege on only one of two subject datasets must not grant access");
+  }
+
+  /**
+   * Escape valve: with query-read authorization explicitly disabled (and legacy view-auth off), no
+   * filtering — and no subject lookups — happen at all.
+   */
+  @Test
+  public void testBatchLoadReturnsQueriesWhenQueryAuthorizationDisabled() throws Exception {
+    EntityClient client = mockClientReturningQuery1();
+    Authorizer mockAuthorizer = queryViewPrivilegeAuthorizer(false);
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+
+    QueryType type = new QueryType(client);
+    OperationContext userContext =
+        createUserContext(
+            mockAuthorizer,
+            aspectRetriever,
+            ViewAuthorizationConfiguration.builder()
+                .enabled(false)
+                .queryEntities(
+                    ViewAuthorizationConfiguration.QueryEntityAuthorizationConfig.builder()
+                        .enabled(false)
+                        .build())
+                .build());
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(userContext);
+
+    List<DataFetcherResult<QueryEntity>> result =
+        type.batchLoad(ImmutableList.of(TEST_QUERY_URN.toString()), mockContext);
+
+    assertEquals(result.size(), 1);
+    assertNotNull(result.get(0));
+    verifyQuery1(result.get(0).getData());
+    Mockito.verify(aspectRetriever, Mockito.never()).getLatestAspectObjects(any(), any(), any());
+  }
+
+  @Test
   public void testBatchLoadNullEntity() throws Exception {
 
     EntityClient client = Mockito.mock(EntityClient.class);
@@ -223,6 +478,123 @@ public class QueryTypeTest {
         () ->
             type.batchLoad(
                 ImmutableList.of(TEST_QUERY_URN.toString(), TEST_QUERY_2_URN.toString()), context));
+  }
+
+  private EntityClient mockClientReturningQuery1() throws Exception {
+    EntityClient client = Mockito.mock(EntityClient.class);
+    Map<String, EnvelopedAspect> queryAspects = new HashMap<>();
+    queryAspects.put(
+        Constants.QUERY_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_QUERY_PROPERTIES_1.data())));
+    queryAspects.put(
+        Constants.QUERY_SUBJECTS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(TEST_QUERY_SUBJECTS_1.data())));
+    Mockito.when(
+            client.batchGetV2(
+                any(),
+                Mockito.eq(Constants.QUERY_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_QUERY_URN))),
+                Mockito.eq(QueryType.ASPECTS_TO_FETCH)))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.QUERY_ENTITY_NAME)
+                    .setUrn(TEST_QUERY_URN)
+                    .setAspects(new EnvelopedAspectMap(queryAspects))));
+    return client;
+  }
+
+  private AspectRetriever mockQuery1SubjectsAspectRetriever() {
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Mockito.when(aspectRetriever.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(),
+                eq(ImmutableSet.of(TEST_QUERY_URN)),
+                eq(ImmutableSet.of(Constants.QUERY_SUBJECTS_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_QUERY_URN,
+                ImmutableMap.of(
+                    Constants.QUERY_SUBJECTS_ASPECT_NAME,
+                    new Aspect(TEST_QUERY_SUBJECTS_1.data()))));
+    return aspectRetriever;
+  }
+
+  /**
+   * Authorizer modeling an actor with general read access (VIEW_ENTITY_PAGE, GET_ENTITY, ...) whose
+   * grant of the query-view privilege group (VIEW_ENTITY_QUERIES / EDIT_ENTITY_QUERIES /
+   * EDIT_ENTITY) is controlled by {@code hasQueryViewPrivilege}.
+   */
+  private Authorizer queryViewPrivilegeAuthorizer(boolean hasQueryViewPrivilege) {
+    Set<String> queryViewPrivileges =
+        ImmutableSet.of(
+            PoliciesConfig.VIEW_ENTITY_QUERIES_PRIVILEGE.getType(),
+            PoliciesConfig.EDIT_QUERIES_PRIVILEGE.getType(),
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+            PoliciesConfig.VIEW_ALL_QUERIES_PRIVILEGE.getType());
+    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
+    Mockito.when(mockAuthorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              AuthorizationRequest request = invocation.getArgument(0);
+              boolean allowed =
+                  hasQueryViewPrivilege || !queryViewPrivileges.contains(request.getPrivilege());
+              return new AuthorizationResult(
+                  request,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  "");
+            });
+    return mockAuthorizer;
+  }
+
+  private OperationContext createUserContextWithViewAuth(
+      Authorizer authorizer, AspectRetriever aspectRetriever) {
+    return createUserContext(authorizer, aspectRetriever, true);
+  }
+
+  private OperationContext createUserContext(
+      Authorizer authorizer, AspectRetriever aspectRetriever, boolean viewAuthorizationEnabled) {
+    return createUserContext(
+        authorizer,
+        aspectRetriever,
+        ViewAuthorizationConfiguration.builder().enabled(viewAuthorizationEnabled).build());
+  }
+
+  private OperationContext createUserContext(
+      Authorizer authorizer,
+      AspectRetriever aspectRetriever,
+      ViewAuthorizationConfiguration viewAuthorizationConfiguration) {
+    Authentication userAuth =
+        new Authentication(new Actor(ActorType.USER, TEST_USER_URN.getId()), "");
+
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .aspectRetriever(aspectRetriever)
+            .cachingAspectRetriever(
+                TestOperationContexts.emptyActiveUsersAspectRetriever(
+                    aspectRetriever::getEntityRegistry))
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .build();
+
+    OperationContext systemContext =
+        TestOperationContexts.systemContext(
+            () ->
+                OperationContextConfig.builder()
+                    .viewAuthorizationConfiguration(viewAuthorizationConfiguration)
+                    .build(),
+            null,
+            null,
+            null,
+            () -> retrieverContext,
+            null,
+            null,
+            null);
+
+    return systemContext.asSession(RequestContext.TEST, authorizer, userAuth);
   }
 
   private void verifyQuery1(QueryEntity query) {

@@ -21,6 +21,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { APIRequestContext } from '@playwright/test';
 import { extractUrn, type Mcp } from '../helpers/seeder-utils';
+import { DATAHUB_GRAPHQL_PATH } from './constants';
+import { createScriptLogger, type DataHubLogger } from './logger';
 
 // ── Public interface ──────────────────────────────────────────────────────────
 
@@ -36,14 +38,13 @@ export interface FeatureDataLoader {
   load(featureDir: string, featureName: string): Promise<void>;
 }
 
-
 async function prefixExists(
   request: APIRequestContext,
   gmsUrl: string,
   prefix: string,
   gmsToken: string,
 ): Promise<boolean> {
-  const response = await request.post(`${gmsUrl}/api/v2/graphql`, {
+  const response = await request.post(`${gmsUrl}${DATAHUB_GRAPHQL_PATH}`, {
     data: {
       query: `query search($input: SearchInput!) { search(input: $input) { total } }`,
       variables: { input: { type: 'DATASET', query: `${prefix}*`, start: 0, count: 1 } },
@@ -58,42 +59,39 @@ async function prefixExists(
 }
 
 export class RestFeatureDataLoader implements FeatureDataLoader {
+  private readonly logger: DataHubLogger;
+
   constructor(
     private readonly request: APIRequestContext,
     private readonly gmsToken: string,
     private readonly gmsUrl: string,
-  ) {}
+    logger?: DataHubLogger,
+  ) {
+    this.logger = logger ?? createScriptLogger('test-data');
+  }
 
   async load(featureDir: string, featureName: string): Promise<void> {
     if (process.env.PW_NO_SETUP === '1') {
-      console.log(`[test-data] Skipping injection for '${featureName}' (PW_NO_SETUP=1)`);
+      this.logger.info(`Skipping injection for '${featureName}' (PW_NO_SETUP=1)`);
       return;
     }
 
     const dataFile = path.join(featureDir, 'data', `${featureName}.json`);
     if (!fs.existsSync(dataFile)) {
       throw new Error(
-        `Feature data file not found: ${dataFile}\n` +
-          `Expected location: {featureDir}/data/${featureName}.json`,
+        `Feature data file not found: ${dataFile}\n` + `Expected location: {featureDir}/data/${featureName}.json`,
       );
     }
 
     const featurePrefix = `pw_${featureName}_`;
-    const alreadySeeded = await prefixExists(
-      this.request,
-      this.gmsUrl,
-      featurePrefix,
-      this.gmsToken,
-    );
+    const alreadySeeded = await prefixExists(this.request, this.gmsUrl, featurePrefix, this.gmsToken);
     if (alreadySeeded) {
-      console.log(
-        `[test-data] Entities with prefix '${featurePrefix}' already exist — skipping injection`,
-      );
+      this.logger.info(`Entities with prefix '${featurePrefix}' already exist — skipping injection`);
       return;
     }
 
     const mcps = JSON.parse(fs.readFileSync(dataFile, 'utf-8')) as Mcp[];
-    console.log(`[test-data] Injecting ${mcps.length} entities for feature '${featureName}'...`);
+    this.logger.info(`Injecting ${mcps.length} entities for feature '${featureName}'...`);
 
     for (const mcp of mcps) {
       const urn = extractUrn(mcp);
@@ -106,12 +104,10 @@ export class RestFeatureDataLoader implements FeatureDataLoader {
       });
       if (!response.ok()) {
         const body = await response.text();
-        throw new Error(
-          `Failed to ingest entity ${urn}: ${response.status()} ${response.statusText()}\n${body}`,
-        );
+        throw new Error(`Failed to ingest entity ${urn}: ${response.status()} ${response.statusText()}\n${body}`);
       }
     }
 
-    console.log(`[test-data] Injection complete for '${featureName}' (${mcps.length} entities)`);
+    this.logger.info(`Injection complete for '${featureName}' (${mcps.length} entities)`);
   }
 }

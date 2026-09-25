@@ -1,0 +1,77 @@
+# DataHub dlt (data load tool) connector recipe.
+# Reads pipeline metadata from dlt's local state directory and emits
+# DataFlow, DataJob, and lineage metadata to DataHub.
+# See: https://datahubproject.io/docs/generated/ingestion/sources/dlt
+
+source:
+  type: dlt
+  config:
+    # Path to the dlt pipelines directory (~/.dlt/pipelines by default).
+    # Override for CI/CD or containerized environments — must point to the
+    # same directory that dlt writes to.
+    pipelines_dir: "~/.dlt/pipelines"
+
+    # Filter pipelines by name. Matched against the pipeline_name passed to dlt.pipeline().
+    pipeline_pattern:
+      allow:
+        - ".*"
+      # deny:
+      #   - "^test_.*"
+
+    # Emit outlet lineage from DataJobs to destination Dataset URNs.
+    include_lineage: true
+
+    # Maps dlt destination type names to DataHub platform config for lineage stitching.
+    # Must exactly match the env/platform_instance used by your destination connector.
+    # The database field is required for SQL destinations (Postgres, Redshift, etc.)
+    # that use 3-part URNs (database.schema.table) — dlt only stores the schema name.
+    destination_platform_map:
+      postgres:
+        database: my_database
+        platform_instance: null
+        env: PROD
+
+      # bigquery:
+      #   platform_instance: "my-gcp-project"
+      #   env: PROD
+
+      # snowflake:
+      #   platform_instance: "my-account"
+      #   env: PROD
+
+    # Optional: manually specify upstream Dataset URNs.
+    # dlt does not store source connection info, so inlet lineage must be configured here.
+    # Use source_dataset_urns for pipeline-level inlets (e.g. REST API sources):
+    # source_dataset_urns:
+    #   my_pipeline:
+    #     - "urn:li:dataset:(urn:li:dataPlatform:salesforce,contacts,PROD)"
+    #
+    # Use source_table_dataset_urns for table-level inlets (e.g. sql_database sources):
+    # source_table_dataset_urns:
+    #   my_pipeline:
+    #     my_table:
+    #       - "urn:li:dataset:(urn:li:dataPlatform:postgres,prod_db.public.my_table,PROD)"
+
+    # Query _dlt_loads and emit DataProcessInstance run history. Disabled by default.
+    # Requires dlt package + destination credentials in ~/.dlt/secrets.toml or env vars.
+    include_run_history: false
+
+    # Time window for run history (only used when include_run_history: true).
+    run_history_config:
+      start_time: "-7 days"
+      # end_time: "now"
+
+    # Remove DataFlow/DataJob entities when pipelines are deleted from pipelines_dir.
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+    # Optional: distinguish multiple independent dlt installations in DataHub.
+    # platform_instance: "my-dlt-instance"
+
+    env: PROD
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

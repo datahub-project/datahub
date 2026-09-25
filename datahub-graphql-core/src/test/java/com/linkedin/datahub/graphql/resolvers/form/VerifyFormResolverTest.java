@@ -5,13 +5,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.VerifyFormInput;
 import com.linkedin.metadata.service.FormService;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.ArrayList;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -28,8 +26,7 @@ public class VerifyFormResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     FormService mockFormService = initMockFormService(true, true);
-    GroupService mockGroupService = initMockGroupService();
-    VerifyFormResolver resolver = new VerifyFormResolver(mockFormService, mockGroupService);
+    VerifyFormResolver resolver = new VerifyFormResolver(mockFormService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -52,8 +49,7 @@ public class VerifyFormResolverTest {
   @Test
   public void testGetUnauthorized() throws Exception {
     FormService mockFormService = initMockFormService(false, true);
-    GroupService mockGroupService = initMockGroupService();
-    VerifyFormResolver resolver = new VerifyFormResolver(mockFormService, mockGroupService);
+    VerifyFormResolver resolver = new VerifyFormResolver(mockFormService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -70,8 +66,7 @@ public class VerifyFormResolverTest {
   @Test
   public void testThrowErrorOnVerification() throws Exception {
     FormService mockFormService = initMockFormService(true, false);
-    GroupService mockGroupService = initMockGroupService();
-    VerifyFormResolver resolver = new VerifyFormResolver(mockFormService, mockGroupService);
+    VerifyFormResolver resolver = new VerifyFormResolver(mockFormService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -100,13 +95,6 @@ public class VerifyFormResolverTest {
       Mockito.when(service.verifyFormForEntity(any(), Mockito.any(), Mockito.any()))
           .thenThrow(new RuntimeException());
     }
-
-    return service;
-  }
-
-  private GroupService initMockGroupService() throws Exception {
-    GroupService service = Mockito.mock(GroupService.class);
-    Mockito.when(service.getGroupsForUser(any(), Mockito.any())).thenReturn(new ArrayList<>());
 
     return service;
   }

@@ -13,15 +13,23 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 
 
 @pytest.fixture(scope="module")
-def mssql_runner(docker_compose_runner, pytestconfig):
+def mssql_runner(docker_compose_runner, pytestconfig, request):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/mssql"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "sql-server"
     ) as docker_services:
+        # Ephemeral host port: a leaked container from a prior CI run can
+        # never hold onto it. Recipe ymls in source_files/ pick it up via
+        # ${MSSQL_PORT}.
+        mssql_port = docker_services.port_for("testsqlserver", 1433)
+        mp = pytest.MonkeyPatch()
+        mp.setenv("MSSQL_PORT", str(mssql_port))
+        request.addfinalizer(mp.undo)
+
         # Wait for SQL Server to be ready. We wait an extra couple seconds, as the port being available
         # does not mean the server is accepting connections.
         # TODO: find a better way to check for liveness.
@@ -42,9 +50,6 @@ def mssql_runner(docker_compose_runner, pytestconfig):
             )
 
         yield docker_services
-
-    # The image is pretty large, so we remove it after the test.
-    cleanup_image("mcr.microsoft.com/mssql/server")
 
 
 SOURCE_FILES_PATH = "./tests/integration/mssql/source_files"

@@ -17,13 +17,18 @@
 import * as path from 'path';
 import type { Page } from '@playwright/test';
 import type { DataHubLogger } from '../utils/logger';
+import { ToastComponent } from './common/toast-component';
 
 export class BasePage {
+  protected readonly toast: ToastComponent;
+
   constructor(
     protected readonly page: Page,
     protected readonly logger?: DataHubLogger,
     protected readonly logDir?: string,
-  ) {}
+  ) {
+    this.toast = new ToastComponent(page);
+  }
 
   async navigate(url: string): Promise<void> {
     this.logger?.step('navigate', { url });
@@ -59,9 +64,7 @@ export class BasePage {
    * Playwright's default output directory when logDir is not provided.
    */
   async screenshot(name: string): Promise<void> {
-    const screenshotPath = this.logDir
-      ? path.join(this.logDir, `${name}.png`)
-      : `${name}.png`;
+    const screenshotPath = this.logDir ? path.join(this.logDir, `${name}.png`) : `${name}.png`;
     this.logger?.step('screenshot', { name, path: screenshotPath });
     await this.page.screenshot({ path: screenshotPath, fullPage: false });
   }

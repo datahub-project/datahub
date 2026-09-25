@@ -1,0 +1,19 @@
+namespace com.linkedin.assertion
+
+/**
+ * User-defined configuration for assigning severities to traditional assertion failures.
+ */
+record AssertionFailureSeverityConfig {
+  /**
+   * The severity to assign when no explicit rule matches a failed assertion.
+   */
+  defaultSeverity: AssertionResultSeverity
+
+  /**
+   * Rules used to map the computed failure amount to a severity.
+   *
+   * At evaluation time, rules are sorted by severity priority and the first
+   * matching rule is used.
+   */
+  rules: array[AssertionFailureSeverityRule] = []
+}

@@ -19,8 +19,9 @@ def with_retry(
 
             curr_attempt = curr_attempt + 1
             if curr_attempt >= max_attempts:
+                # Relay failure to caller.
                 logger.warning("kafka event source: exhausted all attempts.")
-                return
+                raise
 
             backoff = backoff * 2
             if backoff > max_backoff:

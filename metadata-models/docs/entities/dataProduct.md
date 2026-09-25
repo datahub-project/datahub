@@ -159,12 +159,21 @@ MULTIPLE_DATA_PRODUCTS_PER_ASSET=false
 
 ### Authorization and Access Control
 
-DataHub provides fine-grained permissions for Data Products:
+DataHub separates **product-side** and **asset-side** Data Product permissions:
 
-- **Manage Data Product**: Required to create/delete Data Products within a Domain
-- **Edit Data Product**: Required to add/remove assets from a Data Product
+| Action                                                               | Privilege                | Evaluated on                                                                                             |
+| -------------------------------------------------------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Create, update, or delete a Data Product                             | **Manage Data Products** | Domain(s) associated with the product                                                                    |
+| Add/remove assets from the Data Product page (`batchSetDataProduct`) | **Manage Data Products** | **At least one** Domain on the product                                                                   |
+| Set / unset Data Product from an asset profile                       | **Edit Data Product**    | The **asset** (`batchAddToDataProducts`, `batchRemoveFromDataProducts`, unset via `batchSetDataProduct`) |
 
-These privileges can be granted through [Metadata Policies](../../../authorization/policies.md), allowing organizations to control who can create and modify Data Products.
+**Manage Data Products** is a Domain-scoped policy privilege. For product-page membership changes, the actor must have manage access on **at least one** Domain associated with the product. Product and asset Domains do not need to match. When a product is linked to multiple Domains (unusual but possible via direct metadata writes), manage access on any one product Domain suffices. Products with no Domain associations cannot be managed from the product side (fail-closed); asset-side **Edit Data Product** authorization may still allow membership changes via MCP or asset-profile APIs.
+
+Direct metadata writes (MCP, ingestion) allow membership changes when **either** product-side manage **or** asset-side edit authorization succeeds on every changed asset.
+
+Renaming via `updateName` also accepts **Edit Entity** on the Data Product URN as an alternative to domain-level manage access.
+
+See [Data Products user guide](../../../dataproducts.md) and [Metadata Policies — derived authorization rules](../../../authorization/policies.md#derived-authorization-rules) for details.
 
 ### GraphQL API
 

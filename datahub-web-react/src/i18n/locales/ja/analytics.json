@@ -1,0 +1,11 @@
+{
+    "allDomains": "すべてのDomain",
+    "dataLandscapeSummary": "データランドスケープの概要",
+    "domainLandscapeSummary": "Domainランドスケープの概要",
+    "failedToLoadCharts": "Chartの読み込みに失敗しました",
+    "failedToLoadDomains": "Domainの読み込みに失敗しました",
+    "failedToLoadHighlights": "ハイライトの読み込みに失敗しました",
+    "noDomainData": "このDomainの分析データはありません",
+    "selectDomain": "Domainを選択",
+    "usageAnalytics": "使用状況分析"
+}

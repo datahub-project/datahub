@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.config;
 
+import com.datahub.authentication.AccessTokenConfiguration;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -44,6 +45,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final SettingsService _settingsService;
   private final boolean _isS3Enabled;
   private final SemanticSearchConfiguration _semanticSearchConfiguration;
+  private final boolean _entityIndexV3Enabled;
 
   public AppConfigResolver(
       final GitVersion gitVersion,
@@ -65,7 +67,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
       final SettingsService settingsService,
       final boolean isS3Enabled,
-      final SemanticSearchConfiguration semanticSearchConfiguration) {
+      final SemanticSearchConfiguration semanticSearchConfiguration,
+      final boolean entityIndexV3Enabled) {
     _gitVersion = gitVersion;
     _isAnalyticsEnabled = isAnalyticsEnabled;
     _ingestionConfiguration = ingestionConfiguration;
@@ -86,6 +89,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _settingsService = settingsService;
     _isS3Enabled = isS3Enabled;
     _semanticSearchConfiguration = semanticSearchConfiguration;
+    _entityIndexV3Enabled = entityIndexV3Enabled;
   }
 
   @Override
@@ -107,6 +111,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
     final AuthConfig authConfig = new AuthConfig();
     authConfig.setTokenAuthEnabled(_authenticationConfiguration.isEnabled());
+    final AccessTokenConfiguration accessTokenConfiguration =
+        _authenticationConfiguration.getAccessTokens() != null
+            ? _authenticationConfiguration.getAccessTokens()
+            : AccessTokenConfiguration.defaults();
+    authConfig.setAllowNoExpiry(accessTokenConfiguration.isAllowNoExpiry());
+    authConfig.setAllowedAccessTokenDurations(accessTokenConfiguration.getAllowedDurations());
 
     final PoliciesConfig policiesConfig = new PoliciesConfig();
     policiesConfig.setEnabled(_authorizationConfiguration.getDefaultAuthorizer().isEnabled());
@@ -256,7 +266,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
             .setThemeV2Default(_featureFlags.isThemeV2Default())
             .setThemeV2Toggleable(_featureFlags.isThemeV2Toggleable())
-            .setLineageGraphV2(_featureFlags.isLineageGraphV2())
+            .setThemeDarkModeEnabled(_featureFlags.isThemeDarkModeEnabled())
             .setShowSeparateSiblings(_featureFlags.isShowSeparateSiblings())
             .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
             .setSchemaFieldCLLEnabled(_featureFlags.isSchemaFieldCLLEnabled())
@@ -272,21 +282,29 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowIntroducePage(_featureFlags.isShowIntroducePage())
             .setShowIngestionPageRedesign(_featureFlags.isShowIngestionPageRedesign())
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
+            .setShowLineageFilterNodes(_featureFlags.isShowLineageFilterNodes())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
             .setShowProductUpdates(_featureFlags.isShowProductUpdates())
-            .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())
             .setDatasetSummaryPageV1(_featureFlags.isDatasetSummaryPageV1())
+            .setMetricsEnabled(_featureFlags.isMetricsEnabled())
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
             .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
+            .setDataProductLineageEnabled(_featureFlags.isDataProductLineageEnabled())
             .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
             .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
+            .setStructuredPropertiesInPoliciesEnabled(
+                _featureFlags.isStructuredPropertiesInPoliciesEnabled())
+            .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
+            .setI18nEnabled(_featureFlags.isI18nEnabled())
+            .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())
+            .setBrowserWebVitalsEnabled(_featureFlags.isBrowserWebVitalsEnabled())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -323,6 +341,28 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
           final AwsProviderConfig awsProviderConfig = new AwsProviderConfig();
           awsProviderConfig.setRegion(providerConfig.getBedrock().getAwsRegion());
           embeddingConfig.setAwsProviderConfig(awsProviderConfig);
+        } else if ("vertex_ai".equalsIgnoreCase(providerConfig.getType())
+            && providerConfig.getVertexai() != null) {
+          final com.linkedin.metadata.config.search.EmbeddingProviderConfiguration.VertexAiConfig
+              vertexConfig = providerConfig.getVertexai();
+          final boolean projectIdSet =
+              vertexConfig.getProjectId() != null && !vertexConfig.getProjectId().isBlank();
+          final boolean locationSet =
+              vertexConfig.getLocation() != null && !vertexConfig.getLocation().isBlank();
+          if (projectIdSet && locationSet) {
+            final VertexProviderConfig vertexProviderConfig = new VertexProviderConfig();
+            vertexProviderConfig.setProjectId(vertexConfig.getProjectId());
+            vertexProviderConfig.setLocation(vertexConfig.getLocation());
+            embeddingConfig.setVertexProviderConfig(vertexProviderConfig);
+          } else {
+            log.warn(
+                "Vertex AI semantic search config has missing or blank projectId or location "
+                    + "(projectIdSet={}, locationSet={}). vertexProviderConfig will be omitted "
+                    + "from GraphQL response. Set VERTEX_AI_PROJECT_ID and VERTEX_AI_LOCATION env vars "
+                    + "(or embeddingProvider.vertexai.{projectId,location} in application.yaml).",
+                projectIdSet,
+                locationSet);
+          }
         }
 
         semanticSearchConfig.setEmbeddingConfig(embeddingConfig);
@@ -330,6 +370,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
       appConfig.setSemanticSearchConfig(semanticSearchConfig);
     }
+
+    final EntityIndexV3Config entityIndexV3Config = new EntityIndexV3Config();
+    entityIndexV3Config.setEnabled(_entityIndexV3Enabled);
+    appConfig.setEntityIndexV3(entityIndexV3Config);
 
     return CompletableFuture.completedFuture(appConfig);
   }
@@ -367,6 +411,9 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     // AWS Bedrock Titan models
     if (modelId.contains("titan-embed-text-v1")) return "amazon_titan_v1";
     if (modelId.contains("titan-embed-text-v2")) return "amazon_titan_v2";
+    // Vertex AI Gemini models
+    if (modelId.contains("gemini-embedding-001")) return "gemini_embedding_001";
+    if (modelId.contains("text-embedding-005")) return "text_embedding_005";
     // Fallback: replace special chars with underscores
     // This handles OpenAI models like text-embedding-3-small → text_embedding_3_small
     return modelId.replace("-", "_").replace(".", "_").replace(":", "_");
@@ -457,6 +504,18 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.DATA_PLATFORM_INSTANCE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_MODEL_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLMODEL;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_FEATURE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLFEATURE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_FEATURE_TABLE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.MLFEATURE_TABLE;
     } else {
       return null;
     }

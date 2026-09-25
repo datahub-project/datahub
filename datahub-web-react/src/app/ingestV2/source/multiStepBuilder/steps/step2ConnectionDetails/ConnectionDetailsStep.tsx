@@ -1,5 +1,6 @@
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -9,6 +10,7 @@ import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
 import {
     INGESTION_TYPE_CHANGED_ERROR,
     INGESTION_TYPE_EMPTY_ERROR,
@@ -20,6 +22,7 @@ import { ScheduleSection } from '@app/ingestV2/source/multiStepBuilder/steps/ste
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
 
 const Container = styled.div`
     display: flex;
@@ -29,6 +32,7 @@ const Container = styled.div`
 `;
 
 export function ConnectionDetailsStep() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { state, updateState, setCurrentStepCompleted, setCurrentStepUncompleted, setOnNextHandler } =
         useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
     const [isRecipeStateInitialized, setIsRecipeStateInitialized] = useState<boolean>(false);
@@ -45,6 +49,17 @@ export function ConnectionDetailsStep() {
     const placeholderRecipe = getPlaceholderRecipe(ingestionSources, type);
     const [initialRecipeYml] = useState(existingRecipeFromStateYaml || existingRecipeYaml);
     const [stagedRecipeYml, setStagedRecipeYml] = useState(initialRecipeYml || placeholderRecipe);
+
+    // state.config.recipe is a JSON string; parse it for client-side detection.
+    // Only the Snowflake banner consumes parsedRecipe; skip parsing for other source types.
+    const parsedRecipe = useMemo(() => {
+        if (type !== SNOWFLAKE || !state.config?.recipe) return null;
+        try {
+            return JSON.parse(state.config.recipe);
+        } catch {
+            return null;
+        }
+    }, [state.config?.recipe, type]);
 
     const analyticsRef = useRef(false);
 
@@ -140,19 +155,19 @@ export function ConnectionDetailsStep() {
             if (e instanceof Error) {
                 if (e.message === INGESTION_TYPE_EMPTY_ERROR) {
                     message.warning({
-                        content: 'Please add valid ingestion type',
+                        content: t('multiStep.connection.invalidIngestionType'),
                         duration: 3,
                     });
                 } else if (e.message === INGESTION_TYPE_CHANGED_ERROR) {
                     message.warning({
-                        content: "It's not possible to change source type for existing ingestion source",
+                        content: t('multiStep.connection.cannotChangeSourceType'),
                         duration: 3,
                     });
                 }
             }
             throw e;
         }
-    }, [stagedRecipeYml, updateRecipe]);
+    }, [stagedRecipeYml, updateRecipe, t]);
 
     useEffect(() => {
         setOnNextHandler(() => onNextHandler);
@@ -171,6 +186,7 @@ export function ConnectionDetailsStep() {
         <>
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
+            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <Container>
                 <NameAndOwnersSection
                     source={state.ingestionSource}

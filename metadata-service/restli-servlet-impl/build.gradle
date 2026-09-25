@@ -14,7 +14,7 @@ sourceSets {
 
 idea {
   module {
-    testSourceDirs += file('src/integTest/java')
+    testSources.from(file('src/integTest/java'))
     scopes.TEST.plus += [ configurations.integTestCompileOnly ]
   }
 }
@@ -23,10 +23,7 @@ idea {
 configurations {
   integTestImplementation.extendsFrom implementation
   integTestRuntimeOnly.extendsFrom runtimeOnly
-  integTestCompileOnly {
-    extendsFrom compileOnly
-    canBeResolved = true
-  }
+  integTestCompileOnly.extendsFrom compileOnly
   modelValidation
 }
 
@@ -87,7 +84,7 @@ task integrationTest(type: Test) {
 }
 
 task validateModels(type: JavaExec) {
-  main = 'com.linkedin.metadata.model.validation.ModelValidationTask'
+  mainClass = 'com.linkedin.metadata.model.validation.ModelValidationTask'
   args '../../metadata-models/src/main/pegasus/:' + '../../li-utils/src/main/pegasus/:' + configurations.dataModel.asPath, project.getProjectDir().getAbsolutePath() + "/../../metadata-models/src/main/pegasus",
   classpath = project.configurations.modelValidation
   debugOptions {

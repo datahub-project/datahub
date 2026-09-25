@@ -1,68 +1,82 @@
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { parseMaybeStringAsFloatOrDefault } from '@app/shared/numberUtil';
 
-import {
-    AssertionStdOperator,
-    AssertionStdParameters,
-    AssertionValueChangeType,
-    VolumeAssertionInfo,
-    VolumeAssertionType,
-} from '@types';
+import { AssertionStdOperator, AssertionStdParameters, VolumeAssertionInfo, VolumeAssertionType } from '@types';
 
 export const getIsRowCountChange = (type: VolumeAssertionType) => {
     return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
 };
 
-export const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
-    switch (volumeType) {
-        case VolumeAssertionType.RowCountTotal:
-        case VolumeAssertionType.IncrementingSegmentRowCountTotal:
-            return 'has';
-        case VolumeAssertionType.RowCountChange:
-        case VolumeAssertionType.IncrementingSegmentRowCountChange:
-            return 'should grow by';
-        default:
-            throw new Error(`Unknown volume type ${volumeType}`);
-    }
-};
+export type VolumeOperatorKeyPart = 'AtLeast' | 'AtMost' | 'Between' | 'EqualTo';
 
-export const getOperatorDescription = (operator: AssertionStdOperator) => {
+export const getVolumeOperatorKeyPart = (operator: AssertionStdOperator): VolumeOperatorKeyPart | null => {
     switch (operator) {
         case AssertionStdOperator.GreaterThanOrEqualTo:
-            return 'at least';
+            return 'AtLeast';
         case AssertionStdOperator.LessThanOrEqualTo:
-            return 'at most';
+            return 'AtMost';
         case AssertionStdOperator.Between:
-            return 'between';
+            return 'Between';
+        case AssertionStdOperator.EqualTo:
+            return 'EqualTo';
         default:
-            throw new Error(`Unknown operator ${operator}`);
+            return null;
     }
 };
 
-export const getParameterDescription = (parameters: AssertionStdParameters) => {
+// A single value ("5") or a range ("5" and "10") — the explicit `kind` tag lets callers switch on
+// it directly instead of a structural `'min' in parameterDescription` check, and TypeScript narrows
+// exhaustively (removing `kind` or adding a third variant without updating every switch is a type error).
+export type ParameterDescription = { kind: 'single'; value: string } | { kind: 'range'; min: string; max: string };
+
+export const getParameterDescription = (parameters: AssertionStdParameters): ParameterDescription | undefined => {
     if (parameters.value) {
-        return formatNumberWithoutAbbreviation(
-            parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value),
-        );
+        return {
+            kind: 'single',
+            value: formatNumberWithoutAbbreviation(
+                parseMaybeStringAsFloatOrDefault(parameters.value.value, parameters.value.value),
+            ),
+        };
     }
     if (parameters.minValue && parameters.maxValue) {
-        return `${formatNumberWithoutAbbreviation(
-            parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value),
-        )} and ${formatNumberWithoutAbbreviation(
-            parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value),
-        )}`;
+        return {
+            kind: 'range',
+            min: formatNumberWithoutAbbreviation(
+                parseMaybeStringAsFloatOrDefault(parameters.minValue.value, parameters.minValue.value),
+            ),
+            max: formatNumberWithoutAbbreviation(
+                parseMaybeStringAsFloatOrDefault(parameters.maxValue.value, parameters.maxValue.value),
+            ),
+        };
     }
-    throw new Error('Invalid assertion parameters provided');
+    console.error('Invalid assertion parameters provided', parameters);
+    return undefined;
 };
 
-export const getValueChangeTypeDescription = (valueChangeType: AssertionValueChangeType) => {
-    switch (valueChangeType) {
-        case AssertionValueChangeType.Absolute:
-            return 'rows';
-        case AssertionValueChangeType.Percentage:
-            return '%';
-        default:
-            throw new Error(`Unknown value change type ${valueChangeType}`);
+// Both VolumeAssertionDescription.tsx and assertion/profile/summary/utils.tsx need to turn a
+// ParameterDescription into the interpolation object for their i18next template — centralized here
+// so the discrimination logic (and its exhaustiveness check) lives in one place, not two.
+export type ParameterInterpolation = { parameter: string } | { min: string; max: string };
+
+export const getParameterInterpolation = (
+    parameterDescription: ParameterDescription | undefined,
+): ParameterInterpolation => {
+    if (!parameterDescription) {
+        return { parameter: '' };
+    }
+    switch (parameterDescription.kind) {
+        case 'range':
+            return { min: parameterDescription.min, max: parameterDescription.max };
+        case 'single':
+            return { parameter: parameterDescription.value };
+        default: {
+            // Unreachable per the exhaustiveness check below (a new `kind` variant left unhandled here
+            // is a compile error) — but if malformed data ever slips past the type system at runtime,
+            // fail soft with an empty parameter rather than crashing the assertion description UI.
+            const exhaustiveCheck: never = parameterDescription;
+            console.error('Unhandled ParameterDescription kind:', exhaustiveCheck);
+            return { parameter: '' };
+        }
     }
 };
 

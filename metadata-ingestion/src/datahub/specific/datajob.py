@@ -11,6 +11,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import SchemaFieldUrn, Urn
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.domains import HasDomainsPatch
 from datahub.specific.aspect_helpers.fine_grained_lineage import (
     HasFineGrainedLineagePatch,
 )
@@ -24,6 +25,7 @@ class DataJobPatchBuilder(
     HasCustomPropertiesPatch,
     HasTagsPatch,
     HasTermsPatch,
+    HasDomainsPatch,
     HasFineGrainedLineagePatch,
     MetadataPatchProposal,
 ):

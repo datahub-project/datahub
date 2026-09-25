@@ -7,11 +7,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DashboardStatsSummary;
 import com.linkedin.datahub.graphql.generated.DashboardUsageMetrics;
 import com.linkedin.datahub.graphql.generated.DashboardUserUsageCounts;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.resolvers.load.DashboardStatsSummaryBatchLoader;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import graphql.schema.DataFetcher;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.dataloader.DataLoader;
 
 @Slf4j
 public class DashboardStatsSummaryResolver
@@ -32,9 +35,12 @@ public class DashboardStatsSummaryResolver
   private static final Integer MAX_TOP_USERS = 5;
 
   private final TimeseriesAspectService timeseriesAspectService;
+  private final FeatureFlags featureFlags;
 
-  public DashboardStatsSummaryResolver(final TimeseriesAspectService timeseriesAspectService) {
+  public DashboardStatsSummaryResolver(
+      final TimeseriesAspectService timeseriesAspectService, final FeatureFlags featureFlags) {
     this.timeseriesAspectService = timeseriesAspectService;
+    this.featureFlags = featureFlags;
   }
 
   @Override
@@ -43,18 +49,26 @@ public class DashboardStatsSummaryResolver
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final QueryContext context = environment.getContext();
 
+    // TODO: We don't have a dashboard specific priv
+    if (!isViewDatasetUsageAuthorized(context, resourceUrn)) {
+      log.debug(
+          "User {} is not authorized to view usage information for {}",
+          context.getActorUrn(),
+          resourceUrn);
+      return CompletableFuture.completedFuture(null);
+    }
+
+    if (featureFlags.isTimeseriesAspectAggBatchLoadEnabled()) {
+      final DataLoader<Urn, DashboardStatsSummary> loader =
+          environment
+              .getDataLoaderRegistry()
+              .getDataLoader(DashboardStatsSummaryBatchLoader.LOADER_NAME);
+      return loader.load(resourceUrn);
+    }
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-
-            // TODO: We don't have a dashboard specific priv
-            if (!isViewDatasetUsageAuthorized(context, resourceUrn)) {
-              log.debug(
-                  "User {} is not authorized to view usage information for {}",
-                  context.getActorUrn(),
-                  resourceUrn.toString());
-              return null;
-            }
 
             final DashboardStatsSummary result = new DashboardStatsSummary();
 
@@ -77,7 +91,6 @@ public class DashboardStatsSummaryResolver
                         .collect(Collectors.toList())));
 
             return result;
-
           } catch (Exception e) {
             log.error(
                 String.format(

@@ -54,7 +54,8 @@ public class PageTemplateService {
    * Upserts a DataHub page template. If the page template with the provided urn already exists,
    * then it will be overwritten.
    *
-   * <p>This method assumes that authorization has already been verified at the calling layer.
+   * <p>Callers must hold MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE to create or modify GLOBAL-scoped
+   * templates, or to modify any template whose existing scope is GLOBAL.
    *
    * @return the URN of the new page template.
    */
@@ -85,6 +86,27 @@ public class PageTemplateService {
     DataHubPageTemplateProperties properties = new DataHubPageTemplateProperties();
     DataHubPageTemplateProperties existingProperties =
         getPageTemplateProperties(opContext, templateUrn);
+
+    // Prevent scope-hijacking: a low-privileged user must not be able to overwrite a GLOBAL
+    // template by supplying its URN with scope=PERSONAL in the request. Check the persisted scope,
+    // not the caller-supplied scope.
+    if (existingProperties != null
+        && existingProperties.getVisibility() != null
+        && PageTemplateScope.GLOBAL.equals(existingProperties.getVisibility().getScope())
+        && !AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE)) {
+      throw new UnauthorizedException(
+          String.format(
+              "User is unauthorized to modify global page template with urn %s", templateUrn));
+    }
+
+    // Prevent privilege escalation: creating or re-scoping a template to GLOBAL also requires the
+    // manage privilege.
+    if (PageTemplateScope.GLOBAL.equals(scope)
+        && !AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE)) {
+      throw new UnauthorizedException(
+          "User is unauthorized to create or modify global page templates.");
+    }
+
     if (existingProperties != null) {
       properties = existingProperties;
     } else {

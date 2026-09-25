@@ -1,10 +1,12 @@
 import { Modal } from '@components';
 import { Button } from 'antd';
 import React, { useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-const PreviewSyntax = styled(SyntaxHighlighter)`
+import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighlighter';
+
+const PreviewSyntax = styled(StyledSyntaxHighlighter)`
     max-height: 68px;
     overflow: hidden !important;
     border-radius: 12px;
@@ -44,16 +46,18 @@ interface Props {
 }
 
 const SummaryQuerySection = ({ query }: Props) => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const [showFullContentModal, setShowFullContentModal] = useState(false);
 
     return (
         <Container>
             <Modal
-                title="Query"
+                title={t('query.name')}
                 width="800px"
                 buttons={[
                     {
-                        text: 'Dismiss',
+                        text: t('chart.dismiss'),
                         onClick: () => setShowFullContentModal(false),
                         variant: 'filled',
                     },
@@ -62,9 +66,9 @@ const SummaryQuerySection = ({ query }: Props) => {
                 onCancel={() => setShowFullContentModal(false)}
             >
                 <ModalSyntaxContainer>
-                    <SyntaxHighlighter language="sql" wrapLongLines showLineNumbers>
+                    <StyledSyntaxHighlighter language="sql" wrapLongLines showLineNumbers>
                         {query}
-                    </SyntaxHighlighter>
+                    </StyledSyntaxHighlighter>
                 </ModalSyntaxContainer>
             </Modal>
 
@@ -72,7 +76,7 @@ const SummaryQuerySection = ({ query }: Props) => {
                 {query}
             </PreviewSyntax>
             <StyledButton type="text" onClick={() => setShowFullContentModal(true)}>
-                Read More
+                {tc('readMore')}
             </StyledButton>
         </Container>
     );

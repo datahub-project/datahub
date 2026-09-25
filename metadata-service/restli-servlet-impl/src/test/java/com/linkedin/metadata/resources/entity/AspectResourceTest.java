@@ -2,6 +2,8 @@ package com.linkedin.metadata.resources.entity;
 
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.fail;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -18,6 +20,10 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.MCPItem;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -39,6 +45,8 @@ import java.util.List;
 import java.util.Optional;
 
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -64,8 +72,15 @@ public class AspectResourceTest {
     producer = mock(EventProducer.class);
     updateIndicesService = mock(UpdateIndicesService.class);
     preProcessHooks = mock(PreProcessHooks.class);
-    entityService = new EntityServiceImpl(aspectDao, producer, false,
-            preProcessHooks, true);
+    entityService =
+        new EntityServiceImpl(
+            aspectDao,
+            producer,
+            preProcessHooks,
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     entityService.setUpdateIndicesService(updateIndicesService);
     authorizer = mock(Authorizer.class);
     when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
@@ -97,8 +112,11 @@ public class AspectResourceTest {
     Actor actor = new Actor(ActorType.USER, "user");
     when(mockAuthentication.getActor()).thenReturn(actor);
     aspectResource.ingestProposal(mcp, "true");
-    verify(producer, times(1)).produceMetadataChangeProposal(any(OperationContext.class), eq(urn),
-            argThat(arg -> arg.getMetadataChangeProposal().equals(mcp)));
+    verify(producer, times(1))
+        .produceMetadataChangeProposal(
+            any(OperationContext.class),
+            eq(urn),
+            argThat((MCPItem arg) -> arg.getMetadataChangeProposal().equals(mcp)));
     verifyNoMoreInteractions(producer);
     verifyNoMoreInteractions(aspectDao);
 
@@ -144,11 +162,44 @@ public class AspectResourceTest {
                             .request(req)
                             .build()))
             .build();
-    when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt())).thenReturn(Optional.of(txResult));
+    // Disambiguate against the 3-arg overload (OperationContext, Function, int) — production
+    // invokes the 4-arg form (OperationContext, Function, AspectsBatch, int).
+    when(aspectDao.runInTransactionWithRetry(
+            any(OperationContext.class), any(), any(AspectsBatch.class), anyInt()))
+        .thenReturn(Optional.of(txResult));
     aspectResource.ingestProposal(mcp, "false");
     verify(producer, times(5))
         .produceMetadataChangeLog(any(OperationContext.class), eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
+  }
+
+  @Test
+  public void testGetCredentialsAspectDeniedWithoutManageUserCredentials() throws URISyntaxException {
+    reset(producer, aspectDao);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    // Grant everything except the credential-management privilege.
+    when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+      AuthorizationRequest request = invocation.getArgument(0);
+      AuthorizationResult.Type type =
+          PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE.getType().equals(request.getPrivilege())
+              ? AuthorizationResult.Type.DENY
+              : AuthorizationResult.Type.ALLOW;
+      return new AuthorizationResult(request, type, "");
+    });
+    try {
+      aspectResource.get("urn:li:corpuser:victim", CORP_USER_CREDENTIALS_ASPECT_NAME, 0L);
+      fail("Expected a 403 for corpUserCredentials without Manage User Credentials");
+    } catch (RestLiServiceException e) {
+      assertEquals(e.getStatus(), HttpStatus.S_403_FORBIDDEN);
+      verifyNoInteractions(aspectDao);
+    } finally {
+      when(authorizer.authorize(any(AuthorizationRequest.class))).thenAnswer(invocation -> {
+        AuthorizationRequest request = invocation.getArgument(0);
+        return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "allowed");
+      });
+    }
   }
 
   @Test(expectedExceptions = RestLiServiceException.class, expectedExceptionsMessageRegExp = "Unknown aspect notAnAspect for entity dataset")

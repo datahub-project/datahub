@@ -1,3 +1,7 @@
+---
+description: "Configure the DataHub Cloud event source to subscribe DataHub Actions to metadata change events from a managed cloud instance."
+---
+
 # DataHub Cloud Event Source
 
 ## Prerequisites

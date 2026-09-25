@@ -1,0 +1,49 @@
+// Shared netrc validation for Python uv installs and Docker builds.
+// Apply: apply from: "${rootProject.projectDir}/gradle/python/netrc.gradle"
+
+ext.validateDatahubNetrc = { String path ->
+  if (!path) {
+    return
+  }
+  // Expand ~ (java.io.File does not) and resolve relative paths against the repo
+  // root so cache key + script agree across subprojects / JVM cwd differences.
+  // Missing files are intentionally skipped: mise always exports NETRC even when
+  // docker/snippets/uv/.netrc has not been created yet.
+  def expanded = (path == '~' || path.startsWith('~/') || path.startsWith('~' + File.separator))
+      ? System.getProperty('user.home') + path.substring(1)
+      : path
+  def file = rootProject.file(expanded)
+  if (!file.exists()) {
+    return
+  }
+  def absolutePath = file.canonicalPath
+
+  // Many Python modules apply this script; validate each path once per build.
+  def cacheKey = "datahub.netrc.validated:${absolutePath}"
+  if (rootProject.ext.has(cacheKey)) {
+    return
+  }
+
+  def script = "${rootProject.projectDir}/docker/snippets/uv/validate_netrc.py"
+  def stderr = new ByteArrayOutputStream()
+  def result = execOps.exec {
+    commandLine 'python3', script, '--quiet', absolutePath
+    errorOutput = stderr
+    ignoreExitValue = true
+  }
+  def errText = stderr.toString().trim()
+  if (errText) {
+    errText.split('\n').each { line ->
+      if (line) {
+        logger.error("[netrc] ${line}")
+      }
+    }
+  }
+  if (result.exitValue != 0) {
+    throw new GradleException(
+      "Invalid netrc at ${absolutePath}. Fix the file (see docker/snippets/uv/.netrc.example), then run:\n" +
+      "  python3 docker/snippets/uv/validate_netrc.py ${absolutePath}")
+  }
+  // Only cache successful validation so a failed configure can be retried in-process.
+  rootProject.ext.set(cacheKey, true)
+}

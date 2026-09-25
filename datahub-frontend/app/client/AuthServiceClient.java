@@ -7,7 +7,6 @@ import com.datahub.authentication.LoginDenialReason;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.google.inject.Inject;
 import com.linkedin.metadata.auth.LoginIdentityMask;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -57,7 +56,7 @@ public class AuthServiceClient {
   private final CloseableHttpClient httpClient;
   private final boolean authVerboseLogging;
 
-  @Inject
+  /** Not {@code @Inject} — constructed by {@code AuthModule#provideAuthClient} (config-backed). */
   public AuthServiceClient(
       @Nonnull final String metadataServiceHost,
       @Nonnull final Integer metadataServicePort,

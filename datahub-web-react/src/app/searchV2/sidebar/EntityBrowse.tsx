@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
 import EntityNode from '@app/searchV2/sidebar/EntityNode';
@@ -10,13 +11,14 @@ type Props = {
 };
 
 const EntityBrowse = ({ visible }: Props) => {
+    const { t: tc } = useTranslation('common.actions');
     const { error, entityAggregations, retry } = useSidebarEntities({
         skip: !visible,
     });
 
     return (
         <>
-            {entityAggregations && !entityAggregations.length && <div>No results found</div>}
+            {entityAggregations && !entityAggregations.length && <div>{tc('noResults')}</div>}
             {entityAggregations?.map((entityAggregation) => (
                 <BrowseProvider key={entityAggregation.value} entityAggregation={entityAggregation}>
                     <EntityNode />

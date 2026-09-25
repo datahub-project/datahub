@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.*;
 import com.linkedin.metadata.search.utils.RetryConfigUtils;
+import io.datahubproject.metadata.context.OperationContext;
 import io.github.resilience4j.retry.Retry;
 import java.io.IOException;
 import java.util.*;
@@ -37,6 +38,7 @@ public class ParallelReindexOrchestrator {
   private final ESIndexBuilder indexBuilder;
   private final BuildIndicesConfiguration config;
   private final CircuitBreakerState circuitBreakerState;
+  private final OperationContext opContext;
 
   /**
    * Channel for state change notifications. Non-blocking queue allowing HealthCheckPoller thread to
@@ -86,9 +88,11 @@ public class ParallelReindexOrchestrator {
    * @param circuitBreakerState CircuitBreakerState for receiving health state changes
    */
   public ParallelReindexOrchestrator(
+      @Nonnull OperationContext opContext,
       ESIndexBuilder indexBuilder,
       BuildIndicesConfiguration config,
       CircuitBreakerState circuitBreakerState) {
+    this.opContext = opContext;
     this.indexBuilder = indexBuilder;
     this.config = config;
     this.circuitBreakerState = circuitBreakerState;
@@ -304,7 +308,7 @@ public class ParallelReindexOrchestrator {
 
     // Batch fetch all task statuses
     ESIndexBuilder.TaskStatusResult statusResult =
-        indexBuilder.getTaskStatusMultiple(activeTasks.keySet());
+        indexBuilder.getTaskStatusMultiple(opContext, activeTasks.keySet());
     Map<String, GetTaskResponse> taskResponses = statusResult.getResponses();
     Set<String> failedTaskIds = statusResult.getFailedTaskIds();
 
@@ -425,7 +429,7 @@ public class ParallelReindexOrchestrator {
       ReindexConfig indexConfig, CircuitBreakerState.HealthState currentHealthState)
       throws Exception {
     // Log estimated doc count (without refresh for cost estimation)
-    long estimatedSourceCount = indexBuilder.getCountWithoutRefresh(indexConfig.name());
+    long estimatedSourceCount = indexBuilder.getCountWithoutRefresh(opContext, indexConfig.name());
 
     log.info(
         "Would reindex approximately {} documents from {}",
@@ -441,21 +445,25 @@ public class ParallelReindexOrchestrator {
     String tempIndexName = ESIndexBuilder.getNextIndexName(indexConfig.name(), startTime);
 
     try {
-      indexBuilder.createIndex(tempIndexName, indexConfig);
+      indexBuilder.createIndex(opContext, tempIndexName, indexConfig);
 
       // Optimize destination index for reindex (reduce ES overhead)
       // This MUST be restored in finalizeReindex or on failure
       DestinationIndexOptimizer optimizer =
           new DestinationIndexOptimizer(indexBuilder, indexBuilder.getJvminfo());
       DestinationIndexOptimizer.OriginalSettings originalSettings =
-          optimizer.optimizeForReindex(tempIndexName, currentHealthState, this.config);
+          optimizer.optimizeForReindex(opContext, tempIndexName, currentHealthState, this.config);
       float requestsPerSecond = currentHealthState.getRequestsPerSecond(this.config);
       if (requestsPerSecond == -1.0f) {
         requestsPerSecond = Float.POSITIVE_INFINITY;
       }
       Map<String, Object> reindexInfo =
           indexBuilder.submitReindexInternal(
-              new String[] {indexConfig.name()}, tempIndexName, indexConfig, requestsPerSecond);
+              opContext,
+              new String[] {indexConfig.name()},
+              tempIndexName,
+              indexConfig,
+              requestsPerSecond);
 
       if (reindexInfo == null) {
         throw new IllegalStateException(
@@ -515,7 +523,7 @@ public class ParallelReindexOrchestrator {
     taskInfo
         .getOptimizer()
         .restoreOriginalSettings(
-            taskInfo.getTempIndexName(), taskInfo.getDestinationOriginalSettings());
+            opContext, taskInfo.getTempIndexName(), taskInfo.getDestinationOriginalSettings());
   }
 
   /** Finalize reindex after task completes */
@@ -527,8 +535,8 @@ public class ParallelReindexOrchestrator {
       docCountValidationRetry.executeSupplier(
           () -> {
             try {
-              long source = indexBuilder.getCount(taskInfo.getIndexAlias());
-              long dest = indexBuilder.getCount(taskInfo.getTempIndexName());
+              long source = indexBuilder.getCount(opContext, taskInfo.getIndexAlias());
+              long dest = indexBuilder.getCount(opContext, taskInfo.getTempIndexName());
 
               if (source != dest) {
                 log.warn(
@@ -572,7 +580,7 @@ public class ParallelReindexOrchestrator {
       taskInfo
           .getOptimizer()
           .restoreToMinimalReplicas(
-              taskInfo.getTempIndexName(), config.getMinimumReplicasForPromotion());
+              opContext, taskInfo.getTempIndexName(), config.getMinimumReplicasForPromotion());
     } catch (Exception e) {
       log.error(
           "Failed to restore minimal replicas for {} - blocking promotion to prevent data loss: {}",
@@ -598,7 +606,7 @@ public class ParallelReindexOrchestrator {
           taskInfo.getTempIndexName(),
           originalReplicas != null ? originalReplicas : "unknown",
           timeoutSeconds);
-      indexBuilder.waitForIndexGreenHealth(taskInfo.getTempIndexName(), timeoutSeconds);
+      indexBuilder.waitForIndexGreenHealth(opContext, taskInfo.getTempIndexName(), timeoutSeconds);
       log.info("Replica health check passed for {}", taskInfo.getTempIndexName());
     } catch (Exception e) {
       log.error(
@@ -624,7 +632,8 @@ public class ParallelReindexOrchestrator {
     // leverages the alias index directly for O(1) lookup of the specific alias, avoiding metadata
     // bloat.
     try {
-      indexBuilder.swapAliases(taskInfo.getIndexAlias(), null, taskInfo.getTempIndexName());
+      indexBuilder.swapAliases(
+          opContext, taskInfo.getIndexAlias(), null, taskInfo.getTempIndexName());
     } catch (Exception e) {
       log.error(
           "Alias swap failed for {} - temp index must be cleaned up: {}",
@@ -730,7 +739,8 @@ public class ParallelReindexOrchestrator {
       // CRITICAL SAFETY CHECK: Verify alias is not pointing to this index before deletion
       // If alias swap already happened during finalization, the temp index is now live
       // and must not be deleted
-      boolean aliasPointsToTemp = indexBuilder.aliasPointsToIndex(aliasName, tempIndexName);
+      boolean aliasPointsToTemp =
+          indexBuilder.aliasPointsToIndex(opContext, aliasName, tempIndexName);
       if (aliasPointsToTemp) {
         log.warn(
             "SKIPPING cleanup of {} - alias {} currently points to it (finalization may have completed, alias already swapped)",
@@ -747,7 +757,7 @@ public class ParallelReindexOrchestrator {
               () -> {
                 try {
                   log.info("Cleaning up temp index {} {}", tempIndexName, context);
-                  indexBuilder.deleteIndex(tempIndexName);
+                  indexBuilder.deleteIndex(opContext, tempIndexName);
                   log.info("Successfully deleted temp index {}", tempIndexName);
                 } catch (IOException e) {
                   throw new RuntimeException(e);
@@ -809,7 +819,7 @@ public class ParallelReindexOrchestrator {
 
                   // Estimate costs
                   List<IndexCostEstimator.IndexCostInfo> costs =
-                      estimator.estimateIndexCosts(indexNames);
+                      estimator.estimateIndexCosts(opContext, indexNames);
 
                   // Create mapping from name to cost tier
                   Map<String, IndexCostEstimator.CostTier> tierMap = new HashMap<>();
@@ -1142,7 +1152,7 @@ public class ParallelReindexOrchestrator {
                       CompletableFuture.runAsync(
                           () -> {
                             try {
-                              indexBuilder.rethrottleTask(taskId, newRps);
+                              indexBuilder.rethrottleTask(opContext, taskId, newRps);
                               log.debug(
                                   "Rethrottled task {} to health state {} (RPS: {})",
                                   taskId,
@@ -1198,7 +1208,7 @@ public class ParallelReindexOrchestrator {
             Settings.builder()
                 .put(ESIndexBuilder.INDEX_REFRESH_INTERVAL, newRefreshInterval)
                 .build();
-        indexBuilder.updateIndexSettings(destinationIndices, settings);
+        indexBuilder.updateIndexSettings(opContext, destinationIndices, settings);
         log.info(
             "Bulk updated refresh_interval on {} destination indices → {} (state: {})",
             activeTasks.size(),

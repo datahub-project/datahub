@@ -122,10 +122,10 @@ Authentication is handled automatically per worker by `loginFixture`.
 No explicit login step is needed in `beforeEach`.
 
 ```typescript
-import { test, expect } from "../../fixtures/base-test";
-import { SearchPage } from "../../pages/search-page";
+import { test, expect } from '../../fixtures/base-test';
+import { SearchPage } from '../../pages/search-page';
 
-test.describe("Search", () => {
+test.describe('Search', () => {
   let searchPage: SearchPage;
 
   test.beforeEach(async ({ page, logger, logDir }) => {
@@ -133,8 +133,8 @@ test.describe("Search", () => {
     await searchPage.navigateToHome();
   });
 
-  test("should return results for wildcard query", async () => {
-    await searchPage.searchAndWait("*", 3000);
+  test('should return results for wildcard query', async () => {
+    await searchPage.searchAndWait('*', 3000);
     await searchPage.expectHasResults();
   });
 });
@@ -143,12 +143,12 @@ test.describe("Search", () => {
 ### Login UI test (login-test)
 
 ```typescript
-import { test, expect } from "../../fixtures/login-test";
+import { test, expect } from '../../fixtures/login-test';
 
-test.describe("Login", () => {
-  test("should reject invalid credentials", async ({ loginPage }) => {
+test.describe('Login', () => {
+  test('should reject invalid credentials', async ({ loginPage }) => {
     await loginPage.navigateToLogin();
-    await loginPage.login("bad", "creds");
+    await loginPage.login('bad', 'creds');
     await loginPage.expectLoginError();
   });
 });
@@ -159,11 +159,11 @@ test.describe("Login", () => {
 Destructure `apiMock` to activate route interception for a test:
 
 ```typescript
-import { test, expect } from "../../fixtures/base-test";
+import { test, expect } from '../../fixtures/base-test';
 
-test("renders with feature flag enabled", async ({ page, apiMock }) => {
+test('renders with feature flag enabled', async ({ page, apiMock }) => {
   await apiMock.setFeatureFlags({ themeV2Enabled: true });
-  await page.goto("/");
+  await page.goto('/');
   // ...
 });
 ```
@@ -173,12 +173,12 @@ test("renders with feature flag enabled", async ({ page, apiMock }) => {
 `base-test` defaults to the `admin` user. Override per suite:
 
 ```typescript
-import { test } from "../../fixtures/base-test";
-import { users } from "../../fixtures/users";
+import { test } from '../../fixtures/base-test';
+import { users } from '../../fixtures/users';
 
 test.use({ user: users.reader });
 
-test("reader cannot edit", async ({ page }) => {
+test('reader cannot edit', async ({ page }) => {
   /* ... */
 });
 ```
@@ -189,9 +189,9 @@ Page objects live in `pages/` and extend `BasePage`. All constructors accept
 optional `logger` and `logDir` for structured logging and screenshots.
 
 ```typescript
-import { Page, Locator } from "@playwright/test";
-import { BasePage } from "./base-page";
-import { DataHubLogger } from "../utils/logger";
+import { Page, Locator } from '@playwright/test';
+import { BasePage } from './base-page';
+import { DataHubLogger } from '../utils/logger';
 
 export class FeaturePage extends BasePage {
   readonly submitButton: Locator;
@@ -227,13 +227,13 @@ Test data is injected via `seedingFixture`, which mirrors the `loginFixture` pat
 ### Usage
 
 ```typescript
-import { test, expect } from "../../fixtures/base-test";
+import { test, expect } from '../../fixtures/base-test';
 
 // Set at file/describe level — seeds from tests/search/fixtures/data.json
-test.use({ featureName: "search" });
+test.use({ featureName: 'search' });
 
-test.describe("Search", () => {
-  test("results exist", async ({ page }) => {
+test.describe('Search', () => {
+  test('results exist', async ({ page }) => {
     // Data is guaranteed to be present
   });
 });
@@ -284,12 +284,12 @@ Use `TestDataFactory` to build URNs and `withTimestamp` / `withRandomSuffix`
 from `utils/random.ts` for unique, time-sortable test data names:
 
 ```typescript
-import { TestDataFactory } from "../../factories/test-data-factory";
+import { TestDataFactory } from '../../factories/test-data-factory';
 
 const name = TestDataFactory.generateTestDatasetName();
 // → 'test_dataset_20260409_143022'
 
-const urn = TestDataFactory.createDatasetUrn("hive", name);
+const urn = TestDataFactory.createDatasetUrn('hive', name);
 // → 'urn:li:dataset:(urn:li:dataPlatform:hive,test_dataset_20260409_143022,PROD)'
 ```
 
@@ -299,13 +299,13 @@ Typed GraphQL response builders live in `factories/mock-responses/`. Import
 the named functions directly, or from the barrel `index.ts`:
 
 ```typescript
-import { createSearchResponse } from "../../factories/mock-responses/search";
-import { createErrorResponse } from "../../factories/mock-responses/common";
+import { createSearchResponse } from '../../factories/mock-responses/search';
+import { createErrorResponse } from '../../factories/mock-responses/common';
 
 const ok = createSearchResponse([], 0);
 // → { status: 200, body: { data: { search: { searchResults: [], total: 0 } } } }
 
-const err = createErrorResponse("not found", "NOT_FOUND");
+const err = createErrorResponse('not found', 'NOT_FOUND');
 // → { status: 200, body: { errors: [{ message: "not found", ... }] } }
 ```
 
@@ -317,7 +317,7 @@ For test-scoped cleanup, use `CleanupHelper`. For broad pre-run cleanup of all
 test entities, use `GlobalCleanupHelper` (setup scripts only):
 
 ```typescript
-import { CleanupHelper } from "../../helpers/cleanup-helper";
+import { CleanupHelper } from '../../helpers/cleanup-helper';
 
 test.afterAll(async ({ page }) => {
   const cleanup = new CleanupHelper(page);

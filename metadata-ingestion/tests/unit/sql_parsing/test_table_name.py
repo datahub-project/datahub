@@ -6,10 +6,12 @@ The temp table prefix restoration is now in sqlglot_lineage.py and is
 dialect-aware - only applying to MSSQL dialect.
 """
 
+import pytest
 import sqlglot
 
 from datahub.sql_parsing._models import _TableName
 from datahub.sql_parsing.sqlglot_lineage import (
+    SqlUnderstandingError,
     _restore_mssql_temp_table_prefix,
     _table_name_from_sqlglot_table,
 )
@@ -93,14 +95,14 @@ class TestRestoreMssqlTempTablePrefix:
 
 
 class TestTableNameFromSqlglotTable:
-    """Tests for _TableName.from_sqlglot_table() method (basic functionality)."""
+    """Basic table name extraction."""
 
     def test_basic_table_extraction(self):
         """Basic table name extraction should work."""
         table = sqlglot.exp.Table(
             this=sqlglot.exp.Identifier(this="my_table"),
         )
-        result = _TableName.from_sqlglot_table(table)
+        result = _table_name_from_sqlglot_table(table, None)
         assert result.table == "my_table"
         assert result.database is None
         assert result.db_schema is None
@@ -112,7 +114,7 @@ class TestTableNameFromSqlglotTable:
             db=sqlglot.exp.Identifier(this="my_schema"),
             this=sqlglot.exp.Identifier(this="my_table"),
         )
-        result = _TableName.from_sqlglot_table(table)
+        result = _table_name_from_sqlglot_table(table, None)
         assert result.table == "my_table"
         assert result.database == "my_db"
         assert result.db_schema == "my_schema"
@@ -122,8 +124,8 @@ class TestTableNameFromSqlglotTable:
         table = sqlglot.exp.Table(
             this=sqlglot.exp.Identifier(this="my_table"),
         )
-        result = _TableName.from_sqlglot_table(
-            table, default_db="default_db", default_schema="default_schema"
+        result = _table_name_from_sqlglot_table(
+            table, None, default_db="default_db", default_schema="default_schema"
         )
         assert result.table == "my_table"
         assert result.database == "default_db"
@@ -136,8 +138,8 @@ class TestTableNameFromSqlglotTable:
             db=sqlglot.exp.Identifier(this="explicit_schema"),
             this=sqlglot.exp.Identifier(this="my_table"),
         )
-        result = _TableName.from_sqlglot_table(
-            table, default_db="default_db", default_schema="default_schema"
+        result = _table_name_from_sqlglot_table(
+            table, None, default_db="default_db", default_schema="default_schema"
         )
         assert result.database == "explicit_db"
         assert result.db_schema == "explicit_schema"
@@ -604,38 +606,40 @@ class TestOtherDialectsTempTables:
 class TestDotExpressionTableNames:
     """Tests for table names with more than 3 parts (Dot expressions).
 
-    When a table has more than 3 parts (e.g., a.b.c.d.table), SQLGlot
-    represents the table name as a Dot expression rather than a simple
-    Identifier. We need to handle this case for temp table detection.
+    sqlglot represents extra path components as left-nested Dots in table.this
+    (a.b.c = Dot(Dot(a, b), c)).
     """
 
     def _get_mssql_dialect(self) -> sqlglot.Dialect:
         return get_dialect("mssql")
 
+    def _make_left_nested_dot(self, *parts: str) -> sqlglot.exp.Expression:
+        """Build a left-nested Dot chain (matches actual sqlglot parser output)."""
+        assert len(parts) >= 2
+        result: sqlglot.exp.Expression = sqlglot.exp.Identifier(this=parts[0])
+        for part in parts[1:]:
+            result = sqlglot.exp.Dot(
+                this=result,
+                expression=sqlglot.exp.Identifier(this=part),
+            )
+        return result
+
     def test_multipart_dot_table_name(self):
-        """Table with >3 parts should merge into table name."""
-        # Construct a Dot expression: a.b.tablename
-        dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="a"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="b"),
-                expression=sqlglot.exp.Identifier(this="tablename"),
-            ),
-        )
+        """Table with >3 parts should merge all extra parts into table name."""
+        dot_expr = self._make_left_nested_dot("a", "b", "tablename")
         table = sqlglot.exp.Table(this=dot_expr)
 
         result = _table_name_from_sqlglot_table(table, self._get_mssql_dialect())
         assert result.table == "a.b.tablename"
 
     def test_multipart_dot_local_temp_table(self):
-        """Dot expression with temporary flag should get # prefix."""
-        # Construct a Dot expression where the final identifier has temporary=True
+        """Dot expression where the rightmost identifier has temporary=True gets # prefix."""
         dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="a"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="b"),
-                expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
+            this=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="a"),
+                expression=sqlglot.exp.Identifier(this="b"),
             ),
+            expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
         )
         table = sqlglot.exp.Table(this=dot_expr)
 
@@ -645,16 +649,13 @@ class TestDotExpressionTableNames:
         )
 
     def test_multipart_dot_global_temp_table(self):
-        """Dot expression with global flag should get ## prefix."""
-        # Construct a Dot expression where the final identifier has global=True
+        """Dot expression where the rightmost identifier has global=True gets ## prefix."""
         dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="a"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="b"),
-                expression=sqlglot.exp.Identifier(
-                    this="globaltemp", **{"global": True}
-                ),
+            this=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="a"),
+                expression=sqlglot.exp.Identifier(this="b"),
             ),
+            expression=sqlglot.exp.Identifier(this="globaltemp", **{"global": True}),
         )
         table = sqlglot.exp.Table(this=dot_expr)
 
@@ -665,13 +666,7 @@ class TestDotExpressionTableNames:
 
     def test_multipart_dot_no_temp_flags(self):
         """Dot expression without temp flags should not get # prefix."""
-        dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="part1"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="part2"),
-                expression=sqlglot.exp.Identifier(this="regular_table"),
-            ),
-        )
+        dot_expr = self._make_left_nested_dot("part1", "part2", "regular_table")
         table = sqlglot.exp.Table(this=dot_expr)
 
         result = _table_name_from_sqlglot_table(table, self._get_mssql_dialect())
@@ -681,11 +676,11 @@ class TestDotExpressionTableNames:
     def test_multipart_dot_non_mssql_no_prefix(self):
         """Dot expression with temporary flag but non-MSSQL dialect should not get prefix."""
         dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="a"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="b"),
-                expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
+            this=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="a"),
+                expression=sqlglot.exp.Identifier(this="b"),
             ),
+            expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
         )
         table = sqlglot.exp.Table(this=dot_expr)
 
@@ -694,6 +689,37 @@ class TestDotExpressionTableNames:
         assert result.table == "a.b.temptable", (
             f"Expected a.b.temptable (no # prefix for Postgres), got {result.table}"
         )
+
+    def test_5part_path_preserves_all_components(self):
+        """Regression: 5-part paths must not drop middle components.
+
+        The old traversal used exp.this.name on an inner Dot, which returns only
+        its leaf — silently dropping one level for every extra nesting depth.
+        """
+        sql = 'SELECT * FROM "src"."ns"."sub"."schema"."my_table"'
+        stmt = sqlglot.parse_one(sql, dialect="dremio")
+        table_node = list(stmt.find_all(sqlglot.exp.Table))[0]
+        assert isinstance(table_node.this, sqlglot.exp.Dot)
+
+        result = _table_name_from_sqlglot_table(table_node, get_dialect("dremio"))
+
+        assert result.database == "src"
+        assert result.db_schema == "ns"
+        assert result.table == "sub.schema.my_table"
+
+    def test_deep_path_preserves_all_components(self):
+        """Paths of arbitrary depth (10 parts) must all be preserved."""
+        parts = [f"p{i}" for i in range(10)]
+        sql = "SELECT * FROM " + ".".join(f'"{p}"' for p in parts)
+        stmt = sqlglot.parse_one(sql, dialect="dremio")
+        table_node = list(stmt.find_all(sqlglot.exp.Table))[0]
+
+        result = _table_name_from_sqlglot_table(table_node, get_dialect("dremio"))
+
+        full_name = ".".join(
+            filter(None, [result.database, result.db_schema, result.table])
+        )
+        assert full_name == ".".join(parts)
 
     def test_mssql_4part_temp_table_real_sql(self):
         """Test 4-part temp table name with real SQL parsing.
@@ -740,6 +766,81 @@ class TestDotExpressionTableNames:
         )
 
 
+class TestSnowflakeIdentifierTableNames:
+    """Tests for Snowflake's IDENTIFIER('...') construct.
+
+    sqlglot parses IDENTIFIER('a.b.c') into a DynamicIdentifier wrapping the raw
+    literal text -- it does not split it into catalog/db/table parts, so
+    table.name/db/catalog all come back empty. _table_name_from_sqlglot_table
+    must do that splitting itself instead of silently truncating the table name.
+    """
+
+    def _get_snowflake_dialect(self) -> sqlglot.Dialect:
+        return get_dialect("snowflake")
+
+    def _get_table(self, sql: str) -> sqlglot.exp.Table:
+        stmt = sqlglot.parse_one(sql, dialect="snowflake")
+        return next(iter(stmt.find_all(sqlglot.exp.Table)))
+
+    def test_three_part_literal(self):
+        table = self._get_table("SELECT * FROM IDENTIFIER('db.schema.base_a')")
+        result = _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+        assert result.database == "db"
+        assert result.db_schema == "schema"
+        assert result.table == "base_a"
+
+    def test_two_part_literal_uses_default_db(self):
+        table = self._get_table("SELECT * FROM IDENTIFIER('schema.base_a')")
+        result = _table_name_from_sqlglot_table(
+            table, self._get_snowflake_dialect(), default_db="default_db"
+        )
+        assert result.database == "default_db"
+        assert result.db_schema == "schema"
+        assert result.table == "base_a"
+
+    def test_one_part_literal_uses_defaults(self):
+        table = self._get_table("SELECT * FROM IDENTIFIER('base_a')")
+        result = _table_name_from_sqlglot_table(
+            table,
+            self._get_snowflake_dialect(),
+            default_db="default_db",
+            default_schema="default_schema",
+        )
+        assert result.database == "default_db"
+        assert result.db_schema == "default_schema"
+        assert result.table == "base_a"
+
+    def test_non_literal_argument_raises(self):
+        """A dynamically-computed IDENTIFIER argument can't be resolved statically."""
+        table = self._get_table("SELECT * FROM IDENTIFIER('prefix_' || some_col)")
+        with pytest.raises(SqlUnderstandingError):
+            _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+
+    def test_quoted_three_part_with_dotted_name(self):
+        table = self._get_table(
+            'SELECT * FROM IDENTIFIER(\'"db"."schema"."tbl.with.dots"\')'
+        )
+        result = _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+        assert result.database == "db"
+        assert result.db_schema == "schema"
+        assert result.table == "tbl.with.dots"
+
+    def test_quoted_three_part_strips_quote_chars(self):
+        table = self._get_table(
+            'SELECT * FROM IDENTIFIER(\'"MyDb"."MySchema"."MyTable"\')'
+        )
+        result = _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+        assert result.database == "MyDb"
+        assert result.db_schema == "MySchema"
+        assert result.table == "MyTable"
+
+    def test_malformed_literal_raises(self):
+        """An IDENTIFIER literal that isn't a parseable table name can't be resolved."""
+        table = self._get_table("SELECT * FROM IDENTIFIER('')")
+        with pytest.raises(SqlUnderstandingError):
+            _table_name_from_sqlglot_table(table, self._get_snowflake_dialect())
+
+
 class TestTableNameEquality:
     """Tests for _TableName equality and hashing."""
 
@@ -782,22 +883,9 @@ class TestTableNameQualified:
         """qualified() should add default db/schema if not present."""
         table = _TableName(table="my_table")
         qualified = table.qualified(
-            dialect=get_dialect("mssql"),
             default_db="default_db",
             default_schema="default_schema",
         )
         assert qualified.database == "default_db"
         assert qualified.db_schema == "default_schema"
         assert qualified.table == "my_table"
-
-    def test_qualified_preserves_temp_prefix(self):
-        """qualified() should preserve # prefix on temp tables."""
-        table = _TableName(table="#temptable")
-        qualified = table.qualified(
-            dialect=get_dialect("mssql"),
-            default_db="mydb",
-            default_schema="dbo",
-        )
-        assert qualified.table == "#temptable"
-        assert qualified.database == "mydb"
-        assert qualified.db_schema == "dbo"

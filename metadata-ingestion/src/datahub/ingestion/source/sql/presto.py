@@ -93,7 +93,7 @@ class PrestoConfig(TrinoConfig):
 
 @platform_name("Presto", doc_order=1)
 @config_class(PrestoConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 class PrestoSource(TrinoSource):

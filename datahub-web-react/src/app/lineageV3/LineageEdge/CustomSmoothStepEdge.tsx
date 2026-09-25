@@ -1,15 +1,26 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
 import { EdgeLabelRenderer, EdgeProps, getSmoothStepPath } from 'reactflow';
 import styled from 'styled-components';
 
-import { LineageDisplayContext, LineageTableEdgeData } from '@app/lineageV3/common';
+import useEdgeHighlight from '@app/lineageV3/LineageEdge/LineageEdge.hooks';
+import { LineageTableEdgeData } from '@app/lineageV3/common';
+import { HIGHLIGHTED_EDGE_STROKE_WIDTH } from '@app/lineageV3/constants';
 
 export const CUSTOM_SMOOTH_STEP_EDGE_NAME = 'custom-smooth-step';
 
-const StyledPath = styled.path<{ isHighlighted: boolean; isColumnSelected: boolean; isManual?: boolean }>`
-    ${({ isHighlighted, theme }) =>
-        isHighlighted ? `stroke: ${theme.colors.chartsBrandLow}; stroke-width: 2px;` : ''};
+const StyledPath = styled.path<{
+    isHighlighted: boolean;
+    highlightStroke?: string;
+    isColumnSelected: boolean;
+    isManual?: boolean;
+}>`
+    /* React Flow's stylesheet sets a light-only default stroke here. */
+    stroke: ${({ theme }) => theme.colors.icon};
+    ${({ isHighlighted, highlightStroke, theme }) =>
+        isHighlighted
+            ? `stroke: ${highlightStroke ?? theme.colors.borderHover}; stroke-width: ${HIGHLIGHTED_EDGE_STROKE_WIDTH}px;`
+            : ''};
     stroke-opacity: ${({ isColumnSelected }) => (isColumnSelected ? 0.5 : 1)};
     stroke-dasharray: ${({ isManual }) => (isManual ? '5,2' : 'none')};
 `;
@@ -39,12 +50,7 @@ export function CustomSmoothStepEdge({
 }: EdgeProps<LineageTableEdgeData>) {
     const { isManual, originalId } = data || { isManual: false, originalId: '' };
 
-    const { selectedColumn, highlightedEdges } = useContext(LineageDisplayContext);
-
-    const isHighlighted = useMemo(
-        () => !selectedColumn && (highlightedEdges.has(id) || highlightedEdges.has(originalId)),
-        [id, originalId, selectedColumn, highlightedEdges],
-    );
+    const { isHighlighted, highlightStroke, isColumnSelected, anyHighlighted } = useEdgeHighlight(id, originalId);
 
     const [edgePathB, labelX, labelY] = getSmoothStepPath({
         sourceX,
@@ -58,7 +64,7 @@ export function CustomSmoothStepEdge({
     const [debouncedLabelPosition, setDebouncedLabelPosition] = useState({ labelX, labelY });
     useDebounce(() => setDebouncedLabelPosition({ labelX, labelY }), 10, [labelX, labelY]);
 
-    const opacity = highlightedEdges.size && !isHighlighted ? 0.3 : 1;
+    const opacity = anyHighlighted && !isHighlighted ? 0.3 : 1;
     return (
         <>
             <StyledPath
@@ -69,7 +75,8 @@ export function CustomSmoothStepEdge({
                 markerStart={markerStart}
                 markerEnd={markerEnd}
                 isHighlighted={isHighlighted}
-                isColumnSelected={!!selectedColumn}
+                highlightStroke={highlightStroke}
+                isColumnSelected={isColumnSelected}
                 isManual={isManual}
                 opacity={opacity}
             />

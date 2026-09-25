@@ -1,8 +1,11 @@
 import { useReactiveVar } from '@apollo/client';
 import { Modal } from '@components';
 import { Form, message } from 'antd';
+import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
+import { useLocation } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
@@ -18,14 +21,34 @@ import { useAcceptRoleMutation } from '@graphql/mutations.generated';
 
 export default function SignUpModal() {
     const history = useHistory();
+    const location = useLocation();
 
     const [form] = Form.useForm();
+    const { t } = useTranslation('auth');
 
     const [loading, setLoading] = useState(false);
     const { refreshContext } = useAppConfig();
 
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const inviteToken = useGetInviteTokenFromUrlParams();
+
+    useEffect(() => {
+        const params = QueryString.parse(location.search, { decode: true });
+        if (params.redirect_on_sso) {
+            fetch(resolveRuntimePath('/sso'), {
+                method: 'HEAD',
+                redirect: 'manual',
+            })
+                .then((response) => {
+                    if (response.type === 'opaqueredirect' || response.status === 302) {
+                        window.location.href = resolveRuntimePath('/sso');
+                    }
+                })
+                .catch(() => {
+                    // SSO not configured or error - stay on signup
+                });
+        }
+    }, [location.search]);
 
     const [acceptRoleMutation] = useAcceptRoleMutation();
 
@@ -42,7 +65,7 @@ export default function SignUpModal() {
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Accepted invite!`,
+                        content: t('signup.acceptedInvite'),
                         duration: 2,
                     });
                 }
@@ -50,7 +73,7 @@ export default function SignUpModal() {
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to accept invite: \n ${e.message || ''}`,
+                    content: t('signup.acceptInviteFailed', { error: e.message || '' }),
                     duration: 3,
                 });
             });
@@ -97,19 +120,19 @@ export default function SignUpModal() {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error(`Failed to log in! An unexpected error occurred.`);
+                    message.error(t('signup.loginFailed'));
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext, inviteToken],
+        [refreshContext, inviteToken, t],
     );
 
     return (
         <Modal
-            title={<ModalHeader subHeading="Before we get started we just have a few questions" />}
+            title={<ModalHeader subHeading={t('signup.subHeading')} />}
             buttons={[
                 {
-                    text: 'Get Started',
+                    text: t('signup.submitButton'),
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
                     buttonDataTestId: 'sign-up',

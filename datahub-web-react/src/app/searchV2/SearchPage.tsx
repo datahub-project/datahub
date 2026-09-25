@@ -5,18 +5,11 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { EntityAndType } from '@app/entity/shared/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { ENTITY_PROFILE_V2_SIDEBAR_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
 import {
     SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
     SEARCH_RESULTS_FILTERS_ID,
     SEARCH_RESULTS_FILTERS_V2_INTRO,
 } from '@app/onboarding/config/SearchOnboardingConfig';
-import {
-    ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
-    ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
-    ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
-    ENTITY_SIDEBAR_V2_PROPERTIES_ID,
-} from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
 import { SearchResults } from '@app/searchV2/SearchResults';
@@ -232,11 +225,6 @@ export const SearchPage = () => {
                         SEARCH_RESULTS_FILTERS_ID,
                         SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
                         SEARCH_RESULTS_FILTERS_V2_INTRO,
-                        ENTITY_PROFILE_V2_SIDEBAR_ID,
-                        ENTITY_SIDEBAR_V2_ABOUT_TAB_ID,
-                        ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
-                        ENTITY_SIDEBAR_V2_COLUMNS_TAB_ID,
-                        ENTITY_SIDEBAR_V2_PROPERTIES_ID,
                     ]}
                 />
             )}

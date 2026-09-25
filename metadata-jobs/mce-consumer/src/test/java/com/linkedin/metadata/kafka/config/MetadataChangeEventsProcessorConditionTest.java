@@ -90,8 +90,7 @@ public class MetadataChangeEventsProcessorConditionTest {
   public void testCondition_IgnoresBatchMode() {
     // Setup - MCE consumer should be enabled regardless of batch mode setting
     Mockito.when(mockEnvironment.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
-    Mockito.when(
-            mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
+    Mockito.when(mockEnvironment.getProperty("metadataChangeProposal.consumer.batch.enabled"))
         .thenReturn("true");
 
     // Execute

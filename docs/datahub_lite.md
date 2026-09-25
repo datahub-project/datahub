@@ -1,3 +1,7 @@
+---
+description: "DataHub Lite is a lightweight, embeddable build of DataHub with no external dependencies, designed for local CLI and scripting use."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -7,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 DataHub Lite is a lightweight embeddable version of DataHub with no external dependencies. It is intended to enable local developer tooling use-cases such as simple access to metadata for scripts and other tools.
 DataHub Lite is compatible with the DataHub metadata format and all the ingestion connectors that DataHub supports.
-Currently DataHub Lite uses DuckDB under the covers as its default storage layer, but that might change in the future.
+DataHub Lite stores metadata in an embedded SQL database. Two storage engines are available: **SQLite** (the default, with no extra dependencies) and **DuckDB**. Both are exposed through the same CLI, Python API, and REST API. See [Choosing a storage engine](#choosing-a-storage-engine).
 
 ## Features
 
@@ -40,6 +44,12 @@ To use `datahub lite` commands, you need to install [`acryl-datahub`](https://py
 
 ```shell
 pip install acryl-datahub[datahub-lite]
+```
+
+To use the DuckDB storage engine instead of the default SQLite one, also install the `duckdb` extra:
+
+```shell
+pip install acryl-datahub[datahub-lite,duckdb]
 ```
 
 ## Importing Metadata
@@ -409,8 +419,9 @@ You can provide a free form search query like: "customer" and DataHub Lite will 
 {"id": "urn:li:dataset:(urn:li:dataPlatform:looker,long_tail_companions.explore.long_tail_pets,PROD)", "aspect": "datasetProperties", "snippet": "{\"customProperties\": {\"looker.explore.label\": \"Long Tail Pets\", \"looker.explore.file\": \"long_tail_companions.model.lkml\"}, \"externalUrl\": \"https://acryl.cloud.looker.com/explore/long_tail_companions/long_tail_pets\", \"name\": \"Long Tail Pets\", \"tags\": []}"}
 ```
 
-You can also query the metadata precisely using DuckDB's [JSON](https://duckdb.org/docs/extensions/json.html) extract functions.
+You can also query the metadata precisely using your storage engine's JSON functions and operators, for [SQLite](https://www.sqlite.org/json1.html) or [DuckDB](https://duckdb.org/docs/extensions/json.html).
 Writing these functions requires that you understand the DataHub metadata model and how the data is laid out in DataHub Lite.
+The `->` and `->>` operators used below work on both engines, so exact-flavor queries are portable. They are the one place a SQLite version floor applies: `->>` arrived in SQLite 3.38, so on an older system library (Ubuntu 22.04 ships 3.37) write these queries with `json_extract(metadata, '$.path')` instead. Free-form search above has no such requirement.
 
 For example, to find all entities whose _datasetProperties_ aspect includes the _view_definition_ in its _customProperties_ sub-field, we can issue the following command:
 
@@ -491,8 +502,8 @@ gms:
   token: ''
 lite:
   config:
-    file: /Users/<username>/.datahub/lite/datahub.duckdb
-  type: duckdb
+    file: /Users/<username>/.datahub/lite/datahub.db
+  type: sqlite
   forward_to:
     type: datahub-rest
     server: "http://datahub-gms:8080
@@ -520,14 +531,43 @@ DataHub Lite destroyed at <path>
 
 ### Use a different file (init)
 
-By default, DataHub Lite will create and use a local duckdb instance located at `~/.datahub/lite/datahub.duckdb`.
+By default, DataHub Lite will create and use a local SQLite database located at `~/.datahub/lite/datahub.db`.
 If you want to use a different location, you can configure it using the `datahub lite init` command.
 
 ```shell
-> datahub lite init --type duckdb --file my_local_datahub.duckdb
-Will replace datahub lite config type='duckdb' config={'file': '/Users/<username>/.datahub/lite/datahub.duckdb', 'options': {}} with type='duckdb' config={'file': 'my_local_datahub.duckdb', 'options': {}} [y/N]: y
-DataHub Lite inited at my_local_datahub.duckdb
+> datahub lite init --type sqlite --file my_local_datahub.db
+Will replace datahub lite config type='sqlite' config={'file': '/Users/<username>/.datahub/lite/datahub.db', 'options': {}} with type='sqlite' config={'file': 'my_local_datahub.db', 'options': {}} [y/N]: y
+DataHub Lite inited at my_local_datahub.db
 ```
+
+### Choosing a storage engine
+
+DataHub Lite's storage layer is pluggable. The engine is selected by the `type` field of the `lite` config
+section, and both built-in engines share the same table schema, CLI, Python API, and REST API.
+
+| Engine | `type`   | Install                              | Notes                                                                    |
+| ------ | -------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| SQLite | `sqlite` | `acryl-datahub[datahub-lite]`        | Default. Ships with Python, so it works everywhere, including Linux arm. |
+| DuckDB | `duckdb` | `acryl-datahub[datahub-lite,duckdb]` | Columnar; faster for large analytical scans over the aspect table.       |
+
+Switch engines with `datahub lite init --type <engine>`:
+
+```shell
+> datahub lite init --type duckdb --file my_local_datahub.duckdb
+```
+
+The two file formats are **not** interchangeable. A DuckDB file cannot be opened with `type: sqlite`, or the
+other way around. To move an existing instance to the other engine, export it first and re-import:
+
+```shell
+> datahub lite export --file lite_export.json
+> datahub lite init --type sqlite
+> datahub lite import --file lite_export.json
+```
+
+The `options` config dictionary is passed through to the engine: SQLite applies each entry as a `PRAGMA`
+(see [the SQLite spec](https://www.sqlite.org/pragma.html)), and DuckDB as a connection config setting
+(see [the DuckDB spec](https://duckdb.org/docs/sql/configuration.html)).
 
 ### Reindex
 

@@ -1,0 +1,12 @@
+{
+  "value": [
+    {
+      "name": "AM_REVENUE",
+      "label": "Revenue Analytical Model",
+      "spaceName": "S2",
+      "assetRelationalMetadataUrl": "https://test.eu10.hcs.cloud.sap/edmx/S2/AM_REVENUE/$metadata",
+      "supportsAnalyticalQueries": true,
+      "hasParameters": true
+    }
+  ]
+}

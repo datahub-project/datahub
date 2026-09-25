@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
 import * as fs from 'fs/promises';
 import { extractUrn, waitForSync, type Mcp, type Urn } from '../seeder-utils';
-import { gmsUrl } from '../../utils/constants';
+import { DATAHUB_GRAPHQL_PATH, gmsUrl } from '../../utils/constants';
 
 /**
  * GraphQLSeeder — seeds test data via the DataHub GraphQL API.
@@ -80,7 +80,7 @@ export class GraphQLSeeder {
       }
     `;
 
-    const response = await this.page.request.post(`${this.baseURL}/api/v2/graphql`, {
+    const response = await this.page.request.post(`${this.baseURL}${DATAHUB_GRAPHQL_PATH}`, {
       data: { query: mutation, variables: { input: { urns: [urn], deleted: false } } },
     });
 

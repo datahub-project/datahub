@@ -26,4 +26,23 @@ record LineageFlags {
       * a large amount of additional hops to occur and should be used with caution.
       */
       ignoreAsHops: optional map[string, array[Urn]]
+
+    /**
+     * Read results off the lineage graph without validating them in the entity search index.
+     * Applies to searchAcrossLineage only.
+     *
+     * Uses lightning mode regardless of result size, and errors if it is unsupported for the
+     * request: it is only servable with a "*" query, no sort criteria, and filters limited to the
+     * fields derivable from a urn alone.
+     *
+     * Lightning mode is also used, even when this flag is off, when result size is too large.
+     */
+    forceLightningMode: optional boolean = false
+
+    /**
+     * Whether to check that schema fields still exist,
+     * i.e. they are present on their parent's SchemaMetadata aspect.
+     * Applies to searchAcrossLineage in lightning mode only.
+     */
+    validateSchemaFields: optional SchemaFieldValidationMode = "NONE"
 }

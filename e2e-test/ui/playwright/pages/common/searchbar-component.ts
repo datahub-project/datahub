@@ -6,9 +6,9 @@ export class SearchbarComponent {
   readonly autocomplete: Locator;
 
   constructor(private page: Page) {
-    this.searchInput = page.locator('[data-testid="global-search-input"]');
-    this.searchButton = page.locator('[data-testid="global-search-button"]');
-    this.autocomplete = page.locator('[data-testid="search-autocomplete"]');
+    this.searchInput = page.getByTestId('global-search-input');
+    this.searchButton = page.getByTestId('global-search-button');
+    this.autocomplete = page.getByTestId('search-autocomplete');
   }
 
   async search(query: string): Promise<void> {
@@ -21,6 +21,6 @@ export class SearchbarComponent {
   }
 
   async selectAutocompleteOption(index: number): Promise<void> {
-    await this.autocomplete.locator(`[data-testid="autocomplete-option-${index}"]`).click();
+    await this.autocomplete.getByTestId(`autocomplete-option-${index}`).click();
   }
 }

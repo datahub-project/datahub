@@ -1,0 +1,38 @@
+[
+  {
+    "_id": "aaa111",
+    "glossary_id": "bt_email",
+    "type": "Business Term",
+    "name": "Email Address",
+    "description": "An electronic mail address used for communications.",
+    "owner": "data-governance",
+    "domain": "Customer",
+    "sub_domain": "Contact",
+    "is_ootb": false,
+    "update_date": "2024-01-15T10:00:00Z"
+  },
+  {
+    "_id": "bbb222",
+    "glossary_id": "bt_full_name",
+    "type": "Personal Data Item",
+    "name": "Full Name",
+    "description": "The complete legal name of an individual.",
+    "owner": "privacy-team",
+    "domain": "Customer",
+    "sub_domain": "Identity",
+    "is_ootb": true,
+    "update_date": "2024-01-10T08:00:00Z"
+  },
+  {
+    "_id": "ccc333",
+    "glossary_id": "bt_ssn",
+    "type": "Personal Data Item",
+    "name": "Social Security Number",
+    "description": "US government-issued identification number.",
+    "owner": "",
+    "domain": "Compliance",
+    "sub_domain": "",
+    "is_ootb": true,
+    "update_date": "2024-01-10T08:00:00Z"
+  }
+]

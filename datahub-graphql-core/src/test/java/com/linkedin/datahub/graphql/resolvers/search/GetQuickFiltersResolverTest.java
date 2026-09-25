@@ -1,7 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.search;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
+import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
 import static org.mockito.ArgumentMatchers.any;
 
 import com.linkedin.common.urn.UrnUtils;
@@ -10,7 +11,6 @@ import com.linkedin.datahub.graphql.generated.GetQuickFiltersInput;
 import com.linkedin.datahub.graphql.generated.GetQuickFiltersResult;
 import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,9 +42,7 @@ public class GetQuickFiltersResolverTest {
     ViewService mockService = Mockito.mock(ViewService.class);
     EntityClient mockClient =
         initMockEntityClient(
-            SEARCHABLE_ENTITY_TYPES.stream()
-                .map(EntityTypeMapper::getName)
-                .collect(Collectors.toList()),
+            parseCsv(DEFAULT_SEARCH_ENTITY_TYPES),
             "*",
             null,
             0,
@@ -76,9 +73,7 @@ public class GetQuickFiltersResolverTest {
     ViewService mockService = Mockito.mock(ViewService.class);
     EntityClient mockClient =
         initMockEntityClient(
-            SEARCHABLE_ENTITY_TYPES.stream()
-                .map(EntityTypeMapper::getName)
-                .collect(Collectors.toList()),
+            parseCsv(DEFAULT_SEARCH_ENTITY_TYPES),
             "*",
             null,
             0,

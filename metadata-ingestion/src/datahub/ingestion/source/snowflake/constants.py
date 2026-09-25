@@ -33,6 +33,7 @@ SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
     "azure_northeurope": (SnowflakeCloudProvider.AZURE, "north-europe"),
     "azure_westeurope": (SnowflakeCloudProvider.AZURE, "west-europe"),
     "azure_switzerlandnorth": (SnowflakeCloudProvider.AZURE, "switzerland-north"),
+    "azure_swedencentral": (SnowflakeCloudProvider.AZURE, "sweden-central"),
     "azure_uaenorth": (SnowflakeCloudProvider.AZURE, "uae-north"),
     "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india"),
     "azure_japaneast": (SnowflakeCloudProvider.AZURE, "japan-east"),
@@ -60,6 +61,19 @@ class SnowflakeObjectDomain(StrEnum):
     PROCEDURE = "procedure"
     DYNAMIC_TABLE = "dynamic table"
     STREAMLIT = "streamlit"
+    STAGE = "stage"
+    TASK = "task"
+    PIPE = "pipe"
+
+
+# The plural keyword naming an object class in a SHOW statement, e.g. `SHOW DYNAMIC TABLES`.
+# Deliberately separate from SnowflakeObjectDomain, which carries the singular lowercase
+# objectDomain values ACCESS_HISTORY reports ("dynamic table") - the two vocabularies differ
+# in both number and case, so neither can stand in for the other.
+class SnowflakeShowKind(StrEnum):
+    VIEWS = "VIEWS"
+    STREAMS = "STREAMS"
+    DYNAMIC_TABLES = "DYNAMIC TABLES"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"
@@ -80,3 +94,12 @@ class SemanticViewColumnSubtype(StrEnum):
 # https://docs.snowflake.com/en/user-guide/python-connector-api.html#connect
 CLIENT_PREFETCH_THREADS = "client_prefetch_threads"
 CLIENT_SESSION_KEEP_ALIVE = "client_session_keep_alive"
+
+MARKETPLACE_LISTINGS_PERMISSION_ERROR = "marketplace-listings-permission-error"
+MARKETPLACE_PURCHASES_PERMISSION_ERROR = "marketplace-purchases-permission-error"
+MARKETPLACE_USAGE_PERMISSION_ERROR = "marketplace-usage-permission-error"
+
+
+class SnowflakeMarketplaceObjectDomain(StrEnum):
+    LISTING = "listing"
+    PURCHASE = "purchase"

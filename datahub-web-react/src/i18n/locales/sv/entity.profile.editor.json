@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "Alt-text",
+    "addImage.imageUrl": "Bild-URL",
+    "addImage.title": "Lägg till bild",
+    "heading.heading1": "Rubrik 1",
+    "heading.heading2": "Rubrik 2",
+    "heading.heading3": "Rubrik 3",
+    "heading.heading4": "Rubrik 4",
+    "heading.heading5": "Rubrik 5",
+    "heading.normal": "Normal",
+    "link.linkUrl": "Länk-URL",
+    "link.text": "Text",
+    "link.title": "Lägg till länk",
+    "mentions.failedToFindEntity": "Det gick inte att hitta entiteten",
+    "table.deleteColumn": "Ta bort kolumn",
+    "table.deleteRow": "Ta bort rad",
+    "table.deleteTable": "Ta bort tabell",
+    "table.insertColumnLeft": "Infoga kolumn till vänster",
+    "table.insertColumnRight": "Infoga kolumn till höger",
+    "table.insertRowAbove": "Infoga rad ovanför",
+    "table.insertRowBelow": "Infoga rad nedanför"
+}

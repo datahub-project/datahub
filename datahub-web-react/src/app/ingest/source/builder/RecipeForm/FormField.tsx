@@ -1,5 +1,6 @@
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { Checkbox, Form, Input, Select, Tooltip } from 'antd';
+import { Tooltip } from '@components';
+import { Checkbox, Form, Input, Select } from 'antd';
 import Button from 'antd/lib/button';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -69,11 +70,14 @@ function SelectField({ field, removeMargin }: CommonFieldProps) {
             tooltip={field.tooltip}
             $removeMargin={!!removeMargin}
             rules={field.rules || undefined}
+            data-testid={`field-${field.name}`}
         >
             {field.options && (
                 <Select placeholder={field.placeholder} allowClear={!field.required}>
                     {field.options.map((option) => (
-                        <Select.Option value={option.value}>{option.label}</Select.Option>
+                        <Select.Option key={option.value} value={option.value} data-testid={`option-${option.value}`}>
+                            {option.label}
+                        </Select.Option>
                     ))}
                 </Select>
             )}

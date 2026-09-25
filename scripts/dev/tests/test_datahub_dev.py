@@ -1,7 +1,6 @@
 """Unit tests for security-relevant guards in datahub_dev.py."""
 
 import argparse
-import importlib
 import json
 import sys
 import time
@@ -45,6 +44,24 @@ def test_env_set_accepts_valid_key(tmp_path, monkeypatch):
     assert "MY_VAR_123=somevalue" in env_file.read_text()
 
 
+def test_dev_env_promotes_configured_aws_profile(tmp_path, monkeypatch):
+    env_file = tmp_path / "test.env"
+    env_file.write_text("AWS_PROFILE=developer\n")
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+
+    assert datahub_dev._dev_env()["AWS_PROFILE"] == "developer"
+
+
+def test_dev_env_omits_blank_aws_profile(tmp_path, monkeypatch):
+    env_file = tmp_path / "test.env"
+    env_file.write_text("AWS_PROFILE=\n")
+    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", env_file)
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+
+    assert "AWS_PROFILE" not in datahub_dev._dev_env()
+
+
 def test_load_flag_classification_handles_corrupt_json(tmp_path, monkeypatch):
     corrupt_file = tmp_path / "flag-classification.json"
     corrupt_file.write_text("{this is not valid json")
@@ -67,7 +84,9 @@ def test_plugin_loading_extend_config(tmp_path, monkeypatch):
     monkeypatch.setattr(datahub_dev, "__file__", str(tmp_path / "datahub_dev.py"))
     config = datahub_dev._load_config()
     assert "integrations" in config.rebuild_module_aliases
-    assert config.rebuild_module_aliases["integrations"] == "datahub-integrations-service"
+    assert (
+        config.rebuild_module_aliases["integrations"] == "datahub-integrations-service"
+    )
     assert any(svc.name == "integrations" for svc in config.services)
 
 
@@ -151,7 +170,9 @@ def test_env_clean_removes_sentinel(tmp_path, monkeypatch):
     stale_sentinel.write_text("12345")
 
     monkeypatch.setattr(datahub_dev, "DOCKER_DIR", tmp_path)
-    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "datahub-dev-current.env")
+    monkeypatch.setattr(
+        datahub_dev, "DEV_ENV_FILE", tmp_path / "datahub-dev-current.env"
+    )
     # No local branches → only 'local' fallback is active
     monkeypatch.setattr(
         datahub_dev,

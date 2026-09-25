@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
@@ -85,8 +87,7 @@ function getGraphqlErrorCode(e) {
 export const handleBatchError = (urns, e, defaultMessage) => {
     if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
         return {
-            content:
-                'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',
+            content: i18next.t('shared.error:bulkEditUnauthorized'),
             duration: 3,
         };
     }
@@ -141,6 +142,8 @@ function formatEntityType(type: string): string {
             return EntityType.Dashboard;
         case 'chart':
             return EntityType.Chart;
+        case 'metric':
+            return EntityType.Metric;
         case 'tag':
             return EntityType.Tag;
         case 'dataflow':
@@ -188,6 +191,8 @@ function formatEntityType(type: string): string {
             return EntityType.StructuredProperty;
         case 'assertion': // Constants.ASSERTION_ENTITY_NAME
             return EntityType.Assertion;
+        case 'datahubingestionsource': // Constants.INGESTION_SOURCE_ENTITY_NAME
+            return EntityType.IngestionSource;
 
         default:
             return '';

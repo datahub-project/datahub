@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { StatsProps } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
@@ -27,103 +28,107 @@ interface MetricRenderingRules {
 
 const EMPTY_VALUE = '-';
 
-const METRICS: MetricRenderingRules[] = [
-    {
-        label: 'Null Count',
-        key: 'null-count',
-        value: (properties) => formatNumber(properties?.fieldProfile?.nullCount),
-        isHidden: (properties) => !properties?.expandedField?.nullable,
-    },
-    {
-        label: 'Null %',
-        key: 'null-percent',
-        value: (properties) => {
-            const nullProportion = properties?.fieldProfile?.nullProportion;
-            if (!isValuePresent(nullProportion)) return null;
-            const nullPercent = (nullProportion as number) * 100;
-            return formatNumber(nullPercent)?.concat('%');
+function useMetricRenderingRules(): MetricRenderingRules[] {
+    const { t } = useTranslation('entity.profile.schema');
+    return [
+        {
+            label: t('statsV2Insights.nullCount'),
+            key: 'null-count',
+            value: (props) => formatNumber(props?.fieldProfile?.nullCount),
+            isHidden: (props) => !props?.expandedField?.nullable,
         },
-        isHidden: (properties) => !properties?.expandedField?.nullable,
-    },
-    {
-        label: 'Distinct Count',
-        key: 'distinct-count',
-        value: (properties) => formatNumber(properties?.fieldProfile?.uniqueCount),
-    },
-    {
-        label: 'Distinct %',
-        key: 'distinct-percent',
-        value: (properties) => {
-            const uniqueProportion = properties?.fieldProfile?.uniqueProportion;
-            if (!isValuePresent(uniqueProportion)) return null;
-            const uniquePercent = (uniqueProportion as number) * 100;
-            return formatNumber(uniquePercent)?.concat('%');
+        {
+            label: t('statsV2Insights.nullPercent'),
+            key: 'null-percent',
+            value: (props) => {
+                const nullProportion = props?.fieldProfile?.nullProportion;
+                if (!isValuePresent(nullProportion)) return null;
+                const nullPercent = (nullProportion as number) * 100;
+                return formatNumber(nullPercent)?.concat('%');
+            },
+            isHidden: (props) => !props?.expandedField?.nullable,
         },
-    },
-    {
-        label: 'Max',
-        key: 'max',
-        value: (properties) => {
-            const max = properties?.fieldProfile?.max;
-            if (!isValuePresent(max)) return null;
-            return formatNumber(parseFloat(max as string));
+        {
+            label: t('statsV2Insights.distinctCount'),
+            key: 'distinct-count',
+            value: (props) => formatNumber(props?.fieldProfile?.uniqueCount),
         },
-        isHidden: (properties) => {
-            const fieldType = properties?.expandedField?.type;
-            if (fieldType === undefined) return true;
-            return ![SchemaFieldDataType.Number, SchemaFieldDataType.Date, SchemaFieldDataType.Time].includes(
-                fieldType,
-            );
+        {
+            label: t('statsV2Insights.distinctPercent'),
+            key: 'distinct-percent',
+            value: (props) => {
+                const uniqueProportion = props?.fieldProfile?.uniqueProportion;
+                if (!isValuePresent(uniqueProportion)) return null;
+                const uniquePercent = (uniqueProportion as number) * 100;
+                return formatNumber(uniquePercent)?.concat('%');
+            },
         },
-    },
-    {
-        label: 'Min',
-        key: 'min',
-        value: (properties) => {
-            const min = properties?.fieldProfile?.min;
-            if (!isValuePresent(min)) return null;
-            return formatNumber(parseFloat(min as string));
+        {
+            label: t('statsV2Insights.max'),
+            key: 'max',
+            value: (props) => {
+                const max = props?.fieldProfile?.max;
+                if (!isValuePresent(max)) return null;
+                return formatNumber(parseFloat(max as string));
+            },
+            isHidden: (props) => {
+                const fieldType = props?.expandedField?.type;
+                if (fieldType === undefined) return true;
+                return ![SchemaFieldDataType.Number, SchemaFieldDataType.Date, SchemaFieldDataType.Time].includes(
+                    fieldType,
+                );
+            },
         },
-        isHidden: (properties) => {
-            const fieldType = properties?.expandedField?.type;
-            if (fieldType === undefined) return true;
-            return ![SchemaFieldDataType.Number, SchemaFieldDataType.Date, SchemaFieldDataType.Time].includes(
-                fieldType,
-            );
+        {
+            label: t('statsV2Insights.min'),
+            key: 'min',
+            value: (props) => {
+                const min = props?.fieldProfile?.min;
+                if (!isValuePresent(min)) return null;
+                return formatNumber(parseFloat(min as string));
+            },
+            isHidden: (props) => {
+                const fieldType = props?.expandedField?.type;
+                if (fieldType === undefined) return true;
+                return ![SchemaFieldDataType.Number, SchemaFieldDataType.Date, SchemaFieldDataType.Time].includes(
+                    fieldType,
+                );
+            },
         },
-    },
-    {
-        label: 'Median',
-        key: 'median',
-        value: (properties) => {
-            const median = properties?.fieldProfile?.median;
-            if (!isValuePresent(median)) return null;
-            return formatNumber(parseFloat(median as string));
+        {
+            label: t('statsV2Insights.median'),
+            key: 'median',
+            value: (props) => {
+                const median = props?.fieldProfile?.median;
+                if (!isValuePresent(median)) return null;
+                return formatNumber(parseFloat(median as string));
+            },
+            isHidden: (props) => props?.expandedField?.type !== SchemaFieldDataType.Number,
         },
-        isHidden: (properties) => properties?.expandedField?.type !== SchemaFieldDataType.Number,
-    },
-    {
-        label: 'Standard Deviation',
-        key: 'standard-deviation',
-        value: (properties) => {
-            const stdev = parseFloat(`${properties?.fieldProfile?.stdev}`);
-            const mean = parseFloat(`${properties?.fieldProfile?.mean}`);
+        {
+            label: t('statsV2Insights.standardDeviation'),
+            key: 'standard-deviation',
+            value: (props) => {
+                const stdev = parseFloat(`${props?.fieldProfile?.stdev}`);
+                const mean = parseFloat(`${props?.fieldProfile?.mean}`);
 
-            if (Number.isNaN(stdev) || Number.isNaN(mean)) return null;
-            const stdevPercent = (stdev / mean) * 100;
+                if (Number.isNaN(stdev) || Number.isNaN(mean)) return null;
+                const stdevPercent = (stdev / mean) * 100;
 
-            return formatNumber(stdevPercent)?.concat('%');
+                return formatNumber(stdevPercent)?.concat('%');
+            },
+            isHidden: (props) => props?.expandedField?.type !== SchemaFieldDataType.Number,
         },
-        isHidden: (properties) => properties?.expandedField?.type !== SchemaFieldDataType.Number,
-    },
-];
+    ];
+}
 
 export default function Metrics() {
     const { properties } = useStatsTabContext();
+    const metrics = useMetricRenderingRules();
 
     return (
         <MetricsContainer>
-            {METRICS.map((metric) => {
+            {metrics.map((metric) => {
                 if (metric.isHidden?.(properties)) return null;
                 const value = metric.value(properties);
                 return (

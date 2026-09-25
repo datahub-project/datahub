@@ -1,13 +1,14 @@
-import { CloseCircleFilled } from '@ant-design/icons';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { Empty, Select } from 'antd';
 import React, { MouseEvent } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useDomainsContext } from '@src/app/domainV2/DomainsContext';
 
@@ -30,6 +31,7 @@ interface Props {
 
 export default function DomainParentSelect({ selectedParentUrn, setSelectedParentUrn, isMoving }: Props) {
     const theme = useTheme();
+    const { t } = useTranslation('entity.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
     const { entityData } = useDomainsContext();
     const domainUrn = entityData?.urn;
@@ -77,10 +79,10 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                 autoFocus
                 showSearch
                 allowClear
-                clearIcon={<CloseCircleFilled onClick={handleClear} />}
+                clearIcon={<XCircle weight="fill" onClick={handleClear} />}
                 filterOption={false}
                 defaultActiveFirstOption={false}
-                placeholder="Select"
+                placeholder={t('domainSelect.placeholder')}
                 value={selectedParentName}
                 onSelect={onSelectParent}
                 onSearch={handleSearch}
@@ -88,7 +90,7 @@ export default function DomainParentSelect({ selectedParentUrn, setSelectedParen
                 dropdownStyle={isShowingDomainNavigator || !searchQuery ? { display: 'none' } : {}}
                 notFoundContent={
                     <Empty
-                        description="No Domains Found"
+                        description={t('domainSelect.notFound')}
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         style={{ color: theme.colors.textTertiary }}
                     />

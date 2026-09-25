@@ -73,6 +73,12 @@ ML Metadata extraction (enabled by default for enhanced lineage tracking) requir
 
 :::
 
+:::note Project Auto-Discovery Permissions
+
+When using `project_labels` or `project_id_pattern` to auto-discover projects, the service account also needs `resourcemanager.projects.get` (granted via [`roles/browser`](https://cloud.google.com/iam/docs/understanding-roles#browser)) on each candidate project. This is in addition to the Vertex AI permissions listed above and is required so the Cloud Resource Manager `search_projects` API can return the project. If you specify `project_ids` explicitly, no Resource Manager permissions are needed.
+
+:::
+
 #### Create a service account and assign roles
 
 1. Create a service account following [GCP docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and assign the role above

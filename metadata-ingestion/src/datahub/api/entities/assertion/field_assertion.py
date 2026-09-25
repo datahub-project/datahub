@@ -79,6 +79,11 @@ class FieldValuesAssertion(BaseEntityAssertion):
                     parameters=self.operator.generate_parameters(),
                     failThreshold=self.failure_threshold.to_field_values_failure_threshold(),
                     excludeNulls=self.exclude_nulls,
+                    failureSeverityConfig=(
+                        self.failure_severity_config.to_model()
+                        if self.failure_severity_config
+                        else None
+                    ),
                     transform=(
                         FieldTransformClass(type=FieldTransformTypeClass.LENGTH)
                         if self.field_transform == FieldTransform.LENGTH
@@ -127,6 +132,11 @@ class FieldMetricAssertion(BaseEntityAssertion):
                     metric=self.metric.name,
                     operator=self.operator.operator,
                     parameters=self.operator.generate_parameters(),
+                    failureSeverityConfig=(
+                        self.failure_severity_config.to_model()
+                        if self.failure_severity_config
+                        else None
+                    ),
                 ),
             ),
         )

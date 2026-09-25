@@ -2,16 +2,16 @@
 
 Metabase is a business intelligence and analytics platform. Learn more in the [official Metabase documentation](https://www.metabase.com/).
 
-The DataHub integration for Metabase covers BI entities such as dashboards, charts, datasets, and related ownership context. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Metabase covers BI entities such as dashboards, charts, datasets, and related ownership context. It also captures table-level lineage and stateful deletion detection.
 
 ## Concept Mapping
 
-While the specific concept mapping is still pending, this shows the generic concept mapping in DataHub.
-
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
+| Source Concept | DataHub Concept                                                                               | Notes                                                                |
+| -------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `"Metabase"`   | [Data Platform](../../metamodel/entities/dataPlatform.md)                                     |                                                                      |
+| Dashboard      | [Dashboard](../../metamodel/entities/dashboard.md)                                            |                                                                      |
+| Card/Question  | [Chart](../../metamodel/entities/chart.md)                                                    |                                                                      |
+| Model          | [Dataset](../../metamodel/entities/dataset.md)                                                | SubTypes `["Metabase Model"]`; transforming models also get `"View"` |
+| Collection     | [Tag](../../metamodel/entities/tag.md) and [Container](../../metamodel/entities/container.md) | Tags optional; nested collections keep parent containers             |
+| Database Table | [Dataset](../../metamodel/entities/dataset.md)                                                | From connected database                                              |
+| User           | [User (a.k.a CorpUser)](../../metamodel/entities/corpuser.md)                                 | Ownership information                                                |

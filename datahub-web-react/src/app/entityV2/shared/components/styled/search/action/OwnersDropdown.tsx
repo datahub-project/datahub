@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import {
@@ -14,23 +15,25 @@ type Props = {
 
 // eslint-disable-next-line
 export default function OwnersDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tcl } = useTranslation('common.labels');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [operationType, setOperationType] = useState(OperationType.ADD);
 
     return (
         <>
             <ActionDropdown
-                name="Owners"
+                name={tcl('owners')}
                 actions={[
                     {
-                        title: 'Add owners',
+                        title: t('searchActions.owners.addTitle'),
                         onClick: () => {
                             setOperationType(OperationType.ADD);
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Remove owners',
+                        title: t('searchActions.owners.removeTitle'),
                         onClick: () => {
                             setOperationType(OperationType.REMOVE);
                             setIsEditModalVisible(true);

@@ -4,11 +4,13 @@ import pytest
 
 from datahub.cli import timeline_cli
 from datahub.cli.cli_utils import guess_entity_type, post_entity
+from tests.utilities.domains import Domain
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.CATALOG)]
 
 
+@pytest.mark.p0
 def test_all(auth_session, graph_client):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-timeline-sample-kafka"
@@ -260,4 +262,4 @@ def put(graph_client, urn: str, aspect: str, aspect_data: str) -> None:
             entity_type=entity_type,
             aspect_value=aspect_obj,
         )
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mcp_only=True)

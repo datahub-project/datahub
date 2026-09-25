@@ -10,9 +10,11 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasStructuredProperties,
+    HasTags,
     LinksInputType,
     OwnersInputType,
     StructuredPropertyInputType,
+    TagsInputType,
 )
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
@@ -23,6 +25,7 @@ class GlossaryNode(
     HasOwnership,
     HasInstitutionalMemory,
     HasStructuredProperties,
+    HasTags,
     Entity,
 ):
     """A glossary node (folder/category) in the DataHub business glossary.
@@ -78,6 +81,7 @@ class GlossaryNode(
         custom_properties: Optional[Dict[str, str]] = None,
         owners: Optional[OwnersInputType] = None,
         links: Optional[LinksInputType] = None,
+        tags: Optional[TagsInputType] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
@@ -99,6 +103,7 @@ class GlossaryNode(
             custom_properties: Arbitrary key/value metadata pairs.
             owners: Owners of this node.
             links: Documentation or reference links.
+            tags: Tags associated with this node.
             structured_properties: Structured property assignments.
             extra_aspects: Additional raw aspects to attach to the entity.
         """
@@ -120,6 +125,8 @@ class GlossaryNode(
             self.set_owners(owners)
         if links is not None:
             self.set_links(links)
+        if tags is not None:
+            self.set_tags(tags)
         if structured_properties is not None:
             for key, value in structured_properties.items():
                 self.set_structured_property(property_urn=key, values=value)

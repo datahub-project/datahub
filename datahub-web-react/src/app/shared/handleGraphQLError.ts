@@ -1,5 +1,6 @@
 import { ErrorResponse } from '@apollo/client/link/error';
 import { toast } from '@components';
+import i18next from 'i18next';
 
 import { ErrorCodes } from '@app/shared/constants';
 
@@ -14,7 +15,7 @@ interface Props {
 export default function handleGraphQLError({
     error,
     defaultMessage,
-    permissionMessage = 'Unauthorized. Please contact your DataHub administrator.',
+    permissionMessage = i18next.t('shared.error:unauthorized'),
     badRequestMessage,
     serverErrorMessage,
 }: Props) {

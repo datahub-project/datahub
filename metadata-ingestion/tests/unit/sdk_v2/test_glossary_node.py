@@ -130,3 +130,38 @@ def test_glossary_node_structured_properties() -> None:
     node.set_structured_property("urn:li:structuredProperty:sp1", ["updated"])
     sp_dict = {p.propertyUrn: p.values for p in node.structured_properties}
     assert sp_dict["urn:li:structuredProperty:sp1"] == ["updated"]
+
+
+def test_glossary_node_tags() -> None:
+    from datahub.metadata.urns import TagUrn
+
+    def _tag_names(tags):
+        return [str(TagUrn.from_string(tag.tag)) for tag in tags]
+
+    node = GlossaryNode(
+        id="a1b2c3d4",
+        definition="Tagged node.",
+        tags=[TagUrn("pii"), TagUrn("finance")],
+    )
+    assert node.tags is not None
+    assert _tag_names(node.tags) == [
+        "urn:li:tag:pii",
+        "urn:li:tag:finance",
+    ]
+
+    node.add_tag(TagUrn("sensitive"))
+    node.add_tag(TagUrn("pii"))  # idempotent
+    assert _tag_names(node.tags) == [
+        "urn:li:tag:pii",
+        "urn:li:tag:finance",
+        "urn:li:tag:sensitive",
+    ]
+
+    node.remove_tag(TagUrn("finance"))
+    assert _tag_names(node.tags) == [
+        "urn:li:tag:pii",
+        "urn:li:tag:sensitive",
+    ]
+
+    node.set_tags([TagUrn("classified")])
+    assert _tag_names(node.tags) == ["urn:li:tag:classified"]

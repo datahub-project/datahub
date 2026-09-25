@@ -154,7 +154,7 @@ class SchemaProcessor(EntityProcessor):
             )
         except (requests.RequestException, ValueError) as e:
             # Expected errors: API failures, parsing errors
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to fetch data structures",
                 message="Unable to retrieve schemas from BDP API. Check API credentials and network connectivity.",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
@@ -164,7 +164,7 @@ class SchemaProcessor(EntityProcessor):
         except Exception as e:
             # Unexpected error - indicates a bug
             logger.error("Unexpected error fetching data structures", exc_info=True)
-            self.report.report_failure(
+            self.report.failure(
                 title="Unexpected error fetching data structures",
                 message="This may indicate a bug in the connector. Please report this issue.",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
@@ -311,10 +311,12 @@ class SchemaProcessor(EntityProcessor):
                     f"Failed to process data structure {schema_id}: {e}",
                     exc_info=True,
                 )
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to process data structure",
-                    message=f"Skipping schema {schema_id}: {e}. "
-                    "Remaining schemas will still be processed.",
+                    message="Skipping schema. Remaining schemas will still be processed.",
+                    context=schema_id,
+                    exc=e,
+                    log=False,
                 )
                 continue
 
@@ -336,7 +338,7 @@ class SchemaProcessor(EntityProcessor):
                 "No schemas found in Iglu registry. Either the registry is empty or "
                 "your Iglu Server doesn't support the /api/schemas endpoint (requires Iglu Server 0.6+)."
             )
-            self.report.report_failure(
+            self.report.failure(
                 title="No schemas found",
                 message="Automatic schema discovery returned no results",
                 context="Iglu-only mode requires Iglu Server 0.6+ with /api/schemas endpoint support",
@@ -387,8 +389,8 @@ class SchemaProcessor(EntityProcessor):
 
             except Exception as e:
                 logger.error(f"Failed to fetch schema {uri} from Iglu: {e}")
-                self.report.report_failure(
-                    title=f"Failed to fetch schema {uri}",
+                self.report.failure(
+                    title="Failed to fetch schema from Iglu registry",
                     message="Error fetching schema from Iglu registry",
                     context=uri,
                     exc=e,

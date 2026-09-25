@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.auth;
 
+import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.entity.client.SystemEntityClient;
 import io.datahubproject.metadata.context.OperationContext;
@@ -27,7 +28,8 @@ public class DataHubAuthorizerFactory {
   @Nonnull
   protected DataHubAuthorizer dataHubAuthorizer(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
-      final SystemEntityClient systemEntityClient) {
+      final SystemEntityClient systemEntityClient,
+      @Qualifier("groupService") final GroupService groupService) {
 
     final DataHubAuthorizer.AuthorizationMode mode =
         policiesEnabled
@@ -37,6 +39,7 @@ public class DataHubAuthorizerFactory {
     return new DataHubAuthorizer(
         systemOpContext,
         systemEntityClient,
+        groupService,
         10,
         policyCacheRefreshIntervalSeconds,
         mode,

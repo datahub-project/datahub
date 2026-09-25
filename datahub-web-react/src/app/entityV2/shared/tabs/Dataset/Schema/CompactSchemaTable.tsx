@@ -2,6 +2,7 @@ import { Button, Table } from 'antd';
 import { ColumnsType } from 'antd/es/table';
 import { FixedType } from 'rc-table/lib/interface';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -12,6 +13,7 @@ import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/Expa
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
+import useEditableSchemaFieldInfoMaps from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
 import useUsageStatsRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useUsageStatsRenderer';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -74,6 +76,7 @@ const StyledButton = styled(Button)`
 `;
 
 const KEYBOARD_CONTROL_DEBOUNCE_MS = 50;
+const SCROLL_X = 'auto';
 
 export default function CompactSchemaTable({
     rows,
@@ -88,13 +91,16 @@ export default function CompactSchemaTable({
     setOpenTimelineDrawer,
     refetch,
 }: Props): JSX.Element {
+    const { t } = useTranslation('entity.profile.schema');
+    const { t: tc } = useTranslation('common.labels');
     const numberOfRowsToShow = fullHeight ? 20 : 5;
     const { urn } = useEntityData();
     const entityRegistry = useEntityRegistry();
 
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
 
-    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, true);
+    const fieldInfoMaps = useEditableSchemaFieldInfoMaps(editableSchemaMetadata);
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, true, fieldInfoMaps);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
 
     const schemaTitleRenderer = useSchemaTitleRenderer(urn, schemaMetadata, '', true);
@@ -118,12 +124,12 @@ export default function CompactSchemaTable({
         setExpandedRows,
     );
 
-    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
+    const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata, fieldInfoMaps);
 
     const fieldColumn = {
         fixed: 'left' as FixedType,
         width: 100,
-        title: 'Name',
+        title: tc('name'),
         dataIndex: 'fieldPath',
         key: 'fieldPath',
         className: 'field-column',
@@ -141,7 +147,7 @@ export default function CompactSchemaTable({
     const descriptionColumn = {
         ellipsis: true,
         width: 600,
-        title: 'Description',
+        title: tc('description'),
         dataIndex: 'description',
         key: 'description',
         className: 'description-column',
@@ -169,7 +175,7 @@ export default function CompactSchemaTable({
 
     const usageColumn = {
         width: '100',
-        title: 'Usage',
+        title: tc('usage'),
         dataIndex: 'fieldPath',
         key: 'usage',
         render: usageStatsRenderer,
@@ -206,7 +212,7 @@ export default function CompactSchemaTable({
                 onRow={(record) => ({
                     id: `column-${record.fieldPath}`,
                 })}
-                scroll={{ x: 'auto' }}
+                scroll={{ x: SCROLL_X }}
                 expandable={{
                     expandIcon: (props) => <ExpandIcon {...props} isCompact />,
                 }}
@@ -217,7 +223,7 @@ export default function CompactSchemaTable({
                     size="small"
                     href={resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Dataset, urn))}
                 >
-                    View {rows.length - numberOfRowsToShow} More
+                    {t('compactSchemaTable.viewMore', { count: rows.length - numberOfRowsToShow })}
                 </StyledButton>
             )}
             {!!schemaFields && (

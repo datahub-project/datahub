@@ -1,5 +1,6 @@
 import { Empty, Table } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -13,12 +14,14 @@ import {
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
-import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
 import { TabRenderType } from '@app/entityV2/shared/types';
+import Loading from '@app/shared/Loading';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
-import { Maybe, StructuredProperties } from '@src/types.generated';
+import { Maybe, SchemaFieldEntity } from '@src/types.generated';
+
+const PROPERTY_ROW_KEY = 'qualifiedName';
 
 const StyledTable = styled(Table)`
     &&& .ant-table-cell-with-append {
@@ -40,7 +43,7 @@ interface Props {
     properties?: {
         fieldPath?: string;
         fieldUrn?: string;
-        fieldProperties?: Maybe<StructuredProperties>;
+        fieldEntity?: Maybe<SchemaFieldEntity>;
         refetch?: () => void;
         disableEdit?: boolean;
         disableSearch?: boolean;
@@ -49,19 +52,26 @@ interface Props {
 }
 
 export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }: Props) => {
+    const { t } = useTranslation('entity.profile.tabs');
+    const { t: tc } = useTranslation('common.labels');
     const fieldPath = properties?.fieldPath;
     const fieldUrn = properties?.fieldUrn;
-    const fieldProperties = properties?.fieldProperties;
+    const fieldEntity = properties?.fieldEntity;
+    const fieldProperties = fieldEntity?.structuredProperties;
     const refetch = properties?.refetch;
     const [filterText, setFilterText] = useState('');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
 
-    const { structuredPropertyRows, expandedRowsFromFilter, structuredPropertyRowsRaw } = useStructuredProperties(
-        entityRegistry,
-        fieldPath || null,
-        filterText,
-    );
+    const {
+        structuredPropertyRows,
+        expandedRowsFromFilter,
+        loading: structuredPropertiesLoading,
+    } = useStructuredProperties(entityRegistry, fieldPath || null, filterText, fieldEntity);
+
+    // avoid flashing an empty table when revisiting this tab before the parent drawer's
+    // field entity has loaded
+    const isLoadingFieldProperties = !!fieldPath && !fieldEntity && structuredPropertiesLoading;
 
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
@@ -74,27 +84,21 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
 
     useUpdateExpandedRowsFromFilter({ expandedRowsFromFilter, setExpandedRows });
 
-    const entityUrnsToHydrate = structuredPropertyRowsRaw
-        .flatMap((row) => row?.values?.map((v) => (typeof v?.value === 'string' ? v.value : null)))
-        .filter(Boolean);
-
-    const hydratedEntityMap = useHydratedEntityMap(entityUrnsToHydrate);
-
     const propertyTableColumns = [
         {
             width: '40%',
-            title: 'Name',
+            title: tc('name'),
             render: (propertyRow: PropertyRow) => <NameColumn propertyRow={propertyRow} filterText={filterText} />,
         },
         {
-            title: 'Value',
+            title: tc('value'),
             ellipsis: true,
             render: (propertyRow: PropertyRow) => (
                 <ValuesColumn
                     propertyRow={propertyRow}
                     filterText={filterText}
-                    hydratedEntityMap={hydratedEntityMap}
                     renderType={renderType}
+                    scopeKey={fieldPath ? `${entityData?.urn}:${fieldPath}` : (entityData?.urn ?? '')}
                 />
             ),
         },
@@ -129,35 +133,43 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
                     refetch={refetch}
                 />
             )}
-            <StyledTable
-                pagination={false}
-                // typescript is complaining that default sort order is not a valid column field- overriding this here
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-                // @ts-ignore
-                columns={propertyTableColumns}
-                dataSource={dataSource}
-                locale={{
-                    emptyText: <EmptyText description="No properties found" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                }}
-                rowKey="qualifiedName"
-                expandable={{
-                    expandedRowKeys: [...Array.from(expandedRows)],
-                    defaultExpandAllRows: false,
-                    expandRowByClick: false,
-                    expandIcon: (props) => <ExpandIcon {...props} isCompact />,
-                    onExpand: (expanded, record) => {
-                        if (expanded) {
-                            setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
-                        } else {
-                            setExpandedRows((previousRows) => {
-                                previousRows.delete(record.qualifiedName);
-                                return new Set(previousRows);
-                            });
-                        }
-                    },
-                    indentSize: 16,
-                }}
-            />
+            <div data-testid="entity-properties-table">
+                {isLoadingFieldProperties ? (
+                    <Loading />
+                ) : (
+                    <StyledTable
+                        pagination={false}
+                        // typescript is complaining that default sort order is not a valid column field- overriding this here
+                        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                        // @ts-ignore
+                        columns={propertyTableColumns}
+                        dataSource={dataSource}
+                        locale={{
+                            emptyText: (
+                                <EmptyText description={t('properties.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                            ),
+                        }}
+                        rowKey={PROPERTY_ROW_KEY}
+                        expandable={{
+                            expandedRowKeys: [...Array.from(expandedRows)],
+                            defaultExpandAllRows: false,
+                            expandRowByClick: false,
+                            expandIcon: (props) => <ExpandIcon {...props} isCompact />,
+                            onExpand: (expanded, record) => {
+                                if (expanded) {
+                                    setExpandedRows((previousRows) => new Set(previousRows.add(record.qualifiedName)));
+                                } else {
+                                    setExpandedRows((previousRows) => {
+                                        previousRows.delete(record.qualifiedName);
+                                        return new Set(previousRows);
+                                    });
+                                }
+                            },
+                            indentSize: 16,
+                        }}
+                    />
+                )}
+            </div>
         </>
     );
 };

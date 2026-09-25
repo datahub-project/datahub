@@ -48,7 +48,7 @@ public class ClearGraphServiceStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        _graphService.clear();
+        _graphService.clear(context.opContext());
       } catch (Exception e) {
         context.report().addLine("Failed to clear graph indices", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);

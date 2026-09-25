@@ -14,10 +14,12 @@
 
 import logging
 import os
+import warnings
 from typing import List, Optional
 
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
+from datahub_actions.filter.filter import Filter
 from datahub_actions.pipeline.pipeline_config import FailureMode, PipelineConfig
 from datahub_actions.pipeline.pipeline_stats import PipelineStats
 from datahub_actions.pipeline.pipeline_util import (
@@ -25,6 +27,7 @@ from datahub_actions.pipeline.pipeline_util import (
     create_action_context,
     create_event_source,
     create_filter_transformer,
+    create_filters,
     create_transformer,
     normalize_directory_name,
 )
@@ -72,6 +75,7 @@ class Pipeline:
 
     name: str
     source: EventSource
+    filters: List[Filter] = []
     transforms: List[Transformer] = []
     action: Action
 
@@ -90,6 +94,7 @@ class Pipeline:
         self,
         name: str,
         source: EventSource,
+        filters: List[Filter],
         transforms: List[Transformer],
         action: Action,
         retry_count: Optional[int],
@@ -98,8 +103,10 @@ class Pipeline:
     ) -> None:
         self.name = name
         self.source = source
+        self.filters = filters
         self.transforms = transforms
         self.action = action
+        self._stats = PipelineStats()
 
         if retry_count is not None:
             self._retry_count = retry_count
@@ -126,9 +133,20 @@ class Pipeline:
         event_source = create_event_source(config.source, ctx)
         ctx.event_source = event_source
 
+        # Build the filter list from the new `filters:` section.
+        filters = create_filters(config.filters, ctx)
+
+        # Always push filters to the source; no-op for sources that don't override set_filters.
+        event_source.set_filters(filters)
+
         # Create Transforms
         transforms = []
         if config.filter is not None:
+            warnings.warn(
+                "The 'filter' pipeline config section is deprecated. Use 'filters' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             transforms.append(create_filter_transformer(config.filter, ctx))
 
         if config.transform is not None:
@@ -142,6 +160,7 @@ class Pipeline:
         return cls(
             config.name,
             event_source,
+            filters,
             transforms,
             action,
             config.options.retry_count if config.options else None,
@@ -199,7 +218,11 @@ class Pipeline:
         retval = None
         while curr_attempt <= max_attempts:
             try:
-                # First, transform the event.
+                # First, apply pipeline filters.
+                if not self._execute_filters(enveloped_event):
+                    return retval
+
+                # Then, transform the event.
                 transformed_event = self._execute_transformers(enveloped_event)
 
                 # Then, invoke the action if the event is non-null.
@@ -225,6 +248,21 @@ class Pipeline:
         self._handle_failure(enveloped_event)
 
         return retval
+
+    def _execute_filters(self, enveloped_event: EventEnvelope) -> bool:
+        """Return True if the event passes all filters (should proceed); False to drop it."""
+        for f in self.filters:
+            self._stats.increment_filter_processed_count(f)
+            try:
+                if not f.matches(enveloped_event):
+                    self._stats.increment_filter_filtered_count(f)
+                    return False
+            except Exception as e:
+                self._stats.increment_filter_exception_count(f)
+                raise PipelineException(
+                    f"Caught exception while executing Filter with name {type(f).__name__}"
+                ) from e
+        return True
 
     def _execute_transformers(
         self, enveloped_event: EventEnvelope

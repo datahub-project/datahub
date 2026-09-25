@@ -1,9 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
+import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
 import GreetingText from '@app/homeV3/header/components/GreetingText';
 import SearchBar from '@app/homeV3/header/components/SearchBar';
 import { CenteredContainer, contentWidth } from '@app/homeV3/styledComponents';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const HeaderWrapper = styled.div`
     display: flex;
@@ -21,9 +24,24 @@ const StyledCenteredContainer = styled(CenteredContainer)`
     ${contentWidth(0)}
 `;
 
+const NavTogglerSlot = styled.div`
+    position: absolute;
+    top: 16px;
+    left: 16px;
+`;
+
 const Header = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { isCollapsed } = useNavBarContext();
+    const showHomeNavToggler = isShowNavBarRedesign && isCollapsed;
+
     return (
         <HeaderWrapper>
+            {showHomeNavToggler && (
+                <NavTogglerSlot>
+                    <NavBarToggler />
+                </NavTogglerSlot>
+            )}
             <StyledCenteredContainer>
                 <GreetingText />
                 <SearchBar />

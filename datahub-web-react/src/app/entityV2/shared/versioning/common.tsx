@@ -14,5 +14,13 @@ interface Props {
 }
 
 export function VersionPill(props: Props & PillProps) {
-    return <StyledPill variant="version" clickable={false} color={props.isLatest ? 'white' : undefined} {...props} />;
+    return (
+        <StyledPill
+            variant="version"
+            clickable={false}
+            color={props.isLatest ? 'white' : undefined}
+            dataTestId="version-pill"
+            {...props}
+        />
+    );
 }

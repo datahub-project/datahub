@@ -3,9 +3,14 @@ import GridViewIcon from '@mui/icons-material/GridView';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+
+const VIEW_FILTER_ALL = 'all';
+const VIEW_FILTER_PRIVATE = 'private';
+const VIEW_FILTER_PUBLIC = 'public';
 
 const GridViewIconStyle = styled(GridViewIcon)<{ $isShowNavBarRedesign?: boolean }>`
     font-size: ${(props) => (props.$isShowNavBarRedesign ? '14px' : '13px')} !important;
@@ -58,6 +63,7 @@ interface Props {
 }
 
 export default function ViewTypeSelectV1({ publicViews, privateViews, onTypeSelect }: Props) {
+    const { t } = useTranslation('entity.views');
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
@@ -66,33 +72,33 @@ export default function ViewTypeSelectV1({ publicViews, privateViews, onTypeSele
                 <div className="select-view-icon">
                     <div
                         className={`${publicViews && privateViews ? 'active' : ''}`}
-                        onClick={() => onTypeSelect('all')}
+                        onClick={() => onTypeSelect(VIEW_FILTER_ALL)}
                         role="none"
                     >
-                        <Tooltip placement="bottom" showArrow title="All">
+                        <Tooltip placement="bottom" showArrow title={t('viewSelect.filterAll')}>
                             <GridViewIconStyle $isShowNavBarRedesign={isShowNavBarRedesign} />
                         </Tooltip>
                     </div>
                     <div
                         className={`${!publicViews && privateViews ? 'active' : ''}`}
-                        onClick={() => onTypeSelect('private')}
+                        onClick={() => onTypeSelect(VIEW_FILTER_PRIVATE)}
                         role="none"
                     >
-                        <Tooltip placement="bottom" showArrow title="Private">
+                        <Tooltip placement="bottom" showArrow title={t('typePrivate')}>
                             <LockOutlinedIconStyle $isShowNavBarRedesign={isShowNavBarRedesign} />
                         </Tooltip>
                     </div>
                     <div
                         className={`${publicViews && !privateViews ? 'active' : ''}`}
-                        onClick={() => onTypeSelect('public')}
+                        onClick={() => onTypeSelect(VIEW_FILTER_PUBLIC)}
                         role="none"
                     >
-                        <Tooltip placement="bottom" showArrow title="Public">
+                        <Tooltip placement="bottom" showArrow title={t('typePublic')}>
                             <PublicIconStyle $isShowNavBarRedesign={isShowNavBarRedesign} />
                         </Tooltip>
                     </div>
                 </div>
-                {!isShowNavBarRedesign && <div className="select-view-label">Select Your View</div>}
+                {!isShowNavBarRedesign && <div className="select-view-label">{t('viewSelect.selectYourView')}</div>}
             </div>
         </Wrapper>
     );

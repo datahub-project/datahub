@@ -12,9 +12,11 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasStructuredProperties,
+    HasTags,
     LinksInputType,
     OwnersInputType,
     StructuredPropertyInputType,
+    TagsInputType,
 )
 from datahub.sdk.entity import Entity, ExtraAspectsType
 from datahub.sdk.glossary_node import GlossaryNode, GlossaryNodeUrnOrStr
@@ -27,6 +29,7 @@ class GlossaryTerm(
     HasInstitutionalMemory,
     HasStructuredProperties,
     HasDomain,
+    HasTags,
     Entity,
 ):
     """A business glossary term in DataHub.
@@ -113,6 +116,7 @@ class GlossaryTerm(
         related_terms: Optional[List[GlossaryTermUrnOrStr]] = None,
         owners: Optional[OwnersInputType] = None,
         links: Optional[LinksInputType] = None,
+        tags: Optional[TagsInputType] = None,
         domain: Optional[DomainInputType] = None,
         structured_properties: Optional[StructuredPropertyInputType] = None,
         extra_aspects: ExtraAspectsType = None,
@@ -153,6 +157,7 @@ class GlossaryTerm(
                 terms with no directional semantic.
             owners: Owners of this term.
             links: Documentation or reference links.
+            tags: Tags associated with this term.
             domain: Domain this term belongs to.
             structured_properties: Structured property assignments.
             extra_aspects: Additional raw aspects to attach to the entity.
@@ -188,6 +193,8 @@ class GlossaryTerm(
             self.set_owners(owners)
         if links is not None:
             self.set_links(links)
+        if tags is not None:
+            self.set_tags(tags)
         if domain is not None:
             self.set_domain(domain)
         if structured_properties is not None:

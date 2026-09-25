@@ -3,5 +3,7 @@ services:
     image: starrocks/allin1-ubuntu:latest
     container_name: "teststarrocks"
     ports:
-      - "59030:9030"  # MySQL protocol
-      - "58030:8030"  # HTTP
+      # Ephemeral: Docker picks a free host port so a leaked container from a
+      # prior run can't block a fresh `up`. Test connects via docker_services.port_for.
+      - "9030"  # MySQL protocol
+      - "8030"  # HTTP (unused by the host, but kept ephemeral for consistency)

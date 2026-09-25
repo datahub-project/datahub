@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
@@ -33,6 +35,7 @@ import org.opensearch.cluster.health.ClusterHealthStatus;
 @Slf4j
 public class HealthCheckPoller {
 
+  private final OperationContext opContext;
   private final ESIndexBuilder indexBuilder;
   private final CircuitBreakerState circuitBreakerState;
   private final double heapThresholdPercent;
@@ -45,6 +48,12 @@ public class HealthCheckPoller {
   /**
    * Create a new health check poller.
    *
+   * @param opContext Operation context to use for all cluster-health and node-metrics calls. This
+   *     poller runs on a daemon thread spawned by an upgrade step; pass the step's {@code
+   *     context.opContext()} so the threaded context (typically the system context for upgrade
+   *     work) is available to any shim decorator (e.g. cloud {@code EnrichingShim}). Never {@code
+   *     null} — would NPE in a downstream decorator and silently kill the polling loop, breaking
+   *     the {@link ParallelReindexOrchestrator} circuit breaker.
    * @param indexBuilder ESIndexBuilder for cluster health API access
    * @param circuitBreakerState CircuitBreakerState to update with health status
    * @param heapThresholdPercent Heap percentage threshold for RED (e.g., 90)
@@ -52,11 +61,13 @@ public class HealthCheckPoller {
    * @param writeRejectionRedThreshold Delta threshold for immediate RED on 2 consecutive polls
    */
   public HealthCheckPoller(
+      @Nonnull OperationContext opContext,
       final ESIndexBuilder indexBuilder,
       final CircuitBreakerState circuitBreakerState,
       final double heapThresholdPercent,
       final double heapYellowThresholdPercent,
       final int writeRejectionRedThreshold) {
+    this.opContext = opContext;
     this.indexBuilder = indexBuilder;
     this.circuitBreakerState = circuitBreakerState;
     this.heapThresholdPercent = heapThresholdPercent;
@@ -75,8 +86,10 @@ public class HealthCheckPoller {
    */
   public void poll() {
     try {
-      // Poll cluster health
-      ClusterHealthResponse clusterHealth = indexBuilder.getClusterHealth();
+      // Poll cluster health using the threaded opContext (per-step system context). Never null —
+      // the constructor's @Nonnull contract is enforced because a null here would NPE in any
+      // cloud EnrichingShim decorator and silently kill the polling loop on this daemon thread.
+      ClusterHealthResponse clusterHealth = indexBuilder.getClusterHealth(opContext);
 
       // Compute health signals from heap and rejection metrics
       HealthSignals signals = computeHealthSignals();
@@ -216,8 +229,11 @@ public class HealthCheckPoller {
     Map<String, OpenSearchJvmInfo.ThreadPoolRejections> rejMap;
 
     try {
-      // Single consolidated call to get both heap and rejection metrics in one API call
-      OpenSearchJvmInfo.NodeMetrics metrics = indexBuilder.getJvminfo().getDataNodeMetrics();
+      // Single consolidated call to get both heap and rejection metrics in one API call.
+      // Threads opContext through so the underlying shim decorator (e.g. cloud EnrichingShim)
+      // sees a real context — null would NPE inside the decorator on this daemon thread.
+      OpenSearchJvmInfo.NodeMetrics metrics =
+          indexBuilder.getJvminfo().getDataNodeMetrics(opContext);
       heapMap = metrics.getHeapMap();
       rejMap = metrics.getRejectionMap();
     } catch (Exception e) {

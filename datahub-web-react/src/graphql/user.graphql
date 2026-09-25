@@ -376,6 +376,10 @@ mutation updateUserHomePageSettings($input: UpdateUserHomePageSettingsInput!) {
     updateUserHomePageSettings(input: $input)
 }
 
+mutation updateCorpUserLocaleSettings($input: UpdateCorpUserLocaleSettingsInput!) {
+    updateCorpUserLocaleSettings(input: $input)
+}
+
 query getUserOwnedAssets($urns: [String!]!, $skipSiblingsSearch: Boolean = false, $skipLineage: Boolean = false) {
     searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: $urns }] }) {
         ...searchResults

@@ -1,3 +1,7 @@
+---
+description: "Use DataHub Cloud Change Proposals to crowdsource Tags, Terms, Owners, and other metadata edits with reviewer approval workflows."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Change Proposals

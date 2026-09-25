@@ -84,4 +84,9 @@ enum FabricType {
    * Designates sandbox fabrics
    */
   SANDBOX
+
+  /**
+   * Designates certification fabrics
+   */
+  CERT
 }

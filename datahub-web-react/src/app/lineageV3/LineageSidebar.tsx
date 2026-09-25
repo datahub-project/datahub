@@ -1,5 +1,6 @@
-import React, { useCallback, useContext, useEffect, useState } from 'react';
-import { useOnSelectionChange, useStore } from 'reactflow';
+import React, { useCallback, useContext, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { useStore } from 'reactflow';
 import styled from 'styled-components/macro';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
@@ -8,6 +9,8 @@ import CompactContext from '@app/shared/CompactContext';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     position: absolute;
@@ -28,19 +31,19 @@ const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
 export default function LineageSidebar() {
     const { rootUrn } = useContext(LineageNodesContext);
     const entityRegistry = useEntityRegistry();
-    const [selectedEntity, setSelectedEntity] = useSelectedNode();
+    const { selectedNode, setSelectedNode } = useContext(LineageDisplayContext);
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
-    const queryDetails = useQueryDetails(selectedEntity);
+    const queryDetails = useQueryDetails(selectedNode);
     const width = useSidebarWidth();
 
     const setSidebarClosed = useCallback(
         (closed) => {
             if (closed) {
                 resetSelectedElements();
-                setSelectedEntity(null);
+                setSelectedNode(null);
             }
         },
-        [resetSelectedElements, setSelectedEntity],
+        [resetSelectedElements, setSelectedNode],
     );
 
     useEffect(() => {
@@ -49,7 +52,12 @@ export default function LineageSidebar() {
     }, [rootUrn]);
 
     // This manages closing, rather than isClosed
-    if (!selectedEntity) {
+    if (!selectedNode) {
+        return null;
+    }
+
+    // Don't show sidebar for restricted entities
+    if (selectedNode.type === EntityType.Restricted) {
         return null;
     }
 
@@ -60,32 +68,20 @@ export default function LineageSidebar() {
                 isClosed: false,
                 setSidebarClosed,
                 forLineage: true,
-                separateSiblings: !selectedEntity.entity?.lineageSiblingIcon,
+                separateSiblings: !selectedNode.entity?.lineageSiblingIcon,
                 fineGrainedOperations: queryDetails,
             }}
         >
-            <SidebarWrapper $distanceFromTop={0}>
-                <CompactContext.Provider key={selectedEntity.urn} value>
-                    {entityRegistry.renderProfile(selectedEntity.type, selectedEntity.urn)}
-                </CompactContext.Provider>
-            </SidebarWrapper>
+            {createPortal(
+                <SidebarWrapper $distanceFromTop={0} data-testid="lineage-sidebar">
+                    <CompactContext.Provider key={selectedNode.urn} value>
+                        {entityRegistry.renderProfile(selectedNode.type, selectedNode.urn)}
+                    </CompactContext.Provider>
+                </SidebarWrapper>,
+                document.body,
+            )}
         </EntitySidebarContext.Provider>
     );
-}
-
-function useSelectedNode(): [LineageEntity | null, (v: LineageEntity | null) => void] {
-    // Entity Profile sidebar, not lineage sidebar
-    const { setSidebarClosed } = useContext(EntitySidebarContext);
-    const [selectedNode, setSelectedNode] = useState<LineageEntity | null>(null);
-
-    useOnSelectionChange({
-        onChange: ({ nodes }) => {
-            if (nodes.length) setSidebarClosed(true);
-            setSelectedNode(nodes.length ? nodes[nodes.length - 1].data : null);
-        },
-    });
-
-    return [selectedNode, setSelectedNode];
 }
 
 function useQueryDetails(selectedNode: LineageEntity | null): FineGrainedOperation[] | undefined {

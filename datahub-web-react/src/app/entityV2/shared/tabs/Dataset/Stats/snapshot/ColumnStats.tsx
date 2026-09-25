@@ -1,6 +1,7 @@
 import { Typography } from 'antd';
 import { ColumnType, ColumnsType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
@@ -34,6 +35,7 @@ const decimalToPercentStr = (decimal: number, precision: number): string => {
 };
 
 export default function ColumnStats({ columnStats, partitionSpec }: Props) {
+    const { t } = useTranslation('entity.profile.stats');
     const theme = useTheme();
     const columnStatsTableData = useMemo(
         () =>
@@ -60,7 +62,9 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
      * Returns a placeholder value to show in the column data table when data is null.
      */
     const unknownValue = () => {
-        return <Typography.Text style={{ color: theme.colors.textDisabled }}>unknown</Typography.Text>;
+        return (
+            <Typography.Text style={{ color: theme.colors.textDisabled }}>{t('columnStats.unknown')}</Typography.Text>
+        );
     };
 
     /**
@@ -83,52 +87,52 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
         // Optional columns. Defines how to render a column given a value exists somewhere in the profile.
         const optionalColumns: ColumnsType<any> = [
             {
-                title: 'Min',
+                title: t('columnStats.minColumn'),
                 dataIndex: 'min',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Max',
+                title: t('columnStats.maxColumn'),
                 dataIndex: 'max',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Mean',
+                title: t('columnStats.meanColumn'),
                 dataIndex: 'mean',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Median',
+                title: t('columnStats.medianColumn'),
                 dataIndex: 'median',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Null Count',
+                title: t('columnStats.nullCountColumn'),
                 dataIndex: 'nullCount',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Null %',
+                title: t('columnStats.nullPercentColumn'),
                 dataIndex: 'nullPercentage',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Distinct Count',
+                title: t('columnStats.distinctCountColumn'),
                 dataIndex: 'distinctCount',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Distinct %',
+                title: t('columnStats.distinctPercentColumn'),
                 dataIndex: 'distinctPercentage',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Std. Dev',
+                title: t('columnStats.stdDevColumn'),
                 dataIndex: 'stdev',
                 render: (value) => value || unknownValue(),
             },
             {
-                title: 'Sample Values',
+                title: t('columnStats.sampleValuesColumn'),
                 dataIndex: 'sampleValues',
                 render: (sampleValues: Array<string>) => {
                     return (
@@ -145,7 +149,7 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
         // Name column always required.
         const requiredColumns: ColumnsType<any> = [
             {
-                title: 'Name',
+                title: t('columnStats.nameColumn'),
                 dataIndex: 'name',
                 render: (value) => <NameText>{value}</NameText>,
                 ellipsis: true,
@@ -169,7 +173,9 @@ export default function ColumnStats({ columnStats, partitionSpec }: Props) {
     return (
         <StatSection>
             <Typography.Title level={5}>
-                {isPartitioned ? `Column Stats for Partition ${partitionSpec.partition}` : 'Column Stats'}
+                {t(isPartitioned ? 'columnStats.columnStatsForPartition' : 'columnStats.columnStatsTitle', {
+                    partition: partitionSpec?.partition,
+                })}
             </Typography.Title>
             <StyledTable pagination={false} columns={columnStatsColumns} dataSource={columnStatsTableData} />
         </StatSection>

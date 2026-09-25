@@ -56,7 +56,12 @@ public class ExternalEventsServiceTest {
             "MetadataChangeLog_Versioned_v1",
             "MetadataChangeLog_Timeseries_v1");
     service =
-        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, topicNames, 10, 100);
+        new ExternalEventsService(
+            allowedTopics,
+            new KafkaExternalEventsPollHandler(consumerPool, objectMapper),
+            topicNames,
+            10,
+            100);
 
     // Setup to simulate fetching records from Kafka
     String topicName = "InstanceSpecificTopicName";
@@ -181,7 +186,12 @@ public class ExternalEventsServiceTest {
     names.put("myTopic", "acme_myTopic");
     Set<String> allowedTopics = Set.of("PlatformEvent_v1", "myTopic");
     ExternalEventsService svc =
-        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, names, 10, 100);
+        new ExternalEventsService(
+            allowedTopics,
+            new KafkaExternalEventsPollHandler(consumerPool, objectMapper),
+            names,
+            10,
+            100);
 
     when(kafkaConsumer.partitionsFor("acme_myTopic")).thenReturn(Collections.emptyList());
     when(objectMapper.writeValueAsString(any())).thenReturn("encodedString");
@@ -199,7 +209,12 @@ public class ExternalEventsServiceTest {
     names.put("WorkEvent_v1", "2391478-acme_WorkEvent_v1");
     Set<String> allowedTopics = Set.of("PlatformEvent_v1", "WorkEvent_v1");
     ExternalEventsService svc =
-        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, names, 10, 100);
+        new ExternalEventsService(
+            allowedTopics,
+            new KafkaExternalEventsPollHandler(consumerPool, objectMapper),
+            names,
+            10,
+            100);
 
     when(kafkaConsumer.partitionsFor("2391478-acme_WorkEvent_v1"))
         .thenReturn(Collections.emptyList());
@@ -216,7 +231,12 @@ public class ExternalEventsServiceTest {
   public void testUnmappedTopicThrows() throws Exception {
     Set<String> allowedTopics = Set.of("PlatformEvent_v1", "customTopic");
     ExternalEventsService svc =
-        new ExternalEventsService(allowedTopics, consumerPool, objectMapper, topicNames, 10, 100);
+        new ExternalEventsService(
+            allowedTopics,
+            new KafkaExternalEventsPollHandler(consumerPool, objectMapper),
+            topicNames,
+            10,
+            100);
 
     svc.poll("customTopic", null, 10, 5, null);
   }

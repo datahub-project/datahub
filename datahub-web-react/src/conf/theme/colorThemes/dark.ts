@@ -8,7 +8,7 @@ const darkTheme: ColorTheme = {
     bgSurfaceDarker: colors.gray1000,
     bgSurfaceBrand: colors.violet1200,
     bgSurfaceBrandHover: colors.violet1100,
-    buttonSurfaceBrandHover: colors.violet1000,
+    buttonSurfaceBrandHover: colors.violet600,
     bgDisabled: colors.gray700,
     bgSurfaceError: colors.red500,
     bgSurfaceErrorHover: colors.red400,
@@ -19,19 +19,19 @@ const darkTheme: ColorTheme = {
     bgSurfaceWarning: colors.trueyellow300,
     bgSurfaceWarningHover: colors.yellow800,
     bgHover: colors.gray1000,
-    text: colors.gray200,
-    textSecondary: colors.gray300,
-    textTertiary: colors.gray400,
-    textBrand: colors.violet500,
+    text: colors.gray300,
+    textSecondary: colors.gray400,
+    textTertiary: colors.gray500,
+    textBrand: colors.violet300,
     textBrandOnBgFill: colors.gray0,
     textOnFillBrand: colors.gray0,
     textOnFillSuccess: colors.gray0,
     textOnFillError: colors.gray0,
-    textOnFillWarning: colors.gray200,
+    textOnFillWarning: colors.gray100,
     textOnFillInfo: colors.gray0,
     textOnFillDefault: colors.gray0,
     textDisabled: colors.gray600,
-    textError: colors.red200,
+    textError: colors.red150,
     textInformation: colors.blue400,
     textSuccess: colors.green150,
     textWarning: colors.yellow600,
@@ -39,25 +39,33 @@ const darkTheme: ColorTheme = {
     textOnSurfaceInformation: colors.blue300,
     textOnSurfaceSuccess: colors.green100,
     textOnSurfaceWarning: colors.yellow400,
-    hyperlinks: colors.violet400,
+    hyperlinks: colors.violet300,
     icon: colors.gray600,
     iconBrand: colors.violet400,
-    iconError: colors.red100,
+    iconError: colors.red150,
     iconInformation: colors.blue400,
     iconSuccess: colors.green150,
     iconWarning: colors.yellow500,
-    buttonFillBrand: colors.violet800,
+    iconOnFillBrand: colors.gray0,
+    // Brand fills lighten in dark mode rather than darken. violet800 sat at 1.66:1
+    // against the canvas, so filled controls had no perceivable edge.
+    buttonFillBrand: colors.violet500,
     buttonFillFocus: colors.violet500,
     buttonSurfaceBrandFocus: colors.violet500,
-    buttonSurfaceSecondaryHover: colors.violet500,
-    radioButtonBorder: colors.gray400,
-    radioButtonDotFill: colors.gray400,
+    // Secondary controls get a tinted hover surface rather than becoming solid
+    // primary buttons. violet1000 has the same subtle lift as light mode's tint.
+    buttonSurfaceSecondaryHover: colors.violet1000,
+    radioButtonBorder: colors.gray600,
+    radioButtonDotFill: colors.gray0,
     radioButtonDotDisabled: colors.gray500,
     borderCheckbox: colors.gray600,
     avatarBorderBrand: colors.violet500,
     avatarBorderInformation: colors.blue600,
     border: colors.gray900,
-    borderBrand: colors.violet500,
+    lineageBackgroundDot: colors.gray900,
+    // Outlined selections need less contrast than solid brand controls in dark mode.
+    // violet600 remains distinct on charcoal surfaces without the neon edge of violet500.
+    borderBrand: colors.violet600,
     borderBrandFocused: colors.violet400,
     borderBrandInverse: colors.violet800,
     borderDisabled: colors.gray600,
@@ -66,10 +74,15 @@ const darkTheme: ColorTheme = {
     borderError: colors.red300,
     borderSuccess: colors.green300,
     borderWarning: colors.yellow800,
+    // Used as a separating ring around platform icons and open sidebar nodes.
+    // Pure white creates a high-contrast halo on dark surfaces.
+    borderWhite: colors.gray900,
+
     // Interactive states: Hover
     textHover: colors.violet400,
     iconHover: colors.violet400,
-    borderHover: colors.violet500,
+    // Keep hover quieter than brand, selected, and active borders.
+    borderHover: colors.violet600,
     // Interactive states: Active / Pressed
     bgActive: colors.violet1000,
     textActive: colors.violet300,
@@ -79,22 +92,26 @@ const darkTheme: ColorTheme = {
     bgSelectedSubtle: 'rgba(108, 71, 255, 0.08)',
     textSelected: colors.violet300,
     iconSelected: colors.violet400,
-    borderSelected: colors.violet500,
+    borderSelected: colors.violet600,
     // Interactive states: Focus
     borderFocused: colors.gray500,
     // Interactive states: Disabled
     iconDisabled: colors.gray700,
     bgSurfaceDisabled: colors.gray900,
     // Shadows
-    shadowXs: '0 1px 2px 0 rgba(13, 14, 27, 0.28)',
-    shadowSm: '0 2px 4px 0 rgba(13, 14, 27, 0.36)',
-    shadowMd: '0 4px 12px -2px rgba(13, 14, 27, 0.40)',
-    shadowLg: '0 6px 16px -4px rgba(13, 14, 27, 0.48)',
-    shadowXl: '0 8px 24px -4px rgba(13, 14, 27, 0.56)',
+    // A translucent shadow has almost no luminance to play against on a near-black canvas,
+    // so the light-mode opacities read as nothing here. Elevation is the only thing
+    // separating overlays from the page, so these go opaque black, wider, and layered:
+    // a soft ambient pool plus a tighter contact shadow to define the overlay's edge.
+    shadowXs: '0 1px 2px 0 rgba(0, 0, 0, 0.48)',
+    shadowSm: '0 2px 6px -1px rgba(0, 0, 0, 0.56)',
+    shadowMd: '0 8px 20px -4px rgba(0, 0, 0, 0.72), 0 2px 6px -2px rgba(0, 0, 0, 0.56)',
+    shadowLg: '0 12px 28px -6px rgba(0, 0, 0, 0.76), 0 4px 10px -4px rgba(0, 0, 0, 0.6)',
+    shadowXl: '0 20px 40px -8px rgba(0, 0, 0, 0.8), 0 6px 14px -6px rgba(0, 0, 0, 0.64)',
     shadowFocus: '0px 0px 0px 1px rgba(139, 135, 157, 0.20)',
     shadowFocusBrand: '0px 0px 0px 1px rgba(108, 71, 255, 0.20)',
     shadowInset: 'inset 0px 1px 3px rgba(0, 0, 0, 0.40)',
-    shadowNavbar: '0px 2px 10px rgba(0, 0, 0, 0.40)',
+    shadowNavbar: '0px 2px 12px rgba(0, 0, 0, 0.64)',
     shadowDropBrandColor: 'rgba(33, 23, 95, 0.3)',
     shadowViewSelect: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',
 
@@ -110,7 +127,7 @@ const darkTheme: ColorTheme = {
     bgInputDisabled: colors.gray900,
     borderInput: colors.gray900,
     borderInputFocus: colors.violet400,
-    textPlaceholder: colors.gray300,
+    textPlaceholder: colors.gray500,
     // Scrollbar
     scrollbarTrack: 'transparent',
     scrollbarThumb: colors.gray700,
@@ -122,10 +139,15 @@ const darkTheme: ColorTheme = {
     // Highlight
     bgHighlight: '#4a3d00',
     // Tooltip
-    bgTooltip: colors.gray300,
+    // Tooltip copy is painted with `text`, so this has to stay a dark surface —
+    // pointing it at a light gray made the two colors near-identical.
+    bgTooltip: colors.gray1000,
+    bgOverlay: colors.gray1100,
     // Brand gradients
-    brandGradient: 'radial-gradient(115.48% 144.44% at 50% -44.44%, #917FFF 38.97%, #6C47FF 100%)',
-    brandGradientSelected: 'linear-gradient(180deg, #917FFF 20%, #6C47FF 80%)',
+    brandGradient: 'radial-gradient(115.48% 144.44% at 50% -44.44%, #8C7EE0 38.97%, #705EE4 100%)',
+    // Stops stay above 4.5:1 on the nav surface — this paints selected label text
+    // via background-clip, so the darker stop is a legibility floor, not a flourish.
+    brandGradientSelected: 'linear-gradient(180deg, #CAC3F1 20%, #8C7EE0 80%)',
     // Skeleton / Loading
     bgSkeleton: colors.gray900,
     bgSkeletonShimmer: colors.gray1000,
@@ -157,6 +179,10 @@ const darkTheme: ColorTheme = {
     chartsGreenMedium: colors.mudgreen400,
     chartsGreenLow: colors.mudgreen200,
     chartsGreenBase: colors.mudgreen100,
+    chartsYellowHigh: colors.yellow600,
+    chartsYellowMedium: colors.yellow500,
+    chartsYellowLow: colors.yellow300,
+    chartsYellowBase: colors.yellow100,
     chartsBrandContrast: '#2200F9FF',
     chartsBrandHigh: colors.violet600,
     chartsBrandMedium: colors.violet500,
@@ -165,7 +191,7 @@ const darkTheme: ColorTheme = {
     chartsHeatmapHigh: colors.violet900,
     chartsHeatmapMedium: colors.violet500,
     chartsHeatmapLow: colors.violet200,
-    chartsHeatmapBase: colors.gray100,
+    chartsHeatmapBase: colors.gray200,
     chartsRedHigh: colors.red400,
     chartsRedMedium: colors.red200,
     chartsRedLow: colors.wine300,
@@ -229,7 +255,7 @@ const darkTheme: ColorTheme = {
     colorPickerBrown: colors.brown300,
     colorPickerDarkGreen: colors.darkgreen300,
     colorPickerOlive: colors.olive300,
-    colorPickerDefault: colors.gray1200,
+    colorPickerDefault: colors.violet600,
     // Glossary Color Palette
     glossaryPaletteViolet: colors.violet400,
     glossaryPalettePurple: colors.violet500,

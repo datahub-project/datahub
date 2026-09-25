@@ -2,6 +2,7 @@ import { CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Select } from 'antd';
 import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -72,6 +73,7 @@ export default function VersionSelector({
     maxTimestamp,
     primaryVersion,
 }: Props) {
+    const { t } = useTranslation('entity.types');
     const location = useLocation();
     const history = useHistory();
 
@@ -121,10 +123,10 @@ export default function VersionSelector({
                         disabled={v.disabled}
                     >
                         <Tooltip
-                            title={v.disabled ? `Incompatible with primary version ${primaryVersion}` : ''}
+                            title={v.disabled ? t('dataset.incompatibleWithPrimaryVersion', { primaryVersion }) : ''}
                             placement="left"
                         >
-                            {`${v.label} - ${toRelativeTimeString(v.timestamp) || 'unknown'}`}
+                            {`${v.label} - ${toRelativeTimeString(v.timestamp) || t('dataset.unknown')}`}
                         </Tooltip>
                     </SchemaBlameSelectorOption>
                 ))}
