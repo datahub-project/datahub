@@ -60,6 +60,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     optionListStyle?: React.CSSProperties;
     selectedOptionListStyle?: React.CSSProperties;
     optionListTestId?: string;
+    optionDataTestId?: (option: OptionType) => string;
     optionSwitchable?: boolean;
     selectLabelProps?: SelectLabelProps;
     position?: OptionPosition;

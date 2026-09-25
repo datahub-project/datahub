@@ -18,6 +18,7 @@ export * from './components/CollapsiblePanel';
 export * from './components/Checkbox';
 export * from './components/CodeBlock';
 export * from './components/ColorPicker';
+export * from './components/Compatibility';
 export * from './components/DatePicker';
 export * from './components/Drawer';
 export * from './components/Dropdown';
