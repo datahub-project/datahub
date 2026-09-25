@@ -437,6 +437,9 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: node yarn
       # Shallow clone has no origin/<base>; the no-antd-imports rule greps that
       # tree to grandfather files that already imported antd.
       - name: Fetch PR base for antd-import baseline
