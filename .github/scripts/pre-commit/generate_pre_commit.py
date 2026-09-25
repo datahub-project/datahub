@@ -152,7 +152,7 @@ class HookGenerator:
         # Python module dirs that have a build.gradle (and thus a Gradle-managed
         # venv). These are the dirs the collapsed repo-wide ruff hooks cover.
         # Non-module .py (e.g. .github/scripts/, docker/, python-build/) is
-        # intentionally NOT covered — it had no ruff coverage before and would
+        # intentionally NOT covered - it had no ruff coverage before and would
         # fail under ruff's default rules.
         ruff_module_dirs: list[str] = []
 
@@ -178,7 +178,7 @@ class HookGenerator:
 
         # Collapse all per-module ruff hooks into two repo-wide hooks (one check,
         # one format) using the official ruff Docker image (pinned to the latest
-        # version pinned across modules — metadata-ingestion pins 0.15.18, the
+        # version pinned across modules - metadata-ingestion pins 0.15.18, the
         # rest 0.11.7). Using the Docker image (language: docker_image) avoids
         # needing any system/venv ruff install and gives a reproducible version
         # across all machines. ruff does per-file config discovery, so each
