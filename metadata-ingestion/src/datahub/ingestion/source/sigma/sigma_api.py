@@ -330,6 +330,9 @@ class SigmaAPI:
         # Transient failures per workspace or folder id; see _should_latch.
         self._transient_failures: Dict[str, int] = {}
         self.users: Dict[str, str] = {}
+        # Paginated listings that returned less than Sigma holds: an abort, a
+        # repeated cursor, or a dropped row. Compared before and after a call.
+        self._incomplete_listings = 0
         # Track source_type values we've already warned about to keep the
         # report summary readable on large tenants with repeated unknown
         # node types.
@@ -1551,6 +1554,7 @@ class SigmaAPI:
                 else:
                     break
                 if cursor_key in seen_cursors:
+                    self._incomplete_listings += 1
                     # Truncates the listing as an HTTP abort does, so it
                     # takes the same accounting.
                     self.report.pagination_aborted += 1
@@ -1590,6 +1594,7 @@ class SigmaAPI:
             detail = self._log_http_error(
                 message=f"{error_ctx} Exception: {e}", report_warning=False
             )
+            self._incomplete_listings += 1
             self.report.pagination_aborted += 1
             # Which page died separates "refused outright" from "served rows
             # and then stopped".
@@ -1672,6 +1677,7 @@ class SigmaAPI:
                 parsed = model_cls.model_validate(entry)
             except ValidationError as ve:
                 self.report.pagination_malformed_entries_dropped += 1
+                self._incomplete_listings += 1
                 malformed_dropped += 1
                 first_malformed = first_malformed or (
                     f"{_row_identity(entry)}, validation_error={_terse(ve)}"
@@ -1892,7 +1898,9 @@ class SigmaAPI:
                 data_model.urlId = file_meta.urlId
 
         elements = self._get_data_model_elements(data_model.dataModelId)
+        incomplete_before = self._incomplete_listings
         columns = self._get_data_model_columns(data_model.dataModelId)
+        data_model.columns_complete = self._incomplete_listings == incomplete_before
         # ``extract_lineage=False`` is a historical opt-out for the
         # privileged ``/workbooks/{id}/lineage`` surface; users who set
         # it don't expect the connector to call *any* ``/lineage``
