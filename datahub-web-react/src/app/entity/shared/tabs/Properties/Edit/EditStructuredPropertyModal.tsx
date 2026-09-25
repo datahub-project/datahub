@@ -7,6 +7,7 @@ import StructuredPropertyInput from '@app/entity/shared/components/styled/Struct
 import { useEditStructuredProperty } from '@app/entity/shared/components/styled/StructuredProperty/useEditStructuredProperty';
 import handleGraphQLError from '@app/shared/handleGraphQLError';
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { Modal } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 
@@ -41,6 +42,7 @@ export default function EditStructuredPropertyModal({
     refetch,
     isAddMode,
 }: Props) {
+    const entityRegistry = useEntityRegistryV2();
     const { t } = useTranslation('entity.profile.tabs');
     const { t: tc } = useTranslation(['common.actions', 'common.feedback']);
     const { refetch: entityRefetch } = useEntityContext();
@@ -118,7 +120,10 @@ export default function EditStructuredPropertyModal({
 
     return (
         <Modal
-            title={`${isAddMode ? t('properties.addProperty.title') : t('properties.editProperty.title')} ${structuredProperty?.definition?.displayName}`}
+            title={`${isAddMode ? t('properties.addProperty.title') : t('properties.editProperty.title')} ${entityRegistry.getDisplayName(
+                structuredProperty.type,
+                structuredProperty,
+            )}`}
             onCancel={closeModal}
             open={isOpen}
             buttons={[

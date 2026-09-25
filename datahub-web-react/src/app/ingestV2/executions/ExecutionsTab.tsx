@@ -12,9 +12,9 @@ import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecutio
 import useFilters from '@app/ingestV2/executions/hooks/useFilters';
 import useRefresh from '@app/ingestV2/executions/hooks/useRefresh';
 import useRollbackExecution from '@app/ingestV2/executions/hooks/useRollbackExecution';
+import { ExecutionRequestRecord } from '@app/ingestV2/executions/types';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
 import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
-import { TabType } from '@app/ingestV2/types';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import usePagination from '@app/sharedV2/pagination/usePagination';
@@ -58,16 +58,26 @@ interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
     hideSystemSources: boolean;
     setHideSystemSources: (show: boolean) => void;
-    selectedTab?: TabType | null;
-    setSelectedTab: (selectedTab: TabType | null | undefined) => void;
+    /** Whether this tab is the one currently visible. Drives the refetch-on-focus effect and the
+     * running-executions poll. */
+    isActive: boolean;
+    /** Invoked when the user clicks a source name in a run row; owns navigation. */
+    onSourceClick: (record: ExecutionRequestRecord) => void;
+    /** Returns the route to a run-details page for the given execution urn, or undefined to fall
+     * back to the legacy in-place modal. */
+    getRunDetailsPath: (urn: string) => string | undefined;
+    /** Stashed as location state on the run-details route so its breadcrumb can link back here. */
+    runDetailsFromUrl: string;
 }
 
 export const ExecutionsTab = ({
     shouldPreserveParams,
     hideSystemSources,
     setHideSystemSources,
-    selectedTab,
-    setSelectedTab,
+    isActive,
+    onSourceClick,
+    getRunDetailsPath,
+    runDetailsFromUrl,
 }: Props) => {
     const { t } = useTranslation('ingestion');
     const [appliedFilters, setAppliedFilters] = useState<Map<string, string[]>>(new Map());
@@ -93,7 +103,14 @@ export const ExecutionsTab = ({
                 systemSources: !hideSystemSources,
             },
         },
+        fetchPolicy: 'cache-and-network',
     });
+
+    useEffect(() => {
+        if (isActive) {
+            refetch();
+        }
+    }, [isActive, refetch]);
 
     const handleRollbackExecution = useRollbackExecution(refetch);
     const handleCancelExecution = useCancelExecution(refetch);
@@ -103,7 +120,7 @@ export const ExecutionsTab = ({
     const isLastPage = totalExecutionRequests <= pageSize * page;
 
     // refresh the data when there are some running execution requests
-    useRefresh(executionRequests, refetch, loading, selectedTab);
+    useRefresh(executionRequests, refetch, loading, isActive);
 
     const onPageChangeHandler = useCallback(
         (newPage: number) => {
@@ -141,7 +158,9 @@ export const ExecutionsTab = ({
                                     handleCancelExecution={handleCancelExecution}
                                     loading={loading}
                                     isLastPage={isLastPage}
-                                    setSelectedTab={setSelectedTab}
+                                    onSourceClick={onSourceClick}
+                                    getRunDetailsPath={getRunDetailsPath}
+                                    runDetailsFromUrl={runDetailsFromUrl}
                                 />
                             </TableContainer>
                             <PaginationContainer>
