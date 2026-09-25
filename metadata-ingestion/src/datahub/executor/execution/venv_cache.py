@@ -221,18 +221,16 @@ class EntryLock:
         Returns whether the entry is still protected afterwards. False means
         this lock now guards nothing and the caller must stop claiming it does.
 
-        Non-blocking, because the conversion can genuinely wait. flock has no
-        atomic downgrade: the kernel removes the existing lock and only then
-        looks for conflicts, so the entry is briefly unlocked and a competitor
-        EXCLUSIVE can be granted in that window. A blocking request would then
-        sit on somebody else's build or rmtree -- on the event loop thread,
-        since flock is a plain syscall -- which is exactly what
-        _acquire_cache_entry forbids.
+        flock has no atomic downgrade: the kernel drops the existing lock
+        and only then looks for conflicts, so the entry is briefly unlocked
+        and a competing EXCLUSIVE can win that window. Two consequences, and
+        both matter:
 
-        That same non-atomicity is why failure has to be reported rather than
-        logged. The exclusive hold is already gone by the time the conversion
-        fails, so a caller that carried on would hold an fd protecting nothing
-        while eviction was free to delete the venv its task is executing from.
+        - Non-blocking. A blocking request would sit on somebody else's
+          build or rmtree, on the event loop thread.
+        - Failure must be REPORTED, not logged: the exclusive hold is
+          already gone, so a caller that carried on would hold an fd
+          protecting nothing while eviction deleted the venv under its task.
         """
         if self._fd is None:
             return False
@@ -257,19 +255,15 @@ class EntryLock:
     def release(self) -> None:
         """Give up this process's hold by CLOSING, never by LOCK_UN.
 
-        The kernel releases an flock once every descriptor referring to that
-        open file description is closed. Closing is therefore correct in
-        both situations this lock can be in: when nothing else holds a copy
-        the lock drops immediately, and when a child inherited one via
-        pass_fds the child's hold survives -- which is exactly what should
-        happen, because that child is executing out of the venv.
+        The kernel drops an flock once every descriptor for that open file
+        description is closed, so closing is right in both cases: with no
+        other copy the lock goes immediately, and a child that inherited one
+        via pass_fds keeps its hold -- which is what should happen, since it
+        is executing out of the venv.
 
-        LOCK_UN would not be correct in the second case. Duplicate
-        descriptors share one description, so unlocking this copy releases
-        the CHILD's lock too, leaving a live interpreter in a venv eviction
-        is free to delete. Verified: with the child alive, a peer is refused
-        after a close and granted after a LOCK_UN. There is no case where
-        this class wants LOCK_UN, so it is not used anywhere.
+        LOCK_UN is wrong in the second case: duplicate descriptors share one
+        description, so unlocking this copy releases the CHILD's too and
+        leaves a live interpreter in a venv eviction may delete.
         """
         fd, self._fd = self._fd, None
         if fd is None:
@@ -295,37 +289,25 @@ def evict_stale_entries(
     """Trim the cache to `max_entries`, dropping anything unused for
     `max_age_sec` first. Returns how many entries were removed.
 
-    Bounded by COUNT and AGE rather than by bytes, which is a deliberate
-    trade. Sizing the cache in bytes means measuring it, and measuring a venv
-    means walking tens of thousands of small files -- per entry, on every
-    build, because the answer is needed before anything can be deleted. On a
-    real datahub venv (~48k files) that is seconds per entry, and it bought a
-    number that did not correspond to disk anyway: DataHub defaults uv to
-    UV_LINK_MODE=hardlink, so most of a venv is links into uv's package cache
-    and deleting the directory reclaims almost nothing. A count is one stat
-    per entry, and an operator can check it with `ls`.
+    Bounded by COUNT and AGE, not bytes. Measuring a venv means walking tens
+    of thousands of files per entry on every build (~48k for a real datahub
+    venv), and the number would not describe disk anyway: uv defaults to
+    UV_LINK_MODE=hardlink, so most of an entry is links into the package
+    cache and deleting it reclaims little. The cost is that entries range
+    from a few hundred MB to a few GB, so DATAHUB_VENV_CACHE_MAX_ENTRIES
+    should be sized against the largest connector a node runs.
 
-    What it gives up: entries vary from a few hundred MB to a few GB, so a
-    count does not bound disk tightly. DATAHUB_VENV_CACHE_MAX_ENTRIES should
-    be set against the largest connector a node runs.
+    Runs on the build path only, and before the new venv is created -- so a
+    cache taking nothing but hits never trims, and the peak on disk is
+    max_entries + 1.
 
-    Two things about WHEN this runs, both of which affect what an operator
-    should expect on disk:
+    Ordered by the .datahub-venv-last-used marker, never atime: containers
+    mount relatime or noatime.
 
-    - Only on the build path. A cache taking nothing but hits never trims,
-      which is what keeps a warm hit down to one flock and one stat. Space
-      is reclaimed when a new venv is built, not as time passes.
-    - Before the new venv is created, so the pass only counts entries
-      already on disk. The peak is therefore max_entries + 1, not
-      max_entries: the build that trims the cache then adds to it.
-
-    Ordered by the .datahub-venv-last-used marker, never filesystem atime --
-    containers mount relatime or noatime, so atime is not a usable signal.
-
-    An entry whose exclusive lock cannot be taken immediately is in use and is
-    SKIPPED, never waited on: a build must not block behind an hours-long
-    ingestion, and deleting a venv a running task is executing out of is worse
-    than exceeding the limit.
+    An entry whose exclusive lock cannot be taken immediately is in use and
+    is SKIPPED, never waited on -- a build must not block behind an
+    hours-long ingestion, and deleting a venv a task is running from is
+    worse than exceeding the limit.
     """
     # One pass at a time. DefaultExecutor gives each task its own thread and
     # event loop, so several builds on different keys reach this within a
@@ -427,23 +409,15 @@ def _remove_entry(venv: pathlib.Path) -> RemovalOutcome:
         logger.debug("venv cache: %s is in use, not evicting", venv)
         return RemovalOutcome.IN_USE
     try:
-        # Invalidate before removing. rmtree raises on the FIRST failure,
-        # having already deleted an arbitrary prefix of the tree, and
-        # traversal order is not defined -- so site-packages can be gone
-        # while bin/python and the completion marker survive.
-        # is_venv_complete accepts that husk, nothing on the hit path
-        # re-validates, and every later run for that key "reuses" a venv
-        # with no packages and dies with ModuleNotFoundError. Dropping the
-        # marker first makes a partial removal self-invalidating: the next
-        # claimant discards and rebuilds it instead.
-        # Marker first, and deliberately NOT restored if the rmtree then
-        # fails. Restoring it would rescue a healthy-but-undeletable venv --
-        # a root-owned file, EBUSY, an NFS silly-rename -- but there is no
-        # cheap way to tell that case apart from a PARTIAL removal, which
-        # leaves bin/python and the marker while site-packages is gone.
-        # Serving that husk as complete is a silent ModuleNotFoundError on
-        # every later run; losing a rebuild is not. The undeletable
-        # directory is logged as a warning below so it is at least visible.
+        # Marker first, so a partial removal is self-invalidating. rmtree
+        # raises on its FIRST failure in undefined traversal order, so
+        # site-packages can be gone while bin/python and the marker survive
+        # -- a husk is_venv_complete accepts and nothing re-validates.
+        #
+        # Deliberately not restored if the rmtree then fails: that would
+        # rescue a healthy-but-undeletable venv, but it cannot be told
+        # apart from a partial removal, and serving a husk is a silent
+        # ModuleNotFoundError on every later run. Losing a rebuild is not.
         (venv / COMPLETE_MARKER).unlink(missing_ok=True)
         shutil.rmtree(venv)
         # The .lock goes too, under the EXCLUSIVE hold we still have. Safe
@@ -557,11 +531,9 @@ def _is_fresh_hit(venv_loc: pathlib.Path, *, moving: bool) -> bool:
 
     It is not the right question for a moving version, and `latest` is the
     default for every recipe. With no age bound the hit path never
-    re-resolves: a pod that starts on Monday keeps executing Monday's
-    acryl-datahub until it restarts, so a connector fix published on Tuesday
-    silently never arrives -- and because test-connection deliberately shares
-    the entry, re-testing after the fix reports the old behaviour too. That is
-    the "I shipped the fix, the customer re-ran, still broken" ticket.
+    re-resolves, so a fix published today never reaches a pod that resolved
+    `latest` yesterday -- and since test-connection shares the entry,
+    re-testing reports the old behaviour too.
 
     Measured from BUILD time, not last use. touch_last_used fires on every
     hit, so an age taken from it would make the busiest entry -- the shared
@@ -593,17 +565,13 @@ def _discard_incomplete(venv_loc: pathlib.Path) -> bool:
     The marker goes first, so a removal that fails part-way leaves something
     that reads as incomplete rather than a husk the hit path would serve.
 
-    Errors are NOT ignored, which is the whole point. `ignore_errors=True`
-    makes a completely failed discard indistinguishable from a successful
-    one, and the build that follows then either dies forever on that key --
-    `uv venv` on a surviving non-venv directory fails hard with "exists, but
-    it's not a virtual environment" -- or, if pyvenv.cfg happened to survive,
-    recreates the venv over the leftovers and gets stamped COMPLETE, so every
-    later run reuses a venv that may mix two builds' site-packages and
-    nothing on the hit path re-validates. The causes are ordinary: an NFS
-    .nfsXXXX silly-rename, a uid mismatch on a shared volume, a read-only
-    remount. Reporting the failure lets the caller use a per-run venv, which
-    is slower and always correct.
+    Errors are NOT ignored. `ignore_errors=True` makes a failed discard look
+    like a successful one, and the build that follows either dies forever on
+    that key (`uv venv` refuses a surviving non-venv directory) or, if
+    pyvenv.cfg survived, builds over the leftovers and is stamped COMPLETE --
+    so later runs reuse a venv mixing two builds' site-packages. The causes
+    are ordinary: an NFS silly-rename, a uid mismatch, a read-only remount.
+    Reporting the failure lets the caller fall back to a per-run venv.
     """
     try:
         (venv_loc / COMPLETE_MARKER).unlink(missing_ok=True)
@@ -625,34 +593,28 @@ async def _acquire_cache_entry(
     """Resolve a dynamic venv against the cache and take the lock guarding it.
 
     NO PATH HERE MAY BLOCK INDEFINITELY. flock() is a synchronous syscall, so
-    a blocking acquire inside this coroutine freezes the OS thread and with it
-    the entire event loop the task runs on -- not even an in-loop timeout could
-    fire to rescue it. Every acquire below is non-blocking and all waiting is
-    an `await asyncio.sleep`.
+    a blocking acquire freezes the OS thread and with it the whole event loop
+    -- not even an in-loop timeout could fire to rescue it. Every acquire is
+    non-blocking; all waiting is an `await asyncio.sleep`.
 
     The protocol, in order:
 
-    1. SHARED, non-blocking. A complete, fresh entry is served immediately.
-       This is the warm hit, it is the common case, and it must never wait: a
-       running task holds its entry SHARED for the whole run, so taking
-       EXCLUSIVE here would make two recipes on the same `latest` entry --
-       the default, and therefore the norm -- serialize behind the longer one.
-    2. Otherwise a build is needed, and building needs EXCLUSIVE. Retry
-       non-blocking on a short budget, re-attempting the shared hit each pass:
-       a peer that finishes its build downgrades to SHARED and keeps it, so an
-       exclusive-only retry could never succeed again once it lost the race.
-    3. Whenever EXCLUSIVE is won, re-check INSIDE the lock -- another process
+    1. SHARED. A complete, fresh entry is served immediately. This must never
+       wait: a running task holds its entry SHARED for its whole life, so
+       taking EXCLUSIVE here would serialize two recipes on the same `latest`
+       entry -- the default, and therefore the norm -- behind the longer one.
+    2. Otherwise build, which needs EXCLUSIVE. Retry on a short budget,
+       re-attempting the shared hit each pass: a peer that finishes its build
+       downgrades to SHARED and keeps it, so an exclusive-only retry could
+       never succeed again once it lost the race.
+    3. Whenever EXCLUSIVE is won, re-check inside the lock -- another process
        may have finished building while we waited.
-    4. When the budget runs out, someone else is building. Fall back to a
-       per-run venv rather than waiting on them.
+    4. Budget exhausted means someone else is building: fall back to a
+       per-run venv rather than wait.
 
-    Everything inside an EXCLUSIVE hold runs under a handler that releases it.
-    This function is called ABOVE setup_venv's own `try`, whose
-    `except BaseException` exists precisely to release the lock, so anything
-    raised here -- a bad DATAHUB_VENV_CACHE_* value, an eviction pass hitting
-    an unreadable root -- would otherwise escape with the entry still locked.
-    That key could then never be built, hit or evicted again for the life of
-    the process, and every task on it would fall back to a full per-run build.
+    Every EXCLUSIVE hold is taken under a handler that releases it. This runs
+    ABOVE setup_venv's own `try`, so an escape here would strand the entry
+    locked for the life of the process -- never built, hit or evicted again.
     """
     venv_name, cacheable, moving = (
         cache_name.name,
@@ -711,13 +673,11 @@ async def _acquire_cache_entry(
             try:
                 if _is_fresh_hit(venv_loc, moving=moving):
                     touch_last_used(venv_loc)
-                    # flock has no atomic downgrade -- the kernel drops the
-                    # exclusive hold before it looks for conflicts -- so a
-                    # peer granted EXCLUSIVE in that window leaves us with
-                    # nothing. Re-taking SHARED outright is the recovery;
-                    # returning a "ready" entry with no lock is not, because
-                    # the caller then runs a child out of a directory the
-                    # next eviction pass is free to rmtree.
+                    # A lost downgrade (see downgrade_to_shared) is
+                    # recovered by re-taking SHARED outright. Returning a
+                    # "ready" entry with no lock is not a recovery: the
+                    # caller would run a child out of a directory the next
+                    # eviction pass is free to rmtree.
                     if (
                         lock.downgrade_to_shared()
                         or lock.try_acquire(exclusive=False).ok
@@ -732,21 +692,14 @@ async def _acquire_cache_entry(
                             return CacheHit(venv_loc, lock)
                         lock.release()
                     return per_run_fallback("lost the hold after downgrade")
-                # A directory here is a build killed midway, or a moving
-                # entry past its TTL. Either way it must be removed rather
-                # than built on top of, and if it cannot be removed this key
-                # is unusable until an operator clears it.
+                # A half-built entry, or a moving one past its TTL: remove
+                # it rather than build on top.
                 #
-                # Deliberately NOT on a worker thread, unlike the eviction
-                # pass below. This deletes the directory THIS coroutine's
-                # lock protects, and awaiting makes the wait cancellable:
-                # a cancellation would unwind into the handler below,
-                # release the flock, and leave the worker still rmtree-ing
-                # while a peer takes the same key and starts `uv venv` into
-                # the directory being deleted. Blocking the loop for one
-                # half-built venv's unlinks is the lesser cost. (Eviction is
-                # safe to thread because each victim is protected by a lock
-                # the worker itself takes and releases.)
+                # Deliberately NOT threaded, unlike the eviction pass below.
+                # This deletes the directory THIS coroutine's lock protects,
+                # and a cancellation would release the flock while the
+                # worker was still rmtree-ing -- letting a peer take the key
+                # and run `uv venv` into the directory being deleted.
                 if venv_loc.exists() and not _discard_incomplete(venv_loc):
                     lock.release()
                     return per_run_fallback("could not discard an incomplete entry")
@@ -868,9 +821,8 @@ def _publish_cache_entry(
         )
     touch_last_used(venv_loc)
 
-    # flock has no atomic downgrade, so the exclusive hold is already gone by
-    # the time the conversion is refused. Re-requesting SHARED outright is the
-    # recovery and nearly always succeeds -- the window is sub-second.
+    # A refused downgrade has already dropped the hold (see
+    # downgrade_to_shared); re-requesting SHARED is the recovery.
     if (
         venv_reference.lock.downgrade_to_shared()
         or venv_reference.lock.try_acquire(exclusive=False).ok
