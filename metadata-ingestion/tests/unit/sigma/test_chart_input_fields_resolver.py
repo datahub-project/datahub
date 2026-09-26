@@ -1338,6 +1338,7 @@ class TestChartRefStrategies:
         result = self._resolve(body, dm_urns={"Join El": _JOIN_URN})
         assert result == (_OWNER_URN, "Sku")
         assert self.src.reporter.chart_input_fields_join_chain_resolved == 1
+        assert self.src.reporter.chart_input_fields_column_not_found == 0
 
     @pytest.mark.parametrize(
         ("body", "dm_urns", "names", "paths"),
