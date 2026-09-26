@@ -45,6 +45,8 @@ ADF_LINKED_SERVICE_PLATFORM_MAP: Dict[str, str] = {
     "Hdfs": "hdfs",
     # SaaS Applications
     "Salesforce": "salesforce",
+    "SalesforceV2": "salesforce",
     "SalesforceServiceCloud": "salesforce",
+    "SalesforceServiceCloudV2": "salesforce",
     "SalesforceMarketingCloud": "salesforce",
 }

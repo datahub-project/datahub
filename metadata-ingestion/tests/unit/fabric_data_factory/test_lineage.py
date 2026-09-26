@@ -7,6 +7,8 @@ table name extraction, and cross-pipeline lineage.
 
 from typing import Any, Dict, List, Optional
 
+import pytest
+
 from datahub.ingestion.source.fabric.common.models import FabricConnection
 from datahub.ingestion.source.fabric.data_factory.lineage import (
     CopyActivityLineageExtractor,
@@ -225,6 +227,29 @@ class TestExtractTableName:
     def test_empty_returns_none(self) -> None:
         assert CopyActivityLineageExtractor._extract_table_name({}) is None
 
+    def test_salesforce_object_api_name(self) -> None:
+        result = CopyActivityLineageExtractor._extract_table_name(
+            {"objectApiName": "Account"}
+        )
+        assert result == "Account"
+
+    def test_table_takes_precedence_over_object_api_name(self) -> None:
+        result = CopyActivityLineageExtractor._extract_table_name(
+            {"table": "customers", "objectApiName": "Account"}
+        )
+        assert result == "customers"
+
+    def test_parameterized_object_api_name_is_ignored(self) -> None:
+        result = CopyActivityLineageExtractor._extract_table_name(
+            {
+                "objectApiName": {
+                    "value": "@pipeline().parameters.obj",
+                    "type": "Expression",
+                }
+            }
+        )
+        assert result is None
+
 
 class TestExtractFilePath:
     def test_container_folder_file(self) -> None:
@@ -311,6 +336,77 @@ class TestResolveOnelakeUrn:
         result = self.extractor._resolve_onelake_urn(ds, _make_activity(), pipeline_ws)
         assert result is not None
         assert pipeline_ws in result
+
+    @pytest.mark.parametrize(
+        "workspace_id",
+        ["00000000-0000-0000-0000-000000000000", "", None],
+        ids=["zero_guid", "empty", "missing"],
+    )
+    def test_same_workspace_references_use_pipeline_workspace(
+        self, workspace_id: Optional[str]
+    ) -> None:
+        pipeline_ws = "ws-pipeline-workspace"
+        ls_type_props: Dict[str, Any] = {
+            "artifactId": ARTIFACT_ID,
+            "rootFolder": "Tables",
+        }
+        if workspace_id is not None:
+            ls_type_props["workspaceId"] = workspace_id
+        ds = {
+            "linkedService": {
+                "name": "SalesLakehouse",
+                "properties": {"type": "Lakehouse", "typeProperties": ls_type_props},
+            },
+            "typeProperties": {"table": "customers"},
+        }
+        result = self.extractor._resolve_onelake_urn(ds, _make_activity(), pipeline_ws)
+        assert result == (
+            "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            f"{pipeline_ws}.{ARTIFACT_ID}.dbo.customers,PROD)"
+        )
+
+    def test_zero_guid_falls_through_to_other_workspace_id(self) -> None:
+        """A placeholder in one block does not mask a real ID in another."""
+        ds = {
+            "linkedService": {
+                "properties": {
+                    "type": "Lakehouse",
+                    "typeProperties": {
+                        "artifactId": ARTIFACT_ID,
+                        "workspaceId": "00000000-0000-0000-0000-000000000000",
+                    },
+                },
+            },
+            "typeProperties": {"table": "customers", "workspaceId": WS_ID},
+        }
+        result = self.extractor._resolve_onelake_urn(
+            ds, _make_activity(), "ws-pipeline-workspace"
+        )
+        assert result is not None
+        assert f"{WS_ID}.{ARTIFACT_ID}.dbo.customers" in result
+
+    @pytest.mark.parametrize(
+        "configured_ws", ["ws-other-workspace", "  ws-other-workspace  "]
+    )
+    def test_explicit_other_workspace_id_is_kept(self, configured_ws: str) -> None:
+        other_ws = "ws-other-workspace"
+        ds = {
+            "linkedService": {
+                "properties": {
+                    "type": "Lakehouse",
+                    "typeProperties": {
+                        "artifactId": ARTIFACT_ID,
+                        "workspaceId": configured_ws,
+                    },
+                },
+            },
+            "typeProperties": {"schema": "sales", "table": "orders"},
+        }
+        result = self.extractor._resolve_onelake_urn(
+            ds, _make_activity(), "ws-pipeline-workspace"
+        )
+        assert result is not None
+        assert f"{other_ws}.{ARTIFACT_ID}.sales.orders" in result
 
     def test_linked_service_type_properties(self) -> None:
         """linkedService.properties.typeProperties provides artifactId and workspaceId."""
@@ -418,6 +514,84 @@ class TestCopyExtractLineage:
         inputs, outputs = extractor.extract_lineage(activity, WS_ID)
         assert len(inputs) == 1
         assert len(outputs) == 1
+
+
+class TestSalesforceCopySource:
+    """Salesforce-family sources resolve to the salesforce connector's URN."""
+
+    @pytest.mark.parametrize(
+        "connection_type, dataset_type",
+        [
+            ("Salesforce", "SalesforceObject"),
+            ("SalesforceV2", "SalesforceV2Object"),
+            ("SalesforceServiceCloud", "SalesforceServiceCloudObject"),
+            ("SalesforceServiceCloudV2", "SalesforceServiceCloudV2Object"),
+        ],
+    )
+    def test_object_api_name_resolves_to_salesforce_urn(
+        self, connection_type: str, dataset_type: str
+    ) -> None:
+        conn = _make_connection("conn-sfdc", "CRM", connection_type)
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={"conn-sfdc": conn},
+            report=FabricDataFactorySourceReport(),
+            env="PROD",
+        )
+        activity = _make_activity(
+            type_properties={
+                "source": {
+                    "type": "SalesforceV2Source",
+                    "datasetSettings": {
+                        "type": dataset_type,
+                        "externalReferences": {"connection": "conn-sfdc"},
+                        "typeProperties": {"objectApiName": "Opportunity__c"},
+                    },
+                },
+            }
+        )
+        inputs, _ = extractor.extract_lineage(activity, WS_ID)
+        assert inputs == [
+            "urn:li:dataset:(urn:li:dataPlatform:salesforce,Opportunity__c,PROD)"
+        ]
+
+
+class TestWarehouseCopySink:
+    """Fabric Warehouse sinks resolve to the same OneLake URN as the Warehouse type."""
+
+    @pytest.mark.parametrize("linked_service_type", ["Warehouse", "DataWarehouse"])
+    def test_warehouse_linked_service_variants(self, linked_service_type: str) -> None:
+        extractor = CopyActivityLineageExtractor(
+            connections_cache={}, report=FabricDataFactorySourceReport(), env="PROD"
+        )
+        activity = _make_activity(
+            type_properties={
+                "sink": {
+                    "type": "DataWarehouseSink",
+                    "datasetSettings": {
+                        "type": "DataWarehouseTable",
+                        "typeProperties": {"schema": "sales", "table": "orders"},
+                        "schema": [],
+                        "linkedService": {
+                            "name": "SalesWarehouse",
+                            "properties": {
+                                "type": linked_service_type,
+                                "typeProperties": {
+                                    "artifactId": ARTIFACT_ID,
+                                    "endpoint": "example.datawarehouse.fabric.microsoft.com",
+                                    "workspaceId": WS_ID,
+                                },
+                            },
+                        },
+                    },
+                },
+            }
+        )
+        _, outputs = extractor.extract_lineage(activity, WS_ID)
+        assert outputs == [
+            "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            f"{WS_ID}.{ARTIFACT_ID}.sales.orders,PROD)"
+        ]
+        assert not extractor._report.unmapped_connection_types
 
 
 class TestFindRootActivity:

@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
@@ -28,8 +28,9 @@ class FabricDataFactorySourceConfig(
     This connector extracts metadata from Microsoft Fabric Data Factory items:
     - Workspaces as Containers
     - Data Pipelines as DataFlows with Activities as DataJobs
-    - Copy Jobs as DataFlows with dataset-level lineage
-    - Dataflow Gen2 as DataFlows (metadata only)
+    - Pipeline and activity runs as DataProcessInstances
+
+    Standalone Copy Job and Dataflow Gen2 items are not ingested yet.
     """
 
     # Azure Authentication
@@ -72,6 +73,36 @@ class FabricDataFactorySourceConfig(
             "Maps Fabric connections to DataHub datasets based on connection type."
         ),
     )
+
+    include_column_lineage: bool = Field(
+        default=True,
+        description=(
+            "Extract column-level lineage from Copy activities. Requires "
+            "include_lineage. Explicit translator column mappings are always used "
+            "when present. For default by-name mapping (no explicit mappings), "
+            "column lineage is only emitted when both source and sink schemas are "
+            "known, either from the activity's inline dataset schema or from "
+            "schemaMetadata already in DataHub (looked up via the pipeline's "
+            "DataHub graph connection, e.g. a datahub-rest sink or datahub_api). "
+            "For sinks with tableOption 'autoCreate' whose schema is unknown, the "
+            "sink columns are taken to equal the known source columns."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _column_lineage_requires_lineage(self) -> "FabricDataFactorySourceConfig":
+        # Only an explicit setting is rejected: the default (True) must not
+        # break recipes that disable include_lineage.
+        if (
+            "include_column_lineage" in self.model_fields_set
+            and self.include_column_lineage
+            and not self.include_lineage
+        ):
+            raise ValueError(
+                "include_column_lineage requires include_lineage. Set "
+                "include_lineage: true, or remove include_column_lineage."
+            )
+        return self
 
     include_execution_history: bool = Field(
         default=True,

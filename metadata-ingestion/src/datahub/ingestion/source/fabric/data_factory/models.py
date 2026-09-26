@@ -4,6 +4,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,6 +119,32 @@ class PipelineActivity:
             policy=policy,
             external_references=ext_ref,
         )
+
+
+@dataclass
+class DatasetColumns:
+    """Column field paths of a dataset, looked up case-insensitively."""
+
+    field_paths: List[str]
+    _by_lower_name: Dict[str, str] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        self._by_lower_name = {}
+        for field_path in self.field_paths:
+            # Key by the simple (v1) path so v2-encoded fieldPaths still match
+            # plain column names. First occurrence wins on case collisions.
+            simple_path = get_simple_field_path_from_v2_field_path(field_path)
+            self._by_lower_name.setdefault(simple_path.lower(), field_path)
+
+    def lookup(self, column_name: str) -> Optional[str]:
+        """Return the stored field path matching a column name or field path.
+
+        The argument may itself be a v2-encoded fieldPath (e.g. a source
+        column from another dataset's schemaMetadata); it is compared by its
+        simple path.
+        """
+        simple_path = get_simple_field_path_from_v2_field_path(column_name)
+        return self._by_lower_name.get(simple_path.lower())
 
 
 @dataclass

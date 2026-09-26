@@ -206,7 +206,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
 
         # Column-level lineage extractors - extensible for different activity types
         self._column_lineage_extractors: list[ColumnLineageExtractor] = [
-            CopyActivityColumnLineageExtractor(),
+            CopyActivityColumnLineageExtractor(report=self.report),
         ]
 
     @classmethod
@@ -1169,7 +1169,7 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             return None
 
         # Build dataset name from type properties
-        table_name = self._extract_table_name(dataset, linked_service)
+        table_name = self._extract_table_name(dataset)
         if not table_name:
             table_name = dataset_name  # Fallback to ADF dataset name
 
@@ -1183,15 +1183,23 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             platform_instance=platform_instance,
         )
 
-    def _extract_table_name(
-        self, dataset: DatasetResource, linked_service: LinkedServiceResource
-    ) -> Optional[str]:
+    @staticmethod
+    def _extract_table_name(dataset: DatasetResource) -> Optional[str]:
         """Extract table/file name from dataset properties.
 
         SDK dataset subclasses have type-specific properties as direct attributes
         (e.g., table_name, table, schema_type_properties_schema, file_name, etc.)
         """
         props = dataset.properties
+
+        # Salesforce-family datasets (SalesforceObject, SalesforceV2Object,
+        # SalesforceServiceCloud(V2)Object) identify the sObject by its API
+        # name, which is also the dataset name the salesforce connector emits.
+        # Without this the ADF dataset name would be used, producing lineage
+        # to a salesforce URN that no connector emits.
+        object_api_name = getattr(props, "object_api_name", None)
+        if isinstance(object_api_name, str) and object_api_name:
+            return object_api_name
 
         # SQL-like datasets - check for table_name or table attributes
         table_name = getattr(props, "table_name", None)

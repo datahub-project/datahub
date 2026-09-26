@@ -27,6 +27,7 @@ from tests.integration.fabric.fabric_data_factory.test_factories import (
     PIPELINE_ID_A,
     PIPELINE_ID_B,
     PIPELINE_RUN_ID_1,
+    SAME_WORKSPACE_PLACEHOLDER_ID,
     WORKSPACE_ID_1,
     WORKSPACE_ID_2,
     create_activity_run,
@@ -39,6 +40,7 @@ from tests.integration.fabric.fabric_data_factory.test_factories import (
     create_pipeline_item,
     create_pipeline_run,
     create_set_variable_activity,
+    create_tabular_translator,
     create_workspace,
 )
 
@@ -86,7 +88,8 @@ def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     Setup:
     - 2 workspaces: prod-analytics (allowed) and dev-sandbox (filtered out)
     - 2 pipelines in prod: etl-daily (allowed) and test-validation (filtered out)
-    - etl-daily has: Copy (Snowflake→Lakehouse), Lookup, InvokePipeline → child
+    - etl-daily has: Copy (Snowflake→Lakehouse, explicit column mappings),
+      Lookup, InvokePipeline → child
     - Child pipeline (etl-child) has: Lookup + SetVariable with dependencies
     - Execution history: 1 pipeline run with 2 activity runs (success + failure)
     """
@@ -122,9 +125,13 @@ def test_full_ingestion(pytestconfig: pytest.Config, tmp_path: Path) -> None:
             ),
             sink_settings=create_lakehouse_dataset_settings(
                 artifact_id=LAKEHOUSE_ARTIFACT_ID,
-                workspace_id=WORKSPACE_ID_1,
+                # All-zero workspace placeholder → resolves to WORKSPACE_ID_1
+                workspace_id=SAME_WORKSPACE_PLACEHOLDER_ID,
                 schema="dbo",
                 table="customers",
+            ),
+            translator=create_tabular_translator(
+                [("ID", "customer_id"), ("NAME", "name"), ("EMAIL", "email")]
             ),
         ),
         create_lookup_activity("LookupConfig", depends_on=["CopySnowflakeToLakehouse"]),

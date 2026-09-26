@@ -16,6 +16,7 @@ The `fabric-data-factory` module ingests metadata from Microsoft Fabric Data Fac
 
 - Workspaces as containers, data pipelines as DataFlows (DataHub entity type), activities as DataJobs
 - Dataset-level lineage from Copy and InvokePipeline activities
+- Column-level lineage from Copy activity column mappings
 - Pipeline and activity execution history as DataProcessInstances
 - Cross-recipe lineage via `platform_instance_map` for connecting to externally ingested datasets
 - Pattern-based filtering for workspaces and pipelines

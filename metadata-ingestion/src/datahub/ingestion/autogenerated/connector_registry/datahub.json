@@ -1420,6 +1420,12 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default via Copy activity column mappings",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Optionally enabled via stateful_ingestion config",
           "subtype_modifier": null,
