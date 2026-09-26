@@ -4107,12 +4107,17 @@
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,PROD)"
                 }
+            ],
+            "fieldUpstreams": [
+                {
+                    "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,PROD),AMOUNT)"
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787191278673,
-        "runId": "snowflake-2026_08_19-19_01_17-78rkk8",
+        "lastObserved": 1790376957292,
+        "runId": "snowflake-2026_09_25-22_55_56-ldo8rj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4224,12 +4229,13 @@
                 {
                     "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.sales_model.orders,PROD)"
                 }
-            ]
+            ],
+            "fieldUpstreams": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1787191278674,
-        "runId": "snowflake-2026_08_19-19_01_17-78rkk8",
+        "lastObserved": 1790376957293,
+        "runId": "snowflake-2026_09_25-22_55_56-ldo8rj",
         "lastRunId": "no-run-id-provided"
     }
 },
