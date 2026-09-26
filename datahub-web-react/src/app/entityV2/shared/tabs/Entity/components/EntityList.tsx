@@ -1,4 +1,4 @@
-import { List, Pagination, Typography } from 'antd';
+import { Pagination, Text } from '@components';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -28,26 +28,16 @@ const ScrollWrapper = styled.div`
     }
 `;
 
-const StyledList = styled(List)`
+const StyledList = styled.div`
     padding-left: 40px;
     padding-right: 40px;
-    .ant-list-items > .ant-list-item {
-        padding-right: 0px;
-        padding-left: 0px;
-    }
-    > .ant-list-header {
-        padding-right: 0px;
-        padding-left: 0px;
-        font-size: 14px;
-        font-weight: 600;
-        margin-left: -20px;
-        border-bottom: none;
-        padding-bottom: 0px;
-        padding-top: 0px;
-    }
-` as typeof List;
+`;
 
-const StyledListItem = styled(List.Item)`
+const ListHeader = styled(Text)`
+    margin-left: -20px;
+`;
+
+const StyledListItem = styled.div`
     padding-top: 20px;
 `;
 
@@ -69,7 +59,7 @@ const StyledPagination = styled(Pagination)`
     justify-content: center;
 `;
 
-const PaginationInfo = styled(Typography.Text)`
+const PaginationInfo = styled(Text)`
     padding: 0px;
     width: 20%;
 `;
@@ -110,13 +100,16 @@ export const EntityList = ({
     return (
         <>
             <ScrollWrapper>
-                <StyledList
-                    dataSource={entities}
-                    header={title || `${entities.length || 0} ${entityRegistry.getCollectionName(type)}`}
-                    renderItem={(item) => (
-                        <StyledListItem>{entityRegistry.renderPreview(type, PreviewType.PREVIEW, item)}</StyledListItem>
-                    )}
-                />
+                <StyledList>
+                    <ListHeader weight="semiBold">
+                        {title || `${entities.length || 0} ${entityRegistry.getCollectionName(type)}`}
+                    </ListHeader>
+                    {entities.map((item) => (
+                        <StyledListItem key={item.urn}>
+                            {entityRegistry.renderPreview(type, PreviewType.PREVIEW, item)}
+                        </StyledListItem>
+                    ))}
+                </StyledList>
             </ScrollWrapper>
             {loading && <Message type="loading" content={tc('loading')} style={{ marginTop: LOADING_MARGIN_TOP }} />}
             {error && <Message type="error" content={t('entity.list.loadError')} />}
@@ -135,12 +128,12 @@ export const EntityList = ({
                         />
                     </PaginationInfo>
                     <StyledPagination
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalAssets}
+                        currentPage={page ?? 1}
+                        itemsPerPage={pageSize}
+                        total={totalAssets ?? 0}
                         showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={(totalAssets as any) > SearchCfg.RESULTS_PER_PAGE}
+                        onPageChange={onChangePage}
+                        showSizeChanger={(totalAssets ?? 0) > SearchCfg.RESULTS_PER_PAGE}
                         onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage?.(newNum)}
                         pageSizeOptions={['10', '20', '50', '100']}
                     />
