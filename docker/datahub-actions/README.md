@@ -35,7 +35,17 @@ The Docker image supports mounting custom Action configuration files. Each confi
 
 To deploy a custom Action configuration, simply plac
 
-Note that the expectation is that the container contains all required plugins to execute the Action configuration. If the action you want to use does not come pre-packaged with DataHub's Actions CLI, you'll need to install the required plugins inside the Dockerfile itself.
+Note that the expectation is that the container contains all required plugins to execute the Action configuration. If the action you want to use does not come pre-packaged with DataHub's Actions CLI, install the required plugins inside the Dockerfile itself. Baking plugins into the image keeps the deployment reproducible, keeps the dependency set reviewable, and is the only option for the `locked` image variant.
+
+For cases where rebuilding an image is impractical, the `full` and `slim` images also honour `ACTIONS_EXTRA_PACKAGES`, a whitespace-separated list of requirements installed at container startup before any Action pipeline is launched:
+
+```
+docker run --env ACTIONS_EXTRA_PACKAGES='acryl-datahub-actions[slack] my-action==1.2.3' ...
+```
+
+This is a convenience, not a replacement for the rule above. It trades reproducibility for iteration speed: the image no longer describes its own dependencies, startup requires reaching a package index, and the installed set can drift between restarts. Prefer it for development and for trying an action out, not for a deployment you intend to keep.
+
+The `locked` image refuses it. That variant strips `uv` and points its package index at a dead address on purpose, so a container that cannot honour `ACTIONS_EXTRA_PACKAGES` fails at startup with an explanation rather than starting up quietly without the packages the operator asked for.
 
 For example, to mount the "hello_world.yml" configuration located under the `examples` directory of this repository can be achieved via:
 
