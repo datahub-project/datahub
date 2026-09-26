@@ -289,6 +289,30 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
   }
 
   @Test(timeOut = TEST_TIMEOUT_MS)
+  public void testAWriteBlockLeftByARunThatDiedHoldingTheLeaseIsLifted() throws Exception {
+    String prefix = "blocked_lease_";
+    String index = prefix + "datahub_usage_event";
+    indexLegacyEvents(index);
+    request("PUT", "/" + index + "/_block/write", null);
+    createLease(prefix, "a-run-that-died");
+    UsageEventIndexUtils.setBlockedIndexWaitForTesting(
+        Duration.ofMillis(100), Duration.ofSeconds(1));
+    try {
+      runStep(prefix);
+    } finally {
+      UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
+    }
+
+    // Usage events are accepted again, and the migration is left to a run that holds the lease.
+    index(
+        index,
+        "3",
+        "{\"type\":\"SearchEvent\",\"timestamp\":1756000003000,\"@timestamp\":1756000003000}");
+    assertEquals(request("GET", "/_resolve/index/" + index, null).path("indices").size(), 1);
+    assertEquals(leaseOwner(prefix), "a-run-that-died");
+  }
+
+  @Test(timeOut = TEST_TIMEOUT_MS)
   public void testAStaleLeaseIsTakenOver() throws Exception {
     String prefix = "stale_lease_";
     String index = prefix + "datahub_usage_event";

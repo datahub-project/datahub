@@ -67,13 +67,13 @@ public class UsageEventIndexUtils {
   private static final String OUTCOME_SKIPPED = "skipped";
 
   @VisibleForTesting
-  static void setBlockedIndexWaitForTesting(Duration pollInterval, Duration maxWait) {
+  public static void setBlockedIndexWaitForTesting(Duration pollInterval, Duration maxWait) {
     blockedIndexPollInterval = pollInterval;
     blockedIndexMaxWait = maxWait;
   }
 
   @VisibleForTesting
-  static void clearBlockedIndexWaitForTesting() {
+  public static void clearBlockedIndexWaitForTesting() {
     blockedIndexPollInterval = BLOCKED_INDEX_POLL_INTERVAL;
     blockedIndexMaxWait = BLOCKED_INDEX_MAX_WAIT;
   }
@@ -868,7 +868,9 @@ public class UsageEventIndexUtils {
       if (plainIndex ? !moveAside : legacyBackups(opContext, esComponents, prefix).isEmpty()) {
         return null;
       }
-      for (int attempt = 0; attempt < 2; attempt++) {
+      long waitUntil = System.currentTimeMillis() + blockedIndexMaxWait.toMillis();
+      boolean tookOver = false;
+      while (true) {
         if (createLease(opContext, esComponents, leaseName, owner) == 403) {
           log.error(
               "System update may not create {} (403), so it leaves {} and its backups alone; allow"
@@ -895,7 +897,21 @@ public class UsageEventIndexUtils {
         }
         long heldFor =
             System.currentTimeMillis() - creationDate(opContext, esComponents, leaseName);
-        if (attempt > 0 || heldFor <= leaseTtl.toMillis()) {
+        if (!tookOver && heldFor > leaseTtl.toMillis()) {
+          log.warn(
+              "Taking over {} from {}, which has held it for {}, longer than {}",
+              leaseName,
+              holder,
+              Duration.ofMillis(heldFor),
+              leaseTtl);
+          deleteIndex(opContext, esComponents, leaseName);
+          tookOver = true;
+          continue;
+        }
+        // If the run holding the lease died after blocking writes on the legacy index, nothing
+        // else lifts that block, so wait for the lease to be released or to go stale, and lift the
+        // block after the same wait as for a recent clone.
+        if (!plainIndex || !isWriteBlocked(opContext, esComponents, indexName)) {
           log.warn(
               "{} is held by another system-update run ({}); leaving {} and its backups to it",
               leaseName,
@@ -904,14 +920,23 @@ public class UsageEventIndexUtils {
           recordOutcome(opContext, OUTCOME_SKIPPED);
           return null;
         }
-        log.warn(
-            "Taking over {} from {}, which has held it for {}, longer than {}",
-            leaseName,
-            holder,
-            Duration.ofMillis(heldFor),
-            leaseTtl);
-        deleteIndex(opContext, esComponents, leaseName);
+        if (System.currentTimeMillis() >= waitUntil) {
+          log.error(
+              "{} stayed write-blocked for {} while {} held {}; lifting the block and leaving the"
+                  + " migration to a later run",
+              indexName,
+              blockedIndexMaxWait,
+              holder,
+              leaseName);
+          setWriteBlock(opContext, esComponents, indexName, false);
+          recordOutcome(opContext, OUTCOME_SKIPPED);
+          return null;
+        }
+        Thread.sleep(blockedIndexPollInterval.toMillis());
       }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.error("Interrupted while waiting for {}", leaseName, e);
     } catch (IOException | RuntimeException e) {
       log.error(
           "Could not acquire {}; leaving {} and its backups to a later run",
@@ -919,6 +944,8 @@ public class UsageEventIndexUtils {
           indexName,
           e);
       recordOutcome(opContext, OUTCOME_SKIPPED);
+      // The create may have succeeded before the failure; do not leave this run's lease behind.
+      new LegacyMigrationLease(opContext, esComponents, leaseName, owner).release();
     }
     return null;
   }
@@ -1725,9 +1752,10 @@ public class UsageEventIndexUtils {
       String indexName)
       throws IOException {
     log.info("DELETE => /{}", indexName);
-    esComponents
-        .getSearchClient()
-        .performLowLevelRequest(opContext, new Request("DELETE", "/" + indexName));
+    Request request = new Request("DELETE", "/" + indexName);
+    // Another run may have deleted it first, which is the outcome this call wants.
+    request.addParameter("ignore", "404");
+    esComponents.getSearchClient().performLowLevelRequest(opContext, request);
   }
 
   private static JsonNode readJson(OperationContext opContext, RawResponse response)
