@@ -4,6 +4,7 @@ import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -12,6 +13,7 @@ import static org.mockito.Mockito.when;
 
 import auth.AuthUtils;
 import auth.pac4j.DatahubPlayCookieSessionStore;
+import auth.proxy.ProxyCallbackLogic;
 import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import client.AuthServiceClient;
@@ -34,6 +36,7 @@ import org.pac4j.play.store.DataEncrypter;
 import play.libs.Json;
 import play.mvc.Http;
 import play.mvc.Result;
+import play.mvc.Results;
 import play.test.Helpers;
 
 public class AuthenticationControllerTest {
@@ -764,5 +767,136 @@ public class AuthenticationControllerTest {
         "Invalid Credentials", Json.parse(Helpers.contentAsString(result)).get("message").asText());
     verify(authClient).verifyNativeUserCredentials("urn:li:corpuser:someuser", "wrong");
     verify(authClient, never()).generateSessionTokenForUser(anyString(), anyString());
+  }
+
+  @Test
+  public void testProxyAuthDelegatesToProvisioner() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Forwarded-User\n"
+                + "auth.proxy.jitProvisioningEnabled = false\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyCallbackLogic mockCallbackLogic = mock(ProxyCallbackLogic.class);
+    testController.proxyCallbackLogic = mockCallbackLogic;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+    when(mockCallbackLogic.handleProxyLogin(any(Http.Request.class), eq("/dashboard")))
+        .thenReturn(Results.redirect("/dashboard"));
+
+    Http.Request request =
+        new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate?redirect_uri=/dashboard")
+            .header("X-Forwarded-User", "proxyuser")
+            .build();
+
+    Result result = testController.authenticate(request);
+
+    assertEquals(303, result.status());
+    assertEquals("/dashboard", result.redirectLocation().orElse(""));
+    verify(mockCallbackLogic).handleProxyLogin(any(Http.Request.class), eq("/dashboard"));
+  }
+
+  @Test
+  public void testProxyAuthMissingHeaderFallsThrough() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Forwarded-User\n"
+                + "auth.proxy.jitProvisioningEnabled = true\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyCallbackLogic mockCallbackLogic = mock(ProxyCallbackLogic.class);
+    testController.proxyCallbackLogic = mockCallbackLogic;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(true);
+
+    Http.Request request = new Http.RequestBuilder().method("GET").uri("/authenticate").build();
+
+    Result result = testController.authenticate(request);
+
+    assertEquals(302, result.status());
+    verify(mockCallbackLogic, never()).handleProxyLogin(any(), anyString());
+  }
+
+  @Test
+  public void testProxyAuthCustomHeader() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Remote-User\n"
+                + "auth.proxy.jitProvisioningEnabled = false\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyCallbackLogic mockCallbackLogic = mock(ProxyCallbackLogic.class);
+    testController.proxyCallbackLogic = mockCallbackLogic;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+    when(mockCallbackLogic.handleProxyLogin(any(Http.Request.class), eq("/")))
+        .thenReturn(Results.redirect("/"));
+
+    Http.Request request =
+        new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate")
+            .header("X-Remote-User", "customuser")
+            .build();
+
+    Result result = testController.authenticate(request);
+
+    assertEquals(303, result.status());
+    verify(mockCallbackLogic).handleProxyLogin(any(Http.Request.class), eq("/"));
+  }
+
+  @Test
+  public void testProxyAuthEmptyHeaderFallsThrough() {
+    Config config =
+        ConfigFactory.parseString(
+            "datahub.basePath = \"\"\n"
+                + "auth.cookie.ttlInHours = 24\n"
+                + "auth.cookie.secure = true\n"
+                + "auth.cookie.sameSite = Lax\n"
+                + "auth.proxy.enabled = true\n"
+                + "auth.proxy.userHeader = X-Forwarded-User\n"
+                + "auth.proxy.jitProvisioningEnabled = true\n");
+
+    AuthenticationController testController = new AuthenticationController(config);
+    testController.ssoManager = ssoManager;
+    testController.sessionStore = playCookieSessionStore;
+    ProxyCallbackLogic mockCallbackLogic = mock(ProxyCallbackLogic.class);
+    testController.proxyCallbackLogic = mockCallbackLogic;
+
+    when(ssoManager.isSsoEnabled()).thenReturn(false);
+
+    Http.Request request =
+        new Http.RequestBuilder()
+            .method("GET")
+            .uri("/authenticate")
+            .header("X-Forwarded-User", "")
+            .build();
+
+    Result result = testController.authenticate(request);
+
+    verify(mockCallbackLogic, never()).handleProxyLogin(any(), anyString());
   }
 }
