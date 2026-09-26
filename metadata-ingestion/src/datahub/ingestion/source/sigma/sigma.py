@@ -3660,7 +3660,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 return name
         if not known:
             return None if schema_required else ref.column
-        self._note_column_not_found(ref)
+        # A 3+ segment miss is expected; the caller counts it.
+        if not schema_required:
+            self._note_column_not_found(ref)
         return None
 
     def _dm_upstream_field_for_ref(
@@ -3679,7 +3681,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None if schema_required else ref.column
         assert ref.column is not None
         field = _match_name(ref.column, known)
-        if field is None:
+        if field is None and not schema_required:
             self._note_column_not_found(ref)
         return field
 
@@ -3767,8 +3769,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[Tuple[str, str]]:
         """One reading of a ref; see _resolve_chart_formula_upstream.
 
-        With schema_required, only an upstream whose columns are known may
-        accept the ref.
+        With schema_required, an upstream accepts the ref only on evidence:
+        its known columns, or an exact column-ID match.
         """
         if ref.is_parameter:
             return None

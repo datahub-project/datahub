@@ -587,6 +587,25 @@ class TestResolveChartFormulaUpstream:
         assert result == ("urn:source", "Rev/Cost")
         assert self.src.reporter.chart_input_fields_multi_segment_refused == 0
 
+    @pytest.mark.parametrize("upstream", ["sibling", "dm"])
+    def test_a_multi_segment_miss_is_not_a_missing_column(self, upstream: str) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = {"Amount"}
+        index = (
+            {"Src": [_make_element("sourceElem", "Src", columns=["Amount"])]}
+            if upstream == "sibling"
+            else {}
+        )
+        result = self._resolve(
+            _make_ref("Src", "Rel/Amount"),
+            index,
+            upstream_ids={"sourceElem"},
+            dm_urns={"Src": dm_urn} if upstream == "dm" else None,
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 1
+        assert self.src.reporter.chart_input_fields_column_not_found == 0
+
     def test_a_slash_column_resolves_against_a_dm_schema(self) -> None:
         dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
         self.src._dm_element_field_paths[dm_urn] = {"Rev/Cost"}
