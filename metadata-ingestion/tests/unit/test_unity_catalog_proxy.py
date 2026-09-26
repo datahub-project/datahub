@@ -295,6 +295,35 @@ class TestUnityCatalogProxy:
         assert len(result) == 0
 
     @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_rows_from_table_backtick_quotes_each_segment(
+        self, mock_execute, mock_proxy
+    ):
+        """Each identifier segment is backtick-quoted, so hyphens/reserved words parse."""
+        row = MagicMock()
+        row.asDict.return_value = {"col": "value"}
+        mock_execute.return_value = [row]
+
+        result = mock_proxy.get_rows_from_table("my-catalog.my_schema.my_table")
+
+        query = mock_execute.call_args[0][0]
+        assert query == "SELECT * FROM `my-catalog`.`my_schema`.`my_table`"
+        assert result == [{"col": "value"}]
+
+    @patch(
+        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy._execute_sql_query"
+    )
+    def test_get_rows_from_table_invalid_identifier_returns_empty(
+        self, mock_execute, mock_proxy
+    ):
+        """A malformed or non-3-part identifier is rejected before any query runs."""
+        result = mock_proxy.get_rows_from_table("catalog.schema")
+
+        assert result == []
+        mock_execute.assert_not_called()
+
+    @patch(
         "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy.get_catalog_table_lineage_via_system_tables"
     )
     def test_process_system_table_lineage(self, mock_get_lineage, mock_proxy):

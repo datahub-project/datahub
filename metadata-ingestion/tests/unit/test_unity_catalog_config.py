@@ -741,3 +741,33 @@ def test_column_usage_stats_warns_when_combined_with_pushdown_skip(monkeypatch):
     assert "include_column_usage_stats" in warnings[0]
     assert "push_down_database_pattern_access_history" in warnings[0]
     assert "skip_sqlglot_when_system_table_lineage_missing" in warnings[0]
+
+
+def test_governance_dq_config_defaults_off():
+    config = UnityCatalogSourceConfig.model_validate(_base())
+    assert config.governance_dq.enabled is False
+    assert config.governance_dq.rules_table is None
+    assert config.governance_dq.results_table is None
+
+
+def test_governance_dq_config_enable_with_tables():
+    config = UnityCatalogSourceConfig.model_validate(
+        _base(
+            governance_dq={
+                "enabled": True,
+                "rules_table": "my_cat.my_schema.dq_rules",
+                "results_table": "my_cat.my_schema.dq_results",
+            }
+        )
+    )
+    assert config.governance_dq.enabled is True
+    assert config.governance_dq.rules_table == "my_cat.my_schema.dq_rules"
+    assert config.governance_dq.results_table == "my_cat.my_schema.dq_results"
+
+
+def test_governance_dq_config_enabled_without_tables_raises():
+    with pytest.raises(
+        ValueError,
+        match="rules_table.*results_table|results_table.*rules_table",
+    ):
+        UnityCatalogSourceConfig.model_validate(_base(governance_dq={"enabled": True}))

@@ -100,5 +100,8 @@ class UnityCatalogReport(SQLSourceReport):
     num_metric_view_synonyms_dropped_invalid: int = 0
     num_metric_view_format_unknown_subkeys: int = 0
 
+    governance_dq_assertions_emitted: int = 0
+    governance_dq_run_events_emitted: int = 0
+
     # Platform resource repository for automatic cache statistics via SupportsAsObj
     tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None
