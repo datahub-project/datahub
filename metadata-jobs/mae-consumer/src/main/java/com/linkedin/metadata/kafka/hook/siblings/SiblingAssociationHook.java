@@ -42,6 +42,7 @@ import java.net.URISyntaxException;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -218,7 +219,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         Siblings dbtSiblings = getSiblingsFromEntityClient(operationContext, datasetUrn);
         Siblings sourceSiblings = getSiblingsFromEntityClient(operationContext, sourceTableUrn);
 
-        if (dbtSiblings != null || sourceSiblings != null) {
+        if (hasSiblingRelationship(dbtSiblings) || hasSiblingRelationship(sourceSiblings)) {
           log.debug(
               "Skipping dbt source processing - existing siblings found: {} <-> {}",
               datasetUrn,
@@ -292,7 +293,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
 
     // Skip if any siblings exist to avoid conflicts with patch-based management
-    if (existingDbtSiblingAspect != null || existingSourceSiblingAspect != null) {
+    if (hasSiblingRelationship(existingDbtSiblingAspect)
+        || hasSiblingRelationship(existingSourceSiblingAspect)) {
       log.debug(
           "Skipping sibling creation - existing siblings found: {} <-> {}", dbtUrn, sourceUrn);
       return;
@@ -524,6 +526,10 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     } catch (RemoteInvocationException | URISyntaxException e) {
       throw new RuntimeException("Failed to retrieve UpstreamLineage", e);
     }
+  }
+
+  private boolean hasSiblingRelationship(@Nullable Siblings siblings) {
+    return siblings != null && siblings.hasSiblings() && !siblings.getSiblings().isEmpty();
   }
 
   private Siblings getSiblingsFromEntityClient(
