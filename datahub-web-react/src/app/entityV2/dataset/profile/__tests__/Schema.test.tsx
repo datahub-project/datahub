@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import React from 'react';
 
 import { EntityContext } from '@app/entity/shared/EntityContext';
@@ -26,6 +26,12 @@ vi.mock('virtualizedtableforantd4', async () => {
 });
 
 describe('Schema', () => {
+    // jsdom does not implement scrollIntoView, and opening the field drawer schedules a
+    // debounced scroll to the selected row that fires after the test has finished.
+    beforeAll(() => {
+        Element.prototype.scrollIntoView = vi.fn();
+    });
+
     it('renders', () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
@@ -224,8 +230,8 @@ describe('Schema', () => {
         expect(getByText('Primary Key')).toBeInTheDocument();
     });
 
-    it.skip('renders foreign keys', () => {
-        const { getByText, getAllByText } = render(
+    it('renders foreign keys', async () => {
+        render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
                     <EntityContext.Provider
@@ -252,14 +258,15 @@ describe('Schema', () => {
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(getByText('Foreign Key')).toBeInTheDocument();
+        const fkButton = screen.getByRole('button', { name: 'Foreign Key' });
+        expect(fkButton).toBeInTheDocument();
 
-        const fkButton = getByText('Foreign Key');
         fireEvent.click(fkButton);
 
-        expect(getByText('Foreign Key to')).toBeInTheDocument();
-        expect(getAllByText('Yet Another Dataset')).toHaveLength(2);
-    });
+        expect(await screen.findByText('Foreign Key to')).toBeInTheDocument();
+        const constraint = screen.getByTestId('foreign-key-constraint');
+        expect(within(constraint).getByText('Yet Another Dataset')).toBeInTheDocument();
+    }, 15000); // The drawer opens on a debounced value and this file is slow on a loaded runner
 
     it('renders key/value toggle', () => {
         const { getByText, queryByText } = render(
