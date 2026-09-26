@@ -25,3 +25,7 @@ Platform (fabric-data-factory)
             ├── Pipeline Run (DataProcessInstance)
             └── Activity Run (DataProcessInstance)
 ```
+
+### Microsoft Fabric
+
+For how this connector fits with the other Fabric connectors and Fabric notebook lineage, and the settings that must match between them, see the [Microsoft Fabric overview](https://docs.datahub.com/docs/quick-ingestion-guides/fabric/overview).
