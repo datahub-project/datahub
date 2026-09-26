@@ -8,6 +8,7 @@ import pytest
 from airflow.models import Connection, DagBag
 
 import datahub.emitter.mce_builder as builder
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.graph.config import ClientMode
 from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin.entities import Dataset, Urn
@@ -153,6 +154,32 @@ def test_datahub_lineage_operator(mock_emit):
         task.execute({})
 
         mock_emit.assert_called()
+
+
+def test_rest_hook_emitter_uses_env_oauth(monkeypatch):
+    """DatahubRestHook.make_emitter() passes the connection's password straight
+    through as the emitter token. When the connection has no password (the
+    common case for a bare Server Endpoint connection), the emitter's env-OAuth
+    fallback (DATAHUB_AUTH_TYPE) must engage instead of leaving the session
+    unauthenticated."""
+    monkeypatch.delenv("DATAHUB_GMS_TOKEN", raising=False)
+    monkeypatch.setenv("DATAHUB_AUTH_TYPE", "oidc_client_credentials")
+    monkeypatch.setenv("DATAHUB_AUTH_TOKEN_ENDPOINT", "http://idp/token")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_ID", "cid")
+    monkeypatch.setenv("DATAHUB_AUTH_CLIENT_SECRET", "csecret")
+
+    connection_no_password = Connection(
+        conn_id="datahub_rest_env_oauth_test",
+        conn_type="datahub_rest",
+        host="http://gms",
+        extra=None,
+    )
+    with patch_airflow_connection(connection_no_password) as config:
+        assert config.conn_id
+        hook = DatahubRestHook(config.conn_id)
+        emitter = hook.make_emitter()
+
+    assert isinstance(emitter._session.auth, TokenProviderAuth)
 
 
 @pytest.mark.parametrize(
