@@ -1,4 +1,6 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { notification } from '@components';
+import i18next from 'i18next';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
@@ -25,6 +27,13 @@ import { useGetBulkEntityLineageV2Query } from '@graphql/lineage.generated';
 import { EntityType, LineageDirection } from '@types';
 
 const BATCH_SIZE = 10;
+
+// Mirror the structure fetch: fail a stalled batch visibly instead of leaving nodes as perpetual
+// skeletons. Changing variables aborts an in-flight request, so without this guard a hung batch keeps
+// `loading` true forever and blocks every later batch. Kept above the backend graph-query budget
+// (`elasticsearch.search.graph.timeoutSeconds`, default 50s) for the same reason as the structure
+// fetch: a real server timeout comes back as a 504 via onError first, so this only trips on a stall.
+const BULK_LINEAGE_FETCH_TIMEOUT_MS = 60_000;
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const flags = useAppConfig().config.featureFlags;
@@ -54,7 +63,32 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
     }, [prevShownUrns, shownUrns]);
 
     const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
+    // Urns whose batch failed/stalled — excluded from refetch so a persistent failure doesn't loop.
+    const [failedUrns] = useState(() => new Set<string>());
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+
+    const settledRef = useRef(false);
+    const errorShownRef = useRef(false);
+
+    // A new time range is a fresh attempt: forget past failures and re-arm the error notice.
+    useEffect(() => {
+        failedUrns.clear();
+        errorShownRef.current = false;
+    }, [failedUrns, startTimeMillis, endTimeMillis]);
+
+    const handleBulkFetchFailure = () => {
+        if (settledRef.current) return;
+        settledRef.current = true;
+        // Don't re-request the batch that failed/stalled; drop it so the next batch can make progress.
+        urnsToFetch.forEach((urn) => failedUrns.add(urn));
+        setUrnsToFetch([]);
+        if (!errorShownRef.current) {
+            errorShownRef.current = true;
+            notification.error({ message: i18next.t('lineage:timeSelector.loadError') });
+        }
+    };
+    const handleBulkFetchFailureRef = useRef(handleBulkFetchFailure);
+    handleBulkFetchFailureRef.current = handleBulkFetchFailure;
 
     const { refetch, loading } = useGetBulkEntityLineageV2Query({
         skip: !urnsToFetch?.length,
@@ -69,6 +103,8 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 showGhostEntities || (rootType === EntityType?.SchemaField && ignoreSchemaFieldStatus),
         },
         onCompleted: (data) => {
+            settledRef.current = true;
+            errorShownRef.current = false;
             const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
             let changed = false;
             // Results are positional & 1:1 with the requested urns. A neighbor the user
@@ -104,7 +140,16 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 setDisplayVersion(([version, n]) => [version + 1, n]); // TODO: Also remove with above todo
             }
         },
+        onError: () => handleBulkFetchFailureRef.current(),
     });
+
+    // Guard against a stalled batch hanging the affected nodes as skeletons indefinitely.
+    useEffect(() => {
+        if (!loading) return undefined;
+        settledRef.current = false;
+        const timer = setTimeout(() => handleBulkFetchFailureRef.current(), BULK_LINEAGE_FETCH_TIMEOUT_MS);
+        return () => clearTimeout(timer);
+    }, [loading]);
 
     useEffect(() => {
         // Changing the variables aborts the in-flight request, losing that batch's results
@@ -113,7 +158,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             let newUrnsToFetch = memoizedShownUrns
                 .filter((urn) => {
                     const node = nodes.get(urn);
-                    return !node?.entity;
+                    return !node?.entity && !failedUrns.has(urn);
                 })
                 .slice(0, BATCH_SIZE);
             if (
@@ -123,7 +168,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 hideTransformations
             ) {
                 newUrnsToFetch = Array.from(nodes.values())
-                    .filter((node) => isTransformational(node, rootType) && !node.entity)
+                    .filter((node) => isTransformational(node, rootType) && !node.entity && !failedUrns.has(node.urn))
                     .map((node) => node.urn);
             }
             if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
@@ -140,6 +185,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         ignoreSchemaFieldStatus,
         hideTransformations,
         loading,
+        failedUrns,
     ]);
 
     return useCallback(
