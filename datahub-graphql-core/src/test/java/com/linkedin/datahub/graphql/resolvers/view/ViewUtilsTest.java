@@ -126,7 +126,9 @@ public class ViewUtilsTest {
                         "test2",
                         ImmutableList.of("value3", "value4"),
                         true,
-                        FilterOperator.CONTAIN))));
+                        FilterOperator.CONTAIN)),
+                null, // orFilters - using old format
+                null)); // json
 
     DataHubViewDefinition expectedResult =
         new DataHubViewDefinition()
@@ -153,6 +155,66 @@ public class ViewUtilsTest {
                                                     "value4"))))))));
 
     assertEquals(ViewUtils.mapDefinition(input, mock(AspectRetriever.class)), expectedResult);
+  }
+
+  @Test
+  public void testMapDefinitionWithOrFilters() throws Exception {
+    // Test that orFilters takes precedence over operator+filters
+    DataHubViewDefinitionInput input =
+        new DataHubViewDefinitionInput(
+            ImmutableList.of(EntityType.DATASET),
+            new DataHubViewFilterInput(
+                LogicalOperator.AND, // This should be ignored when orFilters is provided
+                ImmutableList.of(
+                    new FacetFilterInput(
+                        "ignored", ImmutableList.of("ignored"), false, FilterOperator.IN)),
+                ImmutableList.of(
+                    new com.linkedin.datahub.graphql.generated.AndFilterInput(
+                        ImmutableList.of(
+                            new FacetFilterInput(
+                                "field1",
+                                ImmutableList.of("value1"),
+                                false,
+                                FilterOperator.EQUAL)))),
+                null)); // json
+
+    DataHubViewDefinition result = ViewUtils.mapDefinition(input, mock(AspectRetriever.class));
+
+    assertNotNull(result);
+    assertNotNull(result.getFilter());
+    // Should use orFilters, not the operator+filters
+    assertEquals(result.getFilter().getOr().size(), 1);
+  }
+
+  @Test
+  public void testMapDefinitionUnknownOperatorThrows() throws Exception {
+    // Test that unknown operators throw IllegalArgumentException
+    DataHubViewFilterInput filterInput = new DataHubViewFilterInput();
+    filterInput.setOperator(LogicalOperator.AND);
+    filterInput.setFilters(
+        ImmutableList.of(
+            new FacetFilterInput(
+                "field1", ImmutableList.of("value1"), false, FilterOperator.EQUAL)));
+
+    DataHubViewDefinitionInput input =
+        new DataHubViewDefinitionInput(ImmutableList.of(EntityType.DATASET), filterInput);
+
+    // Manually set an unknown operator (this would require reflection or mocking)
+    // For now, we test the explicit unknown operator validation
+    DataHubViewFilterInput invalidFilter = new DataHubViewFilterInput();
+    invalidFilter.setOperator(null); // Should be handled
+    invalidFilter.setFilters(
+        ImmutableList.of(
+            new FacetFilterInput(
+                "field1", ImmutableList.of("value1"), false, FilterOperator.EQUAL)));
+
+    DataHubViewDefinitionInput invalidInput =
+        new DataHubViewDefinitionInput(ImmutableList.of(EntityType.DATASET), invalidFilter);
+
+    // Both operator and filters without valid operator should handle gracefully
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> ViewUtils.mapDefinition(invalidInput, mock(AspectRetriever.class)));
   }
 
   private static ViewService initViewService(DataHubViewType viewType) {

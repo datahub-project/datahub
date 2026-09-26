@@ -61,16 +61,30 @@ test.describe('View Within Operator', () => {
         input?: {
           definition?: {
             filter?: {
-              filters?: Array<{ field?: string; condition?: string }>;
+              orFilters?: Array<{
+                and?: Array<{ field?: string; condition?: string }>;
+              }>;
+              json?: string;
             };
           };
         };
       };
     };
 
-    const filters = requestBody.variables?.input?.definition?.filter?.filters ?? [];
-    const domainFilter = filters.find((f) => f.field === 'domains');
-    expect(domainFilter?.condition).toBe('DESCENDANTS_INCL');
+    // Verify json contains the LogicalPredicate with within operator
+    const jsonStr = requestBody.variables?.input?.definition?.filter?.json;
+    expect(jsonStr).toBeDefined();
+    const logicalPredicate = JSON.parse(jsonStr!) as {
+      operands?: Array<{ property?: string; operator?: string }>;
+    };
+    expect(logicalPredicate.operands).toBeDefined();
+    const domainOperand = logicalPredicate.operands?.find((op) => op.property === 'domains');
+    expect(domainOperand?.operator).toBe('within');
+
+    // Verify orFilters contains the DESCENDANTS_INCL condition
+    const orFilters = requestBody.variables?.input?.definition?.filter?.orFilters ?? [];
+    const domainOrFilter = orFilters.flatMap((or) => or.and || []).find((criterion) => criterion.field === 'domains');
+    expect(domainOrFilter?.condition).toBe('DESCENDANTS_INCL');
 
     await manageViewsPage.expectViewVisible(viewName);
 
