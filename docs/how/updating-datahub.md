@@ -140,6 +140,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- [#19947](https://github.com/datahub-project/datahub/pull/19947) **(Ingestion / Sigma)** Duplicating a Sigma workbook reuses its element and page ids, so two workbooks can write the same chart or page dashboard. The connector now keeps whichever copy's `inputFields` resolved more columns, instead of the one processed last. **Action:** none, but a colliding chart or page may now show a different copy's column lineage; `input_fields_regressive_emission_samples` in the report names them. This does not make the URNs unique, and `chartInfo` -- including the chart's table-level lineage -- still comes from the workbook processed last.
+
 - **(GMS / Metrics)** Metrics & Semantic Models are now enabled by default (`METRICS_ENABLED=true`) from DataHub Core **v1.8.0** and DataHub Cloud **2.3.0**. The **Metrics** item appears in the left navigation sidebar with a Beta badge, and `/metrics` is available without setting an env var. Set `METRICS_ENABLED=false` on GMS to hide the feature. Existing Snowflake `Semantic View` datasets are unchanged; see the [migration FAQ](../features/feature-guides/metrics-and-semantic-models.md#faq) if you need to move them to the new model.
 
 - **(Ingestion / BigQuery linked datasets)** With `include_linked_dataset_lineage: true` and `include_schema_metadata: false`, the lineage recipe now emits `upstreamLineage` COPY edges for linked datasets with no recipe change. A linked dataset's views and snapshots are now filtered by `view_pattern` and `table_snapshot_pattern` instead of `table_pattern`; `table_snapshot_pattern` defaults to allow all with no `table_pattern` fallback, so a narrow `table_pattern` alone no longer excludes a linked dataset's snapshots.

@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
 
 
 class Constant:
@@ -183,6 +184,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # counter restores the observability signal.
     chart_dataset_upstream_name_missing: int = 0
 
+    # Every chart-column counter in this section counts what the resolver
+    # COMPUTED, not what was emitted: a chart aspect refused for resolving less
+    # than a duplicate workbook's copy still counted here. See
+    # input_fields_regressive_emission_skipped.
     # Chart InputFields — one counter fires per chart column (not per formula ref).
     # The resolver (_resolve_chart_formula_upstream) is a pure predicate: it
     # returns a resolved (urn, field) pair or None; all counting happens in
@@ -209,6 +214,19 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
+    # A poorer InputFields aspect was refused because a richer one is already
+    # emitted for the same chart or page-dashboard URN. Non-zero means two
+    # workbooks claim one entity -- element ids and page ids repeat across
+    # duplicated workbooks, and both URNs are built from that id alone.
+    input_fields_regressive_emission_skipped: int = 0
+    # Which entities those were; the URN says chart or dashboard. Each names
+    # the workbook kept and the workbook refused, or, for the customSQL drain,
+    # its aggregator as platform/env/platform_instance. Capped, and the count
+    # above is the total. Without it the names exist only on DEBUG
+    # lines, which a default INFO run never wrote.
+    input_fields_regressive_emission_samples: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     # Workbook-lineage warehouse table index for chart formula resolution.
     # A chart's inputFields[].schemaFieldUrn was resolved against a warehouse
