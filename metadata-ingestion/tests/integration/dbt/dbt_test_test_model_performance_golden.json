@@ -1460,7 +1460,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.sample_dbt.billing_metrics,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1478,7 +1478,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.sample_dbt.billing_metrics,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1495,7 +1495,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.sample_dbt.billing_metrics,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
@@ -5271,61 +5271,6 @@
             {
                 "op": "add",
                 "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.payments_by_customer_by_month,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.payments_by_customer_by_month,PROD),customer_id)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            }
-        ]
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "dbt-model-performance",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.billing_metrics,PROD)",
-    "changeType": "PATCH",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD)",
-                "value": {
-                    "auditStamp": {
-                        "time": 1643871600000,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD)",
-                    "type": "COPY"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.billing_metrics,PROD),customer_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD),customer_id)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.billing_metrics,PROD),billing_month)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD),billing_month)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.billing_metrics,PROD),total_amount)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD),total_amount)",
-                "value": {
-                    "confidenceScore": 1.0
-                }
-            },
-            {
-                "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,pagila.public.billing_metrics,PROD),payment_count)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,pagila.public.billing_metrics,PROD),payment_count)",
                 "value": {
                     "confidenceScore": 1.0
                 }

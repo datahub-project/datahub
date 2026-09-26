@@ -541,6 +541,47 @@ If these conditions are not met, warnings will appear in the ingestion report:
 >
 > Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
 
+#### Semantic Models
+
+DataHub ingests [dbt semantic models](https://docs.getdbt.com/docs/build/semantic-models) (dbt 1.6+) - the `semantic_models:` entries in your YAML that define entities, dimensions, and measures on top of a dbt model.
+
+A semantic model is a **logical** structure: it lives in your dbt project and is never materialized in the warehouse. DataHub models it accordingly.
+
+##### How Semantic Models Appear in DataHub
+
+- **Subtype**: Datasets are tagged with the subtype `Semantic Model`.
+- **Name**: The dataset is named from dbt's own unique id, `semantic_model.<project>.<semantic_model_name>`, giving a urn like:
+
+  ```
+  urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.jaffle_shop.orders,PROD)
+  ```
+
+  This is the same rule already used for [exposures](#exposures), which are named `exposure.<project>.<name>`. A semantic model has no warehouse address of its own, so it is not named `<database>.<schema>.<name>` like a model, seed, or snapshot. Naming it that way would give it the address of the model it sits on - colliding with that model whenever the two share a name, which is dbt's own documented convention:
+
+  ```yaml
+  semantic_models:
+    - name: orders
+      model: ref("orders")
+  ```
+
+- **No warehouse entity**: Unlike models, seeds, and snapshots, a semantic model produces no dataset on the target platform, no sibling relationship, and no lineage into one - there is no warehouse table to describe.
+- **Schema**: Entities, dimensions, and measures are surfaced as columns, with native types of the form `entity:primary`, `dimension:time`, and `measure:sum`.
+- **Lineage**: Upstream lineage points at the dbt model the semantic model is built on.
+
+##### Configuration
+
+Semantic models are emitted by default. Control them with `entities_enabled.semantic_models`:
+
+```yaml
+source:
+  type: dbt
+  config:
+    entities_enabled:
+      semantic_models: "NO"
+```
+
+Two connector settings do not apply to semantic models, because both concern physical assets: `include_database_name` (the urn carries no database) and `materialized_node_pattern` (there is no materialized location to match against). To filter semantic models by name, use `node_name_pattern`, which matches the dbt unique id.
+
 #### Exposures
 
 DataHub supports ingesting [dbt exposures](https://docs.getdbt.com/docs/build/exposures) - downstream consumers of your dbt models such as dashboards, notebooks, ML models, and applications.

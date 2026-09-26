@@ -773,7 +773,9 @@ class DBTCommonConfig(
     include_database_name: bool = Field(
         default=True,
         description="Whether to add database name to the table urn. "
-        "Set to False to skip it for engines like AWS Athena where it's not required.",
+        "Set to False to skip it for engines like AWS Athena where it's not required. "
+        "Applies to physical assets only: dbt semantic models are not materialized in "
+        "the warehouse and are named from their dbt unique id, so they ignore this.",
     )
 
     dbt_is_primary_sibling: bool = Field(
@@ -1220,6 +1222,15 @@ class DBTNode:
         return joined
 
     def get_db_fqn(self) -> str:
+        if self.node_type == "semantic_model":
+            # A semantic model is a logical structure defined in YAML - it is never
+            # materialized, so it has no warehouse address of its own. The database and
+            # schema we hold for it are borrowed from the model it sits on, which makes
+            # this name collide with that model's whenever the two share a name (dbt's
+            # own documented convention) and churn whenever the model moves. Key it by
+            # dbt's unique id instead, as we already do for exposures.
+            return self.dbt_name
+
         # Database might be None, but schema and name should always be present.
         fqn = self._join_parts([self.database, self.schema, self.name])
         return fqn.replace('"', "")
@@ -1266,7 +1277,8 @@ class DBTNode:
         """
         Get the urn to use when referencing this node in a dbt node's upstream lineage.
 
-        If the node is an ephemeral dbt node, we should point at the dbt node.
+        If the node does not exist in the target platform (ephemeral, test, semantic
+        model), we should point at the dbt node.
         If the node is a source node, and skip_sources_in_lineage is not enabled, we should also point at the dbt node.
         Otherwise, the node is materialized in the target platform, and so lineage should
         point there.
@@ -1276,7 +1288,7 @@ class DBTNode:
         platform_value = DBT_PLATFORM
         platform_instance_value = dbt_platform_instance
 
-        if self.is_ephemeral_model():
+        if not self.exists_in_target_platform:
             pass  # leave it pointing at dbt
         elif self.node_type == "source" and not skip_sources_in_lineage:
             pass  # leave it as dbt
@@ -1293,7 +1305,13 @@ class DBTNode:
 
     @property
     def exists_in_target_platform(self):
-        return not (self.is_ephemeral_model() or self.node_type == "test")
+        # Semantic models are logical, not physical: they are defined in the dbt project
+        # and never materialized, so there is no warehouse entity to emit or point at.
+        return not (
+            self.is_ephemeral_model()
+            or self.node_type == "test"
+            or self.node_type == "semantic_model"
+        )
 
     def set_columns(self, schema_fields: List[SchemaField]) -> None:
         """Update the column list."""
@@ -2148,6 +2166,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
     def _is_allowed_materialized_node(self, node: DBTNode) -> bool:
         """Filter nodes based on their materialized database location for catalog consistency"""
+
+        if node.node_type == "semantic_model":
+            # Semantic models have no materialized location; the database/schema we hold
+            # for them belong to the model they sit on. Use node_name_pattern to filter
+            # them instead.
+            return True
 
         # Database level filtering
         if not node.database:

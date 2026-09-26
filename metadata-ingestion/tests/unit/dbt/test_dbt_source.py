@@ -3575,6 +3575,134 @@ def test_extract_semantic_models_partial_node_relation():
     assert node.dbt_adapter == "snowflake"
 
 
+def _make_semantic_model_node(
+    *,
+    dbt_name: str = "semantic_model.my_project.order_metrics",
+    name: str = "order_metrics",
+    database: Optional[str] = "analytics",
+    schema: Optional[str] = "public",
+    convert_urns_to_lowercase: bool = False,
+) -> DBTNode:
+    return DBTNode(
+        database=database,
+        schema=schema,
+        name=name,
+        alias=name,
+        dbt_name=dbt_name,
+        dbt_adapter="postgres",
+        node_type="semantic_model",
+        max_loaded_at=None,
+        materialization=None,
+        comment="",
+        description="",
+        dbt_file_path="models/semantic_models/order_metrics.yml",
+        catalog_type=None,
+        language="yaml",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner=None,
+        convert_urns_to_lowercase=convert_urns_to_lowercase,
+    )
+
+
+def test_semantic_model_urn_does_not_collide_with_its_model() -> None:
+    """dbt's documented convention names a semantic model after the model it sits on.
+
+    Both used to resolve to <database>.<schema>.<name>, so the semantic model - emitted
+    last - silently overwrote the model's schema, subtype and properties.
+    """
+    model = DBTNode(
+        database="pagila",
+        schema="public",
+        name="orders",
+        alias="orders",
+        dbt_name="model.my_project.orders",
+        dbt_adapter="postgres",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        comment="",
+        description="",
+        dbt_file_path="models/orders.sql",
+        catalog_type="table",
+        language="sql",
+        raw_code=None,
+        dbt_package_name="my_project",
+        missing_from_catalog=False,
+        owner=None,
+    )
+    semantic_model = _make_semantic_model_node(
+        dbt_name="semantic_model.my_project.orders",
+        name="orders",
+        database="pagila",
+        schema="public",
+    )
+
+    assert model.get_urn("dbt", "PROD", None) != semantic_model.get_urn(
+        "dbt", "PROD", None
+    )
+    assert semantic_model.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.my_project.orders,PROD)"
+    )
+
+
+def test_semantic_model_urn_uses_dbt_unique_id() -> None:
+    """The name is dbt's own unique id, as it already is for exposures."""
+    assert _make_semantic_model_node().get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_urn_is_independent_of_database_and_schema() -> None:
+    """dbt Cloud's Discovery API returns neither, and dbt Core derives them from the
+    first upstream node it finds - so neither may take part in the identity."""
+    with_warehouse_address = _make_semantic_model_node()
+    without_warehouse_address = _make_semantic_model_node(database=None, schema=None)
+    moved_to_another_schema = _make_semantic_model_node(schema="staging")
+
+    urn = with_warehouse_address.get_urn("dbt", "PROD", None)
+    assert without_warehouse_address.get_urn("dbt", "PROD", None) == urn
+    assert moved_to_another_schema.get_urn("dbt", "PROD", None) == urn
+
+
+def test_semantic_model_urn_with_platform_instance() -> None:
+    """The instance is prefixed by the urn builder, not baked into the name."""
+    assert _make_semantic_model_node().get_urn("dbt", "PROD", "my_instance") == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "my_instance.semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_urn_respects_convert_urns_to_lowercase() -> None:
+    node = _make_semantic_model_node(
+        dbt_name="semantic_model.My_Project.Order_Metrics",
+        convert_urns_to_lowercase=True,
+    )
+    assert node.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
+
+
+def test_semantic_model_does_not_exist_in_target_platform() -> None:
+    assert _make_semantic_model_node().exists_in_target_platform is False
+
+
+def test_materialized_node_pattern_does_not_filter_semantic_models() -> None:
+    """A semantic model has no materialized location, so the borrowed database/schema
+    of the model it sits on must not decide whether it is ingested."""
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        **create_base_dbt_config(),
+        materialized_node_pattern={"database_pattern": {"deny": ["analytics"]}},
+    )
+    source = DBTCoreSource(config, ctx)
+
+    assert source._is_allowed_materialized_node(_make_semantic_model_node()) is True
+
+
 def test_dbt_semantic_model_subtype() -> None:
     """Test that semantic models get the correct SEMANTIC_MODEL subtype."""
     ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
@@ -3604,7 +3732,7 @@ def test_dbt_semantic_model_subtype() -> None:
 
     subtype_wu = source._create_subType_wu(
         semantic_model_node,
-        "urn:li:dataset:(urn:li:dataPlatform:dbt,analytics.public.order_metrics,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.my_project.order_metrics,PROD)",
     )
 
     assert subtype_wu is not None
@@ -3909,6 +4037,13 @@ def test_dbt_cloud_parse_semantic_model_node():
     assert node.materialization is None
     assert node.language == "yaml"
     assert len(node.columns) == 3
+
+    # The urn comes from dbt's unique id, so it is well-defined even though the
+    # Discovery API gives us no database or schema to build a warehouse address from.
+    assert node.get_urn("dbt", "PROD", None) == (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt,"
+        "semantic_model.my_project.order_metrics,PROD)"
+    )
 
     # Verify columns were converted correctly
     column_names = [c.name for c in node.columns]
