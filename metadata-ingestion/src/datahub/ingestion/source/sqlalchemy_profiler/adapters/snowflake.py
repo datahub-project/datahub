@@ -23,6 +23,15 @@ from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
 
 logger = logging.getLogger(__name__)
 
+# Below this a table spans too few micro-partitions for BLOCK sampling to be
+# anything but coarse: ~100 partitions at a guessed ~500k rows each. The
+# per-partition figure is an order-of-magnitude estimate, not a measurement --
+# only the product is meaningful.
+BLOCK_SAMPLE_MIN_ROWS = 50_000_000
+
+# How much larger the BLOCK pre-sample is than the final target sample size.
+BLOCK_OVERGENERATION_FACTOR = 1000
+
 
 class SnowflakeAdapter(PlatformAdapter):
     """
@@ -124,6 +133,24 @@ class SnowflakeAdapter(PlatformAdapter):
         operate on this small materialized table, avoiding the 70-800x
         performance penalty of re-evaluating TABLESAMPLE on every query.
 
+        Snowflake spells system sampling BLOCK (SYSTEM and BLOCK are synonyms,
+        as are BERNOULLI and ROW), and the two methods trade off against each
+        other:
+          - BLOCK samples whole micro-partitions, so it skips most of the table
+            unread -- but the sample is clustered. Micro-partitions form in load
+            order, so a BLOCK sample of a date-ordered table is a handful of date
+            ranges, which skews exactly what profiling measures: min/max,
+            distinct counts, quantiles.
+          - BERNOULLI is an independent per-row coin flip: statistically sound,
+            but it scans.
+        Large tables therefore get both -- BLOCK cuts the candidate set down to
+        BLOCK_OVERGENERATION_FACTOR x the target, then BERNOULLI reduces it the
+        rest of the way. That dilutes the clustering bias rather than removing it.
+
+        Both tiers are fraction-based rather than fixed-size (`SAMPLE (<n> ROWS)`)
+        because fixed-size sampling "prevents some query optimization":
+        https://docs.snowflake.com/en/sql-reference/constructs/sample#performance-considerations
+
         No SEED is needed because the sample is materialized once — all
         profiling queries see the exact same rows. Without SEED,
         TABLESAMPLE BERNOULLI also works on views.
@@ -131,25 +158,29 @@ class SnowflakeAdapter(PlatformAdapter):
         temp_name = f"dh_sample_{uuid.uuid4().hex[:8]}"
         sample_pc = self.config.sample_size / row_count
 
-        estimated_block_row_count = 500_000
-        block_profiling_min_rows = 100 * estimated_block_row_count
-        overgeneration_factor = 1000
-
         assert context.schema is not None, (
             f"schema is required for sampling {context.pretty_name}"
         )
         tablename = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
             db_name=None, schema_name=context.schema, table_name=context.table
         )
+        # Two conditions, not one: the table must span enough micro-partitions
+        # for BLOCK to be meaningful, and there must be a real reduction left for
+        # BERNOULLI to do afterwards. The second only bites when sample_size
+        # exceeds 50_000 -- below that BLOCK_SAMPLE_MIN_ROWS already implies it.
         use_block_presample = (
-            row_count > block_profiling_min_rows
-            and row_count > self.config.sample_size * overgeneration_factor
+            row_count > BLOCK_SAMPLE_MIN_ROWS
+            and row_count > self.config.sample_size * BLOCK_OVERGENERATION_FACTOR
         )
 
+        # The percentages are formatted to 8 decimal places throughout, and that
+        # precision is load-bearing: at 10B rows bernoulli_pc is 1e-4, and coarser
+        # formatting would round the sample down to zero rows.
         if use_block_presample:
-            # Two-tier: BLOCK first to reduce to ~1000x sample, then BERNOULLI
-            block_pc = min(100 * overgeneration_factor * sample_pc, 100)
-            bernoulli_pc = 100 / overgeneration_factor
+            # The guard above holds sample_pc below 1/BLOCK_OVERGENERATION_FACTOR,
+            # so block_pc is always under 100 and needs no clamp.
+            block_pc = 100 * BLOCK_OVERGENERATION_FACTOR * sample_pc
+            bernoulli_pc = 100 / BLOCK_OVERGENERATION_FACTOR
             sample_sql = (
                 f"SELECT * FROM"
                 f" (SELECT * FROM {tablename} TABLESAMPLE BLOCK ({block_pc:.8f}))"

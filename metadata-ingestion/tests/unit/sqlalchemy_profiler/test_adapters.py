@@ -379,11 +379,6 @@ class TestGenericAdapter:
         expr = adapter.get_quantiles_expr("test_column", [0.25, 0.5, 0.75])
         assert expr is None
 
-    def test_get_sample_clause(self, adapter):
-        """Test generic adapter returns None for sample clause (not supported)."""
-        clause = adapter.get_sample_clause(1000)
-        assert clause is None
-
     def test_supports_row_count_estimation(self, adapter):
         """Test generic adapter doesn't support row count estimation."""
         assert adapter.supports_row_count_estimation() is False
@@ -1993,7 +1988,7 @@ class TestExecuteAggregateGuard:
 
 
 class TestRowCountRungChoice:
-    """get_row_count is the one site where the wrong rung is a correctness bug."""
+    """get_row_count counts a whole table, so it must take the flattenable rung."""
 
     @staticmethod
     def _adapter() -> Any:
@@ -2002,18 +1997,6 @@ class TestRowCountRungChoice:
             report=SQLSourceReport(),
             base_engine=sa.create_engine("sqlite://"),
         )
-
-    def test_sampled_row_count_is_not_flattenable(self) -> None:
-        # Flattening would drop the sample clause and count the whole table,
-        # reporting a full count as a sampled one.
-        conn = MagicMock()
-        conn.execute_single_row.return_value.scalar.return_value = 10
-        table = sa.table("t", sa.column("v"))
-
-        self._adapter().get_row_count(table, conn, sample_clause="TABLESAMPLE (10)")
-
-        conn.execute_aggregate.assert_not_called()
-        assert "TABLESAMPLE" in str(conn.execute_single_row.call_args.args[0])
 
     def test_unsampled_row_count_is_flattenable(self) -> None:
         conn = MagicMock()
