@@ -48,7 +48,14 @@ _GRAFANA_GENERIC_MACRO_PATTERN = re.compile(r"\$__\w+(?:\([^)]*\))?")
 
 # Bracket and braced variables
 _GRAFANA_BRACKET_VAR_PATTERN = re.compile(r"\[\[[^\]]+\]\]")
-_GRAFANA_BRACED_VAR_PATTERN = re.compile(r"\$\{[^}]+\}")
+
+# Braced variables not flanked by quotes: ${variable}
+# Same negative lookbehind/lookahead as _GRAFANA_SIMPLE_VAR_PATTERN below: without
+# them '${var}' becomes ''grafana_var'', which no SQL dialect can parse. Both
+# patterns test for an adjacent quote rather than string-literal containment, so a
+# variable in the middle of a longer literal ('%${var}%') is still substituted and
+# still fails to parse.
+_GRAFANA_BRACED_VAR_PATTERN = re.compile(r"(?<!')\$\{[^}]+\}(?!')")
 
 # Simple variables NOT inside quotes: $var
 # Use negative lookbehind/lookahead to skip variables already in quotes
@@ -78,10 +85,11 @@ def _clean_grafana_template_variables(query: str) -> str:
     Replacement strategy:
     - Macros with args: $__timeFilter(column) -> TRUE (complete boolean expression)
     - Standalone macros: $__timeFilter -> > TIMESTAMP '2000-01-01' (valid predicate)
-    - ${...} variables -> 'grafana_var' (string literal)
+    - ${...} variables (not in quotes) -> 'grafana_var' (string literal)
     - [[...]] identifiers -> grafana_identifier (valid identifier)
     - $simple variables (not in quotes) -> 'grafana_var' (string literal)
-    - Variables already in quotes: '$var' -> left unchanged
+    - Variables that form an entire quoted literal: '$var', '${var}' -> left unchanged
+      (this is quote adjacency, not literal containment: '%${var}%' is still replaced)
 
     Examples:
         ${__from:date:'YYYY/MM/DD'} -> 'grafana_var'
@@ -91,6 +99,7 @@ def _clean_grafana_template_variables(query: str) -> str:
         WHERE event_timestamp $__timeFilter -> WHERE event_timestamp > TIMESTAMP '2000-01-01'
         $__interval -> 1
         WHERE status = '$status' -> WHERE status = '$status' (unchanged - already quoted)
+        WHERE id = '${id}' -> WHERE id = '${id}' (unchanged - already quoted)
         WHERE status = $status -> WHERE status = 'grafana_var'
     """
 
@@ -114,7 +123,8 @@ def _clean_grafana_template_variables(query: str) -> str:
     # Replace [[...]] with identifier (deprecated syntax, often used for table/column names)
     query = _GRAFANA_BRACKET_VAR_PATTERN.sub("grafana_identifier", query)
 
-    # Replace ${...} with string literal (handles ${var} and ${var:format})
+    # Replace ${...} with string literal (handles ${var} and ${var:format}, but skip
+    # if quote-flanked - '${var}' is already a valid string literal)
     query = _GRAFANA_BRACED_VAR_PATTERN.sub("'grafana_var'", query)
 
     # Replace simple $variable format with string literal (but skip if already in quotes)
