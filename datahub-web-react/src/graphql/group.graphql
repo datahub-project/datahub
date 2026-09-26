@@ -224,17 +224,7 @@ query listGroups($input: ListGroupsInput!) {
                 description
                 pictureLink
             }
-            memberCount: relationships(
-                input: {
-                    types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
-                    direction: INCOMING
-                    start: 0
-                    count: 1
-                    includeSoftDelete: false
-                }
-            ) {
-                total
-            }
+            ...corpGroupMemberCount
             roles: relationships(input: { types: ["IsMemberOfRole"], direction: OUTGOING, start: 0 }) {
                 relationships {
                     entity {
