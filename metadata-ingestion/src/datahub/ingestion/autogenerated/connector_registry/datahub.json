@@ -1336,6 +1336,12 @@
     "dynamodb": {
       "capabilities": [
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Optionally enabled via `include_s3_export_lineage` with `include_s3_export_column_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
           "subtype_modifier": null,
@@ -1350,6 +1356,12 @@
         {
           "capability": "PLATFORM_INSTANCE",
           "description": "By default, platform_instance will use the AWS account id",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Optionally enabled via `include_s3_export_lineage` for DynamoDB Export to S3 destinations",
           "subtype_modifier": null,
           "supported": true
         }
