@@ -31,6 +31,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     _compose_deny,
     _make_composable,
 )
+from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
@@ -424,6 +425,56 @@ class TestSnowflakeViewQueries:
         assert where_clause is not None
         where_str = str(where_clause).upper()
         assert "TABLE_SCHEMA" in where_str and "PUBLIC" in where_str
+
+
+class TestFetchCopyHistory:
+    """
+    `fetch_copy_history` is the second consumer of
+    `SnowflakeLineageExtractor._process_external_lineage_result_row`, which returns every
+    nameable location for a row rather than only the first. Elsewhere this path is always
+    mocked, so nothing exercised the real body.
+    """
+
+    def _extractor(self) -> SnowflakeQueriesExtractor:
+        mock_connection = Mock()
+        mock_connection.query.return_value = [
+            {
+                "DOWNSTREAM_TABLE_NAME": "DB.SCHEMA.TABLE",
+                "UPSTREAM_LOCATIONS": json.dumps(
+                    ["gcs://other-bucket/data", "s3://my-bucket/data"]
+                ),
+            },
+        ]
+
+        identifier_config = SnowflakeIdentifierConfig(
+            platform_instance_map={"s3": "product", "gcs": "gcs_inst"}
+        )
+        report = SnowflakeV2Report()
+        return SnowflakeQueriesExtractor(
+            connection=mock_connection,
+            config=SnowflakeQueriesExtractorConfig(
+                window=BaseTimeWindowConfig(
+                    start_time=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                    end_time=datetime(2021, 1, 2, tzinfo=timezone.utc),
+                ),
+            ),
+            structured_report=report,
+            filters=Mock(),
+            identifiers=SnowflakeIdentifierBuilder(
+                identifier_config=identifier_config, structured_reporter=report
+            ),
+        )
+
+    def test_yields_every_nameable_location_for_a_row(self) -> None:
+        extractor = self._extractor()
+        extractor.discovered_tables = None
+
+        mappings = list(extractor.fetch_copy_history())
+
+        assert [m.upstream_urn for m in mappings] == [
+            "urn:li:dataset:(urn:li:dataPlatform:gcs,gcs_inst.other-bucket/data,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,product.my-bucket/data,PROD)",
+        ]
 
 
 class TestSnowflakeQueriesExtractorOptimization:

@@ -545,7 +545,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
             for row in resp:
                 try:
-                    result = (
+                    results = (
                         SnowflakeLineageExtractor._process_external_lineage_result_row(
                             row,
                             discovered_tables=self.discovered_tables,
@@ -559,8 +559,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         exc=e,
                     )
                 else:
-                    if result:
-                        yield result
+                    yield from results
 
     def fetch_query_log(
         self, users: UsersMapping
