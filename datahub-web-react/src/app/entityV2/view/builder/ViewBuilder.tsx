@@ -1,4 +1,5 @@
 import { useApolloClient } from '@apollo/client';
+import { toast } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -10,7 +11,6 @@ import { updateListMyViewsCache, updateViewSelectCache } from '@app/entityV2/vie
 import { ViewBuilderState } from '@app/entityV2/view/types';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertStateToUpdateInput } from '@app/entityV2/view/utils';
 import { useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
-import { notification } from '@src/alchemy-components';
 
 import { useCreateViewMutation, useUpdateViewMutation } from '@graphql/view.generated';
 import { DataHubView } from '@types';
@@ -111,11 +111,7 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
                 onSubmit?.(state);
             })
             .catch((_) => {
-                notification.error({
-                    message: t('builder.saveError'),
-                    description: t('errorDescription'),
-                    duration: 3,
-                });
+                toast.error(t('builder.saveError'), { duration: 3 });
             });
     };
 
