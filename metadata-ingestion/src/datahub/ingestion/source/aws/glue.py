@@ -160,6 +160,14 @@ VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 GLUE_TABLE_TYPE_ICEBERG = "ICEBERG"
 
+# Actor stamped on system-generated tag attribution (matches the DataHub
+# tag-propagation action's actor).
+DATAHUB_SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
+# Marker written to a tag association's ``sourceDetail.origin`` to record that
+# the tag came from Lake Formation ingestion (as opposed to being added in the
+# DataHub UI, which leaves the association without attribution).
+LAKE_FORMATION_TAG_ORIGIN = "lake-formation"
+
 # Structural shape of a Glue catalog ARN authority: arn:{partition}:glue:{region}:{account}. The
 # partition/region agreement is validated separately (check_catalog_arn_keys) against botocore's
 # authoritative partition data, so the shape here only pins the segments and the 12-digit account.
@@ -2072,19 +2080,19 @@ class GlueSource(StatefulIngestionSourceBase):
     def gen_database_containers(
         self, database: Mapping[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        container_tags: Optional[List] = None
+        database_lf_tags: List[LakeFormationTag] = []
         if self.source_config.extract_lakeformation_tags:
             try:
-                tags = self.get_database_lf_tags(
+                for tag in self.get_database_lf_tags(
                     catalog_id=database["CatalogId"], database_name=database["Name"]
-                )
-                container_tags = []
-                for tag in tags:
+                ):
                     try:
-                        container_tags.append(tag.to_datahub_tag_urn().name)
-                        yield from self.gen_platform_resource(tag)
+                        # Validate the tag maps to a well-formed URN before keeping it.
+                        tag.to_datahub_tag_urn()
                     except InvalidUrnError:
                         continue
+                    database_lf_tags.append(tag)
+                    yield from self.gen_platform_resource(tag)
             except Exception:
                 self.report.warning(
                     "Failed to extract Lake Formation tags for database",
@@ -2108,9 +2116,20 @@ class GlueSource(StatefulIngestionSourceBase):
             qualified_name=self.get_glue_arn(
                 account_id=database["CatalogId"], database=database["Name"]
             ),
-            tags=container_tags,
             extra_properties=parameters,
         )
+
+        # Stamp the database container's own Lake Formation tags with attribution
+        # (external/origin), the same as table and column tags, so they can be told
+        # apart from tags added in the DataHub UI. Emitted as a separate GlobalTags
+        # aspect because gen_containers only accepts bare tag-name strings.
+        if database_lf_tags:
+            global_tags = self._build_lf_global_tags(database_lf_tags)
+            if global_tags:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=database_container_key.as_urn(),
+                    aspect=global_tags,
+                ).as_workunit()
 
     def add_table_to_database_container(
         self, dataset_urn: str, db_name: str
@@ -2904,25 +2923,50 @@ class GlueSource(StatefulIngestionSourceBase):
                 continue  # Skip invalid tags
         return urns
 
+    def _tag_attribution(
+        self, source_detail: Dict[str, str], source: Optional[str]
+    ) -> Tuple[MetadataAttributionClass, str]:
+        """Build a tag ``MetadataAttribution`` plus the equivalent legacy ``context``.
+
+        ``sourceDetail`` is surfaced in the UI (e.g. the "Propagated" indicator)
+        and ``context`` carries the same information as a JSON string for older
+        readers.
+        """
+        attribution = MetadataAttributionClass(
+            time=get_sys_time(),
+            actor=DATAHUB_SYSTEM_ACTOR,
+            source=source,
+            sourceDetail=source_detail,
+        )
+        return attribution, json.dumps(source_detail)
+
     def _propagated_tag_attribution(
         self, origin: Optional[str]
     ) -> Tuple[MetadataAttributionClass, str]:
-        """Build the attribution + legacy context marking a tag as propagated.
+        """Attribution marking a tag as propagated (inherited from db/table).
 
         Mirrors the DataHub tag-propagation action: ``sourceDetail.propagated``
-        drives the "Propagated" indicator in the UI, and ``context`` carries the
-        same information for older readers.
+        drives the "Propagated" indicator in the UI.
         """
         source_detail: Dict[str, str] = {"propagated": "true"}
         if origin:
             source_detail["origin"] = origin
-        attribution = MetadataAttributionClass(
-            time=get_sys_time(),
-            actor="urn:li:corpuser:__datahub_system",
-            source=origin,
-            sourceDetail=source_detail,
+        return self._tag_attribution(source_detail, source=origin)
+
+    def _direct_tag_attribution(self) -> Tuple[MetadataAttributionClass, str]:
+        """Attribution marking a tag as directly assigned in Lake Formation.
+
+        This records the tag's provenance so a Lake-Formation-ingested tag can be
+        told apart from one added in the DataHub UI (which carries no
+        attribution). ``source`` points at the Glue/Lake Formation platform.
+        """
+        source_detail: Dict[str, str] = {
+            "origin": LAKE_FORMATION_TAG_ORIGIN,
+            "external": "true",
+        }
+        return self._tag_attribution(
+            source_detail, source=make_data_platform_urn(self.platform)
         )
-        return attribution, json.dumps(source_detail)
 
     def _build_lf_global_tags(
         self,
@@ -2930,14 +2974,26 @@ class GlueSource(StatefulIngestionSourceBase):
         propagated_tags: Optional[List[LakeFormationTag]] = None,
         propagated_origin: Optional[str] = None,
     ) -> Optional[GlobalTagsClass]:
-        """Build a GlobalTags aspect, marking propagated tags with attribution.
+        """Build a GlobalTags aspect from Lake Formation tags, with provenance.
 
-        Direct tags take precedence: a propagated tag is skipped if the same tag
-        URN is already assigned directly.
+        Direct tags are stamped with Lake Formation attribution so they can be
+        distinguished from tags added in the DataHub UI. Propagated tags carry
+        propagation attribution instead. Direct tags take precedence: a
+        propagated tag is skipped if the same tag URN is already assigned
+        directly.
         """
         associations: Dict[str, TagAssociationClass] = {}
-        for urn in self._to_tag_urns(direct_tags):
-            associations.setdefault(urn, TagAssociationClass(tag=urn))
+        if direct_tags:
+            direct_attribution, direct_context = self._direct_tag_attribution()
+            for urn in self._to_tag_urns(direct_tags):
+                associations.setdefault(
+                    urn,
+                    TagAssociationClass(
+                        tag=urn,
+                        context=direct_context,
+                        attribution=direct_attribution,
+                    ),
+                )
 
         if propagated_tags:
             attribution, context = self._propagated_tag_attribution(propagated_origin)
