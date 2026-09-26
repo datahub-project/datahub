@@ -17,7 +17,7 @@ fi
 
 # Fall back to Docker image.
 if command -v docker &>/dev/null; then
-    exec docker run --rm -v "$PWD:/src" -w /src "$RUFF_IMAGE" "$subcmd" "$@"
+    exec docker run --rm --user "$(id -u):$(id -g)" -v "$PWD:/src" -w /src "$RUFF_IMAGE" "$subcmd" "$@"
 fi
 
 echo "error: neither ruff nor docker found on PATH" >&2
