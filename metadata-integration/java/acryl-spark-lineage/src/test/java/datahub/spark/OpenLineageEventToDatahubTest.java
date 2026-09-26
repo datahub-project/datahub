@@ -10,6 +10,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataprocess.RunResultType;
 import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.schema.SchemaField;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import datahub.spark.conf.SparkAppContext;
@@ -484,6 +485,115 @@ public class OpenLineageEventToDatahubTest {
         OpenLineageToDataHub.convertRunEventToJob(
             runEvent, sparkLineageConfBuilder.build().getOpenLineageConf());
     assertNotNull(datahubJob);
+  }
+
+  @Test
+  public void testNestedSchemaFieldsGeneratedWithDottedPaths()
+      throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .orchestrator("spark")
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .build();
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_nested_schema.json"),
+            StandardCharsets.UTF_8);
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    assertNotNull(datahubJob);
+    assertEquals(1, datahubJob.getOutSet().size());
+    DatahubDataset output = datahubJob.getOutSet().iterator().next();
+    assertNotNull(output.getSchemaMetadata());
+
+    // Nested struct columns must be flattened to dotted field paths, not dropped.
+    assertTrue(hasFieldPath(output, "id"));
+    assertTrue(hasFieldPath(output, "address"));
+    assertTrue(hasFieldPath(output, "address.city"));
+    assertTrue(hasFieldPath(output, "address.zip"));
+    assertTrue(hasFieldPath(output, "address.geo"));
+    assertTrue(hasFieldPath(output, "address.geo.lat"));
+    assertTrue(hasFieldPath(output, "address.geo.lon"));
+    assertEquals(7, output.getSchemaMetadata().getFields().size());
+
+    // Types resolve through nesting; "STRING" (uppercase) exercises the case-insensitive mapping.
+    assertTrue(fieldType(output, "address.city").isStringType());
+    assertTrue(fieldType(output, "address.zip").isNumberType());
+  }
+
+  @Test
+  public void testArraySchemaGeneratesV2FieldPaths() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .orchestrator("spark")
+            .materializeDataset(true)
+            .includeSchemaMetadata(true)
+            .build();
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_array_schema.json"),
+            StandardCharsets.UTF_8);
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    assertEquals(1, datahubJob.getOutSet().size());
+    DatahubDataset output = datahubJob.getOutSet().iterator().next();
+    assertNotNull(output.getSchemaMetadata());
+
+    // An array is present, so the whole schema must be emitted with v2 fieldPaths.
+    assertTrue(hasFieldPath(output, "[version=2.0].[type=struct].[type=long].id"));
+    assertTrue(hasFieldPath(output, "[version=2.0].[type=struct].[type=array].[type=string].tags"));
+    assertTrue(
+        hasFieldPath(output, "[version=2.0].[type=struct].[type=array].[type=struct].markers"));
+    assertTrue(
+        hasFieldPath(
+            output,
+            "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name"));
+  }
+
+  @Test
+  public void testAirflowDagDescriptionLandsOnDataFlowTaskDescriptionOnDataJob()
+      throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .orchestrator("airflow")
+            .build();
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_airflow_dag_description.json"),
+            StandardCharsets.UTF_8);
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, config);
+
+    // DAG description (airflow custom run facet) -> DataFlow; task DocumentationJobFacet ->
+    // DataJob.
+    assertEquals(
+        datahubJob.getDataFlowInfo().getDescription(), "DAG-level description from Airflow");
+    assertEquals(
+        datahubJob.getJobInfo().getDescription(), "Task-level description from the operator");
+  }
+
+  private static boolean hasFieldPath(DatahubDataset dataset, String fieldPath) {
+    return dataset.getSchemaMetadata().getFields().stream()
+        .anyMatch(f -> fieldPath.equals(f.getFieldPath()));
+  }
+
+  private static com.linkedin.schema.SchemaFieldDataType.Type fieldType(
+      DatahubDataset dataset, String fieldPath) {
+    SchemaField field =
+        dataset.getSchemaMetadata().getFields().stream()
+            .filter(f -> fieldPath.equals(f.getFieldPath()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("missing field " + fieldPath));
+    return field.getType().getType();
   }
 
   @Test
