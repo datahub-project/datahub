@@ -5,8 +5,17 @@ import { setInLocalStorage } from '@app/sharedV2/hooks/useFeatureFlag';
 import { useAppConfig } from '@app/useAppConfig';
 import { AppConfigWithoutPolicyPrivileges } from '@src/appConfigContext';
 
-export const hideLineageInSearchCardsRef = { current: false };
-export const showSeparateSiblingsRef = { current: false };
+declare global {
+    interface Window {
+        __INITIAL_FLAGS__?: {
+            showSeparateSiblings?: boolean;
+            hideLineageInSearchCards?: boolean;
+        };
+    }
+}
+
+export const showSeparateSiblingsRef = { current: window.__INITIAL_FLAGS__?.showSeparateSiblings ?? false };
+export const hideLineageInSearchCardsRef = { current: window.__INITIAL_FLAGS__?.hideLineageInSearchCards ?? false };
 
 export const SHOW_SEPARATE_SIBLINGS_KEY = 'showSeparateSiblings';
 export const HIDE_LINEAGE_IN_SEARCH_CARDS_KEY = 'hideLineageInSearchCards';
