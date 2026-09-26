@@ -32,7 +32,6 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.Edge;
-import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.SystemUpdateConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.graph.GraphService;
@@ -113,7 +112,6 @@ public class UpdateIndicesHookTest {
   private TimeseriesAspectService mockTimeseriesAspectService;
   private SystemMetadataService mockSystemMetadataService;
   private SearchDocumentTransformer searchDocumentTransformer;
-  private DataHubUpgradeKafkaListener mockDataHubUpgradeKafkaListener;
   private ConfigurationProvider mockConfigurationProvider;
   private Urn actorUrn;
   private UpdateIndicesService updateIndicesService;
@@ -132,7 +130,6 @@ public class UpdateIndicesHookTest {
     mockSystemMetadataService = mock(SystemMetadataService.class);
     searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
-    mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
 
     // Hook invoke paths call flushAndWaitIfConfigured(); stub a disabled ack path.

@@ -39,8 +39,7 @@ public class MCPApplicationStartupListener implements ApplicationListener<Contex
 
   @Override
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
-    if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())
-        && _configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
+    if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
       _mcpBootstrapManager.start(systemOperationContext);
     }
   }

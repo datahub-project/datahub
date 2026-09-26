@@ -938,7 +938,6 @@ Reference Links:
 | `BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS` | `5000`                | Initial back off for system updates  | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS`           | `50`                  | Maximum back offs for system updates | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR`         | `2`                   | Multiplicative factor for back off   | System Update |
-| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE`  | `true`                | Wait for system update to complete   | System Update |
 | `SYSTEM_UPDATE_BOOTSTRAP_MCP_CONFIG`              | `bootstrap_mcps.yaml` | Bootstrap MCP configuration          | System Update |
 
 ### Data Job Node CLL Configuration

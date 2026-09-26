@@ -9,7 +9,6 @@ import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolv
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -225,32 +224,6 @@ public class KafkaEventProducer extends EventProducer {
   @Override
   public String getPlatformEventTopicName() {
     return _topicConvention.getPlatformEventTopicName();
-  }
-
-  @Override
-  public void produceDataHubUpgradeHistoryEvent(
-      @Nonnull OperationContext opContext, @Nonnull DataHubUpgradeHistoryEvent event) {
-    // We allow this to write even when in not writable mode to allow DH to start up
-    GenericRecord record;
-    try {
-      log.debug(String.format("Converting Pegasus Event to Avro Event\nEvent: %s", event));
-      record = EventUtils.pegasusToAvroDUHE(event);
-    } catch (IOException e) {
-      log.error(
-          String.format(
-              "Failed to convert Pegasus DataHub Upgrade History Event to Avro: %s", event),
-          e);
-      throw new ModelConversionException("Failed to convert Pegasus Platform Event to Avro", e);
-    }
-
-    final String topic = _topicConvention.getDataHubUpgradeHistoryTopicName();
-    ProducerRecord<String, GenericRecord> producerRecord =
-        new ProducerRecord<>(topic, event.getVersion(), record);
-    outboundContextResolver.apply(producerRecord, opContext);
-    sendProducerRecord(
-        producerRecord,
-        _kafkaHealthChecker.getKafkaCallBack(
-            metricUtils, "History Event", "Event Version: " + event.getVersion()));
   }
 
   @Nonnull

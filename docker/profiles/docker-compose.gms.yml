@@ -210,7 +210,6 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
   environment: &datahub-gms-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-gms-env, *datahub-dev-aws-env]
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001 -Dlogging.appender.debug_file.level=${GMS_LOGGING_APPENDER_DEBUG_FILE_LEVEL:-DEBUG}'
-    BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:-false}
     SEARCH_SERVICE_ENABLE_CACHE: false
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
