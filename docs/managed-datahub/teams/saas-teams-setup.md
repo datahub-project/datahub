@@ -1,0 +1,99 @@
+
+
+# Microsoft Teams App Setup
+
+> **Availability:** DataHub Cloud only
+
+## Required Permissions
+
+The DataHub Teams app requires the following permissions. Your Teams or Azure administrator may
+need to provide this list during your organization's security review.
+
+### Microsoft Graph (application permissions, admin-consent)
+
+These permissions are granted on the Azure AD app registration and are used to resolve users,
+teams, and channels referenced from DataHub.
+
+| Permission              | Why it's needed                                                               |
+| ----------------------- | ----------------------------------------------------------------------------- |
+| `User.ReadBasic.All`    | Resolve Teams users to names and email addresses for notification recipients. |
+| `Team.ReadBasic.All`    | List teams in order to resolve the channels referenced from DataHub.          |
+| `Channel.ReadBasic.All` | List channels in the Teams picker and resolve a channel to its team.          |
+| `TeamsActivity.Send`    | Send activity-feed notifications directly to individual users.                |
+
+### Bot Framework (separate authentication, not a Graph scope)
+
+The app authenticates against `api.botframework.com` to actually send messages. This is a separate
+identity from Microsoft Graph — it uses the **same Azure AD app registration and client secret**,
+but a different scope (`https://api.botframework.com/.default`).
+
+All message sends, edits, and threaded replies go through Bot Framework, not through Microsoft
+Graph.
+
+## Installing the DataHub Microsoft Teams App
+
+To enable the DataHub Teams app, you will need to install the DataHub Teams bot into your Teams workspace.
+You will need to manually upload the Teams app package (a ZIP file) to your Teams workspace. The ZIP file can be downloaded directly from your DataHub instance.
+
+The following steps should be performed by a Teams or Azure Administrator:
+
+### Creating the DataHub App in Teams
+
+1. In DataHub, navigate to **Settings** > **Integrations** > **Teams**. Under **Teams App Package**, click **Download Teams App (.zip)** to download the Teams app package to your computer.
+
+2. Open [Teams Admin UI](https://admin.teams.microsoft.com/) in your web browser, and in the sidebar click **Teams Apps** > **Manage Apps**
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-1.png" /></p>
+
+3. On the Apps page, click **Actions** > **Upload new app**
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-2.png" /></p>
+
+4. In the "Upload a custom app" window, click **Upload**, and then in the file browser, select the ZIP file you downloaded in Step #1.
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-3.png" /></p>
+
+5. Once the app is uploaded, log out of Teams Admin and User UIs, wait 5 minutes, and then log back into [Teams Web UI](https://teams.microsoft.com/v2/) in a new tab.
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-4.png" /></p>
+
+6. On the sidebar in the Teams Web UI, click **Apps** > **Built for your org**
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-5.png" /></p>
+
+7. On **Built for your org** page, locate **DataHub** application in the list, and click **Add**.
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-6.png" /></p>
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-7.png" /></p>
+
+8. Confirm installation by clicking **Add** in the pop-up
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-8.png" /></p>
+
+9. In the pop-up, click **Open** to open a chat window with the DataHub Teams bot.
+   <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-9.png" /></p>
+
+### Connecting the App to Your DataHub Instance
+
+10. **First, get your team URL:** On the sidebar, click **Chat**, locate your team name in the list, and click "..." next to open a dropdown manu. Then click **Copy Link**
+<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-10.png" /></p>
+
+11. **Then, link in DataHub:** In a separate web browser tab, open your DataHub UI, go to **Settings** > **Integrations** and click **Teams**
+<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-11.png" /></p>
+
+12. Paste the URL obtained is Step #10 into the Teams URL field, and click **Connect to Teams**
+<p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-12.png" /></p>
+
+13. When prompted, complete the Teams authentication flow. After completion, you should be redirected back to DataHub.
+
+Your Teams App is now ready to use! Add the DataHub bot to any channel in your Teams workspace, and start asking questions about your data.
+
+## Connecting Your Personal Teams Account
+
+To receive personal notifications via teams (e.g. for asset subscriptions), you'll need to connect your Teams account to your DataHub user profile.
+This can be done by navigating to **Settings** > **My Notifications** and enable Teams notifications by clicking the toggle
+switch on the right hand side.
+
+<p align="center">
+    <img width="80%" alt="Connect to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/connect_user.png" />
+</p>
+
+Next, click **Connect to Teams** to be redirected to teams, where you can bind your account.
+Upon successfully linking accounts, you'll be redirected to DataHub.
+
+<p align="center">
+    <img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/connected_user.png" />
+</p>
