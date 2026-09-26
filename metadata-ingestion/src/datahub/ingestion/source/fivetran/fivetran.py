@@ -1069,6 +1069,10 @@ class FivetranSource(StatefulIngestionSourceBase):
             self.config.destination_patterns,
             self.config.history_sync_lookback_period,
         )
+        # Google Sheets spreadsheets are keyed only on sheet id, so
+        # record every connection first and pick one stable label when
+        # several connections sync the same spreadsheet.
+        self.gsheets_handler.remember_connections(connectors)
         for connector in connectors:
             logger.info(f"Processing connector id: {connector.connector_id}")
             yield from self._get_connector_workunits(connector)

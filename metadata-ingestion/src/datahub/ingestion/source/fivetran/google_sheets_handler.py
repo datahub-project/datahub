@@ -16,7 +16,7 @@ References:
 """
 
 import logging
-from typing import Callable, Dict, Iterable, Optional
+from typing import Callable, Dict, Iterable, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -40,6 +40,12 @@ from datahub.sdk.entity import Entity
 logger = logging.getLogger(__name__)
 
 _CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
+_CUSTOM_INGESTED_BY = "ingested_by"
+_CUSTOM_INGESTED_BY_VALUE = "fivetran source"
+_CUSTOM_CONNECTOR_ID = "connector_id"
+_CUSTOM_CONNECTOR_NAME = "connector_name"
+_CUSTOM_SHEET_ID = "sheet_id"
+_CUSTOM_NAMED_RANGE = "named_range"
 
 
 class GoogleSheetsConnectorHandler:
@@ -78,6 +84,12 @@ class GoogleSheetsConnectorHandler:
         # problem. Emit it once per ingest with a list of affected
         # connectors instead of one warning per Google Sheets connector.
         self._api_client_unavailable_reported = False
+        # sheet_id -> {(connection display name, connector id)}. Several
+        # Fivetran connections can sync named ranges from one spreadsheet;
+        # the spreadsheet URN is the sheet id alone, so we pick one
+        # deterministic label (lexicographically smallest name, then id)
+        # instead of last-writer-wins.
+        self._sheet_connections: Dict[str, Set[Tuple[str, str]]] = {}
 
     @staticmethod
     def applies_to(connector_type: str) -> bool:
@@ -129,6 +141,25 @@ class GoogleSheetsConnectorHandler:
             env=env,
         )
 
+    def remember_connections(self, connectors: Iterable[Connector]) -> None:
+        """Record each Google Sheets connection against its spreadsheet.
+
+        Call once per ingest before `emit_workunits` so a spreadsheet
+        synced by several connections gets a stable display name no
+        matter which connection is processed last.
+        """
+        for connector in connectors:
+            if not self.applies_to(connector.connector_type):
+                continue
+            conn_details = self._get_connection_details(connector.connector_id)
+            sheet_id = (
+                self._get_sheet_id_from_url(conn_details) if conn_details else None
+            )
+            if sheet_id:
+                self._record_sheet_connection(
+                    sheet_id, connector, connector.connector_id
+                )
+
     def emit_workunits(self, connector: Connector) -> Iterable[Entity]:
         """Yield `Dataset` entities representing the Google Sheet and its
         named range. The named-range dataset has the sheet as its upstream.
@@ -164,32 +195,54 @@ class GoogleSheetsConnectorHandler:
                 )
             return
 
+        connection_name = self._human_readable_name(connector)
+        self._record_sheet_connection(sheet_id, connector, connector.connector_id)
+        sheet_display_name, sheet_connector_id = self._stable_sheet_label(
+            sheet_id, connection_name, connector.connector_id
+        )
+        named_range_display_name = (
+            conn_details.config.named_range or ""
+        ).strip() or connection_name
+        sheet_browse: List[str] = [sheet_display_name]
+        range_browse: List[str] = [connection_name]
+        shared_custom_properties: Dict[str, str] = {
+            _CUSTOM_INGESTED_BY: _CUSTOM_INGESTED_BY_VALUE,
+            _CUSTOM_SHEET_ID: sheet_id,
+        }
+
         gsheets_dataset = Dataset(
             name=sheet_id,
             platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
             env=self._config.env,
-            display_name=sheet_id,
+            display_name=sheet_display_name,
+            qualified_name=sheet_id,
+            parent_container=sheet_browse,
             external_url=conn_details.config.sheet_id,
             created=conn_details.created_at,
             last_modified=conn_details.succeeded_at,
             subtype=DatasetSubTypes.GOOGLE_SHEETS,
             custom_properties={
-                "ingested_by": "fivetran source",
-                "connector_id": conn_details.id,
+                **shared_custom_properties,
+                _CUSTOM_CONNECTOR_ID: sheet_connector_id,
+                _CUSTOM_CONNECTOR_NAME: sheet_display_name,
             },
         )
         gsheets_named_range_dataset = Dataset(
             name=named_range,
             platform=Constant.GOOGLE_SHEETS_CONNECTOR_TYPE,
             env=self._config.env,
-            display_name=conn_details.config.named_range,
+            display_name=named_range_display_name,
+            qualified_name=named_range,
+            parent_container=range_browse,
             external_url=conn_details.config.sheet_id,
             created=conn_details.created_at,
             last_modified=conn_details.succeeded_at,
             subtype=DatasetSubTypes.GOOGLE_SHEETS_NAMED_RANGE,
             custom_properties={
-                "ingested_by": "fivetran source",
-                "connector_id": conn_details.id,
+                **shared_custom_properties,
+                _CUSTOM_CONNECTOR_ID: conn_details.id,
+                _CUSTOM_CONNECTOR_NAME: connection_name,
+                _CUSTOM_NAMED_RANGE: conn_details.config.named_range,
             },
             upstreams=UpstreamLineage(
                 upstreams=[
@@ -301,6 +354,27 @@ class GoogleSheetsConnectorHandler:
                 f"Failed to extract sheet_id from URL: {sheet_id}, Error: {e}"
             )
         return None
+
+    @staticmethod
+    def _human_readable_name(connector: Connector) -> str:
+        """Return the Fivetran connection name, falling back to connector id."""
+        name = (connector.connector_name or "").strip()
+        return name or connector.connector_id
+
+    def _record_sheet_connection(
+        self, sheet_id: str, connector: Connector, connector_id: str
+    ) -> None:
+        self._sheet_connections.setdefault(sheet_id, set()).add(
+            (self._human_readable_name(connector), connector_id)
+        )
+
+    def _stable_sheet_label(
+        self, sheet_id: str, fallback_name: str, fallback_id: str
+    ) -> Tuple[str, str]:
+        names = self._sheet_connections.get(sheet_id)
+        if not names:
+            return fallback_name, fallback_id
+        return min(names)
 
     def _get_named_range_dataset_id(
         self, conn_details: FivetranConnectionDetails
