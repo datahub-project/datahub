@@ -415,6 +415,43 @@ class TestResolveChartFormulaUpstream:
         assert result == (dm_urn, "Id")
         assert self.src.reporter.chart_input_fields_case_mismatch == 0
 
+    def test_the_exact_spelling_breaks_a_tie_between_sheet_upstreams(self) -> None:
+        index = {
+            "Orders": [_make_element("sourceElem", "Orders")],
+            "ORDERS": [_make_element("otherElem", "ORDERS")],
+        }
+        result = self.src._resolve_chart_formula_upstream(
+            _make_ref("Orders", "Id"),
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids={"sourceElem", "otherElem"},
+            dm_upstream_urn_by_element_name={},
+            wb_element_index=index,
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={
+                "sourceElem": "urn:source",
+                "otherElem": "urn:other",
+            },
+        )
+        assert result == ("urn:source", "Id")
+
+    def test_the_exact_spelling_breaks_a_tie_between_dm_upstreams(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,PROD)"
+        dm_a = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)"
+        index = {
+            "Orders": [_make_element("a", "Orders")],
+            "ORDERS": [_make_element("b", "ORDERS")],
+        }
+        result = self._resolve(
+            _make_ref("Orders", "Id"),
+            index,
+            dm_urns={
+                "Orders": dm_a,
+                "ORDERS": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.b,PROD)",
+            },
+            warehouse_index={"ORDERS": [wh_urn]},
+        )
+        assert result == (dm_a, "Id")
+
     def test_the_exact_spelling_wins_when_lineage_picks_nothing(self) -> None:
         wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t source,PROD)"
         index = {

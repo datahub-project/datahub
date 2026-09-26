@@ -3758,6 +3758,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if elem.elementId in chart_upstream_element_ids
                 and elem.elementId != chart_element_id
             ]
+            # Lineage names several case variants: the ref's own spelling picks.
+            if len(sheet_matches) > 1:
+                exact = [elem for elem in sheet_matches if elem.name == ref.source]
+                if len(exact) == 1:
+                    sheet_matches = exact
             if len(sheet_matches) == 1:
                 elem_urn = elementId_to_chart_urn.get(sheet_matches[0].elementId)
                 if elem_urn:
@@ -3779,6 +3784,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 if key is not None
             }
+            if len(dm_keys) > 1 and ref.source in dm_keys:
+                dm_keys = {ref.source}
             if len(dm_keys) == 1:
                 picked_urn = dm_upstream_urn_by_element_name[dm_keys.pop()]
                 dm_field = self._dm_upstream_field_for_ref(ref, picked_urn)
