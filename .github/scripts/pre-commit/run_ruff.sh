@@ -13,8 +13,10 @@ shift
 
 if command -v ruff &>/dev/null; then
     local_version=$(ruff --version 2>/dev/null | awk '{print $2}')
-    if [ "$local_version" != "$RUFF_VERSION" ]; then
-        echo "warning: local ruff ${local_version} differs from pinned ${RUFF_VERSION}" >&2
+    # Warn if the local version is older than the pinned version.
+    oldest=$(printf '%s\n%s\n' "$RUFF_VERSION" "$local_version" | sort -V | head -n1)
+    if [ "$oldest" != "$RUFF_VERSION" ]; then
+        echo "warning: local ruff ${local_version} is older than pinned ${RUFF_VERSION} — results may differ from CI" >&2
     fi
     exec ruff "$subcmd" "$@"
 fi
