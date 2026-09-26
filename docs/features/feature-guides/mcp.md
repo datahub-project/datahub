@@ -30,6 +30,16 @@ Surface real SQL queries that reference a dataset — see join patterns, common 
 **Works Where You Work** <br />
 Seamlessly integrates with Cursor, Windsurf, Claude Desktop, OpenAI, and any other MCP-compatible client.
 
+**What You Can Ask** <br />
+Once connected, try questions like:
+
+- _"What datasets contain customer PII in production?"_
+- _"Show me the lineage for analytics.revenue_table"_
+- _"Who owns the 'Revenue Dashboard' in Looker?"_
+- _"Find all datasets in the marketing domain"_
+- _"What's the schema for user_events table?"_
+- _"List datasets tagged as 'critical' or 'sensitive'"_
+
 With **DataHub Cloud**, you can also create [scoped custom MCP servers](./scoped-mcp-servers.md) — named endpoints with their own tools, instructions, and views for domain-specific agents (Context Platform private beta).
 
 ## Tools

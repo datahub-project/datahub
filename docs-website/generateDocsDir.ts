@@ -152,6 +152,7 @@ function list_markdown_files(): string[] {
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
+    /^README\.md$/, // The root README is GitHub-only; /docs/introduction redirects to /docs/features.
     /^docs\/rfcs\/template\.md/, // RFC template file should not be processed
     /^\s*$/, //Empty string
   ];
@@ -174,9 +175,7 @@ function get_id(filepath: string): string {
   return id;
 }
 
-const hardcoded_slugs = {
-  "README.md": "/introduction",
-};
+const hardcoded_slugs: Record<string, string> = {};
 
 function get_slug(filepath: string): string {
   // The slug is the URL path to the page.
@@ -200,7 +199,6 @@ function get_slug(filepath: string): string {
 }
 
 const hardcoded_titles = {
-  "README.md": "DataHub Docs Overview",
   "docs/actions/README.md": "DataHub Actions Framework",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
@@ -213,13 +211,10 @@ const sidebarsjs_hardcoded_titles = [
   "metadata-ingestion/source_docs/s3.md",
   "docs/api/graphql/overview.md",
 ];
-const hardcoded_hide_title = ["README.md"];
+const hardcoded_hide_title: string[] = [];
 
-const hardcoded_descriptions = {
-  // Only applied if title is also overridden.
-  "README.md":
-    "DataHub is a data discovery application built on an extensible metadata platform that helps you tame the complexity of diverse data ecosystems.",
-};
+// Only applied if title is also overridden.
+const hardcoded_descriptions: Record<string, string> = {};
 
 // FIXME: Eventually, we'd like to fix all of the broken links within these files.
 const allowed_broken_links = [
