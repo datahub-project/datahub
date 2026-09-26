@@ -210,9 +210,18 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Per ref: the ref's column is absent from its upstream's known columns, or
     # matches only several case variants of it, so no edge is emitted.
     chart_input_fields_column_not_found: int = 0
-    # Per ref: a 3+ segment ref no upstream with known columns confirmed as
-    # [Element/Column with slashes].
+    # Per ref: a 3+ segment ref that neither a known upstream schema nor a
+    # join-chain reading resolved.
     chart_input_fields_multi_segment_refused: int = 0
+    # Per ref: [JoinElement/.../Owner/Column] resolved to the owner, a sibling
+    # of the Data Model join element the chart reads.
+    chart_input_fields_join_chain_resolved: int = 0
+    # Per ref: resolved to the one element with that name and column in a Data
+    # Model the workbook loads, though not a declared upstream of the chart.
+    chart_input_fields_loaded_dm_resolved: int = 0
+    # Per column: a column computed only from sibling columns that inherited
+    # their upstreams. Counted in resolved, not skipped_sibling.
+    chart_input_fields_sibling_inherited: int = 0
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
