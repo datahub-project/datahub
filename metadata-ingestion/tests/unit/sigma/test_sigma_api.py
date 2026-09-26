@@ -1,14 +1,20 @@
 import datetime as _dt
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager, nullcontext
 from typing import Any, Dict, Iterator, List, Optional
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 import requests
+from pydantic import ValidationError
+from requests.adapters import HTTPAdapter
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
+from datahub.ingestion.source.sigma.config import (
+    Constant,
+    SigmaSourceConfig,
+    SigmaSourceReport,
+)
 from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRecord,
     SigmaConnectionRegistry,
@@ -29,6 +35,7 @@ from datahub.ingestion.source.sigma.data_classes import (
 from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
 from datahub.ingestion.source.sigma.sigma_api import (
     _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD,
+    _MAX_ERROR_BODY_CHARS,
     SigmaAPI,
 )
 from datahub.metadata.schema_classes import (
@@ -94,6 +101,22 @@ def _make_element(element_id: str = "elem1", name: str = "My Chart") -> MagicMoc
     element.elementId = element_id
     element.name = name
     return element
+
+
+def _real_workbook() -> Workbook:
+    """A Workbook the lineage-pattern check can read, unlike a MagicMock."""
+    return Workbook(
+        workbookId="wb-1",
+        name="Workbook",
+        ownerId="u",
+        createdBy="u",
+        updatedBy="u",
+        createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+        updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+        url="https://sigma.example/wb",
+        path="Workspace/Workbook",
+        latestVersion=1,
+    )
 
 
 def _make_workbook(workbook_id: str = "wb1", name: str = "My Workbook") -> MagicMock:
@@ -3301,3 +3324,1664 @@ class TestNotFoundDecisionMatrix:
     ) -> None:
         got = self._run(**kwargs)
         assert got == {"latched": latched, "ref_kept": ref_kept}, desc
+
+
+def _http_error(
+    status_code: int,
+    *,
+    json_body: Any = None,
+    text: str = "",
+    headers: Optional[Dict[str, str]] = None,
+) -> requests.exceptions.HTTPError:
+    response = MagicMock(spec=requests.Response)
+    response.status_code = status_code
+    response.headers = headers or {}
+    response.text = text
+    # Suppression reports len(.content): the bytes requests already buffered,
+    # so nothing is decoded just to measure a body we are not going to quote.
+    response.content = text.encode()
+    response.json.side_effect = (
+        (lambda: json_body) if json_body is not None else ValueError("no json")
+    )
+    return requests.exceptions.HTTPError(f"{status_code} Error", response=response)
+
+
+_WORKBOOK_ROW: Dict[str, Any] = {
+    "workbookId": "wb-1",
+    "name": "WB",
+    "createdBy": "u",
+    "updatedBy": "u",
+    "ownerId": "u",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z",
+    "url": "http://x",
+    "path": "ws",
+    "latestVersion": 1,
+}
+_DATA_MODEL_ROW: Dict[str, Any] = {
+    "dataModelId": "dm-ok",
+    "urlId": "u1",
+    "name": "DM",
+    "createdBy": "u",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z",
+    "url": "http://x/dm",
+    "latestVersion": 1,
+}
+_DATASET_ROW: Dict[str, Any] = {
+    "datasetId": "ds-1",
+    "name": "DS",
+    "description": "",
+    "createdBy": "u",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z",
+    "url": "http://x/ds-1",
+}
+
+
+def _fail_in_except(api: SigmaAPI, error: Exception, **kwargs: Any) -> None:
+    """Call ``_log_http_error`` the way production does: inside an except."""
+    try:
+        raise error
+    except Exception as e:
+        api._log_http_error(
+            message=f"Unable to fetch a thing. Exception: {e}", **kwargs
+        )
+
+
+def _contexts(entries: Any) -> str:
+    return "".join(str(c) for entry in entries for c in entry.context)
+
+
+class TestApiCallFailureReporting:
+    """``_log_http_error`` is the terminal handler for most ``except`` blocks
+    in the client, so a failure it does not record is invisible: it used to
+    log a context-free status code and touch the report not at all."""
+
+    @pytest.mark.parametrize(
+        ("error", "expected_bucket"),
+        [
+            (_http_error(404), {"404": 1}),
+            (ValueError("malformed json"), {"ValueError": 1}),
+        ],
+        ids=["http-status", "non-http-keys-by-exception-class"],
+    )
+    def test_every_failure_is_counted(
+        self, error: Exception, expected_bucket: Dict[str, int]
+    ) -> None:
+        api = _create_sigma_api()
+        _fail_in_except(api, error)
+
+        assert api.report.api_call_failures_by_status_or_error == expected_bucket
+        assert len(api.report.warnings) == 1
+
+    def test_failures_bucket_by_sigma_error_code(self) -> None:
+        """One status covers unrelated problems needing different fixes, so
+        the status alone is not actionable."""
+        api = _create_sigma_api()
+        for code in ("inode_archived", "invalid_request", "inode_archived"):
+            _fail_in_except(api, _http_error(400, json_body={"code": code}))
+
+        assert api.report.api_call_failures_by_status_or_error == {"400": 3}
+        assert api.report.api_call_failures_by_sigma_code == {
+            "inode_archived": 2,
+            "invalid_request": 1,
+        }
+
+    def test_report_warning_false_counts_without_warning(self) -> None:
+        """Callers that emit a better-scoped entry suppress this warning; the
+        failure must still be counted."""
+        api = _create_sigma_api()
+        _fail_in_except(api, _http_error(500), report_warning=False)
+
+        assert api.report.api_call_failures_by_status_or_error == {"500": 1}
+        assert len(api.report.warnings) == 0
+
+    def test_the_warning_names_the_call_and_the_status(self) -> None:
+        """The PR's headline claim: an operator can tell WHICH call failed
+        without running with --debug."""
+        api = _create_sigma_api()
+        _fail_in_except(api, _http_error(429, headers={"Retry-After": "30"}))
+
+        context = _contexts(api.report.warnings)
+        assert "Unable to fetch a thing" in context
+        assert "http_status=429" in context
+        assert "retry_after=30" in context
+
+    def test_calling_outside_an_except_is_loud(self) -> None:
+        """Bucketing a non-exception under "NoneType" would be a silently
+        mislabelled counter."""
+        api = _create_sigma_api()
+        with pytest.raises(AssertionError):
+            api._log_http_error(message="no active exception")
+
+
+class TestErrorBodyNeverLeaksOrRaises:
+    """The body helpers run on a call that has ALREADY failed, so neither may
+    raise, and neither may put upstream infrastructure detail into a report
+    that is persisted and rendered in the UI.
+
+    The raw fallback needs BOTH signals to agree -- the body parses as JSON
+    AND is declared as JSON -- because Content-Type is set by whatever
+    returned the body, which in the case this guards against is the proxy.
+    """
+
+    _LEAK = "internal-proxy-7.corp"
+
+    @pytest.mark.parametrize(
+        ("desc", "kwargs"),
+        [
+            ("honest html", {"headers": {"Content-Type": "text/html"}}),
+            ("no content type", {}),
+            (
+                "text/plain, which a denylist of html would miss",
+                {"headers": {"Content-Type": "text/plain"}},
+            ),
+            (
+                "html LYING about being json -- caught by the parse",
+                {"headers": {"Content-Type": "application/json"}},
+            ),
+            (
+                "parseable json under a non-json type -- caught by the header",
+                {
+                    "headers": {"Content-Type": "text/html"},
+                    "json_body": {"detail": _LEAK},
+                },
+            ),
+            (
+                "a json message under a non-json type -- no shortcut past it",
+                {
+                    "headers": {"Content-Type": "text/html"},
+                    "json_body": {"message": _LEAK},
+                },
+            ),
+        ],
+    )
+    def test_a_body_that_is_not_sigmas_own_json_is_suppressed(
+        self, desc: str, kwargs: Dict[str, Any]
+    ) -> None:
+        api = _create_sigma_api()
+        _fail_in_except(
+            api, _http_error(502, text=f"<html>{self._LEAK}</html>", **kwargs)
+        )
+
+        context = _contexts(api.report.warnings)
+        assert self._LEAK not in context, desc
+        assert "suppressed" in context, desc
+
+    def test_sigmas_own_message_is_preferred_over_the_raw_body(self) -> None:
+        api = _create_sigma_api()
+        _fail_in_except(
+            api,
+            _http_error(
+                400,
+                json_body={"code": "invalid_request", "message": "dependency cycle"},
+                text=f"<html>{self._LEAK}</html>",
+                headers={"Content-Type": "application/json"},
+            ),
+        )
+
+        context = _contexts(api.report.warnings)
+        assert "body=dependency cycle" in context
+        assert self._LEAK not in context
+
+    def test_a_json_body_without_a_message_is_truncated(self) -> None:
+        api = _create_sigma_api()
+        filler = "x" * 5000
+        body = f'{{"detail": "{filler}"}}'
+        _fail_in_except(
+            api,
+            _http_error(
+                500,
+                json_body={"detail": filler},
+                text=body,
+                headers={"Content-Type": "application/json"},
+            ),
+        )
+
+        context = _contexts(api.report.warnings)
+        assert body[:_MAX_ERROR_BODY_CHARS] in context
+        assert body[: _MAX_ERROR_BODY_CHARS + 1] not in context
+
+    def test_an_empty_body_is_reported_as_no_body_not_as_suppressed(self) -> None:
+        """A bare 502 has nothing to hide; saying a body was suppressed
+        invents one."""
+        api = _create_sigma_api()
+        _fail_in_except(api, _http_error(502, text=""))
+
+        assert "suppressed" not in _contexts(api.report.warnings)
+
+    def test_an_unreadable_body_does_not_mask_the_failure(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(spec=requests.Response)
+        response.status_code = 500
+        response.headers = {}
+        response.json.side_effect = ValueError("no json")
+        response.content = b""
+        type(response).text = PropertyMock(side_effect=RuntimeError("consumed"))
+        _fail_in_except(
+            api, requests.exceptions.HTTPError("500 Error", response=response)
+        )
+
+        assert "http_status=500" in _contexts(api.report.warnings)
+
+    def test_a_non_dict_json_payload_yields_no_sigma_code(self) -> None:
+        api = _create_sigma_api()
+        _fail_in_except(api, _http_error(400, json_body=["not", "a", "dict"]))
+
+        assert api.report.api_call_failures_by_sigma_code == {}
+
+
+def _dead_call(api: SigmaAPI, status: int = 500) -> Any:
+    return patch.object(SigmaAPI, "_get_api_call", side_effect=_http_error(status))
+
+
+def _echoing_page() -> MagicMock:
+    """A response whose nextPage cursor never advances -- a broken proxy."""
+    page = MagicMock(status_code=200)
+    page.json.return_value = {"entries": [{"id": "a"}], "nextPage": "1"}
+    return page
+
+
+class TestListingFailureWiring:
+    """Every site that can lose entities, and which tier it belongs to.
+
+    Run-wide losses fail the run, which is the only lever a source has over
+    ``StaleEntityRemovalHandler``: it skips soft-deletion exactly when
+    ``report.failures`` is non-empty. Losses scoped to one parent are counted
+    instead, because that guard is tenant-wide and all-or-nothing -- failing
+    on one flaky child call would freeze soft-deletion for everything, which
+    accumulates orphans rather than preventing them.
+
+    One case per site, so deleting any single recorder call fails a test.
+    """
+
+    def _run_wide(self, api: SigmaAPI, **kwargs: Any) -> None:
+        api._paginated_raw_entries(
+            "https://example.invalid/v2/dataModels",
+            "Unable to fetch sigma data models.",
+            enumerates_entities=True,
+            **kwargs,
+        )
+
+    def _child(self, api: SigmaAPI, **kwargs: Any) -> None:
+        api._paginated_raw_entries(
+            "https://example.invalid/v2/dataModels/x/elements",
+            "Unable to fetch elements for data model 'x'.",
+            scoped_to_parent=True,
+            **kwargs,
+        )
+
+    # (description, call, whether the caller fetches file metadata first --
+    # stubbed there so the run under test records ONE failure, not two)
+    _RUN_WIDE: List[Any] = [
+        ("workspaces", lambda api: api.fill_workspaces(), False),
+        ("datasets", lambda api: api.get_sigma_datasets(), True),
+        ("workbooks", lambda api: api.get_sigma_workbooks(), True),
+        (
+            "file metadata, which drops every workbook",
+            lambda api: api._get_files_metadata(file_type=Constant.WORKBOOK),
+            False,
+        ),
+    ]
+
+    @pytest.mark.parametrize(
+        ("site", "call", "stub_files"), _RUN_WIDE, ids=[s for s, _, _ in _RUN_WIDE]
+    )
+    def test_a_run_wide_listing_failure_fails_the_run(
+        self, site: str, call: Any, stub_files: bool
+    ) -> None:
+        api = _create_sigma_api()
+        with ExitStack() as stack:
+            if stub_files:
+                stack.enter_context(
+                    patch.object(SigmaAPI, "_get_files_metadata", return_value={})
+                )
+            stack.enter_context(_dead_call(api))
+            call(api)
+
+        assert api.report.entity_enumeration_failed == 1, site
+        assert len(api.report.failures) == 1, site
+
+    @pytest.mark.parametrize(
+        "abort",
+        ["http", "repeated-cursor"],
+    )
+    def test_a_paginated_listing_abort_fails_the_run(self, abort: str) -> None:
+        """An echoed cursor truncates a listing exactly as an HTTP error
+        does, so it takes the same accounting."""
+        api = _create_sigma_api()
+        if abort == "http":
+            with _dead_call(api):
+                self._run_wide(api)
+        else:
+            with patch.object(SigmaAPI, "_get_api_call", return_value=_echoing_page()):
+                self._run_wide(api)
+
+        assert api.report.pagination_aborted == 1
+        assert api.report.entity_enumeration_failed == 1
+
+    _CHILD: List[Any] = [
+        (
+            "a page's elements",
+            lambda api: api.get_page_elements(MagicMock(), MagicMock()),
+        ),
+        ("a workbook's pages", lambda api: api.get_workbook_pages(_real_workbook())),
+        ("a workspace lookup", lambda api: api.get_workspace("ws-1")),
+        (
+            "a file-path walk",
+            lambda api: api.get_workspace_id_from_file_path("parent-1", "a/b"),
+        ),
+    ]
+
+    @pytest.mark.parametrize(("site", "call"), _CHILD, ids=[s for s, _ in _CHILD])
+    def test_a_child_listing_failure_is_counted_not_failed(
+        self, site: str, call: Any
+    ) -> None:
+        api = _create_sigma_api()
+        with _dead_call(api):
+            call(api)
+
+        assert api.report.child_entity_listing_failed == 1, site
+        assert api.report.entity_enumeration_failed == 0, site
+        assert len(api.report.failures) == 0, site
+
+    @pytest.mark.parametrize("abort", ["http", "repeated-cursor"])
+    def test_a_paginated_child_abort_is_counted_not_failed(self, abort: str) -> None:
+        api = _create_sigma_api()
+        if abort == "http":
+            with _dead_call(api):
+                self._child(api)
+        else:
+            with patch.object(SigmaAPI, "_get_api_call", return_value=_echoing_page()):
+                self._child(api)
+
+        assert api.report.pagination_aborted == 1
+        assert api.report.child_entity_listing_failed == 1
+        assert api.report.entity_enumeration_failed == 0
+
+    def test_a_detail_call_is_neither(self) -> None:
+        """A detail call dying leaves an entity thinner, not missing."""
+        api = _create_sigma_api()
+        with _dead_call(api):
+            api._paginated_raw_entries(
+                "https://example.invalid/v2/dataModels/x/columns",
+                "Unable to fetch columns for data model 'x'.",
+            )
+
+        assert api.report.pagination_aborted == 1
+        assert api.report.child_entity_listing_failed == 0
+        assert len(api.report.failures) == 0
+        assert len(api.report.warnings) == 1
+
+    def test_the_child_counter_carries_an_explanation(self) -> None:
+        """A bare "47" gives an operator no way to know why the run passed."""
+        api = _create_sigma_api()
+        api._record_child_listing_failure()
+
+        assert len(api.report.infos) == 1
+
+
+class TestRepeatedLookupsAreAskedOnce:
+    """Negative caches, and the line they must not cross.
+
+    Without them a broken parent is re-fetched once per child: the counter
+    becomes lookups rather than distinct parents, and each retry re-pays the
+    backoff. Applied too widely they are worse than the problem -- one blip
+    latches the node for the run, so every sibling under it is dropped
+    unretried and soft-deleted by a run that passes. Only a failure that
+    will repeat may latch.
+    """
+
+    @pytest.mark.parametrize(
+        ("status", "expected_calls"),
+        [(400, 1), (500, 3), (401, 3)],
+        ids=[
+            "a-refusal-is-asked-once",
+            "a-blip-is-asked-again",
+            "a-401-after-a-failed-refresh-is-asked-again",
+        ],
+    )
+    def test_a_broken_workspace(self, status: int, expected_calls: int) -> None:
+        api = _create_sigma_api()
+        with _dead_call(api, status=status) as call:
+            for _ in range(3):
+                assert api.get_workspace("ws-1") is None
+
+        assert call.call_count == expected_calls
+        # One per WORKSPACE either way. The lookup is re-asked on the
+        # transient path, but the count is deduped separately, so the counter
+        # does not mix units with the file-path walk beside it.
+        assert api.report.child_entity_listing_failed == 1
+
+    def test_an_inaccessible_workspace(self) -> None:
+        """403 is a property of the workspace, not of the lookup."""
+        api = _create_sigma_api()
+        forbidden = MagicMock(spec=requests.Response, status_code=403)
+        with patch.object(SigmaAPI, "_get_api_call", return_value=forbidden) as call:
+            for _ in range(3):
+                assert api.get_workspace("ws-1") is None
+
+        assert call.call_count == 1
+        assert api.report.non_accessible_workspaces_count == 1
+        assert api.report.child_entity_listing_failed == 0
+
+    @pytest.mark.parametrize(
+        ("status", "expected_ancestor_calls"),
+        [(400, 1), (500, 3)],
+        ids=["a-refusal-is-asked-once", "a-blip-is-asked-again"],
+    )
+    def test_sibling_folders_under_one_broken_ancestor(
+        self, status: int, expected_ancestor_calls: int
+    ) -> None:
+        """The repeat that actually happens, and the loss that hides in it.
+
+        _file_path_walks already collapses the per-FILE case -- File.path is the
+        FOLDER's path, so every file in a folder shares the walk's key.
+        Sibling folders don't: each walks up and hits the same ancestor. A
+        refusal there is the same answer every time, so it is asked once; a
+        500 is not, and latching it would drop every sibling subtree for one
+        bad call. 500 is deliberately absent from the retry status list, so
+        nothing below re-asks it either.
+        """
+        api = _create_sigma_api()
+
+        def _walk(url: str) -> Any:
+            if url.endswith("/broken-ancestor"):
+                raise _http_error(status)
+            page = MagicMock(status_code=200)
+            page.json.return_value = {"parentId": "broken-ancestor"}
+            return page
+
+        with patch.object(SigmaAPI, "_get_api_call", side_effect=_walk) as call:
+            for folder in ("f1", "f2", "f3"):
+                assert (
+                    api.get_workspace_id_from_file_path(folder, "ws/dir/file") is None
+                )
+
+        assert (
+            sum(c.args[0].endswith("/broken-ancestor") for c in call.call_args_list)
+            == expected_ancestor_calls
+        )
+        # Counted once per ancestor either way: the walk dedupes the count
+        # separately from the cache, so a re-ask does not inflate it.
+        assert api.report.child_entity_listing_failed == 1
+
+    @pytest.mark.parametrize(
+        ("status", "expected_calls"),
+        [(400, 1), (500, 3)],
+        ids=["a-refusal-is-cached", "a-blip-is-not-cached-until-the-cap"],
+    )
+    def test_files_in_one_folder_after_a_failed_walk(
+        self, status: int, expected_calls: int
+    ) -> None:
+        """Files in one folder share the walk's key, so a cached blip would
+        drop every later file in it. Re-asking stops at the cap, or a node
+        that keeps failing is retried once per file."""
+        api = _create_sigma_api()
+        with _dead_call(api, status=status) as call:
+            for _ in range(5):
+                assert api.get_workspace_id_from_file_path("f1", "ws/dir") is None
+
+        assert call.call_count == expected_calls
+
+    def test_the_walk_names_the_file_and_stays_terse(self) -> None:
+        """The walk's own failure text is a report context too."""
+        api = _create_sigma_api()
+        with _dead_call(api):
+            assert api.get_workspace_id_from_file_path("p-1", "ws/dir") is None
+
+        assert "'ws/dir'" in _contexts(api.report.warnings)
+
+    def test_a_data_model_walk_does_not_mask_a_workbook_loss(self) -> None:
+        """Sharing one set between "known broken" and "already counted"
+        silently undercounted: the DM walk marks the ancestor without
+        counting -- the DM survives via its own payload -- and the workbook
+        walk then short-circuits on it, though the workbook IS dropped."""
+        api = _create_sigma_api()
+        with _dead_call(api, status=404):
+            api.get_workspace_id_from_file_path("p-1", "ws/dir", entity_removing=False)
+            assert api.report.child_entity_listing_failed == 0
+            api.get_workspace_id_from_file_path("p-1", "ws/other")
+
+        assert api.report.child_entity_listing_failed == 1
+
+    @pytest.mark.parametrize(
+        ("file_type", "expected"),
+        [(Constant.WORKBOOK, 1), (Constant.DATA_MODEL, 0)],
+        ids=["workbook-folder-counts", "data-model-folder-does-not"],
+    )
+    def test_the_caller_decides_whether_a_broken_folder_counts(
+        self, file_type: str, expected: int
+    ) -> None:
+        """Pins the CALL SITE, not just the parameter: _get_files_metadata is
+        the only place that knows the file type, so it is what must pass
+        entity_removing. The listing itself succeeds here; only the path walk
+        inside it fails."""
+        api = _create_sigma_api()
+        listing = MagicMock(status_code=200)
+        listing.json.return_value = {
+            "entries": [
+                {
+                    "id": "f1",
+                    "name": "f",
+                    "parentId": "parent-1",
+                    "path": "folder/a",
+                    "type": file_type,
+                }
+            ],
+            "nextPage": None,
+        }
+        calls = {"n": 0}
+
+        def _first_ok_then_dead(url: str) -> Any:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return listing
+            raise _http_error(500)
+
+        with patch.object(SigmaAPI, "_get_api_call", side_effect=_first_ok_then_dead):
+            api._get_files_metadata(file_type=file_type)
+
+        assert api.report.child_entity_listing_failed == expected
+
+    def test_a_folder_holding_only_data_models_is_not_counted(self) -> None:
+        """A data model survives a missing workspace by falling back to the
+        /dataModels payload, so counting it would claim children went missing
+        when none did."""
+        api = _create_sigma_api()
+        with _dead_call(api):
+            assert (
+                api.get_workspace_id_from_file_path(
+                    "parent-1", "folder/a", entity_removing=False
+                )
+                is None
+            )
+
+        assert api.report.child_entity_listing_failed == 0
+        assert api.report.api_call_failures_by_status_or_error == {"500": 1}
+
+
+class TestOneActionableEntryPerRunWideFailure:
+    """A run-wide failure produces exactly ONE report entry. The detail used
+    to sit on a warning beside the failure, so the entry an operator acts on
+    was the bare one."""
+
+    def test_a_paginated_abort_emits_only_the_failure(self) -> None:
+        api = _create_sigma_api()
+        with _dead_call(api):
+            api._paginated_raw_entries(
+                "https://example.invalid/v2/dataModels",
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        assert len(api.report.warnings) == 0
+        context = _contexts(api.report.failures)
+        for fact in ("http_status=500", "partial_results=0", "pages_read=0"):
+            assert fact in context
+
+    def test_a_repeated_cursor_emits_only_the_failure(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(SigmaAPI, "_get_api_call", return_value=_echoing_page()):
+            entries = api._paginated_raw_entries(
+                "https://example.invalid/v2/dataModels",
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        # Two rows from one distinct page: the mock echoes the same response,
+        # so the row is collected twice before the repeated cursor is caught.
+        # That duplication is pre-existing and deduped by _paginated_entries.
+        assert len(entries) == 2
+        assert len(api.report.warnings) == 0
+        assert "repeated_cursor=" in _contexts(api.report.failures)
+
+    def test_a_child_abort_keeps_its_warning(self) -> None:
+        """There the warning is the only entry -- the counter emits an info."""
+        api = _create_sigma_api()
+        with _dead_call(api):
+            api._paginated_raw_entries(
+                "https://example.invalid/v2/dataModels/x/elements",
+                "Unable to fetch elements for data model 'x'.",
+                scoped_to_parent=True,
+            )
+
+        assert len(api.report.warnings) == 1
+        assert len(api.report.failures) == 0
+
+    def test_the_dataset_listing_emits_one_entry_not_three(self) -> None:
+        """This site used to emit a bespoke warning, _log_http_error's
+        generic warning and the failure for one event."""
+        api = _create_sigma_api()
+        with (
+            patch.object(SigmaAPI, "_get_files_metadata", return_value={}),
+            _dead_call(api, status=410),
+        ):
+            assert api.get_sigma_datasets() == []
+
+        assert len(api.report.warnings) == 0
+        assert len(api.report.failures) == 1
+        # The fixed "a 404/410 suggests..." sentence used to live here too,
+        # duplicating what the status remedy now says and eating truncation
+        # budget ahead of the exception text.
+        context = _contexts(api.report.failures)
+        assert "gone or was never present" in context
+        assert "ingest_datasets=False" in context
+        assert api.report.datasets_listing_failed == 1
+
+
+class TestFailureRemedies:
+    """The failure message is fixed so report_log can group it, so the
+    per-listing remedy lives in the context -- and leads it, because the
+    context is truncated at 1000 chars."""
+
+    @pytest.mark.parametrize(
+        ("call", "stub_files"),
+        [
+            (lambda api: api.fill_workspaces(), True),
+            (lambda api: api._get_files_metadata(file_type=Constant.WORKBOOK), False),
+            (lambda api: api.get_sigma_datasets(), True),
+            (lambda api: api.get_sigma_workbooks(), True),
+            (lambda api: api.get_data_models(), True),
+        ],
+        ids=["workspaces", "files", "datasets", "workbooks", "data-models"],
+    )
+    def test_a_network_error_on_every_listing_is_transient(
+        self, call: Any, stub_files: bool
+    ) -> None:
+        """Each site passes transient itself; one that lost it would call an
+        outage a connector bug."""
+        api = _create_sigma_api()
+        with (
+            patch.object(
+                SigmaAPI,
+                "_get_api_call",
+                side_effect=requests.exceptions.ConnectionError("reset"),
+            ),
+            patch.object(
+                SigmaAPI,
+                "_get_files_metadata",
+                return_value={},
+            )
+            if stub_files
+            else nullcontext(),
+        ):
+            call(api)
+
+        context = _contexts(api.report.failures)
+        assert "Transient" in context
+        assert "Neither refused nor transient" not in context
+
+    @pytest.mark.parametrize(
+        "toggle",
+        [None, "ingest_datasets=False"],
+        ids=["mandatory-listing", "optional-listing"],
+    )
+    @pytest.mark.parametrize(
+        ("status", "transient", "expect", "toggle_allowed"),
+        [
+            (401, True, "rejected this connector's credentials", False),
+            (403, False, "Grant the token the scope", True),
+            (429, True, "Transient", False),
+            (404, False, "gone or was never present", True),
+            (500, True, "Transient", False),
+            (None, True, "Transient", False),
+            (None, False, "Neither refused nor transient", True),
+            (418, False, "Neither refused nor transient", True),
+        ],
+        ids=[
+            "rejected",
+            "refused",
+            "rate-limited",
+            "gone",
+            "server-error",
+            "no-response",
+            "internal-error",
+            "odd",
+        ],
+    )
+    def test_the_remedy_follows_the_status(
+        self,
+        status: Optional[int],
+        transient: bool,
+        expect: str,
+        toggle_allowed: bool,
+        toggle: Optional[str],
+    ) -> None:
+        """The old default told every untagged failure -- 500s, timeouts,
+        connection errors, internal bugs -- to go and grant a scope.
+
+        The toggle dimension is the one that matters: the branch used to sit
+        ABOVE the status checks, so every listing that had one answered a
+        500 or a timeout with "or set ingest_datasets=False" -- soft-deleting
+        every object of that kind for an outage a re-run would fix.
+        """
+        api = _create_sigma_api()
+        api._record_enumeration_failure(
+            what="a listing",
+            context="ctx",
+            status=status,
+            transient=transient,
+            optional_feature=toggle,
+        )
+
+        context = _contexts(api.report.failures)
+        assert expect in context
+        if toggle and toggle_allowed:
+            assert toggle in context
+            assert "soft-deleting the objects you stop ingesting" in context
+        else:
+            assert "ingest_datasets" not in context
+        # A listing with no toggle must not be sent after a setting that
+        # would not help it.
+        if toggle is None and status in (404, 410):
+            assert "cannot be turned off" in context
+
+    @pytest.mark.parametrize(
+        ("status", "expect"),
+        [(403, "Grant the token the scope"), (500, "Transient")],
+        ids=["refused", "server-error"],
+    )
+    def test_a_paginated_listing_abort_carries_its_status(
+        self, status: int, expect: str
+    ) -> None:
+        """/dataModels is the only paginated run-wide listing, and it reaches
+        _record_enumeration_failure by a different path -- without its status
+        a 403 there would read as "transient, re-run"."""
+        api = _create_sigma_api()
+        with _dead_call(api, status=status):
+            api._paginated_raw_entries(
+                "https://example.invalid/v2/dataModels",
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+                optional_feature="ingest_data_models=False",
+            )
+
+        context = _contexts(api.report.failures)
+        assert expect in context
+        if status == 500:
+            assert "ingest_data_models" not in context
+
+    @pytest.mark.parametrize(
+        ("site", "call", "stub_files"),
+        [
+            ("workspaces", lambda api: api.fill_workspaces(), False),
+            ("datasets", lambda api: api.get_sigma_datasets(), True),
+            ("workbooks", lambda api: api.get_sigma_workbooks(), True),
+            (
+                "file metadata",
+                lambda api: api._get_files_metadata(file_type=Constant.WORKBOOK),
+                False,
+            ),
+        ],
+        ids=["workspaces", "datasets", "workbooks", "file-metadata"],
+    )
+    def test_every_listing_carries_its_status(
+        self, site: str, call: Any, stub_files: bool
+    ) -> None:
+        """One wiring line per listing, and each is invisible without a test:
+        drop it and a 403 there reads "transient, re-run" instead of "grant
+        the scope". /workspaces in particular is a plausible place for a
+        scope-limited token to be refused."""
+        api = _create_sigma_api()
+        with ExitStack() as stack:
+            if stub_files:
+                # Only where the caller fetches it first -- stubbing it for
+                # the file-metadata case would replace the method under test.
+                stack.enter_context(
+                    patch.object(SigmaAPI, "_get_files_metadata", return_value={})
+                )
+            stack.enter_context(_dead_call(api, status=403))
+            call(api)
+
+        context = _contexts(api.report.failures)
+        assert "Grant the token the scope" in context, site
+        # The distinction cuts both ways: a refusal is not a bad row.
+        assert "cannot parse" not in context, site
+
+    def test_a_repeated_cursor_is_a_response_problem_not_an_outage(self) -> None:
+        """Sigma answered; its pagination is what came back wrong."""
+        api = _create_sigma_api()
+        with patch.object(SigmaAPI, "_get_api_call", return_value=_echoing_page()):
+            api._paginated_raw_entries(
+                "https://example.invalid/v2/dataModels",
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        context = _contexts(api.report.failures)
+        assert "did not have the shape" in context
+        assert "Transient" not in context
+
+    def test_the_remedy_survives_context_truncation(self) -> None:
+        """A proxied api_url plus a Retry-After header pushed a trailing
+        remedy past the cut, losing the actionable half of the entry the
+        fixed message points at."""
+        api = _create_sigma_api()
+        api._record_enumeration_failure(
+            what="Sigma data models",
+            context="x" * 2000,
+            status=410,
+            optional_feature="ingest_data_models=False",
+        )
+
+        assert "ingest_data_models=False" in _contexts(api.report.failures)
+
+    @pytest.mark.parametrize(
+        ("file_type", "expect"),
+        [
+            (Constant.DATASET, "ingest_datasets=False"),
+            (Constant.WORKBOOK, "cannot be turned off"),
+        ],
+    )
+    def test_file_metadata_remedies_match_the_file_type(
+        self, file_type: str, expect: str
+    ) -> None:
+        """The dataset call is only reachable from get_sigma_datasets, which
+        the toggle skips; the workbook one has no toggle. Shown on a 410,
+        since that is the status where a toggle is the remedy at all."""
+        api = _create_sigma_api()
+        with _dead_call(api, status=410):
+            assert api._get_files_metadata(file_type=file_type) == {}
+
+        assert expect in _contexts(api.report.failures)
+
+    @pytest.mark.parametrize(
+        ("desc", "body", "expect"),
+        [
+            (
+                "a bad row",
+                {"entries": [{"id": "f-1"}], "nextPage": None},
+                "cannot parse",
+            ),
+            ("a page with no entries", {"total": 0}, "did not have the shape"),
+            (
+                "a null row, which must not raise past the handler",
+                {"entries": [None], "nextPage": None},
+                "row id not present in the payload",
+            ),
+        ],
+    )
+    def test_file_metadata_classifies_its_own_failures(
+        self, desc: str, body: Dict[str, Any], expect: str
+    ) -> None:
+        """The fourth hand-written listing. Its failure drops every workbook
+        and repeats every run, so "grant the token the scope" would be a
+        permanently wrong instruction on a permanently red run."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = body
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            assert api._get_files_metadata(file_type=Constant.WORKBOOK) == {}
+
+        context = _contexts(api.report.failures)
+        assert expect in context, desc
+        assert "Grant the token the scope" not in context
+        assert "input_value" not in context
+
+    @pytest.mark.parametrize(
+        ("desc", "pages"),
+        [
+            ("page 2 dies after page 1 parsed", 2),
+            ("page 1 dies with no payload at all", 1),
+        ],
+    )
+    def test_an_http_failure_names_no_row(self, desc: str, pages: int) -> None:
+        """The listings hold the last row for the whole listing, so on an
+        HTTP failure it named whatever parsed fine just before -- "id=f-1,
+        http_status=500" accuses an innocent row -- or reported no id at all
+        when there had been no payload."""
+        api = _create_sigma_api()
+        first = MagicMock(status_code=200)
+        first.json.return_value = {
+            "entries": [
+                {
+                    "id": "f-1",
+                    "name": "f",
+                    "parentId": "p",
+                    "path": "ws",
+                    "type": "workbook",
+                }
+            ],
+            "nextPage": 2,
+        }
+        calls = {"n": 0}
+
+        def _then_dead(url: str) -> Any:
+            calls["n"] += 1
+            if calls["n"] < pages:
+                return first
+            raise _http_error(500)
+
+        with patch.object(SigmaAPI, "_get_api_call", side_effect=_then_dead):
+            api._get_files_metadata(file_type=Constant.WORKBOOK)
+
+        context = _contexts(api.report.failures)
+        assert "http_status=500" in context, desc
+        assert "id=f-1" not in context, desc
+        assert "row id not present" not in context, desc
+
+    def test_file_metadata_keeps_the_pages_it_already_read(self) -> None:
+        """Returning {} discarded rows that were read fine, dropping every
+        workbook rather than only the ones the listing never reached. The
+        other three listings already keep theirs; the run fails either way,
+        so nothing is soft-deleted on the strength of a short map."""
+        api = _create_sigma_api()
+        first = MagicMock(status_code=200)
+        first.json.return_value = {
+            "entries": [
+                {
+                    "id": "f-1",
+                    "name": "f",
+                    "parentId": "p",
+                    "path": "ws",
+                    "type": "workbook",
+                }
+            ],
+            "nextPage": 2,
+        }
+        with patch.object(
+            SigmaAPI, "_get_api_call", side_effect=[first, _http_error(500)]
+        ):
+            got = api._get_files_metadata(file_type=Constant.WORKBOOK)
+
+        assert list(got) == ["f-1"]
+        assert api.report.entity_enumeration_failed == 1
+
+    def test_file_metadata_names_the_offending_row(self) -> None:
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"entries": [{"id": "f-7"}], "nextPage": None}
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            api._get_files_metadata(file_type=Constant.WORKBOOK)
+
+        assert "id=f-7" in _contexts(api.report.failures)
+
+    def test_data_model_file_metadata_keeps_its_warning(self) -> None:
+        """No failure is recorded for data-model -- they fall back to their
+        own payload -- so suppressing the warning too would leave the failure
+        with no report entry at all."""
+        api = _create_sigma_api()
+        with _dead_call(api):
+            assert api._get_files_metadata(file_type=Constant.DATA_MODEL) == {}
+
+        assert len(api.report.failures) == 0
+        assert len(api.report.warnings) == 1
+
+
+class TestRetryPolicy:
+    def test_500_is_not_retried(self) -> None:
+        """Sigma answers 500 from the per-element lineage endpoint as its
+        ordinary "no lineage metadata" reply. Retrying turns a routine answer
+        into 4 requests and ~12s of backoff, once per element."""
+        api = _create_sigma_api()
+        adapter = api.session.get_adapter("https://example.invalid")
+        assert isinstance(adapter, HTTPAdapter)
+
+        assert 500 not in adapter.max_retries.status_forcelist
+        assert {429, 502, 503, 504} <= set(adapter.max_retries.status_forcelist)
+
+    def test_only_gets_are_replayed(self) -> None:
+        """The token and refresh calls are POSTs and must not be replayed."""
+        api = _create_sigma_api()
+        adapter = api.session.get_adapter("https://example.invalid")
+        assert isinstance(adapter, HTTPAdapter)
+        allowed = adapter.max_retries.allowed_methods
+
+        assert allowed is not None and allowed is not False
+        assert set(allowed) == {"GET"}
+
+
+def test_silent_statuses_cannot_hide_a_run_wide_listing() -> None:
+    """Swallowing a status on a listing would report zero rows for a live
+    endpoint -- the exact bug this guard exists to stop."""
+    api = _create_sigma_api()
+    with pytest.raises(AssertionError):
+        api._paginated_raw_entries(
+            "https://example.invalid/v2/dataModels",
+            "Unable to fetch sigma data models.",
+            silent_statuses=(404,),
+            enumerates_entities=True,
+        )
+
+
+class TestPartialAndMalformedListings:
+    """Two ways a listing loses entities without dying outright."""
+
+    def test_a_dropped_row_on_a_run_wide_listing_fails_the_run(self) -> None:
+        """A malformed row is an entity missing from this run, which
+        stale-entity removal reads as deleted -- the same loss as an aborted
+        listing, one row at a time. Reported once per endpoint, not per row."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{"bad": 1}, {"bad": 2}],
+            "nextPage": None,
+        }
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            assert (
+                api._paginated_entries(
+                    "https://example.invalid/v2/dataModels",
+                    SigmaDataModel,
+                    "Unable to fetch sigma data models.",
+                    enumerates_entities=True,
+                )
+                == []
+            )
+
+        assert api.report.pagination_malformed_entries_dropped == 2
+        assert api.report.entity_enumeration_failed == 1
+        assert len(api.report.failures) == 1
+
+    def test_a_dropped_row_on_a_child_listing_does_not(self) -> None:
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"entries": [{"bad": 1}], "nextPage": None}
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            api._paginated_entries(
+                "https://example.invalid/v2/dataModels/x/elements",
+                SigmaDataModelElement,
+                "Unable to fetch elements for data model 'x'.",
+                scoped_to_parent=True,
+            )
+
+        assert api.report.pagination_malformed_entries_dropped == 1
+        assert api.report.entity_enumeration_failed == 0
+
+    @pytest.mark.parametrize(
+        ("call", "entries_key"),
+        [
+            (lambda api: api.get_sigma_workbooks(), "workbooks"),
+            (lambda api: api.get_sigma_datasets(), "datasets"),
+        ],
+        ids=["workbooks", "datasets"],
+    )
+    def test_pages_read_before_the_failure_are_kept(
+        self, call: Any, entries_key: str
+    ) -> None:
+        """Returning [] made sense while the run still passed. Now the run
+        fails either way, so discarding good pages only makes those entities
+        go stale behind the failure."""
+        api = _create_sigma_api()
+        first = MagicMock(status_code=200)
+        first.json.return_value = {
+            "entries": [_WORKBOOK_ROW if entries_key == "workbooks" else _DATASET_ROW],
+            "nextPage": 2,
+        }
+        calls = {"n": 0}
+
+        def _one_good_page(url: str) -> Any:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return first
+            raise _http_error(500)
+
+        # Pre-resolved so the workspace lookup does not also fail and drop
+        # the row for an unrelated reason.
+        api.workspaces["ws-1"] = Workspace(
+            workspaceId="ws-1",
+            name="WS",
+            createdBy="u",
+            createdAt=_dt.datetime(2024, 1, 1, tzinfo=_dt.timezone.utc),
+            updatedAt=_dt.datetime(2024, 1, 2, tzinfo=_dt.timezone.utc),
+        )
+        entity_id = "wb-1" if entries_key == "workbooks" else "ds-1"
+        files = {
+            entity_id: File(
+                id=entity_id,
+                name="f",
+                parentId="p",
+                path="ws",
+                type=entries_key[:-1],
+                workspaceId="ws-1",
+            )
+        }
+        with (
+            patch.object(SigmaAPI, "_get_files_metadata", return_value=files),
+            patch.object(SigmaAPI, "_get_api_call", side_effect=_one_good_page),
+        ):
+            got = call(api)
+
+        assert len(got) == 1, "the page read before the failure was discarded"
+        assert api.report.entity_enumeration_failed == 1
+
+
+class TestUnparseableRowAdvice:
+    """A malformed row means the call SUCCEEDED and this connector could not
+    read the answer. Scope advice is wrong (nothing was refused) and toggle
+    advice is worse (turning the feature off soft-deletes every object of
+    that kind to avoid losing one). It also repeats identically every run, so
+    the advice has to be something that actually clears it."""
+
+    def _malformed_listing(self, api: SigmaAPI) -> None:
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{"dataModelId": "dm-7", "bad": 1}],
+            "nextPage": None,
+        }
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            api._paginated_entries(
+                "https://example.invalid/v2/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+                optional_feature="ingest_data_models=False",
+            )
+
+    def test_the_advice_is_not_about_scopes_or_toggles(self) -> None:
+        api = _create_sigma_api()
+        self._malformed_listing(api)
+
+        context = _contexts(api.report.failures)
+        assert "cannot parse" in context
+        assert "upgrade the connector" in context
+        # It may SAY granting a scope won't help; it must not advise it.
+        assert "grant the token the scope" not in context
+        assert "set ingest_data_models=False" not in context
+
+    def test_the_offending_row_is_named(self) -> None:
+        """A validation error names the FIELD, never the object, so without
+        this an operator cannot find the row."""
+        api = _create_sigma_api()
+        self._malformed_listing(api)
+
+        assert "dataModelId=dm-7" in _contexts(api.report.failures)
+
+    @pytest.mark.parametrize(
+        ("call", "row", "toggle"),
+        [
+            (lambda api: api.get_sigma_workbooks(), {"workbookId": "wb-1"}, None),
+            (
+                lambda api: api.get_sigma_datasets(),
+                {"datasetId": "ds-1"},
+                "ingest_datasets=False",
+            ),
+            (lambda api: api.fill_workspaces(), {"workspaceId": "ws-1"}, None),
+        ],
+        ids=["workbooks", "datasets", "workspaces"],
+    )
+    def test_every_hand_written_listing_gets_the_same_advice(
+        self, call: Any, row: Dict[str, Any], toggle: Optional[str]
+    ) -> None:
+        """These three validate rows inside the listing's own try, so a bad
+        row lands on the generic path with the wrong advice unless each site
+        tags it. Workspace is the sharpest case: its validator read
+        values["name"] directly, so a row missing it escaped as a bare
+        KeyError and was reported as a malformed RESPONSE.
+        """
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{**row, "junk": "z" * 500}],
+            "nextPage": None,
+        }
+        with (
+            patch.object(SigmaAPI, "_get_files_metadata", return_value={}),
+            patch.object(SigmaAPI, "_get_api_call", return_value=page),
+        ):
+            call(api)
+
+        context = _contexts(api.report.failures)
+        assert "cannot parse" in context
+        assert "did not have the shape" not in context
+        assert next(iter(row)) + "=" in context
+        assert "Grant the token the scope" not in context
+        # Turning datasets off to recover from one bad row would soft-delete
+        # every one of them.
+        if toggle:
+            assert toggle not in context
+        # pydantic echoes the whole row once per missing field, which fills
+        # the 1000-char context cap on its own.
+        assert "input_value" not in context
+        assert "For further information visit" not in context
+
+    def test_a_malformed_page_is_not_a_malformed_row(self) -> None:
+        """A page with no `entries` costs every later page, not one entity,
+        and an endpoint retired by changing shape rather than by a 404 is
+        exactly when the toggle IS the fix."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"total": 0}  # no `entries`
+        with (
+            patch.object(SigmaAPI, "_get_files_metadata", return_value={}),
+            patch.object(SigmaAPI, "_get_api_call", return_value=page),
+        ):
+            api.get_sigma_datasets()
+
+        context = _contexts(api.report.failures)
+        assert "did not have the shape" in context
+        assert "every later page" in context
+        assert "ingest_datasets=False" in context
+        assert "cannot parse" not in context
+
+    def test_one_bad_row_among_good_ones_is_counted_not_failed(self) -> None:
+        """One bad row is the most bounded loss there is -- one entity -- and
+        a row that fails to parse fails identically on every run, so failing
+        would freeze soft-deletion tenant-wide with no remedy."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{"dataModelId": "dm-bad"}, _DATA_MODEL_ROW],
+            "nextPage": None,
+        }
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            got = api._paginated_entries(
+                "https://example.invalid/v2/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        assert len(got) == 1
+        assert api.report.pagination_malformed_entries_dropped == 1
+        assert api.report.entity_enumeration_failed == 0
+        assert len(api.report.failures) == 0
+
+    def test_every_row_bad_is_indistinguishable_from_a_dead_listing(self) -> None:
+        """The listing yielded nothing: the vendor changed a field, or the
+        connector is behind. That is not a bounded loss."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{"dataModelId": "dm-1"}, {"dataModelId": "dm-2"}],
+            "nextPage": None,
+        }
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            assert (
+                api._paginated_entries(
+                    "https://example.invalid/v2/dataModels",
+                    SigmaDataModel,
+                    "Unable to fetch sigma data models.",
+                    enumerates_entities=True,
+                )
+                == []
+            )
+
+        assert api.report.entity_enumeration_failed == 1
+        context = _contexts(api.report.failures)
+        assert "rows_dropped=2" in context
+        assert "dataModelId=dm-1" in context
+        assert "cannot parse" in context
+
+    def test_a_dead_listing_is_one_failure_even_if_its_rows_were_bad_too(
+        self,
+    ) -> None:
+        """Page 1 holding only bad rows and page 2 then dying is ONE dead
+        listing. Filed twice, the entries contradict each other -- "transient,
+        re-run" beside "repeats every run" -- and the counter doubles."""
+        api = _create_sigma_api()
+        first = MagicMock(status_code=200)
+        first.json.return_value = {
+            "entries": [{"dataModelId": "dm-bad"}],
+            "nextPage": "2",
+        }
+        with patch.object(
+            SigmaAPI, "_get_api_call", side_effect=[first, _http_error(500)]
+        ):
+            assert (
+                api._paginated_entries(
+                    "https://example.invalid/v2/dataModels",
+                    SigmaDataModel,
+                    "Unable to fetch sigma data models.",
+                    enumerates_entities=True,
+                )
+                == []
+            )
+
+        assert api.report.entity_enumeration_failed == 1
+        context = _contexts(api.report.failures)
+        assert "Transient" in context
+        assert "cannot parse" not in context
+
+    @pytest.mark.parametrize(
+        ("listing", "stub_files"),
+        [
+            pytest.param(
+                lambda api: api._paginated_raw_entries(
+                    "https://example.invalid/v2/dataModels",
+                    "Unable to fetch sigma data models.",
+                    enumerates_entities=True,
+                ),
+                False,
+                id="the-paginated-helper",
+            ),
+            pytest.param(lambda api: api.fill_workspaces(), False, id="workspaces"),
+            pytest.param(
+                lambda api: api._get_files_metadata(file_type=Constant.WORKBOOK),
+                False,
+                id="file-metadata",
+            ),
+            pytest.param(lambda api: api.get_sigma_datasets(), True, id="datasets"),
+            pytest.param(lambda api: api.get_sigma_workbooks(), True, id="workbooks"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "body",
+        [
+            pytest.param([{"id": "x"}], id="a-bare-list"),
+            pytest.param({"entries": None, "nextPage": None}, id="a-null-entries"),
+        ],
+    )
+    def test_a_body_of_the_wrong_type_is_a_shape_change_not_an_outage(
+        self, listing: Any, stub_files: bool, body: Any
+    ) -> None:
+        """A bare list where the envelope belongs, or a null `entries`,
+        raises TypeError (or AttributeError in the helper), and neither
+        carries a status -- so untagged it reads as "re-run", advice for a
+        response that will come back identical every time. Every run-wide
+        listing that reads `entries` shares one envelope check for that
+        reason."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = body
+        with ExitStack() as stack:
+            if stub_files:
+                # Only where the caller fetches it first -- stubbing it for
+                # the file-metadata case would replace the method under test.
+                stack.enter_context(
+                    patch.object(SigmaAPI, "_get_files_metadata", return_value={})
+                )
+            stack.enter_context(
+                patch.object(SigmaAPI, "_get_api_call", return_value=page)
+            )
+            listing(api)
+
+        context = _contexts(api.report.failures)
+        assert "did not have the shape" in context
+        assert "Transient" not in context
+
+    def test_a_validation_error_does_not_eat_the_context_budget(self) -> None:
+        """Pydantic echoes the whole row for EVERY missing field, which fills
+        the 1000-char cap on its own and pushes out what follows."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{"dataModelId": "dm-1", "junk": "y" * 400}],
+            "nextPage": None,
+        }
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            api._paginated_entries(
+                "https://example.invalid/v2/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        # Terse renders every missing field compactly ("name: Field
+        # required; createdAt: ..."); pydantic's own text spends ~640 chars
+        # echoing the row for each one, so the later fields fall off the end
+        # of the 1000-char context.
+        context = _contexts(api.report.failures)
+        assert "input_value" not in context
+        # Terse's exact shape: "loc: msg" joined by "; ". Pydantic's own text
+        # never produces this, so reverting the call cannot pass.
+        assert "name: Field required; createdAt: Field required" in context
+
+
+def test_a_non_http_failure_says_so_rather_than_showing_a_null_status() -> None:
+    """ "http_status=None" reads as a missing field, and "no response" would
+    be a claim about Sigma this case cannot make -- a 200 this connector
+    could not read lands here too."""
+    api = _create_sigma_api()
+    _fail_in_except(api, ValueError("validation error on a 200"))
+
+    assert "no_http_error_response" in _contexts(api.report.warnings)
+
+
+class TestMalformedPageShape:
+    """`.get(ENTRIES, [])` made a page with no `entries` look like a page
+    with none: a run-wide listing returned zero rows, reported nothing, and
+    every entity it would have returned was soft-deleted."""
+
+    def _list(self, api: SigmaAPI, body: Any) -> List[Dict[str, Any]]:
+        page = MagicMock(status_code=200)
+        if isinstance(body, Exception):
+            page.json.side_effect = body
+        else:
+            page.json.return_value = body
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            return api._paginated_raw_entries(
+                "https://example.invalid/v2/dataModels",
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+    @pytest.mark.parametrize(
+        ("desc", "body"),
+        [
+            ("no entries key at all", {"total": 0, "nextPage": None}),
+            # Carries a cursor key, so only the entries check can catch it.
+            ("entries is not a list", {"entries": "nope", "nextPage": None}),
+            ("body is not JSON", requests.exceptions.JSONDecodeError("x", "y", 0)),
+        ],
+    )
+    def test_a_page_of_the_wrong_shape_fails_the_run(
+        self, desc: str, body: Any
+    ) -> None:
+        api = _create_sigma_api()
+        assert self._list(api, body) == [], desc
+
+        assert api.report.entity_enumeration_failed == 1, desc
+        assert "did not have the shape" in _contexts(api.report.failures), desc
+
+    def test_a_renamed_cursor_does_not_end_the_listing_silently(self) -> None:
+        """Neither cursor key present: the loop used to break, every later
+        page went missing, and the run passed -- so those entities were
+        soft-deleted. The hand-written listings were already immune because
+        they index NEXTPAGE directly."""
+        api = _create_sigma_api()
+        assert self._list(api, {"entries": [{"id": "a"}], "next": "2"}) == [{"id": "a"}]
+
+        assert api.report.entity_enumeration_failed == 1
+        assert "did not have the shape" in _contexts(api.report.failures)
+
+    def test_a_last_page_still_ends_the_listing(self) -> None:
+        """Sigma sends the key as null on the last page; that is not a
+        renamed cursor."""
+        api = _create_sigma_api()
+        assert self._list(api, {"entries": [{"id": "a"}], "nextPage": None}) == [
+            {"id": "a"}
+        ]
+
+        assert api.report.entity_enumeration_failed == 0
+
+    def test_a_detail_endpoint_is_not_held_to_either_check(self) -> None:
+        """A detail call truncating costs a thinner entity, not a deleted
+        one, so /connections, columns and the lineage endpoints keep their
+        lenient behaviour."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"total": 0}
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            assert (
+                api._paginated_raw_entries(
+                    "https://example.invalid/v2/dataModels/x/lineage",
+                    "Unable to fetch lineage.",
+                )
+                == []
+            )
+
+        assert len(api.report.failures) == 0
+        assert api.report.entity_enumeration_failed == 0
+        # Not even a warning: a detail endpoint answering without `entries`
+        # is read as having none, exactly as before this PR.
+        assert len(api.report.warnings) == 0
+
+    def test_an_empty_page_is_still_an_empty_page(self) -> None:
+        """A tenant with no data models answers `entries: []`, and that is
+        not a failure."""
+        api = _create_sigma_api()
+        assert self._list(api, {"entries": [], "nextPage": None}) == []
+
+        assert api.report.entity_enumeration_failed == 0
+        assert len(api.report.failures) == 0
+
+    @pytest.mark.parametrize(
+        "lookup",
+        [
+            lambda api: api.get_workspace_id_from_file_path("p-1", "a/b"),
+            lambda api: api.get_workspace("ws-1"),
+        ],
+        ids=["file-path-walk", "workspace-lookup"],
+    )
+    @pytest.mark.parametrize("shared", [False, True], ids=["dropped", "kept"])
+    def test_shared_entities_decides_whether_anything_was_lost(
+        self, shared: bool, lookup: Any
+    ) -> None:
+        """With shared entities ON the caller keeps the workbook or dataset
+        anyway, so a failed lookup costs nothing -- counting it would put a
+        false "children are missing" in front of an operator."""
+        api = _create_sigma_api()
+        api.config.ingest_shared_entities = shared
+        with _dead_call(api):
+            assert lookup(api) is None
+
+        assert api.report.child_entity_listing_failed == (0 if shared else 1)
+
+    def test_a_partial_columns_fetch_counts_every_abort(self) -> None:
+        """warnings.total_elements counts distinct warning KEYS, and every
+        abort shares one title+message, so three aborted calls read as one."""
+        api = _create_sigma_api()
+        with _dead_call(api):
+            api.get_workbook_column_formulas("wb-1")
+            api.get_workbook_column_formulas("wb-2")
+
+        assert api.report.column_formulas_fetch_partial == 2
+
+    def test_mostly_bad_rows_fail_even_with_one_good_one(self) -> None:
+        """`not results` was too weak: 1 good row among many bad ones passed,
+        and fail_safe_threshold does not backstop it -- that measures all
+        URNs of every type, so lost Data Models stay far under 75% on a
+        tenant of thousands of charts."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [_DATA_MODEL_ROW]
+            + [{"dataModelId": f"bad-{i}"} for i in range(3)],
+            "nextPage": None,
+        }
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            got = api._paginated_entries(
+                "https://example.invalid/v2/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        assert len(got) == 1
+        assert api.report.entity_enumeration_failed == 1
+        context = _contexts(api.report.failures)
+        assert "rows_dropped=3" in context
+        assert "rows_parsed=1" in context
+
+    @pytest.mark.parametrize("row", [None, 3, "x"], ids=["null", "int", "str"])
+    def test_non_dict_rows_count_as_dropped(self, row: object) -> None:
+        """A listing of nulls used to read as an empty tenant: dropped before
+        the dropped-vs-parsed check, so the run passed and soft-deleted every
+        Data Model."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"entries": [row, row, row], "nextPage": None}
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            got = api._paginated_entries(
+                "https://example.invalid/v2/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        assert got == []
+        assert api.report.entity_enumeration_failed == 1
+        assert "rows_dropped=3" in _contexts(api.report.failures)
+
+    def test_an_undecodable_first_page_is_not_counted_as_read(self) -> None:
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.side_effect = requests.exceptions.JSONDecodeError("bad", "", 0)
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            api._paginated_entries(
+                "https://example.invalid/v2/dataModels",
+                SigmaDataModel,
+                "Unable to fetch sigma data models.",
+                enumerates_entities=True,
+            )
+
+        assert "pages_read=0" in _contexts(api.report.failures)
+
+    @pytest.mark.parametrize("model", [Workspace, Element])
+    def test_a_before_validator_leaves_a_non_dict_row_to_pydantic(
+        self, model: Any
+    ) -> None:
+        """Otherwise `.get` on the row raises AttributeError, which the
+        listings read as a connector bug rather than an unparseable row."""
+        with pytest.raises(ValidationError):
+            model.model_validate(None)
+
+    def test_a_null_workspace_row_is_an_unparseable_row(self) -> None:
+        """The validator's `.get` on None raised AttributeError, which read as
+        "Transient: re-run" for a row that fails every run."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"entries": [None], "nextPage": None}
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page):
+            api.fill_workspaces()
+
+        context = _contexts(api.report.failures)
+        assert "cannot parse" in context
+        assert "Transient" not in context
+
+    def test_a_connector_bug_is_not_called_transient(self) -> None:
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{"workspaceId": "ws-1"}],
+            "nextPage": None,
+        }
+        with (
+            patch.object(SigmaAPI, "_get_api_call", return_value=page),
+            patch.object(Workspace, "model_validate", side_effect=TypeError("bug")),
+        ):
+            api.fill_workspaces()
+
+        context = _contexts(api.report.failures)
+        assert "Neither refused nor transient" in context
+        assert "Transient" not in context
+
+    def test_one_folder_is_walked_once_for_both_file_types(self) -> None:
+        """entity_removing must not be part of the cache key: a folder
+        holding both a data model and workbooks would be walked twice, once
+        per value."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {"parentId": "ws-1"}
+        with patch.object(SigmaAPI, "_get_api_call", return_value=page) as call:
+            first = api.get_workspace_id_from_file_path(
+                "p-1", "ws/dir", entity_removing=False
+            )
+            second = api.get_workspace_id_from_file_path("p-1", "ws/dir")
+
+        assert first == second == "ws-1"
+        assert call.call_count == 1
+
+    def test_an_internal_key_error_is_not_blamed_on_sigma(self) -> None:
+        """A KeyError on a key this client never reads off a payload is a bug
+        in this file; calling it "Sigma's response did not have the shape we
+        expect" points the operator at the vendor."""
+        api = _create_sigma_api()
+        page = MagicMock(status_code=200)
+        page.json.return_value = {
+            "entries": [{"workspaceId": "ws-1"}],
+            "nextPage": None,
+        }
+        with (
+            patch.object(SigmaAPI, "_get_api_call", return_value=page),
+            patch.object(
+                Workspace, "model_validate", side_effect=KeyError("some_local_var")
+            ),
+        ):
+            api.fill_workspaces()
+
+        context = _contexts(api.report.failures)
+        assert "did not have the shape" not in context
+        assert "likely a bug in this connector" in context or "Transient" in context

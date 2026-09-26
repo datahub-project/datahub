@@ -3,6 +3,7 @@ import logging
 import sys
 from collections import deque
 from collections.abc import Hashable
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
@@ -59,7 +60,257 @@ _DATASET_SOURCES_NOT_FOUND_STATUSES = frozenset({404, 409})
 _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD = 3
 
 
+# Sigma error bodies are short; the cap only guards against an HTML error page
+# from a proxy being pasted whole into the ingestion report.
+_MAX_ERROR_BODY_CHARS = 400
+
+
 T = TypeVar("T", bound=BaseModel)
+
+# A ROW this connector cannot read, as opposed to a call Sigma refused.
+_UNREADABLE_ROW = (ValidationError,)
+# The PAGE's shape is wrong: no `entries`, or an unknown cursor name. Costs
+# every later page rather than one entity.
+# requests' own JSONDecodeError covers both the stdlib and simplejson cases.
+# Added in requests 2.27, hence the floor in setup.py.
+_MALFORMED_RESPONSE = (KeyError, requests.exceptions.JSONDecodeError)
+# ...but only for keys this client reads off a payload. A KeyError on
+# anything else is a bug here, and would wrongly blame the vendor.
+_PAYLOAD_KEYS = frozenset(
+    {
+        Constant.ENTRIES,
+        Constant.NEXTPAGE,
+        Constant.NEXTPAGETOKEN,
+        Constant.PARENTID,
+        Constant.ID,
+    }
+)
+
+
+def _is_malformed_response(e: BaseException) -> bool:
+    if isinstance(e, KeyError):
+        return bool(e.args) and e.args[0] in _PAYLOAD_KEYS
+    return isinstance(e, _MALFORMED_RESPONSE)
+
+
+def _http_status(e: BaseException) -> Optional[int]:
+    """The status of the failed call, if the failure was an HTTP one."""
+    if isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+        return int(e.response.status_code)
+    return None
+
+
+def _envelope(body: Any, *, entries_must_be_a_list: bool = False) -> Dict[str, Any]:
+    """A listing body, or a :class:`KeyError` classed as a shape change.
+
+    A 200 whose body is a JSON list raises ``TypeError`` on the ``entries``
+    subscript. That carries no status, so it reaches the remedy chain
+    untagged and is answered "transient, re-run" -- advice for a body that
+    will come back identical. It is the same event as a page with no
+    ``entries``: the wrong shape.
+
+    ``entries_must_be_a_list`` is for callers that iterate ``entries``
+    straight away, where a null costs the same TypeError. The paginated
+    helper applies that rule itself, and only for run-wide listings.
+    """
+    if not isinstance(body, dict):
+        raise KeyError(Constant.ENTRIES)
+    if entries_must_be_a_list and not isinstance(body.get(Constant.ENTRIES), list):
+        raise KeyError(Constant.ENTRIES)
+    return body
+
+
+def _is_transient(e: BaseException) -> bool:
+    """Whether re-asking could plausibly get a different answer.
+
+    Only a negative cache should ask this. Latching a node as dead on a
+    transport blip or a 5xx costs every SIBLING under it too -- the walk
+    short-circuits without ever re-fetching -- and an entity dropped that way
+    is soft-deleted by a run that otherwise passes. 500 in particular is
+    deliberately absent from the retry status list, so nothing else retries
+    it.
+
+    401 counts too: a token refresh that fails transiently leaves the re-ask
+    in _get_api_call holding the expired token, and the next call refreshes
+    again.
+    """
+    status = _http_status(e)
+    if status is not None:
+        return status in (401, 429) or status >= 500
+    # No HTTP response at all. A reset or a timeout is worth re-asking; a body
+    # this connector could not read is the same on every attempt.
+    return isinstance(e, requests.exceptions.RequestException) and not (
+        _is_malformed_response(e)
+    )
+
+
+def _failed_row(e: BaseException, last_row: object) -> str:
+    """Name the row only when the ROW is what failed.
+
+    The hand-written listings keep the last row in hand for the whole
+    listing, so on an HTTP failure it names whatever parsed fine just before
+    -- "id=f-1, http_status=500" points at an innocent row on page 1 when
+    page 2 died -- and on a first-page failure it reports no id at all, when
+    there was no payload to have one.
+    """
+    return f"{_row_identity(last_row)}, " if isinstance(e, _UNREADABLE_ROW) else ""
+
+
+def _exc_text(e: BaseException) -> str:
+    """Exception text for a report context, without pydantic's row echo."""
+    return _terse(e) if isinstance(e, ValidationError) else str(e)
+
+
+def _terse(ve: ValidationError) -> str:
+    """A validation error without pydantic's echo of the offending row.
+
+    The echo repeats the whole input for EVERY missing field, which fills the
+    1000-char context cap on its own and pushes out whatever follows.
+    """
+    try:
+        return "; ".join(
+            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}"
+            for err in ve.errors(include_url=False, include_input=False)
+        )
+    except Exception:
+        return str(ve)[:200]
+
+
+def _row_identity(entry: object) -> str:
+    """Whatever identifies a row that failed to parse, if anything does.
+
+    A validation error names the FIELD that was wrong, never the object, so
+    without this an operator is told a row is unparseable and has no way to
+    find it.
+    """
+    if not isinstance(entry, dict):
+        return "row id not present in the payload"
+    for key in (
+        "workbookId",
+        "datasetId",
+        "dataModelId",
+        "workspaceId",
+        "elementId",
+        "id",
+    ):
+        value = entry.get(key)
+        if isinstance(value, str) and value:
+            return f"{key}={value}"
+    return "row id not present in the payload"
+
+
+def _error_payload(response: Optional[requests.Response]) -> Any:
+    """The response's parsed JSON, or None. Parsed once per failure.
+
+    ``requests`` re-decodes and re-parses on every ``.json()``, and both
+    ``_error_code`` and ``_error_body`` want the payload. One decode still
+    happens for a body that is not JSON -- the saving is the repeat, not the
+    first attempt.
+    """
+    if response is None:
+        return None
+    try:
+        return response.json()
+    except Exception:
+        return None
+
+
+def _error_detail(response: Optional[requests.Response], *, payload: Any) -> str:
+    """The parts of a failed response worth putting in a report entry.
+
+    ``payload`` is REQUIRED, not defaulted: for :func:`_error_body` a missing
+    payload means "suppress unconditionally", so a future call site that
+    forgot the kwarg would silently drop every body instead of failing.
+    """
+    if response is None:
+        # Not "http_status=None", which reads as a missing field: nothing came
+        # back, or a 200 came back that this connector could not read.
+        return "no_http_error_response"
+    try:
+        # Bounded like the body: a server-controlled header should not be
+        # echoed into the report at whatever length the server chose.
+        retry_after = str(response.headers.get("Retry-After") or "")[:32] or None
+    except Exception:
+        retry_after = None
+    body = _error_body(response, payload=payload)
+    return (
+        f"http_status={response.status_code}"
+        + (f", retry_after={retry_after}" if retry_after else "")
+        + (f", body={body}" if body else "")
+    )
+
+
+def _error_body(
+    response: Optional[requests.Response], *, payload: Any
+) -> Optional[str]:
+    """The server's explanation for a failed call, bounded.
+
+    ``requests`` puts only the status line into the exception text, so a 400
+    that Sigma explains in its body reads as an unexplained failure. Reading
+    the body must never itself raise -- the call has already failed.
+    """
+    if response is None:
+        return None
+    try:
+        content_type = response.headers.get("Content-Type", "")
+    except Exception:
+        content_type = ""
+    is_json = payload is not None and "json" in content_type.lower()
+    if is_json and isinstance(payload, dict):
+        # Sigma's own message, which is what an operator can act on.
+        message = payload.get("message")
+        if isinstance(message, str) and message.strip():
+            return message.strip()[:_MAX_ERROR_BODY_CHARS].replace("\n", " ")
+    if not is_json:
+        # Not Sigma's own JSON error -- typically a proxy's error page, which
+        # can carry internal hostnames into a persisted report. Report its
+        # size, not its content. Both signals must agree, since Content-Type
+        # is set by whatever returned the body. ``.content`` is already
+        # buffered; Content-Length is proxy-controlled and absent on chunked
+        # responses.
+        try:
+            size = len(response.content or b"")
+        except Exception:
+            return None
+        if not size:
+            return None
+        return f"<{size} bytes of non-JSON body suppressed>"
+    try:
+        text = (response.text or "").strip()
+    except Exception:
+        return None
+    if not text:
+        return None
+    return text[:_MAX_ERROR_BODY_CHARS].replace("\n", " ")
+
+
+def _error_code(
+    response: Optional[requests.Response], *, payload: Any
+) -> Optional[str]:
+    """Sigma's own machine-readable classifier for a failed call.
+
+    The HTTP status is too coarse to act on: several unrelated problems share
+    one status and need different people to fix them. The ``code`` field
+    separates them and is stable enough to aggregate on, where ``message``
+    embeds object names and would never group.
+    """
+    if response is None or not isinstance(payload, dict):
+        return None
+    code = payload.get("code")
+    return code if isinstance(code, str) and code else None
+
+
+_MAX_TRANSIENT_FAILURES_PER_NODE = 3
+
+
+@dataclass(frozen=True)
+class _FilePathWalk:
+    """Where a file-path walk ended: its workspace, or the ancestor that died."""
+
+    workspace_id: Optional[str]
+    failed_ancestor: Optional[str]
+    # A failure worth re-asking, so the walk is not cached.
+    transient: bool = False
 
 
 class SigmaAPI:
@@ -67,6 +318,17 @@ class SigmaAPI:
         self.config = config
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
+        # Two sets, like the file-path walk: a transient failure is not
+        # remembered as dead, but its loss is still counted once.
+        self._workspace_lookup_failed: Set[str] = set()
+        self._workspace_loss_counted: Set[str] = set()
+        # Ancestors whose /files fetch failed, so a walk reaching one can stop.
+        # Separate from what has been COUNTED -- see _note_file_path_loss.
+        self._file_path_lookup_failed: Set[str] = set()
+        self._file_path_loss_counted: Set[str] = set()
+        self._file_path_walks: Dict[Tuple[str, str], _FilePathWalk] = {}
+        # Transient failures per workspace or folder id; see _should_latch.
+        self._transient_failures: Dict[str, int] = {}
         self.users: Dict[str, str] = {}
         # Track source_type values we've already warned about to keep the
         # report summary readable on large tenants with repeated unknown
@@ -89,13 +351,19 @@ class SigmaAPI:
         self._dataset_sources_not_found_warned = False
         self.session = requests.Session()
 
-        # Configure retry strategy for 429/503 with exponential backoff.
         # raise_on_status=False must stay False: get_data_model_by_url_id
         # inspects response.status_code to surface 429 explicitly; if True,
         # exhausted retries raise MaxRetryError and bypass that branch.
         retry_strategy = Retry(
             total=3,
-            status_forcelist=[429, 503],
+            # 500 is deliberately NOT here: Sigma answers 500 from
+            # /workbooks/{id}/lineage/elements/{id} as its ordinary "no
+            # lineage" reply, once per element, so retrying would cost ~12s of
+            # backoff each.
+            status_forcelist=[429, 502, 503, 504],
+            # Only GET is read here. urllib3's default already excludes POST;
+            # pinned so the token and refresh POSTs stay unreplayed regardless.
+            allowed_methods=frozenset({"GET"}),
             backoff_factor=2,
             raise_on_status=False,
         )
@@ -125,12 +393,191 @@ class SigmaAPI:
             }
         )
 
-    def _log_http_error(self, message: str) -> Any:
+    def _record_enumeration_failure(
+        self,
+        *,
+        what: str,
+        context: str,
+        optional_feature: Optional[str] = None,
+        unparseable_row: bool = False,
+        malformed_response: bool = False,
+        status: Optional[int] = None,
+        transient: bool = False,
+    ) -> None:
+        """A call that ENUMERATES entities failed, so entities are missing.
+
+        The one class of failure that must be a failure, not a warning.
+        Stale-entity removal soft-deletes anything the previous run emitted
+        and this one did not, so a dead listing makes live objects look
+        deleted. ``StaleEntityRemovalHandler`` guards against that only when
+        the source reports a failure, which this connector never did.
+
+        Detail failures stay warnings -- a workbook whose element fetch dies
+        is still emitted, just thinner. So does a listing scoped to ONE
+        parent; see :meth:`_record_child_listing_failure`.
+        """
+        self.report.entity_enumeration_failed += 1
+        # ``toggle_helps`` gates the opt-out sentence, appended once below
+        # rather than repeated in every branch. It is False wherever turning
+        # the feature off would soft-delete every object of that kind to
+        # survive something a re-run or an upgrade fixes.
+        if malformed_response:
+            # Costs every later page, not one entity. A retired endpoint can
+            # announce itself by changing shape rather than by a 404, so the
+            # toggle is on offer here but not on a bad row.
+            remedy = (
+                "Sigma's response did not have the shape this connector "
+                "expects, so every later page is missing. Nothing was "
+                "refused, so a scope will not help: upgrade the connector."
+            )
+            toggle_helps = True
+        elif unparseable_row:
+            # The call SUCCEEDED; a row was unreadable. A scope is wrong
+            # (nothing was refused) and so is a toggle (it would soft-delete
+            # every object of that kind to avoid losing one).
+            remedy = (
+                "Sigma returned rows this connector cannot parse. Nothing was "
+                "refused, and this repeats every run until the rows or the "
+                "connector change: upgrade the connector."
+            )
+            toggle_helps = False
+        elif status == 401:
+            # NOT 403: a 401 rejects the credential, not the scope attached
+            # to it, and _get_api_call has already refreshed and re-asked
+            # where a refresh token is configured.
+            remedy = (
+                "Sigma rejected this connector's credentials, so a scope will "
+                "not help: check client_id and client_secret, and that the "
+                "token has not been revoked or expired."
+            )
+            toggle_helps = False
+        elif status == 403:
+            remedy = (
+                "Sigma refused this call. Grant the token the scope for this endpoint."
+            )
+            toggle_helps = True
+        elif status in (404, 410):
+            remedy = "This endpoint is gone or was never present."
+            if not optional_feature:
+                remedy += " This listing cannot be turned off."
+            toggle_helps = True
+        elif transient or status == 429 or (status is not None and status >= 500):
+            # 429 belongs here: it says it is temporary, and _is_transient
+            # treats it that way for the caches. This branch must stay ABOVE
+            # the catch-all, or an outage is answered by soft-deleting
+            # everything. An internal error (no status, not transient) does
+            # not: it repeats every run.
+            remedy = (
+                "Transient: Sigma failed to answer, answered that it is rate "
+                "limited, or did not answer at all. Re-run -- the context "
+                "carries Retry-After where Sigma sent one."
+            )
+            toggle_helps = False
+        else:
+            remedy = (
+                "Neither refused nor transient, so this is more likely a bug "
+                "in this connector than anything to configure."
+            )
+            toggle_helps = True
+        if optional_feature and toggle_helps:
+            remedy += (
+                f" Or set {optional_feature}, which stops the call being made "
+                "-- at the cost of soft-deleting the objects you stop "
+                "ingesting."
+            )
+
+        self.report.failure(
+            title="Sigma entity listing failed",
+            message="A Sigma listing call failed, so the entities it would "
+            "have returned are missing from this run. If stateful ingestion "
+            "is on, stale-entity removal is skipped for this run, so objects "
+            "that still exist are not soft-deleted. "
+            "Re-run once the cause is resolved; the context names the listing "
+            "and what to do about a failure that repeats.",
+            # Remedy FIRST: report_log truncates context at 1000 chars, which
+            # a proxied api_url plus Retry-After is enough to reach.
+            context=f"{remedy} Could not list {what}: {context}",
+        )
+
+    def _record_child_listing_failure(self) -> None:
+        """A listing scoped to ONE parent failed -- one workbook's pages, one
+        page's elements, one Data Model's elements.
+
+        Counted, not failed. The framework guard is run-wide and
+        all-or-nothing, so failing here would let one flaky child call freeze
+        soft-deletion for the whole tenant -- and on a tenant with thousands
+        of pages, at least one such failure per run is near certain. The loss
+        is bounded to one parent, and ``fail_safe_threshold`` still catches
+        enough of them failing to look like a mass deletion. Run-wide
+        listings do fail the run -- see :meth:`_record_enumeration_failure`.
+        """
+        self.report.child_entity_listing_failed += 1
+        # One grouped entry: without it an operator reading
+        # "child_entity_listing_failed: 47" cannot tell why the run passed.
+        self.report.info(
+            title="Sigma child entity listing failed",
+            log=False,
+            message="A listing scoped to one parent failed, so that parent's "
+            "children are missing from this run. This does NOT fail the run: "
+            "the framework's stale-entity guard is run-wide, so failing here "
+            "would freeze soft-deletion for the whole tenant whenever a single "
+            "child call is flaky. fail_safe_threshold still covers the case "
+            "where enough of them fail to look like a mass deletion.",
+        )
+
+    def _log_http_error(self, message: str, *, report_warning: bool = True) -> str:
+        """Record a failed Sigma API call.
+
+        The terminal handler for most ``except`` blocks here, so anything it
+        drops is invisible. It used to log a context-free ``HTTP status-code
+        = 404`` at WARNING, put the identifying detail on a DEBUG line, and
+        touch the report not at all.
+
+        ``message`` names the resource at every call site, so it becomes the
+        warning context. The title is fixed so LossyList groups them, and the
+        counters carry the true totals after that list truncates.
+
+        Pass ``report_warning=False`` when the caller emits its own, better
+        scoped entry; the counters still fire. Returns the rendered status /
+        body detail so that caller can put it on ITS entry.
+        """
         _, e, _ = sys.exc_info()
-        if isinstance(e, requests.exceptions.HTTPError):
-            logger.warning(f"HTTP status-code = {e.response.status_code}")
+        if e is None:
+            # Called outside an `except`: the counter would silently bucket
+            # under "NoneType". Deliberately fatal -- a bug to fail a test on,
+            # not a condition to degrade around.
+            raise AssertionError(
+                f"_log_http_error called with no active exception: {message}"
+            )
+        response = (
+            e.response
+            if isinstance(e, requests.exceptions.HTTPError) and e.response is not None
+            else None
+        )
+        status = response.status_code if response is not None else None
+        key = str(status) if status is not None else type(e).__name__
+        self.report.api_call_failures_by_status_or_error[key] = (
+            self.report.api_call_failures_by_status_or_error.get(key, 0) + 1
+        )
+        # Parsed once and threaded through both readers: requests re-decodes
+        # and re-parses on every .json().
+        payload = _error_payload(response)
+        sigma_code = _error_code(response, payload=payload)
+        if sigma_code:
+            # int_top_k_dict() is a defaultdict(int).
+            self.report.api_call_failures_by_sigma_code[sigma_code] += 1
+        detail = _error_detail(response, payload=payload)
+        if report_warning:
+            self.report.warning(
+                title="Sigma API call failed",
+                message="A Sigma API call failed. The affected objects are "
+                "emitted without whatever that call would have provided, or "
+                "-- where the call resolved a parent -- dropped entirely; see "
+                "api_call_failures_by_status_or_error for the totals.",
+                context=f"{message} ({detail})",
+            )
         logger.debug(msg=message, exc_info=e)
-        return e
+        return detail
 
     def _refresh_access_token(self):
         try:
@@ -160,7 +607,8 @@ class SigmaAPI:
             )
 
     def _get_api_call(self, url: str) -> requests.Response:
-        """Make an API call with automatic retry on 429/503 and token refresh on 401."""
+        """Make an API call with automatic retry on 429/502/503/504 and token
+        refresh on 401."""
         get_response = self.session.get(url)
 
         # Handle token refresh on 401
@@ -174,6 +622,11 @@ class SigmaAPI:
     def get_workspace(self, workspace_id: str) -> Optional[Workspace]:
         if workspace_id in self.workspaces:
             return self.workspaces[workspace_id]
+        if workspace_id in self._workspace_lookup_failed:
+            # Negative cache: a workspace that refuses would otherwise be
+            # re-fetched once per child, for an answer that cannot change.
+            # Only a non-transient failure latches -- see below.
+            return None
 
         logger.debug(f"Fetching workspace metadata with id '{workspace_id}'")
         try:
@@ -182,6 +635,9 @@ class SigmaAPI:
             )
             if response.status_code == 403:
                 logger.debug(f"Workspace {workspace_id} not accessible.")
+                # Latched: inaccessibility is a property of the workspace,
+                # not of the lookup, so re-asking only re-pays the round trip.
+                self._workspace_lookup_failed.add(workspace_id)
                 self.report.non_accessible_workspaces_count += 1
                 return None
             response.raise_for_status()
@@ -192,17 +648,35 @@ class SigmaAPI:
             self._log_http_error(
                 message=f"Unable to fetch workspace '{workspace_id}'. Exception: {e}"
             )
+            # Entity-removing, not decorating: None here drops every workbook
+            # and dataset in this workspace when ingest_shared_entities is
+            # False. Bounded to one workspace, so it takes the child-listing
+            # rule. The 403 above is a steady state, counted separately.
+            if self._should_latch(workspace_id, e):
+                self._workspace_lookup_failed.add(workspace_id)
+            if (
+                # With shared entities ON the caller keeps the workbook or
+                # dataset anyway, so nothing was lost.
+                not self.config.ingest_shared_entities
+                # Per workspace, not per lookup: a transient failure is
+                # re-asked, so counting lookups would mix units.
+                and workspace_id not in self._workspace_loss_counted
+            ):
+                self._workspace_loss_counted.add(workspace_id)
+                self._record_child_listing_failure()
         return None
 
     def fill_workspaces(self) -> None:
         logger.debug("Fetching all accessible workspaces metadata.")
         workspace_url = url = f"{self.config.api_url}/workspaces?limit=50"
+        last_row: Dict[str, Any] = {}
         try:
             while True:
                 response = self._get_api_call(url)
                 response.raise_for_status()
-                response_dict = response.json()
+                response_dict = _envelope(response.json(), entries_must_be_a_list=True)
                 for workspace_dict in response_dict[Constant.ENTRIES]:
+                    last_row = workspace_dict
                     self.workspaces[workspace_dict[Constant.WORKSPACEID]] = (
                         Workspace.model_validate(workspace_dict)
                     )
@@ -211,7 +685,20 @@ class SigmaAPI:
                 else:
                     break
         except Exception as e:
-            self._log_http_error(message=f"Unable to fetch workspaces. Exception: {e}")
+            detail = self._log_http_error(
+                message=f"Unable to fetch workspaces. Exception: {e}",
+                report_warning=False,
+            )
+            self._record_enumeration_failure(
+                what="workspaces",
+                context=f"{_failed_row(e, last_row)}{detail}, exception={_exc_text(e)}",
+                # This listing validates rows inside its own try, so one bad
+                # row lands here rather than on the per-row path.
+                unparseable_row=isinstance(e, _UNREADABLE_ROW),
+                malformed_response=_is_malformed_response(e),
+                status=_http_status(e),
+                transient=_is_transient(e),
+            )
 
     @functools.lru_cache()
     def _get_users(self) -> Dict[str, str]:
@@ -239,42 +726,115 @@ class SigmaAPI:
     def get_user_name(self, user_id: str) -> Optional[str]:
         return self._get_users().get(user_id)
 
-    @functools.lru_cache()
     def get_workspace_id_from_file_path(
-        self, parent_id: str, path: str
+        self, parent_id: str, path: str, entity_removing: bool = True
     ) -> Optional[str]:
+        """Walk a file's path up to its workspace id.
+
+        ``entity_removing`` says whether losing the answer costs an entity.
+        It does for workbooks and datasets, which are dropped without a
+        workspace; not for data models, which fall back to the /dataModels
+        payload's own workspaceId. Only the caller knows the file type.
+
+        It is NOT part of the cache key, or a folder holding both would be
+        walked twice. The cached walk reports which ancestor died; this
+        wrapper decides what that costs.
+        """
+        walk = self._file_path_walks.get((parent_id, path))
+        if walk is None:
+            walk = self._walk_to_workspace(parent_id, path)
+            if not walk.transient:
+                self._file_path_walks[(parent_id, path)] = walk
+        if walk.failed_ancestor is not None:
+            self._note_file_path_loss(walk.failed_ancestor, entity_removing)
+        return walk.workspace_id
+
+    def _should_latch(self, node_id: str, e: BaseException) -> bool:
+        """Whether a failed workspace or folder is remembered as dead.
+
+        A transient failure is re-asked, since latching a blip drops every
+        child under the node. Only up to a cap: a node that keeps failing
+        would otherwise be retried, at full backoff, once per child.
+        """
+        if not _is_transient(e):
+            return True
+        failures = self._transient_failures.get(node_id, 0) + 1
+        self._transient_failures[node_id] = failures
+        return failures >= _MAX_TRANSIENT_FAILURES_PER_NODE
+
+    def _walk_to_workspace(self, parent_id: str, path: str) -> "_FilePathWalk":
         try:
             path_list = path.split("/")
             while len(path_list) != 1:  # means current parent id is folder's id
+                if parent_id in self._file_path_lookup_failed:
+                    # Known-broken ancestor. The repeat this prevents is
+                    # SIBLING FOLDERS; _file_path_walks collapses the per-file
+                    # case.
+                    return _FilePathWalk(workspace_id=None, failed_ancestor=parent_id)
                 response = self._get_api_call(
                     f"{self.config.api_url}/files/{parent_id}"
                 )
                 response.raise_for_status()
                 parent_id = response.json()[Constant.PARENTID]
                 path_list.pop()
-            return parent_id
+            return _FilePathWalk(workspace_id=parent_id, failed_ancestor=None)
         except Exception as e:
-            logger.error(
-                f"Unable to find workspace id using file path '{path}'. Exception: {e}"
+            # Through _log_http_error, not logger.error, or the failure misses
+            # the counter and no entry names the file.
+            self._log_http_error(
+                message=f"Unable to find workspace id using file path "
+                f"'{path}'. Exception: {e}"
             )
-            return None
+            latched = self._should_latch(parent_id, e)
+            if latched:
+                self._file_path_lookup_failed.add(parent_id)
+            return _FilePathWalk(
+                workspace_id=None, failed_ancestor=parent_id, transient=not latched
+            )
 
+    def _note_file_path_loss(self, ancestor_id: str, entity_removing: bool) -> None:
+        """Count a broken ancestor once, for the callers that lose an entity.
+
+        "Known broken" and "already counted" are separate sets: a Data Model
+        walk marks an ancestor without counting -- the DM survives via its own
+        payload -- and a later workbook walk short-circuiting on that same
+        ancestor must still count, because the workbook IS dropped.
+        """
+        if not entity_removing or self.config.ingest_shared_entities:
+            return
+        if ancestor_id not in self._file_path_loss_counted:
+            self._file_path_loss_counted.add(ancestor_id)
+            self._record_child_listing_failure()
+
+    # Pre-existing cache. It also means a failed fetch is recorded once per
+    # file type rather than once per caller, since the partial map is cached.
     @functools.lru_cache
     def _get_files_metadata(self, file_type: str) -> Dict[str, File]:
         logger.debug(f"Fetching file metadata with type {file_type}.")
         file_url = url = (
             f"{self.config.api_url}/files?permissionFilter=view&typeFilters={file_type}"
         )
+        # Same rule as the failure below: a missing workspace drops workbooks
+        # and datasets, while a data model falls back to its own payload.
+        records_failure = file_type in (Constant.DATASET, Constant.WORKBOOK)
+        # Kept in hand like the other three listings: a ValidationError names
+        # the FIELD, never the object.
+        last_row: Dict[str, Any] = {}
+        # Outside the try so the failure path can return the pages it already
+        # read, like the dataset and workbook listings do.
+        files_metadata: Dict[str, File] = {}
         try:
-            files_metadata: Dict[str, File] = {}
             while True:
                 response = self._get_api_call(url)
                 response.raise_for_status()
-                response_dict = response.json()
+                response_dict = _envelope(response.json(), entries_must_be_a_list=True)
                 for file_dict in response_dict[Constant.ENTRIES]:
+                    last_row = file_dict
                     file = File.model_validate(file_dict)
                     file.workspaceId = self.get_workspace_id_from_file_path(
-                        file.parentId, file.path
+                        file.parentId,
+                        file.path,
+                        entity_removing=records_failure,
                     )
                     files_metadata[file_dict[Constant.ID]] = file
                 if response_dict[Constant.NEXTPAGE]:
@@ -284,16 +844,46 @@ class SigmaAPI:
             self.report.number_of_files_metadata[file_type] = len(files_metadata)
             return files_metadata
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch files metadata. Exception: {e}"
+            # report_warning=False only where a failure is recorded below:
+            # data-model records none, so it would have no entry at all.
+            detail = self._log_http_error(
+                message=f"Unable to fetch files metadata. Exception: {_exc_text(e)}",
+                report_warning=not records_failure,
             )
-            return {}
+            # A short map is a deletion, not a thinner result: every workbook
+            # and dataset it does not name is dropped for "missing file
+            # metadata" with no exception raised. Data Models are exempt --
+            # they fall back to the /dataModels payload's own workspaceId.
+            if records_failure:
+                self._record_enumeration_failure(
+                    what=f"file metadata for {file_type}s, which drops every "
+                    f"{file_type} the listing did not reach",
+                    context=f"{_failed_row(e, last_row)}{detail}, "
+                    f"exception={_exc_text(e)}",
+                    # A bad row here repeats every run and drops every
+                    # workbook, so it needs the advice that clears it.
+                    unparseable_row=isinstance(e, _UNREADABLE_ROW),
+                    malformed_response=_is_malformed_response(e),
+                    status=_http_status(e),
+                    transient=_is_transient(e),
+                    # Only reached from get_sigma_datasets, which
+                    # ingest_datasets=False skips, so it shares that remedy.
+                    optional_feature=(
+                        "ingest_datasets=False"
+                        if file_type == Constant.DATASET
+                        else None
+                    ),
+                )
+            return files_metadata
 
     def get_connections(self) -> List[Dict[str, Any]]:
         """Fetch all Sigma Connections (paginated). Returns raw API payloads.
 
         Mapping to SigmaConnectionRecord happens in
         connection_registry.SigmaConnectionRegistry.build().
+
+        Deliberately NOT a run-wide listing failure: a dead /v2/connections
+        thins lineage without removing entities, so nothing reads as deleted.
         """
         return self._paginated_raw_entries(
             f"{self.config.api_url}/connections",
@@ -304,13 +894,17 @@ class SigmaAPI:
         logger.debug("Fetching all accessible datasets metadata.")
         dataset_url = url = f"{self.config.api_url}/datasets"
         dataset_files_metadata = self._get_files_metadata(file_type=Constant.DATASET)
+        datasets: List[SigmaDataset] = []
+        # The row in hand when a failure escapes the loop: a ValidationError
+        # identifies the FIELD, never the object.
+        last_row: Dict[str, Any] = {}
         try:
-            datasets: List[SigmaDataset] = []
             while True:
                 response = self._get_api_call(url)
                 response.raise_for_status()
-                response_dict = response.json()
+                response_dict = _envelope(response.json(), entries_must_be_a_list=True)
                 for dataset_dict in response_dict[Constant.ENTRIES]:
+                    last_row = dataset_dict
                     dataset = SigmaDataset.model_validate(dataset_dict)
 
                     if dataset.datasetId not in dataset_files_metadata:
@@ -364,27 +958,29 @@ class SigmaAPI:
 
             return datasets
         except Exception as e:
-            # Deliberately a report warning, not only a log line: /v2/datasets is
-            # part of the same deprecated dataset API as /sources, so its removal
-            # is a plausible cause. Without this the downstream effect (no
-            # datasetId, so no warehouse lookup) surfaces only as an info that
-            # blames workspace_pattern.
+            # Read by sigma.py to tell "the listing died" apart from "this
+            # tenant has no datasets". No warning of its own -- the guidance
+            # belongs on the failure below.
             self.report.datasets_listing_failed += 1
-            self.report.warning(
-                title="Sigma dataset listing failed",
-                message=(
-                    "/v2/datasets could not be listed, so no Sigma Dataset "
-                    "warehouse lineage can be resolved this run. The exception is "
-                    "attached: a 404/410 suggests Sigma has removed the "
-                    "deprecated dataset API, while a validation or transport "
-                    "error points at one payload or at connectivity."
-                ),
-                exc=e,
+            detail = self._log_http_error(
+                message=f"Unable to fetch sigma datasets. Exception: {e}",
+                report_warning=False,
             )
-            self._log_http_error(
-                message=f"Unable to fetch sigma datasets. Exception: {e}"
+            self._record_enumeration_failure(
+                what="Sigma datasets, so no Sigma Dataset warehouse lineage "
+                "can be resolved this run",
+                context=f"{_failed_row(e, last_row)}{detail}, exception={_exc_text(e)}",
+                # Passed unconditionally; the remedy decides whether it
+                # applies.
+                optional_feature="ingest_datasets=False",
+                unparseable_row=isinstance(e, _UNREADABLE_ROW),
+                malformed_response=_is_malformed_response(e),
+                status=_http_status(e),
+                transient=_is_transient(e),
             )
-            return []
+            # Partial rows, not []: the run fails either way, so keeping the
+            # pages already read leaves those entities fresh.
+            return datasets
 
     def _process_lineage_node(
         self,
@@ -728,7 +1324,7 @@ class SigmaAPI:
         the partial-data workbook is distinguishable from one with few formulas.
         """
         error_ctx = f"Unable to fetch column formulas for workbook {workbook_id}."
-        warnings_before = self.report.warnings.total_elements
+        aborts_before = self.report.pagination_aborted
         result: Dict[str, Dict[str, Optional[str]]] = {}
         col_ids: Dict[str, Dict[str, str]] = {}
         for col in self._paginated_raw_entries(
@@ -744,7 +1340,9 @@ class SigmaAPI:
                 result.setdefault(elem_id, {})[name] = formula
                 if column_id:
                     col_ids.setdefault(elem_id, {})[name] = column_id
-        if self.report.warnings.total_elements > warnings_before:
+        if self.report.pagination_aborted > aborts_before:
+            # Not warnings.total_elements: that counts distinct KEYS, and
+            # every abort shares one title+message.
             self.report.column_formulas_fetch_partial += 1
         return result, col_ids
 
@@ -801,6 +1399,7 @@ class SigmaAPI:
             self._log_http_error(
                 message=f"Unable to fetch elements of page '{page.name}', workbook '{workbook.name}'. Exception: {e}"
             )
+            self._record_child_listing_failure()
             return []
 
     def get_workbook_pages(self, workbook: Workbook) -> List[Page]:
@@ -835,6 +1434,7 @@ class SigmaAPI:
             self._log_http_error(
                 message=f"Unable to fetch pages of workbook '{workbook.name}'. Exception: {e}"
             )
+            self._record_child_listing_failure()
             return []
 
     def _paginated_raw_entries(
@@ -842,9 +1442,35 @@ class SigmaAPI:
         base_url: str,
         error_ctx: str,
         silent_statuses: Tuple[int, ...] = (),
+        enumerates_entities: bool = False,
+        scoped_to_parent: bool = False,
+        optional_feature: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Page through a Sigma list endpoint and return raw ``entries``
-        dicts. Handles both pagination shapes (``nextPage`` and
+        """The dict rows of :meth:`_paginated_rows`."""
+        return [
+            row
+            for row in self._paginated_rows(
+                base_url,
+                error_ctx,
+                silent_statuses=silent_statuses,
+                enumerates_entities=enumerates_entities,
+                scoped_to_parent=scoped_to_parent,
+                optional_feature=optional_feature,
+            )
+            if isinstance(row, dict)
+        ]
+
+    def _paginated_rows(
+        self,
+        base_url: str,
+        error_ctx: str,
+        silent_statuses: Tuple[int, ...] = (),
+        enumerates_entities: bool = False,
+        scoped_to_parent: bool = False,
+        optional_feature: Optional[str] = None,
+    ) -> List[object]:
+        """Page through a Sigma list endpoint and return every ``entries``
+        row as sent, dict or not. Handles both pagination shapes (``nextPage`` and
         ``nextPageToken``) and guards against pathological proxies that
         return the same cursor twice in a row (which would otherwise loop
         forever and accumulate duplicates). HTTP/JSON errors abort
@@ -853,20 +1479,33 @@ class SigmaAPI:
         lets callers treat expected "no data" statuses (e.g. 404 from
         Sigma's /lineage on empty DMs) as an empty list without emitting
         a warning -- applied only to the first page so later-page
-        failures still surface.
+        failures still surface. ``enumerates_entities`` marks a RUN-WIDE listing
+        whose rows ARE entities, so an abort fails the run rather than
+        warning; ``scoped_to_parent`` marks a listing of one parent's
+        children, which is counted instead -- see
+        :meth:`_record_enumeration_failure` and
+        :meth:`_record_child_listing_failure`.
         """
+        # A run-wide listing that swallows a status can report zero rows for
+        # a live endpoint. Not a bare `assert`, which -O would strip.
+        if silent_statuses and enumerates_entities:
+            raise AssertionError(
+                "silent_statuses on a run-wide listing would hide a dead "
+                f"listing behind an empty result: {error_ctx}"
+            )
         # Use ``&`` as the separator if the base URL already has query
         # params (e.g. an ``api_url`` routed through a proxy), so
         # pagination does not collide with existing params.
         separator = "&" if "?" in base_url else "?"
         url = base_url
-        raw_entries: List[Dict[str, Any]] = []
+        raw_entries: List[object] = []
         # Cycle protection: a broken proxy (or caching layer) can echo the
         # same ``nextPage`` / ``nextPageToken`` back on every call. Track
         # (kind, value) tuples so a cycle that crosses cursor types is also
         # detected (e.g. page=1 → nextPageToken=1 → page=1 repeating).
         seen_cursors: Set[Tuple[str, str]] = set()
         first_page = True
+        pages_read = 0
         try:
             while True:
                 response = self._get_api_call(url)
@@ -878,10 +1517,29 @@ class SigmaAPI:
                     return raw_entries
                 first_page = False
                 response.raise_for_status()
-                response_dict = response.json()
-                for entry in response_dict.get(Constant.ENTRIES, []):
-                    if isinstance(entry, dict):
-                        raw_entries.append(entry)
+                response_dict = _envelope(response.json())
+                # After decoding, so pages_read is pages actually READ: 0 means
+                # the first page itself failed.
+                pages_read += 1
+                entries = response_dict.get(Constant.ENTRIES)
+                if enumerates_entities and not isinstance(entries, list):
+                    # `.get(..., [])` made a page with NO `entries` look like
+                    # a page with none: zero rows, nothing reported, and
+                    # everything soft-deleted.
+                    raise KeyError(Constant.ENTRIES)
+                if isinstance(entries, list):
+                    raw_entries.extend(entries)
+                if enumerates_entities and not (
+                    Constant.NEXTPAGE in response_dict
+                    or Constant.NEXTPAGETOKEN in response_dict
+                ):
+                    # A RENAMED cursor ends the listing silently: neither key
+                    # is present, the loop breaks, and every later page is
+                    # missing from a run that passes. The hand-written listings
+                    # index NEXTPAGE directly against live Sigma, which is the
+                    # evidence that it is always present. Run-wide only: a
+                    # truncated detail endpoint costs a thinner entity.
+                    raise KeyError(Constant.NEXTPAGE)
                 next_page = response_dict.get(Constant.NEXTPAGE)
                 next_token = response_dict.get(Constant.NEXTPAGETOKEN)
                 if next_page:
@@ -893,40 +1551,79 @@ class SigmaAPI:
                 else:
                     break
                 if cursor_key in seen_cursors:
-                    self.report.warning(
-                        message="Pagination cursor repeated; aborting",
-                        context=f"{error_ctx} url={base_url}, cursor={cursor}, "
-                        f"entries_so_far={len(raw_entries)}",
-                    )
+                    # Truncates the listing as an HTTP abort does, so it
+                    # takes the same accounting.
+                    self.report.pagination_aborted += 1
+                    if enumerates_entities:
+                        # One entry: the failure already carries the cursor
+                        # and page count, so a warning would repeat them.
+                        self._record_enumeration_failure(
+                            what="a paginated entity listing",
+                            context=f"endpoint={error_ctx}, url={base_url}, "
+                            f"repeated_cursor={cursor}, "
+                            f"partial_results={len(raw_entries)}, "
+                            f"pages_read={pages_read}",
+                            optional_feature=optional_feature,
+                            # Sigma answered; its pagination came back wrong.
+                            # Same class as a page with no `entries`.
+                            malformed_response=True,
+                        )
+                    else:
+                        self.report.warning(
+                            title="Sigma paginated endpoint aborted",
+                            message="Pagination cursor repeated; aborting.",
+                            context=f"endpoint={error_ctx}, url={base_url}, "
+                            f"cursor={cursor}, "
+                            f"partial_results={len(raw_entries)}, "
+                            f"pages_read={pages_read}",
+                        )
+                        if scoped_to_parent:
+                            self._record_child_listing_failure()
                     break
                 seen_cursors.add(cursor_key)
                 url = f"{base_url}{separator}{cursor}"
             return raw_entries
         except Exception as e:
-            # Surface HTTP/JSON pagination failures so the operator sees
-            # them in the ingestion report; ``_log_http_error`` alone is
-            # debug-level and would leave the DM looking healthy while its
-            # elements/columns are silently missing. Partial results
-            # collected before the failure are preserved.
-            # HTTP status goes into ``context`` (not ``title``) so LossyList
-            # groups all pagination aborts under one stable key regardless
-            # of status code.
-            http_status: Optional[int] = (
-                e.response.status_code
-                if isinstance(e, requests.HTTPError) and e.response is not None
-                else None
+            # _log_http_error alone is debug-level, which would leave the DM
+            # looking healthy while its elements are missing. The status goes
+            # in ``context``, not ``title``, so LossyList groups all aborts.
+            detail = self._log_http_error(
+                message=f"{error_ctx} Exception: {e}", report_warning=False
             )
-            self.report.warning(
-                title="Sigma paginated endpoint aborted",
-                message="Pagination aborted; partial results preserved.",
-                context=(
-                    f"endpoint={error_ctx}, url={url}, "
-                    f"partial_results={len(raw_entries)}"
-                    + (f", http_status={http_status}" if http_status else "")
-                ),
-                exc=e,
+            self.report.pagination_aborted += 1
+            # Which page died separates "refused outright" from "served rows
+            # and then stopped".
+            where = (
+                f"endpoint={error_ctx}, url={url}, "
+                f"partial_results={len(raw_entries)}, pages_read={pages_read}"
             )
-            self._log_http_error(message=f"{error_ctx} Exception: {e}")
+            if enumerates_entities:
+                # ONE entry: the rows this call would have returned ARE the
+                # entities, so the warning's detail is folded into the
+                # failure's context.
+                self._record_enumeration_failure(
+                    what="a paginated entity listing",
+                    context=f"{where}, {detail}, exception={e}",
+                    optional_feature=optional_feature,
+                    # Without this the only paginated run-wide listing --
+                    # /dataModels -- reads a 403 as "transient, re-run".
+                    status=_http_status(e),
+                    transient=_is_transient(e),
+                    # A missing `entries`, an unknown cursor name and a
+                    # non-JSON body are all "the wrong shape".
+                    malformed_response=_is_malformed_response(e),
+                )
+            else:
+                # The warning is this failure's only entry -- a child listing
+                # gets one grouped info and nothing else.
+                self.report.warning(
+                    title="Sigma paginated endpoint aborted",
+                    message="Pagination aborted; partial results preserved.",
+                    context=f"{where}, {detail}",
+                    exc=e,
+                )
+                if scoped_to_parent:
+                    self._record_child_listing_failure()
             return raw_entries
 
     # Cap per-endpoint malformed-entry warnings so a vendor regression
@@ -941,10 +1638,13 @@ class SigmaAPI:
         model_cls: Type[T],
         error_ctx: str,
         dedup_key: Optional[Callable[[T], Hashable]] = None,
+        enumerates_entities: bool = False,
+        scoped_to_parent: bool = False,
+        optional_feature: Optional[str] = None,
     ) -> List[T]:
         """Page through a Sigma list endpoint, parsing each entry into
         ``model_cls``. Shares pagination / cycle-protection logic with
-        :meth:`_paginated_raw_entries`. Per-entry ``ValidationError``
+        :meth:`_paginated_rows`. Per-entry ``ValidationError``
         drops only that entry (so one malformed row cannot empty the
         whole list). ``dedup_key`` lets callers collapse duplicates by
         a natural key so an echoed pagination cursor (or server-side
@@ -955,12 +1655,27 @@ class SigmaAPI:
         """
         results: List[T] = []
         seen_keys: Set[Hashable] = set()
+        failures_before = self.report.entity_enumeration_failed
         malformed_warned = 0
-        for entry in self._paginated_raw_entries(base_url, error_ctx):
+        malformed_dropped = 0
+        first_malformed = ""
+        # Every row, not just dicts: a null row must fail model_validate and
+        # count as dropped, or a listing of nulls reads as an empty tenant.
+        for entry in self._paginated_rows(
+            base_url,
+            error_ctx,
+            enumerates_entities=enumerates_entities,
+            scoped_to_parent=scoped_to_parent,
+            optional_feature=optional_feature,
+        ):
             try:
                 parsed = model_cls.model_validate(entry)
             except ValidationError as ve:
                 self.report.pagination_malformed_entries_dropped += 1
+                malformed_dropped += 1
+                first_malformed = first_malformed or (
+                    f"{_row_identity(entry)}, validation_error={_terse(ve)}"
+                )
                 if malformed_warned < self._MAX_MALFORMED_WARNINGS_PER_ENDPOINT:
                     self.report.warning(
                         message="Dropped malformed entry",
@@ -976,6 +1691,27 @@ class SigmaAPI:
                     continue
                 seen_keys.add(key)
             results.append(parsed)
+        if (
+            enumerates_entities
+            and malformed_dropped > len(results)
+            # Page 1 of bad rows then page 2 dying is ONE dead listing; a
+            # second entry would contradict the first.
+            and self.report.entity_enumeration_failed == failures_before
+        ):
+            # ONE bad row is a bounded loss, counted not failed: it fails
+            # identically every run, so failing would freeze soft-deletion
+            # tenant-wide with no remedy. MOST rows failing is a different
+            # event. `not results` was too weak a line -- 1 good row among 99
+            # bad ones passed it, and fail_safe_threshold does not backstop
+            # that, since it measures all URNs of every type.
+            self._record_enumeration_failure(
+                what="most rows of a paginated entity listing, so what came "
+                "back is not a usable listing",
+                context=f"endpoint={error_ctx}, rows_dropped={malformed_dropped}, "
+                f"rows_parsed={len(results)}, "
+                f"first={first_malformed}",
+                unparseable_row=True,
+            )
         return results
 
     def _get_data_model_elements(
@@ -987,6 +1723,7 @@ class SigmaAPI:
             SigmaDataModelElement,
             f"Unable to fetch elements for data model '{data_model_id}'.",
             dedup_key=lambda element: element.elementId,
+            scoped_to_parent=True,
         )
 
     def _get_data_model_columns(self, data_model_id: str) -> List[SigmaDataModelColumn]:
@@ -1819,8 +2556,9 @@ class SigmaAPI:
             self._assemble_data_model(dm, file_meta=None)
             return dm
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch data model by url_id '{url_id}'. Exception: {e}"
+            detail = self._log_http_error(
+                message=f"Unable to fetch data model by url_id '{url_id}'. Exception: {e}",
+                report_warning=False,
             )
             self.report.warning(
                 title="Sigma orphan Data Model fetch raised exception",
@@ -1831,7 +2569,7 @@ class SigmaAPI:
                     "Pydantic validation failure on a malformed 200 payload, "
                     "network error inside element/column/lineage assembly."
                 ),
-                context=f"url_id={url_id}, exception={type(e).__name__}: {e}",
+                context=f"url_id={url_id}, {detail}, exception={type(e).__name__}: {e}",
             )
             return None
 
@@ -1848,6 +2586,8 @@ class SigmaAPI:
             SigmaDataModel,
             "Unable to fetch sigma data models.",
             dedup_key=lambda dm: dm.dataModelId,
+            enumerates_entities=True,
+            optional_feature="ingest_data_models=False",
         )
         data_models: List[SigmaDataModel] = []
         for data_model in raw_data_models:
@@ -1939,13 +2679,17 @@ class SigmaAPI:
         logger.debug("Fetching all accessible workbooks metadata.")
         workbook_url = url = f"{self.config.api_url}/workbooks"
         workbook_files_metadata = self._get_files_metadata(file_type=Constant.WORKBOOK)
+        workbooks: List[Workbook] = []
+        # The row in hand when a failure escapes the loop: a ValidationError
+        # identifies the FIELD, never the object.
+        last_row: Dict[str, Any] = {}
         try:
-            workbooks: List[Workbook] = []
             while True:
                 response = self._get_api_call(url)
                 response.raise_for_status()
-                response_dict = response.json()
+                response_dict = _envelope(response.json(), entries_must_be_a_list=True)
                 for workbook_dict in response_dict[Constant.ENTRIES]:
+                    last_row = workbook_dict
                     workbook = Workbook.model_validate(workbook_dict)
 
                     # Skip workbook if workbook name filtered out by config
@@ -2005,7 +2749,18 @@ class SigmaAPI:
                     break
             return workbooks
         except Exception as e:
-            self._log_http_error(
-                message=f"Unable to fetch sigma workbooks. Exception: {e}"
+            detail = self._log_http_error(
+                message=f"Unable to fetch sigma workbooks. Exception: {e}",
+                report_warning=False,
             )
-            return []
+            self._record_enumeration_failure(
+                what="Sigma workbooks",
+                context=f"{_failed_row(e, last_row)}{detail}, exception={_exc_text(e)}",
+                unparseable_row=isinstance(e, _UNREADABLE_ROW),
+                malformed_response=_is_malformed_response(e),
+                status=_http_status(e),
+                transient=_is_transient(e),
+            )
+            # Partial rows, not []: the run fails either way, so keeping the
+            # pages already read leaves those entities fresh.
+            return workbooks

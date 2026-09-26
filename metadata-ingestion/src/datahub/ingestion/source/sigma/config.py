@@ -17,6 +17,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
 class Constant:
@@ -361,6 +362,40 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # emit a user-visible warning to prevent report flooding on a
     # vendor-wide regression; this counter captures the rest.
     pagination_malformed_entries_dropped: int = 0
+    # Paginated calls that aborted partway, losing every entry after the
+    # failure point. The warnings all group under one title, so without this
+    # the report shows one warning however many endpoints were truncated.
+    pagination_aborted: int = 0
+
+    # Failed Sigma API calls by HTTP status, or by exception class when there
+    # is no response (hence ..._or_error). Sourced from ``_log_http_error``,
+    # so NOT a total: the handlers that already emit their own entry with a
+    # status in it skip it rather than report the same failure twice.
+    api_call_failures_by_status_or_error: Dict[str, int] = field(default_factory=dict)
+    # The same failures keyed by Sigma's own ``code``, which is the actionable
+    # one: a single 400 covers a deleted warehouse object (inode_archived), a
+    # broken model (invalid_request) and the customer's own SQL failing
+    # (warehouse_query_failed_user_error). TopKDict because the key is
+    # server-controlled: it prints the top 10 plus a rollup, and keeps the
+    # rest.
+    api_call_failures_by_sigma_code: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    # RUN-WIDE calls whose failure removes entities from the emitted set.
+    # A failure, not a warning: the framework suppresses soft-deletion only
+    # when the source reports one.
+    entity_enumeration_failed: int = 0
+    # The same failure scoped to ONE parent: a workbook's pages, a page's
+    # elements, a Data Model's elements, or a workspace or file-path lookup.
+    # Counted, not failed -- the framework guard is run-wide, so failing here
+    # would freeze soft-deletion tenant-wide for one flaky call. The unit is
+    # DISTINCT PARENTS; both lookup paths dedupe on their own counted-set.
+    #
+    # RESIDUAL RISK, accepted: with ingest_shared_entities False a failed
+    # workspace lookup drops that workspace's content and the run still
+    # passes, so it is soft-deleted, with only fail_safe_threshold behind it.
+    # Reached only for workspaces MISSING from the /workspaces listing.
+    child_entity_listing_failed: int = 0
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
 
@@ -476,10 +511,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # datasets_listing_failed is also set, in which case the listing itself
     # failed and every referenced dataset lands here.
     dataset_warehouse_unlisted_dataset: int = 0
-    # /v2/datasets could not be listed (or was cut short mid-pagination). Set
-    # because the dataset API is deprecated: its removal is a likely cause, and
-    # without this the resulting lineage loss looks like a workspace_pattern
-    # choice rather than the endpoint going away.
+    # /v2/datasets could not be listed. The per-listing breakdown of
+    # entity_enumeration_failed: both fire, the aggregate driving the
+    # stale-removal guard and this one telling sigma.py which listing died.
+    # Without it the lineage loss looks like a workspace_pattern choice
+    # rather than the deprecated endpoint going away.
     datasets_listing_failed: int = 0
     # Datasets present in the listing but dropped because /files metadata was
     # missing for them. _get_files_metadata returning {} drops every dataset
@@ -605,6 +641,16 @@ class SigmaSourceConfig(
     workbook_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter Sigma workbook names in ingestion.",
+    )
+    ingest_datasets: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest Sigma Datasets. Sigma ended dataset "
+        "support on 2026-09-15, so ``/v2/datasets`` is on a removal path. Set "
+        "this to ``False`` once that endpoint has gone for your tenant: the "
+        "call is not made and the run stops failing. Sigma Datasets a "
+        "previous run emitted are then soft-deleted. Data Model elements "
+        "that read one lose that upstream edge; workbook elements are "
+        "linked straight to the warehouse table when their SQL names it.",
     )
     ingest_data_models: bool = pydantic.Field(
         default=True,
