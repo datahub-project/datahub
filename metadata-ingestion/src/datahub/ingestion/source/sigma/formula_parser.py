@@ -164,6 +164,12 @@ class BracketRef:
     independently. Resolving a three-part reference needs a data-model lookup
     of the relationship's target.
 
+    The same shape also names a column reached through a data-model join,
+    ``[JoinElement/.../Owner/Column]``. There the middle segments ARE element
+    names, and a resolver may match them only against the tables the join
+    element's lineage lists as its sources; a relationship's target is never
+    one of them.
+
     So this type exposes the parts and asserts nothing about their meaning:
     every resolver must treat a split as a candidate to validate, never as a
     positional fact. ``segments`` may also contain empty strings -- see the

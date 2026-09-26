@@ -244,6 +244,31 @@ def _dm_upstream_urns(name: str, dm_upstreams: Dict[str, str]) -> Set[str]:
     return {dm_upstreams[key] for key in _case_variants(name, dm_upstreams)}
 
 
+def _workbook_dm_url_ids(wb_element_index: Dict[str, List[Element]]) -> FrozenSet[str]:
+    """The Data Models any element of the workbook loads."""
+    return frozenset(
+        upstream.data_model_url_id
+        for named in wb_element_index.values()
+        for wb_element in named
+        for upstream in wb_element.upstream_sources.values()
+        if isinstance(upstream, DataModelElementUpstream)
+    )
+
+
+def _dm_upstream_urns_for_elements(
+    ref: BracketRef, elements: List[Element], dm_upstreams: Dict[str, str]
+) -> Set[str]:
+    """The DM upstream URNs the elements' own spellings mean; with several,
+    the ref's exact spelling breaks the tie."""
+    urns: Set[str] = set()
+    for element in elements:
+        urns |= _dm_upstream_urns(element.name, dm_upstreams)
+    exact_urn = dm_upstreams.get(ref.source)
+    if len(urns) > 1 and exact_urn in urns:
+        return {exact_urn}
+    return urns
+
+
 def _case_variants(name: str, candidates: Collection[str]) -> Set[str]:
     folded = _fold_name(name)
     return {c for c in candidates if _fold_name(c) == folded}
@@ -476,6 +501,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # DM element Dataset URN -> the DM's bridge key in dm_element_urn_by_name,
         # so a join-chain ref can search the join element's siblings.
         self._dm_key_by_element_urn: Dict[str, str] = {}
+        # DM element Dataset URN -> the URNs of the elements of its own model that
+        # its /lineage lists as sources; for a join element, every joined table.
+        self._dm_element_source_urns: Dict[str, Set[str]] = {}
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -3201,6 +3229,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     element_dataset_urn
                 )
 
+        for element in data_model.elements:
+            self._dm_element_source_urns[
+                elementId_to_dataset_urn[element.elementId]
+            ] = {
+                elementId_to_dataset_urn[source_id]
+                for source_id in element.source_ids
+                if source_id in elementId_to_dataset_urn
+            }
+
         self.dm_container_urn_by_url_id[bridge_key] = data_model_container_urn
         self.dm_element_urn_by_name[bridge_key] = name_map
         self.data_model_id_by_url_id[bridge_key] = data_model.dataModelId
@@ -3704,6 +3741,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
         workbook_dm_url_ids: FrozenSet[str] = frozenset(),
+        chart_source_names: FrozenSet[str] = frozenset(),
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
 
@@ -3744,7 +3782,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
              NOTE: this index is built from the current element's dataset_inputs
              only. A formula that references a warehouse table whose SQL query
              is parsed on a different sibling element will not resolve here.
-          5. No page element named ref.source -> _resolve_in_loaded_data_models.
+          5. No page element named ref.source, and not one of the chart's own
+             dataset or warehouse sources (chart_source_names, lowercased)
+             -> _resolve_in_loaded_data_models.
           6. else -> None.
         """
         schema_required = len(ref.segments) > 2
@@ -3758,6 +3798,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             element_warehouse_table_index=element_warehouse_table_index,
             elementId_to_chart_urn=elementId_to_chart_urn,
             workbook_dm_url_ids=workbook_dm_url_ids,
+            chart_source_names=chart_source_names,
         )
         if result is None and schema_required:
             result = self._resolve_join_chain_ref(ref, dm_upstream_urn_by_element_name)
@@ -3778,6 +3819,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
         workbook_dm_url_ids: FrozenSet[str],
+        chart_source_names: FrozenSet[str],
     ) -> Optional[Tuple[str, str]]:
         """One reading of a ref; see _resolve_chart_formula_upstream.
 
@@ -3827,15 +3869,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # Ambiguous name collision not resolved by lineage filter.
                 return None
 
-            # Step 3b: DataModelElementUpstream lineage, by each candidate's
-            # own spelling, also picks among case variants; the ref's exact
-            # spelling breaks a tie.
-            dm_urns: Set[str] = set()
-            for elem in sheet_matches or candidates:
-                dm_urns |= _dm_upstream_urns(elem.name, dm_upstream_urn_by_element_name)
-            exact_urn = dm_upstream_urn_by_element_name.get(ref.source)
-            if len(dm_urns) > 1 and exact_urn in dm_urns:
-                dm_urns = {exact_urn}
+            # Step 3b: DataModelElementUpstream lineage.
+            dm_urns = _dm_upstream_urns_for_elements(
+                ref, sheet_matches or candidates, dm_upstream_urn_by_element_name
+            )
             if len(dm_urns) == 1:
                 picked_urn = dm_urns.pop()
                 dm_field = self._dm_upstream_field_for_ref(
@@ -3907,7 +3944,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-        if not candidates:
+        if not candidates and _fold_name(ref.source) not in chart_source_names:
             return self._resolve_in_loaded_data_models(ref, workbook_dm_url_ids)
         return None
 
@@ -3918,27 +3955,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Data Model join element the chart reads.
 
         The first segment is the chart's DM upstream (the join element); the
-        column belongs to the segment before it, a sibling element of the same
-        Data Model. Sigma's write API accepts any such path, so the sibling
-        must be the only one of that name and must have the column.
+        column belongs to the segment before it. Sigma's write API accepts any
+        such path, so every segment after the first must name exactly one
+        table the join element's /lineage lists as a source, and the owner
+        must have the column. A relationship's target is not a source, so
+        ``[Element/Relationship/Column]`` stays unresolved.
         """
         join_name = _match_name(ref.segments[0], dm_upstream_urn_by_element_name)
         if join_name is None:
             return None
-        dm_key = self._dm_key_by_element_urn.get(
-            dm_upstream_urn_by_element_name[join_name]
-        )
+        join_urn = dm_upstream_urn_by_element_name[join_name]
+        dm_key = self._dm_key_by_element_urn.get(join_urn)
         if dm_key is None:
             return None
-        owner_name, column = ref.segments[-2], ref.segments[-1]
-        owners = self.dm_element_urn_by_name.get(dm_key, {}).get(owner_name.lower(), [])
-        if len(owners) != 1:
-            return None
-        field = _match_name(column, self._dm_element_field_paths.get(owners[0], ()))
+        sources = self._dm_element_source_urns.get(join_urn, set())
+        name_map = self.dm_element_urn_by_name.get(dm_key, {})
+        owner = None
+        for name in ref.segments[1:-1]:
+            joined = [urn for urn in name_map.get(name.lower(), []) if urn in sources]
+            if len(joined) != 1:
+                return None
+            owner = joined[0]
+        assert owner is not None
+        field = _match_name(
+            ref.segments[-1], self._dm_element_field_paths.get(owner, ())
+        )
         if field is None:
             return None
         self.reporter.chart_input_fields_join_chain_resolved += 1
-        return (owners[0], field)
+        return (owner, field)
 
     def _resolve_in_loaded_data_models(
         self, ref: BracketRef, workbook_dm_url_ids: FrozenSet[str]
@@ -4295,6 +4340,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_chart_urn: Dict[str, str],
         wb_only_warehouse_keys: FrozenSet[str] = frozenset(),
         workbook_dm_url_ids: FrozenSet[str] = frozenset(),
+        chart_source_names: FrozenSet[str] = frozenset(),
     ) -> List[InputFieldClass]:
         """Emit exactly one InputField per chart column.
 
@@ -4313,9 +4359,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """
         fields: List[InputFieldClass] = []
         # For sibling inheritance: the upstream fields each column resolved to,
-        # and each all-sibling column's index in `fields` and sibling names.
+        # and for each column whose refs are only siblings and parameters, its
+        # index in `fields`, sibling names, and the counter it was filed under.
         upstreams_by_column: Dict[str, List[str]] = {}
-        sibling_pending: Dict[str, Tuple[int, List[str]]] = {}
+        sibling_pending: Dict[str, Tuple[int, List[str], str]] = {}
         for column in element.columns:
             formula = element.column_formulas.get(column)
             refs: List[BracketRef] = []
@@ -4345,6 +4392,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             element_warehouse_table_index=element_warehouse_table_index,
                             elementId_to_chart_urn=elementId_to_chart_urn,
                             workbook_dm_url_ids=workbook_dm_url_ids,
+                            chart_source_names=chart_source_names,
                         )
                         if result is not None:
                             upstream_urn, upstream_field = result
@@ -4399,8 +4447,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     upstreams_by_column.setdefault(column, []).append(schema_field_urn)
             else:
-                if all_sibling:
-                    sibling_pending[column] = (len(fields), [r.source for r in refs])
+                siblings = [r.source for r in refs if r.column is None]
+                if (
+                    siblings
+                    and not all_param
+                    and all(r.is_parameter or r.column is None for r in refs)
+                ):
+                    sibling_pending[column] = (
+                        len(fields),
+                        siblings,
+                        "skipped_sibling" if all_sibling else "self_ref_fallback",
+                    )
                 if all_param:
                     schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
                     self.reporter.chart_input_fields_skipped_parameter += 1
@@ -4416,53 +4473,68 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         schemaField=self._make_string_schema_field(column),
                     )
                 )
-        self._inherit_sibling_upstreams(fields, upstreams_by_column, sibling_pending)
-        return fields
-
-    # A derived column can be several siblings away from a real upstream; the
-    # cap stops a reference cycle from looping.
-    _SIBLING_INHERIT_MAX_PASSES = 5
+        return self._inherit_sibling_upstreams(
+            fields, upstreams_by_column, sibling_pending
+        )
 
     def _inherit_sibling_upstreams(
         self,
         fields: List[InputFieldClass],
         upstreams_by_column: Dict[str, List[str]],
-        sibling_pending: Dict[str, Tuple[int, List[str]]],
-    ) -> None:
-        """Give a column computed only from sibling columns (``Sum([Amount])``)
-        the upstreams those siblings resolved to.
+        sibling_pending: Dict[str, Tuple[int, List[str], str]],
+    ) -> List[InputFieldClass]:
+        """Give a column computed only from sibling columns (``Sum([Amount])``,
+        ``[Amount] * [P_Rate]``) the union of the upstreams those siblings
+        resolve to, directly or through other siblings.
 
-        Its counter moves from skipped_sibling to resolved, so the per-element
-        invariant still holds.
+        Iterates to a fixed point, so neither column order nor chain depth
+        matters; upstream sets only grow, so a cycle terminates. The column's
+        counter moves to resolved, so the per-element invariant still holds.
         """
-        for _ in range(self._SIBLING_INHERIT_MAX_PASSES):
-            progressed = False
-            for column, (index, sibling_names) in list(sibling_pending.items()):
-                inherited: List[str] = []
+        if not sibling_pending:
+            return fields
+        known = dict(upstreams_by_column)
+        changed = True
+        while changed:
+            changed = False
+            for column, (_, sibling_names, _) in sibling_pending.items():
+                union = list(known.get(column, []))
                 for name in sibling_names:
-                    sibling = _match_name(name, upstreams_by_column)
+                    sibling = _match_name(name, known)
                     if sibling is not None:
-                        inherited.extend(upstreams_by_column[sibling])
-                if not inherited:
-                    continue
-                ordered = list(dict.fromkeys(inherited))
-                schema_field = fields[index].schemaField
-                fields[index] = InputFieldClass(
-                    schemaFieldUrn=ordered[0], schemaField=schema_field
-                )
-                fields.extend(
-                    InputFieldClass(schemaFieldUrn=urn, schemaField=schema_field)
-                    for urn in ordered[1:]
-                )
-                upstreams_by_column[column] = ordered
-                self.reporter.chart_input_fields_sibling_inherited += 1
+                        union.extend(known[sibling])
+                union = list(dict.fromkeys(union))
+                if len(union) > len(known.get(column, [])):
+                    known[column] = union
+                    changed = True
+
+        urns_at: Dict[int, Tuple[str, List[str]]] = {}
+        for column, (index, _, bucket) in sibling_pending.items():
+            if column not in known:
+                continue
+            urns_at[index] = (column, known[column])
+            self.reporter.chart_input_fields_sibling_inherited += 1
+            self.reporter.chart_input_fields_resolved += 1
+            self.reporter.chart_input_fields_multi_ref_extra += len(known[column]) - 1
+            if bucket == "skipped_sibling":
                 self.reporter.chart_input_fields_skipped_sibling -= 1
-                self.reporter.chart_input_fields_resolved += 1
-                self.reporter.chart_input_fields_multi_ref_extra += len(ordered) - 1
-                del sibling_pending[column]
-                progressed = True
-            if not progressed:
-                return
+            else:
+                self.reporter.chart_input_fields_self_ref_fallback -= 1
+
+        rebuilt: List[InputFieldClass] = []
+        for index, input_field in enumerate(fields):
+            if index not in urns_at:
+                rebuilt.append(input_field)
+                continue
+            column, urns = urns_at[index]
+            rebuilt.extend(
+                InputFieldClass(
+                    schemaFieldUrn=urn,
+                    schemaField=self._make_string_schema_field(column),
+                )
+                for urn in urns
+            )
+        return rebuilt
 
     def _gen_elements_workunit(
         self,
@@ -4474,18 +4546,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         wb_element_index: Dict[str, List[Element]],
         wb_warehouse_table_index: Optional[_WorkbookWarehouseIndex],
         customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
+        workbook_dm_url_ids: FrozenSet[str] = frozenset(),
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
         """
-        # The Data Models any element of the workbook loads.
-        workbook_dm_url_ids = frozenset(
-            upstream.data_model_url_id
-            for named in wb_element_index.values()
-            for wb_element in named
-            for upstream in wb_element.upstream_sources.values()
-            if isinstance(upstream, DataModelElementUpstream)
-        )
         for element in elements:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -4653,6 +4718,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elementId_to_chart_urn=elementId_to_chart_urn,
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
                 workbook_dm_url_ids=workbook_dm_url_ids,
+                chart_source_names=frozenset(
+                    _fold_name(upstream.name)
+                    for upstream in element.upstream_sources.values()
+                    if isinstance(upstream, (DatasetUpstream, WarehouseTableUpstream))
+                    and upstream.name
+                ),
             )
 
             # Stash formula-derived fields for customSQL charts so we can merge at
@@ -4697,6 +4768,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for element in page.elements
         }
         wb_element_index = self._build_workbook_element_index(workbook)
+        workbook_dm_url_ids = _workbook_dm_url_ids(wb_element_index)
         # Build the workbook-level warehouse-table index once per workbook.
         # Gated on extract_lineage + workbook_lineage_pattern to match the
         # analogous gates for formula fetch and element upstream resolution.
@@ -4742,6 +4814,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_element_index,
                 wb_warehouse_table_index,
                 customsql_extra_inputs or {},
+                workbook_dm_url_ids=workbook_dm_url_ids,
             )
 
             yield MetadataChangeProposalWrapper(
@@ -4934,6 +5007,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._workbook_customsql_formula_fields.clear()
         self._dm_element_field_paths.clear()
         self._dm_key_by_element_urn.clear()
+        self._dm_element_source_urns.clear()
         self._folded_index_memo = None
         self.sigma_api.fill_workspaces()
 

@@ -14,6 +14,7 @@ import pytest
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig
 from datahub.ingestion.source.sigma.data_classes import (
     DataModelElementUpstream,
+    DatasetUpstream,
     Element,
     Page,
     WarehouseTableUpstream,
@@ -23,7 +24,7 @@ from datahub.ingestion.source.sigma.formula_parser import (
     BracketRef,
     extract_bracket_refs,
 )
-from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma import SigmaSource, _workbook_dm_url_ids
 from datahub.metadata.schema_classes import InputFieldsClass
 
 # ---------------------------------------------------------------------------
@@ -98,6 +99,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source._dm_element_field_paths = {}
     source._folded_index_memo = None
     source._dm_key_by_element_urn = {}
+    source._dm_element_source_urns = {}
     source.dm_element_urn_by_name = {}
     source._bridge_unresolved_warned = set()
     return source
@@ -1283,18 +1285,31 @@ class TestBridgeWarehouseColumnName:
 
 
 _JOIN_URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.join,PROD)"
+_MIDDLE_URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.middle,PROD)"
 _OWNER_URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.owner,PROD)"
+_UNJOINED_URN = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm1.unjoined,PROD)"
 
 
 class TestChartRefStrategies:
     def setup_method(self) -> None:
         self.src = _make_source()
-        # A Data Model with a join element and the table joined into it.
+        # A Data Model whose join element joins Middle and Owner El; Unjoined
+        # is in the same model, has the column, and is not joined in.
         self.src._dm_key_by_element_urn = {_JOIN_URN: "dm1", _OWNER_URN: "dm1"}
         self.src.dm_element_urn_by_name = {
-            "dm1": {"join el": [_JOIN_URN], "owner el": [_OWNER_URN]}
+            "dm1": {
+                "join el": [_JOIN_URN],
+                "middle": [_MIDDLE_URN],
+                "owner el": [_OWNER_URN],
+                "unjoined": [_UNJOINED_URN],
+            }
         }
-        self.src._dm_element_field_paths = {_JOIN_URN: {"Key"}, _OWNER_URN: {"Sku"}}
+        self.src._dm_element_source_urns = {_JOIN_URN: {_MIDDLE_URN, _OWNER_URN}}
+        self.src._dm_element_field_paths = {
+            _JOIN_URN: {"Key"},
+            _OWNER_URN: {"Sku"},
+            _UNJOINED_URN: {"Sku"},
+        }
 
     def _resolve(
         self,
@@ -1334,9 +1349,13 @@ class TestChartRefStrategies:
             (
                 "Join El/Owner El/Sku",
                 {"Join El": _JOIN_URN},
-                {"join el": [_JOIN_URN], "owner el": [_OWNER_URN, "urn:other"]},
+                {"join el": [_JOIN_URN], "owner el": [_OWNER_URN, _MIDDLE_URN]},
                 None,
             ),
+            # A relationship: the owner is not joined into the join element.
+            ("Join El/Unjoined/Sku", {"Join El": _JOIN_URN}, None, None),
+            # A middle segment is not joined in.
+            ("Join El/Unjoined/Owner El/Sku", {"Join El": _JOIN_URN}, None, None),
             # The owner's schema is unknown.
             (
                 "Join El/Owner El/Sku",
@@ -1345,7 +1364,14 @@ class TestChartRefStrategies:
                 {_JOIN_URN: {"Key"}},
             ),
         ],
-        ids=["not-an-upstream", "column-absent", "owner-ambiguous", "schema-unknown"],
+        ids=[
+            "not-an-upstream",
+            "column-absent",
+            "owner-ambiguous",
+            "relationship",
+            "middle-not-joined",
+            "schema-unknown",
+        ],
     )
     def test_join_chain_is_refused_unless_the_owner_is_certain(
         self,
@@ -1384,6 +1410,21 @@ class TestChartRefStrategies:
             self.src._dm_element_field_paths[other] = {"Sku"}
         assert self._resolve(body, workbook_dm_url_ids=loaded) is None
 
+    def test_the_charts_own_source_skips_the_loaded_data_model_lookup(self) -> None:
+        # A chart reading a Sigma Dataset named like a loaded DM element.
+        result = self.src._resolve_chart_formula_upstream(
+            BracketRef.from_body("Owner El/Sku"),
+            chart_element_id="chart",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+            workbook_dm_url_ids=frozenset({"dm1"}),
+            chart_source_names=frozenset({"owner el"}),
+        )
+        assert result is None
+
     def test_a_page_element_name_skips_the_loaded_data_model_lookup(self) -> None:
         index = {"Owner El": [_make_element("pageElem", "Owner El")]}
         result = self._resolve(
@@ -1394,7 +1435,28 @@ class TestChartRefStrategies:
         assert result is None
 
     def test_the_workbook_models_come_from_every_page_element(self) -> None:
+        loader = _make_element("loader", "Loader")
+        loader.upstream_sources = {
+            "dm1/x": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")
+        }
+        index = {"Loader": [loader], "Other": [_make_element("other", "Other")]}
+        assert _workbook_dm_url_ids(index) == frozenset({"dm1"})
+
+    def _chart_fields(self, elements: List[Element], chart_id: str) -> List[str]:
         self.src.dataset_upstream_urn_mapping = {}
+        self.src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({}, [])
+        )
+        workbook = _make_workbook_with_elements([elements])
+        return [
+            field.schemaFieldUrn
+            for wu in self.src._gen_pages_workunit(workbook, paths=[])
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+            and chart_id in wu.get_urn()
+            for field in aspect.fields
+        ]
+
+    def test_the_workbook_models_reach_the_resolver(self) -> None:
         chart = _make_element_with_formula(
             "chart-1", "Chart", {"Sku": "[Owner El/Sku]"}
         )
@@ -1402,28 +1464,21 @@ class TestChartRefStrategies:
         loader.upstream_sources = {
             "dm1/x": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")
         }
-        self.src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
-            return_value=({}, [])
-        )
-        workunits = list(
-            self.src._gen_elements_workunit(
-                elements=[chart],
-                workbook=_make_workbook_with_elements([]),
-                all_input_fields=[],
-                paths=[],
-                elementId_to_chart_urn={},
-                wb_element_index={"Loader": [loader]},
-                wb_warehouse_table_index=None,
-            )
-        )
-        fields = [
-            field
-            for wu in workunits
-            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
-            for field in aspect.fields
-        ]
-        assert [f.schemaFieldUrn for f in fields] == [
+        assert self._chart_fields([chart, loader], "chart-1") == [
             f"urn:li:schemaField:({_OWNER_URN},Sku)"
+        ]
+
+    def test_a_charts_own_dataset_source_reaches_the_resolver(self) -> None:
+        chart = _make_element_with_formula(
+            "chart-1", "Chart", {"Sku": "[Owner El/Sku]"}
+        )
+        chart.upstream_sources = {"ds": DatasetUpstream(name="Owner El")}
+        loader = _make_element("loader", "Loader")
+        loader.upstream_sources = {
+            "dm1/x": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")
+        }
+        assert self._chart_fields([chart, loader], "chart-1") == [
+            "urn:li:schemaField:(urn:li:chart:(sigma,chart-1),Sku)"
         ]
 
 
@@ -1443,6 +1498,7 @@ class TestSiblingInheritance:
             element_warehouse_table_index={"ORDERS": [_WH_URN]},
             elementId_to_chart_urn={},
         )
+        self.last_fields = fields
         return [f.schemaFieldUrn for f in fields]
 
     def test_a_derived_column_inherits_through_siblings(self) -> None:
@@ -1476,6 +1532,70 @@ class TestSiblingInheritance:
             ]
         )
         assert self.src.reporter.chart_input_fields_multi_ref_extra == 1
+
+    @pytest.mark.parametrize(
+        "order",
+        [
+            ("Base", "Cost", "Price", "Margin"),
+            ("Margin", "Price", "Base", "Cost"),
+        ],
+    )
+    def test_inheritance_does_not_depend_on_column_order(self, order: tuple) -> None:
+        formulas = {
+            "Base": "[ORDERS/Base]",
+            "Cost": "[ORDERS/Cost]",
+            "Price": "[Base] * 1.1",
+            "Margin": "[Price] - [Cost]",
+        }
+        self._fields({name: formulas[name] for name in order})
+        by_column: Dict[str, set] = {}
+        for field in self.last_fields:
+            assert field.schemaField is not None
+            by_column.setdefault(field.schemaField.fieldPath, set()).add(
+                field.schemaFieldUrn
+            )
+        assert by_column["Margin"] == {
+            f"urn:li:schemaField:({_WH_URN},Base)",
+            f"urn:li:schemaField:({_WH_URN},Cost)",
+        }
+
+    def test_inherited_fields_sit_next_to_their_column(self) -> None:
+        self._fields(
+            {
+                "Margin": "[Price] - [Cost]",
+                "Cost": "[ORDERS/Cost]",
+                "Price": "[ORDERS/Price]",
+            }
+        )
+        assert [f.schemaField.fieldPath for f in self.last_fields if f.schemaField] == [
+            "Margin",
+            "Margin",
+            "Cost",
+            "Price",
+        ]
+
+    def test_a_deep_chain_resolves(self) -> None:
+        formulas: Dict[str, Optional[str]] = {
+            f"C{i}": f"[C{i + 1}] + 1" for i in range(1, 8)
+        }
+        formulas["C8"] = "[ORDERS/Amount]"
+        urns = self._fields(formulas)
+        assert set(urns) == {f"urn:li:schemaField:({_WH_URN},Amount)"}
+        assert self.src.reporter.chart_input_fields_sibling_inherited == 7
+
+    def test_a_parameter_does_not_block_inheritance(self) -> None:
+        urns = self._fields(
+            {"Amount": "[ORDERS/Amount]", "Scaled": "[Amount] * [P_Rate]"}
+        )
+        assert urns[1] == f"urn:li:schemaField:({_WH_URN},Amount)"
+        reporter = self.src.reporter
+        assert reporter.chart_input_fields_self_ref_fallback == 0
+        assert reporter.chart_input_fields_resolved == 2
+
+    def test_a_cycle_terminates_unresolved(self) -> None:
+        urns = self._fields({"A": "[B]", "B": "[A]"})
+        assert self.src.reporter.chart_input_fields_sibling_inherited == 0
+        assert len(urns) == 2
 
     def test_an_unresolved_sibling_leaves_the_self_reference(self) -> None:
         urns = self._fields({"Loose": "[Missing] + 1"})
