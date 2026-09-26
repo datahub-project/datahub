@@ -6,29 +6,20 @@ and converts them to DataHub dataset URNs based on their URI.
 """
 
 import logging
-from typing import Any, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
 
 import datahub.emitter.mce_builder as builder
+from datahub_airflow_plugin import _connection_mapping as connection_mapping
+from datahub_airflow_plugin._config import AssetConnectionDetail
 from datahub_airflow_plugin.entities import _Entity
 
 logger = logging.getLogger(__name__)
 
-# URI scheme to DataHub platform mapping
-URI_SCHEME_TO_PLATFORM = {
-    "s3": "s3",
-    "s3a": "s3",
-    "gs": "gcs",
-    "gcs": "gcs",
-    "file": "file",
-    "hdfs": "hdfs",
-    "abfs": "adls",
-    "abfss": "adls",
-    "postgresql": "postgres",
-    "mysql": "mysql",
-    "bigquery": "bigquery",
-    "snowflake": "snowflake",
-}
+# URI scheme to DataHub platform mapping. Shared with the OpenLineage adapter so that a
+# single [datahub] asset_connections entry serves both writers — see
+# _connection_mapping.SCHEME_TO_PLATFORM.
+URI_SCHEME_TO_PLATFORM = connection_mapping.SCHEME_TO_PLATFORM
 
 
 def is_airflow_asset(obj: Any) -> bool:
@@ -68,7 +59,10 @@ def is_airflow_asset_alias(obj: Any) -> bool:
 
 
 def translate_airflow_asset_to_urn(
-    asset: Any, env: str = "PROD", platform_fallback: str = "airflow"
+    asset: Any,
+    env: str = "PROD",
+    platform_fallback: str = "airflow",
+    connections: Optional[Dict[str, AssetConnectionDetail]] = None,
 ) -> Optional[str]:
     """Convert Airflow Asset URI to DataHub dataset URN.
 
@@ -77,38 +71,91 @@ def translate_airflow_asset_to_urn(
         env: The DataHub environment (default: "PROD").
         platform_fallback: Platform to use when URI has no scheme (default: "airflow").
             This is used for @asset decorated functions that don't specify a URI.
+        connections: Connection mapping from `[datahub] asset_connections`, keyed by
+            `<scheme>://<authority>`. Required for table-shaped schemes (snowflake,
+            postgres, mysql, bigquery), whose URIs cannot be turned into the warehouse's
+            own dataset naming without knowing the platform_instance and casing.
 
     Returns:
-        A DataHub dataset URN string, or None if the asset URI is invalid.
+        A DataHub dataset URN string, or None if the asset URI is invalid or its
+        connection is table-shaped and unmapped.
 
     Examples:
         >>> translate_airflow_asset_to_urn(mock_asset("s3://bucket/path"))
         "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/path,PROD)"
 
-        >>> translate_airflow_asset_to_urn(mock_asset("postgresql://host/db/table"))
-        "urn:li:dataset:(urn:li:dataPlatform:postgres,host/db/table,PROD)"
-
         >>> translate_airflow_asset_to_urn(mock_asset("my_asset"))  # @asset decorator
         "urn:li:dataset:(urn:li:dataPlatform:airflow,my_asset,PROD)"
+
+        Table-shaped schemes resolve through the mapping, so the URN matches what the
+        warehouse's own connector emits:
+
+        >>> translate_airflow_asset_to_urn(
+        ...     mock_asset("snowflake://acct/MY_DB/MY_SCHEMA/EVENTS"),
+        ...     connections={"snowflake://acct": AssetConnectionDetail()},
+        ... )
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.events,PROD)"
     """
     uri = getattr(asset, "uri", None)
-    if not uri:
+    if not uri or not str(uri).strip():
+        # The caller only logs at debug, so every path that yields no URN warns here.
+        # An asset quietly missing from lineage is worse than a noisy log.
+        connection_mapping.warn_once(
+            "empty-uri",
+            "Airflow asset of type %r has no usable URI, so it is excluded from lineage; "
+            "further assets with an empty URI are not reported again.",
+            type(asset).__name__,
+        )
         return None
 
     try:
         parsed = urlparse(uri)
     except Exception as e:
-        logger.warning(
-            f"Failed to parse Airflow asset URI '{uri}': {e}. "
-            f"This asset will be excluded from lineage."
+        connection_mapping.warn_once(
+            f"unparseable:{connection_mapping.scheme_of(uri)}",
+            "Failed to parse Airflow asset URI %r: %s. This asset is excluded from "
+            "lineage; further unparseable %s:// URIs are not reported again.",
+            uri,
+            e,
+            connection_mapping.scheme_of(uri),
         )
         return None
 
     scheme = parsed.scheme.lower() if parsed.scheme else ""
+    detail = connection_mapping.lookup(connections, scheme, parsed.netloc)
+
+    if scheme and connection_mapping.is_table_shaped(scheme):
+        # `<database>.<schema>.<table>` platforms need the URI restructured rather than
+        # passed through: the authority is a connection identifier (an account or host)
+        # and DataHub separates segments with dots. Those rules are the platform's own
+        # convention, so this works with no configuration; a mapping only adds what a URI
+        # cannot carry, chiefly platform_instance.
+        scheme_platform = connection_mapping.platform_for_scheme(scheme)
+        platform = (detail.platform if detail else None) or scheme_platform
+        urn = connection_mapping.build_table_urn(
+            platform=platform,
+            scheme_platform=scheme_platform,
+            authority=parsed.netloc,
+            path_segments=parsed.path.split("/"),
+            detail=detail,
+            env=env,
+            uri=uri,
+            key=connection_mapping.connection_key(scheme, parsed.netloc),
+        )
+        if urn is None:
+            connection_mapping.warn_once(
+                f"no-table-path:{connection_mapping.connection_key(scheme, parsed.netloc)}",
+                "Airflow asset URI %r has no table path after the connection authority, "
+                "so no dataset name could be built. Excluded from lineage; further "
+                "assets on this connection with the same problem are not reported again.",
+                uri,
+            )
+        return urn
 
     if scheme:
-        # URI has a scheme - map to DataHub platform
-        platform = URI_SCHEME_TO_PLATFORM.get(scheme, scheme)
+        platform = (detail.platform if detail else None) or URI_SCHEME_TO_PLATFORM.get(
+            scheme, scheme
+        )
         # Build dataset name from URI components
         if parsed.netloc:
             # strip() removes both the leading slash that urlsplit puts between
@@ -121,16 +168,32 @@ def translate_airflow_asset_to_urn(
     else:
         # No scheme - this is likely an @asset decorated function with just a name
         # Use the fallback platform (default: "airflow") and the URI as the name
-        platform = platform_fallback
+        platform = (detail.platform if detail else None) or platform_fallback
         name = uri
 
     # Ensure we have a valid name
     if not name:
-        logger.debug(f"Airflow asset URI has empty name: '{uri}'. Skipping.")
+        connection_mapping.warn_once(
+            f"empty-name:{connection_mapping.scheme_of(uri)}",
+            "Airflow asset URI %r has a scheme but no name after it, so no dataset name "
+            "could be built. Excluded from lineage; further %s:// URIs with the same "
+            "problem are not reported again.",
+            uri,
+            connection_mapping.scheme_of(uri),
+        )
         return None
 
     try:
-        return builder.make_dataset_urn(platform=platform, name=name, env=env)
+        return connection_mapping.build_named_urn(
+            platform=platform,
+            name=name,
+            detail=detail,
+            env=env,
+            # Object-store keys and bare asset names are case-sensitive, so these
+            # preserve case unless the mapping explicitly asks otherwise — a mapping
+            # added purely for platform_instance must not silently re-case them.
+            lowercase=connection_mapping.resolve_lowercase(platform, detail),
+        )
     except Exception as e:
         logger.warning(
             f"Failed to create DataHub URN for Airflow asset: {e}. "
@@ -176,6 +239,7 @@ def translate_airflow_asset_alias_to_urn(
 def extract_urns_from_task_instance_outlet_events(
     task_instance: Any,
     env: str = "PROD",
+    connections: Optional[Dict[str, AssetConnectionDetail]] = None,
 ) -> List[str]:
     """Extract runtime-resolved AssetAlias URNs from the task instance's execution context.
 
@@ -240,7 +304,9 @@ def extract_urns_from_task_instance_outlet_events(
             accessor = outlet_events[key]
             for event in accessor.asset_alias_events:
                 asset = event.dest_asset_key.to_asset()
-                urn = translate_airflow_asset_to_urn(asset, env=env)
+                urn = translate_airflow_asset_to_urn(
+                    asset, env=env, connections=connections
+                )
                 if urn:
                     urns.append(urn)
                     logger.debug(
@@ -262,6 +328,7 @@ def extract_urns_from_resolved_alias_events(
     map_index: int = -1,
     env: str = "PROD",
     session: Optional[Any] = None,
+    connections: Optional[Dict[str, AssetConnectionDetail]] = None,
 ) -> List[str]:
     """Query runtime-resolved AssetAlias events from the Airflow DB.
 
@@ -307,7 +374,9 @@ def extract_urns_from_resolved_alias_events(
                 continue
             if not (event.asset and event.asset.uri):
                 continue
-            urn = translate_airflow_asset_to_urn(event.asset, env=env)
+            urn = translate_airflow_asset_to_urn(
+                event.asset, env=env, connections=connections
+            )
             if urn:
                 urns.append(urn)
                 logger.debug(
@@ -341,6 +410,7 @@ def extract_urns_from_iolets(
     iolets: Iterable[Any],
     capture_airflow_assets: bool,
     env: str = "PROD",
+    connections: Optional[Dict[str, AssetConnectionDetail]] = None,
 ) -> List[str]:
     """Extract URNs from a list of inlets or outlets.
 
@@ -360,16 +430,20 @@ def extract_urns_from_iolets(
             if isinstance(iolet, _Entity):
                 urns.append(iolet.urn)
             elif capture_airflow_assets and is_airflow_asset(iolet):
-                urn = translate_airflow_asset_to_urn(iolet, env=env)
+                urn = translate_airflow_asset_to_urn(
+                    iolet, env=env, connections=connections
+                )
                 if urn:
                     urns.append(urn)
                 else:
-                    # translate_airflow_asset_to_urn already logs details
+                    # translate_airflow_asset_to_urn has already warned with the specific
+                    # reason and deduplicated it. Repeating a generic message here doubled
+                    # the volume on DAGs with many assets sharing one defect, and implied
+                    # the URI was malformed even when the cause was something else.
                     uri = getattr(iolet, "uri", None)
-                    logger.warning(
+                    logger.debug(
                         f"Skipping Airflow asset with URI '{uri}' - "
-                        f"could not convert to DataHub URN. "
-                        f"Check that the URI is valid and has a proper scheme."
+                        f"no DataHub URN could be derived."
                     )
             elif capture_airflow_assets and is_airflow_asset_alias(iolet):
                 urn = translate_airflow_asset_alias_to_urn(iolet, env=env)
