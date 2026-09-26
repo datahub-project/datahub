@@ -393,6 +393,49 @@ class TestResolveChartFormulaUpstream:
         assert result == ("urn:source", "col")
         assert self.src.reporter.chart_input_fields_case_mismatch == 0
 
+    @pytest.mark.parametrize(
+        ("page_names", "ref_source"),
+        [
+            (("Orders", "ORDERS"), "Orders"),
+            (("Orders", "ORDERS"), "orders"),
+            # Neither page spelling is the DM upstream's own.
+            (("ORDERS", "orders"), "orders"),
+        ],
+    )
+    def test_dm_lineage_picks_among_case_variants(
+        self, page_names: tuple, ref_source: str
+    ) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        index = {
+            name: [_make_element(f"page{i}", name)] for i, name in enumerate(page_names)
+        }
+        result = self._resolve(
+            _make_ref(ref_source, "Id"), index, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Id")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_dm_upstreams_differing_only_in_case_are_refused(self) -> None:
+        index = {
+            "Orders": [_make_element("pageA", "Orders")],
+            "ORDERS": [_make_element("pageB", "ORDERS")],
+        }
+        dm_urns = {
+            "Orders": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)",
+            "ORDERS": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.b,PROD)",
+        }
+        result = self._resolve(_make_ref("orders", "Id"), index, dm_urns=dm_urns)
+        assert result is None
+        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    def test_a_duplicate_column_id_does_not_shadow_a_real_column(self) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount"])
+        elem.column_id_by_name = {"Amount": "cid-1", "Hidden": "cid-1"}
+        result = self._resolve(
+            _make_ref("Src", "cid-1"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Amount")
+
     def test_names_fold_by_lower_not_casefold(self) -> None:
         # casefold() would equate "Straße" with "STRASSE".
         elem = _make_element("sourceElem", "STRASSE")

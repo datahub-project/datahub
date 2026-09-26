@@ -3644,12 +3644,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             field = _match_name(ref.column, upstream.columns)
             if field is not None:
                 return field
-        by_id = {cid: name for name, cid in upstream.column_id_by_name.items()}
+        # Only names the upstream has, so a duplicate ID cannot shadow them.
+        by_id = {
+            cid: name
+            for name, cid in upstream.column_id_by_name.items()
+            if not upstream.columns or name in upstream.columns
+        }
         translated = by_id.get(ref.column)
-        if not upstream.columns:
-            return translated or ref.column
-        if translated in upstream.columns:
+        if translated is not None:
             return translated
+        if not upstream.columns:
+            return ref.column
         self._note_column_not_found(ref)
         return None
 
@@ -3759,27 +3764,33 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # Ambiguous name collision not resolved by lineage filter.
                 return None
 
-            # Case variants none of which lineage picked are ambiguous. Refuse
-            # rather than fall through to the warehouse lookup, which would
-            # resolve an element ref as if it named a table.
-            names = {elem.name for elem in (sheet_matches or candidates)}
-            if len(names) > 1:
-                self.reporter.chart_input_fields_case_mismatch += 1
-                return None
-
-            # Step 3b: DataModelElementUpstream match, keyed by the element's
-            # own spelling (the ref may differ in case).
-            dm_name = _match_name(names.pop(), dm_upstream_urn_by_element_name)
-            dm_urn = dm_upstream_urn_by_element_name.get(dm_name) if dm_name else None
-            if dm_urn:
-                dm_field = self._dm_upstream_field_for_ref(ref, dm_urn)
-                return (dm_urn, dm_field) if dm_field is not None else None
+            # Step 3b: DataModelElementUpstream lineage, keyed by each
+            # candidate's own spelling, also picks among case variants.
+            dm_keys = {
+                key
+                for key in (
+                    _match_name(elem.name, dm_upstream_urn_by_element_name)
+                    for elem in (sheet_matches or candidates)
+                )
+                if key is not None
+            }
+            if len(dm_keys) == 1:
+                picked_urn = dm_upstream_urn_by_element_name[dm_keys.pop()]
+                dm_field = self._dm_upstream_field_for_ref(ref, picked_urn)
+                return (picked_urn, dm_field) if dm_field is not None else None
 
             # If the element IS a registered upstream (sheet_matches==1) but was
             # filtered from chart emission and has no DM match, stop here — do not
             # fall through to warehouse because the formula ref explicitly targets
             # a known (filtered) element, not a warehouse table.
             if sheet_matches:
+                return None
+
+            # Case variants none of which lineage picked are ambiguous. Refuse
+            # rather than fall through to the warehouse lookup, which would
+            # resolve an element ref as if it named a table.
+            if len({elem.name for elem in candidates}) > 1:
+                self.reporter.chart_input_fields_case_mismatch += 1
                 return None
 
             # sheet_matches is empty: the workbook element is not a registered
