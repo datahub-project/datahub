@@ -33,7 +33,7 @@ export default function MoreOptionsMenuAction({
     refetchDeprecation,
 }: Props) {
     return (
-        <ActionMenuItem key="view-more" fontSize={size} data-testid="view-more-button">
+        <ActionMenuItem key="view-more" $fontSize={size} data-testid="view-more-button">
             <EntityDropdown
                 urn={urn}
                 entityType={entityType}
