@@ -2367,7 +2367,8 @@ public class UsageEventIndexUtilsTest {
     stubBlockedLegacyIndex(
         calls,
         // The clone of an attempt that died after blocking writes: young, then stale.
-        () -> cloneAges.getAndIncrement() == 0 ? now - 60_000L : now - 3_600_000L);
+        () -> cloneAges.getAndIncrement() == 0 ? now - 60_000L : now - 3_600_000L,
+        new AtomicInteger());
     UsageEventIndexUtils.setBlockedIndexWaitForTesting(Duration.ofMillis(1), Duration.ofMinutes(1));
     try {
       // The fresh clone this attempt makes never starts, which ends the test there.
@@ -2390,7 +2391,8 @@ public class UsageEventIndexUtilsTest {
       throws Exception {
     List<String> calls = new ArrayList<>();
     long now = System.currentTimeMillis();
-    stubBlockedLegacyIndex(calls, () -> now);
+    // The first attempt to lift the block fails.
+    stubBlockedLegacyIndex(calls, () -> now, new AtomicInteger(1));
     UsageEventIndexUtils.setBlockedIndexWaitForTesting(Duration.ofMillis(1), Duration.ofMillis(5));
     try {
       UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
@@ -2399,13 +2401,18 @@ public class UsageEventIndexUtilsTest {
       UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
     }
 
-    Assert.assertTrue(calls.contains("PUT /test_datahub_usage_event/_settings"));
+    Assert.assertEquals(
+        calls.stream().filter("PUT /test_datahub_usage_event/_settings"::equals).count(), 2);
     Assert.assertFalse(calls.contains("DELETE /test_legacy_datahub_usage_event_1"));
     Assert.assertFalse(calls.contains("PUT /test_datahub_usage_event/_block/write"));
   }
 
-  /** A write-blocked legacy index with one unrecorded clone whose creation date is supplied. */
-  private void stubBlockedLegacyIndex(List<String> calls, LongSupplier cloneCreated)
+  /**
+   * A write-blocked legacy index with one unrecorded clone whose creation date is supplied; the
+   * first {@code failingLifts} attempts to lift the block fail.
+   */
+  private void stubBlockedLegacyIndex(
+      List<String> calls, LongSupplier cloneCreated, AtomicInteger failingLifts)
       throws IOException {
     Mockito.when(
             searchClient.performLowLevelRequest(
@@ -2440,6 +2447,11 @@ public class UsageEventIndexUtilsTest {
                   return jsonResponse(
                       "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
                           + "{\"blocks\":{\"write\":\"true\"}}}}}");
+                case "PUT /test_datahub_usage_event/_settings":
+                  if (failingLifts.getAndDecrement() > 0) {
+                    throw new IOException("injected: lifting the write block failed");
+                  }
+                  return jsonResponse("{\"acknowledged\":true}");
                 default:
                   if (call.contains("/_clone/")) {
                     return jsonResponse("{\"acknowledged\":true,\"shards_acknowledged\":false}");

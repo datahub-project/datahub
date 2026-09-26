@@ -797,6 +797,11 @@ public class UsageEventIndexUtils {
    * unchanged, so the owner checks are best effort. A run stalled for longer than the lease lives
    * can still act once after another run took the lease over, and a release can race a takeover;
    * both need a run to stall for over {@link #LEASE_TTL} while another one runs.
+   *
+   * <p>A run that waits {@link #BLOCKED_INDEX_MAX_WAIT} on a write-blocked legacy index lifts the
+   * block although the lease has not gone stale, since its holder may have died. A holder that is
+   * alive checks right before it destroys the legacy index that the block is still there, so the
+   * lift makes it stop; only a lift that lands between that check and the delete loses events.
    */
   public static final class LegacyMigrationLease {
     private final OperationContext opContext;
@@ -910,7 +915,8 @@ public class UsageEventIndexUtils {
         }
         // If the run holding the lease died after blocking writes on the legacy index, nothing
         // else lifts that block, so wait for the lease to be released or to go stale, and lift the
-        // block after the same wait as for a recent clone.
+        // block after the same wait as for a recent clone. A holder that is alive after all finds
+        // the block gone and stops before it destroys the index.
         if (!plainIndex || !isWriteBlocked(opContext, esComponents, indexName)) {
           log.warn(
               "{} is held by another system-update run ({}); leaving {} and its backups to it",
@@ -928,7 +934,7 @@ public class UsageEventIndexUtils {
               blockedIndexMaxWait,
               holder,
               leaseName);
-          setWriteBlock(opContext, esComponents, indexName, false);
+          liftWriteBlock(opContext, esComponents, indexName);
           recordOutcome(opContext, OUTCOME_SKIPPED);
           return null;
         }
@@ -1077,7 +1083,7 @@ public class UsageEventIndexUtils {
                 + " the block",
             indexName,
             blockedIndexMaxWait);
-        setWriteBlock(opContext, esComponents, indexName, false);
+        liftWriteBlock(opContext, esComponents, indexName);
         return;
       }
       Thread.sleep(blockedIndexPollInterval.toMillis());
@@ -1243,6 +1249,24 @@ public class UsageEventIndexUtils {
         .asBoolean();
   }
 
+  /**
+   * Stops before the legacy index is destroyed once its write block is gone: another run lifts it
+   * after waiting {@link #BLOCKED_INDEX_MAX_WAIT}, and events written since then are not in the
+   * backup.
+   */
+  private static void checkStillWriteBlocked(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName)
+      throws IOException {
+    if (!isWriteBlocked(opContext, esComponents, indexName)) {
+      throw new IOException(
+          indexName
+              + " is no longer write-blocked, so it may hold events its backup does not; leaving it"
+              + " in place");
+    }
+  }
+
   private static long creationDate(
       OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
@@ -1312,20 +1336,15 @@ public class UsageEventIndexUtils {
       if (useOpenSearch) {
         replaceWithRolloverAlias(opContext, esComponents, indexName, lease);
       } else {
+        // The lease is checked last: a run that took it over may have blocked writes again.
+        checkStillWriteBlocked(opContext, esComponents, indexName);
         lease.checkHeld();
         deleteIndex(opContext, esComponents, indexName);
         originalDeleted = true;
         createDataStream(opContext, esComponents, indexName);
       }
     } catch (IOException | RuntimeException e) {
-      if (!originalDeleted
-          && !IndexUtils.retryWithBackoff(
-              5,
-              2000,
-              () -> {
-                setWriteBlock(opContext, esComponents, indexName, false);
-                return true;
-              })) {
+      if (!originalDeleted && !liftWriteBlock(opContext, esComponents, indexName)) {
         e.addSuppressed(new IOException("Could not lift the write block on " + indexName));
       }
       throw e;
@@ -1344,6 +1363,7 @@ public class UsageEventIndexUtils {
       IndexUtils.performPutRequest(opContext, esComponents, "/" + firstIndex, "{}");
     }
     try {
+      checkStillWriteBlocked(opContext, esComponents, aliasName);
       lease.checkHeld();
       // One cluster state update, so no usage event write can recreate a bare index in between.
       IndexUtils.performPostRequest(
@@ -1744,6 +1764,33 @@ public class UsageEventIndexUtils {
     // Harmless on an alias or data stream, and nothing to do if the index is gone.
     request.addParameter("ignore", "404");
     esComponents.getSearchClient().performLowLevelRequest(opContext, request);
+  }
+
+  /**
+   * Lifts the write block on a legacy usage event index, retrying, since every usage event is
+   * rejected while it stays. Returns false, after logging how to lift it by hand, when every
+   * attempt failed.
+   */
+  private static boolean liftWriteBlock(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName) {
+    if (IndexUtils.retryWithBackoff(
+        5,
+        2000,
+        () -> {
+          setWriteBlock(opContext, esComponents, indexName, false);
+          return true;
+        })) {
+      return true;
+    }
+    log.error(
+        "Could not lift the write block on {}, which rejects every usage event until it is lifted:"
+            + " PUT /{}/_settings {\"index.blocks.write\":false}",
+        indexName,
+        indexName);
+    recordOutcome(opContext, OUTCOME_MANUAL_RECOVERY);
+    return false;
   }
 
   private static void deleteIndex(

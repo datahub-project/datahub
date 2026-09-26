@@ -295,21 +295,71 @@ public abstract class LegacyUsageEventIndexMigrationTestBase {
     indexLegacyEvents(index);
     request("PUT", "/" + index + "/_block/write", null);
     createLease(prefix, "a-run-that-died");
+    // The first attempt to lift the block fails, as it can on a busy cluster.
+    AtomicInteger lifts = new AtomicInteger();
+    SearchClientShim<?> client =
+        clientWith(
+            (request, real) -> {
+              if ((request.getMethod() + " " + request.getEndpoint())
+                      .equals("PUT /" + index + "/_settings")
+                  && lifts.incrementAndGet() == 1) {
+                throw new IOException("injected: lifting the write block failed");
+              }
+              return real.call();
+            });
     UsageEventIndexUtils.setBlockedIndexWaitForTesting(
         Duration.ofMillis(100), Duration.ofSeconds(1));
     try {
-      runStep(prefix);
+      run(newStep(prefix, client));
     } finally {
       UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
     }
 
     // Usage events are accepted again, and the migration is left to a run that holds the lease.
+    assertEquals(lifts.get(), 2);
     index(
         index,
         "3",
         "{\"type\":\"SearchEvent\",\"timestamp\":1756000003000,\"@timestamp\":1756000003000}");
     assertEquals(request("GET", "/_resolve/index/" + index, null).path("indices").size(), 1);
     assertEquals(leaseOwner(prefix), "a-run-that-died");
+  }
+
+  @Test(timeOut = TEST_TIMEOUT_MS)
+  public void testAMoveWhoseWriteBlockIsLiftedMidwayKeepsTheOriginal() throws Exception {
+    String prefix = "unblocked_";
+    String index = prefix + "datahub_usage_event";
+    indexLegacyEvents(index);
+    AtomicBoolean once = new AtomicBoolean(true);
+    SearchClientShim<?> client =
+        clientWith(
+            (request, real) -> {
+              // Between counting the original and its backup, another run that waited out the
+              // block lifts it, and a usage event lands in the original only.
+              if (request.getMethod().equals("GET")
+                  && request
+                      .getEndpoint()
+                      .matches("/" + prefix + "legacy_datahub_usage_event_\\d+/_count")
+                  && once.getAndSet(false)) {
+                request("PUT", "/" + index + "/_settings", "{\"index.blocks.write\":false}");
+                index(
+                    index,
+                    "3",
+                    "{\"type\":\"LogInEvent\",\"timestamp\":1756000002000,"
+                        + "\"@timestamp\":1756000002000,\"actorUrn\":\"urn:li:corpuser:c\"}");
+              }
+              return real.call();
+            });
+
+    // OpenSearch still fails the step here, as it did before, until the index is migrated.
+    run(newStep(prefix, client));
+
+    assertFalse(once.get());
+    assertEquals(request("GET", "/_resolve/index/" + index, null).path("indices").size(), 1);
+    refresh(index);
+    assertEquals(searchIds(index, "{\"size\":10}"), Set.of("1", "2", "3"));
+    // The backup stays until a later run finds it stale and drops it.
+    assertEquals(legacyBackups(prefix).size(), 1);
   }
 
   @Test(timeOut = TEST_TIMEOUT_MS)
