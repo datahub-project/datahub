@@ -6,7 +6,19 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from functools import cached_property
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import clickhouse_driver
 import clickhouse_sqlalchemy.types as custom_types
@@ -45,6 +57,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.clickhouse_connection import with_client_identity
 from datahub.ingestion.source.sql.sql_common import (
+    SQLSourceReport,
     SqlWorkUnit,
     logger,
     register_custom_type,
@@ -69,13 +82,39 @@ from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     UpstreamClass,
 )
-from datahub.metadata.urns import CorpUserUrn
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
+    PreparsedQuery,
+    SqlAggregatorReport,
     SqlParsingAggregator,
 )
+from datahub.sql_parsing.sql_parsing_common import QueryType
 
 assert clickhouse_driver
+
+# query_kind comes from the statement's AST root: INSERT INTO ... SELECT is
+# "Insert", CREATE TABLE ... AS SELECT is "Create", only a bare read is "Select".
+_SELECT_QUERY_KIND = "Select"
+
+_MIN_TIMESTAMP = datetime.min.replace(tzinfo=timezone.utc)
+
+# Separator for the query_log arrays, joined server-side. A newline cannot appear
+# in a ClickHouse identifier unless it is backtick-quoted, and those entries are
+# dropped anyway because they match no table we built a URN for.
+_ARRAY_SEP = "\n"
+_ARRAY_SEP_SQL = "\\n"
+
+# Pseudo-tables ClickHouse reports in system.query_log.tables that are not user
+# data. Shared by the fetch's WHERE clause and the usage fan-out so the two
+# cannot drift apart.
+_NON_USER_TABLE_PREFIXES = (
+    "system.",
+    "_table_function.",
+    "_temporary_and_external_tables.",
+    "information_schema.",
+    "INFORMATION_SCHEMA.",
+)
 
 # adding extra types not handled by clickhouse-sqlalchemy 0.1.8
 base.ischema_names["DateTime64(0)"] = DATETIME
@@ -104,6 +143,10 @@ register_custom_type(custom_types.ip.IPv4, NumberTypeClass)
 register_custom_type(custom_types.ip.IPv6, StringTypeClass)
 register_custom_type(custom_types.common.Map, MapTypeClass)
 register_custom_type(custom_types.common.Tuple, UnionTypeClass)
+
+
+def _split_joined(value: Optional[str]) -> List[str]:
+    return [part for part in (value or "").split(_ARRAY_SEP) if part]
 
 
 def _is_valid_username(value: str) -> bool:
@@ -148,6 +191,86 @@ class LineageItem:
             self.dataset_lineage_type = DatasetLineageTypeClass.VIEW
         else:
             self.dataset_lineage_type = DatasetLineageTypeClass.TRANSFORMED
+
+
+class _QueryKey(NamedTuple):
+    """Rows sharing this parse to the same lineage, so one parse covers all.
+
+    The database is here for correctness: normalized_query_hash comes from the
+    statement text alone, so the same unqualified SQL run against two databases
+    shares a hash while resolving to different tables.
+    """
+
+    # Optional only to mirror ObservedQuery; _parse_query_log_row always sets it.
+    query_hash: Optional[str]
+    database: str
+
+
+class _UsageKey(NamedTuple):
+    """The dimensions datasetUsageStatistics is reported along.
+
+    userCounts is per user and the aspect is a timeseries per bucket, so counts
+    from different users or buckets must not be added together.
+    """
+
+    user: str
+    bucket: Optional[datetime]
+
+
+# Both query-log paths hand the aggregator one of these.
+_Query = TypeVar("_Query", ObservedQuery, PreparsedQuery)
+
+
+@dataclass
+class _CountedQuery(Generic[_Query]):
+    """A query, and the number of executions it stands for."""
+
+    query: _Query
+    execution_count: int = 1
+
+
+class _DeduplicatedQueries(Generic[_Query]):
+    """Query-log rows reduced to one entry per query, user and time bucket.
+
+    A repeated statement is separate rows but identical work downstream, so
+    this turns a per-execution cost into a per-query one.
+    """
+
+    def __init__(self) -> None:
+        self._by_query: Dict[_QueryKey, Dict[_UsageKey, _CountedQuery[_Query]]] = {}
+
+    @property
+    def num_queries(self) -> int:
+        return len(self._by_query)
+
+    @property
+    def num_records(self) -> int:
+        return sum(len(records) for records in self._by_query.values())
+
+    def add(self, keys: Tuple[_QueryKey, _UsageKey], query: _Query) -> None:
+        query_key, usage_key = keys
+        records = self._by_query.setdefault(query_key, {})
+        counted = records.get(usage_key)
+        if counted is None:
+            records[usage_key] = _CountedQuery(query=query)
+        else:
+            counted.execution_count += 1
+            # The newest execution is the one QueryProperties.lastModified and
+            # Operation.lastUpdatedTimestamp should report.
+            counted.query.timestamp = query.timestamp
+
+    def grouped_by_query(self) -> Iterable[List[_CountedQuery[_Query]]]:
+        """Each query's records together, ordered by their latest execution.
+
+        Together keeps the parser's cache warm. The order matters because the
+        aggregator takes the last add() as authoritative, and records are built
+        in order of their first execution, not their last.
+        """
+        for records in self._by_query.values():
+            yield sorted(
+                records.values(),
+                key=lambda counted: counted.query.timestamp or _MIN_TIMESTAMP,
+            )
 
 
 class ClickHouseConfig(
@@ -237,6 +360,14 @@ class ClickHouseConfig(
             if pattern.match(name):
                 return True
         return False
+
+    def is_allowed_table(self, name: str) -> bool:
+        """Whether a db.table named in the query log is in this recipe's scope."""
+        if "." in name:
+            database = name.split(".", 1)[0]
+            if not self.database_pattern.allowed(database):
+                return False
+        return self.table_pattern.allowed(name) or self.view_pattern.allowed(name)
 
     def get_sql_alchemy_url(
         self,
@@ -514,6 +645,17 @@ ClickHouseDialect.get_view_definition = get_view_definition
 clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 
+@dataclass
+class ClickHouseSourceReport(SQLSourceReport):
+    # The base SQLSourceReport.sql_aggregator holds the view-lineage aggregator;
+    # the query-log path runs a second one of its own.
+    query_log_aggregator: Optional[SqlAggregatorReport] = None
+    query_log_usage_reads: int = 0
+    query_log_usage_records: int = 0
+    query_log_lineage_rows: int = 0
+    query_log_queries_parsed: int = 0
+
+
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
 @support_status(SupportStatus.GA)
@@ -556,6 +698,12 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
 
     def __init__(self, config: ClickHouseConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "clickhouse")
+        self.report: ClickHouseSourceReport = ClickHouseSourceReport()
+        # The base class wired both of these to the report it created in
+        # super().__init__(), so re-point them at ours or their stats land on a
+        # discarded object.
+        self.classification_handler.report = self.report
+        self.report.sql_aggregator = self.aggregator.report
         self._lineage_map: Optional[Dict[str, LineageItem]] = None
         self._all_tables_set: Optional[Set[str]] = None
         self._query_log_aggregator: Optional[SqlParsingAggregator] = None
@@ -642,12 +790,7 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             else:
                 target_dataset_name = target_table
 
-        return builder.make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=target_dataset_name,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+        return self._dataset_urn(target_dataset_name)
 
     def _should_extract_query_log(self) -> bool:
         """Check if any query log extraction feature is enabled."""
@@ -679,8 +822,10 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             ),
             generate_operations=self.config.include_query_log_operations,
             is_temp_table=self.config.is_temp_table,
+            is_allowed_table=self.config.is_allowed_table,
             format_queries=False,
         )
+        self.report.query_log_aggregator = self._query_log_aggregator.report
 
     def _get_query_log_time_window(self) -> Tuple[datetime, datetime]:
         """Get the time window for query log extraction."""
@@ -705,10 +850,27 @@ class ClickHouseSource(TwoTierSQLAlchemySource):
             user_filters.append(f"user != '{username}'")
         user_filter_clause = " AND ".join(user_filters) if user_filters else "1=1"
 
-        # Query kinds that produce lineage (INSERT, CREATE TABLE AS)
-        # For usage, we also include SELECT
-        query_kinds = ["'Insert'", "'Create'", "'Select'"]
+        # Only a write can produce lineage or an operation, so with usage off a
+        # Select would be fetched and parsed to produce nothing.
+        query_kinds = ["'Insert'", "'Create'"]
+        if self.config.include_usage_statistics:
+            query_kinds.append(f"'{_SELECT_QUERY_KIND}'")
         query_kinds_clause = ", ".join(query_kinds)
+
+        # Only the usage path reads these, so do not ship them otherwise. Joined
+        # server-side because the HTTP driver hands arrays back as their printed
+        # form ("['db.t']") rather than a list, and under a different alias
+        # because a projection named `tables` shadows the real column in WHERE.
+        usage_columns = (
+            f",\n    arrayStringConcat(tables, '{_ARRAY_SEP_SQL}')  AS tables_joined"
+            f",\n    arrayStringConcat(columns, '{_ARRAY_SEP_SQL}') AS columns_joined"
+            if self.config.include_usage_statistics
+            else ""
+        )
+
+        non_user_table_filter = "\n              AND ".join(
+            f"NOT startsWith(t, '{prefix}')" for prefix in _NON_USER_TABLE_PREFIXES
+        )
 
         # Security: usernames are validated by Pydantic field validator
         # (validate_query_log_deny_usernames) to only allow safe characters [a-zA-Z0-9_-],
@@ -720,11 +882,8 @@ SELECT
     query_kind,
     user,
     event_time,
-    query_duration_ms,
-    read_rows,
-    written_rows,
     current_database,
-    normalized_query_hash
+    normalized_query_hash{usage_columns}
 FROM system.query_log
 WHERE type = 'QueryFinish'
   AND is_initial_query = 1
@@ -732,9 +891,19 @@ WHERE type = 'QueryFinish'
   AND event_time < '{end_time_str}'
   AND query_kind IN ({query_kinds_clause})
   AND {user_filter_clause}
-  AND query NOT LIKE '%system.%'
-  -- Skip INSERT without SELECT (e.g., INSERT FORMAT, INSERT VALUES) - no lineage value
-  AND NOT (query_kind = 'Insert' AND positionCaseInsensitive(query, ' SELECT ') = 0)
+
+  -- Keep queries that accessed at least one non-system table. ClickHouse resolves
+  -- this itself, so a pool's SELECT 1 (system.one), SELECT * FROM numbers(10)
+  -- (_table_function.numbers) and CREATE DATABASE (no tables at all) drop out
+  -- without any guessing from the query text. One real table is enough to keep the
+  -- row, so INSERT INTO db.t SELECT * FROM s3(...) still contributes db.t, and a
+  -- query over a view is kept because ClickHouse lists the view and its table both.
+  AND arrayExists(
+      t ->
+          {non_user_table_filter},
+      tables
+  )
+
 ORDER BY event_time ASC
 """
 
@@ -751,7 +920,6 @@ ORDER BY event_time ASC
 
         try:
             result = engine.execute(text(query))
-            rows = list(result)
         except Exception as e:
             self.report.failure(
                 message="Failed to fetch query log",
@@ -760,27 +928,176 @@ ORDER BY event_time ASC
             )
             return
 
+        lineage_queries: _DeduplicatedQueries[ObservedQuery] = _DeduplicatedQueries()
+        usage_queries: _DeduplicatedQueries[PreparsedQuery] = _DeduplicatedQueries()
         num_lineage = 0
         num_usage = 0
-        for row in rows:
+        # Rows are streamed, not materialized, so the fetch is still in flight here:
+        # a timeout or a dropped connection part-way through a large query_log
+        # surfaces on the cursor, not on execute(). Only the cursor advance sits
+        # inside the try - a failure below it is a bug, not a fetch failure.
+        rows = iter(result)
+        while True:
+            try:
+                row = next(rows)
+            except StopIteration:
+                break
+            except Exception as e:
+                self.report.failure(
+                    message="Failed to fetch query log",
+                    context="query_log_extraction",
+                    exc=e,
+                )
+                return
+
             row_dict = dict(row._mapping)
-            observed_query = self._parse_query_log_row(row_dict)
-            if observed_query:
-                query_kind = row_dict.get("query_kind", "")
-                if query_kind in ("Insert", "Create"):
-                    num_lineage += 1
-                elif query_kind == "Select":
+
+            # A Select can only produce usage, and ClickHouse already resolved the
+            # tables and columns it read - so it never needs the parser.
+            if row_dict.get("query_kind") == _SELECT_QUERY_KIND:
+                preparsed = self._usage_row_to_preparsed(row_dict)
+                if preparsed:
                     num_usage += 1
+                    usage_queries.add(
+                        self._group_keys(
+                            query_hash=preparsed.query_id,
+                            # Not on the PreparsedQuery: its query_id is the hash
+                            # of the statement text alone, so the database that
+                            # resolved its tables has to come off the row.
+                            database=row_dict.get("current_database"),
+                            user=preparsed.user,
+                            timestamp=preparsed.timestamp,
+                        ),
+                        preparsed,
+                    )
+                continue
+
+            observed = self._parse_query_log_row(row_dict)
+            if not observed:
+                continue
+
+            num_lineage += 1
+            lineage_queries.add(
+                self._group_keys(
+                    query_hash=observed.query_hash,
+                    database=observed.default_schema,
+                    user=observed.user,
+                    timestamp=observed.timestamp,
+                ),
+                observed,
+            )
+
+        for usage_group in usage_queries.grouped_by_query():
+            for usage_record in usage_group:
+                usage_record.query.query_count = usage_record.execution_count
+                self._query_log_aggregator.add(usage_record.query)
+
+        for lineage_group in lineage_queries.grouped_by_query():
+            # Give every split of a query the same SQL text so the parser's cache
+            # answers all but the first: their literals differ, but the lineage
+            # they produce cannot.
+            shared_sql = lineage_group[0].query.query
+            for lineage_record in lineage_group:
+                observed_query = lineage_record.query
+                observed_query.query = shared_sql
+                # The aggregator counts this execution usage_multiplier times, so
+                # the totals match what a row-by-row loop would have produced.
+                observed_query.usage_multiplier = lineage_record.execution_count
                 self._query_log_aggregator.add(observed_query)
 
+        self.report.query_log_usage_reads += num_usage
+        self.report.query_log_usage_records += usage_queries.num_records
+        self.report.query_log_lineage_rows += num_lineage
+        self.report.query_log_queries_parsed += lineage_queries.num_queries
         logger.info(
-            f"Query log processing complete: {num_lineage} lineage queries, "
-            f"{num_usage} usage queries"
+            f"Query log processing complete: {num_usage} usage reads -> "
+            f"{usage_queries.num_records} recorded, "
+            f"{num_lineage} lineage rows -> {lineage_queries.num_queries} parsed"
         )
 
         yield from auto_workunit(self._query_log_aggregator.gen_metadata())
 
-    def _parse_query_log_row(self, row: Dict) -> Optional[ObservedQuery]:
+    def _group_keys(
+        self,
+        *,
+        query_hash: Optional[str],
+        database: Optional[str],
+        user: Optional[Union[CorpUserUrn, CorpGroupUrn]],
+        timestamp: Optional[datetime],
+    ) -> Tuple[_QueryKey, _UsageKey]:
+        """Which shape this row is, and which usage numbers its count belongs to."""
+        return (
+            _QueryKey(query_hash=query_hash, database=database or ""),
+            _UsageKey(
+                user=str(user or ""),
+                bucket=(
+                    get_time_bucket(timestamp, self.config.bucket_duration)
+                    if timestamp
+                    else None
+                ),
+            ),
+        )
+
+    def _dataset_urn(self, dataset_name: str) -> str:
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def _usage_row_to_preparsed(self, row: Dict[str, Any]) -> Optional[PreparsedQuery]:
+        """Turn a Select row into a read of the tables ClickHouse resolved for it."""
+        try:
+            event_time = row["event_time"]
+            if isinstance(event_time, datetime):
+                event_time = event_time.astimezone(timezone.utc)
+
+            # ClickHouse reports tables as db.table, which is already the dataset
+            # name this two-tier source uses.
+            urn_by_dataset_name = {
+                dataset_name: self._dataset_urn(dataset_name)
+                for dataset_name in _split_joined(row.get("tables_joined"))
+                if not dataset_name.startswith(_NON_USER_TABLE_PREFIXES)
+            }
+            if not urn_by_dataset_name:
+                # Defensive: the fetch keeps a row only if it names a real table,
+                # using this same prefix list, so this should not be reachable.
+                return None
+
+            # And columns as db.table.column - but a Nested or Map subcolumn is
+            # itself dotted and backtick-quoted (db.t.`n.a`), so split on the
+            # table names we already have rather than on the last dot.
+            column_usage: Dict[str, Set[str]] = defaultdict(set)
+            for qualified_column in _split_joined(row.get("columns_joined")):
+                for dataset_name, urn in urn_by_dataset_name.items():
+                    if qualified_column.startswith(f"{dataset_name}."):
+                        column = qualified_column[len(dataset_name) + 1 :]
+                        column_usage[urn].add(column.strip("`"))
+                        break
+
+            user = row.get("user", "")
+            return PreparsedQuery(
+                # Same id the parsed path uses, so the Query URN does not depend
+                # on which path recorded it.
+                query_id=str(row["normalized_query_hash"]),
+                query_text=row["query"],
+                upstreams=list(urn_by_dataset_name.values()),
+                downstream=None,
+                column_usage=dict(column_usage),
+                user=CorpUserUrn(user) if user else None,
+                timestamp=event_time,
+                query_type=QueryType.SELECT,
+            )
+        except Exception as e:
+            self.report.warning(
+                "Failed to read usage from query log row",
+                context=f"query_id={row.get('query_id', 'unknown')}",
+                exc=e,
+            )
+            return None
+
+    def _parse_query_log_row(self, row: Dict[str, Any]) -> Optional[ObservedQuery]:
         """Parse a query_log row into an ObservedQuery."""
         try:
             event_time = row["event_time"]
@@ -800,12 +1117,17 @@ ORDER BY event_time ASC
                 # unused catalog slot, over-qualifying to "default.my_db.table".
                 default_db=None,
                 default_schema=row.get("current_database") or None,
-                query_hash=str(row.get("normalized_query_hash", "")),
+                # Required, not optional: system.query_log.normalized_query_hash is
+                # a non-nullable UInt64. A missing key means our own SELECT lost the
+                # column, which the except below reports rather than quietly
+                # collapsing every row into one group.
+                query_hash=str(row["normalized_query_hash"]),
             )
         except Exception as e:
             self.report.warning(
                 "Failed to parse query log row",
-                context=f"query_id={row.get('query_id', 'unknown')}: {e}",
+                context=f"query_id={row.get('query_id', 'unknown')}",
+                exc=e,
             )
             return None
 
