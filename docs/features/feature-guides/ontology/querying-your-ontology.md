@@ -7,7 +7,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Querying Your Ontology
 
-<FeatureAvailability saasOnly />
+<FeatureAvailability saasOnly stage="private-beta"/>
 
 :::caution Private Beta
 Ontology is currently in Private Beta. Features, UI, and configuration options are subject to change.
