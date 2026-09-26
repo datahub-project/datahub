@@ -11,6 +11,7 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
+import io.datahubproject.openapi.openlineage.config.FabricRequestOptions;
 import io.datahubproject.openapi.openlineage.mapping.RunEventMapper;
 import io.datahubproject.openlineage.generated.controller.LineageApi;
 import io.openlineage.client.OpenLineage;
@@ -56,11 +57,21 @@ public class LineageApiImpl implements LineageApi {
 
   @Override
   public ResponseEntity<Void> postRunEventRaw(String body) {
+    RunEventMapper.MappingConfig mappingConfig;
+    try {
+      mappingConfig =
+          RunEventMapper.MappingConfig.builder()
+              .datahubConfig(FabricRequestOptions.apply(_mappingConfig.getDatahubConfig(), request))
+              .build();
+    } catch (IllegalArgumentException e) {
+      log.warn("Rejected OpenLineage request options: {}", e.getMessage());
+      return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+    }
     try {
       log.info("Received lineage event: {}", body);
       OpenLineage.RunEvent openlineageRunEvent = OpenLineageClientUtils.runEventFromJson(body);
       log.info("Deserialized to lineage event: {}", openlineageRunEvent);
-      return postRunEventRaw(openlineageRunEvent);
+      return postRunEventRaw(openlineageRunEvent, mappingConfig);
     } catch (Exception e) {
       log.error(e.getMessage(), e);
       return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
@@ -68,6 +79,11 @@ public class LineageApiImpl implements LineageApi {
   }
 
   public ResponseEntity<Void> postRunEventRaw(OpenLineage.RunEvent openlineageRunEvent) {
+    return postRunEventRaw(openlineageRunEvent, _mappingConfig);
+  }
+
+  private ResponseEntity<Void> postRunEventRaw(
+      OpenLineage.RunEvent openlineageRunEvent, RunEventMapper.MappingConfig mappingConfig) {
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
         OperationContext.asSession(
@@ -89,9 +105,7 @@ public class LineageApiImpl implements LineageApi {
             .setTime(System.currentTimeMillis());
     try {
       for (MetadataChangeProposal mcp :
-          runEventMapper
-              .map(openlineageRunEvent, this._mappingConfig)
-              .collect(Collectors.toList())) {
+          runEventMapper.map(openlineageRunEvent, mappingConfig).collect(Collectors.toList())) {
         log.info("Ingesting MCP: {}", mcp);
         _entityService.ingestProposal(opContext, mcp, auditStamp, true);
       }

@@ -6,6 +6,7 @@ import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -58,6 +59,21 @@ public class HdfsPathDataset extends SparkDataset {
     String platform;
     try {
       platform = getPlatform(pathUri);
+
+      // Microsoft Fabric OneLake tables resolve to the fabric-onelake connector's URNs (opt-in).
+      // Once enabled this takes precedence over path_spec_list for OneLake Tables/ paths. The raw
+      // path (used by callers for path transformations) is left untouched. Only the dedicated
+      // fabricOneLake platform instance is used: the global dataset platform instance describes
+      // other sources, and inheriting it would yield URNs the fabric-onelake connector never emits.
+      Optional<String> oneLakeName = FabricOneLakePath.toDatasetName(path, datahubConf);
+      if (oneLakeName.isPresent()) {
+        return new HdfsPathDataset(
+            FabricOneLakePath.PLATFORM,
+            oneLakeName.get(),
+            datahubConf.getFabricOneLakePlatformInstance(),
+            datahubConf.getFabricType(),
+            pathUri);
+      }
 
       if (datahubConf.getPathSpecs() == null) {
         log.info("No path_spec_list configuration found for platform {}.", platform);
