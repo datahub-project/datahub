@@ -624,15 +624,25 @@ class SnowflakeQuery:
         # We've seen some issues with the `SHOW VIEWS` query,
         # particularly when it requires pagination.
         # This is an experimental alternative query that might be more reliable.
+        return SnowflakeQuery._get_views_query(db_name, view_filter=view_filter)
+
+    @staticmethod
+    def _get_views_query(
+        db_name: str, schema_name: Optional[str] = None, view_filter: str = ""
+    ) -> str:
         where_conditions = [
             f"TABLE_CATALOG = '{db_name}'",
             "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
         ]
+        if schema_name is not None:
+            where_conditions.append(f"TABLE_SCHEMA = '{schema_name}'")
         if view_filter:
             where_conditions.append(view_filter)
 
         where_clause = "\n  AND ".join(where_conditions)
 
+        # QUALIFY dedupes on (catalog, schema, name) only, keeping the most recently
+        # altered row when information_schema.views returns duplicate view entries.
         return f"""\
 SELECT
   TABLE_CATALOG as "VIEW_CATALOG",
@@ -645,35 +655,17 @@ SELECT
   IS_SECURE
 FROM "{db_name}".information_schema.views
 WHERE {where_clause}
+QUALIFY ROW_NUMBER() OVER (
+  PARTITION BY TABLE_CATALOG, TABLE_SCHEMA, TABLE_NAME
+  ORDER BY LAST_ALTERED DESC
+) = 1
 """
 
     @staticmethod
     def get_views_for_schema(
         db_name: str, schema_name: str, view_filter: str = ""
     ) -> str:
-        where_conditions = [
-            f"TABLE_CATALOG = '{db_name}'",
-            "TABLE_SCHEMA != 'INFORMATION_SCHEMA'",
-            f"TABLE_SCHEMA = '{schema_name}'",
-        ]
-        if view_filter:
-            where_conditions.append(view_filter)
-
-        where_clause = "\n  AND ".join(where_conditions)
-
-        return f"""\
-SELECT
-  TABLE_CATALOG as "VIEW_CATALOG",
-  TABLE_SCHEMA as "VIEW_SCHEMA",
-  TABLE_NAME as "VIEW_NAME",
-  COMMENT,
-  VIEW_DEFINITION,
-  CREATED,
-  LAST_ALTERED,
-  IS_SECURE
-FROM "{db_name}".information_schema.views
-WHERE {where_clause}
-"""
+        return SnowflakeQuery._get_views_query(db_name, schema_name, view_filter)
 
     @staticmethod
     def get_secure_view_definitions() -> str:
