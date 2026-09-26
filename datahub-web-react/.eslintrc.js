@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable import/newline-after-import */
 const path = require('path');
 
 // --------------------------------------------------------------------------
@@ -7,6 +9,7 @@ const path = require('path');
 // whole codebase (all src/**, except COLOR_RULE_EXCLUDED_FILES) so color flows
 // through theme.colors.* tokens that repaint for theming / dark mode.
 // --------------------------------------------------------------------------
+
 const rulesDirPlugin = require('eslint-plugin-rulesdir');
 rulesDirPlugin.RULES_DIR = path.join(__dirname, 'eslint-rules');
 
@@ -188,6 +191,8 @@ const COLOR_RULE_EXCLUDED_FILES = [
     'src/alchemy-components/theme/**',
     // Legacy v1 UI superseded by the V2 redesign (entityV2/searchV2/lineageV3/glossaryV2/…).
     // Migration is deferred here because live and dead code interleave (no clean glob).
+    // NOTE: app/entity is mostly dead v1 pages, but its `shared/**` layer is still imported and
+    // rendered by V2, so do not assume app/entity is fully dead.
     'src/app/entity/**',
     'src/app/search/**',
     'src/app/lineage/**',
@@ -200,7 +205,8 @@ const COLOR_RULE_EXCLUDED_FILES = [
     '**/*.test.tsx',
     '**/__tests__/**',
     '**/*.stories.tsx',
-    // Deferred to a design-led pass: chart series palette.
+    // Deferred to a design-led pass (un-exclude when migrated):
+    //  - dataviz: chart series palette → charts* tokens needs design sign-off.
     'src/app/dataviz/**',
 ];
 

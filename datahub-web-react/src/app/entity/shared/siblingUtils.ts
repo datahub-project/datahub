@@ -18,6 +18,7 @@ import {
     Health,
     HealthStatus,
     HealthStatusType,
+    InstitutionalMemoryMetadata,
     Maybe,
     Operation,
     ScrollResults,
@@ -129,6 +130,117 @@ const mergeStructuredProperties = (destinationArray, sourceArray, _options) => {
     return unionBy(sourceArray, destinationArray, 'structuredProperty.urn');
 };
 
+const mergeUsageStatsFields = (destinationArray, sourceArray, _options) => {
+    const fieldUsageMap = new Map<string, number>();
+
+    // Add destination fields
+    destinationArray?.forEach((field) => {
+        if (field?.fieldName && field?.count != null) {
+            fieldUsageMap.set(field.fieldName, (fieldUsageMap.get(field.fieldName) || 0) + field.count);
+        }
+    });
+
+    // Add source fields
+    sourceArray?.forEach((field) => {
+        if (field?.fieldName && field?.count != null) {
+            fieldUsageMap.set(field.fieldName, (fieldUsageMap.get(field.fieldName) || 0) + field.count);
+        }
+    });
+
+    // Convert back to array format
+    return Array.from(fieldUsageMap.entries()).map(([fieldName, count]) => ({
+        __typename: 'FieldUsageCounts',
+        fieldName,
+        count,
+    }));
+};
+
+const mergeUsageStatsUsers = (destinationArray, sourceArray, _options) => {
+    const userMap = new Map<string, any>();
+
+    // Add destination users
+    destinationArray?.forEach((userUsage) => {
+        if (userUsage?.user?.urn) {
+            userMap.set(userUsage.user.urn, {
+                ...userUsage,
+                count: userUsage.count || 0,
+            });
+        }
+    });
+
+    // Add source users, merging counts for same users
+    sourceArray?.forEach((userUsage) => {
+        if (userUsage?.user?.urn) {
+            const existing = userMap.get(userUsage.user.urn);
+            if (existing) {
+                // Sum the counts for the same user
+                userMap.set(userUsage.user.urn, {
+                    ...existing,
+                    count: (existing.count || 0) + (userUsage.count || 0),
+                });
+            } else {
+                userMap.set(userUsage.user.urn, {
+                    ...userUsage,
+                    count: userUsage.count || 0,
+                });
+            }
+        }
+    });
+
+    return Array.from(userMap.values());
+};
+
+const mergeUsageStatsBuckets = (destinationArray, sourceArray, _options) => {
+    const bucketMap = new Map<number, any>();
+
+    // Add destination buckets
+    destinationArray?.forEach((bucket) => {
+        if (bucket?.bucket != null) {
+            bucketMap.set(bucket.bucket, {
+                __typename: 'UsageAggregation',
+                bucket: bucket.bucket,
+                metrics: { ...bucket.metrics },
+            });
+        }
+    });
+
+    // Add source buckets, merging metrics for same time windows
+    sourceArray?.forEach((bucket) => {
+        if (bucket?.bucket != null) {
+            const existing = bucketMap.get(bucket.bucket);
+            if (existing) {
+                // Merge all metrics for same time window by summing numeric values
+                const mergedMetrics = { ...existing.metrics };
+                if (bucket.metrics) {
+                    Object.keys(bucket.metrics).forEach((key) => {
+                        const existingValue = mergedMetrics[key] || 0;
+                        const newValue = bucket.metrics[key] || 0;
+                        // Sum numeric values, for non-numeric values use the new value
+                        mergedMetrics[key] =
+                            typeof newValue === 'number' && typeof existingValue === 'number'
+                                ? existingValue + newValue
+                                : newValue;
+                    });
+                }
+                bucketMap.set(bucket.bucket, {
+                    __typename: 'UsageAggregation',
+                    bucket: bucket.bucket,
+                    metrics: mergedMetrics,
+                });
+            } else {
+                bucketMap.set(bucket.bucket, {
+                    __typename: 'UsageAggregation',
+                    bucket: bucket.bucket,
+                    metrics: { ...bucket.metrics },
+                });
+            }
+        }
+    });
+
+    // Convert back to array and sort by time window
+    return Array.from(bucketMap.values()).sort((a, b) => a.bucket - b.bucket);
+};
+
 const mergeOwners = (destinationArray, sourceArray, _options) => {
     return uniqWith([...destinationArray, ...sourceArray], (ownerA, ownerB) => {
         if (!ownerA.ownershipType?.urn && !ownerB.ownershipType?.urn) {
@@ -228,21 +340,18 @@ const mergeHealth = (
 
             viewedHealthType.add(source.type);
 
-            const { type, status, causes } = source;
+            const { type, status } = source;
 
             const destHealth = destinationArray?.find((dest) => dest.type === type);
             const destStatus = destHealth?.status;
-            const destCauses = destHealth?.causes;
 
             const finalStatus = mergeHealthStatus(destStatus, status);
             const finalMessage = mergeHealthMessage(type, finalStatus);
-            const finalCauses = [...(causes || []), ...(destCauses || [])];
 
             return {
                 type,
                 status: finalStatus,
                 message: finalMessage,
-                causes: finalCauses,
             };
         })
         .filter((health) => health !== null);
@@ -299,6 +408,44 @@ function structuredPropertiesMerge(isPrimary, key) {
     };
 }
 
+function mergeInstitutionalMemoryElements(
+    destinationArray: Maybe<InstitutionalMemoryMetadata[]> | undefined,
+    sourceArray: Maybe<InstitutionalMemoryMetadata[]> | undefined,
+    _options,
+) {
+    if (!sourceArray?.length) return destinationArray || [];
+
+    // links should be unique by url and label
+    const filteredDestinationArray =
+        destinationArray?.filter(
+            (destinationElement) =>
+                sourceArray.findIndex(
+                    (sourceElement) =>
+                        sourceElement.url === destinationElement.url &&
+                        sourceElement.label === destinationElement.label,
+                ) === -1,
+        ) || [];
+
+    return [...sourceArray, ...filteredDestinationArray];
+}
+
+function institutionalMemoryMerge(isPrimary, key) {
+    if (key === 'elements') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
+                arrayMerge: mergeInstitutionalMemoryElements,
+                customMerge: customMerge.bind({}, isPrimary),
+            });
+        };
+    }
+    return (secondary, primary) => {
+        return merge(secondary, primary, {
+            arrayMerge: combineMerge,
+            customMerge: customMerge.bind({}, isPrimary),
+        });
+    };
+}
+
 function customMerge(isPrimary, key) {
     if (key === 'upstream' || key === 'downstream') {
         return (_secondary, primary) => primary;
@@ -335,6 +482,29 @@ function customMerge(isPrimary, key) {
             };
         };
     }
+    if (key === 'usageStats') {
+        return (secondary, primary) => {
+            if (!primary) {
+                return secondary;
+            }
+            if (!secondary) {
+                return primary;
+            }
+            return {
+                ...primary,
+                aggregations: {
+                    ...primary.aggregations,
+                    uniqueUserCount:
+                        (primary.aggregations?.uniqueUserCount || 0) + (secondary.aggregations?.uniqueUserCount || 0),
+                    totalSqlQueries:
+                        (primary.aggregations?.totalSqlQueries || 0) + (secondary.aggregations?.totalSqlQueries || 0),
+                    fields: mergeUsageStatsFields(primary.aggregations?.fields, secondary.aggregations?.fields, {}),
+                    users: mergeUsageStatsUsers(primary.aggregations?.users, secondary.aggregations?.users, {}),
+                },
+                buckets: mergeUsageStatsBuckets(primary.buckets, secondary.buckets, {}),
+            };
+        };
+    }
     if (key === 'structuredProperties') {
         return (secondary, primary) => {
             return merge(secondary, primary, {
@@ -362,6 +532,14 @@ function customMerge(isPrimary, key) {
             return merge(secondary, primary, {
                 arrayMerge: getArrayMergeFunction(key),
                 customMerge: customMerge.bind({}, isPrimary),
+            });
+        };
+    }
+    if (key === 'institutionalMemory') {
+        return (secondary, primary) => {
+            return merge(secondary, primary, {
+                arrayMerge: getArrayMergeFunction(key),
+                customMerge: institutionalMemoryMerge.bind({}, isPrimary),
             });
         };
     }
@@ -428,6 +606,16 @@ const combineEntityWithSiblings = (entity: GenericEntityProperties) => {
 
     return combinedBaseEntity;
 };
+
+export function combineEntityData<T>(entityValue: T, siblingValue: T, isPrimary: boolean) {
+    if (!entityValue) return siblingValue;
+    if (!siblingValue) return entityValue;
+
+    return merge(clean(isPrimary ? siblingValue : entityValue), clean(isPrimary ? entityValue : siblingValue), {
+        arrayMerge: combineMerge,
+        customMerge: customMerge.bind({}, isPrimary),
+    });
+}
 
 export const combineEntityDataWithSiblings = <T>(baseEntity: T): T => {
     if (!baseEntity) {

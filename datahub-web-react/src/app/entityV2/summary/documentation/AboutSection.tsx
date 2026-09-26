@@ -1,7 +1,7 @@
 import { Button, Editor, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import queryString from 'query-string';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -66,6 +66,23 @@ export default function AboutSection({ hideLinksButton, hideEditDescription }: P
         setShowDescriptionModal(isEditingDescription);
     }, [isEditingDescription]);
 
+    /**
+     * The editor only reads its `content` prop on mount. When the modal is opened straight from the URL
+     * (?editingDescription=true) it can mount before entityData resolves, leaving the editor stuck on the empty
+     * description it mounted with. Bump the key once the description first arrives to force a re-mount.
+     */
+    const [descriptionEditorKey, setDescriptionEditorKey] = useState(0);
+    const hasInitializedDescriptionRef = useRef(!!updatedDescription);
+    useEffect(() => {
+        if (hasInitializedDescriptionRef.current) return;
+        if (updatedDescription) {
+            hasInitializedDescriptionRef.current = true;
+        } else if (displayedDescription) {
+            setDescriptionEditorKey((prevKey) => prevKey + 1);
+            hasInitializedDescriptionRef.current = true;
+        }
+    }, [displayedDescription, updatedDescription]);
+
     const removeEditingParam = () => {
         const params = queryString.parse(search);
         delete params.editingDescription;
@@ -118,6 +135,7 @@ export default function AboutSection({ hideLinksButton, hideEditDescription }: P
             {!hideLinksButton && <RelatedSection hideLinksButton={hideLinksButton} />}
             {showAddDescriptionModal && (
                 <EditDescriptionModal
+                    contentKey={descriptionEditorKey}
                     updatedDescription={updatedDescription}
                     setUpdatedDescription={setUpdatedDescription}
                     handleDescriptionUpdate={handleDescriptionUpdate}

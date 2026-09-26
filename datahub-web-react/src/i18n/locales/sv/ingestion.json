@@ -47,6 +47,7 @@
     "executions.someHidden": "Vissa körningar kan vara dolda",
     "executions.summaryAborted": "Ingestion-job avbröts på grund av en worker-omstart.",
     "executions.summaryCancelled": "Ingestion avbröts.",
+    "executions.summaryDuplicate": "Ingestion-job avbröts eftersom en eller flera andra instanser av det här jobbet redan finns.",
     "executions.summaryFailure": "Ingestion kunde inte slutföras, eller slutfördes med fel.",
     "executions.summaryRollbackFailed": "Rollback av ingestion misslyckades.",
     "executions.summaryRolledBack": "Ingestion rullades tillbaka.",

@@ -12,7 +12,7 @@ import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shar
 import TimeProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/TimeProperty';
 import { ActionType } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
 
@@ -39,15 +39,14 @@ const EmptyText = styled.span`
 const StatusSection = () => {
     const { t } = useTranslation('entity.shared.containers');
     const { t: tl } = useTranslation('common.labels');
-    const { entityData } = useEntityData();
+    const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [isDeprecationExpanded, setIsDeprecationExpanded] = useState(false);
 
     const dataset = entityData as any;
-    const entityType = entityData?.type;
     const properties = dataset?.properties;
 
-    const created = properties?.created?.time;
+    const created = entityRegistry.getCreatedTime(entityType, entityData);
     const lastModified = properties?.lastModified?.time;
     const lastRefreshed = properties?.lastRefreshed;
     const lastOp = dataset?.operations?.length && dataset?.operations[0]?.lastUpdatedTimestamp;

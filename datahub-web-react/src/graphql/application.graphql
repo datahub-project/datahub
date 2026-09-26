@@ -63,6 +63,10 @@ fragment applicationSearchFields on Application {
     ownership {
         ...ownershipFields
     }
+    exists
+    status {
+        removed
+    }
     tags {
         ...globalTagsFields
     }

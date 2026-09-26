@@ -9,7 +9,7 @@ import { useContextLayout } from '@app/context/ContextLayoutContext';
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
-import { extractUrnsFromMarkdown, isAllowedRelatedAssetUrn } from '@app/document/utils/documentUtils';
+import { categorizeUrns, extractUrnsFromMarkdown, isAllowedRelatedAssetUrn } from '@app/document/utils/documentUtils';
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
@@ -29,12 +29,12 @@ const EditorSection = styled.div`
     position: relative;
 `;
 
-const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean }>`
+const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean; $isEmpty?: boolean }>`
     border: none;
     &&& {
         .remirror-editor {
             padding: 0px 0;
-            min-height: 460px;
+            ${(props) => props.$isEmpty && `min-height: 460px;`}
         }
         .remirror-editor.ProseMirror {
             font-size: 15px;
@@ -151,57 +151,35 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 
             setIsSaving(true);
             try {
-                // Extract URNs from markdown links using balanced-parenthesis parser
-                // This correctly handles nested URNs like dataJob:(dataFlow:(...),task)
-                const extractedUrns = extractUrnsFromMarkdown(contentToSave);
-                const documentUrnsToSave: string[] = [];
-                const assetUrnsToSave: string[] = [];
+                // Extract URNs from markdown links — balanced-parenthesis parser handles
+                // nested URNs like dataJob:(dataFlow:(...),task)
+                const extractedUrns = extractUrnsFromMarkdown(contentToSave).filter(
+                    (urn) => urn.includes(':document:') || isAllowedRelatedAssetUrn(urn),
+                );
+                const { documentUrns: documentUrnsToSave, assetUrns: assetUrnsToSave } = categorizeUrns(extractedUrns);
 
-                extractedUrns.forEach((urn) => {
-                    // Check if it's a document URN
-                    if (urn.includes(':document:')) {
-                        if (!documentUrnsToSave.includes(urn)) {
-                            documentUrnsToSave.push(urn);
-                        }
-                    } else if (isAllowedRelatedAssetUrn(urn)) {
-                        // Only add to related assets if it passes validation
-                        // (balanced parens, not a disallowed entity type like corpUser/corpGroup)
-                        if (!assetUrnsToSave.includes(urn)) {
-                            assetUrnsToSave.push(urn);
-                        }
-                    }
-                });
-
-                // Merge new URNs with existing ones (additive, not replacement)
-                // Get existing URNs
+                // Merge extracted URNs with existing ones (additive, not replacement)
                 const existingAssetUrns = new Set(relatedAssets?.map((ra) => ra.asset.urn) || []);
                 const existingDocumentUrns = new Set(relatedDocuments?.map((rd) => rd.document.urn) || []);
 
-                // Add new URNs to existing sets (automatically handles duplicates)
                 assetUrnsToSave.forEach((urn) => existingAssetUrns.add(urn));
                 documentUrnsToSave.forEach((urn) => existingDocumentUrns.add(urn));
 
-                // Convert back to arrays
                 const finalAssetUrns = Array.from(existingAssetUrns);
                 const finalDocumentUrns = Array.from(existingDocumentUrns);
 
-                // Save content
-                await updateContents({
+                const updated = await updateContents({
                     urn: documentUrn,
                     contents: { text: contentToSave },
                 });
+                if (!updated) return;
 
-                // Update related entities - merge new mentions with existing ones
                 await updateRelatedEntities({
                     urn: documentUrn,
                     relatedAssets: finalAssetUrns,
                     relatedDocuments: finalDocumentUrns,
                 });
-
-                // Track that we just saved this content to prevent remount on refetch
                 lastSavedContentRef.current = contentToSave;
-
-                // Refetch the document to get the updated related assets/documents
                 await refetch();
             } catch (error) {
                 console.error('[EditableContent] Failed to save document:', error);
@@ -336,6 +314,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         hideBorder
                         doNotFocus
                         $hideToolbar={!isEditorFocused}
+                        $isEmpty={!content.trim()}
                         fixedBottomToolbar={isEditorFocused}
                         toolbarStyles={toolbarStyles}
                         uploadFileProps={{
@@ -351,6 +330,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         readOnly
                         placeholder={t('document.noContentPlaceholder')}
                         hideBorder
+                        $isEmpty={!content.trim()}
                     />
                 )}
             </EditorSection>

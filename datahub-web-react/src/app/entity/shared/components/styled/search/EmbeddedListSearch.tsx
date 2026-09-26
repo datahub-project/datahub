@@ -29,7 +29,7 @@ import { Message } from '@app/shared/Message';
 import { SearchCfg } from '@src/conf';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
-import { EntityType, FacetFilterInput, FacetMetadata, SearchAcrossEntitiesInput } from '@types';
+import { EntityType, FacetFilterInput, FacetMetadata, SearchAcrossEntitiesInput, SearchFlags } from '@types';
 
 const Container = styled.div`
     display: flex;
@@ -93,6 +93,7 @@ type Props = {
     searchBarInputStyle?: any;
     entityAction?: React.FC<EntityActionProps>;
     skipCache?: boolean;
+    searchFlags?: SearchFlags;
     useGetSearchResults?: (params: GetSearchResultsParams) => {
         data: SearchResultsInterface | undefined | null;
         loading: boolean;
@@ -135,6 +136,7 @@ export const EmbeddedListSearch = ({
     searchBarInputStyle,
     entityAction,
     skipCache,
+    searchFlags: extraSearchFlags,
     useGetSearchResults = useWrappedSearchResults,
     useGetDownloadSearchResults = useDownloadScrollAcrossEntitiesSearchResults,
     shouldRefetch,
@@ -190,8 +192,11 @@ export const EmbeddedListSearch = ({
         orFilters: finalFilters,
         viewUrn: applyView ? selectedViewUrn : undefined,
     };
-    if (skipCache) {
-        searchInput = { ...searchInput, searchFlags: { skipCache: true } };
+    if (skipCache || extraSearchFlags) {
+        searchInput = {
+            ...searchInput,
+            searchFlags: { ...extraSearchFlags, ...(skipCache ? { skipCache: true } : {}) },
+        };
     }
 
     const { data, loading, error, refetch } = useGetSearchResults({

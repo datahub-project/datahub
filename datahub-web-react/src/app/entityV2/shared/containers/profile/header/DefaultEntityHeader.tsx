@@ -9,6 +9,7 @@ import { DeprecationIcon } from '@app/entityV2/shared/components/styled/Deprecat
 import EntityTitleLoadingSection from '@app/entityV2/shared/containers/profile/header/EntityHeaderLoadingSection';
 import EntityName from '@app/entityV2/shared/containers/profile/header/EntityName';
 import IconColorPicker from '@app/entityV2/shared/containers/profile/header/IconPicker/IconColorPicker';
+import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
@@ -244,10 +245,14 @@ export const DefaultEntityHeader = ({
                                         {entityData?.health && (
                                             <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />
                                         )}
-                                        <StructuredPropertyBadge
-                                            structuredProperties={entityData?.structuredProperties}
-                                            platformUrn={platform?.urn}
-                                        />
+                                        {entityData?.status?.lifecycleStage ? (
+                                            <LifecycleStageBadge lifecycleStage={entityData.status.lifecycleStage} />
+                                        ) : (
+                                            <StructuredPropertyBadge
+                                                structuredProperties={entityData?.structuredProperties}
+                                                platformUrn={platform?.urn}
+                                            />
+                                        )}
                                         <VersioningBadge
                                             versionProperties={entityData?.versionProperties ?? undefined}
                                             showPopover

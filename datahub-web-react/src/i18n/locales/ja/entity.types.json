@@ -131,6 +131,7 @@
     "document.linkRelatedTooltip": "関連Assetまたはコンテキストドキュメントをリンク",
     "document.name": "ドキュメント",
     "document.namePlural": "ドキュメント",
+    "document.newDocumentPlaceholder": "新しいドキュメント",
     "document.noChangeHistoryEmpty": "変更履歴はまだありません!",
     "document.noContentPlaceholder": "内容がありません",
     "document.previousVersionTitle": "以前のバージョン",

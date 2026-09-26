@@ -15,7 +15,7 @@ import { DisplayProperties, EntityType, PlatformPrivileges } from '@types';
 
 const Container = styled.div``;
 
-export function getCanEditName(
+export function getCanEditEntityProperties(
     entityType: EntityType,
     entityData: GenericEntityProperties | null,
     privileges?: PlatformPrivileges,
@@ -59,8 +59,7 @@ export const EntityHeader = ({
     const { config } = useAppConfig();
 
     const entityUrl = entityRegistry.getEntityUrl(entityType, urn);
-    const showEditName =
-        isNameEditable && getCanEditName(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
+    const canEdit = getCanEditEntityProperties(entityType, entityData, me?.platformPrivileges as PlatformPrivileges);
     // Logical models (logical-platform datasets) get a Delete action; regular datasets are unaffected.
     const effectiveDropdownItems = withLogicalModelHeaderItems(
         entityType,
@@ -78,9 +77,9 @@ export const EntityHeader = ({
                 loading={loading}
                 entityData={entityData}
                 refetch={refetch}
-                showEditName={showEditName}
-                isColorEditable={isColorEditable}
-                isIconEditable={isIconEditable}
+                showEditName={isNameEditable && canEdit}
+                isColorEditable={isColorEditable && canEdit}
+                isIconEditable={isIconEditable && canEdit}
                 displayProperties={displayProperties}
                 headerActionItems={headerActionItems}
                 headerDropdownItems={effectiveDropdownItems}

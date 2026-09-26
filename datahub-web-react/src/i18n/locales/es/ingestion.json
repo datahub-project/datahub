@@ -47,6 +47,7 @@
     "executions.someHidden": "Es posible que algunas ejecuciones estén ocultas",
     "executions.summaryAborted": "El trabajo de Ingestion se canceló debido al reinicio de un worker.",
     "executions.summaryCancelled": "La Ingestion fue cancelada.",
+    "executions.summaryDuplicate": "El trabajo de Ingestion se canceló porque ya existe otra instancia de este trabajo.",
     "executions.summaryFailure": "La Ingestion no se pudo completar o se completó con errores.",
     "executions.summaryRollbackFailed": "Error en la reversión de la Ingestion.",
     "executions.summaryRolledBack": "La Ingestion se revirtió.",

@@ -47,6 +47,7 @@
     "executions.someHidden": "Alcune esecuzioni potrebbero essere nascoste",
     "executions.summaryAborted": "Il Job di ingestion è stato interrotto a causa del riavvio del worker.",
     "executions.summaryCancelled": "L'ingestion è stata annullata.",
+    "executions.summaryDuplicate": "Il job di ingestion è stato annullato perché esistono già una o più altre istanze di questo job.",
     "executions.summaryFailure": "L'ingestion non è riuscita a completarsi, oppure si è completata con errori.",
     "executions.summaryRollbackFailed": "Il rollback dell'ingestion non è riuscito.",
     "executions.summaryRolledBack": "È stato eseguito il rollback dell'ingestion.",

@@ -22,7 +22,7 @@ export const useGetEntityWithSchema = (skip?: boolean) => {
         variables: {
             urn,
         },
-        skip: skip || !shouldLoadSchema(entityType, entityData),
+        skip: skip || !urn || !shouldLoadSchema(entityType, entityData),
         fetchPolicy: 'cache-first',
     });
     const isHideSiblingMode = useIsSeparateSiblingsMode();

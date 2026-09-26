@@ -233,6 +233,10 @@ export class MLModelEntity implements Entity<MlModel> {
         return data.properties?.['propertiesName'] || data.properties?.name || data.name || data.urn;
     };
 
+    createdTime = (data: MlModel) => {
+        return data?.properties?.created?.time || data?.properties?.date;
+    };
+
     getGenericEntityProperties = (mlModel: MlModel) => {
         return getDataForEntityType({
             data: mlModel,

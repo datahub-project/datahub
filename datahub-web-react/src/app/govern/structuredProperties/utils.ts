@@ -486,8 +486,7 @@ export function getStructuredPropertiesSearchInputs(
         types: [EntityType.StructuredProperty],
         query: '*',
         start: 0,
-        count: 100,
-        searchFlags: { skipCache: true },
+        count: 500,
         orFilters: [
             {
                 and: [

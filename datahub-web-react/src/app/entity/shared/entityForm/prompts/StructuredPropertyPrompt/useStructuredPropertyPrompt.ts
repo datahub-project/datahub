@@ -1,3 +1,4 @@
+import isEqual from 'lodash/isEqual';
 import { useEffect, useMemo } from 'react';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
@@ -32,7 +33,7 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
         updateSelectedValues,
         hasEdited,
         setHasEdited,
-    } = useEditStructuredProperty();
+    } = useEditStructuredProperty(initialValues);
 
     const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
 
@@ -50,6 +51,13 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
             setSelectedValues(initialValues || []);
         }
     }, [previousSelectedPromptId, selectedPromptId, initialValues, setSelectedValues, setHasEdited]);
+
+    const previousInitialValues = usePrevious(initialValues);
+    useEffect(() => {
+        if (!hasEdited && !!initialValues?.length && !isEqual(initialValues, previousInitialValues)) {
+            setSelectedValues(initialValues);
+        }
+    }, [initialValues, previousInitialValues, hasEdited, setSelectedValues]);
 
     // submit structured property prompt
     function submitStructuredPropertyResponse() {

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useUpdateDocumentTitleMutation } from '@app/document/hooks/useDocumentTreeMutations';
+import { DEFAULT_DOCUMENT_TITLE } from '@app/document/utils/documentTreeNodeMerge';
 
 const TitleContainer = styled.div`
     width: 100%;
@@ -53,6 +55,7 @@ interface Props {
 }
 
 export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) => {
+    const { t } = useTranslation('entity.types');
     const [title, setTitle] = useState(initialTitle || '');
     const [isSaving, setIsSaving] = useState(false);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -65,10 +68,11 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     }, [initialTitle]);
 
     // For freshly created docs, clear the default title and focus the field so the placeholder shows and typing starts immediately.
+    // Compare against the persisted English default, not the translated placeholder: documents are created with
+    // DEFAULT_DOCUMENT_TITLE regardless of locale.
     useEffect(() => {
         const trimmed = (initialTitle || '').trim().toLowerCase();
-        /* untranslated-text -- internal default-title sentinel for fresh-doc detection; compared, not rendered */
-        const isDefaultTitle = trimmed === 'new document' || trimmed === '';
+        const isDefaultTitle = trimmed === DEFAULT_DOCUMENT_TITLE.toLowerCase() || trimmed === '';
 
         if (canEditTitle && isDefaultTitle && !hasAutoFocused.current) {
             hasAutoFocused.current = true;
@@ -100,8 +104,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
     const handleBlur = async () => {
         // If the user leaves the field empty, fall back to the default placeholder title.
         const trimmed = title.trim();
-        /* untranslated-text -- default persisted document title; saved as data, not UI chrome */
-        const fallbackTitle = initialTitle || 'New Document';
+        const fallbackTitle = initialTitle || DEFAULT_DOCUMENT_TITLE;
         const finalTitle = trimmed === '' ? fallbackTitle : title;
 
         if (finalTitle !== title) {
@@ -136,8 +139,7 @@ export const EditableTitle: React.FC<Props> = ({ documentUrn, initialTitle }) =>
                 onKeyDown={handleKeyDown}
                 $editable={canEditTitle}
                 disabled={!canEditTitle}
-                /* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) placeholder must match the persisted default-title sentinel used for fresh-doc detection (see line 70) */
-                placeholder="New Document"
+                placeholder={t('document.newDocumentPlaceholder')}
                 rows={1}
             />
         </TitleContainer>
