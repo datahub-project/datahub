@@ -65,9 +65,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
       String alias = "g" + (bi++);
       groupAliases.add(alias);
       if (b.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
-        ZoneId z = zoneForBucket(b);
-        String millisExpr = PostgresTimeseriesAggregatedStatsDao.documentTextPathSql(b.getKey());
-        String keyExpr = postgresDateBucketSql(b.getTimeWindowSize(), millisExpr, z);
+        String keyExpr = dateGroupingKeySql(b);
         groupKeyExprs.add(keyExpr);
         groupSql.add(keyExpr + " AS " + alias);
       } else if (b.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
@@ -117,15 +115,7 @@ public final class PostgresTimeseriesAggregatedStatsDao {
                   + sqlAlias);
           break;
         case LATEST:
-          metricSql.add(
-              "(ARRAY_AGG("
-                  + path
-                  + " ORDER BY event_time DESC NULLS LAST) FILTER (WHERE "
-                  + path
-                  + " IS NOT NULL AND trim("
-                  + path
-                  + ") <> ''))[1] AS "
-                  + sqlAlias);
+          metricSql.add(latestValueSql(path) + " AS " + sqlAlias);
           break;
         default:
           throw new IllegalStateException(spec.getAggregationType().toString());
@@ -692,6 +682,42 @@ public final class PostgresTimeseriesAggregatedStatsDao {
   }
 
   /**
+   * Date-bucket expression for one grouping bucket.
+   *
+   * <p>{@code timestampMillis} and {@code @timestamp} are stored on {@code event_time}. Bucketing
+   * that column avoids reading {@code document} jsonb for every row in the scanned partitions.
+   * Other date keys still come from the document.
+   */
+  @Nonnull
+  static String dateGroupingKeySql(@Nonnull GroupingBucket bucket) {
+    ZoneId zone = zoneForBucket(bucket);
+    TimeWindowSize tws = bucket.getTimeWindowSize();
+    if (TimeseriesFilterSqlBuilder.isEventTimeField(bucket.getKey())) {
+      return postgresDateBucketFromTimestamptz(tws, "event_time", zone);
+    }
+    return postgresDateBucketSql(tws, documentTextPathSql(bucket.getKey()), zone);
+  }
+
+  /**
+   * Latest non-blank value in the group.
+   *
+   * <p>{@code MAX} of a two-element array keeps one state per group. {@code ARRAY_AGG(...)[1]}
+   * would materialize every matching value before taking the first. The sort key is a fixed-width
+   * UTC timestamp so lexicographic {@code MAX} matches {@code ORDER BY event_time DESC NULLS LAST}.
+   */
+  @Nonnull
+  static String latestValueSql(@Nonnull String pathExpr) {
+    return "(MAX(ARRAY[CASE WHEN event_time IS NULL THEN '' ELSE to_char(event_time AT TIME ZONE"
+        + " 'UTC', 'YYYYMMDDHH24MISSUS') END, "
+        + pathExpr
+        + "]) FILTER (WHERE "
+        + pathExpr
+        + " IS NOT NULL AND trim("
+        + pathExpr
+        + ") <> ''))[2]";
+  }
+
+  /**
    * SQL expression that buckets a millisecond epoch field into the same calendar windows as {@link
    * com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO}, including {@code
    * TimeWindowSize.multiple}.
@@ -703,14 +729,16 @@ public final class PostgresTimeseriesAggregatedStatsDao {
   @Nonnull
   static String postgresDateBucketSql(
       @Nonnull TimeWindowSize tws, @Nonnull String millisExpr, @Nonnull ZoneId zone) {
+    String timestamptzExpr = "to_timestamp((" + millisExpr + ")::double precision / 1000.0)";
+    return postgresDateBucketFromTimestamptz(tws, timestamptzExpr, zone);
+  }
+
+  @Nonnull
+  static String postgresDateBucketFromTimestamptz(
+      @Nonnull TimeWindowSize tws, @Nonnull String timestamptzExpr, @Nonnull ZoneId zone) {
     String zoneEsc = zone.getId().replace("'", "''");
     String trunc = postgresDateTrunc(tws);
-    String localTs =
-        "to_timestamp(("
-            + millisExpr
-            + ")::double precision / 1000.0) AT TIME ZONE '"
-            + zoneEsc
-            + "'";
+    String localTs = timestamptzExpr + " AT TIME ZONE '" + zoneEsc + "'";
     String truncated = "date_trunc('" + trunc + "', " + localTs + ")";
     int multiple = tws.hasMultiple() ? tws.getMultiple() : 1;
     if (multiple < 1) {
