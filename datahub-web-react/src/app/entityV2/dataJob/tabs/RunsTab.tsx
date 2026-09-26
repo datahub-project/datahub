@@ -1,11 +1,13 @@
-import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Pagination, Table, Typography } from 'antd';
+import { Pagination, Table, Text, Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { DefaultTheme, useTheme } from 'styled-components';
 
+import { Column } from '@components/components/Table/types';
+
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { notEmpty } from '@app/entityV2/shared/utils';
 import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
@@ -16,7 +18,7 @@ import { scrollToTop } from '@app/shared/searchUtils';
 import { safeUrl } from '@app/shared/urlUtils';
 
 import { useGetExecutionRunsQuery } from '@graphql/runs.generated';
-import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '@types';
+import { DataProcessInstanceRunResultType, DataProcessRunStatus, Entity } from '@types';
 
 import LoadingSvg from '@images/datahub-logo-color-loading_pendulum.svg?react';
 
@@ -55,6 +57,16 @@ function getStatusForStyling(status?: DataProcessRunStatus, resultType?: DataPro
 
 const PAGE_SIZE = 20;
 
+type RunRow = {
+    time?: number | null;
+    name?: string | null;
+    status?: DataProcessRunStatus | null;
+    resultType?: DataProcessInstanceRunResultType | null;
+    inputs?: Entity[];
+    outputs?: Entity[];
+    externalUrl?: string | null;
+};
+
 export const RunsTab = () => {
     const { urn } = useEntityData();
     const [page, setPage] = useState(1);
@@ -63,38 +75,42 @@ export const RunsTab = () => {
 
     const theme = useTheme();
 
-    const columns = [
+    const columns: Column<RunRow>[] = [
         {
             title: t('shared.timeColumn'),
-            dataIndex: 'time',
             key: 'time',
-            render: (value) => (
-                <Tooltip title={new Date(Number(value)).toUTCString()}>
-                    {new Date(Number(value)).toLocaleString()}
+            render: (record) => (
+                <Tooltip title={new Date(Number(record.time)).toUTCString()}>
+                    {new Date(Number(record.time)).toLocaleString()}
                 </Tooltip>
             ),
         },
         {
             title: t('shared.runIdColumn'),
-            dataIndex: 'name',
             key: 'name',
-            render: (name) => <div data-testid={`run-name-${name}`}>{name}</div>,
+            render: (record) => <div data-testid={`run-name-${record.name}`}>{record.name}</div>,
         },
         {
             title: tl('status'),
-            dataIndex: 'status',
             key: 'status',
-            render: (status: any, row) => {
-                const statusForStyling = getStatusForStyling(status, row?.resultType);
+            render: (record) => {
+                const statusForStyling = getStatusForStyling(
+                    record.status ?? undefined,
+                    record.resultType ?? undefined,
+                );
                 const text = getExecutionRequestStatusDisplayText(statusForStyling);
                 const color = getExecutionRequestStatusDisplayColor(theme, statusForStyling);
                 return (
-                    <div data-testid={`run-status-${row.name}`}>
+                    <div data-testid={`run-status-${record.name}`}>
                         <div style={{ display: 'flex', justifyContent: 'left', alignItems: 'center' }}>
-                            <LastRunIcon theme={theme} status={status} resultType={row?.resultType} />
-                            <Typography.Text strong style={{ color, marginLeft: 8 }}>
+                            <LastRunIcon
+                                theme={theme}
+                                status={record.status ?? undefined}
+                                resultType={record.resultType ?? undefined}
+                            />
+                            <Text weight="bold" style={{ color, marginLeft: 8 }}>
                                 {text || tl('na')}
-                            </Typography.Text>
+                            </Text>
                         </div>
                     </div>
                 );
@@ -102,35 +118,32 @@ export const RunsTab = () => {
         },
         {
             title: t('shared.inputs'),
-            dataIndex: 'inputs',
             key: 'inputs',
-            render: (inputs) => (
+            render: (record) => (
                 <div data-testid="run-inputs-cell">
-                    <CompactEntityNameList entities={inputs} placement="right" />
+                    <CompactEntityNameList entities={record.inputs ?? []} placement="right" />
                 </div>
             ),
-            width: 150,
+            width: '150px',
         },
         {
             title: t('shared.outputs'),
-            dataIndex: 'outputs',
             key: 'outputs',
-            render: (outputs) => (
+            render: (record) => (
                 <div data-testid="run-outputs-cell">
-                    <CompactEntityNameList entities={outputs} placement="right" />
+                    <CompactEntityNameList entities={record.outputs ?? []} placement="right" />
                 </div>
             ),
-            width: 150,
+            width: '150px',
         },
         {
             title: '',
-            dataIndex: 'externalUrl',
             key: 'externalUrl',
-            render: (externalUrl) =>
-                externalUrl && (
+            render: (record) =>
+                record.externalUrl && (
                     <Tooltip title={t('shared.viewTaskRunDetails')}>
-                        <ExternalUrlLink href={safeUrl(externalUrl)}>
-                            <DeliveredProcedureOutlined />
+                        <ExternalUrlLink href={safeUrl(record.externalUrl)}>
+                            <ArrowSquareOut />
                         </ExternalUrlLink>
                     </Tooltip>
                 ),
@@ -155,8 +168,8 @@ export const RunsTab = () => {
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
-            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity).filter(notEmpty),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity).filter(notEmpty),
             externalUrl: run?.externalUrl,
         }));
     if (loading) {
@@ -175,14 +188,14 @@ export const RunsTab = () => {
 
     return (
         <>
-            <Table dataSource={tableData} columns={columns} pagination={false} />
+            <Table data={tableData ?? []} columns={columns} />
             <PaginationControlContainer>
                 <Pagination
-                    current={page}
-                    pageSize={PAGE_SIZE}
+                    currentPage={page}
+                    itemsPerPage={PAGE_SIZE}
                     total={runsData?.total || 0}
                     showLessItems
-                    onChange={onChangePage}
+                    onPageChange={onChangePage}
                     showSizeChanger={false}
                 />
             </PaginationControlContainer>
