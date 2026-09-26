@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 
 import sqlalchemy as sa
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -106,7 +106,7 @@ class MSSQLAdapter(PlatformAdapter):
                 )
 
         quoted_column = self.quote_identifier(column)
-        selects = [
+        selects: List[Label] = [
             sa.literal_column(
                 f"PERCENTILE_DISC({q}) WITHIN GROUP (ORDER BY {quoted_column} ASC) OVER ()"
             ).label(f"q_{i}")
@@ -114,7 +114,7 @@ class MSSQLAdapter(PlatformAdapter):
         ]
         # DISTINCT is required because the windowed PERCENTILE_DISC would
         # otherwise return one identical row per input row.
-        query = sa.select(selects).select_from(table).distinct()
+        query = sa.select(*selects).select_from(table).distinct()
 
         try:
             row = conn.execute_rows(query).fetchone()

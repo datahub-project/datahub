@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.row import RowMapping
-from sqlalchemy.sql import ClauseElement
+from sqlalchemy.sql import Executable
 from typing_extensions import LiteralString
 
 from datahub.ingestion.source.sql.hana import hana_query
@@ -30,7 +30,7 @@ class HanaDataDictionary:
 
     def _execute_or_warn(
         self,
-        query: ClauseElement,
+        query: Executable,
         *,
         title: LiteralString,
         message: LiteralString,

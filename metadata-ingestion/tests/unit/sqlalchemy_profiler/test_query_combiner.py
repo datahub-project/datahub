@@ -7,7 +7,8 @@ implementation, no exact-error-message assertions.
 
 import dataclasses
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from unittest.mock import patch
 
 import pytest
 import sqlalchemy as sa
@@ -367,10 +368,11 @@ class TestResultExtraction:
             assert combiner.report.total_queries == 1
             # The ambiguity surfaces at consumption, inside the connection
             # scope (accessing the real CursorResult after the `with` block
-            # closes the connection raises ResourceClosedError instead).
+            # closes the connection raises ResourceClosedError instead). SA 2.0
+            # Rows are tuple-like, so keyed access goes through ._mapping.
             row = cap.result.one()
             with pytest.raises(sa.exc.InvalidRequestError):
-                row["v"]
+                row._mapping["v"]
 
     @pytest.mark.parametrize("flatten_enabled", [False, True])
     def test_duplicate_labels_across_queries_do_not_collide(
@@ -581,15 +583,13 @@ class TestSingleRowTagging:
     @pytest.mark.parametrize(
         "clause,build",
         [
-            ("LIMIT", lambda t: sa.select([t.c.value]).limit(2)),
-            ("OFFSET", lambda t: sa.select([t.c.value]).offset(1)),
+            ("LIMIT", lambda t: sa.select(t.c.value).limit(2)),
+            ("OFFSET", lambda t: sa.select(t.c.value).offset(1)),
             (
                 "GROUP BY",
-                lambda t: (
-                    sa.select([sa.func.count()]).select_from(t).group_by(t.c.name)
-                ),
+                lambda t: sa.select(sa.func.count()).select_from(t).group_by(t.c.name),
             ),
-            ("DISTINCT", lambda t: sa.select([t.c.value]).select_from(t).distinct()),
+            ("DISTINCT", lambda t: sa.select(t.c.value).select_from(t).distinct()),
         ],
     )
     def test_every_vetoed_clause_is_detected(self, engine, test_table, clause, build):
@@ -644,13 +644,14 @@ class TestSingleRowTagging:
 class TestUnbatchableQueries:
     """Not every uncombined query is a mistake, so most of them stay quiet."""
 
-    def test_raw_string_runs_but_is_never_combined(self, engine, test_table):
-        # A raw string is the only non-Executable that reaches the combiner --
-        # SQLAlchemy rejects None, ints and Tables itself with
-        # ObjectNotExecutableError. It executes fine, it just cannot be batched.
+    def test_untagged_text_clause_runs_but_is_never_combined(self, engine, test_table):
+        # SA 2.0 rejects bare SQL strings, so raw SQL arrives as text(). Without
+        # the single-row tag it executes fine, it just cannot be batched.
         combiner = _make_combiner(catch_exceptions=False)
         with engine.connect() as conn, combiner.activate() as qc:
-            cap = _schedule(qc, conn, "SELECT 1", combinable=False, flattenable=False)
+            cap = _schedule(
+                qc, conn, sa.text("SELECT 1"), combinable=False, flattenable=False
+            )
             qc.flush()
 
         assert cap.exc is None
@@ -865,6 +866,45 @@ class TestFlattenPath:
             combiner.report.scans_avoided == good_count - MAX_QUERIES_TO_COMBINE_AT_ONCE
         )
 
+    def test_flat_group_failure_rolls_back_before_cte_reroute(self, engine, test_table):
+        # SA 2.0 has no autocommit: on Postgres/Redshift a failed flat query
+        # leaves the transaction aborted (25P02), so the CTE re-route must roll
+        # back first or it fails too. SQLite doesn't abort, so assert ordering.
+        queries = [
+            sa.select(sa.func.count().label(f"c{i}")).select_from(test_table)
+            for i in range(2)
+        ]
+        combiner = _make_combiner(flatten_enabled=True)
+        calls: List[str] = []
+        real_cte_combine = combiner._execute_cte_combine
+
+        def _cte_combine(queue: Any) -> None:
+            calls.append("cte")
+            real_cte_combine(queue)
+
+        with (
+            engine.connect() as conn,
+            combiner.activate() as qc,
+            patch.object(
+                combiner,
+                "_execute_flat_select",
+                side_effect=sa.exc.OperationalError("SELECT", {}, Exception("x")),
+            ),
+            patch.object(combiner, "_execute_cte_combine", side_effect=_cte_combine),
+            patch.object(
+                type(conn),
+                "rollback",
+                autospec=True,
+                side_effect=lambda self: calls.append("rollback"),
+            ),
+        ):
+            caps = [_schedule(qc, conn, q) for q in queries]
+            qc.flush()
+
+        assert calls[:2] == ["rollback", "cte"]
+        assert combiner.report.flat_group_cte_recoveries == 1
+        assert all(c.exc is None and c.result.scalar() == 3 for c in caps)
+
     def test_same_name_different_object_tables_not_grouped(self, engine):
         # Two Table objects named "t" must not group, or the flat SELECT
         # becomes `FROM t, t`. SQLite shares one physical table across
@@ -910,7 +950,7 @@ class TestFlattenPath:
         bad = sa.select(
             sa.func.count(sa.column("no_such_col")).label("bad")
         ).select_from(test_table)
-        bad2 = sa.select(
+        bad2: Any = sa.select(
             sa.func.max(sa.column("no_such_col")).label("bad2")
         ).select_from(test_table)
         combiner = _make_combiner(

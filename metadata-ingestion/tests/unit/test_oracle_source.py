@@ -8,7 +8,7 @@ import pytest
 import sqlalchemy.exc
 from pydantic import ValidationError
 from sqlalchemy.dialects.oracle.base import ischema_names
-from sqlalchemy.engine import Inspector
+from sqlalchemy.engine import Connection, Inspector
 from sqlalchemy.sql import sqltypes
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
@@ -185,7 +185,7 @@ def test_oracle_get_db_name_with_service_name():
         mock_inspector.engine = mock_engine
 
         # Mock bind and the database query result
-        mock_bind = Mock()
+        mock_bind = Mock(spec=Connection)
         mock_result = Mock()
         mock_result.scalar.return_value = "TESTDB"  # Oracle returns uppercase
         mock_bind.execute.return_value = mock_result
@@ -276,9 +276,9 @@ def test_oracle_get_db_name_database_error():
         mock_inspector.engine = mock_engine
 
         # Mock bind to raise DatabaseError
-        mock_bind = Mock()
+        mock_bind = Mock(spec=Connection)
         mock_bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
-            "Connection failed", None, None
+            "Connection failed", None, Exception("Connection failed")
         )
         mock_inspector.bind = mock_bind
 
@@ -302,7 +302,8 @@ class TestOracleInspectorObjectWrapper:
     def setup_method(self):
         """Set up test fixtures."""
         self.mock_inspector = Mock(spec=Inspector)
-        self.mock_inspector.bind = Mock()
+        # _inspector_connection() asserts the bind is a Connection (SA 2.0 narrowing).
+        self.mock_inspector.bind = Mock(spec=Connection)
         self.mock_inspector.dialect = Mock()
         self.mock_inspector.dialect.normalize_name = Mock(
             side_effect=lambda x: x.lower()
@@ -319,7 +320,7 @@ class TestOracleInspectorObjectWrapper:
 
     def test_get_db_name_reports_failure_on_database_error(self):
         self.mock_inspector.bind.execute.side_effect = sqlalchemy.exc.DatabaseError(
-            "Connection failed", None, None
+            "Connection failed", None, Exception("Connection failed")
         )
         result = self.wrapper.get_db_name()
         assert result == ""
@@ -1139,6 +1140,8 @@ class TestOracleSource:
         mock_inspector.dialect.denormalize_name.side_effect = lambda x: x.upper()
         mock_inspector.dialect.default_schema_name = "TEST_SCHEMA"
 
+        # _inspector_connection() asserts the bind is a Connection (SA 2.0 narrowing).
+        mock_inspector.bind = Mock(spec=Connection)
         mock_definition = "SELECT * FROM test_table"
         mock_inspector.bind.execute.return_value.scalar.return_value = mock_definition
 
@@ -1395,7 +1398,8 @@ class TestOracleQueryExtraction:
         mock_conn = Mock()
         mock_inspector = Mock()
         mock_result = Mock()
-        mock_result.__iter__ = Mock(return_value=iter(mock_rows))
+        # Source reads V$SQL rows via .mappings() for dict-style access (SA 2.0).
+        mock_result.mappings.return_value = mock_rows
         mock_conn.execute.return_value = mock_result
         mock_conn.__enter__ = Mock(return_value=mock_conn)
         mock_conn.__exit__ = Mock(return_value=None)
@@ -1461,7 +1465,8 @@ class TestOracleQueryExtraction:
         mock_conn = Mock()
         mock_inspector = Mock()
         mock_result = Mock()
-        mock_result.__iter__ = Mock(return_value=iter(mock_rows))
+        # Source reads V$SQL rows via .mappings() for dict-style access (SA 2.0).
+        mock_result.mappings.return_value = mock_rows
         mock_conn.execute.return_value = mock_result
         mock_conn.__enter__ = Mock(return_value=mock_conn)
         mock_conn.__exit__ = Mock(return_value=None)
@@ -1616,18 +1621,27 @@ class TestOracleQueryExtraction:
 
 
 def test_oracle_sample_query_uses_where_rownum():
+    from sqlalchemy.dialects import oracle
+    from sqlalchemy.sql import Select
+
     mock_conn = MagicMock()
     mock_conn.dialect.name = "oracle"
     mock_conn.execute.return_value.fetchall.return_value = []
 
-    with patch("datahub.ingestion.source.sql.sqlalchemy_data_reader.sa"):
-        reader = SqlAlchemyTableDataReader.__new__(SqlAlchemyTableDataReader)
-        reader.connection = mock_conn
-        reader.get_sample_data_for_table(["test_schema", "test_table"], sample_size=100)
+    reader = SqlAlchemyTableDataReader.__new__(SqlAlchemyTableDataReader)
+    reader.connection = mock_conn
+    reader.get_sample_data_for_table(["test_schema", "test_table"], sample_size=100)
 
     executed_query = mock_conn.execute.call_args[0][0]
-    assert "WHERE ROWNUM <= 100" in executed_query
-    assert "AND ROWNUM" not in executed_query
+    # SA 2.0 rejects raw strings with ObjectNotExecutableError.
+    assert isinstance(executed_query, Select)
+    sql = str(
+        executed_query.compile(
+            dialect=oracle.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "WHERE ROWNUM <= 100" in sql
+    assert "FETCH FIRST" not in sql
 
 
 def test_sql_type_list_renders_quoted_in_list():

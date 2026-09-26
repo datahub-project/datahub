@@ -5,7 +5,7 @@ from typing import Any, List, Optional
 import sqlalchemy as sa
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, Label
 
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
@@ -120,10 +120,10 @@ class ClickHouseAdapter(PlatformAdapter):
         batched_failed = False
         try:
             levels = ", ".join(str(q) for q in quantiles)
-            expr = sa.literal_column(f"quantiles({levels})({quoted_column})").label(
-                "quantiles"
-            )
-            query = sa.select([expr]).select_from(table)
+            expr: Label = sa.literal_column(
+                f"quantiles({levels})({quoted_column})"
+            ).label("quantiles")
+            query = sa.select(expr).select_from(table)
             raw = conn.execute_rows(query).scalar()
         except SQLAlchemyError as e:
             batched_failed = True
@@ -163,7 +163,7 @@ class ClickHouseAdapter(PlatformAdapter):
                 expr = sa.literal_column(f"quantile({q})({quoted_column})").label(
                     "quantile"
                 )
-                query = sa.select([expr]).select_from(table)
+                query = sa.select(expr).select_from(table)
                 result = conn.execute_rows(query).scalar()
             except SQLAlchemyError as e:
                 if first_exc is None:

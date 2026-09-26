@@ -2,7 +2,7 @@ import json
 import logging
 import traceback
 import uuid
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union, cast
 
 from sqlalchemy import types
 from sqlalchemy.engine.reflection import Inspector
@@ -64,8 +64,10 @@ class SqlAlchemyColumnToAvroConverter:
             return {
                 "type": "bytes",
                 "logicalType": "decimal",
-                "precision": int(column_type.precision),
-                "scale": int(column_type.scale),
+                # SA 2.0 types precision/scale as Optional[int]; cast preserves
+                # the existing behavior (a DECIMAL without precision still raises).
+                "precision": int(cast(int, column_type.precision)),
+                "scale": int(cast(int, column_type.scale)),
                 "native_data_type": str(column_type),
                 "_nullable": nullable,
             }

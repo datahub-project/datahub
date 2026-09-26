@@ -217,12 +217,26 @@ class _FakeRow:
         self._mapping = mapping
 
 
+class _FakeConnection:
+    def __init__(self, rows):
+        self._rows = rows
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return None
+
+    def execute(self, *args, **kwargs):
+        return iter(self._rows)
+
+
 class _FakeEngine:
     def __init__(self, rows):
         self._rows = rows
 
-    def execute(self, *args, **kwargs):
-        return iter(self._rows)
+    def connect(self):
+        return _FakeConnection(self._rows)
 
 
 def test_query_log_lineage_resolves_unqualified_tables(monkeypatch):
