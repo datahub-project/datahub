@@ -328,6 +328,44 @@ public class PostgresTimeseriesAggregatedStatsDaoTest {
     assertTrue(sql.contains("date_trunc('day'"));
     assertTrue(sql.contains("/ 86400) % 2"));
     assertTrue(sql.contains("INTERVAL '1 day'"));
+    assertTrue(sql.contains("to_timestamp((document->>'@timestamp')::double precision / 1000.0)"));
+  }
+
+  @Test
+  public void dateGroupingKeySql_eventTimeFieldsUseColumn() {
+    for (String key : List.of("timestampMillis", "@timestamp")) {
+      GroupingBucket bucket =
+          new GroupingBucket()
+              .setKey(key)
+              .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+              .setTimeWindowSize(window(CalendarInterval.DAY));
+      String sql = PostgresTimeseriesAggregatedStatsDao.dateGroupingKeySql(bucket);
+      assertTrue(sql.contains("event_time AT TIME ZONE"), sql);
+      assertFalse(sql.contains("document"), sql);
+      assertTrue(sql.contains("date_trunc('day'"), sql);
+    }
+  }
+
+  @Test
+  public void dateGroupingKeySql_otherFieldReadsDocument() {
+    GroupingBucket bucket =
+        new GroupingBucket()
+            .setKey("eventGranularity")
+            .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+            .setTimeWindowSize(window(CalendarInterval.HOUR));
+    String sql = PostgresTimeseriesAggregatedStatsDao.dateGroupingKeySql(bucket);
+    assertTrue(sql.contains("document->>'eventGranularity'"));
+    assertFalse(sql.contains("event_time"));
+  }
+
+  @Test
+  public void latestValueSql_keepsOneStatePerGroup() {
+    String sql = PostgresTimeseriesAggregatedStatsDao.latestValueSql("document->>'stat'");
+    assertFalse(sql.contains("ARRAY_AGG"));
+    assertTrue(sql.contains("MAX(ARRAY["));
+    assertTrue(sql.contains("to_char(event_time AT TIME ZONE 'UTC', 'YYYYMMDDHH24MISSUS')"));
+    assertTrue(sql.contains("document->>'stat'"));
+    assertTrue(sql.endsWith("[2]"));
   }
 
   @Test
