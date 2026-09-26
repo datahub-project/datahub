@@ -5,6 +5,9 @@ fragment globalTagsFields on GlobalTags {
             type
             name
             description
+            status {
+                removed
+            }
             properties {
                 name
                 colorHex
@@ -172,6 +175,9 @@ fragment glossaryTerm on GlossaryTerm {
     name
     type
     hierarchicalName
+    status {
+        removed
+    }
     properties {
         name
         description

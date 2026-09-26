@@ -113,6 +113,31 @@ describe('TagTermGroup deduplication and ordering', () => {
     });
 });
 
+// Soft-deleting a tag/term sets Status.removed on the entity but leaves the stale association on the
+// asset; TagTermGroup must drop those so removed labels don't linger on the asset detail page.
+describe('TagTermGroup soft-delete filtering', () => {
+    const removedTag = (urn: string) => ({ tag: { urn, type: EntityType.Tag, status: { removed: true } } });
+    const removedTerm = (urn: string) => ({
+        term: { urn, type: EntityType.GlossaryTerm, status: { removed: true } },
+    });
+
+    it('hides tags whose target tag is soft-deleted', () => {
+        renderGroup({
+            editableTags: { tags: [tag('urn:li:tag:live'), removedTag('urn:li:tag:gone')] } as GlobalTags,
+        });
+        expect(renderedUrns()).toEqual(['urn:li:tag:live']);
+    });
+
+    it('hides glossary terms whose target term is soft-deleted', () => {
+        renderGroup({
+            editableGlossaryTerms: {
+                terms: [term('urn:li:glossaryTerm:live'), removedTerm('urn:li:glossaryTerm:gone')],
+            } as GlossaryTerms,
+        });
+        expect(renderedUrns()).toEqual(['urn:li:glossaryTerm:live']);
+    });
+});
+
 // data-removable reflects the canRemove passed to each pill, which gates whether the remove/delete
 // action is rendered. Uneditable tags/terms come from ingestion/another platform and must not be removable.
 describe('TagTermGroup remove action', () => {
