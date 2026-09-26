@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 import sqlalchemy
 import trino
 from packaging import version
+from pydantic import field_validator, model_validator
 from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
@@ -265,6 +266,40 @@ class TrinoConfig(BasicSQLAlchemyConfig):
         default=True,
         description="Experimental feature. Whether trino dataset should be primary entity of the set of siblings",
     )
+
+    ssl_verify: Optional[Union[bool, str]] = Field(
+        default=None,
+        description=(
+            "SSL certificate verification setting for Trino HTTPS connections. "
+            "Set to false to disable SSL verification, or set to a path to a CA "
+            "bundle / certificate file to verify Trino using a custom certificate. "
+            "When unset, the underlying Trino Python client's default behavior is used. "
+            "This value is passed to the Trino client as the `verify` connection argument."
+        ),
+    )
+
+    @field_validator("ssl_verify", mode="before")
+    @classmethod
+    def normalize_ssl_verify(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            normalized_value = value.strip().lower()
+            if normalized_value == "true":
+                return True
+            if normalized_value == "false":
+                return False
+        return value
+
+    @model_validator(mode="after")
+    def set_ssl_verify_connect_arg(self) -> "TrinoConfig":
+        if self.ssl_verify is not None:
+            connect_args = self.options.setdefault("connect_args", {})
+
+            if not isinstance(connect_args, dict):
+                raise ValueError("options.connect_args must be a dictionary")
+
+            connect_args["verify"] = self.ssl_verify
+
+        return self
 
     def get_identifier(self: BasicSQLAlchemyConfig, schema: str, table: str) -> str:
         return f"{self.database}.{schema}.{table}"

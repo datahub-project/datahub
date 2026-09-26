@@ -15,7 +15,15 @@ source:
     # options:
     #   connect_args:
     #     http_scheme: https
-    
+    #
+    # Optional -- SSL certificate verification for HTTPS connections.
+    # Prefer a CA bundle / certificate file path for production environments that use
+    # a private CA or self-signed certificate. Setting ssl_verify: false disables SSL
+    # certificate verification and should only be used for testing or trusted internal
+    # environments.
+    # ssl_verify: /etc/datahub/certs/trino-server.crt
+    # ssl_verify: false
+
     # Optional -- A mapping of trino catalog to its connector details like connector database, env and platform instance.
     # This configuration is used to ingest lineage of datasets to connectors. Use catalog name as key.
     # catalog_to_connector_details:
