@@ -821,6 +821,16 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:}
+      # Optional HTTP proxy for this cluster only. An explicit host wins; otherwise JVM
+      # http(s).proxyHost / http.nonProxyHosts are honored when useSystemProxyProperties is true.
+      # Apache HttpAsyncClientBuilder.useSystemProperties() is never called.
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_HOST:${ELASTICSEARCH_PROXY_HOST:}}
+        port: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PORT:${ELASTICSEARCH_PROXY_PORT:}}
+        scheme: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_SCHEME:${ELASTICSEARCH_PROXY_SCHEME:http}}
+        username: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USERNAME:${ELASTICSEARCH_PROXY_USERNAME:}}
+        password: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PASSWORD:${ELASTICSEARCH_PROXY_PASSWORD:}}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
     # Optional second cluster. Its engine is resolved independently — an unset shim block
     # auto-detects rather than copying primary's engineType, since primary may be pinned to an
     # older version.
@@ -854,6 +864,13 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEY_PASSWORD:}
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_HOST:}
+        port: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PORT:}
+        scheme: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_SCHEME:http}
+        username: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USERNAME:}
+        password: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PASSWORD:}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
 
   # Which cluster hosts each subsystem; values are cluster names from `clusters` above. Startup
   # fails if a component names a cluster with a blank uri. searchV2 and searchV3 are separately

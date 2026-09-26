@@ -538,6 +538,27 @@ The MAE consumer runs in **its own** process and shares the same `ESBulkProcesso
 | `ELASTICSEARCH_SSL_KEYSTORE_PASSWORD`   | `null`  | SSL keystore password            | GMS, MAE Consumer, MCE Consumer, System Update |
 | `ELASTICSEARCH_SSL_KEY_PASSWORD`        | `null`  | SSL key password                 | GMS, MAE Consumer, MCE Consumer, System Update |
 
+#### HTTP proxy (per cluster)
+
+Optional HTTP proxy for RestClient connections to a named search cluster. An explicit `proxy.host` always wins. When host is blank and `useSystemProxyProperties` is true (the default), the client reads **only** JVM proxy properties: `http.proxyHost` / `http.proxyPort`, `https.proxyHost` / `https.proxyPort`, and `http.nonProxyHosts`. It does **not** call Apache `HttpAsyncClientBuilder.useSystemProperties()`, so `http.maxConnections`, `http.keepAlive`, and `javax.net.ssl.trustStore*` are ignored.
+
+To send primary through a JVM proxy but keep secondary direct, set `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES=false`.
+
+| Environment Variable                                                             | Default        | Description                                           | Components                                     |
+| -------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------- | ---------------------------------------------- |
+| `ELASTICSEARCH_PROXY_HOST` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_HOST`         | `null`         | Explicit HTTP proxy host for the primary cluster      | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PROXY_PORT` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PORT`         | scheme default | Explicit proxy port                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PROXY_SCHEME` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_SCHEME`     | `http`         | Proxy URI scheme (`http` or `https`)                  | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PROXY_USERNAME` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USERNAME` | `null`         | Optional proxy basic-auth user                        | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_PROXY_PASSWORD` / `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PASSWORD` | `null`         | Optional proxy basic-auth password                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES`               | `true`         | When host is blank, honor JVM proxy system properties | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_HOST`                                    | `null`         | Explicit HTTP proxy host for the secondary cluster    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PORT`                                    | scheme default | Explicit proxy port                                   | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_SCHEME`                                  | `http`         | Proxy URI scheme                                      | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USERNAME`                                | `null`         | Optional proxy basic-auth user                        | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PASSWORD`                                | `null`         | Optional proxy basic-auth password                    | GMS, MAE Consumer, MCE Consumer, System Update |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES`             | `true`         | When host is blank, honor JVM proxy system properties | GMS, MAE Consumer, MCE Consumer, System Update |
+
 #### Bulk Operations Configuration
 
 | Environment Variable                                         | Default   | Description                                                                                                                                                                                  | Components        |
