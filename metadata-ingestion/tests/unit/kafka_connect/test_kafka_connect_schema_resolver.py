@@ -157,9 +157,9 @@ class TestSchemaResolverTableExpansion:
 
         # Should match only public schema tables
         assert len(result) == 2
-        assert "testdb.public.users" in result
-        assert "testdb.public.orders" in result
-        assert "testdb.private.secrets" not in result
+        assert "public.users" in result
+        assert "public.orders" in result
+        assert "private.secrets" not in result
 
     def test_pattern_expansion_no_matches(self):
         """Test pattern expansion when no tables match."""
@@ -251,8 +251,8 @@ class TestSchemaResolverTableExpansion:
 
         # Should expand pattern and keep explicit table name
         assert len(result) == 3
-        assert "testdb.public.users" in result
-        assert "testdb.public.orders" in result
+        assert "public.users" in result
+        assert "public.orders" in result
         assert "private.accounts" in result
 
     def test_pattern_expansion_disabled_via_config(self):
@@ -735,10 +735,10 @@ class TestJavaRegexPatternMatching:
 
         # Should match only tables starting with bg_ or cp_ in public schema
         assert len(result) == 2
-        assert "testdb.public.bg_users" in result
-        assert "testdb.public.cp_orders" in result
-        assert "testdb.public.fg_data" not in result
-        assert "testdb.public.users" not in result
+        assert "public.bg_users" in result
+        assert "public.cp_orders" in result
+        assert "public.fg_data" not in result
+        assert "public.users" not in result
 
     def test_character_class_pattern(self):
         """Test character class pattern: public\\.test[0-9]+"""
@@ -785,10 +785,10 @@ class TestJavaRegexPatternMatching:
 
         # Should match only test followed by one or more digits
         assert len(result) == 2
-        assert "testdb.public.test1" in result
-        assert "testdb.public.test23" in result
-        assert "testdb.public.test" not in result
-        assert "testdb.public.testA" not in result
+        assert "public.test1" in result
+        assert "public.test23" in result
+        assert "public.test" not in result
+        assert "public.testA" not in result
 
     def test_complex_grouping_pattern(self):
         """Test complex grouping: (public|private)\\.(users|orders)"""
@@ -837,12 +837,12 @@ class TestJavaRegexPatternMatching:
 
         # Should match exactly: public.users, public.orders, private.users, private.orders
         assert len(result) == 4
-        assert "testdb.public.users" in result
-        assert "testdb.public.orders" in result
-        assert "testdb.private.users" in result
-        assert "testdb.private.orders" in result
-        assert "testdb.public.products" not in result
-        assert "testdb.admin.users" not in result
+        assert "public.users" in result
+        assert "public.orders" in result
+        assert "private.users" in result
+        assert "private.orders" in result
+        assert "public.products" not in result
+        assert "admin.users" not in result
 
     def test_mysql_two_tier_pattern(self):
         """Test MySQL 2-tier pattern: mydb\\.user.*"""
@@ -894,6 +894,43 @@ class TestJavaRegexPatternMatching:
         assert "mydb.orders" not in result
         assert "otherdb.users" not in result
 
+    def test_mysql_table_only_pattern_preserves_database(self):
+        """Test MySQL table-only patterns retain the 2-tier dataset identity."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_expand_patterns=True,
+        )
+        report = KafkaConnectSourceReport()
+        connector_manifest = ConnectorManifest(
+            name="mysql-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.mysql.MySqlConnector",
+                "database.dbname": "mydb",
+                "table.include.list": "user.*",
+                "database.server.name": "mysqlserver",
+            },
+            tasks=[],
+        )
+        mock_resolver = MockSchemaResolver(
+            platform="mysql",
+            mock_urns=[
+                "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.users,PROD)",
+            ],
+        )
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        result = connector._expand_table_patterns("user.*", "mysql", "mydb")
+
+        assert result == ["mydb.users"]
+
     def test_escaped_dots_vs_any_char(self):
         """Test that escaped dots (\\.) match literal dots, not any character."""
         config = KafkaConnectSourceConfig(
@@ -935,8 +972,8 @@ class TestJavaRegexPatternMatching:
 
         # Escaped dot should match only literal dot, not any character
         assert len(result) == 1
-        assert "testdb.public.user" in result
-        assert "testdb.publicXuser" not in result
+        assert "public.user" in result
+        assert "publicXuser" not in result
 
     def test_postgres_schema_without_database_prefix(self):
         """Test PostgreSQL pattern without database prefix: public\\..*"""
@@ -980,9 +1017,47 @@ class TestJavaRegexPatternMatching:
 
         # Should match all tables in public schema (without database in pattern)
         assert len(result) == 2
-        assert "testdb.public.users" in result
-        assert "testdb.public.orders" in result
-        assert "testdb.private.secrets" not in result
+        assert "public.users" in result
+        assert "public.orders" in result
+        assert "private.secrets" not in result
+
+    def test_postgres_schema_pattern_without_configured_database(self):
+        """Test 3-tier schema patterns omit the discovered database."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_expand_patterns=True,
+        )
+        report = KafkaConnectSourceReport()
+        connector_manifest = ConnectorManifest(
+            name="postgres-source",
+            type="source",
+            config={
+                "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+                "table.include.list": "public\\..*",
+                "database.server.name": "testserver",
+            },
+            tasks=[],
+        )
+        mock_resolver = MockSchemaResolver(
+            platform="postgres",
+            mock_urns=[
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.public.users,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,otherdb.public.users,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,testdb.private.secrets,PROD)",
+            ],
+        )
+        connector = DebeziumSourceConnector(
+            connector_manifest=connector_manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,  # type: ignore[arg-type]
+        )
+
+        result = connector._expand_table_patterns("public\\..*", "postgres", None)
+
+        assert result == ["public.users"]
 
     def test_quantifier_patterns(self):
         """Test various quantifiers: +, *"""
@@ -1030,11 +1105,11 @@ class TestJavaRegexPatternMatching:
 
         # Should match only tables with one or more lowercase letters after user_
         assert len(result) == 3
-        assert "testdb.public.user_ab" in result
-        assert "testdb.public.user_abc" in result
-        assert "testdb.public.user_abcd" in result
-        assert "testdb.public.user_" not in result
-        assert "testdb.public.user_123" not in result
+        assert "public.user_ab" in result
+        assert "public.user_abc" in result
+        assert "public.user_abcd" in result
+        assert "public.user_" not in result
+        assert "public.user_123" not in result
 
 
 class TestFineGrainedLineagePlatformInstance:
