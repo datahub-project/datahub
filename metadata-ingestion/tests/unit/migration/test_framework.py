@@ -10,7 +10,9 @@ from datahub.cli.migrate import _load_mapping_pairs
 from datahub.cli.migration_utils import get_incoming_relationships
 from datahub.ingestion.graph.openapi import Relationship, RelationshipScrollResult
 from datahub.metadata.schema_classes import DataPlatformInstanceClass
+from datahub.migration.engine import migrate_pair
 from datahub.migration.fetch import fetch_instance_urns, fetch_platform_urns
+from datahub.migration.models import MigrationOptions, MigrationPair, MigrationReport
 from datahub.migration.transform import make_urn_builder, pairs_from_transform
 
 DS = "urn:li:dataset:(urn:li:dataPlatform:snowflake,{name},PROD)"
@@ -370,3 +372,25 @@ class TestUrnsMappingLoader:
         path.write_text(json.dumps([]))
         with pytest.raises(Exception, match="empty"):
             _load_mapping_pairs(str(path))
+
+
+class TestMigratePairGuards:
+    def test_create_path_rejects_unmodeled_entity_type(self) -> None:
+        """The create path (target absent — urns-mapping's majority case) must fail
+        loudly for an entity type the CLI registry doesn't model, rather than clone
+        zero aspects, delete the source, and report a clean success.
+        """
+        graph = MagicMock()
+        graph.exists.return_value = False
+        pair = MigrationPair(
+            source_urn="urn:li:madeUpEntity:old",
+            target_urn="urn:li:madeUpEntity:new",
+        )
+        options = MigrationOptions(run_id="t", dry_run=False)
+        report = MigrationReport("t", False, False)
+
+        with pytest.raises(ValueError, match="no migratable aspects"):
+            migrate_pair(graph, pair, options, report)
+
+        graph.emit_mcp.assert_not_called()
+        assert report.num_entities_migrated == 0
