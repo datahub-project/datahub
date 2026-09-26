@@ -6,7 +6,7 @@ Cases cover probe-derived chart formulas and resolver behavior.
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,6 +17,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     DatasetUpstream,
     Element,
     Page,
+    SheetUpstream,
     WarehouseTableUpstream,
     Workbook,
 )
@@ -1468,11 +1469,22 @@ class TestChartRefStrategies:
             f"urn:li:schemaField:({_OWNER_URN},Sku)"
         ]
 
-    def test_a_charts_own_dataset_source_reaches_the_resolver(self) -> None:
+    @pytest.mark.parametrize(
+        "own_source",
+        [
+            DatasetUpstream(name="Owner El"),
+            # A pivot or input table: a sheet source, never a page element.
+            SheetUpstream(name="Owner El", element_id="pivot"),
+        ],
+        ids=["dataset", "sheet"],
+    )
+    def test_a_charts_own_source_reaches_the_resolver(
+        self, own_source: Union[DatasetUpstream, SheetUpstream]
+    ) -> None:
         chart = _make_element_with_formula(
             "chart-1", "Chart", {"Sku": "[Owner El/Sku]"}
         )
-        chart.upstream_sources = {"ds": DatasetUpstream(name="Owner El")}
+        chart.upstream_sources = {"own": own_source}
         loader = _make_element("loader", "Loader")
         loader.upstream_sources = {
             "dm1/x": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")

@@ -3783,7 +3783,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
              only. A formula that references a warehouse table whose SQL query
              is parsed on a different sibling element will not resolve here.
           5. No page element named ref.source, and not one of the chart's own
-             dataset or warehouse sources (chart_source_names, lowercased)
+             non-DM sources (chart_source_names, lowercased)
              -> _resolve_in_loaded_data_models.
           6. else -> None.
         """
@@ -3972,7 +3972,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         name_map = self.dm_element_urn_by_name.get(dm_key, {})
         owner = None
         for name in ref.segments[1:-1]:
-            joined = [urn for urn in name_map.get(name.lower(), []) if urn in sources]
+            joined = [
+                urn for urn in name_map.get(_fold_name(name), []) if urn in sources
+            ]
             if len(joined) != 1:
                 return None
             owner = joined[0]
@@ -3997,7 +3999,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         column: that makes it a lookup, not a guess.
         """
         assert ref.column is not None
-        wanted = ref.source.lower()
+        wanted = _fold_name(ref.source)
         owners: List[Tuple[str, str]] = []
         for dm_key in sorted(workbook_dm_url_ids):
             for urn in self.dm_element_urn_by_name.get(dm_key, {}).get(wanted, []):
@@ -4718,10 +4720,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elementId_to_chart_urn=elementId_to_chart_urn,
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
                 workbook_dm_url_ids=workbook_dm_url_ids,
+                # Every non-DM source, sheets included: a pivot or input table
+                # is a sheet source but never a page element.
                 chart_source_names=frozenset(
                     _fold_name(upstream.name)
                     for upstream in element.upstream_sources.values()
-                    if isinstance(upstream, (DatasetUpstream, WarehouseTableUpstream))
+                    if not isinstance(upstream, DataModelElementUpstream)
                     and upstream.name
                 ),
             )
