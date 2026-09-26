@@ -195,6 +195,7 @@ export class MLModelEntity implements Entity<MlModel> {
             <Preview
                 data={genericProperties}
                 model={data}
+                health={data.health}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
@@ -208,6 +209,7 @@ export class MLModelEntity implements Entity<MlModel> {
             <Preview
                 data={genericProperties}
                 model={data}
+                health={data.health}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
@@ -251,6 +253,7 @@ export class MLModelEntity implements Entity<MlModel> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.HEALTH,
             EntityCapabilityType.APPLICATIONS,
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
