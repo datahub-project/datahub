@@ -236,6 +236,14 @@ def _fold_name(name: str) -> str:
     return name.lower()
 
 
+def _dm_upstream_urns(name: str, dm_upstreams: Dict[str, str]) -> Set[str]:
+    """The DM upstream URNs a name means: the exact key's, else every case
+    variant's. Variants that share one URN are not ambiguous."""
+    if name in dm_upstreams:
+        return {dm_upstreams[name]}
+    return {dm_upstreams[key] for key in _case_variants(name, dm_upstreams)}
+
+
 def _case_variants(name: str, candidates: Collection[str]) -> Set[str]:
     folded = _fold_name(name)
     return {c for c in candidates if _fold_name(c) == folded}
@@ -3630,20 +3638,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         return folded
 
     def _upstream_field_for_ref(
-        self, ref: BracketRef, upstream: Element
+        self, ref: BracketRef, upstream: Element, schema_required: bool = False
     ) -> Optional[str]:
         """The column a ref names, as a name the upstream element has, or None.
 
         Sigma sometimes writes a ref's column part as a column ID rather than a
         display name; that is translated, but only to a column the upstream
-        has. Only slash-free IDs reach here: a warehouse ID
-        (``inode-<id>/<NAME>``) makes a 3+ segment ref, which is refused
-        earlier. A column the upstream does not have would be a dangling edge,
-        so it is refused. An upstream whose columns are unknown passes the ref
-        through, translated if it is a known ID.
+        has. A column the upstream does not have would be a dangling edge, so
+        it is refused. An upstream whose columns are unknown passes the ref
+        through, translated if it is a known ID, unless schema_required.
         """
-        if ref.column is None:
-            return None
+        assert ref.column is not None
         if upstream.columns:
             field = _match_name(ref.column, upstream.columns)
             if field is not None:
@@ -3654,20 +3659,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if column_id == ref.column and (not known or name in known):
                 return name
         if not known:
-            return ref.column
+            return None if schema_required else ref.column
         self._note_column_not_found(ref)
         return None
 
-    def _dm_upstream_field_for_ref(self, ref: BracketRef, dm_urn: str) -> Optional[str]:
-        """The same check against a DM element's emitted schema.
+    def _dm_upstream_field_for_ref(
+        self, ref: BracketRef, dm_urn: str, schema_required: bool = False
+    ) -> Optional[str]:
+        """The same check against a DM element's schema.
 
-        An element this run emitted no schema for (filtered out) is unknown,
-        not empty, and passes through: refusing on absent knowledge would
-        delete real lineage.
+        An element with no recorded schema (filtered out, or a partial
+        /columns) is unknown, not empty, and passes through unless
+        schema_required: refusing on absent knowledge would delete real
+        lineage. Column IDs are not translated: no DM ref written as an ID
+        has been observed.
         """
         known = self._dm_element_field_paths.get(dm_urn)
-        if ref.column is None or not known:
-            return ref.column
+        if not known:
+            return None if schema_required else ref.column
+        assert ref.column is not None
         field = _match_name(ref.column, known)
         if field is None:
             self._note_column_not_found(ref)
@@ -3703,7 +3713,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Resolution order:
           1. is_parameter -> None.
           2. column is None (bare [col]) -> None (sibling ref).
-          2b. three or more segments (a join chain or relationship) -> None.
+          2b. three or more segments: the first-slash reading (column = the
+              rest, e.g. a column named "Rev/Cost", which Sigma writes
+              unescaped) resolves only against an upstream whose columns are
+              known and include it; warehouse and unknown upstreams refuse it.
           3. wb_element_index match (case-insensitive), filtered first by
              chart_upstream_element_ids
              (SheetUpstream element_ids) then by dm_upstream_urn_by_element_name
@@ -3724,19 +3737,44 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
              is parsed on a different sibling element will not resolve here.
           5. else -> None.
         """
+        schema_required = len(ref.segments) > 2
+        result = self._resolve_ref_reading(
+            ref,
+            schema_required=schema_required,
+            chart_element_id=chart_element_id,
+            chart_upstream_element_ids=chart_upstream_element_ids,
+            dm_upstream_urn_by_element_name=dm_upstream_urn_by_element_name,
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=element_warehouse_table_index,
+            elementId_to_chart_urn=elementId_to_chart_urn,
+        )
+        if result is None and schema_required:
+            self.reporter.chart_input_fields_multi_segment_refused += 1
+            logger.debug("Formula ref %s has 3+ segments; not resolved.", ref.raw)
+        return result
+
+    def _resolve_ref_reading(
+        self,
+        ref: BracketRef,
+        *,
+        schema_required: bool,
+        chart_element_id: str,
+        chart_upstream_element_ids: Set[str],
+        dm_upstream_urn_by_element_name: Dict[str, str],
+        wb_element_index: Dict[str, List[Element]],
+        element_warehouse_table_index: Dict[str, List[str]],
+        elementId_to_chart_urn: Dict[str, str],
+    ) -> Optional[Tuple[str, str]]:
+        """One reading of a ref; see _resolve_chart_formula_upstream.
+
+        With schema_required, only an upstream whose columns are known may
+        accept the ref.
+        """
         if ref.is_parameter:
             return None
 
         if ref.column is None:
             # Bare refs are same-element sibling references.
-            return None
-
-        # `[A/B/C]` names a join chain or a relationship. Its first-slash reading
-        # (source A, column "B/C") names a column no upstream has, so it would
-        # emit a dangling edge; leave it unresolved instead.
-        if len(ref.segments) > 2:
-            self.reporter.chart_input_fields_multi_segment_refused += 1
-            logger.debug("Formula ref %s has 3+ segments; not resolved.", ref.raw)
             return None
 
         # Case-insensitive, as Sigma matches; case variants are all candidates
@@ -3756,7 +3794,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elem
                 for elem in candidates
                 if elem.elementId in chart_upstream_element_ids
-                and elem.elementId != chart_element_id
             ]
             # Lineage names several case variants: the ref's own spelling picks.
             if len(sheet_matches) > 1:
@@ -3766,7 +3803,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if len(sheet_matches) == 1:
                 elem_urn = elementId_to_chart_urn.get(sheet_matches[0].elementId)
                 if elem_urn:
-                    field = self._upstream_field_for_ref(ref, sheet_matches[0])
+                    field = self._upstream_field_for_ref(
+                        ref, sheet_matches[0], schema_required
+                    )
                     return (elem_urn, field) if field is not None else None
                 # Element exists in the workbook but was filtered from chart emission
                 # (e.g. pivot-table or control). Fall through to DM check.
@@ -3774,22 +3813,24 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # Ambiguous name collision not resolved by lineage filter.
                 return None
 
-            # Step 3b: DataModelElementUpstream lineage, keyed by each
-            # candidate's own spelling, also picks among case variants.
-            dm_keys = {
-                key
-                for key in (
-                    _match_name(elem.name, dm_upstream_urn_by_element_name)
-                    for elem in (sheet_matches or candidates)
+            # Step 3b: DataModelElementUpstream lineage, by each candidate's
+            # own spelling, also picks among case variants; the ref's exact
+            # spelling breaks a tie.
+            dm_urns: Set[str] = set()
+            for elem in sheet_matches or candidates:
+                dm_urns |= _dm_upstream_urns(elem.name, dm_upstream_urn_by_element_name)
+            exact_urn = dm_upstream_urn_by_element_name.get(ref.source)
+            if len(dm_urns) > 1 and exact_urn in dm_urns:
+                dm_urns = {exact_urn}
+            if len(dm_urns) == 1:
+                picked_urn = dm_urns.pop()
+                dm_field = self._dm_upstream_field_for_ref(
+                    ref, picked_urn, schema_required
                 )
-                if key is not None
-            }
-            if len(dm_keys) > 1 and ref.source in dm_keys:
-                dm_keys = {ref.source}
-            if len(dm_keys) == 1:
-                picked_urn = dm_upstream_urn_by_element_name[dm_keys.pop()]
-                dm_field = self._dm_upstream_field_for_ref(ref, picked_urn)
                 return (picked_urn, dm_field) if dm_field is not None else None
+            if len(dm_urns) > 1:
+                self.reporter.chart_input_fields_case_mismatch += 1
+                return None
 
             # If the element IS a registered upstream (sheet_matches==1) but was
             # filtered from chart emission and has no DM match, stop here — do not
@@ -3825,17 +3866,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # is an upstream of this chart without being exposed as a page element.
             # Check dm_upstream_urn_by_element_name directly before falling through
             # to the warehouse-table short-name index.
-            dm_name = _match_name(ref.source, dm_upstream_urn_by_element_name)
-            if dm_name is not None:
-                dm_urn = dm_upstream_urn_by_element_name[dm_name]
-                dm_field = self._dm_upstream_field_for_ref(ref, dm_urn)
+            dm_urns = _dm_upstream_urns(ref.source, dm_upstream_urn_by_element_name)
+            if len(dm_urns) == 1:
+                dm_urn = dm_urns.pop()
+                dm_field = self._dm_upstream_field_for_ref(ref, dm_urn, schema_required)
                 return (dm_urn, dm_field) if dm_field is not None else None
             # DM upstreams differing only in case: refused, as in step 3b.
-            if len(_case_variants(ref.source, dm_upstream_urn_by_element_name)) > 1:
+            if len(dm_urns) > 1:
                 self.reporter.chart_input_fields_case_mismatch += 1
                 return None
 
-        # Step 4: warehouse-table short-name fallback.
+        # Step 4: warehouse-table short-name fallback. A warehouse table's
+        # columns are unknown here, so a reading that needs a schema stops.
+        if schema_required:
+            return None
         wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
         if len(wh_candidates) == 1:
             return (wh_candidates[0], ref.column)

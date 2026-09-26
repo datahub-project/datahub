@@ -210,7 +210,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Per ref: the ref's column is absent from its upstream's known columns, or
     # matches only several case variants of it, so no edge is emitted.
     chart_input_fields_column_not_found: int = 0
-    # Per ref: a 3+ segment ref ([Element/Relationship/Column]), not resolved.
+    # Per ref: a 3+ segment ref no upstream with known columns confirmed as
+    # [Element/Column with slashes].
     chart_input_fields_multi_segment_refused: int = 0
     # Workbooks whose /columns pagination aborted partway through. InputFields
     # for those workbooks may be missing columns that appear after the failure.

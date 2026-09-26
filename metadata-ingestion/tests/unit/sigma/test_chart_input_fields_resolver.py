@@ -565,8 +565,10 @@ class TestResolveChartFormulaUpstream:
         )
         assert result == ("urn:source", "Amount")
 
-    def test_a_warehouse_column_id_ref_is_refused(self) -> None:
-        # inode-<id>/<NAME> parses as three segments; not observed in refs.
+    def test_a_warehouse_column_id_ref_translates_when_the_upstream_has_it(
+        self,
+    ) -> None:
+        # inode-<id>/<NAME> parses as three segments; the upstream confirms it.
         elem = _make_element("sourceElem", "Src", columns=["AMOUNT"])
         elem.column_id_by_name = {"AMOUNT": "inode-abc/AMOUNT"}
         result = self._resolve(
@@ -574,7 +576,71 @@ class TestResolveChartFormulaUpstream:
             {"Src": [elem]},
             upstream_ids={"sourceElem"},
         )
+        assert result == ("urn:source", "AMOUNT")
+
+    def test_a_slash_in_a_column_name_resolves_against_a_known_schema(self) -> None:
+        # Sigma writes [Src/Rev/Cost] unescaped for a column named "Rev/Cost".
+        elem = _make_element("sourceElem", "Src", columns=["Rev/Cost"])
+        result = self._resolve(
+            _make_ref("Src", "Rev/Cost"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Rev/Cost")
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 0
+
+    def test_a_slash_column_resolves_against_a_dm_schema(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = {"Rev/Cost"}
+        result = self._resolve(
+            _make_ref("Orders", "Rev/Cost"), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Rev/Cost")
+
+    @pytest.mark.parametrize("upstream", ["unknown-sibling", "unknown-dm", "warehouse"])
+    def test_a_multi_segment_ref_needs_a_known_schema(self, upstream: str) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.src,PROD)"
+        index = (
+            {"Src": [_make_element("sourceElem", "Src")]}
+            if upstream == "unknown-sibling"
+            else {}
+        )
+        result = self._resolve(
+            _make_ref("Src", "Rev/Cost"),
+            index,
+            upstream_ids={"sourceElem"},
+            dm_urns={"Src": dm_urn} if upstream == "unknown-dm" else None,
+            warehouse_index={"SRC": [wh_urn]} if upstream == "warehouse" else None,
+        )
         assert result is None
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 1
+
+    def test_case_variant_dm_upstreams_on_the_page_are_refused(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,PROD)"
+        result = self._resolve(
+            _make_ref("orders", "Id"),
+            {"orders": [_make_element("pageElem", "orders")]},
+            dm_urns={
+                "Orders": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)",
+                "ORDERS": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.b,PROD)",
+            },
+            warehouse_index={"ORDERS": [wh_urn]},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    @pytest.mark.parametrize("on_page", [True, False])
+    def test_case_variant_keys_for_one_dm_element_are_not_ambiguous(
+        self, on_page: bool
+    ) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)"
+        index = {"orders": [_make_element("pageElem", "orders")]} if on_page else {}
+        result = self._resolve(
+            _make_ref("orders", "Id"),
+            index,
+            dm_urns={"Orders": dm_urn, "ORDERS": dm_urn},
+        )
+        assert result == (dm_urn, "Id")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
 
     def test_sibling_column_absent_upstream_is_refused(self) -> None:
         elem = _make_element("sourceElem", "Src", columns=["Amount"])
