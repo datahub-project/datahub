@@ -213,7 +213,7 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes, additional_metadata = source.load_nodes()
+        nodes = source.load_nodes()
 
         # Assertions
         # Should have called GraphQL for both jobs (models, sources, seeds, snapshots, tests, exposures, semanticModels = 7 calls per job)
@@ -229,12 +229,14 @@ class TestAutoDiscoveryEndToEnd:
         for call in mock_graphql.call_args_list:
             assert call[1]["variables"]["runId"] is None
 
-        # Verify nodes were collected (2 models + 2 semantic models from 2 jobs)
-        assert len(nodes) == 4
+        # Both jobs return the same model and semantic model under the same
+        # unique_id - the normal shape when several jobs build one project - so
+        # load_nodes dedupes them into one node each.
+        assert len(nodes) == 2
 
         # Verify semantic models were parsed correctly
         semantic_models = [n for n in nodes if n.node_type == "semantic_model"]
-        assert len(semantic_models) == 2
+        assert len(semantic_models) == 1
 
         for sm in semantic_models:
             assert len(sm.columns) > 0
@@ -246,8 +248,8 @@ class TestAutoDiscoveryEndToEnd:
             )
 
         # Verify metadata contains account_id but not job_id (since multiple jobs)
-        assert additional_metadata["account_id"] == "123456"
-        assert "job_id" not in additional_metadata
+        assert all(node.artifact_props["account_id"] == "123456" for node in nodes)
+        assert all("job_id" not in node.artifact_props for node in nodes)
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
@@ -290,13 +292,69 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes, _ = source.load_nodes()
+        nodes = source.load_nodes()
 
-        # Should have nodes from jobs 100 and 300 only (2 models + 2 semantic models)
-        assert len(nodes) == 4
+        # Jobs 100 and 300 both succeed and return the same model and semantic
+        # model under the same unique_id, so load_nodes dedupes to one each.
+        assert len(nodes) == 2
 
         # Verify warning was logged for job 200 failure
         # (This is implicit - the source continues without raising)
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discovery_dedupes_overlapping_jobs(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
+    ) -> None:
+        """Overlapping jobs must not look like a cross-project identity collision.
+
+        Several dbt Cloud jobs building the same project - an hourly incremental
+        plus a nightly full refresh, which is what auto-discovery exists to
+        combine - legitimately return the same unique_id. load_nodes must collapse
+        those, or the cross-project collision check would treat an expected dbt
+        Cloud shape as a hard failure and drop every contender.
+        """
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=True),
+            DBTCloudJob(id=300, generate_docs=True),
+        ]
+        mock_graphql_response["job"]["exposures"] = [
+            {"uniqueId": "exposure.test_project.dashboard", "name": "dashboard"}
+        ]
+        mock_graphql.return_value = mock_graphql_response
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            auto_discovery=AutoDiscoveryConfig(enabled=True),
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        nodes = source.load_nodes()
+
+        assert [node.dbt_name for node in nodes] == [
+            "model.test_project.test_model",
+            "semantic_model.test_project.test_metrics",
+        ]
+        # The identity collision checks run on these lists, so a surviving
+        # duplicate here would become a run-wide report.failure.
+        assert len({node.dbt_name for node in nodes}) == len(nodes)
+        assert [exposure.unique_id for exposure in source.load_exposures()] == [
+            "exposure.test_project.dashboard"
+        ]
 
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
@@ -329,12 +387,12 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes, additional_metadata = source.load_nodes()
+        nodes = source.load_nodes()
 
         # mock_graphql_response fixture returns 1 model + 1 semantic model per job
         assert len(nodes) == 2
         assert {n.node_type for n in nodes} == {"model", "semantic_model"}
-        assert additional_metadata["account_id"] == "123456"
+        assert all(node.artifact_props["account_id"] == "123456" for node in nodes)
 
         job_ids_queried = {
             call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
@@ -372,10 +430,9 @@ class TestAutoDiscoveryEndToEnd:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes, additional_metadata = source.load_nodes()
+        nodes = source.load_nodes()
 
         assert len(nodes) == 0
-        assert additional_metadata == {}
 
         mock_graphql.assert_not_called()
 
@@ -474,7 +531,7 @@ class TestExplicitModeComparison:
         ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
         source_explicit = DBTCloudSource(config_explicit, ctx)
 
-        _, metadata_explicit = source_explicit.load_nodes()
+        nodes_explicit = source_explicit.load_nodes()
 
         # Auto-discovery mode
         mock_get_envs.return_value = [
@@ -494,13 +551,13 @@ class TestExplicitModeComparison:
         )
         source_auto = DBTCloudSource(config_auto, ctx)
 
-        _, metadata_auto = source_auto.load_nodes()
+        nodes_auto = source_auto.load_nodes()
 
         # Verify metadata differences
         # Note: Based on the diff, job_id was removed from additional_metadata
         # This test verifies the current behavior
-        assert "account_id" in metadata_explicit
-        assert "account_id" in metadata_auto
+        assert "account_id" in nodes_explicit[0].artifact_props
+        assert "account_id" in nodes_auto[0].artifact_props
 
 
 class TestMetadataConsistency:
@@ -534,7 +591,7 @@ class TestMetadataConsistency:
         )
         ctx_explicit = PipelineContext(run_id="test-run-id", pipeline_name="test")
         source_explicit = DBTCloudSource(config_explicit, ctx_explicit)
-        nodes_explicit, metadata_explicit = source_explicit.load_nodes()
+        nodes_explicit = source_explicit.load_nodes()
 
         # Reset mock call count
         mock_graphql.reset_mock()
@@ -557,7 +614,7 @@ class TestMetadataConsistency:
         )
         ctx_auto = PipelineContext(run_id="test-run-id", pipeline_name="test")
         source_auto = DBTCloudSource(config_auto, ctx_auto)
-        nodes_auto, metadata_auto = source_auto.load_nodes()
+        nodes_auto = source_auto.load_nodes()
 
         # Verify both modes produce the same nodes
         assert len(nodes_explicit) == len(nodes_auto)
@@ -583,7 +640,10 @@ class TestMetadataConsistency:
         assert node_explicit.materialization == node_auto.materialization
 
         # Additional metadata should contain account_id in both cases
-        assert metadata_explicit["account_id"] == metadata_auto["account_id"]
+        assert (
+            node_explicit.artifact_props["account_id"]
+            == node_auto.artifact_props["account_id"]
+        )
 
 
 class TestAutoDiscoveryWithPatterns:
@@ -766,7 +826,7 @@ class TestAutoDiscoveryErrorHandling:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes, _ = source.load_nodes()
+        nodes = source.load_nodes()
 
         # Should have no nodes
         assert len(nodes) == 0
@@ -806,7 +866,7 @@ class TestSourceFreshnessExtraction:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes, _ = source.load_nodes()
+        nodes = source.load_nodes()
 
         # Should have 2 source nodes
         assert len(nodes) == 2
@@ -845,7 +905,7 @@ class TestSourceFreshnessExtraction:
         source = DBTCloudSource(config, ctx)
 
         # Execute
-        nodes, _ = source.load_nodes()
+        nodes = source.load_nodes()
 
         # Verify freshness extracted
         source_nodes = [n for n in nodes if n.node_type == "source"]
