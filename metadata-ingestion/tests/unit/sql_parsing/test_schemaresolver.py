@@ -140,6 +140,25 @@ def test_match_columns_to_schema():
     assert output_columns == ["id", "Name", "Address", "weight"]
 
 
+def test_match_columns_to_schema_with_two_casings_of_one_column():
+    # Two casings collapse to a single case-insensitive key, so which one a lookup
+    # answers with used to depend on schema field order rather than on the input.
+    schema_info: SchemaInfo = {"COL_A": "string", "Col_A": "string"}
+
+    # An exact match wins, whichever order the schema lists the two casings in.
+    assert match_columns_to_schema(schema_info, ["COL_A", "Col_A"]) == [
+        "COL_A",
+        "Col_A",
+    ]
+    reversed_info: SchemaInfo = {"Col_A": "string", "COL_A": "string"}
+    assert match_columns_to_schema(reversed_info, ["COL_A"]) == ["COL_A"]
+
+    # No exact match: settle on the lowercase casing, as the URN path does...
+    assert match_columns_to_schema({"COL_A": "s", "col_a": "s"}, ["Col_A"]) == ["col_a"]
+    # ...and leave the column alone when there is no lowercase casing to prefer.
+    assert match_columns_to_schema(schema_info, ["col_a"]) == ["col_a"]
+
+
 class TestResolveTableBatching:
     @pytest.fixture
     def mock_graph(self):

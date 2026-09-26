@@ -436,17 +436,37 @@ def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> Sche
     return _convert_schema_field_list_to_info(schema_metadata.fields)
 
 
+@dataclass(frozen=True)
+class ColumnMatch:
+    """A resolved schema column, or the input unchanged when nothing settled it."""
+
+    column: str
+    ambiguous: bool = False
+
+
+def match_column_to_schema(schema_info: SchemaInfo, column: str) -> ColumnMatch:
+    """The schema column `column` names, mirroring ``_pick_match`` on the URN path.
+
+    Exact wins, then a lone candidate, then the lowercase casing; a collision none of
+    those settles is left alone rather than guessed at.
+    """
+    if column in schema_info:
+        return ColumnMatch(column)
+    candidates = [c for c in schema_info if c.lower() == column.lower()]
+    if len(candidates) == 1:
+        return ColumnMatch(candidates[0])
+    for candidate in candidates:
+        if candidate == candidate.lower():
+            return ColumnMatch(candidate)
+    return ColumnMatch(column, ambiguous=len(candidates) > 1)
+
+
 def match_columns_to_schema(
     schema_info: SchemaInfo, input_columns: List[str]
 ) -> List[str]:
-    column_from_gms: List[str] = list(schema_info.keys())  # list() to silent lint
+    """Reconcile `input_columns`, one output per input.
 
-    gms_column_map: Dict[str, str] = {
-        column.lower(): column for column in column_from_gms
-    }
-
-    output_columns: List[str] = [
-        gms_column_map.get(column.lower(), column) for column in input_columns
-    ]
-
-    return output_columns
+    An output is not necessarily a schema column: an unmatched one, and one the schema
+    holds under several casings that nothing settles, are both echoed back unchanged.
+    """
+    return [match_column_to_schema(schema_info, c).column for c in input_columns]
