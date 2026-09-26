@@ -53,6 +53,18 @@ public class UsageEventIndexUtils {
   private static final Duration BLOCKED_INDEX_MAX_WAIT = STALE_BACKUP_AGE.plusMinutes(1);
   private static Duration blockedIndexPollInterval = BLOCKED_INDEX_POLL_INTERVAL;
   private static Duration blockedIndexMaxWait = BLOCKED_INDEX_MAX_WAIT;
+  // Completes <prefix>legacy_datahub_usage_event_ into the lease name, so the lease sits under the
+  // backup pattern (credentials that may create backups may usually create it) and scans skip it.
+  private static final String LEASE_NAME_SUFFIX = "lease";
+  private static final String LEASE_OWNER_META = "datahub_lease_owner";
+  // Longer than a run holds the lease: the blocked-index wait, clone, verify, swap and starting the
+  // copies. An older lease belongs to a run that died, or to one stalled so long it is treated so.
+  private static final Duration LEASE_TTL = Duration.ofMinutes(30);
+  private static Duration leaseTtl = LEASE_TTL;
+  private static final String MIGRATION_METRIC =
+      "datahub.system_update.legacy_usage_event_migration";
+  private static final String OUTCOME_MANUAL_RECOVERY = "manual_recovery";
+  private static final String OUTCOME_SKIPPED = "skipped";
 
   @VisibleForTesting
   static void setBlockedIndexWaitForTesting(Duration pollInterval, Duration maxWait) {
@@ -64,6 +76,16 @@ public class UsageEventIndexUtils {
   static void clearBlockedIndexWaitForTesting() {
     blockedIndexPollInterval = BLOCKED_INDEX_POLL_INTERVAL;
     blockedIndexMaxWait = BLOCKED_INDEX_MAX_WAIT;
+  }
+
+  @VisibleForTesting
+  public static void setLeaseTtlForTesting(Duration ttl) {
+    leaseTtl = ttl;
+  }
+
+  @VisibleForTesting
+  public static void clearLeaseTtlForTesting() {
+    leaseTtl = LEASE_TTL;
   }
 
   // Data streams reject events without @timestamp. Older events may only carry timestamp; events
@@ -765,6 +787,216 @@ public class UsageEventIndexUtils {
   }
 
   /**
+   * Held by one system-update run at a time while it moves a legacy usage event index aside and
+   * starts copying backups back, so two overlapping system-update pods do not both clone the index
+   * or both copy one backup: two copies of a backup duplicate events when the index rolls over
+   * between them.
+   *
+   * <p>The lease is an index because creating one is atomic: exactly one creator wins. The engines
+   * cannot make an action conditional on the lease, or delete an index only while its owner is
+   * unchanged, so the owner checks are best effort. A run stalled for longer than the lease lives
+   * can still act once after another run took the lease over, and a release can race a takeover;
+   * both need a run to stall for over {@link #LEASE_TTL} while another one runs.
+   */
+  public static final class LegacyMigrationLease {
+    private final OperationContext opContext;
+    private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
+    private final String name;
+    private final String owner;
+
+    private LegacyMigrationLease(
+        OperationContext opContext,
+        BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+        String name,
+        String owner) {
+      this.opContext = opContext;
+      this.esComponents = esComponents;
+      this.name = name;
+      this.owner = owner;
+    }
+
+    @VisibleForTesting
+    static LegacyMigrationLease heldForTesting(
+        OperationContext opContext,
+        BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+        String prefix,
+        String owner) {
+      return new LegacyMigrationLease(opContext, esComponents, leaseName(prefix), owner);
+    }
+
+    /** Stops the caller before a destructive or duplicating action once it lost the lease. */
+    private void checkHeld() throws IOException {
+      if (!owner.equals(leaseOwner(opContext, esComponents, name))) {
+        throw new IOException(
+            name + " is no longer held by this run; stopping so the run that holds it continues");
+      }
+    }
+
+    /** Deletes the lease if this run still holds it. */
+    public void release() {
+      try {
+        if (owner.equals(leaseOwner(opContext, esComponents, name))) {
+          deleteIndex(opContext, esComponents, name);
+        }
+      } catch (IOException | RuntimeException e) {
+        log.warn("Could not release {}; another run takes it over after {}", name, leaseTtl, e);
+      }
+    }
+  }
+
+  /**
+   * Acquires the lease when this run has work: a legacy usage event index to move aside, or a
+   * backup to copy back into a layout that replaced it. Returns null when there is nothing to do,
+   * or when this run must leave the work to another run because the lease is held, cannot be
+   * created, or cannot be confirmed.
+   *
+   * @param owner identifies this run; the same owner acquires its own lease again on a step retry
+   * @param moveAside whether this run may move a legacy index aside; a run that only copies back
+   *     does not take the lease from one that could move the index
+   */
+  @Nullable
+  public static LegacyMigrationLease acquireLegacyMigrationLease(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String prefix,
+      String owner,
+      boolean moveAside) {
+    String indexName = prefix + "datahub_usage_event";
+    String leaseName = leaseName(prefix);
+    try {
+      boolean plainIndex = resolveIndices(opContext, esComponents, indexName).contains(indexName);
+      if (plainIndex ? !moveAside : legacyBackups(opContext, esComponents, prefix).isEmpty()) {
+        return null;
+      }
+      for (int attempt = 0; attempt < 2; attempt++) {
+        if (createLease(opContext, esComponents, leaseName, owner) == 403) {
+          log.error(
+              "System update may not create {} (403), so it leaves {} and its backups alone; allow"
+                  + " it to create and delete {}* indices",
+              leaseName,
+              indexName,
+              prefix + LEGACY_BACKUP_INFIX);
+          recordOutcome(opContext, OUTCOME_MANUAL_RECOVERY);
+          return null;
+        }
+        // Whether the create succeeded, lost its response, or lost to another run, the owner
+        // recorded on the lease decides.
+        String holder = leaseOwner(opContext, esComponents, leaseName);
+        if (owner.equals(holder)) {
+          return new LegacyMigrationLease(opContext, esComponents, leaseName, owner);
+        }
+        if (holder == null) {
+          log.warn(
+              "Could not confirm {}; leaving {} and its backups to a later run",
+              leaseName,
+              indexName);
+          recordOutcome(opContext, OUTCOME_SKIPPED);
+          return null;
+        }
+        long heldFor =
+            System.currentTimeMillis() - creationDate(opContext, esComponents, leaseName);
+        if (attempt > 0 || heldFor <= leaseTtl.toMillis()) {
+          log.warn(
+              "{} is held by another system-update run ({}); leaving {} and its backups to it",
+              leaseName,
+              holder,
+              indexName);
+          recordOutcome(opContext, OUTCOME_SKIPPED);
+          return null;
+        }
+        log.warn(
+            "Taking over {} from {}, which has held it for {}, longer than {}",
+            leaseName,
+            holder,
+            Duration.ofMillis(heldFor),
+            leaseTtl);
+        deleteIndex(opContext, esComponents, leaseName);
+      }
+    } catch (IOException | RuntimeException e) {
+      log.error(
+          "Could not acquire {}; leaving {} and its backups to a later run",
+          leaseName,
+          indexName,
+          e);
+      recordOutcome(opContext, OUTCOME_SKIPPED);
+    }
+    return null;
+  }
+
+  private static String leaseName(String prefix) {
+    return prefix + LEGACY_BACKUP_INFIX + LEASE_NAME_SUFFIX;
+  }
+
+  /**
+   * Creates the lease for {@code owner}; returns the HTTP status, or -1 when there is no answer.
+   */
+  private static int createLease(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String leaseName,
+      String owner) {
+    Request request = new Request("PUT", "/" + leaseName);
+    request.setJsonEntity(
+        String.format(
+            "{\"settings\":{\"index.number_of_shards\":1,\"index.number_of_replicas\":0},"
+                + "\"mappings\":{\"_meta\":{\"%s\":\"%s\"}}}",
+            LEASE_OWNER_META, owner));
+    // 400 when another run created it first, 403 when these credentials may not create it.
+    request.addParameter("ignore", "400,403");
+    try {
+      return esComponents
+          .getSearchClient()
+          .performLowLevelRequest(opContext, request)
+          .getStatusLine()
+          .getStatusCode();
+    } catch (IOException | RuntimeException e) {
+      // The index may exist anyway; the caller reads its owner.
+      log.warn("Creating {} did not answer; checking whether it exists", leaseName, e);
+      return -1;
+    }
+  }
+
+  @Nullable
+  private static String leaseOwner(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String leaseName)
+      throws IOException {
+    Request request = new Request("GET", "/" + leaseName + "/_mapping");
+    request.addParameter("ignore", "404");
+    RawResponse response =
+        esComponents.getSearchClient().performLowLevelRequest(opContext, request);
+    if (response.getStatusLine().getStatusCode() == 404) {
+      return null;
+    }
+    JsonNode owner =
+        readJson(opContext, response)
+            .path(leaseName)
+            .path("mappings")
+            .path("_meta")
+            .path(LEASE_OWNER_META);
+    return owner.isMissingNode() ? null : owner.asText();
+  }
+
+  /** Backups left by moving a legacy index aside, not counting the lease. */
+  private static List<String> legacyBackups(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String prefix)
+      throws IOException {
+    List<String> backups =
+        resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*");
+    backups.remove(leaseName(prefix));
+    return backups;
+  }
+
+  private static void recordOutcome(OperationContext opContext, String outcome) {
+    opContext
+        .getMetricUtils()
+        .ifPresent(m -> m.incrementMicrometer(MIGRATION_METRIC, 1, "outcome", outcome));
+  }
+
+  /**
    * Moves a usage event index that was auto-created before its index template existed onto the
    * layout the template defines: a data stream on Elasticsearch, a rollover alias over numbered
    * indices on OpenSearch.
@@ -778,32 +1010,32 @@ public class UsageEventIndexUtils {
    * every event is the index replaced by the managed layout, and then the backup is reindexed into
    * it. Usage events written during the few seconds the block is in place are rejected.
    *
-   * <p>Each backup is copied back by a single reindex task that is recorded on the backup and never
-   * started again, because a second copy would duplicate events once the layout has rolled over.
-   * The backup is deleted when that task accounts for every event in it and kept otherwise; a task
-   * still running after a few minutes is checked again on the next run.
+   * <p>The caller then creates the layout and calls {@link #startLegacyBackupCopies}, which copies
+   * the backup back even when this method failed after removing the original.
    *
    * @param prefix the index prefix (e.g., "prod_")
    * @param useOpenSearch whether to build the OpenSearch layout instead of a data stream
+   * @param lease held by this run for the whole call
    */
-  public static void migrateLegacyUsageEventIndex(
+  public static void moveLegacyUsageEventIndexAside(
       OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String prefix,
-      boolean useOpenSearch)
+      boolean useOpenSearch,
+      LegacyMigrationLease lease)
       throws IOException, InterruptedException {
     String indexName = prefix + "datahub_usage_event";
-    // Nothing locks against two system-update runs at once; each could leave a backup behind.
     long waitUntil = System.currentTimeMillis() + blockedIndexMaxWait.toMillis();
     while (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
-      if (dropStaleBackups(opContext, esComponents, prefix, indexName)) {
+      if (dropStaleBackups(opContext, esComponents, prefix, indexName, lease)) {
         replaceLegacyIndex(
             opContext,
             esComponents,
             indexName,
             prefix + LEGACY_BACKUP_INFIX + System.currentTimeMillis(),
-            useOpenSearch);
-        break;
+            useOpenSearch,
+            lease);
+        return;
       }
       // A recent clone blocks a new attempt. If its attempt died after blocking writes, nothing
       // else lifts the block, so wait for that clone to go stale or its migration to finish.
@@ -823,18 +1055,98 @@ public class UsageEventIndexUtils {
       }
       Thread.sleep(blockedIndexPollInterval.toMillis());
     }
-    for (String backupName :
-        resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
+  }
+
+  /**
+   * Starts copying every backup back into the managed layout, or confirms a copy already runs. Each
+   * backup is copied back by a single reindex task that is recorded on the backup, because a second
+   * copy would duplicate events once the layout has rolled over; a running copy whose task id was
+   * not recorded is found and recorded instead of starting another one.
+   *
+   * <p>While the usage event index is still a plain index nothing is copied: it still holds every
+   * event, and its backups are handled when it is moved aside. Otherwise a backup holds the only
+   * copy of its events, so failing to start a copy throws, failing the step so its retries try
+   * again. Cases retries cannot fix keep the backup, log how to copy it by hand, and count on
+   * {@link #MIGRATION_METRIC}.
+   *
+   * @param lease held by this run for the whole call
+   */
+  public static void startLegacyBackupCopies(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String prefix,
+      boolean useOpenSearch,
+      LegacyMigrationLease lease)
+      throws IOException {
+    String indexName = prefix + "datahub_usage_event";
+    List<String> backups = legacyBackups(opContext, esComponents, prefix);
+    if (backups.isEmpty()
+        || resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
+      return;
+    }
+    String writeIndex = managedWriteIndex(opContext, esComponents, indexName, useOpenSearch);
+    if (writeIndex == null) {
+      throw new IOException(
+          String.format(
+              "%s hold usage events, but %s is not a %s to copy them into",
+              backups,
+              indexName,
+              useOpenSearch ? "rollover alias with one write index" : "data stream"));
+    }
+    List<String> notStarted = new ArrayList<>();
+    for (String backupName : backups) {
       try {
-        backfillFromBackup(opContext, esComponents, backupName, indexName, !useOpenSearch);
-      } catch (TaskApiForbiddenException e) {
-        log.error("{}; keeping {}", e.getMessage(), backupName);
+        startCopy(
+            opContext, esComponents, backupName, indexName, writeIndex, !useOpenSearch, lease);
+      } catch (ManualRecoveryException e) {
+        log.error(e.getMessage());
+        recordOutcome(opContext, OUTCOME_MANUAL_RECOVERY);
       } catch (IOException | RuntimeException e) {
         log.error(
-            "Could not copy usage events from {} back into {}; keeping {}",
+            "Could not start copying usage events from {} back into {}", backupName, indexName, e);
+        notStarted.add(backupName);
+      }
+    }
+    if (!notStarted.isEmpty()) {
+      throw new IOException(
+          String.format(
+              "Could not start copying %s back into %s, which hold the only copy of those usage"
+                  + " events",
+              notStarted, indexName));
+    }
+  }
+
+  /**
+   * Waits a few minutes for each recorded copy and deletes its backup once the copy accounts for
+   * every event in it. A copy still running is checked again on the next run; a copy that finished
+   * incomplete keeps its backup for a person to finish, since copying again could duplicate events.
+   * Needs no lease: it starts nothing and only deletes a backup its own recorded copy accounted
+   * for.
+   */
+  public static void finishLegacyBackupCopies(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String prefix)
+      throws InterruptedException {
+    String indexName = prefix + "datahub_usage_event";
+    List<String> backups;
+    try {
+      backups = legacyBackups(opContext, esComponents, prefix);
+    } catch (IOException | RuntimeException e) {
+      log.error("Could not list the backups of {}; the next run checks them", indexName, e);
+      return;
+    }
+    for (String backupName : backups) {
+      try {
+        finishCopy(opContext, esComponents, backupName, indexName);
+      } catch (ManualRecoveryException e) {
+        log.error(e.getMessage());
+        recordOutcome(opContext, OUTCOME_MANUAL_RECOVERY);
+      } catch (IOException | RuntimeException e) {
+        log.error(
+            "Could not check copying {} back into {}; the next run checks it",
             backupName,
             indexName,
-            backupName,
             e);
       }
     }
@@ -849,7 +1161,8 @@ public class UsageEventIndexUtils {
       OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String prefix,
-      String indexName)
+      String indexName,
+      LegacyMigrationLease lease)
       throws IOException {
     long indexCreated = creationDate(opContext, esComponents, indexName);
     if (indexCreated <= 0) {
@@ -857,8 +1170,7 @@ public class UsageEventIndexUtils {
       return false;
     }
     boolean recentCloneExists = false;
-    for (String backupName :
-        resolveIndices(opContext, esComponents, prefix + LEGACY_BACKUP_INFIX + "*")) {
+    for (String backupName : legacyBackups(opContext, esComponents, prefix)) {
       long backupCreated = creationDate(opContext, esComponents, backupName);
       if (!backfillMeta(opContext, esComponents, backupName)
               .path(BACKFILL_TASK_META)
@@ -869,6 +1181,7 @@ public class UsageEventIndexUtils {
       if (System.currentTimeMillis() - backupCreated <= STALE_BACKUP_AGE.toMillis()) {
         recentCloneExists = true;
       } else if (resolveIndices(opContext, esComponents, indexName).contains(indexName)) {
+        lease.checkHeld();
         log.info("Deleting {}, left by an earlier attempt to migrate {}", backupName, indexName);
         deleteIndex(opContext, esComponents, backupName);
       }
@@ -937,7 +1250,8 @@ public class UsageEventIndexUtils {
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String indexName,
       String backupName,
-      boolean useOpenSearch)
+      boolean useOpenSearch,
+      LegacyMigrationLease lease)
       throws IOException {
     log.warn(
         "Usage event index {} was created without its index template; moving it to {} and"
@@ -948,6 +1262,7 @@ public class UsageEventIndexUtils {
     try {
       // Unlike the index setting, the block API waits for in-flight writes to finish.
       IndexUtils.performPutRequest(opContext, esComponents, "/" + indexName + "/_block/write", "");
+      lease.checkHeld();
       // The backup only serves reads from here on, so it does not keep the block.
       JsonNode clone =
           readJson(
@@ -968,8 +1283,9 @@ public class UsageEventIndexUtils {
                 "Backup %s of %s did not start with all %d events", backupName, indexName, events));
       }
       if (useOpenSearch) {
-        replaceWithRolloverAlias(opContext, esComponents, indexName);
+        replaceWithRolloverAlias(opContext, esComponents, indexName, lease);
       } else {
+        lease.checkHeld();
         deleteIndex(opContext, esComponents, indexName);
         originalDeleted = true;
         createDataStream(opContext, esComponents, indexName);
@@ -992,7 +1308,8 @@ public class UsageEventIndexUtils {
   private static void replaceWithRolloverAlias(
       OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
-      String aliasName)
+      String aliasName,
+      LegacyMigrationLease lease)
       throws IOException {
     String firstIndex = aliasName + "-000001";
     boolean created = !resolveIndices(opContext, esComponents, firstIndex).contains(firstIndex);
@@ -1000,6 +1317,7 @@ public class UsageEventIndexUtils {
       IndexUtils.performPutRequest(opContext, esComponents, "/" + firstIndex, "{}");
     }
     try {
+      lease.checkHeld();
       // One cluster state update, so no usage event write can recreate a bare index in between.
       IndexUtils.performPostRequest(
           opContext,
@@ -1025,62 +1343,91 @@ public class UsageEventIndexUtils {
     }
   }
 
-  private static void backfillFromBackup(
+  /**
+   * Starts the single copy of one backup, or records a copy that is already running. Throws {@link
+   * ManualRecoveryException} when copying again could duplicate events.
+   */
+  private static void startCopy(
       OperationContext opContext,
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
       String backupName,
       String indexName,
-      boolean dataStream)
-      throws IOException, InterruptedException {
+      String writeIndex,
+      boolean dataStream,
+      LegacyMigrationLease lease)
+      throws IOException {
     JsonNode meta = backfillMeta(opContext, esComponents, backupName);
     String taskId = meta.path(BACKFILL_TASK_META).asText();
     String recordedWriteIndex = meta.path(BACKFILL_WRITE_INDEX_META).asText();
-    String writeIndex = writeIndex(opContext, esComponents, indexName, dataStream);
-    // A copy may have run untracked: its start was recorded but not its task, or the cluster
-    // forgot the task (for example after a restart); either way it may have stopped part way.
-    if (!recordedWriteIndex.isEmpty()
-        && (taskId.isEmpty() || getTask(opContext, esComponents, taskId) == null)) {
-      if (writeIndex.isEmpty() || !writeIndex.equals(recordedWriteIndex)) {
-        log.error(
-            "An earlier copy of {} into {} did not finish and {} has rolled over since, so"
-                + " copying again could duplicate events. {} is kept; copy the remaining events"
-                + " yourself, then delete it",
-            backupName,
-            recordedWriteIndex,
-            indexName,
-            backupName);
-        return;
-      }
+    if (!taskId.isEmpty() && getTask(opContext, esComponents, taskId) != null) {
+      return;
+    }
+    // No copy recorded, or one whose task id was lost or that the cluster forgot (for example
+    // after a restart): a copy may still be running under a task this run does not know.
+    String runningTask = runningCopyTask(opContext, esComponents, backupName, indexName);
+    if (runningTask != null) {
+      log.info(
+          "Copying {} back into {} already runs as task {}; recording it instead of starting"
+              + " another copy",
+          backupName,
+          indexName,
+          runningTask);
+      recordCopy(
+          opContext,
+          esComponents,
+          backupName,
+          runningTask,
+          recordedWriteIndex.isEmpty() ? writeIndex : recordedWriteIndex);
+      return;
+    }
+    if (!recordedWriteIndex.isEmpty() && !recordedWriteIndex.equals(writeIndex)) {
+      throw new ManualRecoveryException(
+          String.format(
+              "An earlier copy of %s into %s did not finish and %s has rolled over since, so"
+                  + " copying again could duplicate events. %s is kept; copy the remaining events"
+                  + " yourself, then delete it",
+              backupName, recordedWriteIndex, indexName, backupName));
+    }
+    if (!recordedWriteIndex.isEmpty()) {
       log.warn(
           "An earlier copy of {} did not finish; copying it again into {}, which skips events"
               + " already there",
           backupName,
           writeIndex);
-      taskId = "";
     }
+    lease.checkHeld();
+    recordCopy(opContext, esComponents, backupName, "", writeIndex);
+    String reindex =
+        String.format(
+            "{\"conflicts\":\"proceed\",\"source\":{\"index\":\"%s\"},"
+                + "\"dest\":{\"index\":\"%s\",\"op_type\":\"create\"},"
+                + "\"script\":{\"lang\":\"painless\",\"source\":\"%s\","
+                + "\"params\":{\"dataStream\":%s}}}",
+            backupName, indexName, BACKFILL_SCRIPT, dataStream);
+    String newTask =
+        readJson(
+                opContext,
+                IndexUtils.performPostRequest(
+                    opContext, esComponents, "/_reindex?wait_for_completion=false", reindex))
+            .path("task")
+            .asText();
+    if (newTask.isEmpty()) {
+      throw new IOException("Reindex from " + backupName + " did not return a task id");
+    }
+    recordCopy(opContext, esComponents, backupName, newTask, writeIndex);
+  }
+
+  /** Checks the recorded copy of one backup and deletes the backup once the copy is complete. */
+  private static void finishCopy(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String backupName,
+      String indexName)
+      throws IOException, InterruptedException {
+    String taskId =
+        backfillMeta(opContext, esComponents, backupName).path(BACKFILL_TASK_META).asText();
     if (taskId.isEmpty()) {
-      if (writeIndex.isEmpty()) {
-        throw new IOException("Could not find the write index behind " + indexName);
-      }
-      recordCopy(opContext, esComponents, backupName, "", writeIndex);
-      String reindex =
-          String.format(
-              "{\"conflicts\":\"proceed\",\"source\":{\"index\":\"%s\"},"
-                  + "\"dest\":{\"index\":\"%s\",\"op_type\":\"create\"},"
-                  + "\"script\":{\"lang\":\"painless\",\"source\":\"%s\","
-                  + "\"params\":{\"dataStream\":%s}}}",
-              backupName, indexName, BACKFILL_SCRIPT, dataStream);
-      taskId =
-          readJson(
-                  opContext,
-                  IndexUtils.performPostRequest(
-                      opContext, esComponents, "/_reindex?wait_for_completion=false", reindex))
-              .path("task")
-              .asText();
-      if (taskId.isEmpty()) {
-        throw new IOException("Reindex from " + backupName + " did not return a task id");
-      }
-      recordCopy(opContext, esComponents, backupName, taskId, writeIndex);
+      return;
     }
     JsonNode task = waitForTask(opContext, esComponents, taskId);
     if (task == null) {
@@ -1103,19 +1450,19 @@ public class UsageEventIndexUtils {
         || !failures.isEmpty()
         || total != expected
         || created + present + dropped != total) {
-      log.error(
-          "Copying usage events from {} back into {} (task {}) is incomplete: {} of {} copied,"
-              + " first error: {}. {} is kept and not copied again, because a second copy can"
-              + " duplicate events once the index has rolled over; copy the remaining events"
-              + " yourself, then delete it",
-          backupName,
-          indexName,
-          taskId,
-          created + present,
-          expected,
-          task.has("error") ? task.path("error") : failures.path(0),
-          backupName);
-      return;
+      throw new ManualRecoveryException(
+          String.format(
+              "Copying usage events from %s back into %s (task %s) is incomplete: %d of %d copied,"
+                  + " first error: %s. %s is kept and not copied again, because a second copy can"
+                  + " duplicate events once the index has rolled over; copy the remaining events"
+                  + " yourself, then delete it",
+              backupName,
+              indexName,
+              taskId,
+              created + present,
+              expected,
+              task.has("error") ? task.path("error") : failures.path(0),
+              backupName));
     }
     deleteIndex(opContext, esComponents, backupName);
     log.info(
@@ -1127,6 +1474,93 @@ public class UsageEventIndexUtils {
         present,
         dropped,
         backupName);
+  }
+
+  /** The id of a running reindex from the backup into the usage event index, if there is one. */
+  @Nullable
+  private static String runningCopyTask(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String backupName,
+      String indexName)
+      throws IOException {
+    Request request = new Request("GET", "/_tasks");
+    request.addParameter("actions", "*reindex");
+    request.addParameter("detailed", "true");
+    request.addParameter("ignore", "403");
+    RawResponse response =
+        esComponents.getSearchClient().performLowLevelRequest(opContext, request);
+    if (response.getStatusLine().getStatusCode() == 403) {
+      throw new TaskApiForbiddenException(
+          "System update may not list tasks (403), so it cannot tell whether "
+              + backupName
+              + " is already being copied; copy it yourself as the upgrade notes describe, then"
+              + " delete it");
+    }
+    JsonNode tasks = readJson(opContext, response);
+    if (!tasks.path("node_failures").isEmpty() || !tasks.path("task_failures").isEmpty()) {
+      // A node that did not answer may be running the copy, so do not conclude there is none.
+      throw new IOException("Could not list the reindex tasks of every node: " + tasks);
+    }
+    // Both engines describe it as "reindex from [source] updated with Script{...} to [dest]".
+    String from = "reindex from [" + backupName + "]";
+    String to = " to [" + indexName + "]";
+    for (JsonNode node : tasks.path("nodes")) {
+      Iterator<Map.Entry<String, JsonNode>> it = node.path("tasks").fields();
+      while (it.hasNext()) {
+        Map.Entry<String, JsonNode> task = it.next();
+        String description = task.getValue().path("description").asText();
+        if (description.startsWith(from) && description.contains(to)) {
+          return task.getKey();
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * The index new usage events go to when the usage event index is the managed layout (a data
+   * stream, or a rollover alias with exactly one write index), otherwise null.
+   */
+  @Nullable
+  private static String managedWriteIndex(
+      OperationContext opContext,
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
+      String indexName,
+      boolean useOpenSearch)
+      throws IOException {
+    Request request = new Request("GET", "/_resolve/index/" + indexName);
+    request.addParameter("ignore", "404");
+    RawResponse response =
+        esComponents.getSearchClient().performLowLevelRequest(opContext, request);
+    if (response.getStatusLine().getStatusCode() == 404) {
+      return null;
+    }
+    JsonNode resolved = readJson(opContext, response);
+    List<String> managed = new ArrayList<>();
+    resolved
+        .path(useOpenSearch ? "aliases" : "data_streams")
+        .forEach(entry -> managed.add(entry.path("name").asText()));
+    if (!managed.contains(indexName)) {
+      return null;
+    }
+    if (!useOpenSearch) {
+      String writeIndex = writeIndex(opContext, esComponents, indexName, true);
+      return writeIndex.isEmpty() ? null : writeIndex;
+    }
+    List<String> writeIndices = new ArrayList<>();
+    Iterator<Map.Entry<String, JsonNode>> it =
+        readJson(
+                opContext,
+                IndexUtils.performGetRequest(opContext, esComponents, "/_alias/" + indexName))
+            .fields();
+    while (it.hasNext()) {
+      Map.Entry<String, JsonNode> index = it.next();
+      if (index.getValue().path("aliases").path(indexName).path("is_write_index").asBoolean()) {
+        writeIndices.add(index.getKey());
+      }
+    }
+    return writeIndices.size() == 1 ? writeIndices.get(0) : null;
   }
 
   private static void recordCopy(
@@ -1190,8 +1624,17 @@ public class UsageEventIndexUtils {
     return status == 404 ? null : readJson(opContext, response);
   }
 
+  /**
+   * A backup that no retry can copy back, which a person has to finish as the upgrade notes say.
+   */
+  private static class ManualRecoveryException extends IOException {
+    ManualRecoveryException(String message) {
+      super(message);
+    }
+  }
+
   /** The cluster forbids the tasks API to these credentials, so no run can finish the copy. */
-  private static class TaskApiForbiddenException extends IOException {
+  private static class TaskApiForbiddenException extends ManualRecoveryException {
     TaskApiForbiddenException(String message) {
       super(message);
     }

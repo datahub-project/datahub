@@ -2264,6 +2264,11 @@ public class UsageEventIndexUtilsTest {
               Request request = invocation.getArgument(1);
               String call = request.getMethod() + " " + request.getEndpoint();
               calls.add(call);
+              if (call.equals("GET /test_legacy_datahub_usage_event_lease/_mapping")) {
+                return jsonResponse(
+                    "{\"test_legacy_datahub_usage_event_lease\":{\"mappings\":{\"_meta\":"
+                        + "{\"datahub_lease_owner\":\"test-owner\"}}}}");
+              }
               if (call.equals("GET /_resolve/index/test_datahub_usage_event")) {
                 return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
               }
@@ -2284,8 +2289,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertThrows(
         IOException.class,
         () ->
-            UsageEventIndexUtils.migrateLegacyUsageEventIndex(
-                operationContext, esComponents, "test_", false));
+            UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+                operationContext, esComponents, "test_", false, lease()));
 
     // The backup that never started is dropped and the original is unblocked, not deleted.
     Assert.assertTrue(
@@ -2309,6 +2314,11 @@ public class UsageEventIndexUtilsTest {
               Request request = invocation.getArgument(1);
               String call = request.getMethod() + " " + request.getEndpoint();
               calls.add(call);
+              if (call.equals("GET /test_legacy_datahub_usage_event_lease/_mapping")) {
+                return jsonResponse(
+                    "{\"test_legacy_datahub_usage_event_lease\":{\"mappings\":{\"_meta\":"
+                        + "{\"datahub_lease_owner\":\"test-owner\"}}}}");
+              }
               if (call.equals("GET /_resolve/index/test_datahub_usage_event")) {
                 return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
               }
@@ -2341,8 +2351,8 @@ public class UsageEventIndexUtilsTest {
     Assert.assertThrows(
         IOException.class,
         () ->
-            UsageEventIndexUtils.migrateLegacyUsageEventIndex(
-                operationContext, esComponents, "test_", false));
+            UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+                operationContext, esComponents, "test_", false, lease()));
 
     // Cloned from the current index an hour ago and never copied: dropped before cloning again.
     Assert.assertTrue(calls.contains("DELETE /test_legacy_datahub_usage_event_1"));
@@ -2364,8 +2374,8 @@ public class UsageEventIndexUtilsTest {
       Assert.assertThrows(
           IOException.class,
           () ->
-              UsageEventIndexUtils.migrateLegacyUsageEventIndex(
-                  operationContext, esComponents, "test_", false));
+              UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+                  operationContext, esComponents, "test_", false, lease()));
     } finally {
       UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
     }
@@ -2383,8 +2393,8 @@ public class UsageEventIndexUtilsTest {
     stubBlockedLegacyIndex(calls, () -> now);
     UsageEventIndexUtils.setBlockedIndexWaitForTesting(Duration.ofMillis(1), Duration.ofMillis(5));
     try {
-      UsageEventIndexUtils.migrateLegacyUsageEventIndex(
-          operationContext, esComponents, "test_", false);
+      UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+          operationContext, esComponents, "test_", false, lease());
     } finally {
       UsageEventIndexUtils.clearBlockedIndexWaitForTesting();
     }
@@ -2405,6 +2415,11 @@ public class UsageEventIndexUtilsTest {
               Request request = invocation.getArgument(1);
               String call = request.getMethod() + " " + request.getEndpoint();
               calls.add(call);
+              if (call.equals("GET /test_legacy_datahub_usage_event_lease/_mapping")) {
+                return jsonResponse(
+                    "{\"test_legacy_datahub_usage_event_lease\":{\"mappings\":{\"_meta\":"
+                        + "{\"datahub_lease_owner\":\"test-owner\"}}}}");
+              }
               switch (call) {
                 case "GET /_resolve/index/test_datahub_usage_event":
                   return jsonResponse("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
@@ -2432,6 +2447,12 @@ public class UsageEventIndexUtilsTest {
                   return jsonResponse(call.endsWith("/_count") ? "{\"count\":3}" : "{}");
               }
             });
+  }
+
+  /** A lease the stubs report as held by this test. */
+  private UsageEventIndexUtils.LegacyMigrationLease lease() {
+    return UsageEventIndexUtils.LegacyMigrationLease.heldForTesting(
+        operationContext, esComponents, "test_", "test-owner");
   }
 
   private static RawResponse jsonResponse(String body) {
