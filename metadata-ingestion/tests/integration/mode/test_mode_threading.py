@@ -3,7 +3,7 @@
 These tests verify that:
 1. Threaded execution produces the same work units as sequential (correctness)
 2. Connection pool sizing scales with max_threads
-3. Threaded execution provides wall-clock speedup on I/O-bound workloads (perf)
+3. Threaded execution actually overlaps concurrent HTTP requests (perf)
 """
 
 import json
@@ -16,20 +16,12 @@ from unittest.mock import patch
 import pytest
 import time_machine
 
-from datahub.configuration.env_vars import is_ci
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
 test_resources_dir = pathlib.Path(__file__).parent
-
-# This workload's achievable speedup ceiling is only ~1.7-1.9x: only the
-# per-report query fetches parallelize, while the verify/spaces/reports/
-# datasets calls stay serial (see #19242). Keep the gate well below the
-# ceiling, and relax it further on shared CI runners, following
-# tests/performance/sql_parsing/test_sql_aggregator.py.
-SPEEDUP_THRESHOLD = 1.2 if is_ci() else 1.5
 
 JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/verify": "verify.json",
@@ -79,6 +71,10 @@ class ThreadSafeMockSession:
     Supports two modes:
     - File-based: response_map maps URL -> filename, loaded from resources_dir/setup/
     - Inline: response_map maps URL -> dict (used when resources_dir is None)
+
+    Also records `peak_in_flight`: the high-water mark of get() calls that
+    were running at the same time. That lets tests assert that threading
+    really overlapped requests, instead of inferring it from elapsed time.
     """
 
     def __init__(
@@ -93,6 +89,8 @@ class ThreadSafeMockSession:
         self.auth = None
         self.headers: Dict[str, str] = {}
         self._call_count = 0
+        self._in_flight = 0
+        self._peak_in_flight = 0
         self._lock = threading.Lock()
 
     def mount(self, prefix: str, adapter: object) -> None:
@@ -124,24 +122,36 @@ class ThreadSafeMockSession:
         )
 
     def get(self, url: str, timeout: int = 40) -> ThreadSafeResponse:
-        if self.latency > 0:
-            time.sleep(self.latency)
-
         with self._lock:
             self._call_count += 1
+            self._in_flight += 1
+            self._peak_in_flight = max(self._peak_in_flight, self._in_flight)
 
-        base_url = url.split("?")[0]
+        try:
+            if self.latency > 0:
+                time.sleep(self.latency)
 
-        if "page=2" in url:
-            return self._empty_page_response(base_url)
+            base_url = url.split("?")[0]
 
-        data = self._resolve_response(base_url)
-        return ThreadSafeResponse(data, url=base_url)
+            if "page=2" in url:
+                return self._empty_page_response(base_url)
+
+            data = self._resolve_response(base_url)
+            return ThreadSafeResponse(data, url=base_url)
+        finally:
+            with self._lock:
+                self._in_flight -= 1
 
     @property
     def call_count(self) -> int:
         with self._lock:
             return self._call_count
+
+    @property
+    def peak_in_flight(self) -> int:
+        """Highest number of get() calls that overlapped at any instant."""
+        with self._lock:
+            return self._peak_in_flight
 
 
 def make_thread_safe_session(*args: Any, **kwargs: Any) -> ThreadSafeMockSession:
@@ -434,13 +444,21 @@ def _build_perf_response_map(
 
 
 @pytest.mark.perf
-@pytest.mark.flaky(reruns=5)
 def test_threading_speedup(tmp_path):
-    """Verify that max_threads > 1 provides wall-clock speedup with simulated latency.
+    """Verify that max_threads > 1 actually overlaps HTTP requests.
 
     Uses 10 reports with 2 queries each. Each HTTP call sleeps 50ms.
-    With 4 threads only the per-report query fetches parallelize; the serial
-    setup calls cap the achievable speedup at roughly 1.7-1.9x (see #19242).
+
+    The gate is observed concurrency rather than elapsed time: the mock
+    session records the high-water mark of simultaneous get() calls, so the
+    threaded run has to reach at least 2 requests in flight while the
+    sequential run must never exceed 1. That is a property of the code under
+    test, not of the runner, so it needs no threshold and no reruns.
+
+    A wall-clock ratio cannot give us that. Only the per-report query fetches
+    parallelize -- the verify/spaces/reports/datasets calls stay serial (see
+    #19242) -- which puts the achievable speedup somewhere near 1.5-1.9x, too
+    close to any useful threshold to assert on. It is printed as a diagnostic.
 
     Note: No @time_machine.travel here -- time_machine patches time.monotonic()
     which would make our wall-clock measurements return 0.
@@ -451,10 +469,20 @@ def test_threading_speedup(tmp_path):
 
     responses = _build_perf_response_map(num_reports, num_queries_per_report)
 
+    seq_sessions: List[ThreadSafeMockSession] = []
+    par_sessions: List[ThreadSafeMockSession] = []
+
+    def make_recording_session(
+        sessions: List[ThreadSafeMockSession],
+    ) -> ThreadSafeMockSession:
+        session = ThreadSafeMockSession(responses, latency=latency)
+        sessions.append(session)
+        return session
+
     # Sequential run (max_threads=1)
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
-        side_effect=lambda *a, **kw: ThreadSafeMockSession(responses, latency=latency),
+        side_effect=lambda *a, **kw: make_recording_session(seq_sessions),
     ):
         pipeline_seq = Pipeline.create(
             {
@@ -484,7 +512,7 @@ def test_threading_speedup(tmp_path):
     # Threaded run (max_threads=4)
     with patch(
         "datahub.ingestion.source.mode.requests.Session",
-        side_effect=lambda *a, **kw: ThreadSafeMockSession(responses, latency=latency),
+        side_effect=lambda *a, **kw: make_recording_session(par_sessions),
     ):
         pipeline_par = Pipeline.create(
             {
@@ -512,17 +540,20 @@ def test_threading_speedup(tmp_path):
         parallel_time = time.perf_counter() - t0
 
     speedup = sequential_time / parallel_time if parallel_time > 0 else float("inf")
+    seq_peak = max((s.peak_in_flight for s in seq_sessions), default=0)
+    par_peak = max((s.peak_in_flight for s in par_sessions), default=0)
 
     print(
         f"\nPerf results: sequential={sequential_time:.2f}s, "
-        f"parallel={parallel_time:.2f}s, speedup={speedup:.1f}x"
+        f"parallel={parallel_time:.2f}s, speedup={speedup:.1f}x, "
+        f"peak in-flight: sequential={seq_peak}, parallel={par_peak}"
     )
 
-    # The gate must sit well below the ~1.7-1.9x ceiling; 1.2x on CI still
-    # catches "threading did nothing" while clearing the noise floor.
-    assert speedup > SPEEDUP_THRESHOLD, (
-        f"Expected >{SPEEDUP_THRESHOLD}x speedup but got {speedup:.2f}x "
-        f"(seq={sequential_time:.2f}s, par={parallel_time:.2f}s)"
+    assert par_peak >= 2, (
+        f"max_threads=4 should overlap requests, but peak in-flight was {par_peak}"
+    )
+    assert seq_peak == 1, (
+        f"max_threads=1 must never overlap requests, but peak in-flight was {seq_peak}"
     )
 
 
