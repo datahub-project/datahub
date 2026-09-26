@@ -2381,9 +2381,10 @@ class TestDataModelElementOwner:
         ]
         return dm
 
-    @pytest.mark.parametrize("complete", [True, False])
+    # None: a model that never went through assembly.
+    @pytest.mark.parametrize("complete", [True, False, None])
     def test_only_a_complete_schema_is_recorded_for_ref_checks(
-        self, complete: bool
+        self, complete: Optional[bool]
     ) -> None:
         """A partial schema would refuse real columns it never received."""
         source = _create_sigma_source(ingest_data_models=True)
@@ -2397,7 +2398,8 @@ class TestDataModelElementOwner:
                 }
             )
         ]
-        dm.columns_complete = complete
+        if complete is not None:
+            dm.columns_complete = complete
         urn = source._gen_data_model_element_urn(dm, dm.elements[0])
 
         source._prepopulate_dm_bridge_maps(dm)

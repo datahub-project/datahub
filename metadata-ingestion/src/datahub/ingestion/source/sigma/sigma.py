@@ -236,13 +236,17 @@ def _fold_name(name: str) -> str:
     return name.lower()
 
 
+def _case_variants(name: str, candidates: Collection[str]) -> Set[str]:
+    folded = _fold_name(name)
+    return {c for c in candidates if _fold_name(c) == folded}
+
+
 def _match_name(name: str, candidates: Collection[str]) -> Optional[str]:
     """The candidate a ref's name means: exact, else the one case-insensitive
     match. Several case variants are ambiguous, so None."""
     if name in candidates:
         return name
-    folded = _fold_name(name)
-    matches = {c for c in candidates if _fold_name(c) == folded}
+    matches = _case_variants(name, candidates)
     return next(iter(matches)) if len(matches) == 1 else None
 
 
@@ -3645,15 +3649,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if field is not None:
                 return field
         # Only names the upstream has, so a duplicate ID cannot shadow them.
-        by_id = {
-            cid: name
-            for name, cid in upstream.column_id_by_name.items()
-            if not upstream.columns or name in upstream.columns
-        }
-        translated = by_id.get(ref.column)
-        if translated is not None:
-            return translated
-        if not upstream.columns:
+        known = set(upstream.columns)
+        for name, column_id in upstream.column_id_by_name.items():
+            if column_id == ref.column and (not known or name in known):
+                return name
+        if not known:
             return ref.column
         self._note_column_not_found(ref)
         return None
@@ -3740,10 +3740,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return None
 
         # Case-insensitive, as Sigma matches; case variants are all candidates
-        # and the lineage filter below picks among them.
-        candidates = self._folded_element_index(wb_element_index).get(
-            _fold_name(ref.source), []
-        )
+        # and the lineage filter below picks among them. The chart itself is
+        # never its own source.
+        candidates = [
+            elem
+            for elem in self._folded_element_index(wb_element_index).get(
+                _fold_name(ref.source), []
+            )
+            if elem.elementId != chart_element_id
+        ]
 
         if candidates:
             # Step 3a: SheetUpstream match (intra-workbook chart→chart lineage).
@@ -3786,10 +3791,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if sheet_matches:
                 return None
 
-            # Case variants none of which lineage picked are ambiguous. Refuse
-            # rather than fall through to the warehouse lookup, which would
-            # resolve an element ref as if it named a table.
-            if len({elem.name for elem in candidates}) > 1:
+            # Case variants none of which lineage picked, and none spelled as
+            # the ref is, are ambiguous. Refuse rather than fall through to the
+            # warehouse lookup, which would resolve an element ref as if it
+            # named a table.
+            names = {elem.name for elem in candidates}
+            if len(names) > 1 and ref.source not in names:
                 self.reporter.chart_input_fields_case_mismatch += 1
                 return None
 
@@ -3812,10 +3819,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Check dm_upstream_urn_by_element_name directly before falling through
             # to the warehouse-table short-name index.
             dm_name = _match_name(ref.source, dm_upstream_urn_by_element_name)
-            dm_urn = dm_upstream_urn_by_element_name.get(dm_name) if dm_name else None
-            if dm_urn:
+            if dm_name is not None:
+                dm_urn = dm_upstream_urn_by_element_name[dm_name]
                 dm_field = self._dm_upstream_field_for_ref(ref, dm_urn)
                 return (dm_urn, dm_field) if dm_field is not None else None
+            # DM upstreams differing only in case: refused, as in step 3b.
+            if len(_case_variants(ref.source, dm_upstream_urn_by_element_name)) > 1:
+                self.reporter.chart_input_fields_case_mismatch += 1
+                return None
 
         # Step 4: warehouse-table short-name fallback.
         wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])

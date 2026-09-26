@@ -415,6 +415,56 @@ class TestResolveChartFormulaUpstream:
         assert result == (dm_urn, "Id")
         assert self.src.reporter.chart_input_fields_case_mismatch == 0
 
+    def test_the_exact_spelling_wins_when_lineage_picks_nothing(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t source,PROD)"
+        index = {
+            "T Source": [_make_element("a", "T Source")],
+            "T SOURCE": [_make_element("b", "T SOURCE")],
+        }
+        result = self._resolve(
+            _make_ref("T Source", "col"),
+            index,
+            warehouse_index={"T SOURCE": [wh_urn]},
+        )
+        assert result == (wh_urn, "col")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_the_chart_itself_is_not_a_case_variant(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,PROD)"
+        index = {
+            "ORDERS": [_make_element("downstreamElem", "ORDERS")],
+            "Orders": [_make_element("other", "Orders")],
+        }
+        # Spelled like neither, so only excluding the chart avoids a refusal.
+        result = self._resolve(
+            _make_ref("orders", "Id"), index, warehouse_index={"ORDERS": [wh_urn]}
+        )
+        assert result == (wh_urn, "Id")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_a_chart_named_like_its_dm_upstream_still_resolves(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        index = {"Orders": [_make_element("downstreamElem", "Orders")]}
+        result = self._resolve(
+            _make_ref("Orders", "Id"), index, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Id")
+
+    def test_dm_upstreams_off_the_page_differing_in_case_are_refused(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,PROD)"
+        dm_urns = {
+            "Orders": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)",
+            "ORDERS": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.b,PROD)",
+        }
+        result = self._resolve(
+            _make_ref("orders", "Id"),
+            {},
+            dm_urns=dm_urns,
+            warehouse_index={"ORDERS": [wh_urn]},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
     def test_dm_upstreams_differing_only_in_case_are_refused(self) -> None:
         index = {
             "Orders": [_make_element("pageA", "Orders")],
