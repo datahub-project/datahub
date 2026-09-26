@@ -2381,6 +2381,23 @@ class TestDataModelElementOwner:
         ]
         return dm
 
+    def test_a_join_elements_lineage_sources_are_recorded(self) -> None:
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        dm.elements = [
+            SigmaDataModelElement(elementId="a", name="A", type="table"),
+            SigmaDataModelElement(
+                elementId="j", name="J", type="table", source_ids=["a", "inode-x"]
+            ),
+        ]
+        a_urn = source._gen_data_model_element_urn(dm, dm.elements[0])
+        j_urn = source._gen_data_model_element_urn(dm, dm.elements[1])
+
+        source._prepopulate_dm_bridge_maps(dm)
+
+        assert source._dm_element_source_urns[j_urn] == {a_urn}
+        assert source._dm_element_source_urns[a_urn] == set()
+
     # None: a model that never went through assembly.
     @pytest.mark.parametrize("complete", [True, False, None])
     def test_only_a_complete_schema_is_recorded_for_ref_checks(
