@@ -8,6 +8,7 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.throttle.ThrottleResponseHeaderWriter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.parser.InvalidSyntaxException;
+import io.datahubproject.metadata.context.RequestStats;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
@@ -119,8 +120,29 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(AsyncRequestTimeoutException.class)
   public ResponseEntity<Map<String, String>> handleAsyncTimeout(
       AsyncRequestTimeoutException e, HttpServletRequest request) {
-    log.warn(
-        "Async request timeout: path={}, method={}", request.getRequestURI(), request.getMethod());
+    // Request attribution (off by default): name the actor, operation, trace and store usage so
+    // far, and mark the request span, so a timeout is findable by who and by what it was doing.
+    RequestStats stats = (RequestStats) request.getAttribute(TracingInterceptor.REQUEST_STATS_ATTR);
+    Span requestSpan = (Span) request.getAttribute("span");
+    if (stats != null) {
+      stats.markTimeout();
+      if (requestSpan != null) {
+        requestSpan.addEvent("async_timeout");
+      }
+      log.warn(
+          "Async request timeout: path={}, method={}, actor={}, operation={}, trace={}, {}",
+          request.getRequestURI(),
+          request.getMethod(),
+          stats.getActorUrn(),
+          stats.getRequestId(),
+          requestSpan != null ? requestSpan.getSpanContext().getTraceId() : null,
+          stats.summary());
+    } else {
+      log.warn(
+          "Async request timeout: path={}, method={}",
+          request.getRequestURI(),
+          request.getMethod());
+    }
     if (metricUtils != null) {
       String pattern =
           (String) request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);

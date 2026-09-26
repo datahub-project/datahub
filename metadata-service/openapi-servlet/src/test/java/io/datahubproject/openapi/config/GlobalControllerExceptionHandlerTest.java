@@ -16,10 +16,15 @@ import com.linkedin.metadata.throttle.ThrottleResponseHeaders;
 import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.parser.InvalidSyntaxException;
+import io.datahubproject.metadata.context.RequestStats;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanContext;
+import io.opentelemetry.api.trace.TraceFlags;
+import io.opentelemetry.api.trace.TraceState;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -574,5 +579,45 @@ public class GlobalControllerExceptionHandlerTest {
     Field field = GlobalControllerExceptionHandler.class.getDeclaredField("metricUtils");
     field.setAccessible(true);
     field.set(handler, metricUtils);
+  }
+
+  @Test
+  public void testHandleAsyncTimeoutMarksRequestStatsAndSpan() {
+    when(mockRequest.getRequestURI()).thenReturn("/api/graphql");
+    when(mockRequest.getMethod()).thenReturn("POST");
+    RequestStats stats = new RequestStats(false);
+    stats.attach(null, "urn:li:corpuser:jdoe", "searchAcrossLineage");
+    Span span = mock(Span.class);
+    when(span.getSpanContext())
+        .thenReturn(
+            SpanContext.create(
+                "0af7651916cd43dd8448eb211c80319c",
+                "b7ad6b7169203331",
+                TraceFlags.getSampled(),
+                TraceState.getDefault()));
+    when(mockRequest.getAttribute(TracingInterceptor.REQUEST_STATS_ATTR)).thenReturn(stats);
+    when(mockRequest.getAttribute("span")).thenReturn(span);
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleAsyncTimeout(new AsyncRequestTimeoutException(), mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertTrue(stats.getTimeoutAtNanos() > 0L);
+    verify(span).addEvent("async_timeout");
+  }
+
+  @Test
+  public void testHandleAsyncTimeoutWithStatsButNoSpan() {
+    when(mockRequest.getRequestURI()).thenReturn("/api/graphql");
+    when(mockRequest.getMethod()).thenReturn("POST");
+    RequestStats stats = new RequestStats(false);
+    when(mockRequest.getAttribute(TracingInterceptor.REQUEST_STATS_ATTR)).thenReturn(stats);
+    when(mockRequest.getAttribute("span")).thenReturn(null);
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleAsyncTimeout(new AsyncRequestTimeoutException(), mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertTrue(stats.getTimeoutAtNanos() > 0L);
   }
 }

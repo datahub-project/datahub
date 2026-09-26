@@ -286,4 +286,21 @@ public class GraphQLControllerUsageRecordingTest {
     field.setAccessible(true);
     field.set(controller, systemContext);
   }
+
+  @Test
+  public void testLateCompletionAfterAsyncTimeoutIsLoggedNotFailed() {
+    io.datahubproject.metadata.context.RequestStats stats =
+        new io.datahubproject.metadata.context.RequestStats(false);
+    stats.attach(null, "urn:li:corpuser:datahub", "me");
+    stats.markTimeout(); // the async timeout already answered the client
+    ResponseEntity<Object> response;
+    try (io.opentelemetry.context.Scope ignored =
+        io.opentelemetry.context.Context.current()
+            .with(io.datahubproject.metadata.context.RequestStats.CONTEXT_KEY, stats)
+            .makeCurrent()) {
+      response = executeMeQuery();
+    }
+    // the work still completes normally; the late-completion path only logs
+    assertEquals(response.getStatusCode(), HttpStatus.OK);
+  }
 }

@@ -9,6 +9,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
 import java.sql.Connection;
+import java.sql.SQLException;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -227,5 +228,55 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
     // Test the listener methods - should not throw exception
     listener.onAfterBorrowConnection(mockConnection);
     listener.onBeforeReturnConnection(mockConnection);
+  }
+
+  @Test
+  public void testListenerRecordsHoldTimeAndBackendPidIntoRequestStats() throws Exception {
+    DataSourcePoolListener listener =
+        LocalEbeanConfigFactory.getListenerToTrackCounts(mockMetricUtils, "attr");
+    io.datahubproject.metadata.context.RequestStats stats =
+        new io.datahubproject.metadata.context.RequestStats(false);
+    try (io.opentelemetry.context.Scope ignored =
+        io.opentelemetry.context.Context.current()
+            .with(io.datahubproject.metadata.context.RequestStats.CONTEXT_KEY, stats)
+            .makeCurrent()) {
+      listener.onAfterBorrowConnection(mockConnection);
+      listener.onBeforeReturnConnection(mockConnection);
+      // return without a matching borrow on this thread is ignored
+      listener.onBeforeReturnConnection(mockConnection);
+    }
+    assertEquals(stats.getDbCalls(), 1L);
+    assertTrue(stats.getDbNanos() >= 0L);
+    // mockConnection is not a Postgres connection: lookup reports unknown and switches off
+    assertTrue(stats.getBackendPids().isEmpty());
+  }
+
+  @Test
+  public void testPgBackendPidLookup() throws Exception {
+    LocalEbeanConfigFactory.PgBackendPid.reset();
+    assertEquals(LocalEbeanConfigFactory.PgBackendPid.of(null), -1L);
+
+    // a Postgres connection: pid comes from the driver interface
+    org.postgresql.PGConnection pg = mock(org.postgresql.PGConnection.class);
+    when(pg.getBackendPID()).thenReturn(4242);
+    Connection conn = mock(Connection.class);
+    when(conn.isWrapperFor(org.postgresql.PGConnection.class)).thenReturn(true);
+    when(conn.unwrap(org.postgresql.PGConnection.class)).thenReturn(pg);
+    assertEquals(LocalEbeanConfigFactory.PgBackendPid.of(conn), 4242L);
+    assertEquals(LocalEbeanConfigFactory.PgBackendPid.of(conn), 4242L, "cached reflection");
+
+    // not a Postgres connection: -1 and the lookup switches itself off for the JVM
+    LocalEbeanConfigFactory.PgBackendPid.reset();
+    Connection other = mock(Connection.class);
+    when(other.isWrapperFor(org.postgresql.PGConnection.class)).thenReturn(false);
+    assertEquals(LocalEbeanConfigFactory.PgBackendPid.of(other), -1L);
+    assertEquals(LocalEbeanConfigFactory.PgBackendPid.of(conn), -1L, "disabled after failure");
+
+    // a driver that throws: same outcome
+    LocalEbeanConfigFactory.PgBackendPid.reset();
+    Connection broken = mock(Connection.class);
+    when(broken.isWrapperFor(org.postgresql.PGConnection.class)).thenThrow(new SQLException("x"));
+    assertEquals(LocalEbeanConfigFactory.PgBackendPid.of(broken), -1L);
+    LocalEbeanConfigFactory.PgBackendPid.reset();
   }
 }

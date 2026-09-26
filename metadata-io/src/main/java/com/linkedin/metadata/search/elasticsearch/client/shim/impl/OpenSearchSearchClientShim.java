@@ -17,6 +17,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.RequestStats;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -387,7 +388,10 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       @Nonnull CheckedFunction<XContentParser, R, IOException> entityParser,
       int... allowedErrorStatus)
       throws IOException {
-    request.setOptions(options);
+    // Request attribution (off by default): tag the call for OpenSearch-side logs and time it.
+    RequestStats stats = RequestStats.current().orElse(null);
+    request.setOptions(ShimTelemetry.withOpaqueId(options, stats));
+    long startNanos = System.nanoTime();
     Response response;
     try {
       response = restClient.performRequest(request);
@@ -399,6 +403,9 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
         }
       }
       throw translateException(e);
+    } finally {
+      // Timed-out and failed round trips count too; they are the ones worth attributing.
+      ShimTelemetry.recordSearch(stats, startNanos);
     }
     return parseEntity(response.getEntity(), entityParser);
   }
@@ -507,7 +514,10 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
     // RHLC allows 404 here: the body still carries the explain payload with matched=false /
     // missing-doc info; exists mirrors the HTTP status.
     Request request = OpenSearchShimBridge.explain(explainRequest);
-    request.setOptions(options);
+    // Request attribution (off by default): same header and timing as performAndParse.
+    RequestStats stats = RequestStats.current().orElse(null);
+    request.setOptions(ShimTelemetry.withOpaqueId(options, stats));
+    long startNanos = System.nanoTime();
     Response response;
     boolean exists;
     HttpEntity entity;
@@ -522,6 +532,8 @@ public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkPr
       } else {
         throw translateException(e);
       }
+    } finally {
+      ShimTelemetry.recordSearch(stats, startNanos);
     }
     final boolean finalExists = exists;
     return parseEntity(entity, parser -> ExplainResponse.fromXContent(parser, finalExists));

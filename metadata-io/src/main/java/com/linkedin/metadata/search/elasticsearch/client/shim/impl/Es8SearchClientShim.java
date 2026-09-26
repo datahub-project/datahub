@@ -98,6 +98,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.RequestStats;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
@@ -548,8 +549,16 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       esSearchRequest.stats(searchSourceBuilder.stats());
     }
 
-    co.elastic.clients.elasticsearch.core.SearchResponse<JsonNode> esSearchResponse =
-        withTransportOptions(options).search(esSearchRequest.build(), JsonNode.class);
+    RequestStats stats = RequestStats.current().orElse(null);
+    long startNanos = System.nanoTime();
+    co.elastic.clients.elasticsearch.core.SearchResponse<JsonNode> esSearchResponse;
+    try {
+      esSearchResponse =
+          withTransportOptions(options).search(esSearchRequest.build(), JsonNode.class);
+    } finally {
+      // Timed-out and failed round trips count too; they are the ones worth attributing.
+      ShimTelemetry.recordSearch(stats, startNanos);
+    }
     String json = JsonpUtils.toJsonString(esSearchResponse, jacksonJsonpMapper);
     return SearchResponse.fromXContent(
         XContentType.JSON
@@ -732,8 +741,14 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .index(Arrays.asList(countRequest.indices()))
             .query(convertQuery(countRequest.query()))
             .build();
-    co.elastic.clients.elasticsearch.core.CountResponse esCountResponse =
-        client.count(esCountRequest);
+    RequestStats stats = RequestStats.current().orElse(null);
+    long startNanos = System.nanoTime();
+    co.elastic.clients.elasticsearch.core.CountResponse esCountResponse;
+    try {
+      esCountResponse = withTransportOptions(options).count(esCountRequest);
+    } finally {
+      ShimTelemetry.recordSearch(stats, startNanos);
+    }
     ShardStatistics esShardStats = esCountResponse.shards();
     ShardSearchFailure[] shardFailures = convertShardFailures(esShardStats);
 
@@ -794,8 +809,14 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .index(explainRequest.index())
             .routing(explainRequest.routing())
             .build();
-    co.elastic.clients.elasticsearch.core.ExplainResponse<JsonNode> esExplainResponse =
-        withTransportOptions(options).explain(esExplainRequest, JsonNode.class);
+    RequestStats stats = RequestStats.current().orElse(null);
+    long startNanos = System.nanoTime();
+    co.elastic.clients.elasticsearch.core.ExplainResponse<JsonNode> esExplainResponse;
+    try {
+      esExplainResponse = withTransportOptions(options).explain(esExplainRequest, JsonNode.class);
+    } finally {
+      ShimTelemetry.recordSearch(stats, startNanos);
+    }
     String json = JsonpUtils.toJsonString(esExplainResponse, jacksonJsonpMapper);
     return ExplainResponse.fromXContent(
         XContentType.JSON
@@ -1914,6 +1935,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   private ElasticsearchClient withTransportOptions(RequestOptions requestOptions) {
+    // Request attribution (off by default): X-Opaque-Id for OpenSearch/Elasticsearch-side logs.
+    requestOptions =
+        ShimTelemetry.withOpaqueId(requestOptions, RequestStats.current().orElse(null));
     if (RequestOptions.DEFAULT.equals(requestOptions)) {
       return client;
     }

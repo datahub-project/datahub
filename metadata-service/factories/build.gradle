@@ -91,6 +91,7 @@ dependencies {
   testImplementation testFixtures(project(':metadata-io'))
   // EmbeddingProviderFactoryTest mocks OnnxEmbeddingProvider; Mockito loads the class whose
   // field/ctor descriptors reference ai.onnxruntime/ai.djl, which are now compileOnlyApi upstream.
+  testImplementation externalDependency.postgresql // PgBackendPid reflective lookup under test
   testRuntimeOnly externalDependency.onnxRuntime
   testRuntimeOnly externalDependency.djlApi
   testRuntimeOnly externalDependency.djlHuggingFaceTokenizers

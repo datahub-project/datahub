@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.RequestStats;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
@@ -89,18 +90,32 @@ public class LocalEbeanConfigFactory {
   @Qualifier("defaultAwsCredentialsProvider")
   private AwsCredentialsProvider defaultAwsCredentialsProvider;
 
+  @Value("${telemetry.requestAttribution.postgresActorComment:false}")
+  private boolean postgresActorComment;
+
   public static DataSourcePoolListener getListenerToTrackCounts(
       MetricUtils metricUtils, String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
+    // Request attribution (off by default): time how long each request holds a connection. Borrow
+    // and return happen on the same thread, so a ThreadLocal is enough; when no accumulator is in
+    // scope this costs one nanoTime call per borrow and nothing else.
+    final ThreadLocal<long[]> borrowedAt = ThreadLocal.withInitial(() -> new long[1]);
     return new DataSourcePoolListener() {
       @Override
       public void onAfterBorrowConnection(Connection connection) {
         if (metricUtils != null) metricUtils.increment(counterName, 1);
+        borrowedAt.get()[0] = System.nanoTime();
+        RequestStats.current().ifPresent(s -> s.recordDbBackendPid(PgBackendPid.of(connection)));
       }
 
       @Override
       public void onBeforeReturnConnection(Connection connection) {
         if (metricUtils != null) metricUtils.increment(counterName, -1);
+        long start = borrowedAt.get()[0];
+        if (start != 0L) {
+          borrowedAt.get()[0] = 0L;
+          RequestStats.current().ifPresent(s -> s.recordDb(System.nanoTime() - start));
+        }
       }
     };
   }
@@ -165,6 +180,52 @@ public class LocalEbeanConfigFactory {
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
     customizers.forEach(customizer -> customizer.customize(serverConfig));
+    ActorSqlComment.install(serverConfig, "gmsEbeanDatabaseConfig", config, postgresActorComment);
     return serverConfig;
+  }
+
+  /**
+   * Resolves the Postgres backend process id of a pooled connection via the driver's {@code
+   * PGConnection#getBackendPID()}, looked up reflectively because the driver is a runtime-only
+   * dependency and the store may not be Postgres at all. Returns -1 when unavailable, and stops
+   * trying after the first failure so non-Postgres installs pay one lookup per JVM.
+   */
+  static final class PgBackendPid {
+    private static final java.util.concurrent.atomic.AtomicBoolean SUPPORTED =
+        new java.util.concurrent.atomic.AtomicBoolean(true);
+    private static volatile Class<?> pgConnection;
+    private static volatile java.lang.reflect.Method getBackendPid;
+
+    private PgBackendPid() {}
+
+    /** Test hook: forget a previous failure so the lookup is attempted again. */
+    static void reset() {
+      SUPPORTED.set(true);
+      pgConnection = null;
+      getBackendPid = null;
+    }
+
+    static long of(Connection connection) {
+      if (!SUPPORTED.get() || connection == null) {
+        return -1L;
+      }
+      try {
+        Class<?> iface = pgConnection;
+        if (iface == null) {
+          iface = Class.forName("org.postgresql.PGConnection");
+          getBackendPid = iface.getMethod("getBackendPID");
+          pgConnection = iface;
+        }
+        if (!connection.isWrapperFor(iface)) {
+          SUPPORTED.set(false);
+          return -1L;
+        }
+        Object pg = connection.unwrap(iface);
+        return ((Number) getBackendPid.invoke(pg)).longValue();
+      } catch (Throwable t) {
+        SUPPORTED.set(false);
+        return -1L;
+      }
+    }
   }
 }

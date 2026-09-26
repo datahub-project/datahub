@@ -28,6 +28,7 @@ import com.linkedin.metadata.usage.instrumentation.UsageMetricsSessionEnricher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestStats;
 import io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistry;
 import io.opentelemetry.api.trace.Span;
 import jakarta.inject.Inject;
@@ -340,6 +341,10 @@ public class GraphQLController {
                 }
               });
     }
+    // Request attribution (off by default): when the async timeout has already answered the
+    // client, say when the abandoned work actually finished, so its true cost is visible.
+    final RequestStats attribution = RequestStats.current().orElse(null);
+    final long submittedAt = System.nanoTime();
     boolean asyncStarted = false;
     try {
       CompletableFuture<ResponseEntity<Object>> executionFuture =
@@ -430,6 +435,16 @@ public class GraphQLController {
               "postGraphQL");
       executionFuture.whenComplete(
           (response, error) -> {
+            if (attribution != null && attribution.getTimeoutAtNanos() != 0L) {
+              log.warn(
+                  "Operation {} finished {} ms after the async timeout answered the client"
+                      + " (total {} ms, actor={}, {})",
+                  queryName,
+                  (System.nanoTime() - attribution.getTimeoutAtNanos()) / 1_000_000L,
+                  (System.nanoTime() - submittedAt) / 1_000_000L,
+                  attribution.getActorUrn(),
+                  attribution.summary());
+            }
             if (response != null && response.getBody() instanceof GraphQLResponseBody) {
               return;
             }
