@@ -347,6 +347,9 @@ class SigmaDataModel(BaseModel):
     # Maps customSQL entry name (the identifier elements reference in sourceIds)
     # -> raw lineage entry dict (carries connectionId and definition).
     custom_sql_by_name: Dict[str, CustomSqlEntry] = Field(default_factory=dict)
+    # True only once /columns arrived whole. Defaults False so a path that
+    # never sets it passes refs through rather than refusing real columns.
+    columns_complete: bool = False
 
     def get_url_id(self) -> str:
         """Return the DM's URL identifier: explicit ``urlId`` if set,

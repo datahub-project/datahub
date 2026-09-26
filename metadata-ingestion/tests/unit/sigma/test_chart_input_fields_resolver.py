@@ -78,6 +78,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
+    source.reporter.chart_input_fields_column_not_found = 0
+    source.reporter.chart_input_fields_multi_segment_refused = 0
     source.reporter.chart_input_fields_warehouse_column_bridged = 0
     source.reporter.chart_input_fields_warehouse_column_bridge_unresolved = 0
     source.reporter.chart_input_fields_multi_ref_extra = 0
@@ -89,6 +91,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.sigma_api.get_workbook_lineage = MagicMock(return_value=[])
     source._workbook_customsql_registered_urns = set()
     source._workbook_customsql_formula_fields = {}
+    source._dm_element_field_paths = {}
+    source._folded_index_memo = None
     source._bridge_unresolved_warned = set()
     return source
 
@@ -322,26 +326,426 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
 
-    def test_case_mismatched_workbook_element_ref_is_diagnosed(self) -> None:
-        """Workbook element names are exact-case; near misses are counted."""
-        upstream_elem = _make_element("sourceElem", "T Source")
-        wh_urn = (
-            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.T SOURCE,PROD)"
-        )
-        ref = _make_ref("t source", "col")
-
-        result = self.src._resolve_chart_formula_upstream(
+    def _resolve(
+        self,
+        ref: BracketRef,
+        wb_element_index: Dict[str, List[Element]],
+        upstream_ids: Optional[set] = None,
+        dm_urns: Optional[Dict[str, str]] = None,
+        warehouse_index: Optional[Dict[str, List[str]]] = None,
+    ) -> Optional[tuple]:
+        return self.src._resolve_chart_formula_upstream(
             ref,
             chart_element_id="downstreamElem",
-            chart_upstream_element_ids={"sourceElem"},
-            dm_upstream_urn_by_element_name={},
-            wb_element_index={"T Source": [upstream_elem]},
-            element_warehouse_table_index={"T SOURCE": [wh_urn]},
+            chart_upstream_element_ids=upstream_ids or set(),
+            dm_upstream_urn_by_element_name=dm_urns or {},
+            wb_element_index=wb_element_index,
+            element_warehouse_table_index=warehouse_index or {},
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
 
+    def test_case_only_mismatch_resolves_to_the_element(self) -> None:
+        # Sigma resolves formula refs case-insensitively.
+        elem = _make_element("sourceElem", "T Source", columns=["Col A"])
+        result = self._resolve(
+            _make_ref("t source", "col a"),
+            {"T Source": [elem]},
+            upstream_ids={"sourceElem"},
+        )
+        assert result == ("urn:source", "Col A")
+
+    def test_case_only_mismatch_reaches_dm_element_by_its_own_name(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        elem = _make_element("dmElem", "Orders")
+        result = self._resolve(
+            _make_ref("orders", "Id"), {"Orders": [elem]}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Id")
+
+    def test_ambiguous_case_insensitive_match_is_refused_and_counted(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t source,PROD)"
+        index = {
+            "T Source": [_make_element("sourceElem", "T Source")],
+            "T SOURCE": [_make_element("otherElem", "T SOURCE")],
+        }
+        result = self._resolve(
+            _make_ref("t source", "col"),
+            index,
+            warehouse_index={"T SOURCE": [wh_urn]},
+        )
         assert result is None
         assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    @pytest.mark.parametrize("ref_source", ["t source", "T Source"])
+    def test_lineage_picks_among_case_variants(self, ref_source: str) -> None:
+        # The exact spelling must not win over the element lineage names.
+        index = {
+            "T Source": [_make_element("otherElem", "T Source")],
+            "T SOURCE": [_make_element("sourceElem", "T SOURCE")],
+        }
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t source,PROD)"
+        result = self._resolve(
+            _make_ref(ref_source, "col"),
+            index,
+            upstream_ids={"sourceElem"},
+            warehouse_index={"T SOURCE": [wh_urn]},
+        )
+        assert result == ("urn:source", "col")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    @pytest.mark.parametrize(
+        ("page_names", "ref_source"),
+        [
+            (("Orders", "ORDERS"), "Orders"),
+            (("Orders", "ORDERS"), "orders"),
+            # Neither page spelling is the DM upstream's own.
+            (("ORDERS", "orders"), "orders"),
+        ],
+    )
+    def test_dm_lineage_picks_among_case_variants(
+        self, page_names: tuple, ref_source: str
+    ) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        index = {
+            name: [_make_element(f"page{i}", name)] for i, name in enumerate(page_names)
+        }
+        result = self._resolve(
+            _make_ref(ref_source, "Id"), index, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Id")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_the_exact_spelling_breaks_a_tie_between_sheet_upstreams(self) -> None:
+        index = {
+            "Orders": [_make_element("sourceElem", "Orders")],
+            "ORDERS": [_make_element("otherElem", "ORDERS")],
+        }
+        result = self.src._resolve_chart_formula_upstream(
+            _make_ref("Orders", "Id"),
+            chart_element_id="downstreamElem",
+            chart_upstream_element_ids={"sourceElem", "otherElem"},
+            dm_upstream_urn_by_element_name={},
+            wb_element_index=index,
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={
+                "sourceElem": "urn:source",
+                "otherElem": "urn:other",
+            },
+        )
+        assert result == ("urn:source", "Id")
+
+    def test_the_exact_spelling_breaks_a_tie_between_dm_upstreams(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,PROD)"
+        dm_a = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)"
+        index = {
+            "Orders": [_make_element("a", "Orders")],
+            "ORDERS": [_make_element("b", "ORDERS")],
+        }
+        result = self._resolve(
+            _make_ref("Orders", "Id"),
+            index,
+            dm_urns={
+                "Orders": dm_a,
+                "ORDERS": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.b,PROD)",
+            },
+            warehouse_index={"ORDERS": [wh_urn]},
+        )
+        assert result == (dm_a, "Id")
+
+    def test_the_exact_spelling_wins_when_lineage_picks_nothing(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t source,PROD)"
+        index = {
+            "T Source": [_make_element("a", "T Source")],
+            "T SOURCE": [_make_element("b", "T SOURCE")],
+        }
+        result = self._resolve(
+            _make_ref("T Source", "col"),
+            index,
+            warehouse_index={"T SOURCE": [wh_urn]},
+        )
+        assert result == (wh_urn, "col")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_the_chart_itself_is_not_a_case_variant(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,PROD)"
+        index = {
+            "ORDERS": [_make_element("downstreamElem", "ORDERS")],
+            "Orders": [_make_element("other", "Orders")],
+        }
+        # Spelled like neither, so only excluding the chart avoids a refusal.
+        result = self._resolve(
+            _make_ref("orders", "Id"), index, warehouse_index={"ORDERS": [wh_urn]}
+        )
+        assert result == (wh_urn, "Id")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_a_chart_named_like_its_dm_upstream_still_resolves(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        index = {"Orders": [_make_element("downstreamElem", "Orders")]}
+        result = self._resolve(
+            _make_ref("Orders", "Id"), index, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Id")
+
+    def test_dm_upstreams_off_the_page_differing_in_case_are_refused(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,PROD)"
+        dm_urns = {
+            "Orders": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)",
+            "ORDERS": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.b,PROD)",
+        }
+        result = self._resolve(
+            _make_ref("orders", "Id"),
+            {},
+            dm_urns=dm_urns,
+            warehouse_index={"ORDERS": [wh_urn]},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    def test_dm_upstreams_differing_only_in_case_are_refused(self) -> None:
+        index = {
+            "Orders": [_make_element("pageA", "Orders")],
+            "ORDERS": [_make_element("pageB", "ORDERS")],
+        }
+        dm_urns = {
+            "Orders": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)",
+            "ORDERS": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.b,PROD)",
+        }
+        result = self._resolve(_make_ref("orders", "Id"), index, dm_urns=dm_urns)
+        assert result is None
+        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    def test_a_duplicate_column_id_does_not_shadow_a_real_column(self) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount"])
+        elem.column_id_by_name = {"Amount": "cid-1", "Hidden": "cid-1"}
+        result = self._resolve(
+            _make_ref("Src", "cid-1"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Amount")
+
+    def test_names_fold_by_lower_not_casefold(self) -> None:
+        # casefold() would equate "Straße" with "STRASSE".
+        elem = _make_element("sourceElem", "STRASSE")
+        result = self._resolve(
+            _make_ref("Straße", "col"), {"STRASSE": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result is None
+
+    def test_whitespace_mismatch_does_not_match_the_element(self) -> None:
+        # Sigma rejects a ref whose name differs only by padding.
+        elem = _make_element("sourceElem", "T Source ")
+        result = self._resolve(
+            _make_ref("T Source", "col"),
+            {"T Source ": [elem]},
+            upstream_ids={"sourceElem"},
+        )
+        assert result is None
+
+    def test_sibling_column_id_is_translated_to_its_name(self) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount"])
+        elem.column_id_by_name = {"Amount": "col-id-1"}
+        result = self._resolve(
+            _make_ref("Src", "col-id-1"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Amount")
+
+    def test_column_id_translates_only_to_a_column_the_upstream_has(self) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount"])
+        elem.column_id_by_name = {"Hidden": "cid-9"}
+        result = self._resolve(
+            _make_ref("Src", "cid-9"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result is None
+
+    def test_column_id_is_translated_when_columns_are_unknown(self) -> None:
+        elem = _make_element("sourceElem", "Src")
+        elem.column_id_by_name = {"Amount": "cid-1"}
+        result = self._resolve(
+            _make_ref("Src", "cid-1"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Amount")
+
+    def test_a_warehouse_column_id_ref_translates_when_the_upstream_has_it(
+        self,
+    ) -> None:
+        # inode-<id>/<NAME> parses as three segments; the upstream confirms it.
+        elem = _make_element("sourceElem", "Src", columns=["AMOUNT"])
+        elem.column_id_by_name = {"AMOUNT": "inode-abc/AMOUNT"}
+        result = self._resolve(
+            _make_ref("Src", "inode-abc/AMOUNT"),
+            {"Src": [elem]},
+            upstream_ids={"sourceElem"},
+        )
+        assert result == ("urn:source", "AMOUNT")
+
+    def test_a_slash_in_a_column_name_resolves_against_a_known_schema(self) -> None:
+        # Sigma writes [Src/Rev/Cost] unescaped for a column named "Rev/Cost".
+        elem = _make_element("sourceElem", "Src", columns=["Rev/Cost"])
+        result = self._resolve(
+            _make_ref("Src", "Rev/Cost"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Rev/Cost")
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 0
+
+    @pytest.mark.parametrize("upstream", ["sibling", "dm"])
+    def test_a_multi_segment_miss_is_not_a_missing_column(self, upstream: str) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = {"Amount"}
+        index = (
+            {"Src": [_make_element("sourceElem", "Src", columns=["Amount"])]}
+            if upstream == "sibling"
+            else {}
+        )
+        result = self._resolve(
+            _make_ref("Src", "Rel/Amount"),
+            index,
+            upstream_ids={"sourceElem"},
+            dm_urns={"Src": dm_urn} if upstream == "dm" else None,
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 1
+        assert self.src.reporter.chart_input_fields_column_not_found == 0
+
+    def test_a_slash_column_resolves_against_a_dm_schema(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = {"Rev/Cost"}
+        result = self._resolve(
+            _make_ref("Orders", "Rev/Cost"), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Rev/Cost")
+
+    @pytest.mark.parametrize("upstream", ["unknown-sibling", "unknown-dm", "warehouse"])
+    def test_a_multi_segment_ref_needs_a_known_schema(self, upstream: str) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.src,PROD)"
+        index = (
+            {"Src": [_make_element("sourceElem", "Src")]}
+            if upstream == "unknown-sibling"
+            else {}
+        )
+        result = self._resolve(
+            _make_ref("Src", "Rev/Cost"),
+            index,
+            upstream_ids={"sourceElem"},
+            dm_urns={"Src": dm_urn} if upstream == "unknown-dm" else None,
+            warehouse_index={"SRC": [wh_urn]} if upstream == "warehouse" else None,
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 1
+
+    def test_case_variant_dm_upstreams_on_the_page_are_refused(self) -> None:
+        wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders,PROD)"
+        result = self._resolve(
+            _make_ref("orders", "Id"),
+            {"orders": [_make_element("pageElem", "orders")]},
+            dm_urns={
+                "Orders": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)",
+                "ORDERS": "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.b,PROD)",
+            },
+            warehouse_index={"ORDERS": [wh_urn]},
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_case_mismatch == 1
+
+    @pytest.mark.parametrize("on_page", [True, False])
+    def test_case_variant_keys_for_one_dm_element_are_not_ambiguous(
+        self, on_page: bool
+    ) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.a,PROD)"
+        index = {"orders": [_make_element("pageElem", "orders")]} if on_page else {}
+        result = self._resolve(
+            _make_ref("orders", "Id"),
+            index,
+            dm_urns={"Orders": dm_urn, "ORDERS": dm_urn},
+        )
+        assert result == (dm_urn, "Id")
+        assert self.src.reporter.chart_input_fields_case_mismatch == 0
+
+    def test_sibling_column_absent_upstream_is_refused(self) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount"])
+        result = self._resolve(
+            _make_ref("Src", "Missing"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_column_not_found == 1
+
+    @pytest.mark.parametrize(
+        ("ref_column", "expected"),
+        [("Amount", "Amount"), ("amount", "amount"), ("AMOUNT", None)],
+    )
+    def test_column_exact_match_beats_a_case_variant(
+        self, ref_column: str, expected: Optional[str]
+    ) -> None:
+        elem = _make_element("sourceElem", "Src", columns=["Amount", "amount"])
+        result = self._resolve(
+            _make_ref("Src", ref_column), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == (("urn:source", expected) if expected else None)
+
+    @pytest.mark.parametrize(
+        ("ref_column", "expected"),
+        [("Amount", "Amount"), ("amount", "amount"), ("AMOUNT", None)],
+    )
+    def test_dm_column_exact_match_beats_a_case_variant(
+        self, ref_column: str, expected: Optional[str]
+    ) -> None:
+        # A set: the winner must not depend on string hashing.
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = {"Amount", "amount"}
+        result = self._resolve(
+            _make_ref("Orders", ref_column), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == ((dm_urn, expected) if expected else None)
+
+    def test_dm_upstream_off_the_page_matches_case_insensitively(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        result = self._resolve(
+            _make_ref("orders", "Id"), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Id")
+
+    def test_the_folded_index_follows_the_workbook(self) -> None:
+        first = {"Src": [_make_element("sourceElem", "Src")]}
+        second = {"Other": [_make_element("sourceElem", "Other")]}
+        assert self._resolve(_make_ref("src", "A"), first, {"sourceElem"})
+        assert self._resolve(_make_ref("other", "A"), second, {"sourceElem"})
+        assert self._resolve(_make_ref("src", "A"), second, {"sourceElem"}) is None
+
+    def test_sibling_with_unknown_columns_passes_ref_through(self) -> None:
+        elem = _make_element("sourceElem", "Src")
+        result = self._resolve(
+            _make_ref("Src", "Any"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result == ("urn:source", "Any")
+
+    def test_dm_column_is_checked_against_emitted_schema(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        self.src._dm_element_field_paths[dm_urn] = {"Order Id"}
+        dm_urns = {"Orders": dm_urn}
+        assert self._resolve(_make_ref("Orders", "order id"), {}, dm_urns=dm_urns) == (
+            dm_urn,
+            "Order Id",
+        )
+        assert (
+            self._resolve(_make_ref("Orders", "Missing"), {}, dm_urns=dm_urns) is None
+        )
+
+    def test_dm_column_passes_through_when_schema_unknown(self) -> None:
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm.elem,PROD)"
+        result = self._resolve(
+            _make_ref("Orders", "Anything"), {}, dm_urns={"Orders": dm_urn}
+        )
+        assert result == (dm_urn, "Anything")
+
+    def test_three_segment_ref_is_refused(self) -> None:
+        # [Element/Relationship/Column] must not become a dangling edge to
+        # a column named "Relationship/Column".
+        elem = _make_element("sourceElem", "Src")
+        result = self._resolve(
+            _make_ref("Src", "Rel/Col"), {"Src": [elem]}, upstream_ids={"sourceElem"}
+        )
+        assert result is None
+        assert self.src.reporter.chart_input_fields_multi_segment_refused == 1
 
     def test_exact_workbook_name_without_lineage_match_falls_through_to_warehouse(
         self,

@@ -1180,6 +1180,36 @@ class TestAssembleDataModelFileMetaFallback:
             "filtering and rendering agree on a single workspace per DM"
         )
 
+    @pytest.mark.parametrize(
+        ("second_page", "complete"),
+        [("ok", True), ("dies", False), ("bad-row", False), ("repeats", False)],
+    )
+    def test_columns_complete_says_whether_columns_arrived_whole(
+        self, second_page: str, complete: bool
+    ) -> None:
+        api = _create_sigma_api()
+        dm = self._dm()
+        column = {"columnId": "c1", "name": "Id", "elementId": "e1"}
+
+        def _pages(url: str) -> Any:
+            if "page=" not in url or second_page == "repeats":
+                return _paginated_response([column], next_page=2)
+            if second_page == "dies":
+                raise requests.exceptions.HTTPError(
+                    "500 Server Error", response=MagicMock(status_code=500)
+                )
+            row = column if second_page == "ok" else {"name": 3}
+            return _paginated_response([row])
+
+        with (
+            patch.object(api, "_get_data_model_elements", return_value=[]),
+            patch.object(api, "_get_data_model_lineage_entries", return_value=[]),
+            patch.object(SigmaAPI, "_get_api_call", side_effect=_pages),
+        ):
+            api._assemble_data_model(dm, None)
+
+        assert dm.columns_complete is complete
+
     def test_none_file_meta_is_safe(self) -> None:
         api = _create_sigma_api()
         dm = self._dm(workspaceId=None, path=None, urlId=None, badge=None)
@@ -2350,6 +2380,31 @@ class TestDataModelElementOwner:
             )
         ]
         return dm
+
+    # None: a model that never went through assembly.
+    @pytest.mark.parametrize("complete", [True, False, None])
+    def test_only_a_complete_schema_is_recorded_for_ref_checks(
+        self, complete: Optional[bool]
+    ) -> None:
+        """A partial schema would refuse real columns it never received."""
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        dm.elements = [
+            SigmaDataModelElement.model_validate(
+                {
+                    "elementId": "elem-1",
+                    "name": "element one",
+                    "columns": [{"columnId": "c1", "name": "Id"}],
+                }
+            )
+        ]
+        if complete is not None:
+            dm.columns_complete = complete
+        urn = source._gen_data_model_element_urn(dm, dm.elements[0])
+
+        source._prepopulate_dm_bridge_maps(dm)
+
+        assert source._dm_element_field_paths.get(urn) == ({"Id"} if complete else None)
 
     def test_owner_emitted_when_createdBy_resolves_and_ingest_owner_true(
         self,
