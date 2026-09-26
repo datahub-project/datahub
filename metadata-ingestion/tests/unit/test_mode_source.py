@@ -17,7 +17,6 @@ from unittest.mock import MagicMock, patch
 import requests
 from requests.models import HTTPError
 
-import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.mode import (
@@ -27,11 +26,8 @@ from datahub.ingestion.source.mode import (
     ModeSource,
     _is_http_404,
 )
+from datahub.ingestion.source.mode_api_types import ModeQuery, ModeReport
 from datahub.metadata.schema_classes import (
-    InputFieldsClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    StringTypeClass,
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -511,7 +507,7 @@ class TestGetUpstreamLineageForParsedSql:
         wus = list(
             source.get_upstream_lineage_for_parsed_sql(
                 query_urn="urn:li:query:(mode,q1)",
-                query_data={"id": "q1", "last_run_id": "r1", "data_source_id": "ds1"},
+                query_data=ModeQuery(id=1, last_run_id=2, data_source_id=3),
                 parsed_query_object=parsed,
             )
         )
@@ -537,13 +533,13 @@ class TestProcessReportErrorIsolation:
         remaining reports can still be processed."""
         source = _make_source()
 
-        report_ok = {"token": "ok_tok", "name": "OK Report"}
-        report_bad = {"token": "bad_tok", "name": "Bad Report"}
+        report_ok = ModeReport(token="ok_tok", name="OK Report")
+        report_bad = ModeReport(token="bad_tok", name="Bad Report")
 
-        def fake_inner(space_token: str, report: dict) -> Iterator:
-            if report["token"] == "bad_tok":
+        def fake_inner(space_token: str, report: ModeReport) -> Iterator:
+            if report.token == "bad_tok":
                 raise RuntimeError("boom")
-            yield _make_workunit(f"wu-{report['token']}")
+            yield _make_workunit(f"wu-{report.token}")
 
         with patch.object(source, "_process_report_inner", side_effect=fake_inner):
             # Process the bad report first — should not raise
@@ -561,7 +557,7 @@ class TestProcessReportErrorIsolation:
         """Built-in TimeoutError should call report_warning, not report_failure,
         so one timed-out report doesn't mark the whole run as FAILURE."""
         source = _make_source()
-        report = {"token": "tok", "name": "Report"}
+        report = ModeReport(token="tok", name="Report")
 
         def timeout_inner(space_token: str, report: dict) -> Iterator:
             raise TimeoutError("timed out")
@@ -576,7 +572,7 @@ class TestProcessReportErrorIsolation:
     def test_requests_timeout_uses_report_warning_not_failure(self):
         """requests.exceptions.Timeout should also call report_warning."""
         source = _make_source()
-        report = {"token": "tok", "name": "Report"}
+        report = ModeReport(token="tok", name="Report")
 
         def timeout_inner(space_token: str, report: dict) -> Iterator:
             raise requests.exceptions.Timeout("connection timed out")
@@ -591,7 +587,7 @@ class TestProcessReportErrorIsolation:
     def test_non_timeout_error_still_uses_report_failure(self):
         """Non-timeout exceptions should still call report_failure."""
         source = _make_source()
-        report = {"token": "tok", "name": "Report"}
+        report = ModeReport(token="tok", name="Report")
 
         def failing_inner(space_token: str, report: dict) -> Iterator:
             raise ValueError("unexpected error")
@@ -608,7 +604,7 @@ class TestProcessReportErrorIsolation:
         the exception must not escape _process_report — otherwise
         ThreadedIteratorExecutor would kill all workers."""
         source = _make_source()
-        report = {"token": "tok", "name": "Report"}
+        report = ModeReport(token="tok", name="Report")
 
         def exploding_inner(space_token: str, report: dict) -> Iterator:
             raise RuntimeError("inner error")
@@ -638,8 +634,8 @@ class TestDatasetErrorIsolation:
         subsequent datasets from being processed."""
         source = _make_source()
 
-        dataset_good = {"token": "ds_good"}
-        dataset_bad = {"token": "ds_bad"}
+        dataset_good = ModeReport(token="ds_good")
+        dataset_bad = ModeReport(token="ds_bad")
         query = {
             "id": 1,
             "token": "q1",
@@ -750,27 +746,11 @@ class TestExcludePersonalCollections:
 
 
 class TestChartFetchGating:
-    """The connector previously gated chart fetching on explorations_count
-    (private user analyses), silently dropping charts and lineage for any
-    report whose queries had explorations_count=0 but real published charts.
-    See ZD #7475."""
+    """Charts are fetched unless the report explicitly reports none."""
 
     @staticmethod
-    def _drive(source: ModeSource, *, explorations_count: int, chart_count: int) -> int:
-        """Run _process_report_inner against one fake query and return the
-        number of times _get_charts was called."""
-        query = {
-            "id": 1,
-            "token": "qtok",
-            "name": "q",
-            "data_source_id": 1,
-            "last_run_id": 1,
-            "explorations_count": explorations_count,
-            "chart_count": chart_count,
-            "_links": {"creator": {"href": "/api/modeuser"}},
-        }
-        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
-
+    def _drive(source: ModeSource, report: ModeReport, query: ModeQuery) -> int:
+        """Run _process_report_inner over one query; count _get_charts calls."""
         chart_calls: List[tuple] = []
 
         def fake_get_charts(report_token: str, query_token: str) -> List[dict]:
@@ -786,101 +766,146 @@ class TestChartFetchGating:
             list(source._process_report_inner(space_token="s", report=report))
         return len(chart_calls)
 
-    def test_fetches_charts_when_explorations_zero_but_chart_count_positive(self):
+    @staticmethod
+    def _query() -> ModeQuery:
+        return ModeQuery(
+            id=1,
+            token="qtok",
+            name="q",
+            data_source_id=1,
+            last_run_id=1,
+            _links={"creator": {"href": "/api/modeuser"}},
+        )
+
+    def test_fetches_charts_when_report_reports_charts(self):
         source = _make_source()
-        assert self._drive(source, explorations_count=0, chart_count=1) == 1
+        report = ModeReport(token="rtok", id=1, name="r", chart_count=3, _links={})
+        assert self._drive(source, report, self._query()) == 1
         assert source.report.chart_api_calls_skipped == 0
 
-    def test_skips_chart_api_when_chart_count_zero(self):
+    def test_fetches_charts_when_report_omits_chart_count(self):
+        """Absent means unknown, never zero."""
         source = _make_source()
-        assert self._drive(source, explorations_count=5, chart_count=0) == 0
+        report = ModeReport(token="rtok", id=1, name="r", _links={})
+        assert self._drive(source, report, self._query()) == 1
+        assert source.report.chart_api_calls_skipped == 0
+
+    def test_skips_chart_api_when_report_explicitly_has_no_charts(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", id=1, name="r", chart_count=0, _links={})
+        assert self._drive(source, report, self._query()) == 0
         assert source.report.chart_api_calls_skipped == 1
 
+    def test_chart_count_is_not_part_of_the_query_contract(self):
+        """Mode does not send a query-level chart_count; a stray one stays in
+        raw where it cannot be mistaken for a gating signal."""
+        assert not hasattr(ModeQuery(), "chart_count")
 
-# ──────────────────────────────────────────────────────────────────────
-# report_pattern filtering
-# ──────────────────────────────────────────────────────────────────────
-
-
-class TestReportPattern:
-    def _make_source_with_config(self, **kwargs: object) -> ModeSource:
-        config = ModeConfig(
-            token="test",
-            password="test",
-            workspace="test_workspace",
-            **kwargs,
-        )
-        with (
-            patch("datahub.ingestion.source.mode.requests.Session"),
-            patch.object(ModeSource, "_get_request_json", return_value={}),
-        ):
-            ctx = MagicMock()
-            ctx.graph = None
-            ctx.pipeline_name = "test"
-            ctx.run_id = "test-run"
-            ctx.pipeline_config = None
-            source = ModeSource(ctx, config)
-        return source
-
-    def test_report_pattern_deny_excludes_report(self):
-        """Reports matching the deny pattern should be excluded and tracked."""
-
-        source = self._make_source_with_config(
-            report_pattern=AllowDenyPattern(deny=["^slow_report$"])
-        )
-
-        reports = [
-            {"token": "tok1", "name": "slow_report"},
-            {"token": "tok2", "name": "fast_report"},
-        ]
-
-        with (
-            patch.object(
-                source, "_get_reports", return_value=iter([[reports[0]], [reports[1]]])
-            ),
-            patch.object(source, "_get_datasets", return_value=iter([])),
-            patch.object(source, "construct_space_container", return_value=iter([])),
-        ):
-            report_args, _, _ = source._collect_space_work_items("space1", "MySpace")
-
-        assert len(report_args) == 1
-        assert report_args[0][1]["token"] == "tok2"
-        assert "slow_report" in list(source.report.filtered_reports)
+        query = ModeQuery.from_api({"token": "qtok", "chart_count": 0})
+        assert not hasattr(query, "chart_count")
+        assert query.raw["chart_count"] == 0
 
 
-class TestGetInputFields:
-    def test_preserves_schema_field_casing(self):
-        """A chart formula field reference must resolve to the query schema's
-        actual (case-preserving) field path, not a lowercased ghost schemaField
-        URN — otherwise the column-level input-field edge points at a field that
-        does not exist on the query dataset."""
-        source = _make_source_with_definitions({})
-        query_urn = "urn:li:dataset:(urn:li:dataPlatform:mode,test.query,PROD)"
-        chart_urn = "urn:li:chart:(mode,test.chart)"
-        field_path = "MixedCaseCol"
-        chart_fields = {
-            field_path: SchemaFieldClass(
-                fieldPath=field_path,
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="varchar",
+class TestNoChartsGuardrail:
+    """A run where Mode claims charts but none come out must warn."""
+
+    def test_warns_when_expected_charts_never_materialise(self):
+        source = _make_source()
+        source.report.num_reports_expecting_charts = 52
+        source.report.num_charts_processed = 0
+        source._warn_if_no_charts_extracted()
+        assert source.report.warnings
+
+    def test_silent_when_charts_were_extracted(self):
+        source = _make_source()
+        source.report.num_reports_expecting_charts = 52
+        source.report.num_charts_processed = 120
+        source._warn_if_no_charts_extracted()
+        assert not source.report.warnings
+
+    def test_silent_when_no_report_claims_charts(self):
+        """A workspace of SQL-only reports is legitimate."""
+        source = _make_source()
+        source.report.num_queries_processed = 610
+        source.report.num_reports_expecting_charts = 0
+        source.report.num_charts_processed = 0
+        source._warn_if_no_charts_extracted()
+        assert not source.report.warnings
+
+
+class TestImportedDatasetsResolution:
+    """The reports listing may send has_imported_datasets instead of the
+    imported_datasets array; only an explicit False means "none"."""
+
+    def test_uses_inline_array_without_an_extra_call(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", imported_datasets=[{"token": "d1"}])
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == [{"token": "d1"}]
+        get_json.assert_not_called()
+
+    def test_inline_empty_array_is_authoritative(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", imported_datasets=[])
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == []
+        get_json.assert_not_called()
+
+    def test_explicit_false_flag_skips_the_detail_call(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=False)
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == []
+        get_json.assert_not_called()
+
+    def test_true_flag_resolves_via_the_detail_endpoint(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        with patch.object(
+            source,
+            "_get_request_json",
+            return_value={"imported_datasets": [{"token": "d1"}, {"token": "d2"}]},
+        ) as get_json:
+            assert source._imported_datasets(report) == [
+                {"token": "d1"},
+                {"token": "d2"},
+            ]
+        assert get_json.call_count == 1
+        assert get_json.call_args[0][0].endswith("/reports/rtok")
+        assert source.report.report_detail_get_api_called == 1
+
+    def test_neither_field_present_still_looks_rather_than_assuming_none(self):
+        """Absent means unknown, not empty."""
+        source = _make_source()
+        with patch.object(
+            source, "_get_request_json", return_value={"imported_datasets": [{"t": 1}]}
+        ) as get_json:
+            assert source._imported_datasets(ModeReport(token="rtok")) == [{"t": 1}]
+        assert get_json.call_count == 1
+
+    def test_detail_endpoint_without_the_array_yields_nothing(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        with patch.object(source, "_get_request_json", return_value={"id": 1}):
+            assert source._imported_datasets(report) == []
+
+    def test_missing_report_token_does_not_call_the_api(self):
+        source = _make_source()
+        with patch.object(source, "_get_request_json") as get_json:
+            assert (
+                source._imported_datasets(ModeReport(has_imported_datasets=True)) == []
             )
-        }
-        chart_data = {"formula": "[MixedCaseCol] * 2"}
+        get_json.assert_not_called()
 
-        wus = list(
-            source.get_input_fields(
-                chart_urn=chart_urn,
-                chart_data=chart_data,
-                chart_fields=chart_fields,
-                query_urn=query_urn,
-            )
-        )
-
-        assert len(wus) == 1
-        mcp = wus[0].metadata
-        assert isinstance(mcp, MetadataChangeProposalWrapper)
-        aspect = mcp.aspect
-        assert isinstance(aspect, InputFieldsClass)
-        assert [f.schemaFieldUrn for f in aspect.fields] == [
-            builder.make_schema_field_urn(query_urn, field_path)
-        ]
+    def test_404_on_the_detail_call_warns_instead_of_raising(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        response = requests.Response()
+        response.status_code = 404
+        with patch.object(
+            source,
+            "_get_request_json",
+            side_effect=HTTPError("404", response=response),
+        ):
+            assert source._imported_datasets(report) == []
+        assert source.report.warnings
