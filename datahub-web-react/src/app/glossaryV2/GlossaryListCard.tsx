@@ -130,7 +130,7 @@ const GlossaryListCard = (props: Props) => {
     return (
         <EntityDetailsWrapper>
             <EntityTitleWrapper>
-                <StyledIcon color={glossaryColor} icon={Icon} size={40} iconSize={16} />
+                <StyledIcon color={glossaryColor} icon={Icon} size={40} iconSize={16} weight="regular" />
                 <NameAndDescription>
                     <EntityName>{name}</EntityName>
                     {description && (

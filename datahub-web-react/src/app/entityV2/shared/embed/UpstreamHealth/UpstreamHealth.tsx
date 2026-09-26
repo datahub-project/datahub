@@ -218,10 +218,10 @@ export default function UpstreamHealth() {
             >
                 <TitleWrapper isOpen={isOpen} onClick={() => setIsOpen(!isOpen)}>
                     <Header>
-                        <WarningCircle color={themeConfig.colors.textError} size={18} />
+                        <WarningCircle color={themeConfig.colors.iconError} size={18} />
                         <Title>{t('upstream.unhealthy')}</Title>
                     </Header>
-                    <StyledArrow isOpen={isOpen} />
+                    <StyledArrow $isOpen={isOpen} />
                 </TitleWrapper>
                 {isOpen && (
                     <UpstreamEntitiesList

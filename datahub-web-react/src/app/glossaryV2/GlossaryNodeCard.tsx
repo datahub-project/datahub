@@ -81,7 +81,15 @@ const GlossaryNodeCard = (props: Props) => {
     return (
         <Card
             title={name}
-            icon={<GlossaryColoredIcon color={glossaryColor} icon={BookmarksSimple} size={40} iconSize={22} />}
+            icon={
+                <GlossaryColoredIcon
+                    color={glossaryColor}
+                    icon={BookmarksSimple}
+                    size={40}
+                    iconSize={22}
+                    weight="regular"
+                />
+            }
             iconAlignment="horizontal"
             onClick={() => {}}
             style={{ overflow: 'hidden', width: '100%', height: '100%', minWidth: 0 }}

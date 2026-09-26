@@ -1,11 +1,9 @@
-import { Icon, Popover } from '@components';
+import { Dropdown, Icon, Popover } from '@components';
 import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { House } from '@phosphor-icons/react/dist/csr/House';
-import { Button, Dropdown } from 'antd';
-import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import * as QueryString from 'query-string';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +21,7 @@ import { EntityType, LineageDirection } from '@types';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;
+type DropdownItem = NonNullable<NonNullable<React.ComponentProps<typeof Dropdown>['menu']>['items']>[number];
 
 const Wrapper = styled.div`
     border-radius: 4px;
@@ -40,22 +39,19 @@ const MenuItemContent = styled.div`
     font-size: 12px;
 `;
 
-const StyledButton = styled(Button)`
+const StyledButton = styled.button`
     height: min-content;
     padding: 0;
     border: none;
+    background: transparent;
     box-shadow: none;
     transition: none;
+    cursor: pointer;
+    color: inherit;
 
     display: flex;
     align-items: center;
     justify-content: center;
-
-    .ant-dropdown {
-        top: 20px !important;
-        left: auto !important;
-        right: 0 !important;
-    }
 `;
 
 const PopoverContent = styled.span`
@@ -140,7 +136,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
     const isUpstreamDisabled = disableUpstream || !hasValidUpstreamTypes || !canEditLineage;
     const isManualLineageSupported = ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(node.type);
 
-    const items: ItemType[] = [];
+    const items: DropdownItem[] = [];
 
     if (!isRootUrn) {
         items.push({
@@ -207,14 +203,14 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
     if (!items.length) return null;
     return (
         <Wrapper>
-            <StyledButton onClick={handleMenuClick} type="text" data-testid={`manage-lineage-menu-${node.urn}`}>
+            <StyledButton onClick={handleMenuClick} type="button" data-testid={`manage-lineage-menu-${node.urn}`}>
                 <Dropdown
                     open={isOpen}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
                     placement="topRight"
                     menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${theme.colors.border}` } }}
                 >
-                    <Icon icon={DotsThreeVertical} color="gray" />
+                    <Icon icon={DotsThreeVertical} color="icon" />
                 </Dropdown>
             </StyledButton>
             {isModalVisible && (
