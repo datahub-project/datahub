@@ -1,6 +1,9 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
+
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -25,6 +28,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntit
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -54,6 +58,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
   private final TimeseriesAspectService timeseriesAspectService;
+  private final String idHashAlgo;
   private final MultiEntityMappingsBuilder mappingsBuilder;
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
   private static final Set<String> STRATEGY_OWNED_DOCUMENT_FIELDS =
@@ -75,10 +80,30 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
+        "MD5",
+        false,
+        timeseriesThrottleCache);
+  }
+
+  public UpdateIndicesV3Strategy(
+      @Nonnull EntityIndexVersionConfiguration v3Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String idHashAlgo,
+      boolean v2Enabled,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
+    this(
+        v3Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        idHashAlgo,
         timeseriesThrottleCache,
         new Sha256UrnEntityDocumentIdHasher(),
         List.of(),
-        false);
+        v2Enabled,
+        null);
   }
 
   public UpdateIndicesV3Strategy(
@@ -94,10 +119,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
+        "MD5",
         timeseriesThrottleCache,
         entityDocumentIdHasher,
         documentContributors,
-        false);
+        false,
+        null);
   }
 
   public UpdateIndicesV3Strategy(
@@ -114,6 +141,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
+        "MD5",
         timeseriesThrottleCache,
         entityDocumentIdHasher,
         documentContributors,
@@ -126,6 +154,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull ElasticSearchService elasticSearchService,
       @Nonnull SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String idHashAlgo,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
       @Nonnull EntityDocumentIdHasher entityDocumentIdHasher,
       @Nonnull List<V3SearchDocumentContributor> documentContributors,
@@ -135,6 +164,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
     this.timeseriesAspectService = timeseriesAspectService;
+    this.idHashAlgo = idHashAlgo;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
     this.entityDocumentIdHasher = entityDocumentIdHasher;
     this.documentContributors =
@@ -174,6 +204,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
       log.debug("Processing {} events for URN: {} with V3 unified batch", urnEvents.size(), urn);
 
+      if (!v2Enabled) {
+        processTimeseriesAspectUpdatesForUrnGroup(opContext, urnEvents, throttleSummary);
+      }
+
       // V3 optimization: single operation per URN regardless of aspect count
       processUrnBatch(opContext, urn, urnEvents, structuredPropertiesHookEnabled, throttleSummary);
     }
@@ -181,6 +215,153 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     if (throttleSummary != null) {
       throttleSummary.logIfSuppressed();
     }
+  }
+
+  /**
+   * When V2 is disabled, V3 must drive dedicated timeseries index upserts. Timeseries MCL deletes
+   * retain the historical Elasticsearch behavior and are not applied here.
+   */
+  private void processTimeseriesAspectUpdatesForUrnGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<MCLItem> urnEvents,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
+    for (MCLItem event : urnEvents) {
+      if (!UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+        continue;
+      }
+      boolean timeseries;
+      try {
+        timeseries = event.getAspectSpec().isTimeseries();
+      } catch (RuntimeException e) {
+        handleTimeseriesWriteFailure(opContext, event, e, "timeseries_update_failed", "update");
+        continue;
+      }
+      if (!timeseries) {
+        continue;
+      }
+      runTimeseriesIndexWriteThrottled(
+          event,
+          throttleSummary,
+          () -> {
+            try {
+              updateTimeseriesFieldsForEvent(opContext, event);
+            } catch (RuntimeException e) {
+              handleTimeseriesWriteFailure(
+                  opContext, event, e, "timeseries_update_failed", "update");
+            }
+          });
+    }
+  }
+
+  /**
+   * Gate dedicated timeseries index writes the same way V2 gates {@code timeseriesIndexWrite}.
+   * Entity-index suppression is handled in {@link #buildV3SearchDocument}.
+   */
+  private void runTimeseriesIndexWriteThrottled(
+      @Nonnull MCLItem event,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary,
+      @Nonnull Runnable timeseriesIndexWrite) {
+    if (timeseriesThrottleCache == null) {
+      timeseriesIndexWrite.run();
+      return;
+    }
+
+    boolean tsEnabled = timeseriesThrottleCache.isTimeseriesIndexEnabled();
+    boolean observeEnabled = timeseriesThrottleCache.isObserveEnabled();
+    if (!tsEnabled && !observeEnabled) {
+      timeseriesIndexWrite.run();
+      return;
+    }
+
+    long eventTimeMs =
+        event.getAuditStamp() != null
+            ? event.getAuditStamp().getTime()
+            : System.currentTimeMillis();
+    boolean throttled =
+        timeseriesThrottleCache.shouldThrottle(
+            event.getEntitySpec().getName(),
+            event.getUrn().toString(),
+            event.getAspectName(),
+            eventTimeMs);
+
+    if (throttled && tsEnabled) {
+      if (throttleSummary != null) {
+        throttleSummary.recordSuppressed(
+            TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+    } else {
+      timeseriesIndexWrite.run();
+      if (throttleSummary != null) {
+        throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+    }
+
+    if (throttled && observeEnabled && throttleSummary != null) {
+      throttleSummary.recordObserved();
+    }
+  }
+
+  /** Postgres SoT fails the MCL path; Elasticsearch keeps historical warn-and-skip behavior. */
+  private void handleTimeseriesWriteFailure(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nonnull RuntimeException e,
+      @Nonnull String metricName,
+      @Nonnull String opLabel) {
+    if (timeseriesAspectService.shouldPropagateWriteFailures()) {
+      throw e;
+    }
+    log.warn(
+        "V3 timeseries {} failed for urn {} aspect {}: {}",
+        opLabel,
+        event.getUrn(),
+        event.getAspectName(),
+        e.getMessage());
+    opContext
+        .getMetricUtils()
+        .ifPresent(metricUtils -> metricUtils.increment(this.getClass(), metricName, 1));
+  }
+
+  private void updateTimeseriesFieldsForEvent(
+      @Nonnull OperationContext opContext, @Nonnull MCLItem event) {
+    log.debug(
+        "Updating V3 timeseries fields for entity: {} aspect: {}",
+        event.getUrn(),
+        event.getAspectName());
+
+    Urn urn = event.getUrn();
+    String entityType = event.getEntitySpec().getName();
+    String aspectName = event.getAspectName();
+    Object aspect = event.getRecordTemplate();
+    AspectSpec aspectSpec = event.getAspectSpec();
+    SystemMetadata systemMetadata = event.getSystemMetadata();
+
+    if (!aspectSpec.isTimeseries()) {
+      log.debug("Aspect {} is not timeseries, skipping V3 timeseries update", aspectName);
+      return;
+    }
+
+    Map<String, JsonNode> documents;
+    try {
+      documents =
+          TimeseriesAspectTransformer.transform(
+              urn, (RecordTemplate) aspect, aspectSpec, systemMetadata, idHashAlgo);
+    } catch (JsonProcessingException e) {
+      handleTimeseriesWriteFailure(
+          opContext,
+          event,
+          new IllegalStateException("Failed to generate timeseries document from aspect", e),
+          "timeseries_update_failed",
+          "update");
+      return;
+    }
+
+    documents
+        .entrySet()
+        .forEach(
+            document ->
+                timeseriesAspectService.upsertDocument(
+                    opContext, entityType, aspectName, document.getKey(), document.getValue()));
   }
 
   public void updateIndexMappings(
@@ -439,7 +620,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               }
               continue;
             }
-            if (timeseriesThrottleCache.isObserveEnabled() && throttleSummary != null) {
+            // When V2 is off, runTimeseriesIndexWriteThrottled already recorded observe.
+            if (v2Enabled
+                && timeseriesThrottleCache.isObserveEnabled()
+                && throttleSummary != null) {
               throttleSummary.recordObserved();
             }
           }

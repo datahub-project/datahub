@@ -115,6 +115,7 @@ public class UpdateIndicesStrategyFactory {
       EntityDocumentIdHasher entityDocumentIdHasher,
       ConfigurationProvider configProvider,
       @Autowired(required = false) @Nullable List<V3SearchDocumentContributor> documentContributors,
+      @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
       @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled) {
 
@@ -127,6 +128,7 @@ public class UpdateIndicesStrategyFactory {
         elasticSearchService,
         searchDocumentTransformer,
         timeseriesAspectService,
+        idHashAlgo,
         timeseriesWriteThrottleCache,
         entityDocumentIdHasher,
         documentContributors == null ? List.of() : documentContributors,

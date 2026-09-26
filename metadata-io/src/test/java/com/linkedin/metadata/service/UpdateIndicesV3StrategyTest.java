@@ -16,6 +16,8 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
@@ -23,6 +25,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
@@ -46,6 +49,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -124,6 +128,8 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
+            false, // v2Enabled = false
             null);
   }
 
@@ -432,6 +438,33 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testUpdateIndexMappings_V2Enabled_SkipsProcessing() {
+    // Create strategy with V2 enabled
+    UpdateIndicesV3Strategy v2EnabledStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            true, // v2Enabled = true
+            null);
+
+    // Setup for structured property
+    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
+    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
+    // Execute
+    v2EnabledStrategy.updateIndexMappings(
+        operationContext, testUrn, mockEntitySpec, mockAspectSpec, mockAspect, null);
+
+    // Verify no processing occurred (V2 handles it)
+    verify(elasticSearchService, never())
+        .buildReindexConfigsWithNewStructProp(
+            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
+  }
+
+  @Test
   public void testUpdateIndexMappings_V2Disabled_ProcessesStructuredProperty() throws Exception {
     // Setup for structured property
     when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
@@ -510,6 +543,8 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    "MD5",
+                    false,
                     null));
 
     // Verify the exception message and cause
@@ -533,6 +568,8 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    "MD5",
+                    false,
                     null));
 
     // Verify the exception message and cause
@@ -555,6 +592,8 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
+                    "MD5",
+                    false,
                     null));
 
     // Verify the exception message and cause
@@ -576,6 +615,8 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
+            false,
             null);
 
     // Verify strategy was created successfully
@@ -594,6 +635,8 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
+            false,
             null);
 
     // Verify strategy was created successfully
@@ -612,6 +655,8 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
+            false,
             null);
 
     // Verify strategy was created successfully
@@ -862,6 +907,8 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
+            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -901,6 +948,8 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
+            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -930,6 +979,44 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testThrottle_ObserveModeCountsOnceWhenV2Disabled() throws Exception {
+    TimeseriesWriteThrottleCache cache = spy(buildThrottleCache(false, false, true));
+    TimeseriesWriteThrottleCache.ThrottleSummary summary = spy(cache.newSummary());
+    when(cache.newSummary()).thenReturn(summary);
+    UpdateIndicesV3Strategy throttledStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false,
+            cache);
+
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    throttledStrategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    verify(summary, times(1)).recordObserved();
+  }
+
+  @Test
   public void testThrottle_FirstWritePassesThroughInV3() throws Exception {
     TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
     UpdateIndicesV3Strategy throttledStrategy =
@@ -938,6 +1025,8 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
+            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -974,6 +1063,8 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
+            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -1027,6 +1118,52 @@ public class UpdateIndicesV3StrategyTest {
     // With null throttle cache, all writes proceed
     verify(elasticSearchService)
         .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testThrottle_TimeseriesIndexSuppressesDedicatedWrite() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(false, true, false);
+    UpdateIndicesV3Strategy throttledStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false,
+            cache);
+
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    cache.recordWrite(testUrn.toString(), "datasetProfile", 1_000_000_000L);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    ObjectNode tsDoc = JsonNodeFactory.instance.objectNode();
+    tsDoc.put("urn", testUrn.toString());
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class)) {
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenReturn(Map.of("doc-id", tsDoc));
+      throttledStrategy.processBatch(
+          operationContext,
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+          true);
+    }
+
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(eq(operationContext), anyString(), anyString(), anyString());
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
   }
 
   @Test
@@ -1089,6 +1226,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
             null,
             new Sha256UrnEntityDocumentIdHasher(),
             List.of(),
@@ -1149,6 +1287,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
             null,
             new Sha256UrnEntityDocumentIdHasher(),
             List.of(),
@@ -1202,6 +1341,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
             null,
             new Sha256UrnEntityDocumentIdHasher(),
             List.of(),
@@ -1371,6 +1511,7 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
+            "MD5",
             null,
             new Sha256UrnEntityDocumentIdHasher(),
             List.of(),
@@ -1385,5 +1526,134 @@ public class UpdateIndicesV3StrategyTest {
             eq(operationContext), eq(searchGroup), documentCaptor.capture(), anyString());
     return (ObjectNode)
         new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+  }
+
+  @Test
+  public void testProcessBatch_Timeseries_rethrowsWhenPostgresSoT() throws Exception {
+    UpdateIndicesV3Strategy postgresStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    com.linkedin.data.DataMap tsData = new com.linkedin.data.DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    when(timeseriesAspectService.shouldPropagateWriteFailures()).thenReturn(true);
+    doThrow(new IllegalStateException("pg upsert failed"))
+        .when(timeseriesAspectService)
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    expectThrows(
+        IllegalStateException.class,
+        () -> postgresStrategy.processBatch(operationContext, groupedEvents, true));
+  }
+
+  @Test
+  public void testProcessBatch_Timeseries_swallowsWhenSoftEsPath() throws Exception {
+    UpdateIndicesV3Strategy esStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false,
+            null);
+
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockAspectSpec.getTimeseriesFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockAspectSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(Collections.emptyList());
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+    com.linkedin.data.DataMap tsData = new com.linkedin.data.DataMap();
+    tsData.put("timestampMillis", 1_000_001_000L);
+    when(mockAspect.data()).thenReturn(tsData);
+    doThrow(new RuntimeException("es upsert failed"))
+        .when(timeseriesAspectService)
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
+
+    Map<Urn, List<MCLItem>> groupedEvents =
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+
+    // Soft path: swallow and continue (search batch still proceeds).
+    esStrategy.processBatch(operationContext, groupedEvents, true);
+  }
+
+  @Test
+  public void testProcessBatch_timeseriesJsonFailure_propagatesWhenFailLoud() throws Exception {
+    when(timeseriesAspectService.shouldPropagateWriteFailures()).thenReturn(true);
+    UpdateIndicesV3Strategy failLoud =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false,
+            null);
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class);
+        var util = mockStatic(UpdateIndicesUtil.class)) {
+      util.when(() -> UpdateIndicesUtil.extractSpecPair(any()))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenThrow(new JsonProcessingException("boom") {});
+      Map<Urn, List<MCLItem>> groupedEvents =
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+      expectThrows(
+          IllegalStateException.class,
+          () -> failLoud.processBatch(operationContext, groupedEvents, true));
+    }
+  }
+
+  @Test
+  public void testProcessBatch_timeseriesJsonFailure_continuesWhenSoftMode() throws Exception {
+    UpdateIndicesV3Strategy softStrategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            false,
+            null);
+    when(mockAspectSpec.isTimeseries()).thenReturn(true);
+    when(mockAspectSpec.getName()).thenReturn("datasetProfile");
+    when(mockEvent.getAspectName()).thenReturn("datasetProfile");
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    try (var transformer = mockStatic(TimeseriesAspectTransformer.class);
+        var util = mockStatic(UpdateIndicesUtil.class)) {
+      util.when(() -> UpdateIndicesUtil.extractSpecPair(any()))
+          .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
+      transformer
+          .when(() -> TimeseriesAspectTransformer.transform(any(), any(), any(), any(), any()))
+          .thenThrow(new JsonProcessingException("boom") {});
+      Map<Urn, List<MCLItem>> groupedEvents =
+          Collections.singletonMap(testUrn, Collections.singletonList(mockEvent));
+      softStrategy.processBatch(operationContext, groupedEvents, true);
+    }
+    verify(timeseriesAspectService, never())
+        .upsertDocument(any(), anyString(), anyString(), anyString(), any());
   }
 }
