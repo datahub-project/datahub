@@ -1,5 +1,6 @@
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
+import { latestProfileTimeWithField } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
 import { getIsSiblingsMode } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
@@ -41,8 +42,10 @@ export const useGetStatsData = () => {
     const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
     const rowCount = latestProfile?.rowCount ?? undefined;
     const columnCount = latestProfile?.columnCount ?? entityWithSchema?.schemaMetadata?.fields?.length ?? undefined;
-    const queryCount = queryCountLast30Days ?? totalSqlQueries ?? undefined;
+    const recentQueryCount = queryCountLast30Days ?? totalSqlQueries;
+    const queryCount = recentQueryCount ?? undefined;
     const totalOperations = operationsStats?.dataset?.operationsStats?.aggregations?.totalOperations ?? undefined;
+    const profiles = [latestFullTableProfile, latestPartitionProfile];
 
     return {
         usageStats,
@@ -53,5 +56,10 @@ export const useGetStatsData = () => {
         totalOperations,
         users,
         isSiblingsMode,
+        partitionSpec: latestProfile?.partitionSpec,
+        profileTimestampMillis: latestProfile?.timestampMillis as number | undefined,
+        latestRowCountProfileTime: latestProfileTimeWithField(profiles, 'rowCount'),
+        latestStorageSizeProfileTime: latestProfileTimeWithField(profiles, 'sizeInBytes'),
+        hasRecentUsage: (recentQueryCount ?? 0) > 0,
     };
 };

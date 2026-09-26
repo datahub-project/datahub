@@ -1,5 +1,5 @@
 import { GraphCard, LineChart } from '@components';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
@@ -11,15 +11,14 @@ import GraphPopover from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/gra
 import MonthOverMonthPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MonthOverMonthPill';
 import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
-import {
-    GRAPH_LOOKBACK_WINDOWS,
-    getGraphLookbackWindowsOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import { getGraphLookbackWindowsOptions } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByLookbackWindow from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
+import useProfileGraphLookback, {
+    profileChartEmptyMessage,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
+import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { TimeRange } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
 
 // dayjs format tokens (localized date strings), not user-visible text.
@@ -41,8 +40,9 @@ export default function StorageSizeGraph() {
         graphLookbackWindowsOptions,
         oldestDatasetProfileTime,
     );
-    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOKBACK_WINDOWS.MONTH);
-    const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
+    const { latestStorageSizeProfileTime } = useGetStatsData();
+    const { lookbackWindow, rangeType, selectRangeType, profileTimeMillis, outsideMaxLookback } =
+        useProfileGraphLookback(latestStorageSizeProfileTime, statsEntityUrn);
 
     const { data, loading: dataLoading } = useStorageSizeData(statsEntityUrn ?? undefined, lookbackWindow);
 
@@ -56,10 +56,6 @@ export default function StorageSizeGraph() {
         }
     }, [data, loading, sections.storage, setSectionState, canViewDatasetProfile]);
 
-    useEffect(() => {
-        if (rangeType) setLookbackWindow(GRAPH_LOOKBACK_WINDOWS[rangeType]);
-    }, [rangeType, setLookbackWindow]);
-
     const bytesFormatter = (num: number) => {
         const formattedBytes = formatBytes(num, 2, 'B');
         return `${formatNumberWithoutAbbreviation(formattedBytes.number)} ${formattedBytes.unit}`;
@@ -72,6 +68,7 @@ export default function StorageSizeGraph() {
             title={chartName}
             dataTestId="storage-size-card"
             isEmpty={data.length === 0 || !canViewDatasetProfile}
+            emptyMessage={profileChartEmptyMessage(t, profileTimeMillis, outsideMaxLookback)}
             emptyContent={!canViewDatasetProfile && <NoPermission statName={t('storageSizeGraph.statName')} />}
             loading={loading}
             graphHeight="290px"
@@ -80,7 +77,7 @@ export default function StorageSizeGraph() {
                     <TimeRangeSelect
                         options={timeRangeOptions}
                         values={rangeType ? [rangeType] : []}
-                        onUpdate={setRangeType}
+                        onUpdate={selectRangeType}
                         loading={loading}
                         chartName={chartName}
                     />
