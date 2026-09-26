@@ -12,6 +12,10 @@ subcmd="$1"
 shift
 
 if command -v ruff &>/dev/null; then
+    local_version=$(ruff --version 2>/dev/null | awk '{print $2}')
+    if [ "$local_version" != "$RUFF_VERSION" ]; then
+        echo "warning: local ruff ${local_version} differs from pinned ${RUFF_VERSION}" >&2
+    fi
     exec ruff "$subcmd" "$@"
 fi
 
