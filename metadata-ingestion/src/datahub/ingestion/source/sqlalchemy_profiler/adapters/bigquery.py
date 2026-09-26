@@ -383,10 +383,6 @@ class BigQueryAdapter(PlatformAdapter):
         num_quantiles = len(quantiles)
         return sa.func.approx_quantiles(sa.column(column), num_quantiles)
 
-    def get_sample_clause(self, sample_size: int) -> Optional[str]:
-        """BigQuery uses TABLESAMPLE SYSTEM."""
-        return f"TABLESAMPLE SYSTEM ({sample_size} ROWS)"
-
     def get_column_quantiles(
         self,
         table: sa.Table,
