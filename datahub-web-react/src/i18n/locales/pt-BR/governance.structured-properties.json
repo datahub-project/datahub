@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Adicionar um novo valor à lista de permitidos",
     "allowedValues.anyValueAllowed": "Qualquer valor do tipo <type>{{valueType}}</type> será permitido",
     "allowedValues.descriptionPlaceholder": "Forneça uma descrição",
+    "allowedValues.descriptionTooltip": "Adicionar uma descrição",
+    "allowedValues.dragTooltip": "Arraste para reordenar",
     "allowedValues.editExistingTooltip": "Não é permitido editar valores permitidos existentes",
     "allowedValues.fieldTooltip": "Defina o conjunto de valores válidos para esta propriedade. Se nenhum for fornecido, qualquer valor será permitido",
+    "allowedValues.hideDescriptionTooltip": "Ocultar descrição",
     "allowedValues.removeTooltip": "Remover da lista de valores permitidos",
     "allowedValues.title": "Valores Permitidos",
     "allowedValues.updateButton": "Atualizar Valores Permitidos",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Aplica-se a",
     "appliesTo.titleCapitalized": "Aplica-se A",
     "appliesTo.tooltip": "Selecione os tipos de entidades aos quais esta propriedade pode ser adicionada",
+    "badgeReplaceError": "Propriedade estruturada salva, mas não foi possível atualizar o selo do ativo.",
     "create.nameError": "Por favor, insira o nome",
     "create.namePlaceholder": "Forneça um nome",
     "create.propertyType": "Tipo de Propriedade",
@@ -64,6 +68,7 @@
     "page.subtitle": "Crie e gerencie propriedades personalizadas para seus ativos de dados",
     "page.title": "Propriedades Estruturadas",
     "permissionTooltip": "É necessário ter permissão para gerenciar propriedades estruturadas. Solicite ao administrador do DataHub.",
+    "table.allowedPlatformsColumn": "Plataformas",
     "table.confirmDeleteText": "Tem certeza que deseja excluir? A exclusão removerá esta propriedade estruturada de todos os ativos em que ela está atualmente.",
     "table.confirmDeleteTitle": "Confirmar Exclusão",
     "table.copyUrn": "Copiar URN",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Tipos de Entity",
     "table.noPropertiesYet": "Nenhuma propriedade ainda!",
     "table.noSearchResults": "Nenhum resultado de pesquisa!",
+    "table.typeColumn": "Tipo",
     "updateError": "Falha ao atualizar propriedade estruturada.",
     "updateSuccess": "Propriedade estruturada atualizada!",
     "valueType.dateDescription": "Uma data específica",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Um valor de string",
     "valueType.textLabel": "Texto",
     "valueType.textListDescription": "Uma lista de valores de string",
-    "valueType.textListLabel": "Texto - Lista"
+    "valueType.textListLabel": "Texto - Lista",
+    "viewTitle": "Ver Propriedade Estruturada"
 }

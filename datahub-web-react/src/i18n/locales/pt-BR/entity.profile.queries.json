@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "Consultas que alimentam ativos downstream",
     "queriesTab.highlightedQueriesTitle": "Consultas Destacadas",
     "queriesTab.highlightedQueriesTooltip": "Consultas selecionadas relevantes para este Dataset",
+    "queriesTab.noViewPermission": "Você não tem permissão para ver as consultas deste Dataset.",
+    "queriesTab.queriesTitle": "Consultas",
     "queriesTab.recentQueriesTitle": "Consultas Recentes",
     "queriesTab.recentQueriesTooltip": "Consultas executadas recentemente neste Dataset",
     "queryBuilderModal.createError": "Falha ao criar a consulta! Ocorreu um erro inesperado",

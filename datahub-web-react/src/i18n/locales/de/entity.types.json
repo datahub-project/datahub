@@ -317,6 +317,7 @@
     "user.enterDisplayNameError": "Gib einen Anzeigenamen ein.",
     "user.enterEmailError": "Gib deine E-Mail-Adresse ein",
     "user.imageUrlLabel": "Bild-URL",
+    "user.ingestionActor": "Ingestion",
     "user.invalidPhoneError": "keine gültige Telefonnummer",
     "user.invalidUrlError": "keine gültige URL",
     "user.name": "Person",
@@ -328,5 +329,8 @@
     "user.teamLabel": "Team",
     "user.teamsHeading": "Teams",
     "user.titleRoleLabel": "Titel/Rolle",
+    "tab.outputPorts": "Output-Ports",
+    "dataProduct.outputPortsToggle": "Output-Ports · {{count}}",
+    "dataProduct.allAssetsToggle": "Alle Assets · {{count}}",
     "dataProduct.parentLabel": "Übergeordnetes Data Product"
 }

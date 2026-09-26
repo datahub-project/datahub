@@ -20,6 +20,7 @@
     "descriptionUpdated": "Kuvaus päivitetty",
     "expandTerm": "Laajenna {{label}}",
     "managedTagTooltip": "Tätä tunnistetta hallitaan toisessa alustassa",
+    "managedTermTooltip": "Tätä termiä hallitaan toisessa alustassa",
     "modal.addTagsTitle": "Lisää tunnisteita",
     "modal.addTermsTitle": "Lisää termejä",
     "modal.addTitle": "Lisää {{entity}}",

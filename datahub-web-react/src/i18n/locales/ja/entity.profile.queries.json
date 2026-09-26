@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "下流のAssetで使用されるクエリ",
     "queriesTab.highlightedQueriesTitle": "注目のクエリ",
     "queriesTab.highlightedQueriesTooltip": "このDatasetに関連する厳選されたクエリ",
+    "queriesTab.noViewPermission": "このDatasetのクエリを表示する権限がありません。",
+    "queriesTab.queriesTitle": "クエリ",
     "queriesTab.recentQueriesTitle": "最近のクエリ",
     "queriesTab.recentQueriesTooltip": "このDatasetで最近実行されたクエリ",
     "queryBuilderModal.createError": "クエリの作成に失敗しました!予期しないエラーが発生しました",

@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Добавить новое значение в список разрешённых",
     "allowedValues.anyValueAllowed": "Допустимо любое значение типа <type>{{valueType}}</type>",
     "allowedValues.descriptionPlaceholder": "Укажите описание",
+    "allowedValues.descriptionTooltip": "Добавить описание",
+    "allowedValues.dragTooltip": "Перетащите, чтобы изменить порядок",
     "allowedValues.editExistingTooltip": "Изменение существующих разрешённых значений не допускается",
     "allowedValues.fieldTooltip": "Определите набор допустимых значений для этого свойства. Если ничего не указано, будет разрешено любое значение",
+    "allowedValues.hideDescriptionTooltip": "Скрыть описание",
     "allowedValues.removeTooltip": "Удалить из списка разрешённых значений",
     "allowedValues.title": "Разрешённые значения",
     "allowedValues.updateButton": "Обновить разрешённые значения",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Применяется к",
     "appliesTo.titleCapitalized": "Применяется к",
     "appliesTo.tooltip": "Выберите типы сущностей, к которым можно добавить это свойство",
+    "badgeReplaceError": "Структурированное свойство сохранено, но не удалось обновить значок ассета.",
     "create.nameError": "Пожалуйста, введите название",
     "create.namePlaceholder": "Укажите название",
     "create.propertyType": "Тип свойства",
@@ -64,6 +68,7 @@
     "page.subtitle": "Создавайте и управляйте пользовательскими свойствами для ваших ассетов данных",
     "page.title": "Структурированные свойства",
     "permissionTooltip": "Требуются права на управление структурированными свойствами. Обратитесь к администратору DataHub.",
+    "table.allowedPlatformsColumn": "Платформы",
     "table.confirmDeleteText": "Вы уверены, что хотите удалить? Удаление приведёт к исчезновению этого свойства со всех ассетов, где оно сейчас установлено.",
     "table.confirmDeleteTitle": "Подтвердите удаление",
     "table.copyUrn": "Скопировать Urn",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Типы сущностей",
     "table.noPropertiesYet": "Свойств пока нет!",
     "table.noSearchResults": "Результатов поиска нет!",
+    "table.typeColumn": "Тип",
     "updateError": "Не удалось обновить структурированное свойство.",
     "updateSuccess": "Структурированное свойство обновлено!",
     "valueType.dateDescription": "Конкретная дата",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Строковое значение",
     "valueType.textLabel": "Текст",
     "valueType.textListDescription": "Список строковых значений",
-    "valueType.textListLabel": "Текст — список"
+    "valueType.textListLabel": "Текст — список",
+    "viewTitle": "Просмотр структурированного свойства"
 }

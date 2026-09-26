@@ -17,6 +17,7 @@
     "executions.cancelError": "Не удалось отменить выполнение!: \n {{errorMessage}}",
     "executions.cancelSuccess": "Запрос на отмену успешно отправлен!",
     "executions.cliExecution": "Выполнение через CLI",
+    "executions.cliExecutionBy": "Выполнено через CLI <user></user>",
     "executions.colDuration": "Длительность",
     "executions.colExecutedBy": "Выполнил(а)",
     "executions.colStartedAt": "Начато",

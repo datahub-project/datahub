@@ -64,6 +64,8 @@
     "incidentStage.noAction": "無需處理",
     "incidentStage.triage": "分級處理",
     "input.placeholder": "預留位置",
+    "multiSelectInput.clearAllAriaLabel": "清除所有標籤",
+    "multiSelectInput.removeTagAriaLabel": "移除 {{tag}}",
     "loadedImage.error": "找不到圖片",
     "loadedVideo.error": "無法載入影片",
     "loadedVideo.unsupportedFallback": "你的瀏覽器不支援 HTML5 影片，請改用這個<anchor>影片連結</anchor>。",

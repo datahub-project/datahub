@@ -21,6 +21,7 @@
     "deactivate": "Deaktiver",
     "delete": "Slett",
     "disable": "Deaktiver",
+    "discard": "Forkast",
     "disconnect": "Koble fra",
     "dismiss": "Lukk",
     "done": "Ferdig",
@@ -83,5 +84,10 @@
     "viewAllCount": "Vis alle ({{count}})",
     "viewLess": "Vis mindre",
     "viewMore": "Vis mer",
-    "yes": "Ja"
+    "yes": "Ja",
+    "documentationAdded": "Dokumentasjon lagt til",
+    "documentationRemoved": "Dokumentasjon fjernet",
+    "documentationUpdated": "Dokumentasjon oppdatert",
+    "showDiff": "vis forskjeller",
+    "hideDiff": "skjul forskjeller"
 }

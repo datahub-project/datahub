@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "ロジック",
     "viewDefinitionTab.materializedFalse": "False",
     "viewDefinitionTab.materializedLabel": "マテリアライズ",
-    "viewDefinitionTab.materializedTrue": "True"
+    "viewDefinitionTab.materializedTrue": "True",
+    "viewDefinitionTab.noViewPermission": "このビューのSQLロジックを表示する権限がありません。"
 }

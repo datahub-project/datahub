@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "Spørringer som driver nedstrømsressurser",
     "queriesTab.highlightedQueriesTitle": "Fremhevede spørringer",
     "queriesTab.highlightedQueriesTooltip": "Kuraterte spørringer som er relevante for dette datasettet",
+    "queriesTab.noViewPermission": "Du har ikke tillatelse til å se spørringer for dette datasettet.",
+    "queriesTab.queriesTitle": "Spørringer",
     "queriesTab.recentQueriesTitle": "Siste spørringer",
     "queriesTab.recentQueriesTooltip": "Spørringer som nylig er kjørt mot dette datasettet",
     "queryBuilderModal.createError": "Kunne ikke opprette spørringen! En uventet feil oppstod",

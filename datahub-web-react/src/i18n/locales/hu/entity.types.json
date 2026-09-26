@@ -317,6 +317,7 @@
     "user.enterDisplayNameError": "Adjon meg egy megjelenítendő nevet.",
     "user.enterEmailError": "Adja meg az e-mail-címét",
     "user.imageUrlLabel": "Kép URL-je",
+    "user.ingestionActor": "Adatbetöltés",
     "user.invalidPhoneError": "nem érvényes telefonszám",
     "user.invalidUrlError": "nem érvényes URL",
     "user.name": "Személy",
@@ -328,5 +329,8 @@
     "user.teamLabel": "Csapat",
     "user.teamsHeading": "Csapatok",
     "user.titleRoleLabel": "Beosztás/Szerepkör",
+    "tab.outputPorts": "Kimeneti portok",
+    "dataProduct.outputPortsToggle": "Kimeneti portok · {{count}}",
+    "dataProduct.allAssetsToggle": "Összes eszköz · {{count}}",
     "dataProduct.parentLabel": "Szülő Data Product"
 }

@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Legg til en ny verdi i listen over tillatte verdier",
     "allowedValues.anyValueAllowed": "Enhver verdi av typen <type>{{valueType}}</type> er tillatt",
     "allowedValues.descriptionPlaceholder": "Oppgi en beskrivelse",
+    "allowedValues.descriptionTooltip": "Legg til en beskrivelse",
+    "allowedValues.dragTooltip": "Dra for å endre rekkefølge",
     "allowedValues.editExistingTooltip": "Det er ikke tillatt å redigere eksisterende tillatte verdier",
     "allowedValues.fieldTooltip": "Definer settet med gyldige verdier for denne egenskapen. Hvis ingen oppgis, er alle verdier tillatt",
+    "allowedValues.hideDescriptionTooltip": "Skjul beskrivelse",
     "allowedValues.removeTooltip": "Fjern fra listen over tillatte verdier",
     "allowedValues.title": "Tillatte verdier",
     "allowedValues.updateButton": "Oppdater tillatte verdier",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Gjelder for",
     "appliesTo.titleCapitalized": "Gjelder for",
     "appliesTo.tooltip": "Velg hvilke entitetstyper denne egenskapen kan legges til på",
+    "badgeReplaceError": "Den strukturerte egenskapen ble lagret, men ressursmerket kunne ikke oppdateres.",
     "create.nameError": "Angi navnet",
     "create.namePlaceholder": "Oppgi et navn",
     "create.propertyType": "Egenskapstype",
@@ -64,6 +68,7 @@
     "page.subtitle": "Opprett og administrer egendefinerte egenskaper for dataressursene dine",
     "page.title": "Strukturerte egenskaper",
     "permissionTooltip": "Du må ha tillatelse til å administrere strukturerte egenskaper. Spør DataHub-administratoren din.",
+    "table.allowedPlatformsColumn": "Plattformer",
     "table.confirmDeleteText": "Er du sikker på at du vil slette? Sletting fjerner denne strukturerte egenskapen fra alle ressurser den for øyeblikket er knyttet til.",
     "table.confirmDeleteTitle": "Bekreft sletting",
     "table.copyUrn": "Kopier URN",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Entitetstyper",
     "table.noPropertiesYet": "Ingen egenskaper ennå!",
     "table.noSearchResults": "Ingen søkeresultater!",
+    "table.typeColumn": "Type",
     "updateError": "Kunne ikke oppdatere strukturert egenskap.",
     "updateSuccess": "Strukturert egenskap oppdatert!",
     "valueType.dateDescription": "En bestemt dato",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "En tekstverdi",
     "valueType.textLabel": "Tekst",
     "valueType.textListDescription": "En liste over tekstverdier",
-    "valueType.textListLabel": "Tekst – liste"
+    "valueType.textListLabel": "Tekst – liste",
+    "viewTitle": "Vis strukturert egenskap"
 }

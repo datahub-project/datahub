@@ -1,5 +1,13 @@
 {
     "allTime": "すべての期間",
+    "compactDaysAgo_other": "{{count}}日前",
+    "compactHoursAgo_other": "{{count}}時間前",
+    "compactJustNow": "たった今",
+    "compactMinutesAgo_other": "{{count}}分前",
+    "compactMonthsAgo_other": "{{count}}か月前",
+    "compactSecondsAgo_other": "{{count}}秒前",
+    "compactWeeksAgo_other": "{{count}}週間前",
+    "compactYearsAgo_other": "{{count}}年前",
     "dateRange": "{{startDate}} - {{endDate}}",
     "durationHoursCount_other": "{{count}}時間",
     "durationMinutesCount_other": "{{count}}分",

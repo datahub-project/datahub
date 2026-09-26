@@ -8,6 +8,8 @@
     "queriesTab.downstreamQueriesTooltip": "Query che alimentano gli asset a valle",
     "queriesTab.highlightedQueriesTitle": "Query in evidenza",
     "queriesTab.highlightedQueriesTooltip": "Query selezionate rilevanti per questo Dataset",
+    "queriesTab.noViewPermission": "Non si dispone dell'autorizzazione per visualizzare le query di questo Dataset.",
+    "queriesTab.queriesTitle": "Query",
     "queriesTab.recentQueriesTitle": "Query recenti",
     "queriesTab.recentQueriesTooltip": "Query eseguite di recente su questo Dataset",
     "queryBuilderModal.createError": "Creazione della Query non riuscita! Si è verificato un errore imprevisto",

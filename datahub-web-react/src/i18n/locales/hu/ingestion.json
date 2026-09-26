@@ -59,6 +59,7 @@
     "filters.allStatuses": "Összes állapot",
     "filters.cli": "CLI",
     "filters.resultStatus": "Eredmény állapota",
+    "filters.sourceType": "Forrástípus",
     "filters.ui": "UI",
     "page.noPermissionTooltip": "Nincs jogosultsága a művelet végrehajtására. További információért forduljon a DataHub-adminisztrátorhoz.",
     "page.subtitle": "Szinkronizálások beállítása és ütemezése az adatforrásokból történő adatimportáláshoz",

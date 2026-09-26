@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "Logika",
     "viewDefinitionTab.materializedFalse": "Nem",
     "viewDefinitionTab.materializedLabel": "Materializált",
-    "viewDefinitionTab.materializedTrue": "Igen"
+    "viewDefinitionTab.materializedTrue": "Igen",
+    "viewDefinitionTab.noViewPermission": "Nincs jogosultsága a nézet SQL-logikájának megtekintéséhez."
 }

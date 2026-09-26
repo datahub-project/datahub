@@ -120,6 +120,7 @@
     "users.columns.name": "Название",
     "users.columns.role": "Роль",
     "users.columns.status": "Статус",
+    "users.copyUrn": "Скопировать URN",
     "users.deleteUser": "Удалить пользователя",
     "users.emptyTitle": "Пользователей нет!",
     "users.groups.overflowTitle": "Группы",
@@ -148,5 +149,6 @@
     "users.statusFilter.placeholder": "Статус",
     "users.statusFilter.suspended": "Заблокирован",
     "users.statusInactive": "Неактивен",
-    "users.statusNoUrn": "Нет URN"
+    "users.statusNoUrn": "Нет URN",
+    "users.urnCopied": "URN скопирован в буфер обмена"
 }

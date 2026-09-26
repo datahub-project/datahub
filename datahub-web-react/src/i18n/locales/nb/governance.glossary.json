@@ -18,5 +18,11 @@
     "sidebar.collapse": "Fold sammen ordlisten",
     "sidebar.expand": "Utvid ordlisten",
     "sidebar.home": "Ordlistens startside",
-    "sidebar.section.allTerms": "Alle begreper"
+    "sidebar.ownerFilter.label": "Eiere",
+    "sidebar.ownerFilter.placeholder": "Filtrer etter eier",
+    "sidebar.domainFilter.label": "Domener",
+    "sidebar.domainFilter.placeholder": "Filtrer etter domene",
+    "sidebar.section.allTerms": "Alle begreper",
+    "sidebar.tagFilter.label": "Tags",
+    "sidebar.tagFilter.placeholder": "Filtrer etter tag"
 }

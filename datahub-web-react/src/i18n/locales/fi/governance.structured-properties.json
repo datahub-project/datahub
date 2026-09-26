@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Lisää uusi arvo sallittujen arvojen luetteloon",
     "allowedValues.anyValueAllowed": "Mikä tahansa <type>{{valueType}}</type>-tyyppinen arvo on sallittu",
     "allowedValues.descriptionPlaceholder": "Anna kuvaus",
+    "allowedValues.descriptionTooltip": "Lisää kuvaus",
+    "allowedValues.dragTooltip": "Järjestä uudelleen vetämällä",
     "allowedValues.editExistingTooltip": "Olemassa olevien sallittujen arvojen muokkaaminen ei ole sallittua",
     "allowedValues.fieldTooltip": "Määritä tälle ominaisuudelle kelvolliset arvot. Jos yhtään ei anneta, mikä tahansa arvo on sallittu",
+    "allowedValues.hideDescriptionTooltip": "Piilota kuvaus",
     "allowedValues.removeTooltip": "Poista sallittujen arvojen luettelosta",
     "allowedValues.title": "Sallitut arvot",
     "allowedValues.updateButton": "Päivitä sallitut arvot",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Koskee",
     "appliesTo.titleCapitalized": "Koskee",
     "appliesTo.tooltip": "Valitse entiteettityypit, joihin tämän ominaisuuden voi lisätä",
+    "badgeReplaceError": "Jäsennelty ominaisuus tallennettiin, mutta kohdemerkkiä ei voitu päivittää.",
     "create.nameError": "Anna nimi",
     "create.namePlaceholder": "Anna nimi",
     "create.propertyType": "Ominaisuustyyppi",
@@ -64,6 +68,7 @@
     "page.subtitle": "Luo ja hallinnoi mukautettuja ominaisuuksia kohteillesi",
     "page.title": "Jäsennellyt ominaisuudet",
     "permissionTooltip": "Jäsenneltyjen ominaisuuksien hallinta edellyttää käyttöoikeutta. Ota yhteyttä DataHub-pääkäyttäjääsi.",
+    "table.allowedPlatformsColumn": "Alustat",
     "table.confirmDeleteText": "Haluatko varmasti poistaa? Poistaminen poistaa tämän jäsennellyn ominaisuuden kaikista kohteista, joissa se tällä hetkellä on.",
     "table.confirmDeleteTitle": "Vahvista poisto",
     "table.copyUrn": "Kopioi URN",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Entiteettityypit",
     "table.noPropertiesYet": "Ei vielä ominaisuuksia!",
     "table.noSearchResults": "Ei hakutuloksia!",
+    "table.typeColumn": "Tyyppi",
     "updateError": "Jäsennellyn ominaisuuden päivittäminen epäonnistui.",
     "updateSuccess": "Jäsennelty ominaisuus päivitetty!",
     "valueType.dateDescription": "Tietty päivämäärä",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Merkkijonoarvo",
     "valueType.textLabel": "Teksti",
     "valueType.textListDescription": "Luettelo merkkijonoarvoista",
-    "valueType.textListLabel": "Teksti - luettelo"
+    "valueType.textListLabel": "Teksti - luettelo",
+    "viewTitle": "Näytä jäsennelty ominaisuus"
 }

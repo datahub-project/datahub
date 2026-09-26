@@ -8,5 +8,6 @@
     "viewDefinitionTab.logicHeading": "邏輯",
     "viewDefinitionTab.materializedFalse": "否",
     "viewDefinitionTab.materializedLabel": "已具體化",
-    "viewDefinitionTab.materializedTrue": "是"
+    "viewDefinitionTab.materializedTrue": "是",
+    "viewDefinitionTab.noViewPermission": "你沒有檢視此檢視 SQL 邏輯的權限。"
 }
