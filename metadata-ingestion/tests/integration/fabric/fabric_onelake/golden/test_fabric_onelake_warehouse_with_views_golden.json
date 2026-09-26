@@ -270,6 +270,22 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fabric-onelake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-9e6goa",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.v_total_orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
@@ -281,6 +297,82 @@
     "systemMetadata": {
         "lastObserved": 1705320000000,
         "runId": "fabric-onelake-2024_01_15-12_00_00-e59scd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "orders",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-9e6goa",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "",
+            "platform": "urn:li:dataPlatform:fabric-onelake",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "order_id",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "amount",
+                    "nullable": false,
+                    "description": "",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "decimal",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-9e6goa",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -344,6 +436,40 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a5b2776e9db803968ee838c704985175"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-9e6goa",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-9e6goa",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.v_total_orders,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -375,6 +501,35 @@
     "systemMetadata": {
         "lastObserved": 1705320000000,
         "runId": "fabric-onelake-2024_01_15-12_00_00-e59scd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1",
+                    "urn": "urn:li:container:7db4f4e3c5968c90bc8c6ece02025fb1"
+                },
+                {
+                    "id": "urn:li:container:202f2856c351aeedc2c982f30dd90de4",
+                    "urn": "urn:li:container:202f2856c351aeedc2c982f30dd90de4"
+                },
+                {
+                    "id": "urn:li:container:a5b2776e9db803968ee838c704985175",
+                    "urn": "urn:li:container:a5b2776e9db803968ee838c704985175"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-9e6goa",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -445,7 +600,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.v_total_orders,PROD),order_id)"
                     ],
                     "transformOperation": "COPY: [orders].[order_id] AS [order_id]",
-                    "confidenceScore": 0.2,
+                    "confidenceScore": 0.9,
                     "query": "urn:li:query:view_972e9f2df7c33923f9dcc02bea208d4e581e8e0cc403f997d93524a62b0bbf95"
                 },
                 {
@@ -458,7 +613,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.v_total_orders,PROD),total)"
                     ],
                     "transformOperation": "SQL: SUM([orders].[amount]) AS [total]",
-                    "confidenceScore": 0.2,
+                    "confidenceScore": 0.9,
                     "query": "urn:li:query:view_972e9f2df7c33923f9dcc02bea208d4e581e8e0cc403f997d93524a62b0bbf95"
                 }
             ]
@@ -466,7 +621,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1705320000000,
-        "runId": "fabric-onelake-2024_01_15-12_00_00-ya8ozm",
+        "runId": "fabric-onelake-2024_01_15-12_00_00-9e6goa",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -624,6 +779,22 @@
     "systemMetadata": {
         "lastObserved": 1705320000000,
         "runId": "fabric-onelake-2024_01_15-12_00_00-e59scd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-123.wh-789.dbo.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1705320000000,
+        "runId": "fabric-onelake-2024_01_15-12_00_00-9e6goa",
         "lastRunId": "no-run-id-provided"
     }
 },

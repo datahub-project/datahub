@@ -22,10 +22,11 @@ def make_row(
     login_name: str | None = "alice@example.com",
     start_time: datetime | None = None,
     status: str = "Succeeded",
+    statement_type: str = "SELECT",
 ) -> FabricQueryInsightsRow:
     return FabricQueryInsightsRow(
         start_time=start_time or QUERY_TS,
-        statement_type="SELECT",
+        statement_type=statement_type,
         status=status,
         command=command,
         login_name=login_name,
@@ -345,3 +346,164 @@ def test_normalize_timestamp_non_utc_converted_to_utc() -> None:
 def test_normalize_timestamp_already_utc_returns_utc() -> None:
     aware = datetime(2026, 5, 11, 10, 0, 0, tzinfo=timezone.utc)
     assert normalize_timestamp_to_utc(aware) == aware
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        # Bodies of the ODBC driver's catalog procedures.
+        "set @ODBCVer = 3",
+        "if @data_type = 0",
+        "if @ODBCVer < 3",
+        "declare @x int",
+        "exec sp_columns @table_name = N'customers'",
+        "EXECUTE sys.sp_tables",
+        "  -- driver probe\n/* catalog */ SET NOCOUNT ON",
+        "BEGIN TRANSACTION",
+        "COMMIT",
+        "WHILE @i < 10",
+        "RETURN",
+    ],
+)
+def test_handle_row_skips_procedural_statements(command: str) -> None:
+    extractor, aggregator, report = make_extractor()
+    extractor._handle_row(
+        make_row(command=command, statement_type="OTHER"),
+        WORKSPACE_ID,
+        ITEM_ID,
+        ITEM_DISPLAY_NAME,
+    )
+
+    aggregator.add_observed_query.assert_not_called()
+    assert report.num_usage_queries_skipped.get("procedural_statement") == 1
+
+
+def test_handle_row_skips_procedural_statement_type() -> None:
+    extractor, aggregator, report = make_extractor()
+    extractor._handle_row(
+        make_row(command="@ODBCVer = 3", statement_type="SET"),
+        WORKSPACE_ID,
+        ITEM_ID,
+        ITEM_DISPLAY_NAME,
+    )
+
+    aggregator.add_observed_query.assert_not_called()
+    assert report.num_usage_queries_skipped.get("procedural_statement") == 1
+
+
+@pytest.mark.parametrize(
+    "statement_type, command",
+    [
+        ("SELECT", "SELECT * FROM dbo.customers"),
+        ("SELECT", "WITH c AS (SELECT 1 AS x) SELECT x FROM c"),
+        ("SELECT", "(SELECT 1)"),
+        ("UPDATE", "UPDATE dbo.customers SET name = 'x' WHERE id = 1"),
+        ("INSERT", "-- load\nINSERT INTO dbo.t SELECT * FROM dbo.s"),
+        ("CREATE TABLE AS SELECT", "CREATE TABLE dbo.t AS SELECT * FROM dbo.s"),
+        ("MERGE", "MERGE dbo.t USING dbo.s ON t.id = s.id WHEN MATCHED THEN DELETE;"),
+    ],
+)
+def test_handle_row_keeps_dml_ddl_and_select(statement_type: str, command: str) -> None:
+    extractor, aggregator, report = make_extractor()
+    extractor._handle_row(
+        make_row(command=command, statement_type=statement_type),
+        WORKSPACE_ID,
+        ITEM_ID,
+        ITEM_DISPLAY_NAME,
+    )
+
+    aggregator.add_observed_query.assert_called_once()
+    assert not report.num_usage_queries_skipped
+
+
+@pytest.mark.parametrize(
+    "statement_type, command",
+    [
+        (
+            "OTHER",
+            "IF OBJECT_ID('dbo.t') IS NOT NULL DROP TABLE dbo.t; "
+            "CREATE TABLE dbo.t AS SELECT id FROM dbo.s",
+        ),
+        ("OTHER", "SET NOCOUNT ON; INSERT INTO dbo.t SELECT id FROM dbo.s"),
+        ("SET", "SET NOCOUNT ON; UPDATE dbo.t SET id = 1"),
+        ("OTHER", "BEGIN TRAN; DELETE FROM dbo.t; COMMIT"),
+        ("OTHER", "IF @full = 1 SELECT id INTO dbo.t_copy FROM dbo.t"),
+    ],
+)
+def test_handle_row_parses_procedural_rows_that_carry_dml(
+    statement_type: str, command: str
+) -> None:
+    """A row led by a procedural keyword but containing DML / CTAS is parsed
+    (the parser extracts lineage from some of these, e.g. the
+    `IF ... DROP TABLE; CREATE TABLE AS SELECT` pattern) rather than skipped."""
+    extractor, aggregator, report = make_extractor()
+    extractor._handle_row(
+        make_row(command=command, statement_type=statement_type),
+        WORKSPACE_ID,
+        ITEM_ID,
+        ITEM_DISPLAY_NAME,
+    )
+
+    aggregator.add_observed_query.assert_called_once()
+    assert "procedural_statement" not in report.num_usage_queries_skipped
+
+
+def _run_extract_with_login(
+    config: FabricUsageConfig, login: object
+) -> tuple[MagicMock, MagicMock, FabricOneLakeSourceReport]:
+    extractor, aggregator, report = make_extractor(config=config)
+    schema_client = MagicMock()
+    if isinstance(login, Exception):
+        schema_client.get_current_login.side_effect = login
+    else:
+        schema_client.get_current_login.return_value = login
+    schema_client.stream_usage_history.return_value = iter(
+        [
+            make_row(login_name="Svc-Ingest@Example.com"),
+            make_row(login_name="alice@example.com"),
+            make_row(login_name=None),
+        ]
+    )
+    extractor.extract(
+        workspace_id=WORKSPACE_ID,
+        item_id=ITEM_ID,
+        item_display_name=ITEM_DISPLAY_NAME,
+        schema_client=schema_client,
+    )
+    return schema_client, aggregator, report
+
+
+def test_extract_skips_queries_issued_by_the_ingestion_identity() -> None:
+    schema_client, aggregator, report = _run_extract_with_login(
+        FabricUsageConfig(), "svc-ingest@example.com"
+    )
+
+    schema_client.get_current_login.assert_called_once_with(WORKSPACE_ID, ITEM_ID)
+    users = [call.args[0].user for call in aggregator.add_observed_query.call_args_list]
+    assert len(users) == 2
+    assert not any("svc-ingest" in str(user) for user in users)
+    assert report.num_usage_queries_skipped.get("ingestion_identity") == 1
+
+
+def test_extract_keeps_ingestion_identity_queries_when_disabled() -> None:
+    schema_client, aggregator, report = _run_extract_with_login(
+        FabricUsageConfig(skip_ingestion_identity_queries=False),
+        "svc-ingest@example.com",
+    )
+
+    schema_client.get_current_login.assert_not_called()
+    assert aggregator.add_observed_query.call_count == 3
+    assert "ingestion_identity" not in report.num_usage_queries_skipped
+
+
+def test_extract_login_lookup_failure_warns_and_keeps_rows() -> None:
+    _, aggregator, report = _run_extract_with_login(
+        FabricUsageConfig(), RuntimeError("permission denied")
+    )
+
+    assert aggregator.add_observed_query.call_count == 3
+    assert any(
+        w.title == "Failed to Determine Ingestion Identity" for w in report.warnings
+    )
+    # The lookup failure does not fail the item's usage extraction.
+    assert not any(w.title == "Failed to Extract Usage" for w in report.warnings)
