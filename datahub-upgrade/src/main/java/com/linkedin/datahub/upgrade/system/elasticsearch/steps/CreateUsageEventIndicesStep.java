@@ -12,6 +12,7 @@ import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.UUID;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -19,9 +20,19 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class CreateUsageEventIndicesStep implements UpgradeStep {
+  private static final String SKIP_LEGACY_INDEX_MIGRATION_ENV =
+      "SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION";
+
   private final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;
   private final ConfigurationProvider configurationProvider;
   @Nullable private final SearchClusterRegistry searchClusterRegistry;
+  // Retries of this step within one run do not move the legacy index aside again: each attempt
+  // would
+  // leave another clone, all copied back later, and a rollover between those copies duplicates
+  // events. Copying backups back still runs on every attempt.
+  private boolean legacyIndexMoveAttempted = false;
+  // Identifies this run on the legacy migration lease, so its own retries acquire it again.
+  private final String leaseOwner = UUID.randomUUID().toString();
 
   public CreateUsageEventIndicesStep(
       BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents,
@@ -129,7 +140,13 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
         numShards,
         numReplicas,
         prefix);
-    UsageEventIndexUtils.createDataStream(operationContext, cluster, prefixedDataStream);
+    withLegacyMigration(
+        cluster,
+        operationContext,
+        prefix,
+        false,
+        true,
+        () -> UsageEventIndexUtils.createDataStream(operationContext, cluster, prefixedDataStream));
   }
 
   private void setupOpenSearchUsageEvents(
@@ -153,13 +170,98 @@ public class CreateUsageEventIndicesStep implements UpgradeStep {
       log.info("Creating index template: {}", prefixedTemplate);
       UsageEventIndexUtils.createOpenSearchIndexTemplate(
           operationContext, cluster, prefixedTemplate, numShards, numReplicas, prefix);
-      log.info("Creating initial index: {} with alias: {}", prefixedIndex, prefixedAlias);
-      UsageEventIndexUtils.createOpenSearchUsageEventIndex(
-          operationContext, cluster, prefixedIndex, prefixedAlias);
+      withLegacyMigration(
+          cluster,
+          operationContext,
+          prefix,
+          true,
+          true,
+          () -> {
+            log.info("Creating initial index: {} with alias: {}", prefixedIndex, prefixedAlias);
+            UsageEventIndexUtils.createOpenSearchUsageEventIndex(
+                operationContext, cluster, prefixedIndex, prefixedAlias);
+          });
     } else {
       log.warn(
           "ISM policy creation failed or is not supported. Skipping template and index creation to avoid configuration issues.");
       log.info("Usage event tracking will not be available without proper policy configuration.");
+      // A layout an earlier run created may still have backups to copy back.
+      withLegacyMigration(cluster, operationContext, prefix, true, false, null);
+    }
+  }
+
+  @FunctionalInterface
+  private interface LayoutSetup {
+    void run() throws Exception;
+  }
+
+  /**
+   * Creates the usage event layout with a legacy index moved out of its way and its backups copied
+   * back into it, under the legacy migration lease. Copying back runs on every attempt, so a retry
+   * recovers a move that failed after removing the original.
+   */
+  private void withLegacyMigration(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents cluster,
+      OperationContext operationContext,
+      String prefix,
+      boolean useOpenSearch,
+      boolean moveAllowed,
+      @Nullable LayoutSetup layoutSetup)
+      throws Exception {
+    if (EnvironmentUtils.getBoolean(SKIP_LEGACY_INDEX_MIGRATION_ENV, false)) {
+      log.info(
+          "Environment variable {} is set to true. Skipping legacy usage event index migration.",
+          SKIP_LEGACY_INDEX_MIGRATION_ENV);
+      if (layoutSetup != null) {
+        layoutSetup.run();
+      }
+      return;
+    }
+    UsageEventIndexUtils.LegacyMigrationLease lease =
+        UsageEventIndexUtils.acquireLegacyMigrationLease(
+            operationContext,
+            cluster,
+            prefix,
+            leaseOwner,
+            moveAllowed && !legacyIndexMoveAttempted);
+    try {
+      if (lease != null && moveAllowed && !legacyIndexMoveAttempted) {
+        legacyIndexMoveAttempted = true;
+        moveLegacyIndexAside(cluster, operationContext, prefix, useOpenSearch, lease);
+      }
+      if (layoutSetup != null) {
+        layoutSetup.run();
+      }
+      if (lease != null) {
+        UsageEventIndexUtils.startLegacyBackupCopies(
+            operationContext, cluster, prefix, useOpenSearch, lease);
+      }
+    } finally {
+      if (lease != null) {
+        lease.release();
+      }
+    }
+    if (lease != null) {
+      UsageEventIndexUtils.finishLegacyBackupCopies(operationContext, cluster, prefix);
+    }
+  }
+
+  private void moveLegacyIndexAside(
+      BaseElasticSearchComponentsFactory.BaseElasticSearchComponents cluster,
+      OperationContext operationContext,
+      String prefix,
+      boolean useOpenSearch,
+      UsageEventIndexUtils.LegacyMigrationLease lease) {
+    try {
+      UsageEventIndexUtils.moveLegacyUsageEventIndexAside(
+          operationContext, cluster, prefix, useOpenSearch, lease);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.error("Interrupted while moving the legacy usage event index for '{}' aside", prefix, e);
+    } catch (Exception e) {
+      // A move that failed after removing the original is recovered by copying back below; one
+      // that failed earlier left the original in place for a later run.
+      log.error("Failed to move the legacy usage event index for '{}' aside", prefix, e);
     }
   }
 }

@@ -28,6 +28,8 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -125,6 +127,8 @@ public class CreateUsageEventIndicesStepTest {
               }
             });
 
+    Mockito.when(rawResponse.getEntity())
+        .thenReturn(new StringEntity("{}", ContentType.APPLICATION_JSON));
     Mockito.when(
             searchClient.performLowLevelRequest(
                 Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
@@ -682,5 +686,134 @@ public class CreateUsageEventIndicesStepTest {
     Assert.assertEquals(
         convention.getIndexName(upgradeContext.opContext(), "datahub_usage_event"),
         usageIndex.getFinalPrefix() + "datahub_usage_event");
+  }
+
+  @Test
+  public void testExecutable_SkipsLegacyIndexMigrationWhenEnvVarSet() throws Exception {
+    System.setProperty("SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION", "true");
+    try {
+      Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+
+      UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+      Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+      Mockito.verify(searchClient, Mockito.never())
+          .performLowLevelRequest(
+              Mockito.any(OperationFingerprint.class),
+              Mockito.argThat(request -> request.getEndpoint().startsWith("/_resolve/index/")));
+    } finally {
+      System.clearProperty("SKIP_LEGACY_USAGE_EVENT_INDEX_MIGRATION");
+    }
+  }
+
+  @Test
+  public void testExecutable_RetriesDoNotMoveTheLegacyIndexAgainButStillCopyBack()
+      throws Exception {
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    java.util.List<String> calls = new java.util.ArrayList<>();
+    java.util.concurrent.atomic.AtomicReference<String> leaseOwner =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    java.util.concurrent.atomic.AtomicBoolean moved =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class), Mockito.any(Request.class)))
+        .thenAnswer(
+            invocation -> {
+              Request request = invocation.getArgument(1);
+              String call = request.getMethod() + " " + request.getEndpoint();
+              calls.add(call);
+              if (moved.get()) {
+                // The first attempt removed the original and left a backup behind.
+                switch (call) {
+                  case "GET /_resolve/index/test_datahub_usage_event":
+                    return json(
+                        "{\"indices\":[],\"data_streams\":[{\"name\":\"test_datahub_usage_event\"}]}");
+                  case "GET /_resolve/index/test_legacy_datahub_usage_event_*":
+                    return json("{\"indices\":[{\"name\":\"test_legacy_datahub_usage_event_1\"}]}");
+                  case "GET /_data_stream/test_datahub_usage_event":
+                    return json(
+                        "{\"data_streams\":[{\"indices\":[{\"index_name\":\".ds-test-1\"}]}]}");
+                  case "GET /_tasks":
+                    return json("{\"nodes\":{}}");
+                  default:
+                    if (call.startsWith("POST /_reindex")) {
+                      return json("{\"task\":\"node:1\"}");
+                    }
+                }
+              }
+              switch (call) {
+                case "GET /_resolve/index/test_datahub_usage_event":
+                  // Still the legacy plain index: the clone below never starts.
+                  return json("{\"indices\":[{\"name\":\"test_datahub_usage_event\"}]}");
+                case "PUT /test_legacy_datahub_usage_event_lease":
+                  String body =
+                      new String(
+                          request.getEntity().getContent().readAllBytes(),
+                          java.nio.charset.StandardCharsets.UTF_8);
+                  leaseOwner.set(body.replaceAll(".*\"datahub_lease_owner\":\"([^\"]+)\".*", "$1"));
+                  return json("{\"acknowledged\":true}");
+                case "GET /test_legacy_datahub_usage_event_lease/_mapping":
+                  return json(
+                      "{\"test_legacy_datahub_usage_event_lease\":{\"mappings\":{\"_meta\":"
+                          + "{\"datahub_lease_owner\":\""
+                          + leaseOwner.get()
+                          + "\"}}}}");
+                case "GET /test_datahub_usage_event/_settings/index.creation_date":
+                  return json(
+                      "{\"test_datahub_usage_event\":{\"settings\":{\"index\":"
+                          + "{\"creation_date\":\"1000\"}}}}");
+                default:
+                  if (call.contains("/_clone/")) {
+                    return json("{\"acknowledged\":true,\"shards_acknowledged\":false}");
+                  }
+                  return json(call.endsWith("/_count") ? "{\"count\":3}" : "{}");
+              }
+            });
+
+    step.executable().apply(upgradeContext);
+    moved.set(true);
+    step.executable().apply(upgradeContext);
+
+    Assert.assertEquals(calls.stream().filter(call -> call.contains("/_clone/")).count(), 1);
+    // The retry did not move anything again, but copied the backup back.
+    Assert.assertEquals(
+        calls.stream().filter(call -> call.startsWith("POST /_reindex")).count(), 1);
+    // Both attempts took the lease for the copy back and released it.
+    Assert.assertEquals(
+        calls.stream().filter("PUT /test_legacy_datahub_usage_event_lease"::equals).count(), 2);
+    Assert.assertEquals(
+        calls.stream().filter("DELETE /test_legacy_datahub_usage_event_lease"::equals).count(), 2);
+  }
+
+  private static RawResponse json(String body) {
+    RawResponse response = Mockito.mock(RawResponse.class);
+    Mockito.when(response.getStatusLine())
+        .thenReturn(
+            new org.apache.http.message.BasicStatusLine(
+                org.apache.http.HttpVersion.HTTP_1_1, 200, "OK"));
+    Mockito.when(response.getEntity())
+        .thenReturn(new StringEntity(body, ContentType.APPLICATION_JSON));
+    return response;
+  }
+
+  @Test
+  public void testExecutable_LegacyIndexMigrationFailureDoesNotFailTheStep() throws Exception {
+    Mockito.when(searchEngineType.isOpenSearch()).thenReturn(false);
+    Mockito.when(
+            searchClient.performLowLevelRequest(
+                Mockito.any(OperationFingerprint.class),
+                Mockito.argThat(request -> request.getEndpoint().startsWith("/_resolve/index/"))))
+        .thenThrow(new IOException("resolve failed"));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    Assert.assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // The rest of the setup still ran.
+    Mockito.verify(searchClient)
+        .performLowLevelRequest(
+            Mockito.any(OperationFingerprint.class),
+            Mockito.argThat(
+                request -> request.getEndpoint().equals("/_data_stream/test_datahub_usage_event")));
   }
 }
