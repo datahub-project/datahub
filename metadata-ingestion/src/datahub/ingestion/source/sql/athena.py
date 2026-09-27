@@ -38,7 +38,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     SourceCapabilityModifier,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.athena_properties_extractor import (
     AthenaPropertiesExtractor,
 )
@@ -98,7 +98,7 @@ register_custom_type(STRUCT, RecordTypeClass)
 register_custom_type(MapType, MapTypeClass)
 
 
-class AthenaProfilingConfig(GEProfilingConfig):
+class AthenaProfilingConfig(ProfilingConfig):
     # Overriding default value for partition_profiling
     partition_profiling_enabled: bool = pydantic.Field(
         default=False,
@@ -329,8 +329,8 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             precision, scale = type_meta_information.split(",")
             args = [int(precision), int(scale)]
         elif type_name.endswith("dtype"):
-            # Pandas nullable dtypes (e.g. Int64Dtype, UInt32Dtype) leak through the profiling
-            # pipeline when great_expectations reflects column types from Athena result sets.
+            # Pandas nullable dtypes (e.g. Int64Dtype, UInt32Dtype) can leak through the
+            # profiling pipeline when column types are reflected from Athena result sets.
             base = type_name[:-5]
             if base in ("int8", "int16", "int32", "uint8", "uint16", "uint32"):
                 detected_col_type = types.INTEGER

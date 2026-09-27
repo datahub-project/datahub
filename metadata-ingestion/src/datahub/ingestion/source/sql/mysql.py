@@ -48,7 +48,7 @@ from datahub.ingestion.source.aws.aws_common import (
     RDSIAMTokenManager,
 )
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     make_sqlalchemy_type,
@@ -260,7 +260,7 @@ class MySQLConnectionConfig(RDSIAMConnectionMixin):
         )
 
 
-class MySQLProfilingConfig(GEProfilingConfig):
+class MySQLProfilingConfig(ProfilingConfig):
     # Per-source override, following the Athena/Dremio precedent
     # (AthenaProfilingConfig.partition_profiling_enabled,
     # ProfileConfig.include_field_median_value).

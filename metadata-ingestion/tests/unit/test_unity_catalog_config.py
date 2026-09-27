@@ -571,7 +571,7 @@ def test_profiling_ge_method_rejected():
     ],
 )
 def test_profiling_method_no_spurious_removed_warning(profiling):
-    # UnityCatalogSQLAlchemyProfilerConfig inherits GEProfilingConfig, which carries
+    # UnityCatalogSQLAlchemyProfilerConfig inherits ProfilingConfig, which carries
     # the shared `method`-removed validator for SQL sources. Unity keeps `method` as
     # a real discriminator, so a no-op override must cancel that validator — otherwise
     # every Unity profiling config would emit a bogus "method was removed" warning.

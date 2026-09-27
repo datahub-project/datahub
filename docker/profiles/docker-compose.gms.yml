@@ -119,6 +119,10 @@ x-datahub-system-update-service: &datahub-system-update-service
     KAFKA_BOOTSTRAP_SERVER: broker:29092
     USE_CONFLUENT_SCHEMA_REGISTRY: false
     DATAHUB_SQL_SETUP_ENABLED: ${DATAHUB_SQL_SETUP_ENABLED:-true}
+    # Same value GMS gets below (datahub-gms-env) — the VIEW_ALL_QUERIES backfill migration this
+    # container runs (BackfillViewAllQueriesPrivilegeStep) needs to know whether view authorization
+    # is enabled to restrict itself to system policies.
+    VIEW_AUTHORIZATION_ENABLED: ${VIEW_AUTHORIZATION_ENABLED:-false}
     # Optional log shipping to a Loki-push-compatible aggregator (dormant when empty)
     LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
     PARTITIONS: ${DATAHUB_PARTITIONS:-3}
@@ -177,6 +181,7 @@ x-datahub-gms-service: &datahub-gms-service
     MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
     MCP_CONSUMER_BATCH_ENABLED: ${MCP_CONSUMER_BATCH_ENABLED:-true}
     DEV_TOOLING_ENABLED: ${DEV_TOOLING_ENABLED:-false}
+    VIEW_AUTHORIZATION_ENABLED: ${VIEW_AUTHORIZATION_ENABLED:-false}
     # Optional log shipping to a Loki-push-compatible aggregator (dormant when empty)
     LOG_AGGREGATOR_ENDPOINT: ${LOG_AGGREGATOR_ENDPOINT:-}
   healthcheck:
@@ -204,7 +209,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-gms-env, *datahub-dev-aws-env]
-    JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001'
+    JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001 -Dlogging.appender.debug_file.level=${GMS_LOGGING_APPENDER_DEBUG_FILE_LEVEL:-DEBUG}'
     BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:-false}
     SEARCH_SERVICE_ENABLE_CACHE: false
     LINEAGE_SEARCH_CACHE_ENABLED: false

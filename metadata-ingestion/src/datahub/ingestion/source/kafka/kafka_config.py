@@ -11,7 +11,6 @@ from datahub.configuration.source_common import (
 )
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_MESSAGES_PER_TOPIC,
@@ -21,6 +20,7 @@ from datahub.ingestion.source.kafka.kafka_constants import (
     OffsetResetStrategy,
     SamplingStrategy,
 )
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -51,7 +51,7 @@ class SchemaResolutionFallback(ConfigModel):
     )
 
 
-class ProfilerConfig(GEProfilingConfig):
+class ProfilerConfig(ProfilingConfig):
     max_sample_time_seconds: PositiveInt = Field(
         default=DEFAULT_MAX_SAMPLE_TIME_SECONDS,
         description="Maximum time to spend sampling messages in seconds. Must be positive.",

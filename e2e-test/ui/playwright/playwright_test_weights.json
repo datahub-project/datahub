@@ -384,6 +384,14 @@
     "duration": "26.626s"
   },
   {
+    "filePath": "structured-property-scale/allowed-values-scale.spec.ts",
+    "duration": "30.000s"
+  },
+  {
+    "filePath": "structured-property-scale/urn-values-scale.spec.ts",
+    "duration": "60.000s"
+  },
+  {
     "filePath": "task-runs-v2/task-runs.spec.ts",
     "duration": "7.496s"
   },

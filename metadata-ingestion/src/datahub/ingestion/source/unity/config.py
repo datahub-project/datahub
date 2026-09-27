@@ -33,7 +33,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -83,7 +83,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
         ),
     )
 
-    # TODO: Support cluster compute as well, for ge profiling
+    # TODO: Support cluster compute as well, for profiling
     warehouse_id: Optional[str] = Field(
         default=None, description="SQL Warehouse id, for running profiling queries."
     )
@@ -108,7 +108,7 @@ class DeltaLakeDetails(ConfigModel):
 class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
     method: Literal["analyze"] = "analyze"
 
-    # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
+    # TODO: Reduce duplicate code with DataLakeProfilerConfig, ProfilingConfig, SQLAlchemyConfig
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
     )
@@ -146,9 +146,7 @@ class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
 
 
 # TODO: should this max_wait_secs had been implemented as a global profiler feature instead of keeping it specific to Unity Catalog?
-class UnityCatalogSQLAlchemyProfilerConfig(
-    UnityCatalogProfilerConfig, GEProfilingConfig
-):
+class UnityCatalogSQLAlchemyProfilerConfig(UnityCatalogProfilerConfig, ProfilingConfig):
     method: Literal["sqlalchemy"] = "sqlalchemy"
 
     max_wait_secs: Optional[int] = Field(
@@ -158,7 +156,7 @@ class UnityCatalogSQLAlchemyProfilerConfig(
 
     # Unity Catalog still uses `method` as a real discriminator (analyze vs
     # sqlalchemy), so cancel the `_method_removed` validator inherited from
-    # GEProfilingConfig (see ge_profiling_config.py) — otherwise it would warn
+    # ProfilingConfig (see profiling/config.py) — otherwise it would warn
     # and strip `method` on every Unity profiling config. The attribute name must
     # match the inherited validator's for the override to take effect.
     @model_validator(mode="before")
