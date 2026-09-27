@@ -48,19 +48,19 @@ By the end of this guide, you'll have:
 
 An agent that answers correctly, consistently, and efficiently needs more than a capable model and a warehouse connection. It needs context grounded in your organization's real knowledge, a way to measure whether that context works, and a process to keep it current. This guide builds all three in five steps:
 
-| Step                                                       | What you do                                                                        |
-| ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| **1. [Define evals](./define-evals.md)**                   | Write the questions your agent must answer correctly, and measure where it starts. |
-| **2. [Ingest context](./ingest-context.md)**               | Bring in your semantic models, metrics, BI definitions, and documentation.         |
-| **3. [Generate context](./generate-context.md)**           | Let DataHub turn your team's query history into context documents.                 |
-| **4. [Activate context](./activate-context.md)**           | Make your context available to the people and agents who need it.                  |
-| **5. [Maintain your context](./improve-with-feedback.md)** | Keep your context accurate as your organization, data, and questions change.       |
+| Step                                                  | What you do                                                                        |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **1. [Define evals](./define-evals.md)**              | Write the questions your agent must answer correctly, and measure where it starts. |
+| **2. [Ingest context](./ingest-context.md)**          | Bring in your semantic models, metrics, BI definitions, and documentation.         |
+| **3. [Generate context](./generate-context.md)**      | Let DataHub turn your team's query history into context documents.                 |
+| **4. [Activate context](./activate-context.md)**      | Make your context available to the people and agents who need it.                  |
+| **5. [Maintain context](./improve-with-feedback.md)** | Keep your context accurate as your organization, data, and questions change.       |
 
 <p align="center">
   <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/guides/data-agent-path.png"/>
 </p>
 
-_Diagram: define evals, ingest context, generate context, activate context, maintain your context, and back to evals._
+_Diagram: define evals, ingest context, generate context, activate context, maintain context, and back to evals._
 
 Every step after the first is measured against your evals, so you'll always know whether a change helped.
 

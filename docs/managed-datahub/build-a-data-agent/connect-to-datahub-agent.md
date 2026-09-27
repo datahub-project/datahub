@@ -59,4 +59,4 @@ Then ask your agent a data question. It should call the DataHub tool and return 
 - A question from outside the domain gets a clear "I can't answer that," not a guess.
 - A small group of users has tried it for a week, including with difficult questions.
 
-**Next:** [Step 5: Maintain your context](./improve-with-feedback.md)
+**Next:** [Step 5: Maintain context](./improve-with-feedback.md)

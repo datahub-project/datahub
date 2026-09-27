@@ -58,6 +58,6 @@ No. Those ratings help DataHub improve the product. Context Feedback comes from 
 
 ## Related
 
-- [Build a Data Agent: Maintain your context](../../../managed-datahub/build-a-data-agent/improve-with-feedback.md)
+- [Build a Data Agent: Maintain context](../../../managed-datahub/build-a-data-agent/improve-with-feedback.md)
 - [Context Evals](./context-evals.md)
 - [Reviewing Context Changes](./context-review.md)

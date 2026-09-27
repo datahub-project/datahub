@@ -17,7 +17,7 @@ This page explains the ideas the guide relies on. You can follow the steps witho
 | [Validating Context Through Evals](#validating-context-through-evals)                           | [Step 1: Define evals](./define-evals.md)                                                        |
 | [Validating Context Changes (Human in the Loop)](#validating-context-changes-human-in-the-loop) | [Step 3: Generate context](./generate-context.md)                                                |
 | [Global vs. Domain-Scoped Data Agents](#global-vs-domain-scoped-data-agents)                    | [Step 4: Activate context](./activate-context.md)                                                |
-| [Maintaining Context Through Feedback](#maintaining-context-through-feedback)                   | [Step 5: Maintain your context](./improve-with-feedback.md)                                      |
+| [Maintaining Context Through Feedback](#maintaining-context-through-feedback)                   | [Step 5: Maintain context](./improve-with-feedback.md)                                           |
 
 ## The Context Layer
 

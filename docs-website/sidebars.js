@@ -508,7 +508,7 @@ module.exports = {
                   ],
                 },
                 {
-                  label: "5. Maintain Your Context",
+                  label: "5. Maintain Context",
                   type: "doc",
                   id: "docs/managed-datahub/build-a-data-agent/improve-with-feedback",
                 },
