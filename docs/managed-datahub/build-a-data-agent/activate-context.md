@@ -13,7 +13,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 This step uses features from the DataHub Cloud **Context** add-on, currently in Public Beta.
 :::
 
-Your context is in place, and your evals show it works. Now make it available to the people who need answers. This step involves two decisions: how people reach DataHub, and what your agent can see.
+Your context is now centralized in DataHub, and your evals show it works. Now put it to work: give agents access to all of it, or only the part a team needs, so people can get answers to your business's most important questions. This step involves two decisions: how people reach DataHub, and what your agent can see.
 
 ## Choose how to activate
 
@@ -40,7 +40,7 @@ Your agent, such as Claude, ChatGPT, Copilot, or a LangChain app, gets a single 
 Your agent gets DataHub's search and context tools, decides what to look up, and runs SQL through your warehouse's MCP server.
 
 - **Pros:** Full control over how your agent reasons. No intermediate agent, so it can be faster and less costly per question.
-- **Cons:** Doesn't apply your Ask DataHub or custom agent instructions; your agent, guided by the [`datahub-sql-workflow`](https://github.com/datahub-project/datahub-skills/tree/main/skills/datahub-sql-workflow) skill, carries that knowledge itself. More to set up: a skill, a warehouse MCP server, and evals reported from your own harness.
+- **Cons:** Doesn't apply your Ask DataHub or custom agent instructions, so your agent carries that knowledge itself, guided by DataHub's open-source [skills](https://github.com/datahub-project/datahub-skills). DataHub plugins for Claude and ChatGPT bundle the skills; other agents install them. More to set up: the skills, a warehouse MCP server, and evals reported from your own harness.
 - **Best for:** Engineering teams that need to own the reasoning.
 
 ### At a glance
@@ -89,7 +89,7 @@ A global agent sees whatever the person asking can see, so access remains govern
 
 ### Connect your agent
 
-Options **b** and **c** connect your agent to DataHub over [MCP](../../features/feature-guides/mcp.md). Use the MCP server URL from your option's page, and follow the guide for your agent:
+Options **b** and **c** connect your agent to DataHub over [MCP](../../features/feature-guides/mcp.md). Use the MCP server URL from your option's page, and follow the guide for your agent. For option **c**, the DataHub plugins for [Claude](https://claude.com/marketplace/plugins) and [ChatGPT](https://chatgpt.com/plugins) also bundle DataHub's [skills](https://github.com/datahub-project/datahub-skills).
 
 | Agent                                                                              | How to connect                                                                                                                                                                                                                                                                                                                                                              |
 | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

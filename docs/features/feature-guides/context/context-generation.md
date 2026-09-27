@@ -283,7 +283,7 @@ Yes. Edited documents are detached from the job, and your version becomes the on
 No. It reads metadata already in DataHub: query logs, schemas, and BI and semantic definitions. Raw query logs aren't sent to a language model; queries are grouped deterministically by parsing their SQL, and generated documents describe general query patterns.
 
 **Does Context Generation use AI Credits?**
-Yes. Context Generation runs consume AI Credits, as do Ask DataHub and custom agents. Scoping jobs to the domains you need keeps usage focused.
+Yes. Context Generation runs consume AI Credits, as do evals, Ask DataHub, and custom agents. Scoping jobs to the domains you need keeps usage focused.
 
 ## Related
 

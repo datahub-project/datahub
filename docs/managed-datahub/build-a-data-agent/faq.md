@@ -9,11 +9,17 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+## What does DataHub do for data agents?
+
+Two things. First, it activates and centralizes semantic context that's fragmented across your tools: semantic models, metric definitions, BI logic, documentation, and the patterns in your query history. It fills in what's missing and keeps it all current. Second, it makes that context easy to put to work: you can build agents with access to all of it, or only the part a team needs, to answer your business's most important questions.
+
 ## Is DataHub a semantic layer?
 
-No. DataHub activates the semantic layer you already have, and fills in the context around it.
+Not in the way that dbt semantic models, Snowflake semantic views, or Cube are. Those are explicit semantic layers: people define metrics and models by hand, and they remain the source of truth for your most important, best-governed metrics.
 
-A semantic layer defines your most important, best-governed metrics. It should remain the source of truth for those metrics, and the first stop for your most frequent questions. Agents that answer questions across all of your data need more: which tables to use for everything else, how they join, and the rules that were never written down. DataHub fills in that long tail based on how people already use your data, and keeps it reviewed and tested.
+DataHub provides **inferred** semantic context. It extracts semantics from how your warehouse and data landscape are actually used, and turns them into a map that shows AI agents how similar questions have been answered before.
+
+The two are complementary. DataHub brings your explicit semantic layer in, alongside everything else, and adds semantic context for the long tail of data domains that no one has modeled by hand. Your semantic layer stays the first stop for your core metrics; DataHub covers the rest, and keeps it reviewed and tested.
 
 ## We already have a semantic layer. Do we still need DataHub?
 
@@ -51,7 +57,7 @@ No. Query logs can contain literal values, such as a customer ID in a filter, so
 
 ## How is AI usage billed?
 
-With AI Credits. AI features such as Context Generation, Ask DataHub, and custom agents consume AI Credits as they run. Your DataHub Cloud subscription includes a bundle of AI Credits, which roughly corresponds to the underlying model usage. Contact your DataHub account team for details about your plan.
+With AI Credits. AI features consume AI Credits as they run, including Context Generation, evals, Ask DataHub, and custom agents. Each eval run uses credits, because an agent answers the question and an AI judge grades it. Your DataHub Cloud subscription includes a bundle of AI Credits, which roughly corresponds to the underlying model usage. Contact your DataHub account team for details about your plan.
 
 ## Who needs which permissions?
 

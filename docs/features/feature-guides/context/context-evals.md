@@ -82,7 +82,7 @@ Staring at an empty eval list? Ask an admin to click **Generate Evals**. DataHub
 
 _Screenshot: the Generate Evals dialog._
 
-With **Require review before publishing** on (the default), drafts go to your DataHub admins for review. They can edit each question and expected answer, then **Approve Question** or reject it. See [Reviewing Context Changes](./context-review.md#review-proposed-evals). Please do review them. An eval that encodes a wrong answer is worse than no eval.
+With **Require review before publishing** on (the default), drafts go to your DataHub admins for review. Only generated evals go through review; evals people create with **Create Question** are added directly. They can edit each question and expected answer, then **Approve Question** or reject it. See [Reviewing Context Changes](./context-review.md#review-proposed-evals). Please do review them. An eval that encodes a wrong answer is worse than no eval.
 
 ## Run evals
 
@@ -136,6 +136,10 @@ Keep evals in version control and run them in CI with the `acryl-datahub-cloud e
 ```
 
 See the [evals CLI reference](../../../cli-commands/evals.md) for commands and a CI example. The [`datahub-evals`](https://github.com/datahub-project/datahub-skills) skill lets coding agents manage evals for you. Eval tools can also be added to a [scoped MCP server](../scoped-mcp-servers.md).
+
+## AI Credits
+
+Eval runs consume AI Credits: an agent answers each question, and an AI judge grades the answer. Daily runs, on-demand runs, simulated runs, and runs against a proposal all count. To manage usage, keep your suite focused on the questions that matter, and run individual evals when you only need a quick check.
 
 ## Limits
 

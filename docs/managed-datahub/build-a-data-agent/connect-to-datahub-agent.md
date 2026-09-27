@@ -17,7 +17,7 @@ Your agent, such as Claude, ChatGPT, Copilot, CrewAI, or a LangChain app, gets a
 
 **Choose this option if** you already have an agent and want DataHub to handle data questions. This is our recommended option for teams with their own agent: the instructions, domain scope, and evals your data team maintains in DataHub apply to every answer, and your agent stays simple.
 
-**What you'll set up:** a warehouse plugin, an MCP server that exposes only your DataHub agent, and a connection from your agent.
+**What you'll set up:** a warehouse plugin, an MCP server that exposes only your DataHub agent, and a connection from your agent. There are no skills to install: Ask DataHub and custom agents include them.
 
 If you need your agent to do all the reasoning itself, see [option c](./connect-to-datahub-tools.md).
 
@@ -40,7 +40,7 @@ This step is required. The main DataHub MCP server doesn't expose agents, so eac
 4. Save, and copy the **Connection URL**, such as `https://<tenant>.acryl.io/mcp/finance`.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/build-a-data-agent/scoped-mcp-server-agent-tool.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/guides/scoped-mcp-server-agent-tool.png"/>
 </p>
 
 _Screenshot: selecting an agent under Tools when creating an MCP server._

@@ -32,7 +32,7 @@ Aim for **20 to 50 questions**. That's enough to reveal a trend, and few enough 
 
 ## 2. Write the expected answers
 
-For each question, go to **Validation > Evals**, click **Create Question**, and complete the form:
+For each question, go to **Validation > Evals**, click **Create Question**, and complete the form. Evals created here measure your context through Ask DataHub. If you later create a custom agent, you'll add its evals on the agent's own **Evals** tab.
 
 | Field                         | What to enter                                                                                                                |
 | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -45,10 +45,10 @@ For each question, go to **Validation > Evals**, click **Create Question**, and 
 Then click **Check for problems**. DataHub flags issues such as a table that doesn't exist, or one that no document mentions yet. The second kind is an early view of where your agent will struggle.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/build-a-data-agent/eval-check-for-problems.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-eval-create.png"/>
 </p>
 
-_Screenshot: Check for problems flagging a table that no document covers yet._
+_Screenshot: creating an eval._
 
 Have your data expert write or review the expected answers. The judge compares every response to them, so they set the standard for everything that follows.
 
@@ -74,7 +74,7 @@ _Screenshot: the Evals page after a baseline run._
 
 ## 4. Turn on daily runs
 
-Turn on **Evals run daily**. From now on, if a change breaks an answer, you'll know by the next morning.
+Turn on **Evals run daily**. From now on, if a change breaks an answer, you'll know by the next morning. Each eval run consumes AI Credits, so daily runs are a steady, predictable use of your credits.
 
 :::tip Set a target
 Agree with your data expert and stakeholders on the pass rate the agent must reach before broader rollout, such as 85%. It turns "is it ready?" into a clear, shared decision.

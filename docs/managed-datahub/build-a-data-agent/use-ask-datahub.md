@@ -33,7 +33,7 @@ Each person enables the plugin under **Settings > My AI Settings**, or directly 
 
 Open Ask DataHub and try a few questions from your eval suite. Ask DataHub searches all the context the person asking can see, chooses the tables, writes the SQL, and runs it through your plugin.
 
-For a global agent, setup is complete. Your [evals](./define-evals.md) already measure the context Ask DataHub relies on.
+Ask DataHub comes with built-in skills for navigating your context and writing SQL, so there's nothing to install. For a global agent, setup is complete. Keep your [evals](./define-evals.md) on the main **Validation > Evals** page; they measure the context Ask DataHub relies on.
 
 ## 3. Optional: create a custom agent for your domain
 
@@ -63,10 +63,10 @@ Example instructions:
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/ai/agents/agents_create_agent.png"/>
 </p>
 
-Then open the agent's **Evals** tab and add your domain's evals, so they run against the agent with its scope and instructions.
+Then open the agent's **Evals** tab and add your domain's evals. Evals added here run against this agent, with its scope, instructions, and plugins, so they reflect what the agent's users will get. Evals on the main **Validation > Evals** page continue to measure Ask DataHub.
 
 <p align="center">
-  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/build-a-data-agent/agent-evals-tab.png"/>
+  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/guides/agent-evals-tab.png"/>
 </p>
 
 _Screenshot: an agent's Evals tab, with pass rate and trend._

@@ -11,7 +11,12 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Language models write SQL fluently. What they lack is knowledge of your business: which of three `orders` tables is authoritative, what "active customer" means, which accounts Finance always excludes. Without that knowledge, an agent guesses, and it sounds certain every time. An agent without context is confidently wrong.
 
-DataHub gives your agents one unified context layer: a single place for the canonical definitions, data sources, and know-how that are otherwise scattered across tools, kept current as your data and usage change. It supplies what your agent is missing:
+DataHub helps in two ways:
+
+1. **It activates and centralizes your semantic context.** Metric definitions, semantic models, BI logic, documentation, and the patterns hidden in your query history are scattered across tools. DataHub brings them into one context layer, fills in what's missing, and keeps it current as your data and usage change.
+2. **It makes that context easy to put to work.** You can build agents with access to all of it, or only the part a team needs, to answer your business's most important questions.
+
+Along the way, it supplies what your agent is missing:
 
 - **Context.** A searchable map of your data: tables, metrics, and documents, together with the trust signals (lineage, ownership, usage, and past queries) that show which data to rely on.
 - **Evals.** Real business questions with known-good answers, run every day, so you always know how accurate your agent is.
@@ -44,7 +49,7 @@ Define what "good" looks like first. Then add context until your agent gets ther
 | **5. [Improve with feedback](./improve-with-feedback.md)** | Close the gaps your agent reports, and add evals so they stay closed.              |
 
 <p align="center">
-  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/build-a-data-agent/data-agent-path.png"/>
+  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/guides/data-agent-path.png"/>
 </p>
 
 _Diagram: define evals, ingest context, generate context, activate context, improve with feedback, and back to evals._
@@ -55,11 +60,11 @@ Every step after the first is measured against your evals, so you'll always know
 
 In step 4, you choose how people reach your context. The three options differ in who does the reasoning.
 
-| Option                                                                        | How it works                                                                              |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **a. [Use Ask DataHub directly](./use-ask-datahub.md)**                       | People ask in DataHub, Slack, or Teams. DataHub does the reasoning and runs the SQL.      |
-| **b. [Connect your agent to a DataHub agent](./connect-to-datahub-agent.md)** | Your agent, such as Claude, ChatGPT, or a LangChain app, hands data questions to DataHub. |
-| **c. [Connect your agent to DataHub's tools](./connect-to-datahub-tools.md)** | Your agent uses DataHub's search and context tools, and does the reasoning itself.        |
+| Option                                                                        | How it works                                                                                                               |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **a. [Use Ask DataHub directly](./use-ask-datahub.md)**                       | People ask in DataHub, Slack, or Teams. DataHub does the reasoning and runs the SQL.                                       |
+| **b. [Connect your agent to a DataHub agent](./connect-to-datahub-agent.md)** | Your agent, such as Claude, ChatGPT, or a LangChain app, hands data questions to DataHub.                                  |
+| **c. [Connect your agent to DataHub's tools](./connect-to-datahub-tools.md)** | Your agent uses DataHub's search and context tools, guided by DataHub's open-source skills, and does the reasoning itself. |
 
 We recommend **a** or **b**. With either, the instructions, scope, and evals your data team maintains in DataHub apply to every answer.
 
@@ -81,7 +86,7 @@ If the people asking questions can't read SQL, build a domain agent. See [Key Co
 
 ## Before you start
 
-- **DataHub Cloud with the Context add-on.** Steps 1, 3, 4, and 5 use features from the Context add-on, currently in Public Beta. If you don't see **Context** in DataHub's left sidebar, contact your DataHub account team.
+- **DataHub Cloud with the Context add-on.** Steps 1, 3, 4, and 5 use features from the Context add-on, currently in Public Beta. If you don't see **Context** in DataHub's left sidebar, contact your DataHub account team, or [sign up for the Public Beta](https://datahub.com/public-beta-request/).
 - **Your warehouse, connected with query history.** In DataHub, go to **Data Sources**, click **+ Create source**, and select Snowflake, Databricks, BigQuery, or Redshift. Make sure query history is enabled: it shows DataHub how your team actually uses the data, and it powers step 3. See [Ingestion](../../ui-ingestion.md) and the [example recipes](../../features/feature-guides/context/context-generation.md#reference-recipes). If your warehouse is on a private network, use a [Remote Executor](../remote-executor/about.md).
 - **A domain to start with**, and an owner for it.
 - **Three roles:**

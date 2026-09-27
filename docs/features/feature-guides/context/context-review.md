@@ -66,7 +66,7 @@ This is the most useful part of review. In the **Impact on Evals** section:
 Anything **Fixed** is a good sign. Anything **Broken** deserves a close look before you approve.
 
 <p align="center">
-  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/build-a-data-agent/proposal-impact-on-evals.png"/>
+  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/guides/proposal-impact-on-evals.png"/>
 </p>
 
 _Screenshot: Impact on Evals, with Fixed, Broken, and Unchanged results._
@@ -77,9 +77,17 @@ Want to poke at it yourself? **Try in Ask DataHub** opens a chat with the propos
 
 When an admin clicks **Generate Evals** with **Require review before publishing** turned on, DataHub drafts eval questions from your published context documents and sends them for review. Admins see a banner on the Evals page: "You have N evals to review!"
 
+Only generated evals go through review. Evals that people create with **Create Question** are added to your eval set directly.
+
 1. Click **Review Proposed Questions**.
 2. For each question, check the question and the expected answer. You can edit both, and see which document it came from.
 3. Click **Approve Question** to add it to your eval set, or **Reject** it.
+
+<p align="center">
+  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-eval-proposal-review.png"/>
+</p>
+
+_Screenshot: reviewing a proposed eval before approving it._
 
 Please read these carefully. An eval with a wrong expected answer will quietly reward wrong context.
 
