@@ -65,6 +65,17 @@ Each option works for both a domain agent and a global agent.
 | **Best for**    | A business team that needs the right number every time | Analysts and engineers exploring the long tail of your data |
 | **Scoped with** | A domain, and optionally a View                        | Nothing; this is the default                                |
 
+### What to set up
+
+Find your activation option and the kind of agent you want:
+
+|                                                  | **a. Ask DataHub directly**              | **b. Your agent → DataHub agent**                         | **c. Your agent → DataHub tools**                    |
+| ------------------------------------------------ | ---------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------- |
+| **Global agent** (all data and context)          | Use Ask DataHub as-is                    | An MCP server that exposes **Ask DataHub**                | The main MCP server, `https://<tenant>.acryl.io/mcp` |
+| **Domain agent** (one domain's data and context) | A custom agent with **Scope: By Domain** | An MCP server that exposes your domain's **custom agent** | A scoped MCP server with a View for the domain       |
+
+With any option, you can also guide an agent toward the right domain with instructions, such as which domain to search for which kinds of questions.
+
 ### Package a domain for a domain agent
 
 1. **Create the domain.** Under **Domains**, create it, such as `Finance`, and add its owners.
@@ -77,7 +88,7 @@ Each option works for both a domain agent and a global agent.
 Anything not assigned to the domain is invisible to a domain agent. If the agent can't find something it should, check the asset's domain first.
 :::
 
-### Open everything for a global agent
+### Expose all data and context to a global agent
 
 1. **Connect broadly.** Ingest all of your warehouses with query history, along with your BI tools, semantic layer, and documentation.
 2. **Generate context across domains.** Create a Context Generation job for each domain or major schema.

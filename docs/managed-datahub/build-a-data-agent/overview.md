@@ -78,7 +78,7 @@ We recommend **a** or **b**. With either, the instructions, scope, and evals you
 
 Start small: one domain, or at most three, each with a backlog of real questions and someone who cares about the answers. Take them through all five steps. When their teams trust the agent, repeat the path for the next domains.
 
-Each domain gets its own evals, context, owners, and agent, so accuracy stays measurable and trust is earned one team at a time. Step 4 explains how to [package a domain](./activate-context.md#package-a-domain-for-a-domain-agent), and how to [open everything](./activate-context.md#open-everything-for-a-global-agent) to a global agent.
+Each domain gets its own evals, context, owners, and agent, so accuracy stays measurable and trust is earned one team at a time. Step 4 explains how to [package a domain](./activate-context.md#package-a-domain-for-a-domain-agent), and how to [expose all data and context](./activate-context.md#expose-all-data-and-context-to-a-global-agent) to a global agent.
 
 :::tip
 If the people asking questions can't read SQL, build a domain agent. See [Key Concepts](./key-concepts.md#global-and-domain-specific-data-agents).
