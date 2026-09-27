@@ -80,7 +80,7 @@ Anything not assigned to the domain is invisible to a domain agent. If the agent
 ### Open everything for a global agent
 
 1. **Connect broadly.** Ingest all of your warehouses with query history, along with your BI tools, semantic layer, and documentation.
-2. **Generate context across domains.** Create a Context Generation job for each domain or major schema. Each job covers up to 1,000 tables.
+2. **Generate context across domains.** Create a Context Generation job for each domain or major schema.
 3. **Expose everything.** Leave the scope unset. For options **a** and **b**, use Ask DataHub itself. For option **c**, use the main MCP server at `https://<tenant>.acryl.io/mcp`.
 
 A global agent sees whatever the person asking can see, so access remains governed by your [policies](../../authorization/policies.md). If your organization has a default View, it narrows what Ask DataHub sees, and it always applies in Slack and Teams.

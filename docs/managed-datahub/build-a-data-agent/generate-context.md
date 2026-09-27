@@ -19,23 +19,11 @@ Your analysts have already answered thousands of questions in SQL. Those queries
 
 ## How it works
 
-Context Generation reads only metadata that DataHub has already collected. It never reads the data in your tables or runs queries against your warehouse, and it doesn't send raw query logs, which can contain literal values, to a language model.
+Context Generation works from metadata DataHub has already collected: your warehouse query history for the scope you choose, your BI and semantic definitions, and the descriptions, owners, and usage DataHub already knows. It finds the analyses your team runs repeatedly, and writes a context document for each one. It never reads the data in your tables.
 
-| Input                           | How it's used                                                                                                                                                                                                                                             |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Query history**               | For the domains, databases, or schemas you select, it parses each analytical query's SQL and deterministically groups queries that answer the same kind of question, keeping the patterns that recur across several people. One-off queries are left out. |
-| **BI and semantic definitions** | Looker explores and Snowflake semantic views each become documents. When queries come from a dashboard or notebook, its title and description help explain the purpose of the analysis.                                                                   |
-| **Existing metadata**           | Table and column descriptions, dbt models, glossary terms, owners, and usage enrich each document and link it to related assets.                                                                                                                          |
+Each Semantic Anchor describes one analysis: the business questions it answers, the metrics and dimensions involved, how the tables connect, and which tables to use.
 
 Query history must be ingested by your warehouse's data source. See [Before you start](./overview.md#before-you-start).
-
-Each Semantic Anchor describes one analysis:
-
-- **Business questions:** what people ask
-- **Metrics:** the measures that answer them
-- **Dimensions:** how the data is sliced
-- **Join predicates:** how the tables connect
-- **Tables:** the physical tables underneath
 
 If you have a semantic layer, Context Generation fills in the long tail around it. If you don't, this step will likely produce most of your agent's context.
 
@@ -43,14 +31,14 @@ If you have a semantic layer, Context Generation fills in the long tail around i
 
 Go to **Settings > Context** and click **Create**.
 
-| Setting                      | What to choose                                                                                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Name**                     | Your domain's name, such as `Finance`                                                                                                                   |
-| **Scope**                    | Your **Domain**, or specific databases or schemas under **Containers**. A job covers up to 1,000 tables, so split very large domains into several jobs. |
-| **Assign generated docs to** | Your domain. Every document the job writes is assigned to it, so your domain agent and domain MCP server can see it.                                    |
-| **Folder** (optional)        | A folder in **Documents**, such as `Finance / Generated`. By default, documents go to a shared **Semantic Anchor** folder.                              |
-| **Auto-publish**             | On. See [Validate with evals](#2-validate-with-evals).                                                                                                  |
-| **Schedule**                 | Off for now. You'll turn it on in part 4.                                                                                                               |
+| Setting                      | What to choose                                                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Name**                     | Your domain's name, such as `Finance`                                                                                      |
+| **Scope**                    | Your **Domain**, or specific databases or schemas under **Containers**. Split very large domains into several jobs.        |
+| **Assign generated docs to** | Your domain. Every document the job writes is assigned to it, so your domain agent and domain MCP server can see it.       |
+| **Folder** (optional)        | A folder in **Documents**, such as `Finance / Generated`. By default, documents go to a shared **Semantic Anchor** folder. |
+| **Auto-publish**             | On. See [Validate with evals](#2-validate-with-evals).                                                                     |
+| **Schedule**                 | Off for now. You'll turn it on in part 4.                                                                                  |
 
 Click **Save & run**.
 
@@ -80,7 +68,7 @@ When you edit a generated document, it's detached from Context Generation. Later
 
 For sensitive domains, turn **Auto-publish** off and choose **Reviewers**: the users or groups who must approve new documents. If you leave reviewers empty, requests go to the owners of the tables and domains involved, plus your admins.
 
-Reviewers receive a request in **Tasks > Proposals**. There, they can add evals under **Impact on Evals** and click **Run Evals** to see what the documents would fix or break, before anything is published. See [Reviewing Context Changes](../../features/feature-guides/context/context-review.md).
+Reviewers receive a request in **Tasks > Proposals**, where they can run your evals against the new documents to see what they would fix or break before anything is published. See [Reviewing Context Changes](../../features/feature-guides/context/context-review.md).
 
 <!-- TODO(certification): When certification ships, add guidance here, e.g.
 "**Certify the best ones.** Certify the documents you'd stake your name on. Certified documents get a boost when agents search." Link to the certification feature guide. -->

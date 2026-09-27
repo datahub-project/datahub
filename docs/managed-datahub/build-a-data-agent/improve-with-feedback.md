@@ -40,10 +40,10 @@ _Screenshot: open feedback reported by agents._
 
 Set aside 30 minutes a week with your data expert. For each open item:
 
-1. **Confirm it's real.** If it isn't, click **Dismiss**.
-2. **Fix the context.** Click **Fix**, and DataHub's assistant investigates and proposes the smallest change that would help, such as a new document, a clearer description, or deprecating a look-alike table. Nothing changes until you approve it.
+1. **Confirm it's real.** If it isn't, dismiss it.
+2. **Fix the context.** DataHub's assistant can investigate and propose the smallest change that would help, such as a new document, a clearer description, or deprecating a look-alike table. Nothing changes until you approve it.
 3. **Add an eval** for the question that exposed the gap, so it stays fixed.
-4. **Mark it resolved.**
+4. **Resolve it.**
 
 The third step turns a one-time fix into a lasting one. Over time, your eval suite should grow mostly from real questions and real failures.
 
