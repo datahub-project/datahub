@@ -18,8 +18,12 @@ UNDER_TEST="${SCRIPT_DIR}/../install_extra_packages.sh"
 # the suite was run by hand, but it is now wired into `check`, so every CI invocation would
 # leave nine directories behind in /tmp. Allocating under a single root means one trap
 # collects all of them, including on an early exit or an interrupt.
+#
+# The signal trap exits explicitly: once INT or TERM is trapped, bash no longer terminates
+# on it, so a cleanup-only handler would let an interrupted run carry on into the next case.
 TEST_TMP_ROOT="$(mktemp -d)"
-trap 'rm -rf "$TEST_TMP_ROOT"' EXIT INT TERM
+trap 'rm -rf "$TEST_TMP_ROOT"' EXIT
+trap 'rm -rf "$TEST_TMP_ROOT"; exit 130' INT TERM
 
 new_tmp() {
   mktemp -d "${TEST_TMP_ROOT}/case.XXXXXX"

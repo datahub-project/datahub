@@ -45,6 +45,8 @@ docker run --env ACTIONS_EXTRA_PACKAGES='acryl-datahub-actions[slack] my-action=
 
 This is a convenience, not a replacement for the rule above. It trades reproducibility for iteration speed: the image no longer describes its own dependencies, startup requires reaching a package index, and the installed set can drift between restarts. Prefer it for development and for trying an action out, not for a deployment you intend to keep.
 
+Runtime installs resolve under the same CVE floors as the bundled environment, because the `full` and `slim` images export `UV_CONSTRAINT` pointing at the bundled `constraints.txt`. A requirement that pins a version conflicting with those constraints fails to resolve and stops startup, rather than installing the pinned version.
+
 The `locked` image refuses it. That variant strips `uv` and points its package index at a dead address on purpose, so a container that cannot honour `ACTIONS_EXTRA_PACKAGES` fails at startup with an explanation rather than starting up quietly without the packages the operator asked for.
 
 For example, to mount the "hello_world.yml" configuration located under the `examples` directory of this repository can be achieved via:
