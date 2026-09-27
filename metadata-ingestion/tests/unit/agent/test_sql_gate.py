@@ -35,6 +35,22 @@ def test_pg_catalog_is_permitted_only_because_postgres_declares_it():
     )
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "SELECT info FROM information_schema.processlist",
+        "SELECT trx_query FROM information_schema.INNODB_TRX",
+        "SELECT t.table_name FROM information_schema.tables t "
+        "JOIN information_schema.processlist p ON p.db = t.table_schema",
+    ],
+)
+def test_rejects_views_holding_other_sessions_sql(query: str) -> None:
+    """Admitted whole, information_schema would hand out the running SQL of
+    every session a PROCESS-privileged credential can see."""
+    with pytest.raises(SqlScopeError, match="outside the catalog metadata"):
+        check_query_scope(query, platform="mysql")
+
+
 def test_rejects_a_user_table():
     with pytest.raises(SqlScopeError, match="public.orders"):
         check_query_scope("SELECT * FROM public.orders", platform="postgres")

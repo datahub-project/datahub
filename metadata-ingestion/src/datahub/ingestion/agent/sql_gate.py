@@ -11,6 +11,10 @@ from datahub.sql_parsing.sqlglot_utils import get_dialect
 INFORMATION_SCHEMA = "information_schema"
 
 
+# information_schema views holding other sessions' SQL text; see CatalogScope.
+SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
+
+
 @dataclass(frozen=True)
 class CatalogScope:
     """What one dialect considers catalog metadata a probe may read.
@@ -32,13 +36,15 @@ class CatalogScope:
     This scope is a ceiling, not the floor. The probe reads with the recipe's
     own database credential, so the credential is the operative bound: it reads
     only what that credential is privileged to read, and a schema admitted whole
-    still exposes only the rows the credential may see. `information_schema`
-    illustrates both edges -- it also holds operational views like
-    `processlist` and `*_privileges`, but MySQL's `processlist` shows other
-    sessions' in-flight SQL only to a credential holding the `PROCESS`
-    privilege. So give the probe a least-privilege, read-only credential: the
-    gate bounds which relations a query may name, and the credential bounds what
-    those relations reveal.
+    still exposes only the rows the credential may see. So give the probe a
+    least-privilege, read-only credential: the gate bounds which relations a
+    query may name, and the credential bounds what those relations reveal.
+
+    `information_schema` is not wholly metadata either. The MySQL family puts
+    the SQL text other sessions are running in it -- `PROCESSLIST.INFO` and
+    `INNODB_TRX.trx_query` -- and that text carries WHERE-clause literals and
+    `IDENTIFIED BY` passwords. A credential with `PROCESS` sees every session's,
+    so those two are refused by default rather than left to the credential.
     """
 
     # Whole schemas whose every relation is metadata by definition. In practice
@@ -54,9 +60,12 @@ class CatalogScope:
     relations: FrozenSet[str] = field(default_factory=frozenset)
 
     # Relations to refuse inside an otherwise-permitted schema. Only sound where
-    # the schema really is metadata apart from a known few, which is pg_catalog
-    # and its query-text views.
-    excluded_relations: FrozenSet[str] = field(default_factory=frozenset)
+    # the schema really is metadata apart from a known few. Defaults to the
+    # session-text views above, so a scope that admits information_schema whole
+    # cannot forget them.
+    excluded_relations: FrozenSet[str] = field(
+        default_factory=lambda: SESSION_TEXT_RELATIONS
+    )
 
     def permits_path(self, parts: List[str]) -> bool:
         """Whether a reference, given as its dotted path parts, is in scope.
