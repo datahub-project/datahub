@@ -1346,3 +1346,28 @@ def test_a_malformed_envelope_still_registers_its_secrets(monkeypatch):
     assert secret not in SecretMaskingFilter().mask_text(f"leaked {secret}"), (
         "the envelope's secrets were not registered before it failed"
     )
+
+
+@pytest.mark.parametrize(
+    "raised, code",
+    [
+        ("connection", 3),
+        ("internal", 1),
+        ("value", 2),
+    ],
+)
+def test_probe_errors_map_to_the_documented_exit_codes(raised: str, code: int) -> None:
+    from datahub.cli.recipe_cli import EXIT_CONNECTION, _exit_codes
+    from datahub.ingestion.agent.verdicts import (
+        ProbeConnectionError,
+        ProbeInternalError,
+    )
+
+    exc: Exception = {
+        "connection": ProbeConnectionError("unreachable"),
+        "internal": ProbeInternalError("KeyError"),
+        "value": ValueError("bad argument"),
+    }[raised]
+    with pytest.raises(SystemExit) as exit_info, _exit_codes(fallback=EXIT_CONNECTION):
+        raise exc
+    assert exit_info.value.code == code

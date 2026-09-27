@@ -35,6 +35,7 @@ from datahub.ingestion.agent.secrets import (
     default_resolvers,
     resolve_config_collecting,
 )
+from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeInternalError
 from datahub.masking.secret_registry import SecretRegistry
 
 EXIT_OK = 0
@@ -179,6 +180,12 @@ def _exit_codes(
     secrets = set() if secret_values is None else secret_values
     try:
         yield
+    except ProbeConnectionError as exc:
+        # Before _USER_ERRORS, and not in it: it wraps exception types that
+        # list would otherwise read as bad input (Snowflake's ConfigurationError).
+        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_CONNECTION)
+    except ProbeInternalError as exc:
+        _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_INTERNAL)
     except _USER_ERRORS as exc:
         _fail(_redacted_text(exc, _with_stdin_secrets(secrets)), EXIT_USER)
     except Exception as exc:

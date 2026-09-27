@@ -1,4 +1,5 @@
 import inspect
+from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from typing import (
     Any,
@@ -22,7 +23,11 @@ from datahub.configuration.env_vars import (
     get_probe_disabled,
 )
 from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
-from datahub.ingestion.agent.verdicts import ProbeReadFailed
+from datahub.ingestion.agent.verdicts import (
+    ProbeConnectionError,
+    ProbeInternalError,
+    ProbeReadFailed,
+)
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
 
@@ -765,7 +770,19 @@ def run_probe_method(
         )
     # The same class discovery described, so the two cannot disagree about what
     # this source can do.
-    with builder(config) as provider:
+    # lazy: keeps the configuration module off this module's import path
+    from datahub.configuration.common import ConfigurationError
+
+    with ExitStack() as stack:
+        try:
+            provider = stack.enter_context(builder(config))
+        except Exception as exc:
+            # Everything the caller could get wrong was checked above, so a
+            # failure opening the provider is the source's -- including the
+            # ConfigurationError Snowflake wraps every connect failure in.
+            raise ProbeConnectionError(
+                f"could not open source '{source_type}': {exc}"
+            ) from exc
         _enforce_gates(specs[command], provider, call_kwargs)
         try:
             result = _bound_method(provider, command)(**call_kwargs)
@@ -805,6 +822,16 @@ def run_probe_method(
             if recorded:
                 raise ProbeReadFailed(
                     f"{exc}; the connector recorded: " + "; ".join(sorted(recorded))
+                ) from exc
+            if isinstance(exc, ConfigurationError):
+                # A connector that connects lazily, on the first query.
+                raise ProbeConnectionError(
+                    f"'{command}' could not reach source '{source_type}': {exc}"
+                ) from exc
+            if isinstance(exc, (TypeError, KeyError, AttributeError, AssertionError)):
+                raise ProbeInternalError(
+                    f"'{command}' failed inside the connector ({type(exc).__name__}: "
+                    f"{exc}); this is a defect, not a problem with the arguments"
                 ) from exc
             raise
         # Optional, source-agnostic: a provider that degrades a sub-fetch

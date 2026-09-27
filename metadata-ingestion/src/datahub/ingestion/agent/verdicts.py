@@ -132,6 +132,28 @@ class ProbeReadFailed(Exception):
     """
 
 
+class ProbeConnectionError(Exception):
+    """The source could not be reached, or refused the session, while the probe
+    was opening it.
+
+    Not a ValueError, for the reason ProbeReadFailed is not: connectors wrap
+    connect failures in exceptions the CLI otherwise reads as bad input --
+    Snowflake raises ConfigurationError for DNS, network and auth failures
+    alike -- and exit 2 sends an agent to edit a recipe that was never the
+    problem. Maps to exit 3.
+    """
+
+
+class ProbeInternalError(Exception):
+    """A getter failed with a programming error (TypeError, KeyError, ...)
+    after its arguments had already been checked.
+
+    Those exception types mean "your input was wrong" only before the call:
+    once run_probe_method has coerced the arguments, a KeyError is the getter
+    misreading a response, not the caller's mistake. Maps to exit 1.
+    """
+
+
 @contextmanager
 def soft_on_status(*codes: int, context: str) -> Iterator[None]:
     """Treat the given HTTP statuses as expected absence, not failure.

@@ -778,3 +778,80 @@ def test_an_unresolvable_source_type_is_a_user_error(source_type):
     """
     with pytest.raises(ValueError):
         pm.config_class_for(source_type)
+
+
+def _provider_raising(
+    *, on_open: Optional[BaseException] = None, on_call: Optional[BaseException] = None
+) -> type:
+    class _Prov:
+        def __enter__(self) -> "_Prov":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @classmethod
+        def for_config(cls, config: object) -> "_Prov":
+            if on_open is not None:
+                raise on_open
+            return cls()
+
+        @probe_method(name="things")
+        def things(self) -> object:
+            """Raises what the test asks for."""
+            if on_call is not None:
+                raise on_call
+            return []
+
+    return _Prov
+
+
+def _run_with(monkeypatch: pytest.MonkeyPatch, provider: type) -> None:
+    monkeypatch.setattr(pm, "_provider_class", lambda st: provider)
+    monkeypatch.setattr(
+        pm,
+        "config_class_for",
+        lambda st: type("C", (), {"model_validate": staticmethod(lambda d: None)}),
+    )
+    pm.run_probe_method("snowflake", {}, "things", {})
+
+
+@pytest.mark.parametrize("on_open", [False, True])
+def test_a_connect_failure_is_not_reported_as_bad_input(
+    monkeypatch: pytest.MonkeyPatch, on_open: bool
+) -> None:
+    """Snowflake wraps DNS, network and auth failures alike in
+    ConfigurationError, which the CLI reads as "your input was wrong" (exit 2).
+    Raised opening the provider, or on a lazy first query, it is the source's."""
+    from datahub.configuration.common import ConfigurationError
+    from datahub.ingestion.agent.verdicts import ProbeConnectionError
+
+    error = ConfigurationError("Failed to connect to DB: host unreachable")
+    provider = (
+        _provider_raising(on_open=error)
+        if on_open
+        else _provider_raising(on_call=error)
+    )
+    with pytest.raises(ProbeConnectionError, match="host unreachable") as exc_info:
+        _run_with(monkeypatch, provider)
+    assert not isinstance(exc_info.value, ValueError)
+
+
+def test_a_getter_defect_is_not_reported_as_bad_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The arguments were checked before the call, so a KeyError from inside
+    the getter is it misreading a response."""
+    from datahub.ingestion.agent.verdicts import ProbeInternalError
+
+    with pytest.raises(ProbeInternalError, match="KeyError"):
+        _run_with(monkeypatch, _provider_raising(on_call=KeyError("items")))
+
+
+def test_a_getter_refusing_its_input_is_still_bad_input(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="no table named"):
+        _run_with(
+            monkeypatch, _provider_raising(on_call=ValueError("no table named t"))
+        )
