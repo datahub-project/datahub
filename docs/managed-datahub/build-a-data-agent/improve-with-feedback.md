@@ -1,11 +1,11 @@
 ---
-title: "Step 5: Maintain Context"
+title: "Step 5: Context Feedback & Improvement"
 description: "Keep your context layer accurate as your organization, data, and questions change, using feedback, review, evals, and scheduled refresh."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Step 5: Maintain Context
+# Step 5: Context Feedback & Improvement
 
 <FeatureAvailability saasOnly />
 

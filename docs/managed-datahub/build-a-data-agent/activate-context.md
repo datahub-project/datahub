@@ -1,6 +1,6 @@
 ---
 title: "Step 4: Activate Context"
-description: "Make DataHub context available to your users: use Ask DataHub directly, connect your agent to a DataHub agent, or connect your agent to DataHub's tools."
+description: "Make DataHub context available to your users: use Ask DataHub directly, connect your agent to a DataHub agent, or connect your agent to DataHub tools."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -35,7 +35,7 @@ Your agent, such as Claude, ChatGPT, Copilot, or a LangChain app, gets a single 
 - **Cons:** Each question passes through the DataHub agent, which adds latency. Your agent has less say in how data is found. Each DataHub agent you expose needs its own MCP server.
 - **Best for:** Organizations that already have an agent and want DataHub to own the data expertise.
 
-### c. [Connect your agent to DataHub's tools](./connect-to-datahub-tools.md)
+### c. [Connect your agent to DataHub tools](./connect-to-datahub-tools.md)
 
 Your agent gets DataHub's search and context tools, decides what to look up, and runs SQL through your warehouse's MCP server.
 

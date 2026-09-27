@@ -33,7 +33,7 @@ DataHub ties every piece of context to the assets it describes, keeps it current
 
 ## Do we need a particular agent?
 
-No. DataHub complements your agent stack rather than replacing it. Claude, ChatGPT, Databricks Genie, Snowflake Cortex and CoWork, LangChain, CrewAI, Google ADK, and custom agents can all use DataHub over MCP. [Step 4](./activate-context.md) covers three options: use Ask DataHub directly, connect your agent to a DataHub agent, or connect your agent to DataHub's tools.
+No. DataHub complements your agent stack rather than replacing it. Claude, ChatGPT, Databricks Genie, Snowflake Cortex and CoWork, LangChain, CrewAI, Google ADK, and custom agents can all use DataHub over MCP. [Step 4](./activate-context.md) covers three options: use Ask DataHub directly, connect your agent to a DataHub agent, or connect your agent to DataHub tools.
 
 ## We already have an evals platform. Why use DataHub evals?
 
@@ -72,7 +72,7 @@ With AI Credits. AI features consume AI Credits as they run, including Context G
 
 ## Can we use this with DataHub Core?
 
-Partly. DataHub Core, the open-source edition, includes context documents, metrics and semantic models, and the [MCP server](../../features/feature-guides/mcp.md), so you can connect your own agent to DataHub's tools, as in option c, without the SQL context tools that come with the add-on. Context Generation, evals, review workflows, custom agents, and scoped MCP servers require DataHub Cloud with the Context add-on.
+Partly. DataHub Core, the open-source edition, includes context documents, metrics and semantic models, and the [MCP server](../../features/feature-guides/mcp.md), so you can connect your own agent to DataHub tools, as in option c, without the SQL context tools that come with the add-on. Context Generation, evals, review workflows, custom agents, and scoped MCP servers require DataHub Cloud with the Context add-on.
 
 ## What's included in the Context add-on?
 
