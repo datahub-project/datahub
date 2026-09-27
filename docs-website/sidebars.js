@@ -13,7 +13,10 @@ module.exports = {
       label: "What Is DataHub?",
       type: "category",
       collapsed: true,
-      link: { type: "doc", id: "docs/features" },
+      link: {
+        type: "doc",
+        id: "docs/features",
+      },
       items: [
         // By the end of this section, readers should understand the core use cases that DataHub addresses,
         // target end-users, high-level architecture, & hosting options
@@ -190,12 +193,6 @@ module.exports = {
           ],
         },
         {
-          label: "Agents",
-          type: "doc",
-          id: "docs/features/feature-guides/agents",
-          className: "saasOnly",
-        },
-        {
           label: "Analytics Agent",
           type: "doc",
           id: "docs/features/feature-guides/analytics-agent",
@@ -209,7 +206,10 @@ module.exports = {
         {
           label: "Assertions (Data Quality)",
           type: "category",
-          link: { type: "doc", id: "docs/managed-datahub/observe/assertions" },
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/observe/assertions",
+          },
           items: [
             {
               label: "Overview",
@@ -273,7 +273,10 @@ module.exports = {
             {
               label: "Open Assertions Specification",
               type: "category",
-              link: { type: "doc", id: "docs/assertions/open-assertions-spec" },
+              link: {
+                type: "doc",
+                id: "docs/assertions/open-assertions-spec",
+              },
               items: [
                 {
                   label: "Snowflake",
@@ -446,29 +449,138 @@ module.exports = {
           ],
         },
         {
-          label: "Context Documents",
+          label: "Context",
           type: "category",
-          link: {
-            type: "doc",
-            id: "docs/features/feature-guides/context/context-documents",
-          },
+          collapsed: true,
           items: [
             {
-              label: "Import from Notion",
+              label: "Build a Data Agent",
+              type: "category",
+              className: "saasOnly",
+              link: {
+                type: "doc",
+                id: "docs/managed-datahub/build-a-data-agent/overview",
+              },
+              items: [
+                {
+                  label: "Key Concepts",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/key-concepts",
+                },
+                {
+                  label: "1. Define Evals",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/define-evals",
+                },
+                {
+                  label: "2. Ingest Context",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/ingest-context",
+                },
+                {
+                  label: "3. Generate Context",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/generate-context",
+                },
+                {
+                  label: "4. Activate Context",
+                  type: "category",
+                  link: {
+                    type: "doc",
+                    id: "docs/managed-datahub/build-a-data-agent/activate-context",
+                  },
+                  items: [
+                    {
+                      label: "a. Use Ask DataHub Directly",
+                      type: "doc",
+                      id: "docs/managed-datahub/build-a-data-agent/use-ask-datahub",
+                    },
+                    {
+                      label: "b. Connect Your Agent to a DataHub Agent",
+                      type: "doc",
+                      id: "docs/managed-datahub/build-a-data-agent/connect-to-datahub-agent",
+                    },
+                    {
+                      label: "c. Connect Your Agent to DataHub Tools",
+                      type: "doc",
+                      id: "docs/managed-datahub/build-a-data-agent/connect-to-datahub-tools",
+                    },
+                  ],
+                },
+                {
+                  label: "5. Improve with Feedback",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/improve-with-feedback",
+                },
+                {
+                  label: "FAQ",
+                  type: "doc",
+                  id: "docs/managed-datahub/build-a-data-agent/faq",
+                },
+              ],
+            },
+            {
+              label: "Context Documents",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/features/feature-guides/context/context-documents",
+              },
+              items: [
+                {
+                  label: "Import from Notion",
+                  type: "doc",
+                  id: "docs/features/feature-guides/context/import-notion",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Import from Confluence",
+                  type: "doc",
+                  id: "docs/features/feature-guides/context/import-confluence",
+                  className: "saasOnly",
+                },
+                {
+                  label: "Import from GitHub",
+                  type: "doc",
+                  id: "docs/features/feature-guides/context/import-github",
+                  className: "saasOnly",
+                },
+              ],
+            },
+            {
+              label: "Context Evals",
               type: "doc",
-              id: "docs/features/feature-guides/context/import-notion",
+              id: "docs/features/feature-guides/context/context-evals",
               className: "saasOnly",
             },
             {
-              label: "Import from Confluence",
+              label: "Context Generation",
               type: "doc",
-              id: "docs/features/feature-guides/context/import-confluence",
+              id: "docs/features/feature-guides/context/context-generation",
               className: "saasOnly",
             },
             {
-              label: "Import from GitHub",
+              label: "Reviewing Context Changes",
               type: "doc",
-              id: "docs/features/feature-guides/context/import-github",
+              id: "docs/features/feature-guides/context/context-review",
+              className: "saasOnly",
+            },
+            {
+              label: "Context Feedback",
+              type: "doc",
+              id: "docs/features/feature-guides/context/context-feedback",
+              className: "saasOnly",
+            },
+            {
+              label: "Custom Agents",
+              type: "doc",
+              id: "docs/features/feature-guides/agents",
+              className: "saasOnly",
+            },
+            {
+              label: "Scoped MCP Servers",
+              type: "doc",
+              id: "docs/features/feature-guides/scoped-mcp-servers",
               className: "saasOnly",
             },
           ],
@@ -593,19 +705,8 @@ module.exports = {
         },
         {
           label: "MCP Server",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/features/feature-guides/mcp",
-          },
-          items: [
-            {
-              label: "Scoped MCP Servers",
-              type: "doc",
-              id: "docs/features/feature-guides/scoped-mcp-servers",
-              className: "saasOnly",
-            },
-          ],
+          type: "doc",
+          id: "docs/features/feature-guides/mcp",
         },
         {
           label: "Multi-Language Support",
@@ -717,41 +818,6 @@ module.exports = {
     {
       type: "doc",
       id: "docs/managed-datahub/welcome-acryl",
-    },
-    {
-      type: "category",
-      label: "Context and AI",
-      items: [
-        {
-          label: "Context",
-          type: "category",
-          link: {
-            type: "doc",
-            id: "docs/managed-datahub/context/overview",
-          },
-          className: "saasOnly",
-          items: [
-            {
-              label: "Configure Context Generation",
-              type: "doc",
-              id: "docs/managed-datahub/context/configure-context-generation",
-              className: "saasOnly",
-            },
-            {
-              label: "Validate Context",
-              type: "doc",
-              id: "docs/managed-datahub/context/review-context-proposals",
-              className: "saasOnly",
-            },
-            {
-              label: "Activate Context",
-              type: "doc",
-              id: "docs/managed-datahub/context/activate-context",
-              className: "saasOnly",
-            },
-          ],
-        },
-      ],
     },
     {
       label: "Data Quality & Observability",
@@ -953,7 +1019,10 @@ module.exports = {
         {
           type: "category",
           label: "Sinks",
-          link: { type: "doc", id: "metadata-ingestion/sink_overview" },
+          link: {
+            type: "doc",
+            id: "metadata-ingestion/sink_overview",
+          },
           items: [
             {
               type: "autogenerated",
@@ -1027,7 +1096,10 @@ module.exports = {
     {
       type: "category",
       label: "Sources",
-      link: { type: "doc", id: "metadata-ingestion/source_overview" },
+      link: {
+        type: "doc",
+        id: "metadata-ingestion/source_overview",
+      },
       items: [
         // collapse these; add push-based at top
         {
@@ -1101,7 +1173,10 @@ module.exports = {
     {
       type: "category",
       label: "Open Source DataHub Metadata Standard",
-      link: { type: "doc", id: "docs/metadata-standards" },
+      link: {
+        type: "doc",
+        id: "docs/metadata-standards",
+      },
       collapsed: false,
       items: [
         {
@@ -1338,7 +1413,10 @@ module.exports = {
     {
       type: "category",
       label: "DataHub CLI",
-      link: { type: "doc", id: "docs/cli" },
+      link: {
+        type: "doc",
+        id: "docs/cli",
+      },
       items: [
         { type: "doc", id: "docs/cli-commands/search", label: "search" },
         { type: "doc", id: "docs/cli-commands/graphql", label: "graphql" },
@@ -1356,7 +1434,10 @@ module.exports = {
     {
       type: "category",
       label: "DataHub Actions",
-      link: { type: "doc", id: "docs/act-on-metadata" },
+      link: {
+        type: "doc",
+        id: "docs/act-on-metadata",
+      },
       items: [
         "docs/actions/README",
         "docs/actions/quickstart",
@@ -1633,7 +1714,10 @@ module.exports = {
         {
           type: "category",
           label: "RFCs",
-          link: { type: "doc", id: "docs/rfcs/README" },
+          link: {
+            type: "doc",
+            id: "docs/rfcs/README",
+          },
           items: [],
         },
         "SECURITY",
