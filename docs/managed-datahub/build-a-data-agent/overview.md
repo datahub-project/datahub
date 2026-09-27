@@ -26,6 +26,14 @@ With all three in place, your agent answers questions **correctly** (the right t
 
 This guide is written for data and AI platform teams: the people who enable their organization to answer business questions from data, increasingly by publishing agents and AI tools.
 
+It focuses on **data analytics agents**: agents that answer business questions with real results from your warehouse. The same context layer also supports operational agents that help manage your data itself, for example:
+
+- **Data governance:** documenting and classifying assets, and reporting on ownership and compliance gaps
+- **Data development:** understanding lineage and the impact of a change before it ships
+- **Data quality:** investigating incidents and tracing issues to their source
+
+You can build these as [custom agents](../../features/feature-guides/agents.md) in DataHub, or connect your own through the [Agent Context Kit](../../dev-guides/agent-context/agent-context.md).
+
 Teams like [Anthropic](https://claude.com/blog/how-anthropic-enables-self-service-data-analytics-with-claude) and [Pinterest](https://medium.com/pinterest-engineering/unified-context-intent-embeddings-for-scalable-text-to-sql-793635e60aac) have built self-serve data agents this way, with dedicated teams. DataHub makes the same approach available to every organization.
 
 ## What you'll build
@@ -34,11 +42,11 @@ By the end of this guide, you'll have:
 
 - A data agent that answers one team's real questions from trusted data
 - An eval suite that measures its accuracy every day
-- A weekly routine that keeps it improving
+- Practices that keep your context accurate as your organization changes
 
-## The path
+## Building an effective data agent
 
-Define what "good" looks like first. Then add context until your agent gets there, and put it in front of your users.
+An agent that answers correctly, consistently, and efficiently needs more than a capable model and a warehouse connection. It needs context grounded in your organization's real knowledge, a way to measure whether that context works, and a process to keep it current. This guide builds all three in five steps:
 
 | Step                                                       | What you do                                                                        |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -46,13 +54,13 @@ Define what "good" looks like first. Then add context until your agent gets ther
 | **2. [Ingest context](./ingest-context.md)**               | Bring in your semantic models, metrics, BI definitions, and documentation.         |
 | **3. [Generate context](./generate-context.md)**           | Let DataHub turn your team's query history into context documents.                 |
 | **4. [Activate context](./activate-context.md)**           | Make your context available to the people and agents who need it.                  |
-| **5. [Improve with feedback](./improve-with-feedback.md)** | Close the gaps your agent reports, and add evals so they stay closed.              |
+| **5. [Maintain your context](./improve-with-feedback.md)** | Keep your context accurate as your organization, data, and questions change.       |
 
 <p align="center">
-  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/guides/data-agent-path.png"/>
+  <img width="100%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/guides/data-agent-path.png"/>
 </p>
 
-_Diagram: define evals, ingest context, generate context, activate context, improve with feedback, and back to evals._
+_Diagram: define evals, ingest context, generate context, activate context, maintain your context, and back to evals._
 
 Every step after the first is measured against your evals, so you'll always know whether a change helped.
 
@@ -81,7 +89,7 @@ Start small: one domain, or at most three, each with a backlog of real questions
 Each domain gets its own evals, context, owners, and agent, so accuracy stays measurable and trust is earned one team at a time. Step 4 explains how to [package a domain](./activate-context.md#package-a-domain-for-a-domain-agent), and how to [expose all data and context](./activate-context.md#expose-all-data-and-context-to-a-global-agent) to a global agent.
 
 :::tip
-If the people asking questions can't read SQL, build a domain agent. See [Key Concepts](./key-concepts.md#global-and-domain-specific-data-agents).
+If the people asking questions can't read SQL, build a domain agent. See [Key Concepts](./key-concepts.md#global-vs-domain-scoped-data-agents).
 :::
 
 ## Before you start

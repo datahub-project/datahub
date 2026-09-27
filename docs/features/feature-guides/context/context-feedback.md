@@ -46,7 +46,7 @@ _Screenshot: reviewing feedback reported by agents in Validation > Feedback._
 
 ## How it fits
 
-Context Feedback powers step 5 of [Build a Data Agent](../../../managed-datahub/build-a-data-agent/improve-with-feedback.md). We recommend a short weekly review with your data expert: fix what's real, and add an [eval](./context-evals.md) for each question that exposed a gap.
+Context Feedback is central to step 5 of [Build a Data Agent](../../../managed-datahub/build-a-data-agent/improve-with-feedback.md), maintaining your context as your organization changes. Make reviewing feedback part of how each domain's owners work: fix what's real, and add an [eval](./context-evals.md) for each question that exposed a gap.
 
 ## FAQ
 
@@ -58,6 +58,6 @@ No. Those ratings help DataHub improve the product. Context Feedback comes from 
 
 ## Related
 
-- [Build a Data Agent: Improve with feedback](../../../managed-datahub/build-a-data-agent/improve-with-feedback.md)
+- [Build a Data Agent: Maintain your context](../../../managed-datahub/build-a-data-agent/improve-with-feedback.md)
 - [Context Evals](./context-evals.md)
 - [Reviewing Context Changes](./context-review.md)

@@ -1,11 +1,11 @@
 ---
-title: "Step 5: Improve with Feedback"
-description: "Use Context Feedback and evals to find and close the gaps your data agent encounters, then roll out to the next domain."
+title: "Step 5: Maintain Your Context"
+description: "Keep your context layer accurate as your organization, data, and questions change, using feedback, review, evals, and scheduled refresh."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Step 5: Improve with Feedback
+# Step 5: Maintain Your Context
 
 <FeatureAvailability saasOnly />
 
@@ -13,11 +13,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 This step uses features from the DataHub Cloud **Context** add-on, currently in Public Beta.
 :::
 
-Once your agent is live, it will meet questions no one anticipated. That's expected. The goal isn't an agent that's perfect on day one, but one that measurably improves every week.
+Your organization doesn't stand still. Tables are replaced, metrics are redefined, teams reorganize, and people start asking new questions. Context that was accurate at launch drifts unless someone maintains it. This step describes the practices that keep your context layer accurate over time.
 
-## Let your agent report what's missing
+## Let your agents report gaps
 
-Whenever your agent runs into a gap in your context, it records a note in [Context Feedback](../../features/feature-guides/context/context-feedback.md). It reports four kinds of gaps:
+The people and agents using your context are the first to notice when it falls short. Whenever an agent runs into a gap, it records a note in [Context Feedback](../../features/feature-guides/context/context-feedback.md):
 
 | Type                | Meaning                                              |
 | ------------------- | ---------------------------------------------------- |
@@ -26,9 +26,7 @@ Whenever your agent runs into a gap in your context, it records a note in [Conte
 | **Conflicting**     | Two sources disagree.                                |
 | **User correction** | A user said the answer was wrong, and explained why. |
 
-Ask DataHub and your custom agents report gaps automatically. Your own agents do too when they use the [`datahub-sql-workflow`](https://github.com/datahub-project/datahub-skills/tree/main/skills/datahub-sql-workflow) skill.
-
-You'll find the notes under **Validation > Feedback**.
+Ask DataHub and your custom agents report gaps automatically. Your own agents do too when they use the [`datahub-sql-workflow`](https://github.com/datahub-project/datahub-skills/tree/main/skills/datahub-sql-workflow) skill. You'll find the notes under **Validation > Feedback**.
 
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-feedback-list.png"/>
@@ -36,16 +34,16 @@ You'll find the notes under **Validation > Feedback**.
 
 _Screenshot: open feedback reported by agents._
 
-## Review feedback weekly
+## Close each gap, and keep it closed
 
-Set aside 30 minutes a week with your data expert. For each open item:
+Make reviewing feedback part of how your domain's owners work, at whatever cadence suits your organization. For each item:
 
 1. **Confirm it's real.** If it isn't, dismiss it.
-2. **Fix the context.** DataHub's assistant can investigate and propose the smallest change that would help, such as a new document, a clearer description, or deprecating a look-alike table. Nothing changes until you approve it.
-3. **Add an eval** for the question that exposed the gap, so it stays fixed.
+2. **Fix the context.** DataHub's assistant can investigate and propose the smallest change that would help, such as a new document, a clearer description, or deprecating an outdated table. Nothing changes until you approve it.
+3. **Add an eval** for the question that exposed the gap.
 4. **Resolve it.**
 
-The third step turns a one-time fix into a lasting one. Over time, your eval suite should grow mostly from real questions and real failures.
+Adding an eval turns a one-time fix into a lasting one. Over time, your eval suite comes to reflect the questions your organization actually asks.
 
 :::tip
 Group feedback by asset. Several notes about the same table usually point to a single underlying problem.
@@ -53,41 +51,50 @@ Group feedback by asset. Several notes about the same table usually point to a s
 
 ## Invite everyone to suggest fixes
 
-The people using your agent often notice problems first, and they don't need edit rights to help:
+People don't need edit rights to improve your context:
 
-- **In DataHub,** anyone viewing a document they can't edit can click **Propose** to suggest a change.
+- **In DataHub,** anyone viewing a document they can't edit can propose a change.
 - **In chat,** people can ask Ask DataHub or their own agent to "propose an edit to the churn definition." This also works in Slack and Teams.
 
-Suggestions go to the owners' **Tasks > Proposals** inbox, where they can test changes against your evals before approving. See [Reviewing Context Changes](../../features/feature-guides/context/context-review.md).
+Suggestions go to the context's owners for review, and they can test changes against your evals before approving. See [Reviewing Context Changes](../../features/feature-guides/context/context-review.md).
 
-## Track your results
+## Keep context in step with your data
 
-On the Evals page, watch three numbers:
+Much of maintenance can run on its own:
 
-- **Pass rate** should trend upward as you close gaps.
-- **Failing** evals should each have an owner or a known cause.
-- **Flaky** evals, which alternate between passing and failing, usually signal conflicting documents or an ambiguous question.
+- **Scheduled ingestion** keeps your technical context current as tables, dashboards, and owners change.
+- **Scheduled Context Generation** captures new query patterns as your team's analysis evolves. Documents a person has edited are never overwritten.
+- **[Custom agent](../../features/feature-guides/agents.md) tasks** can handle recurring upkeep, such as flagging undocumented tables in a domain.
+- **Clear ownership** means every domain, table, and document has someone responsible for it, so changes are reviewed by people who know the data.
 
-If the pass rate drops overnight, review what was published the day before.
+When your organization changes, such as a new data source, a retired system, or a redefined metric, update the affected context, deprecate what's outdated, and add or update evals to match.
+
+## Watch your evals
+
+Your evals are the early-warning system for drift. On the Evals page, watch:
+
+- **Pass rate,** which should hold steady or rise as your context improves
+- **Failing** evals, each of which should have an owner or a known cause
+- **Flaky** evals, which alternate between passing and failing, and usually signal conflicting documents or an ambiguous question
+
+If the pass rate drops suddenly, review what changed just before: newly published documents, a schema change, or a refreshed job.
 
 ## Expand to the next domain
 
-Once the agent meets your target pass rate and the first domain's team uses its answers without double-checking them, take the next domain through the same path: define its evals, ingest and generate its context, and activate it for that team.
+Once the agent meets your target pass rate and the first domain's team relies on its answers, take the next domain through the same path: define its evals, ingest and generate its context, and activate it for that team. Each domain goes faster than the last, because the practices are already in place.
 
-Each domain goes faster than the last, because the practices are already in place. Over time, you'll have a set of domain agents, each with its own context, evals, and owners, alongside a global agent that benefits from all of it.
+## Signs of a healthy context layer
 
-## What success looks like after a month
-
-- [ ] One domain agent in regular use, limited to its domain
-- [ ] 50 or more evals, most drawn from real questions and failures
-- [ ] Daily eval runs, with a pass rate you're comfortable sharing
-- [ ] Generated context refreshing on a schedule, verified by evals
-- [ ] A weekly feedback review on the calendar
-- [ ] The next domain chosen, with an owner ready to begin
+- [ ] Your first domain agent is in regular use, limited to its domain
+- [ ] Your eval suite grows from real questions and real failures
+- [ ] Evals run daily, with a pass rate you're comfortable sharing
+- [ ] Ingestion and Context Generation refresh on a schedule, verified by evals
+- [ ] Every domain has owners who review feedback and proposed changes
+- [ ] The next domain is chosen, with an owner ready to begin
 
 ## Related
 
-- [Context Evals](../../features/feature-guides/context/context-evals.md)
 - [Context Feedback](../../features/feature-guides/context/context-feedback.md)
 - [Reviewing Context Changes](../../features/feature-guides/context/context-review.md)
+- [Context Evals](../../features/feature-guides/context/context-evals.md)
 - [Back to the overview](./overview.md)
