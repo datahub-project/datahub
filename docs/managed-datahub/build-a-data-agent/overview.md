@@ -81,7 +81,7 @@ Start small: one domain, or at most three, each with a backlog of real questions
 Each domain gets its own evals, context, owners, and agent, so accuracy stays measurable and trust is earned one team at a time. Step 4 explains how to [package a domain](./activate-context.md#package-a-domain-for-a-domain-agent), and how to [open everything](./activate-context.md#open-everything-for-a-global-agent) to a global agent.
 
 :::tip
-If the people asking questions can't read SQL, build a domain agent. See [Key Concepts](./key-concepts.md#global-agents-and-domain-agents).
+If the people asking questions can't read SQL, build a domain agent. See [Key Concepts](./key-concepts.md#global-and-domain-specific-data-agents).
 :::
 
 ## Before you start

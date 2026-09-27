@@ -11,7 +11,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 Your baseline shows where your agent stands. The fastest way to improve it is with context your team has already written: semantic models, BI definitions, and documentation. Today, that knowledge is usually fragmented across tools. This step activates it by centralizing it in DataHub, in one place your agent can search.
 
-Connecting your warehouse has already given your agent a lot: tables, columns, lineage, owners, usage, and past queries. These are the [trust signals](./key-concepts.md#trust-signals) it uses to choose the right data. What it still lacks is meaning: what your metrics are, and how your team thinks about its data.
+Connecting your warehouse has already given your agent a lot: tables, columns, lineage, owners, usage, and past queries. These are the [trust signals](./key-concepts.md#technical-context) it uses to choose the right data. What it still lacks is meaning: what your metrics are, and how your team thinks about its data.
 
 :::tip Where to focus
 **If you have a semantic layer,** start with [Semantic models and metrics](#semantic-models-and-metrics). It's the most precise context you own.
@@ -63,7 +63,7 @@ A few hours here pays off in every answer. You can do all of this from a table's
 <!-- TODO(certification): When certification ships, add a bullet near the top, e.g.
 "**Certify what you trust.** Certify the tables and docs your team stands behind. Certified context gets a boost when agents search." Link to the certification feature guide. -->
 
-Each of these is a signal DataHub uses to rank what your agent sees. See [How DataHub ranks context](./key-concepts.md#how-datahub-ranks-context).
+Each of these is a signal DataHub uses to rank what your agent sees. See [Technical context](./key-concepts.md#technical-context).
 
 ## Re-run your evals
 

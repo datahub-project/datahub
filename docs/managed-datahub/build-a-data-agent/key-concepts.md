@@ -1,6 +1,6 @@
 ---
 title: Key Concepts
-description: "The ideas behind a reliable data agent on DataHub: context documents, trust signals, domains, ranking, and human review."
+description: "The ideas behind a reliable data agent on DataHub: evals, the technical and business context layers, human-in-the-loop review, global and domain-specific data agents, and feedback."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -9,59 +9,84 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-This page explains the ideas the guide relies on. You can follow the steps without it, but it's a good place to start if the terms are new.
+This page explains the ideas the guide relies on, in the order you'll meet them. You can follow the steps without it, but it's a good place to start if the terms are new.
 
-## Context documents
+| Concept                                                                           | Where it appears in the guide                                                                    |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| [Evals](#evals)                                                                   | [Step 1: Define evals](./define-evals.md)                                                        |
+| [The context layer](#the-context-layer)                                           | [Step 2: Ingest context](./ingest-context.md), [Step 3: Generate context](./generate-context.md) |
+| [Human-in-the-loop review](#human-in-the-loop-review)                             | [Step 3: Generate context](./generate-context.md)                                                |
+| [Global and domain-specific data agents](#global-and-domain-specific-data-agents) | [Step 4: Activate context](./activate-context.md)                                                |
+| [Feedback](#feedback)                                                             | [Step 5: Improve with feedback](./improve-with-feedback.md)                                      |
 
-An agent can read table and column names on its own. What it can't infer is everything around them: what "active customer" means, which of three revenue tables Finance trusts, or who approves access to customer PII.
+## Evals
 
-A **context document** captures that knowledge. It's a short, plain-language page that an agent finds by asking a question in its own words. The best ones read like a map: "To answer questions about trial conversion, start with these tables, join them like this, and exclude internal accounts."
+An **eval** is a real business question paired with the answer an expert would give, usually as SQL. DataHub asks an agent the question, and an AI judge checks whether the agent's answer is equivalent to the expected one.
 
-If you've worked with agent skills, the idea is similar: a focused piece of know-how that an agent loads only when a question calls for it. The difference is authorship. Skills are written by whoever builds the agent. Context documents are written, generated, and reviewed by the people who know the data.
+Together, your evals form a test suite for your context. They give you a baseline before you add any context, show whether each change helps, and catch regressions the day after they happen. That's why the guide starts with them: every later step is measured against your evals. See [Context Evals](../../features/feature-guides/context/context-evals.md).
 
-Context documents can cover:
+## The context layer
 
-- **Analytics:** metric definitions, which tables to use, how they join, and common filters
-- **Governance and process:** how to request access, what counts as PII, and who approves what
-- **Guardrails:** rules for specific tables, such as "always exclude test accounts" or "this is a daily snapshot, so never sum across days"
+DataHub gives your agents a single context layer with two parts: the **technical context** that inventories your data, and the **business context** that explains what it means.
 
-When you relate a document to a table, dashboard, metric, or glossary term, the document travels with it. Whenever your agent looks up that asset, it sees the document too.
+### Technical context
+
+Technical context is the foundation. When you connect your warehouse, BI tools, and pipelines, DataHub builds an inventory of your data landscape:
+
+- **Assets:** tables, columns, dashboards, charts, pipelines, and the queries that run against them
+- **Lineage:** where each asset comes from and what depends on it
+- **Ownership:** who is responsible for each asset
+- **Usage:** how often each asset is used, and by how many people
+- **Past queries:** SQL that has already run against each table
+- **Status:** when each asset last changed, and whether it's deprecated
+
+An agent uses these as **trust signals**, the way an experienced analyst would. They help it tell a curated table from the raw data behind it, prefer the table people actually use over an abandoned copy, reuse proven joins and filters, and cite its sources.
+
+DataHub also uses these signals to rank what your agent sees. When an agent searches, context that's widely used and recently updated ranks higher, deprecated assets rank lower, and published documents rank above drafts. The more clearly your technical context separates good data from bad, the more reliably your agent finds the right answer.
+
+<!-- TODO(certification): When certification ships, add it here, e.g.
+"Assets and documents your team has certified also rank higher." Link to the certification feature guide. -->
+
+### Business context
+
+Business context is the semantic knowledge that explains what your data means and how to use it. It includes:
+
+- **Context documents:** guides, recipes, runbooks, and examples an agent can follow to give the canonical answer to a business question. A good one reads like a map: "To calculate net revenue retention, start with these tables, join them like this, and exclude trial accounts." Context documents also capture governance and process ("how to request access to customer PII") and guardrails for specific tables ("amounts are in cents"). Relate a document to the tables it describes, and your agent sees it whenever it looks those tables up.
+- **Descriptions:** plain-language explanations of tables and columns
+- **Glossary terms:** shared definitions of business concepts, such as "active customer," linked to the columns that implement them
+- **Semantic models and metrics:** precise metric definitions from tools like dbt, Snowflake, Looker, and Cube
 
 Context documents come from two sources:
 
-- **Your team.** People write them in DataHub or import them from Notion, Confluence, or GitHub ([step 2](./ingest-context.md)). These cover the questions everyone asks.
-- **Your analytics exhaust.** DataHub reads the queries your analysts run, along with your BI and semantic models, and writes a document for each business question it sees answered repeatedly ([step 3](./generate-context.md)). These cover the long tail no one has time to write down.
+- **Your team** writes them, or imports them from tools like Notion, Confluence, and GitHub ([step 2](./ingest-context.md)).
+- **[Context Generation](../../features/feature-guides/context/context-generation.md)** writes them for you, by capturing the patterns your team already uses to answer important business questions in its query history, BI tools, and semantic models ([step 3](./generate-context.md)). These cover the long tail no one has time to document by hand.
 
-## Trust signals
+Context documents are searched by meaning, so an agent's question finds the right document even when its wording differs. If you've worked with agent skills, the idea is similar: focused know-how that an agent loads only when a question calls for it. The difference is that context documents are written, generated, and reviewed by the people who know the data.
 
-Context documents explain your data. The rest of DataHub tells your agent how far to trust it. Once your warehouse and tools are connected, DataHub knows:
+## Human-in-the-loop review
 
-- **Lineage:** where a table comes from and what depends on it, so the agent can tell a curated table from the raw data behind it
-- **Ownership:** who is responsible for a table, so the agent can favor maintained data and tell users whom to ask
-- **Usage:** how often a table is queried and by how many people, so the agent picks the table analysts rely on over an abandoned copy
-- **Past queries:** SQL that has already run against a table, so the agent can reuse proven joins and filters
-- **Freshness and status:** when a table last changed, and whether it's deprecated
+Agents act on what they read, so the people who know the data decide what goes in. DataHub lets anyone propose a change to context, whether it comes from a person, DataHub's AI, your own agents, or Context Generation. The owners of the context involved review it before agents see it.
 
-Your agent uses these signals the way an experienced analyst would: to choose between similar tables, to check its work before running a query, and to cite its sources. They're what make an answer correct and consistent, rather than merely plausible.
+Reviewers can run evals against a proposed change before approving it, so they learn whether it helps before your agent does. You choose where review is required: for example, generated documents can publish automatically and be verified by evals, or require approval for sensitive domains. See [Reviewing Context Changes](../../features/feature-guides/context/context-review.md).
 
-## Global agents and domain agents
+## Global and domain-specific data agents
 
-The most consequential decision is what kind of agent you're building.
+The most consequential decision is what kind of agent you're building. The guide calls them **global agents** and **domain agents** for short.
 
-|                          | **Global agent**                                      | **Domain agent**                                                       |
+|                          | **Global data agent**                                 | **Domain-specific data agent**                                         |
 | ------------------------ | ----------------------------------------------------- | ---------------------------------------------------------------------- |
 | **Who uses it**          | Analysts, data engineers, and data scientists         | A business team, such as Finance, Sales Ops, or Marketing              |
 | **Typical question**     | "Where do we keep clickstream data, and who owns it?" | "What was net revenue retention for enterprise accounts last quarter?" |
-| **What it can see**      | Everything the person asking can see                  | A curated set of trusted tables, metrics, and documents                |
+| **What it can see**      | Everything the person asking can see                  | One domain's trusted tables, metrics, and documents                    |
 | **What good looks like** | Points people to the right data quickly               | Returns the right number every time, or says it can't                  |
 | **Who catches mistakes** | Usually the user, who can read the SQL                | Often no one, until the number reaches a report                        |
 | **Evals**                | A small set of discovery questions                    | A thorough suite, owned by the business team                           |
 
-We recommend rolling out domain agents one domain at a time, starting with a team that has real questions and an owner who cares about the answers. A global agent for your data team is easy to add alongside them.
+We recommend rolling out domain-specific agents one domain at a time. A global agent for your data team is easy to add alongside them.
 
-## Domains
+### Domains
 
-Domain agents work because everything they need is grouped together. In DataHub, that grouping is a [domain](../../domains.md). You can assign almost everything to one:
+A [domain](../../domains.md) is an optional way to group related assets and context, such as everything that belongs to Finance. Domains are what make domain-specific agents practical, because everything an agent needs is in one place. You can assign almost everything to a domain:
 
 | What                                 | How it joins the domain                                               |
 | ------------------------------------ | --------------------------------------------------------------------- |
@@ -70,29 +95,16 @@ Domain agents work because everything they need is grouped together. In DataHub,
 | Evals                                | Set the eval's domain                                                 |
 | Owners                               | The domain's owners, and the owners of its tables, review its context |
 
-You then point an agent at the domain, either through a custom agent in DataHub or a scoped MCP server. The agent searches less and answers more accurately. You can run many domain agents side by side, each with its own context, evals, and owners.
+There are three ways to expose a domain to a data agent:
 
-## How DataHub ranks context
+- **A custom agent** in DataHub, scoped to the domain
+- **A scoped MCP server,** limited to the domain with a View
+- **Instructions** that teach your agent how to navigate your domain hierarchy, such as which domain to search for which kinds of questions
 
-When your agent searches DataHub, results are ranked so the most trustworthy context comes first:
+The first two limit what the agent sees; the third guides where it looks. Either way, the agent searches less and answers more accurately. You can run many domain-specific agents side by side, each with its own context, evals, and owners.
 
-- **Meaning.** Context documents are searched by meaning, so a question about "customer churn" finds a document titled "Retention analysis."
-- **Popularity.** Tables, metrics, and documents people actually use rank above those nobody touches.
-- **Freshness.** Recently updated, actively used context ranks above stale material.
-- **Your signals.** Deprecated tables rank lower, and published documents rank above drafts.
+## Feedback
 
-<!-- TODO(certification): When certification ships, add a bullet here, e.g.
-"**Certification.** Tables and docs your team has certified get a boost." Link to the certification feature guide. -->
+No eval suite anticipates every question. Once your agent is in real use, it reports the gaps it runs into: context that's missing, incorrect, or conflicting, and answers a user has corrected. These notes collect in one place, so your team can fix each gap once, and add an eval so it stays fixed.
 
-DataHub handles the ranking. Your part is to make good context easy to distinguish: bring in documentation people maintain, deprecate look-alike tables, and publish only what you've verified.
-
-## Human review
-
-Agents act on what they read, so the people who know the data decide what goes in. Anyone can propose a change, and the right people approve it:
-
-- **Generated documents** publish automatically by default and are verified by your evals. For sensitive domains, turn off auto-publish and name the reviewers who must approve them.
-- **Edits proposed in chat or through MCP**, and edits from people who can't change a document directly, go to the document's owners for review.
-- **Generated evals** go to your admins for approval.
-- **Table and column descriptions** follow the same flow, reviewed by the table's owners.
-
-Reviewers can run evals against a proposed change before approving it, so you learn whether it helps before your agent does. See [Reviewing Context Changes](../../features/feature-guides/context/context-review.md).
+Feedback closes the loop: real usage improves your context, and your evals confirm each improvement. See [Context Feedback](../../features/feature-guides/context/context-feedback.md).

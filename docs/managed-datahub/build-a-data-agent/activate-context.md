@@ -71,7 +71,7 @@ Each option works for both a domain agent and a global agent.
 2. **Add its assets.** From the domain's page, add the tables, metrics, semantic models, and dashboards that belong to it. See [Domains](../../domains.md).
 3. **Add its documents.** Set the domain on documents you write or import. For generated documents, use **Assign generated docs to** on your [Context Generation](./generate-context.md#1-create-a-job) job.
 4. **Assign its evals.** Set each eval's **Domain**, so you can run and track the domain's evals on their own.
-5. **Expose only that domain.** For options **a** and **b**, create a custom agent and set **Scope** to **By Domain**. For option **c**, create a scoped MCP server and, under **Scope to View**, select a [View](../../features/feature-guides/views/overview.md) that filters to the domain and includes documents. A View can also filter by database or schema, if that's how your data is organized.
+5. **Expose only that domain.** For options **a** and **b**, create a custom agent and set **Scope** to **By Domain**. For option **c**, create a scoped MCP server and, under **Scope to View**, select a [View](../../features/feature-guides/views/overview.md) that filters to the domain and includes documents. A View can also filter by database or schema, if that's how your data is organized. Alternatively, for any option, add instructions that tell the agent which domain to search for which kinds of questions.
 
 :::tip
 Anything not assigned to the domain is invisible to a domain agent. If the agent can't find something it should, check the asset's domain first.
