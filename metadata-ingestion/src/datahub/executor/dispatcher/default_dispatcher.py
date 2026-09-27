@@ -45,8 +45,10 @@ def dispatch_async(
         # Clearing between tasks is not available as a fix: dispatch runs
         # tasks concurrently, so a clear during one disarms masking for
         # another running beside it. Scoping needs no coordination between
-        # tasks. Registration still reaches the global registry, which stays
-        # the fail-safe floor -- see task_secret_scope.
+        # tasks. A task's secrets stay in its scope and never reach the
+        # global, which masks only process-level secrets -- so a raw thread
+        # started inside a task needs contextvars.copy_context() to keep the
+        # task's masking; see task_secret_scope.
         #
         # The summary print AND the failure traceback are inside the scope.
         # An earlier version of this said so while leaving the `except`

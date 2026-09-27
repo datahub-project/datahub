@@ -310,8 +310,11 @@ class SecretRegistry:
     def global_instance(cls) -> "SecretRegistry":
         """The process-global registry, ignoring any active task scope.
 
-        The fail-safe floor: everything registered anywhere reaches this one,
-        so a caller that resolves to it can over-mask but never under-mask.
+        The floor every task scope masks on top of: secrets registered outside
+        any scope (envelope secrets, a ConfigModel's SecretStr fields, the
+        executor's own config). A task's secrets are NOT written here -- see
+        task_secret_scope -- so a caller resolving to this registry from
+        inside a task's raw thread masks only process-level secrets.
         """
         with cls._lock:
             if cls._instance is None:
@@ -495,15 +498,26 @@ class SecretRegistry:
         )
 
     def is_capacity_exceeded(self) -> bool:
-        return self._capacity_exceeded
+        if self._capacity_exceeded:
+            return True
+        return self._parent is not None and self._parent.is_capacity_exceeded()
 
     def suppression_message(self) -> Optional[str]:
         """Non-None when masking must fail closed: the fixed message that
-        replaces all output."""
+        replaces all output.
+
+        A scope inherits the parent's state. The parent's secrets are half of
+        what a scope masks against, so a parent that can no longer mask them
+        (over capacity, or its pattern would not compile) leaves the scope
+        unable to as well -- and must suppress it, not let it mask with only
+        its own half.
+        """
         if self._capacity_exceeded:
             return CAPACITY_EXCEEDED_MESSAGE
         if self._compile_failed:
             return CIRCUIT_OPEN_MESSAGE
+        if self._parent is not None:
+            return self._parent.suppression_message()
         return None
 
     def get_pattern_and_replacements(
@@ -585,8 +599,14 @@ class SecretRegistry:
                 try:
                     self._combined = re.compile("|".join(re.escape(v) for v in sources))
                 except re.error:
-                    # Fail closed the way _rebuild_pattern does: mask with
-                    # whatever this scope alone can, rather than nothing.
+                    # Fail closed the way _rebuild_pattern does. Masking with
+                    # this scope's pattern alone would ship the parent's
+                    # secrets in the clear; the flag makes suppression_message
+                    # withhold the output instead.
+                    self._declare_compile_failed(
+                        "re.error",
+                        sorted(merged.items(), key=lambda x: len(x[0]), reverse=True),
+                    )
                     self._combined = own
                     merged = replacements
                 self._combined_replacements = merged
@@ -683,7 +703,15 @@ class SecretRegistry:
             return self._version
 
     def get_count(self) -> int:
-        return len(self._secrets)
+        """Renderings this registry masks against, the parent's included.
+
+        mask_text reads zero as "nothing to mask", so a scope with no secrets
+        of its own under a parent that has some must not report zero.
+        """
+        own = len(self._secrets)
+        if self._parent is None:
+            return own
+        return own + self._parent.get_count()
 
     def clear(self) -> None:
         with self._registry_lock:

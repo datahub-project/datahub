@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import pytest
 
+from datahub.masking.constants import CAPACITY_EXCEEDED_MESSAGE
 from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry, task_secret_scope
 
@@ -455,3 +456,38 @@ def test_a_registration_racing_the_combined_cache_is_not_cached_away() -> None:
         "masking pattern"
     )
     assert late in replacements
+
+
+def _overfill_global_registry() -> None:
+    with patch.object(SecretRegistry, "MAX_SECRETS", 2):
+        SecretRegistry.global_instance().register_secrets_batch(
+            {f"FILL_{i}": f"filler-credential-{i}" for i in range(5)}
+        )
+    assert SecretRegistry.global_instance().is_capacity_exceeded()
+
+
+@pytest.mark.parametrize("scope_has_own_secret", [False, True])
+def test_a_scope_fails_closed_when_the_global_registry_does(
+    scope_has_own_secret: bool,
+) -> None:
+    """The global dropping secrets over capacity suppresses everyone's output.
+    A scope reading it as a floor must not turn that into partial masking."""
+    _overfill_global_registry()
+
+    with task_secret_scope():
+        if scope_has_own_secret:
+            SecretRegistry.get_instance().register_secrets_batch(
+                {"OWN_PW": "own" + "-task-credential"}
+            )
+        out = SecretMaskingFilter().mask_text("filler-credential-4 in a log line")
+
+    assert out == CAPACITY_EXCEEDED_MESSAGE
+
+
+def test_a_scope_with_no_secrets_still_counts_the_globals() -> None:
+    """mask_text reads a zero count as "nothing to mask"."""
+    SecretRegistry.global_instance().register_secrets_batch(
+        {"EARLY_PW": "early" + "-registered-credential"}
+    )
+    with task_secret_scope() as scoped:
+        assert scoped.get_count() > 0
