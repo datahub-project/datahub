@@ -14,7 +14,11 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.ingestion.agent.sql_gate import CatalogScope
-from datahub.ingestion.agent.verdicts import ClassifyContext, SchemaMatch
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    SchemaMatch,
+    ancestors_in,
+)
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -243,6 +247,22 @@ class SQLCommonConfig(
         the recipe's config can.
         """
         return DatasetContainerSubTypes.SCHEMA
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """The container kinds above `kind`, outermost first.
+
+        `probe filter` judges the --parent containers with these, because
+        ingestion never reaches a table whose schema or database its patterns
+        exclude -- judging the table's own pattern alone reported it included.
+        A three-tier source nests schemas in databases; a two-tier one has
+        databases only (see probe_container_kind).
+        """
+        chain = (
+            (DatasetContainerSubTypes.DATABASE, DatasetContainerSubTypes.SCHEMA)
+            if self.probe_container_kind() == DatasetContainerSubTypes.SCHEMA
+            else (DatasetContainerSubTypes.DATABASE,)
+        )
+        return ancestors_in(chain, kind, (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW))
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:

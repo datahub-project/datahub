@@ -539,11 +539,11 @@ connection:
 
 ```shell
 datahub recipe probe filter --recipe my_recipe.yml \
-  --kind Table --parent public --names orders,users,audit_log_v2
+  --kind Table --parent public --name orders --name users --name audit_log_v2
 
 # Try a different pattern without editing the recipe
 datahub recipe probe filter --recipe my_recipe.yml --kind Table --parent public \
-  --names orders,users --try-allow '^public\.ord.*'
+  --name orders --name users --try-allow '^public\.ord.*'
 ```
 
 Each result reports the `target` the pattern was matched against — which is usually the
@@ -551,6 +551,9 @@ qualified identifier, not the bare name. That matters: `AllowDenyPattern` is sta
 `^orders.*` matches nothing when ingestion evaluates `public.orders`. The output also names the
 `pattern_field` that actually decided, which is not always the one named after the kind (MySQL
 copies `table_pattern` into `view_pattern`).
+
+The `--parent` containers are judged too: a table under a schema or database the recipe
+excludes is reported excluded by that container's pattern, because ingestion never reaches it.
 
 Probe output is **metadata only** — names, types, constraints, DDL, counts. No table rows,
 no column values, no message payloads.

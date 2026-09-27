@@ -545,7 +545,7 @@ def _identifier_target(ctx: ClassifyContext) -> str:
     # parent_path (database, schema) instead of (schema,) -- the extra element
     # is the real, connectable database this node lives under, distinct from
     # whatever config.database/initial_database would otherwise default to.
-    database = ctx.parent_path[0] if len(ctx.parent_path) > 1 else None
+    database = ctx.parent_path[-2] if len(ctx.parent_path) > 1 else None
     # getattr, not a direct call: every real SQLCommonConfig subclass declares
     # this (see sql_config.py), but some test doubles in this test suite are a
     # bare SimpleNamespace carrying only the few attributes their test needs.

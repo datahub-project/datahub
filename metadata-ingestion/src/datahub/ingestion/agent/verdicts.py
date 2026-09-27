@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Iterator, Optional, Tuple
+from typing import Any, Callable, Collection, Iterator, Optional, Sequence, Tuple
 
 
 @dataclass(frozen=True)
@@ -152,3 +152,20 @@ def soft_on_status(*codes: int, context: str) -> Iterator[None]:
                 f"{context} returned HTTP {status}; treating it as empty."
             ) from exc
         raise
+
+
+def ancestors_in(
+    chain: Sequence[str], kind: str, leaves: Collection[str]
+) -> Optional[Tuple[str, ...]]:
+    """The container kinds above `kind`, outermost first.
+
+    `chain` is the source's containers outermost first. A container's
+    ancestors are the ones before it; a leaf sits under the whole chain. None
+    for a kind the chain does not describe, which `probe filter` reports rather
+    than guessing at.
+    """
+    if kind in chain:
+        return tuple(chain[: list(chain).index(kind)])
+    if kind in leaves:
+        return tuple(chain)
+    return None

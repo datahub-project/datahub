@@ -8,6 +8,7 @@ from typing import (
     Dict,
     List,
     Optional,
+    Sequence,
     Tuple,
     Union,
 )
@@ -39,13 +40,17 @@ from datahub.configuration.time_window_config import (
     BucketDuration,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.verdicts import ancestors_in
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
@@ -497,6 +502,18 @@ class BigQueryV2Config(
     @property
     def have_table_data_read_permission(self) -> bool:
         return self.use_tables_list_query_v2 or self.is_profiling_enabled()
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # Datasets sit in projects, not databases: the SQL default would judge
+        # the project against a database_pattern BigQuery does not have.
+        return ancestors_in(
+            (
+                DatasetContainerSubTypes.BIGQUERY_PROJECT,
+                DatasetContainerSubTypes.SCHEMA,
+            ),
+            kind,
+            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
+        )
 
     column_limit: int = Field(
         default=300,

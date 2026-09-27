@@ -17,6 +17,7 @@ from typing import (
     List,
     Optional,
     Protocol,
+    Sequence,
     Set,
     Tuple,
     Union,
@@ -281,6 +282,19 @@ class ModeConfig(
             str(BIAssetSubTypes.MODE_DATASET),
             str(BIAssetSubTypes.MODE_QUERY),
         }
+
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        """What contains each kind, outermost first: reports and datasets are
+        fetched only for spaces space_pattern keeps, and queries only for the
+        reports report_pattern keeps."""
+        space = "Space"
+        return {
+            space: (),
+            str(BIAssetSubTypes.MODE_REPORT): (space,),
+            str(BIAssetSubTypes.MODE_DATASET): (space,),
+            str(BIAssetSubTypes.MODE_QUERY): (space, str(BIAssetSubTypes.MODE_REPORT)),
+        }.get(kind)
 
     space_pattern: Annotated[AllowDenyPattern, Filters("Space")] = Field(
         default=AllowDenyPattern(

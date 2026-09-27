@@ -745,7 +745,9 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
     "parents",
     multiple=True,
     help="Container names above these objects, outermost first. Part of the "
-    "identifier most connectors filter on, so omitting it changes the answer.",
+    "identifier most connectors filter on, so omitting it changes the answer. "
+    "Their own patterns are judged too: an object inside an excluded container "
+    "is reported excluded.",
 )
 @click.option(
     "--name",

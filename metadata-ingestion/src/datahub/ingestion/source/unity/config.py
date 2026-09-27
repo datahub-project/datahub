@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Callable, Dict, List, Optional, Union
+from typing import Annotated, Callable, Dict, List, Optional, Sequence, Union
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -22,6 +22,7 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
+from datahub.ingestion.agent.verdicts import ancestors_in
 from datahub.ingestion.api.incremental_ownership_helper import (
     IncrementalOwnershipConfigMixin,
 )
@@ -42,7 +43,10 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.unity.connection import UnityCatalogConnectionConfig
-from datahub.ingestion.source.unity.proxy_types import qualified_table_name
+from datahub.ingestion.source.unity.proxy_types import (
+    escape_unity_name,
+    qualified_table_name,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
@@ -246,7 +250,9 @@ class UnityCatalogSourceConfig(
         ),
     )
 
-    catalog_pattern: AllowDenyPattern = Field(
+    catalog_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.CATALOG)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for catalogs to filter in ingestion. Specify regex to match the full `metastore.catalog` name.",
     )
@@ -643,37 +649,79 @@ class UnityCatalogSourceConfig(
     ) -> Optional[str]:
         """sql_probe.py's generic get_identifier shim has no get_identifier to
         call for Unity Catalog: UnityCatalogSource doesn't extend
-        SQLAlchemySource, and process_tables (source.py) actually matches
-        table_pattern against `table.ref.qualified_table_name`, i.e.
+        SQLAlchemySource, and process_tables (source.py) matches table_pattern
+        against `table.ref.qualified_table_name`, i.e.
         `<catalog>.<schema>.<table>` (see proxy_types.qualified_table_name,
         reused here rather than reimplemented).
 
-        The probe's Table level otherwise only knows `schema` -- it has no
-        catalog in its parent_path (Unity Catalog reuses SQLCommonConfig's
-        schema-top hierarchy for this level; see sql_probe.SQL_PROBE) -- so the
-        catalog has to come from config, exactly as RedshiftConfig's `database`
-        does. Unlike `database`, `catalogs` is a list: only usable here when it
-        pins exactly one, since a pattern-selected or multi-catalog recipe has
-        no single answer to hand back without guessing.
-
-        Degrading to None (the shim's plain "schema.entity") is a real loss of
-        accuracy versus ingestion's "catalog.schema.table" -- silently
-        returning it would repeat the exact defect this stage exists to
-        remove, just for a different reason. So the degrade is reported via
-        `warn`, which feeds the same ProbeMethodResult.warnings list ProbeSoftError
-        does (see ClassifyContext.warn), not just explained here in a
-        docstring the agent never sees.
+        The catalog is the caller's --parent when given (`database` here), else
+        the one `catalogs` pins. With neither there is no single answer, and
+        the degrade is reported rather than returned silently.
         """
-        if self.catalogs is not None and len(self.catalogs) == 1:
-            return qualified_table_name(self.catalogs[0], schema, entity)
+        catalog = database
+        if catalog is None and self.catalogs is not None and len(self.catalogs) == 1:
+            catalog = self.catalogs[0]
+        if catalog is not None:
+            return qualified_table_name(catalog, schema, entity)
 
         warn(
-            "unity-catalog: `catalogs` does not pin exactly one catalog, so "
-            "table verdicts are matched against `schema.table` while "
-            "ingestion matches `catalog.schema.table`; set a single catalog "
-            "for exact verdicts."
+            "unity-catalog: no catalog given, so table verdicts are matched "
+            "against `schema.table` while ingestion matches "
+            "`catalog.schema.table`; pass the catalog with --parent (or pin a "
+            "single one in `catalogs`) for exact verdicts."
         )
         return None
+
+    def probe_container_match_target(
+        self,
+        kind: str,
+        name: str,
+        parent_path: Sequence[str],
+        warn: Callable[[str], None],
+    ) -> Optional[str]:
+        """The id catalog_pattern and schema_pattern are matched against.
+
+        Not the bare name: UnityCatalogApiProxy builds Catalog.id and Schema.id
+        from the escaped names joined with ".", prefixed by the metastore's
+        when include_metastore is set, and process_catalogs / process_schemas
+        filter on those ids. None for any other kind.
+        """
+        if kind == DatasetContainerSubTypes.CATALOG:
+            depth = 0
+        elif kind == DatasetContainerSubTypes.SCHEMA:
+            depth = 1
+        else:
+            return None
+        if self.include_metastore:
+            depth += 1
+
+        containers = list(parent_path[-depth:]) if depth else []
+        if (
+            len(containers) < depth
+            and kind == DatasetContainerSubTypes.SCHEMA
+            and not self.include_metastore
+            and self.catalogs is not None
+            and len(self.catalogs) == 1
+        ):
+            containers = [self.catalogs[0]]
+        if len(containers) < depth:
+            warn(
+                "unity-catalog matches catalog_pattern and schema_pattern "
+                "against the full id (`[metastore.]catalog[.schema]`); pass the "
+                "containing names with --parent, outermost first, for exact "
+                "verdicts. Judged on the bare name instead."
+            )
+            return name
+        return ".".join(escape_unity_name(part) for part in [*containers, name])
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # The metastore has no pattern, so it is left out of the chain; a
+        # --parent naming it is simply not judged.
+        return ancestors_in(
+            (DatasetContainerSubTypes.CATALOG, DatasetContainerSubTypes.SCHEMA),
+            kind,
+            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
+        )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."

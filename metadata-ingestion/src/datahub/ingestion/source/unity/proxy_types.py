@@ -177,6 +177,17 @@ class ServicePrincipal:
     active: Optional[bool]
 
 
+def escape_unity_name(value: str) -> str:
+    """A metastore, catalog or schema name as it appears in the ids that
+    catalog_pattern and schema_pattern are matched against.
+
+    Shared by UnityCatalogApiProxy, which builds those ids, and by the recipe
+    probe's UnityCatalogSourceConfig.probe_container_match_target, so both
+    sides filter on the same string.
+    """
+    return value.replace(" ", "_")
+
+
 def qualified_table_name(catalog: str, schema: str, table: str) -> str:
     """The identifier table_pattern/view_pattern is matched against.
 

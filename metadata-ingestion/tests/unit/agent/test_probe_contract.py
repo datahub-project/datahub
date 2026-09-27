@@ -254,6 +254,10 @@ _CONFIG_HOOKS = frozenset(
         # Read by sqlalchemy_probe._container_normalizer: how a listed
         # container is spelled for ingestion.
         "probe_normalize_container",
+        # Read by filter_check: the containers above a kind, and the id a
+        # container is matched on when it is not the bare name.
+        "probe_ancestor_kinds",
+        "probe_container_match_target",
         # Read by sqlalchemy_probe.for_config: the URL the probe dials when
         # it differs from get_sql_alchemy_url().
         "probe_sql_alchemy_url",

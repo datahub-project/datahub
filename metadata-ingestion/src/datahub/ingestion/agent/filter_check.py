@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Set
+from typing import Callable, Dict, List, Optional, Sequence, Set
 
 from pydantic import ValidationError
 
@@ -89,6 +89,10 @@ class FilterCheckResult:
     # like. Teradata's database_pattern read exactly like Mode's genuinely
     # unfiltered datasets until this told them apart.
     filtering: str = "by_pattern"
+    # Set when the verdicts come from an excluded --parent rather than this
+    # level's own pattern, so a caller judging the level below does not
+    # report the same exclusion twice. Not serialized: `warnings` says it.
+    excluded_by_container: bool = False
 
     def to_dict(self) -> Dict[str, object]:
         return {
@@ -111,6 +115,20 @@ def _match_target(config: object, kind: str, ctx: ClassifyContext) -> str:
     and a connector whose display name IS its filter target -- Kafka topics,
     Mode spaces -- needs no hook and falls through to the bare name.
     """
+    container_target = getattr(config, "probe_container_match_target", None)
+    if kind not in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW) and callable(
+        container_target
+    ):
+        # A connector whose containers are filtered on a composed id rather
+        # than the bare name -- Unity matches schema_pattern against
+        # `[metastore.]catalog.schema` -- says so here. None: not one of its
+        # container kinds, resolve the usual way.
+        target = container_target(
+            kind=kind, name=ctx.name, parent_path=ctx.parent_path, warn=ctx.warn
+        )
+        if target is not None:
+            return target
+
     if kind in (DatasetContainerSubTypes.SCHEMA, DatasetContainerSubTypes.DATABASE):
         # The SQL shim resolves a *table's* identifier (db.schema.table); asked
         # about a container it would build "analytics..public". The hierarchy
@@ -125,6 +143,12 @@ def _match_target(config: object, kind: str, ctx: ClassifyContext) -> str:
         # spaces. Checked before the parent, because warning here would tell an
         # agent to distrust a correct answer and go looking for a container that
         # does not exist.
+        return ctx.name
+
+    ancestors_for = getattr(config, "probe_ancestor_kinds", None)
+    if callable(ancestors_for) and ancestors_for(kind) == ():
+        # A top-level kind (a BigQuery project) has no container to pass, and
+        # the SQL shim below resolves table identifiers, not this.
         return ctx.name
 
     if not ctx.parent_path:
@@ -335,6 +359,64 @@ def _qualified_schema_match(
         included=is_schema_allowed(pattern, name, container, True),
         target=f"{container}.{name}",
     )
+
+
+def _parent_exclusion(
+    source_type: str,
+    config_dict: Dict[str, object],
+    config: object,
+    kind: str,
+    parent_path: Sequence[str],
+    warn: Callable[[str], None],
+) -> Optional[str]:
+    """The pattern that drops the immediate --parent container, if one does.
+
+    Ingestion never reaches anything inside an excluded container: a table
+    under a denied schema is not ingested whatever table_pattern says, and
+    judging the table's own pattern alone reported it included. The parent is
+    judged by check_filters itself, so its own parent is judged in turn and
+    every structural rule (qualified schema names, default databases) applies.
+    """
+    if not parent_path:
+        return None
+    ancestors_for = getattr(config, "probe_ancestor_kinds", None)
+    ancestors = ancestors_for(kind) if callable(ancestors_for) else None
+    if ancestors is None:
+        warn(
+            f"this source does not declare what contains a '{kind}', so the "
+            f"--parent containers' own patterns were not checked; the verdict "
+            f"covers the '{kind}' pattern only"
+        )
+        return None
+    if not ancestors:
+        return None
+
+    parent_kind = ancestors[-1]
+    parent = check_filters(
+        source_type=source_type,
+        config_dict=config_dict,
+        kind=parent_kind,
+        parent_path=parent_path[:-1],
+        names=[parent_path[-1]],
+    )
+    if parent.filtering != "by_pattern":
+        # Nothing filters that level. Its warnings would be about a kind this
+        # source has no pattern for, which is noise on this verdict.
+        return None
+    for message in parent.warnings:
+        warn(message)
+    verdict = parent.results[0]
+    if verdict.included:
+        return None
+    if parent.excluded_by_container:
+        # Already reported at the level that excluded it.
+        return verdict.excluded_by
+    warn(
+        f"the containing {parent_kind} '{verdict.name}' (matched as "
+        f"'{verdict.target}') is excluded by {verdict.excluded_by}, so "
+        f"ingestion never reaches anything inside it"
+    )
+    return verdict.excluded_by
 
 
 def _canonical_kind(source_type: str, config: object, kind: str) -> str:
@@ -608,6 +690,20 @@ def check_filters(
             )
         )
 
+    # Not for a kind nothing resolves: the warning above already says the
+    # verdict means nothing, and this one would only repeat it.
+    parent_excluded_by = (
+        None
+        if resolved is None
+        else _parent_exclusion(
+            source_type, config_dict, config, kind, parent_path, warn
+        )
+    )
+    if parent_excluded_by is not None:
+        for result in results:
+            result.included = False
+            result.excluded_by = parent_excluded_by
+
     return FilterCheckResult(
         source_type=source_type,
         kind=kind,
@@ -617,4 +713,5 @@ def check_filters(
         results=results,
         tried=tried,
         warnings=warnings,
+        excluded_by_container=parent_excluded_by is not None,
     )

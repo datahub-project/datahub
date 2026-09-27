@@ -967,3 +967,181 @@ def test_the_filtering_field_reports_which_of_the_three_cases_this_is(
     # And the invariant that ties the two fields together: a field is named
     # only when one decided.
     assert (result.pattern_field is not None) == (expected == "by_pattern")
+
+
+UNITY_CONFIG: Dict[str, object] = {
+    "token": "t",
+    "workspace_url": "https://example.cloud.databricks.com",
+}
+SNOWFLAKE_CONFIG: Dict[str, object] = {
+    "account_id": "acct",
+    "username": "u",
+    "password": "p",
+}
+
+
+@pytest.mark.parametrize(
+    "extra, parent_path, pattern, target",
+    [
+        ({}, ["my cat"], r"^my_cat\.analytics$", "my_cat.analytics"),
+        (
+            {"include_metastore": True},
+            ["meta", "my cat"],
+            r"^meta\.my_cat\.analytics$",
+            "meta.my_cat.analytics",
+        ),
+    ],
+)
+def test_unity_schemas_are_judged_on_the_id_ingestion_filters(
+    extra: Dict[str, object], parent_path: List[str], pattern: str, target: str
+) -> None:
+    """process_schemas matches schema_pattern against Schema.id -- the escaped
+    `[metastore.]catalog.schema` -- so a correctly written recipe must not read
+    as excluded."""
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={**UNITY_CONFIG, **extra, "schema_pattern": {"allow": [pattern]}},
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=parent_path,
+        names=["analytics"],
+    )
+    assert [(r.target, r.included) for r in result.results] == [(target, True)]
+    assert result.warnings == []
+
+
+def test_unity_catalogs_are_judged_on_their_escaped_id() -> None:
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={**UNITY_CONFIG, "catalog_pattern": {"deny": ["^my_cat$"]}},
+        kind=str(DatasetContainerSubTypes.CATALOG),
+        parent_path=[],
+        names=["my cat"],
+    )
+    assert (result.results[0].target, result.results[0].included) == ("my_cat", False)
+
+
+@pytest.mark.parametrize(
+    "source_type, config, parent_path, excluded_by",
+    [
+        (
+            "snowflake",
+            {**SNOWFLAKE_CONFIG, "schema_pattern": {"deny": ["^SCH$"]}},
+            ["DB", "SCH"],
+            "schema_pattern",
+        ),
+        (
+            "snowflake",
+            {**SNOWFLAKE_CONFIG, "database_pattern": {"deny": ["^DB$"]}},
+            ["DB", "SCH"],
+            "database_pattern",
+        ),
+        (
+            "mysql",
+            {**MYSQL_CONFIG, "database_pattern": {"deny": ["^shop$"]}},
+            ["shop"],
+            "database_pattern",
+        ),
+        (
+            "bigquery",
+            {"project_id_pattern": {"deny": ["^proj$"]}},
+            ["proj", "ds"],
+            "project_id_pattern",
+        ),
+        (
+            "unity-catalog",
+            {**UNITY_CONFIG, "schema_pattern": {"deny": [r"^cat\.sch$"]}},
+            ["cat", "sch"],
+            "schema_pattern",
+        ),
+    ],
+)
+def test_a_table_under_an_excluded_container_is_excluded(
+    source_type: str,
+    config: Dict[str, object],
+    parent_path: List[str],
+    excluded_by: str,
+) -> None:
+    """Ingestion never reaches a table whose schema or database is filtered
+    out, whatever table_pattern says."""
+    result = check_filters(
+        source_type=source_type,
+        config_dict=config,
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=parent_path,
+        names=["orders"],
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (False, excluded_by)
+    ]
+    # Reported once, at the level that excluded it.
+    assert len(result.warnings) == 1, result.warnings
+
+
+def test_a_mode_report_under_an_excluded_space_is_excluded() -> None:
+    result = check_filters(
+        source_type="mode",
+        config_dict={**MODE_CONFIG, "space_pattern": {"deny": ["^Private$"]}},
+        kind="Report",
+        parent_path=["Private"],
+        names=["r"],
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (False, "space_pattern")
+    ]
+
+
+def test_included_containers_add_no_warnings() -> None:
+    """Including a BigQuery project, a top-level kind with no parent to pass."""
+    result = check_filters(
+        source_type="bigquery",
+        config_dict={"project_ids": ["proj"]},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["proj", "ds"],
+        names=["t"],
+    )
+    assert result.results[0].included
+    assert result.warnings == []
+
+
+def test_a_source_that_declares_no_containers_says_parents_were_not_judged() -> None:
+    result = check_filters(
+        source_type="kafka",
+        config_dict={"connection": {"bootstrap": "localhost:9092"}},
+        kind=str(DatasetSubTypes.TOPIC),
+        parent_path=["cluster"],
+        names=["t"],
+    )
+    assert result.results[0].included
+    assert any("were not checked" in w for w in result.warnings), result.warnings
+
+
+HIVE_METASTORE_CONFIG: Dict[str, object] = {
+    "host_port": "localhost:3306",
+    "username": "u",
+    "password": "p",
+    "database_pattern": {"deny": ["^staging$"]},
+}
+
+
+def test_hive_metastore_databases_are_judged_on_database_pattern() -> None:
+    """HiveMetadataProcessor filters Hive databases -- DataHub schemas -- with
+    database_pattern; the inherited schema_pattern is never read."""
+    schemas = check_filters(
+        source_type="hive-metastore",
+        config_dict=HIVE_METASTORE_CONFIG,
+        kind=str(DatasetContainerSubTypes.SCHEMA),
+        parent_path=[],
+        names=["staging", "prod"],
+    )
+    assert schemas.pattern_field == "database_pattern"
+    assert [r.included for r in schemas.results] == [False, True]
+
+    # The outer --parent is an HMS catalog, which nothing filters.
+    tables = check_filters(
+        source_type="hive-metastore",
+        config_dict=HIVE_METASTORE_CONFIG,
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["hive", "prod"],
+        names=["t"],
+    )
+    assert tables.results[0].included, tables.warnings

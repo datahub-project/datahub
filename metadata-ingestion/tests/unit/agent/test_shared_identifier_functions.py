@@ -111,6 +111,17 @@ def test_redshift_and_unity_catalog_probe_hooks_share_one_identifier_function():
     assert pinned.results[0].target == qualified_table_name("main", "s", "t")
     assert not pinned.warnings, pinned.warnings
 
+    # The caller's --parent names the catalog when the recipe cannot.
+    from_parent = check_filters(
+        source_type="unity-catalog",
+        config_dict={**unity_base, "catalogs": ["main", "other"]},
+        kind=str(DatasetSubTypes.TABLE),
+        parent_path=["other", "s"],
+        names=["t"],
+    )
+    assert from_parent.results[0].target == qualified_table_name("other", "s", "t")
+    assert not from_parent.warnings, from_parent.warnings
+
     # And the branch the override exists for: `catalogs` is a list, so a
     # recipe that does not pin exactly one has no single catalog to hand
     # back. It must degrade to `schema.entity` AND say so -- silently
@@ -127,9 +138,7 @@ def test_redshift_and_unity_catalog_probe_hooks_share_one_identifier_function():
             names=["t"],
         )
         assert degraded.results[0].target == "s.t", label
-        assert any(
-            "does not pin exactly one catalog" in w for w in degraded.warnings
-        ), (
+        assert any("no catalog given" in w for w in degraded.warnings), (
             label,
             degraded.warnings,
         )

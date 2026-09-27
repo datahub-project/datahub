@@ -120,9 +120,15 @@ connectors, so implement a hook only when the default gives the wrong answer.
 | Step | What it does                                                                                                                                                    | Hook to override it                                                                                                                                         |
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | find the field that filters this kind — by convention from the subtype (`Table` → `table_pattern`)                                                              | `Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)]` on the field                                                                                  |
-| 2    | decide the string the pattern is matched against — bare name for container kinds, bare name (with a warning) when no parent was given, otherwise ask the config | `probe_match_target(self, ctx: ClassifyContext) -> str`                                                                                                     |
+| 2    | decide the string the pattern is matched against — bare name for container kinds, bare name (with a warning) when no parent was given, otherwise ask the config | `probe_match_target(self, ctx: ClassifyContext) -> str`; for a container matched on a composed id, `probe_container_match_target(self, kind, name, parent_path, warn) -> Optional[str]` |
 | 3    | apply exclusions the user's pattern does not express, before the pattern                                                                                        | `default_databases()` / `default_schemas()` (classmethods returning `FrozenSet[str]`), `probe_schema_verdict_override(self, schema: str) -> Optional[bool]` |
 | 4    | match the pattern against the target                                                                                                                            | —                                                                                                                                                           |
+| 5    | judge the immediate `--parent` container the same way, recursively; an object inside an excluded container is reported excluded by that container's field     | `probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]`                                                                                          |
+
+**Step 5 needs the kinds above each kind**, outermost first, because `--parent` carries names
+only. The SQL family declares `Database` → `Schema` (or `Database` alone on a two-tier source);
+BigQuery, Unity Catalog and Mode declare their own. A source that declares none gets a warning
+that the parents were not judged, rather than a verdict that silently ignores them.
 
 **Step 1 is the one you are most likely to need**, and for many connectors the only one: declare
 `Filters` whenever your config field follows the source's own vocabulary (`collection_pattern`,
