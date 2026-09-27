@@ -476,14 +476,14 @@ def _method_probe(session=None, **cfg_over):
 
 
 def test_data_sources_returns_mode_s_raw_records_indexed_by_id():
-    # data_sources is mode.py's own _get_data_sources_by_id, annotated in
-    # place -- no probe-side re-projection. Exact equality (not a subset
-    # check) proves this is Mode's payload verbatim: username/host survive,
-    # the adapter stays the raw "jdbc:..." string, and BigQuery's "database"
-    # stays the literal "default" rather than being replaced by the project
-    # id from "host".
+    # data_sources delegates to mode.py's own _get_data_sources_by_id -- no
+    # probe-side re-projection. Exact equality (not a subset check) proves
+    # this is Mode's payload verbatim: username/host survive, the adapter
+    # stays the raw "jdbc:..." string, and BigQuery's "database" stays the
+    # literal "default" rather than being replaced by the project id from
+    # "host".
     with _method_probe() as p:
-        result = p._get_data_sources_by_id()
+        result = p.probe_data_sources()
     assert result == {
         34499: {
             "id": "34499",
@@ -504,13 +504,22 @@ def test_data_sources_returns_mode_s_raw_records_indexed_by_id():
     }
 
 
-def test_definitions_returns_raw_name_to_source_map():
-    # definitions is mode.py's own _get_definitions_map, annotated in place --
-    # the same {name: source} cache `{{@name}}` template expansion uses, so
-    # "description" is not returned even though Mode's API has one.
+def test_definitions_returns_names_and_withholds_the_sql():
+    """Built on the same {name: source} cache `{{@name}}` template expansion
+    uses, but a definition's body is raw SQL -- a route for row values -- so
+    only the names leave the probe."""
     with _method_probe() as p:
-        result = p._get_definitions_map()
-    assert result == {"active_users": "SELECT user_id FROM users WHERE active"}
+        result = p.probe_definitions()
+        # The ingestion fetcher underneath still returns the bodies it expands.
+        assert p._get_definitions_map() == {
+            "active_users": "SELECT user_id FROM users WHERE active"
+        }
+    assert result == ["active_users"]
+
+
+@pytest.mark.parametrize("path", ["/definitions", "/reports/{token}/queries"])
+def test_the_api_passthrough_withholds_endpoints_returning_sql(path: str) -> None:
+    assert f"GET {path}" not in ModeProbeSource.api_allowlist
 
 
 def test_probe_source_context_manager_closes_session():
@@ -561,10 +570,15 @@ def test_get_embedded_paged_raises_instead_of_returning_partial_pages():
 
 
 def test_probe_methods_registered():
+    from datahub.ingestion.source.mode import ModeSource as _ModeSource
 
-    # _iter_specs uses dir(), which includes inherited attributes -- so
-    # data_sources/definitions (annotated on ModeSource itself) are found on
-    # ModeProbeSource too, the class probe_provider_class actually returns.
+    assert not any(
+        getattr(getattr(_ModeSource, attr, None), "__probe_command__", None)
+        for attr in dir(_ModeSource)
+    )
+
+    # All declared on ModeProbeSource, none on ModeSource: a declaration error
+    # raises at import, and must not be able to break Mode ingestion.
     commands = [c for c, _ in _iter_specs(ModeProbeSource)]
     # The four listings are declared on ModeProbeSource itself: Mode has no SQL
     # surface, so `probe sql` cannot enumerate it and these are the only way to
@@ -586,15 +600,14 @@ def test_probe_methods_registered():
 _TOKEN_CHAIN = [
     ("GET /spaces", "the bootstrap: needs no token, and yields space tokens"),
     ("GET /spaces/{token}/reports", "space token from /spaces; yields report tokens"),
-    ("GET /reports/{token}/queries", "report token from a space's reports listing"),
-    ("GET /reports/{token}", "same report token"),
+    ("GET /reports/{token}", "report token from a space's reports listing"),
 ]
 
 
 @pytest.mark.parametrize("entry,why", _TOKEN_CHAIN)
 def test_every_token_addressed_endpoint_has_a_route_to_its_token(entry, why):
-    # The three entries that look like duplicates of the getters are what make the
-    # other four reachable. Removing one as redundant does not shrink the surface,
+    # The entries that look like duplicates of the getters are what make the
+    # token-addressed ones reachable. Removing one as redundant does not shrink the surface,
     # it strands everything downstream of it.
     assert entry in set(ModeProbeSource.api_allowlist), f"{entry} missing -- {why}"
 

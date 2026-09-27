@@ -46,13 +46,13 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
     # getter anticipated (a report's last-run time, whether a space is
     # restricted).
     #
-    # Three of these look redundant against the getters below and are not -- they
+    # Some of these look redundant against the getters below and are not -- they
     # are the bootstrap. Mode addresses objects by token, and no getter returns
     # one: they all return the display name a pattern is matched against (see
     # test_spaces_report_the_same_raw_name_space_token_resolves_by). So the raw
     # /spaces listing is the only route to a space token, and a space's raw
     # reports listing the only route to a report token. Trim the "duplicates" and
-    # the four token-addressed entries below become unreachable, which is to say
+    # the token-addressed entries below become unreachable, which is to say
     # `probe api` stops working. test_every_token_addressed_endpoint_has_a_route
     # pins the chain. The `api` command itself is inherited from
     # RestApiPassthrough; only this list and the fetcher below are Mode's.
@@ -61,14 +61,17 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
     # which field a pattern is matched against, and for a Space that is the raw
     # "name" with no token fallback (see _space_pattern_name) -- connector
     # knowledge a passthrough cannot carry.
+    #
+    # Deliberately absent, by the rule hex_probe applies to /cells: an endpoint
+    # returning raw SQL is a route for row values (WHERE literals) to arrive by.
+    #   /reports/{token}/queries -- each query's raw_query
+    #   /definitions             -- each definition's SQL source
     api_allowlist = (
         "GET /spaces",
         "GET /spaces/{token}/reports",
         "GET /spaces/{token}/datasets",
-        "GET /reports/{token}/queries",
         "GET /reports/{token}",
         "GET /data_sources",
-        "GET /definitions",
     )
 
     def api_fetch_json(self, url: str) -> object:
@@ -128,6 +131,32 @@ class ModeProbeSource(RestApiPassthrough, ModeSource):
         if note_on_success and note_on_success not in self.warnings:
             self.warnings.append(note_on_success)
         return names
+
+    # Declared here, not on ModeSource: a declaration error raises at import, and
+    # in mode.py that would break Mode ingestion rather than just the probe.
+    # Both delegate to the ingestion fetchers, so they fetch and degrade exactly
+    # as a run does.
+    @probe_method(name="data_sources")
+    def probe_data_sources(self) -> Dict[int, dict]:
+        """Warehouse connections this Mode workspace can query, as Mode's own
+        raw API records, keyed by the data source's integer id (arrives in
+        JSON output as a string key). Each record is Mode's payload verbatim
+        -- e.g. "adapter" is Mode's own connector string (like
+        "jdbc:postgresql"), not a DataHub platform name, and "database" is
+        Mode's raw value (for BigQuery this is always the literal "default",
+        not the real project id). On a transient API failure this returns an
+        empty dict and reports the failure, matching what a real ingestion run
+        does -- run this again to retry."""
+        return self._get_data_sources_by_id()
+
+    @probe_method(name="definitions")
+    def probe_definitions(self) -> List[str]:
+        """Names of Mode's reusable SQL definitions in this workspace -- the
+        `{{@name}}` a query can expand. Names only: the SQL bodies are withheld,
+        for the reason the API allowlist omits /definitions. On a transient API
+        failure this returns an empty list and reports the failure -- run this
+        again to retry."""
+        return sorted(self._get_definitions_map())
 
     @probe_method(kind="Space")
     def spaces(self) -> List[str]:

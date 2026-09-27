@@ -365,15 +365,18 @@ There is one execution command. A connector adds capability by annotating a
 method; `probe run <command>` invokes it and `probe methods` describes it.
 
 ```python
-class MySource(...):
+class MyProbeSource(MySource):
     @probe_method(name="data_sources")
-    def _get_data_sources(self) -> Dict[int, dict]:
+    def probe_data_sources(self) -> Dict[int, dict]:
         """Warehouse connections this workspace can query. Returns the raw API records."""
+        return self._get_data_sources()
 ```
 
 Parameters become CLI flags (`str`/`int`/`bool`, or `Optional` of those) and the **docstring
-becomes the help text**, so a caller discovers capability at runtime. Discovery uses `dir()`, so
-annotating the connector's own methods works — a provider can be the source itself.
+becomes the help text**, so a caller discovers capability at runtime. Declare the method on the
+provider class, in its own `*_probe.py` module, and delegate to the connector's fetcher: a
+declaration error raises at import, and on the `Source` itself that would break ingestion, not
+just the probe.
 
 ### Methods that take something dangerous
 

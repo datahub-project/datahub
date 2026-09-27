@@ -56,7 +56,6 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.request_helper import make_curl_command
-from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -686,8 +685,8 @@ class ModeSource(StatefulIngestionSourceBase):
         type-checks as returning a ModeProbeSource, with no override needed
         to narrow it. Used by ModeProbeSource.for_config() (via
         ModeProbeSource) so the probe's data_sources/definitions commands --
-        the connector's own _get_data_sources_by_id/_get_definitions_map,
-        annotated with @probe_method in place -- fetch through this exact
+        thin wrappers in mode_probe.py over the connector's own
+        _get_data_sources_by_id/_get_definitions_map -- fetch through this exact
         connector plumbing: same session/rate-limit/retry path, same debug
         curl logging, same always-degrade-on-error policy, as a real
         ingestion run, rather than a second probe-side reimplementation with
@@ -1125,19 +1124,12 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return platform
 
-    @probe_method(name="data_sources")
     def _get_data_sources_by_id(self) -> Dict[int, dict]:
-        """Warehouse connections this Mode workspace can query, as Mode's own
-        raw API records, keyed by the data source's integer id (arrives in
-        JSON output as a string key). Each record is Mode's payload verbatim
-        -- e.g. "adapter" is Mode's own connector string (like
-        "jdbc:postgresql"), not a DataHub platform name, and "database" is
-        Mode's raw value (for BigQuery this is always the literal "default",
-        not the real project id). Also carries fields you likely don't need,
-        including "host", "username", and "account_username". On a transient
-        API failure this returns an empty dict rather than raising, matching
-        what a real ingestion run does for the same failure -- run this again
-        to retry.
+        """Fetch data sources and index by ID for O(1) lookup.
+
+        Uses a manual cache that only stores successful results so transient
+        API failures are retried on the next call instead of being permanently
+        cached as empty.
         """
         if self._data_sources_by_id_cache is not None:
             return self._data_sources_by_id_cache
@@ -1278,16 +1270,11 @@ class ModeSource(StatefulIngestionSourceBase):
 
         return name, alias
 
-    @probe_method(name="definitions")
     def _get_definitions_map(self) -> Dict[str, str]:
-        """Mode's reusable SQL definitions in this workspace, as a {name:
-        source} mapping -- "source" is the definition's raw SQL body. This is
-        the same cache `{{@name}}` template expansion uses, so it carries
-        only these two fields per definition; in particular there is no
-        description here, even though Mode's own API returns one. On a
-        transient API failure this returns an empty dict rather than
-        raising, matching what a real ingestion run does for the same
-        failure -- run this again to retry.
+        """Fetch all definitions and return a {name: source} mapping.
+
+        Uses a manual cache that only stores successful results so transient
+        API failures are retried on the next call.
         """
         if self._definitions_map_cache is not None:
             return self._definitions_map_cache
