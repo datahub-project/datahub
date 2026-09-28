@@ -465,7 +465,7 @@ jobs:
           cache: "pip"
 
       - name: Login to DockerHub
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         if: ${{ needs.setup.outputs.docker-login == 'true' && env.IMAGE_BUILD_MODULES != '' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -687,7 +687,7 @@ jobs:
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -895,7 +895,7 @@ jobs:
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         if: ${{ needs.setup.outputs.docker-login == 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -1186,7 +1186,7 @@ jobs:
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -1457,7 +1457,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to DockerHub
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
