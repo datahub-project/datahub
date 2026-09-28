@@ -13,7 +13,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
 
-@Builder
+@Builder(toBuilder = true)
 @Getter
 @ToString
 public class DatahubOpenlineageConfig {
@@ -49,6 +49,30 @@ public class DatahubOpenlineageConfig {
   // side). This is also the canonical key the connection->instance registry will use.
   @Builder.Default
   private final Map<String, ConnectionInstanceDetail> connectionInstanceMap = new HashMap<>();
+
+  // Microsoft Fabric OneLake: map OneLake table paths (abfss://...@onelake.dfs.fabric.microsoft.com
+  // /<item>/Tables/[<schema>/]<table>) to the fabric-onelake platform using the same dataset name
+  // as the fabric-onelake ingestion source (<workspaceGUID>.<itemGUID>.<schema>.<table>), instead
+  // of an abs path dataset. Other OneLake paths (e.g. /Files/) stay on abs. Opt-in: enabling it
+  // re-keys lineage for OneLake tables away from the abs / catalog-symlink (hive) URNs emitted
+  // before, so it must not change existing users' URNs by default.
+  @Builder.Default private final boolean fabricOneLakeEnabled = false;
+  // Mirrors the fabric-onelake source's convert_urns_to_lowercase: lowercases schema and table,
+  // and column names in column-level lineage (the source lowercases field paths too).
+  // Workspace/item GUIDs are always lowercased (the Fabric REST API returns them lowercase).
+  @Builder.Default private final boolean fabricOneLakeConvertUrnsToLowercase = false;
+  // Mirrors the fabric-onelake source's platform_instance. Deliberately does not fall back to
+  // commonDatasetPlatformInstance, which describes other sources' datasets.
+  @Builder.Default private final String fabricOneLakePlatformInstance = null;
+  // Friendly-name paths (<workspaceName>@.../<itemName>.<ItemType>/Tables/...) carry no GUIDs.
+  // Maps "<workspaceName>/<itemName>.<ItemType>" (case-insensitive) to
+  // "<workspaceGUID>/<itemGUID>" so those paths can be mapped too; unmapped ones stay on abs.
+  @Builder.Default private final Map<String, String> fabricOneLakeItemIds = new HashMap<>();
+  // Microsoft Fabric notebooks: key the DataFlow on the notebook item (trident.artifact.id /
+  // trident.artifact.name from the spark_properties run facet) and drop the per-session prefix
+  // from job names, instead of one DataFlow per Spark session (<notebook>_<session GUID>).
+  // Opt-in: it renames the DataFlow / DataJob URNs of existing Fabric notebook lineage.
+  @Builder.Default private final boolean fabricNotebookFlowNames = false;
 
   // Metadata ingestion configuration
   private final boolean materializeDataset;

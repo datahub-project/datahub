@@ -8,6 +8,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
+import io.datahubproject.openlineage.dataset.FabricOneLakePath;
 import io.datahubproject.openlineage.dataset.PathSpec;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -63,6 +64,15 @@ public class SparkConfigParser {
   public static final String DATASET_ENV_KEY = "metadata.dataset.env";
   public static final String DATASET_HIVE_PLATFORM_ALIAS = "metadata.dataset.hivePlatformAlias";
   public static final String DATASET_LOWERCASE_URNS = "metadata.dataset.lowerCaseUrns";
+
+  public static final String FABRIC_ONELAKE_KEY = "metadata.dataset.fabricOneLake";
+  public static final String FABRIC_ONELAKE_ENABLED = FABRIC_ONELAKE_KEY + ".enabled";
+  public static final String FABRIC_ONELAKE_LOWERCASE_URNS =
+      FABRIC_ONELAKE_KEY + ".convertUrnsToLowercase";
+  public static final String FABRIC_ONELAKE_PLATFORM_INSTANCE =
+      FABRIC_ONELAKE_KEY + ".platformInstance";
+  public static final String FABRIC_ONELAKE_ITEM_IDS = FABRIC_ONELAKE_KEY + ".itemIds";
+  public static final String FABRIC_NOTEBOOK_FLOW_NAMES = "metadata.fabricNotebookFlowNames";
 
   public static final String DATASET_MATERIALIZE_KEY = "metadata.dataset.materialize";
   public static final String DATASET_PLATFORM_INSTANCE_KEY = "metadata.dataset.platformInstance";
@@ -186,6 +196,13 @@ public class SparkConfigParser {
     builder.removeLegacyLineage(SparkConfigParser.isLegacyLineageCleanupEnabled(sparkConfig));
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
+    builder.fabricOneLakeEnabled(SparkConfigParser.isFabricOneLakeEnabled(sparkConfig));
+    builder.fabricOneLakeConvertUrnsToLowercase(
+        SparkConfigParser.isFabricOneLakeConvertUrnsToLowercase(sparkConfig));
+    builder.fabricOneLakePlatformInstance(
+        SparkConfigParser.getFabricOneLakePlatformInstance(sparkConfig));
+    builder.fabricOneLakeItemIds(SparkConfigParser.getFabricOneLakeItemIds(sparkConfig));
+    builder.fabricNotebookFlowNames(SparkConfigParser.isFabricNotebookFlowNames(sparkConfig));
     builder.captureColumnLevelLineage(SparkConfigParser.isCaptureColumnLevelLineage(sparkConfig));
     builder.includeIndirectColumnLineage(
         SparkConfigParser.isIncludeIndirectColumnLineage(sparkConfig));
@@ -471,6 +488,49 @@ public class SparkConfigParser {
   public static boolean isLowerCaseDatasetUrns(Config datahubConfig) {
     return datahubConfig.hasPath(DATASET_LOWERCASE_URNS)
         && datahubConfig.getBoolean(DATASET_LOWERCASE_URNS);
+  }
+
+  /**
+   * Opt-in: mapping OneLake table paths to {@code fabric-onelake} URNs re-keys lineage that was
+   * previously emitted on {@code abs} / catalog-symlink URNs, so it is off unless set.
+   */
+  public static boolean isFabricOneLakeEnabled(Config datahubConfig) {
+    return datahubConfig.hasPath(FABRIC_ONELAKE_ENABLED)
+        && datahubConfig.getBoolean(FABRIC_ONELAKE_ENABLED);
+  }
+
+  public static boolean isFabricOneLakeConvertUrnsToLowercase(Config datahubConfig) {
+    return datahubConfig.hasPath(FABRIC_ONELAKE_LOWERCASE_URNS)
+        && datahubConfig.getBoolean(FABRIC_ONELAKE_LOWERCASE_URNS);
+  }
+
+  public static String getFabricOneLakePlatformInstance(Config datahubConfig) {
+    return datahubConfig.hasPath(FABRIC_ONELAKE_PLATFORM_INSTANCE)
+        ? datahubConfig.getString(FABRIC_ONELAKE_PLATFORM_INSTANCE)
+        : null;
+  }
+
+  /**
+   * Parses {@code metadata.dataset.fabricOneLake.itemIds}: a comma-separated list of {@code
+   * <workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID>} entries used to map
+   * friendly-name OneLake paths to the fabric-onelake connector's GUID-based URNs. Malformed
+   * entries are skipped with a warning (see {@link FabricOneLakePath#parseItemIds(String)}).
+   */
+  public static Map<String, String> getFabricOneLakeItemIds(Config datahubConfig) {
+    if (!datahubConfig.hasPath(FABRIC_ONELAKE_ITEM_IDS)) {
+      return new HashMap<>();
+    }
+    return new HashMap<>(
+        FabricOneLakePath.parseItemIds(datahubConfig.getString(FABRIC_ONELAKE_ITEM_IDS)));
+  }
+
+  /**
+   * Opt-in: key the DataFlow on the Fabric notebook item instead of the Spark session (renames the
+   * DataFlow / DataJob URNs of existing Fabric notebook lineage).
+   */
+  public static boolean isFabricNotebookFlowNames(Config datahubConfig) {
+    return datahubConfig.hasPath(FABRIC_NOTEBOOK_FLOW_NAMES)
+        && datahubConfig.getBoolean(FABRIC_NOTEBOOK_FLOW_NAMES);
   }
 
   public static boolean isEnhancedMergeIntoExtractionEnabled(Config datahubConfig) {

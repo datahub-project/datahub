@@ -179,6 +179,103 @@ information like tokens.
       spark.datahub.rest.token {{secrets/datahub/rest-token}}
       ```
 
+### Configuration Instructions: Microsoft Fabric
+
+Fabric notebooks and Spark job definitions write Lakehouse tables to OneLake. OpenLineage reports
+those tables by their OneLake ABFS location:
+
+```text
+abfss://<workspaceGUID>@onelake.dfs.fabric.microsoft.com/<lakehouseGUID>/Tables/[<schema>/]<table>
+```
+
+By default the agent treats these like any other ABFS path (`abs` path URNs, or the catalog
+symlink such as `hive.<lakehouse>.<table>`). Set
+`spark.datahub.metadata.dataset.fabricOneLake.enabled=true` to map OneLake **table** locations to
+the `fabric-onelake` platform instead. It uses the same dataset name as the
+[Fabric OneLake source](https://docs.datahub.com/docs/generated/ingestion/sources/fabric-onelake),
+`<workspaceGUID>.<itemGUID>.<schema>.<table>`, so notebook lineage attaches to the ingested tables:
+
+| OneLake location                                    | DataHub URN                                                                               |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `abfss://<ws>@onelake.../<lh>/Tables/customers`     | `urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,<ws>.<lh>.dbo.customers,PROD)`        |
+| `abfss://<ws>@onelake.../<lh>/Tables/sales/orders`  | `urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,<ws>.<lh>.sales.orders,PROD)`         |
+| `abfss://<ws>@onelake.../<lh>/Files/raw/orders.csv` | `urn:li:dataset:(urn:li:dataPlatform:abs,<ws>@onelake.../<lh>/Files/raw/orders.csv,PROD)` |
+
+- Schemas-disabled Lakehouses (`Tables/<table>`) get schema `dbo`, as the connector does.
+  Schema-enabled Lakehouses use the schema folder.
+- Workspace and item GUIDs are always lowercased. If the connector runs with
+  `convert_urns_to_lowercase: true`, set `fabricOneLake.convertUrnsToLowercase=true`: like the
+  connector, it lowercases schema, table and column names (column-level lineage field paths). If
+  it uses a `platform_instance`, set `fabricOneLake.platformInstance` to the same value (the global
+  `spark.datahub.metadata.dataset.platformInstance` is not applied to `fabric-onelake` URNs), and
+  match `env` with `spark.datahub.metadata.dataset.env`.
+- The OneLake location takes precedence over the Spark catalog symlink. Without this, a symlink
+  like `hive.<lakehouse>.<table>` would take over.
+- With `include_schema_metadata`, the Spark schema is not written to `fabric-onelake` datasets. The
+  Fabric OneLake source owns their schema, and Spark's read schema can be partial (for example a
+  Delta `MERGE` scan).
+- Friendly-name paths (`abfss://<workspaceName>@onelake.../<lakehouseName>.Lakehouse/Tables/...`)
+  contain no GUIDs. Map them with `fabricOneLake.itemIds`, or they stay on `abs` (logged once as a
+  warning). Names match case-insensitively and in decoded form; entries are comma-separated, so
+  names containing commas can't be mapped; malformed entries are skipped with a warning.
+- `_delta_log`, `key=value` partition folders and data files below a table are ignored. Other
+  shapes under `Tables/` stay on `abs` (logged once as a warning).
+- When enabled, the mapping takes precedence over `path_spec_list` for OneLake `Tables/` paths.
+- The Fabric OneLake source ingests Lakehouse and Warehouse items only. GUID paths don't carry the
+  item type, so `Tables/` paths of other items (for example mirrored databases) also map to
+  `fabric-onelake` URNs that no ingested entity backs.
+- Enabling it changes the URNs of OneLake tables previously captured as `abs` or `hive` datasets.
+  The old entities and their lineage are not migrated; soft-delete them if no longer needed.
+- Global, regional (`<region>-onelake.dfs.fabric.microsoft.com`), blob, `api.onelake` and
+  workspace private-link OneLake hosts are recognized.
+
+**Runtime requirements.** The agent is compiled for Java 17. Fabric Runtime 1.3 runs Java 11 and
+can't load it. Use Fabric Runtime 2.0 (Spark 4.1, Scala 2.13, Java 21) with the Scala 2.13 build,
+`acryl-spark-lineage_2.13`. Verified on Runtime 2.0: column-level lineage for `MERGE INTO`,
+`CREATE OR REPLACE TABLE ... AS SELECT`, `INSERT OVERWRITE` and DataFrame `saveAsTable`, on the same
+`fabric-onelake` URNs the Fabric OneLake source ingests.
+
+**Fabric notebook setup.**
+
+1. Create an Environment, select Runtime 2.0, and under _Custom libraries_ upload the
+   `acryl-spark-lineage_2.13-<version>.jar` shaded jar. Attach the Environment to the notebooks.
+2. Register the listener from the **first cell** of the notebook. Don't put
+   `spark.extraListeners=datahub.spark.DatahubSparkListener` in the Environment: the listener is
+   created while the Spark session starts, before Fabric adds Environment libraries, and the session
+   fails to start (`LIVY_JOB_STATE_DEAD`).
+3. Set `spark.openlineage.disabled=false` before registering it. Fabric sets it to `true` to keep its
+   own bundled OpenLineage listener off, and the agent reads the same setting, so otherwise it stays
+   inactive without an error.
+
+```python
+sc = spark.sparkContext._jsc.sc()
+conf = sc.conf()
+for key, value in {
+    "spark.openlineage.disabled": "false",
+    "spark.datahub.rest.server": "https://<your-datahub-gms>",
+    "spark.datahub.rest.token": notebookutils.credentials.getSecret("https://<vault>.vault.azure.net/", "<secret-name>"),
+    "spark.datahub.metadata.dataset.env": "PROD",
+    "spark.datahub.metadata.dataset.fabricOneLake.enabled": "true",
+    # Only if the Fabric OneLake source uses these options:
+    "spark.datahub.metadata.dataset.fabricOneLake.convertUrnsToLowercase": "true",
+    # "spark.datahub.metadata.dataset.fabricOneLake.platformInstance": "<same as source>",
+    # Optional: one DataFlow per notebook instead of per Spark session
+    "spark.datahub.metadata.fabricNotebookFlowNames": "true",
+}.items():
+    conf.set(key, value)
+sc.addSparkListener(spark._jvm.datahub.spark.DatahubSparkListener(conf))
+```
+
+The listener only sees statements that run after this cell.
+
+You can also skip the DataHub jar. Fabric bundles the upstream OpenLineage Spark listener, registered
+but disabled. Turn it on with `spark.openlineage.disabled=false`, and forward the events it writes to
+DataHub's [OpenLineage endpoint](https://docs.datahub.com/docs/lineage/openlineage#microsoft-fabric-onelake).
+Fabric pins that listener's transport to a file, so the forwarding step is needed. On that route,
+turn on the OneLake mapping with the endpoint's
+[request options](https://docs.datahub.com/docs/lineage/openlineage#request-options)
+(`fabricOneLake=true`, …).
+
 ## Configuration Options
 
 | Field                                                                           | Required | Default                 | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -217,6 +314,11 @@ information like tokens.
 | spark.datahub.patch.enabled                                                     |          | false                   | Set this to true to send lineage as a patch, which appends rather than overwrites existing Dataset lineage edges. By default, it is disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | spark.datahub.metadata.dataset.lowerCaseUrns                                    |          | false                   | Set this to true to lowercase dataset URNs. By default, it is disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | spark.datahub.disableSymlinkResolution                                          |          | false                   | Set this to true if you prefer using the S3 location instead of the Hive table. By default, it is disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| spark.datahub.metadata.dataset.fabricOneLake.enabled                            |          | false                   | Set to `true` to map Microsoft Fabric OneLake table paths (`abfss://...@onelake.dfs.fabric.microsoft.com/<item>/Tables/...`) to `fabric-onelake` URNs that match the Fabric OneLake source. Off by default because it changes the URNs of OneLake tables previously captured as `abs` / `hive` datasets. See [Microsoft Fabric](#configuration-instructions-microsoft-fabric).                                                                                                                                                                                                                                                                                                         |
+| spark.datahub.metadata.dataset.fabricOneLake.convertUrnsToLowercase             |          | false                   | Lowercase schema, table and column names (column-level lineage field paths) for `fabric-onelake` URNs. Set it to match the Fabric OneLake source's `convert_urns_to_lowercase`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| spark.datahub.metadata.dataset.fabricOneLake.platformInstance                   |          |                         | Platform instance for `fabric-onelake` URNs. Set it to match the Fabric OneLake source's `platform_instance`. Does not fall back to `spark.datahub.metadata.dataset.platformInstance`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| spark.datahub.metadata.dataset.fabricOneLake.itemIds                            |          |                         | Comma-separated `<workspaceName>/<itemName>.<ItemType>=<workspaceGUID>/<itemGUID>` entries. Friendly-name OneLake paths carry no GUIDs; those listed here map to `fabric-onelake`, and the rest stay `abs`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| spark.datahub.metadata.fabricNotebookFlowNames                                  |          | false                   | Microsoft Fabric notebooks: key the DataFlow on the notebook item (`trident.artifact.id`, named after `trident.artifact.name`) and drop the per-session prefix from job names, so every run of a notebook lands on the same DataFlow and DataJobs. Opt-in: renames existing notebook DataFlow / DataJob URNs.                                                                                                                                                                                                                                                                                                                                                                          |
 | spark.datahub.s3.bucket                                                         |          |                         | The name of the bucket where metadata will be written if s3 emitter is set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | spark.datahub.s3.prefix                                                         |          |                         | The prefix for the file where metadata will be written on s3 if s3 emitter is set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | spark.datahub.s3.filename                                                       |          |                         | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -506,6 +608,14 @@ it. See [Before you begin: Versions and Release Notes](#before-you-begin-version
 
 _Unreleased. Currently published as `1.7.0.11rc*`._
 
+- _Changes_:
+  - New opt-in `spark.datahub.metadata.dataset.fabricOneLake.enabled=true` makes lineage for
+    Microsoft Fabric Lakehouse tables land on the tables the Fabric OneLake source ingests. OneLake
+    table locations then map to `fabric-onelake` URNs
+    (`<workspaceGUID>.<itemGUID>.<schema>.<table>`), not `abs` path URNs, and take precedence over
+    the Spark catalog symlink. Related options: `fabricOneLake.convertUrnsToLowercase`,
+    `fabricOneLake.platformInstance`, `fabricOneLake.itemIds`. Off by default, so existing URNs
+    are unchanged.
 - _Dependencies_:
   - Apache Parquet bumped to 1.18.1 in the shaded jar for CVE-2026-73334 ([#19743](https://github.com/datahub-project/datahub/pull/19743))
   - libthrift 0.23.0 → 0.24.0 for CVE-2026-48586 (`TZlibTransport` zip-bomb DoS)

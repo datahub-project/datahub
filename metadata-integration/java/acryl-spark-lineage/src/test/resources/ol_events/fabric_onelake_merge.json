@@ -1,0 +1,244 @@
+{
+  "eventTime": "2026-09-01T12:00:00.000Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "COMPLETE",
+  "run": {
+    "runId": "01920000-0000-7000-8000-000000000001",
+    "facets": {
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "3.5.1",
+        "name": "spark",
+        "openlineageAdapterVersion": "1.50.0"
+      },
+      "spark_properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "properties": {
+          "spark.master": "yarn",
+          "spark.app.name": "bronze_to_silver_customers"
+        }
+      }
+    }
+  },
+  "job": {
+    "namespace": "fabric",
+    "name": "bronze_to_silver_customers.execute_merge_into_command_edge.silver_lh_dbo_customers",
+    "facets": {
+      "jobType": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/2-0-3/JobTypeJobFacet.json#/$defs/JobTypeJobFacet",
+        "processingType": "BATCH",
+        "integration": "SPARK",
+        "jobType": "SQL_JOB"
+      }
+    }
+  },
+  "inputs": [
+    {
+      "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+      "name": "/11112222-3333-4444-5555-666677778888/Tables/customers",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+          "uri": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "customer_id",
+              "type": "long"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp"
+            }
+          ]
+        },
+        "symlinks": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json#/$defs/SymlinksDatasetFacet",
+          "identifiers": [
+            {
+              "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com/11112222-3333-4444-5555-666677778888/Tables",
+              "name": "bronze_lh.customers",
+              "type": "TABLE"
+            }
+          ]
+        }
+      },
+      "inputFacets": {}
+    },
+    {
+      "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+      "name": "/11112222-3333-4444-5555-666677778888/Files/raw/customers_updates",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+          "uri": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "customer_id",
+              "type": "long"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp"
+            }
+          ]
+        }
+      },
+      "inputFacets": {}
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+      "name": "/aaaabbbb-cccc-dddd-eeee-ffff00001111/Tables/dbo/customers",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+          "uri": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-1-1/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "customer_id",
+              "type": "long"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "name": "email",
+              "type": "string"
+            },
+            {
+              "name": "updated_at",
+              "type": "timestamp"
+            }
+          ]
+        },
+        "symlinks": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/SymlinksDatasetFacet.json#/$defs/SymlinksDatasetFacet",
+          "identifiers": [
+            {
+              "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com/aaaabbbb-cccc-dddd-eeee-ffff00001111/Tables",
+              "name": "silver_lh.dbo.customers",
+              "type": "TABLE"
+            }
+          ]
+        },
+        "columnLineage": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.50.0/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-2-0/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+          "fields": {
+            "customer_id": {
+              "inputFields": [
+                {
+                  "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+                  "name": "/11112222-3333-4444-5555-666677778888/Tables/customers",
+                  "field": "customer_id",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "name": {
+              "inputFields": [
+                {
+                  "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+                  "name": "/11112222-3333-4444-5555-666677778888/Tables/customers",
+                  "field": "name",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "email": {
+              "inputFields": [
+                {
+                  "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+                  "name": "/11112222-3333-4444-5555-666677778888/Tables/customers",
+                  "field": "email",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            },
+            "updated_at": {
+              "inputFields": [
+                {
+                  "namespace": "abfss://0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0@onelake.dfs.fabric.microsoft.com",
+                  "name": "/11112222-3333-4444-5555-666677778888/Tables/customers",
+                  "field": "updated_at",
+                  "transformations": [
+                    {
+                      "type": "DIRECT",
+                      "subtype": "IDENTITY",
+                      "description": "",
+                      "masking": false
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      },
+      "outputFacets": {}
+    }
+  ]
+}

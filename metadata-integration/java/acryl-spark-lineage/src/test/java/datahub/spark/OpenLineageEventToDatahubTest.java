@@ -1448,4 +1448,281 @@ public class OpenLineageEventToDatahubTest {
           dataset.getUrn().toString());
     }
   }
+
+  private static final String FABRIC_WS = "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0";
+  private static final String FABRIC_BRONZE = "11112222-3333-4444-5555-666677778888";
+  private static final String FABRIC_SILVER = "aaaabbbb-cccc-dddd-eeee-ffff00001111";
+
+  private DatahubJob convertFabricEvent(String sparkConf) throws IOException, URISyntaxException {
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+            ConfigFactory.parseString(sparkConf), new SparkAppContext());
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/fabric_onelake_merge.json"),
+            StandardCharsets.UTF_8);
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    return OpenLineageToDataHub.convertRunEventToJob(runEvent, conf);
+  }
+
+  @Test
+  public void testFabricOneLakeTablesMapToFabricOneLakeUrns()
+      throws IOException, URISyntaxException {
+    DatahubJob datahubJob =
+        convertFabricEvent(
+            "metadata.dataset.fabricOneLake.enabled = \"true\"\n"
+                + "metadata.dataset.env = \"DEV\"");
+
+    String bronze =
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            + FABRIC_WS
+            + "."
+            + FABRIC_BRONZE
+            + ".dbo.customers,DEV)";
+    String silver =
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            + FABRIC_WS
+            + "."
+            + FABRIC_SILVER
+            + ".dbo.customers,DEV)";
+    String files =
+        "urn:li:dataset:(urn:li:dataPlatform:abs,"
+            + FABRIC_WS
+            + "@onelake.dfs.fabric.microsoft.com/"
+            + FABRIC_BRONZE
+            + "/Files/raw/customers_updates,DEV)";
+
+    assertEquals(
+        java.util.Set.of(bronze, files),
+        datahubJob.getInSet().stream()
+            .map(d -> d.getUrn().toString())
+            .collect(java.util.stream.Collectors.toSet()));
+    assertEquals(1, datahubJob.getOutSet().size());
+    DatahubDataset output = datahubJob.getOutSet().iterator().next();
+    assertEquals(silver, output.getUrn().toString());
+
+    // Column-level lineage references the same fabric-onelake URNs.
+    List<FineGrainedLineage> fgl =
+        Objects.requireNonNull(output.getLineage().getFineGrainedLineages());
+    assertEquals(4, fgl.size());
+    for (FineGrainedLineage entry : fgl) {
+      assertTrue(
+          entry.getUpstreams().get(0).toString().startsWith("urn:li:schemaField:(" + bronze),
+          entry.getUpstreams().toString());
+      assertTrue(
+          entry.getDownstreams().get(0).toString().startsWith("urn:li:schemaField:(" + silver),
+          entry.getDownstreams().toString());
+    }
+  }
+
+  @Test
+  public void testFabricOneLakeSparkConfOptions() throws IOException, URISyntaxException {
+    DatahubJob datahubJob =
+        convertFabricEvent(
+            "metadata.dataset.fabricOneLake.enabled = \"true\"\n"
+                + "metadata.dataset.fabricOneLake.platformInstance = \"tenant_a\"\n"
+                + "metadata.dataset.fabricOneLake.convertUrnsToLowercase = \"true\"");
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,tenant_a."
+            + FABRIC_WS
+            + "."
+            + FABRIC_SILVER
+            + ".dbo.customers,PROD)",
+        datahubJob.getOutSet().iterator().next().getUrn().toString());
+
+    // The mapping is opt-in: by default (and when disabled explicitly) the previous URNs are kept
+    // (the catalog symlink wins for tables, Files/ stays on abs).
+    String previousOutput =
+        "urn:li:dataset:(urn:li:dataPlatform:hive,silver_lh.dbo.customers,PROD)";
+    DatahubJob byDefault = convertFabricEvent("metadata.dataset.env = \"PROD\"");
+    assertEquals(previousOutput, byDefault.getOutSet().iterator().next().getUrn().toString());
+    assertTrue(
+        byDefault.getInSet().stream()
+            .noneMatch(d -> d.getUrn().toString().contains("dataPlatform:fabric-onelake")));
+    DatahubJob disabled = convertFabricEvent("metadata.dataset.fabricOneLake.enabled = \"false\"");
+    assertEquals(previousOutput, disabled.getOutSet().iterator().next().getUrn().toString());
+  }
+
+  @Test
+  public void testFabricNotebookFlowNamesSparkConf() {
+    assertTrue(
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+                ConfigFactory.parseString("metadata.fabricNotebookFlowNames = true"),
+                new SparkAppContext())
+            .isFabricNotebookFlowNames());
+    // Opt-in: it renames existing notebook DataFlow / DataJob URNs.
+    assertTrue(
+        !SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+                ConfigFactory.parseString("metadata.dataset.env = \"PROD\""), new SparkAppContext())
+            .isFabricNotebookFlowNames());
+  }
+
+  @Test
+  public void testFabricOneLakeItemIdsSparkConf() {
+    DatahubOpenlineageConfig conf =
+        SparkConfigParser.sparkConfigToDatahubOpenlineageConf(
+            ConfigFactory.parseString(
+                "metadata.dataset.fabricOneLake.enabled = true\n"
+                    + "metadata.dataset.fabricOneLake.itemIds = \"Sales/bronze.Lakehouse="
+                    + FABRIC_WS
+                    + "/"
+                    + FABRIC_BRONZE
+                    + ",Sales/silver.Lakehouse="
+                    + FABRIC_WS
+                    + "/"
+                    + FABRIC_SILVER
+                    + ",Sales/broken.Lakehouse=not-a-guid\""),
+            new SparkAppContext());
+    // The malformed entry is dropped at parse time.
+    assertEquals(2, conf.getFabricOneLakeItemIds().size());
+    assertEquals(
+        FABRIC_WS + "/" + FABRIC_SILVER,
+        conf.getFabricOneLakeItemIds().get("Sales/silver.Lakehouse"));
+    assertTrue(conf.isFabricOneLakeEnabled());
+    assertTrue(!conf.isFabricOneLakeConvertUrnsToLowercase());
+
+    OpenLineage ol = new OpenLineage(URI.create("https://test"));
+    OpenLineage.InputDataset dataset =
+        ol.newInputDatasetBuilder()
+            .namespace("abfss://Sales@onelake.dfs.fabric.microsoft.com")
+            .name("/silver.Lakehouse/Tables/dbo/customers")
+            .build();
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+            + FABRIC_WS
+            + "."
+            + FABRIC_SILVER
+            + ".dbo.customers,PROD)",
+        OpenLineageToDataHub.convertOpenlineageDatasetToDatasetUrn(dataset, conf).get().toString());
+  }
+
+  /**
+   * Replays the events captured from a Fabric Runtime 1.3 notebook (bundled openlineage-spark
+   * 1.26.0; see FabricOneLakeRuntimeEventsTest in openlineage-converter) the way the agent emits
+   * them by default: each event converted, then coalesced into one DataJob per application.
+   */
+  @Test
+  public void testFabricRuntimeNotebookEventsCoalesced() throws Exception {
+    List<MetadataChangeProposal> mcps = replayFabricRuntimeNotebookEvents(true);
+
+    String ws = FABRIC_WS + ".";
+    String bronzeCustomers = fabricUrn(ws + FABRIC_BRONZE + ".dbo.customers");
+    String bronzeOrders = fabricUrn(ws + FABRIC_BRONZE + ".dbo.orders");
+    String silverCustomers = fabricUrn(ws + FABRIC_SILVER + ".dbo.customers");
+    String silverTotals = fabricUrn(ws + FABRIC_SILVER + ".dbo.customer_totals");
+
+    MetadataChangeProposal inputOutput =
+        mcps.stream()
+            .filter(mcp -> "dataJobInputOutput".equals(mcp.getAspectName()))
+            .reduce((first, second) -> second)
+            .orElseThrow();
+    assertEquals(
+        "urn:li:dataJob:(urn:li:dataFlow:(spark,"
+            + "nb_bronze_to_silver_00000000_1111_4222_8333_444444444444,fabric-test-workspace),"
+            + "nb_bronze_to_silver_00000000_1111_4222_8333_444444444444)",
+        inputOutput.getEntityUrn().toString());
+    com.linkedin.datajob.DataJobInputOutput io =
+        com.datahub.util.RecordUtils.toRecordTemplate(
+            com.linkedin.datajob.DataJobInputOutput.class,
+            inputOutput.getAspect().getValue().asString(StandardCharsets.UTF_8));
+    assertEquals(
+        java.util.Set.of(bronzeCustomers, bronzeOrders, silverCustomers),
+        Objects.requireNonNull(io.getInputDatasetEdges()).stream()
+            .map(e -> e.getDestinationUrn().toString())
+            .collect(java.util.stream.Collectors.toSet()));
+    assertEquals(
+        java.util.Set.of(silverCustomers, silverTotals),
+        Objects.requireNonNull(io.getOutputDatasetEdges()).stream()
+            .map(e -> e.getDestinationUrn().toString())
+            .collect(java.util.stream.Collectors.toSet()));
+    // Column lineage comes from the MERGE event only: bronze.customers -> silver.customers.
+    List<FineGrainedLineage> fgl = Objects.requireNonNull(io.getFineGrainedLineages());
+    assertEquals(4, fgl.size());
+    for (FineGrainedLineage entry : fgl) {
+      assertTrue(
+          entry.getUpstreams().stream()
+              .anyMatch(u -> u.toString().startsWith("urn:li:schemaField:(" + bronzeCustomers)),
+          entry.toString());
+      assertEquals(1, entry.getDownstreams().size(), "downstreams of " + entry.getDownstreams());
+      assertTrue(
+          entry
+              .getDownstreams()
+              .get(0)
+              .toString()
+              .startsWith("urn:li:schemaField:(" + silverCustomers));
+    }
+    // fabric-onelake datasets are materialized but their schema is left to the Fabric OneLake
+    // source.
+    assertTrue(
+        mcps.stream()
+            .anyMatch(
+                mcp ->
+                    "datasetKey".equals(mcp.getAspectName())
+                        && silverTotals.equals(mcp.getEntityUrn().toString())));
+    assertTrue(
+        mcps.stream()
+            .noneMatch(
+                mcp ->
+                    "schemaMetadata".equals(mcp.getAspectName())
+                        && mcp.getEntityUrn().toString().contains("fabric-onelake")));
+  }
+
+  /**
+   * Converts the Fabric Runtime 1.3 notebook events and returns the agent's coalesced MCPs (one
+   * DataJob per application, the agent's default).
+   */
+  private List<MetadataChangeProposal> replayFabricRuntimeNotebookEvents(boolean fabricOneLake)
+      throws Exception {
+    Config config =
+        ConfigFactory.parseString(
+            "metadata.dataset.fabricOneLake.enabled = "
+                + fabricOneLake
+                + "\n"
+                + "metadata.dataset.materialize = true\n"
+                + "metadata.dataset.include_schema_metadata = true");
+    SparkLineageConf sparkLineageConf =
+        SparkLineageConf.toSparkLineageConf(config, new SparkAppContext(), null);
+    io.openlineage.spark.api.SparkOpenLineageConfig olConfig =
+        new io.openlineage.spark.api.SparkOpenLineageConfig();
+    olConfig.setTransportConfig(new io.openlineage.client.transports.ConsoleConfig());
+    DatahubEventEmitter emitter = new DatahubEventEmitter(olConfig, "test");
+    emitter.setConfig(sparkLineageConf);
+
+    String events =
+        IOUtils.toString(
+            Objects.requireNonNull(
+                this.getClass()
+                    .getResourceAsStream("/ol_events/fabric_runtime_notebook_events.jsonl")),
+            StandardCharsets.UTF_8);
+    int count = 0;
+    for (String line : events.split("\n")) {
+      if (!line.isBlank()) {
+        emitter.convertOpenLineageRunEventToDatahubJob(
+            OpenLineageClientUtils.runEventFromJson(line));
+        count++;
+      }
+    }
+    assertEquals(12, count);
+
+    return emitter.generateCoalescedMcps();
+  }
+
+  @Test
+  public void testFabricRuntimeNotebookEventsCoalescedMappingDisabled() throws Exception {
+    // Control for the schemaMetadata assertion above: with the mapping off, the same events land on
+    // abs URNs and the agent does emit their (event-derived) schemaMetadata.
+    List<MetadataChangeProposal> mcps = replayFabricRuntimeNotebookEvents(false);
+    assertTrue(
+        mcps.stream()
+            .anyMatch(
+                mcp ->
+                    "schemaMetadata".equals(mcp.getAspectName())
+                        && mcp.getEntityUrn().toString().contains("dataPlatform:abs,")));
+    assertTrue(
+        mcps.stream().noneMatch(mcp -> mcp.getEntityUrn().toString().contains("fabric-onelake")));
+  }
+
+  private static String fabricUrn(String name) {
+    return "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake," + name + ",PROD)";
+  }
 }

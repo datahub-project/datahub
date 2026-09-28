@@ -57,6 +57,7 @@ import io.datahubproject.openlineage.config.DatahubOpenlineageConfig;
 import io.datahubproject.openlineage.dataset.ConnectionInstanceDetail;
 import io.datahubproject.openlineage.dataset.DatahubDataset;
 import io.datahubproject.openlineage.dataset.DatahubJob;
+import io.datahubproject.openlineage.dataset.FabricOneLakePath;
 import io.datahubproject.openlineage.dataset.HdfsPathDataset;
 import io.datahubproject.openlineage.dataset.HdfsPlatform;
 import io.datahubproject.openlineage.dataset.PathSpec;
@@ -74,6 +75,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -166,12 +168,22 @@ public class OpenLineageToDataHub {
       }
       Optional<DatasetUrn> symlinkedUrn =
           getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
-      if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
-        mappingConfig
-            .getUrnAliases()
-            .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+      if (originalUrn.isPresent() && isFabricOneLakeUrn(originalUrn.get())) {
+        // A OneLake table location already resolves to the fabric-onelake connector's URN, which
+        // is more specific than the catalog symlink (the Spark session catalog would otherwise map
+        // it to e.g. hive.<lakehouse>.<table>). Keep the location URN. The symlinked URN is
+        // deliberately NOT aliased to it: urnAliases is shared process-wide (e.g. the GMS
+        // endpoint's singleton config), and catalog names like <lakehouse>.<table> are only unique
+        // within a workspace, so such an alias would re-point other workspaces' datasets.
+        datahubUrn = originalUrn;
+      } else {
+        if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
+          mappingConfig
+              .getUrnAliases()
+              .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
+        }
+        datahubUrn = symlinkedUrn;
       }
-      datahubUrn = symlinkedUrn;
     } else {
       datahubUrn = getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
     }
@@ -193,6 +205,37 @@ public class OpenLineageToDataHub {
     }
 
     return datahubUrn;
+  }
+
+  private static boolean isFabricOneLakeUrn(DatasetUrn urn) {
+    return FabricOneLakePath.PLATFORM.equals(urn.getPlatformEntity().getPlatformNameEntity());
+  }
+
+  /**
+   * Whether the event's schema facet may be emitted as the dataset's schemaMetadata. Not for
+   * fabric-onelake URNs: they are the entities the Fabric OneLake source ingests, which owns their
+   * schema. The facet is the Spark read/write schema, not the table's: e.g. a Delta MERGE scan of
+   * the target reports only the join key plus the {@code _metadata} pseudo-column, which would
+   * replace the ingested columns.
+   */
+  private static boolean isSchemaFromEventAllowed(DatasetUrn urn) {
+    return !isFabricOneLakeUrn(urn);
+  }
+
+  /**
+   * The schema field path to use for {@code field} of {@code datasetUrn} in column-level lineage.
+   * The Fabric OneLake source's {@code convert_urns_to_lowercase} lowercases column names (field
+   * paths) as well as schema and table, so fine-grained lineage on fabric-onelake URNs follows it;
+   * otherwise the schemaField URNs would not match the ingested fields.
+   */
+  private static String fieldPath(
+      DatasetUrn datasetUrn, String field, DatahubOpenlineageConfig mappingConfig) {
+    if (field != null
+        && mappingConfig.isFabricOneLakeConvertUrnsToLowercase()
+        && isFabricOneLakeUrn(datasetUrn)) {
+      return field.toLowerCase(Locale.ROOT);
+    }
+    return field;
   }
 
   private static Optional<DatasetUrn> getDatasetUrnFromOlDataset(
@@ -432,6 +475,10 @@ public class OpenLineageToDataHub {
 
     log.info("Emitting lineage: {}", OpenLineageClientUtils.toJson(event));
     DataFlowInfo dfi = convertRunEventToDataFlowInfo(event, datahubConf.getPipelineName());
+    Optional<FabricNotebookRun> notebook = FabricNotebookRun.from(event, datahubConf);
+    if (datahubConf.getPipelineName() == null && notebook.isPresent()) {
+      dfi.setName(notebook.get().getArtifactName());
+    }
 
     String processingEngine = null;
 
@@ -446,7 +493,8 @@ public class OpenLineageToDataHub {
             event.getJob().getName(),
             processingEngine,
             event.getProducer(),
-            datahubConf);
+            datahubConf,
+            notebook.map(FabricNotebookRun::getArtifactId).orElse(null));
     jobBuilder.flowUrn(dataFlowUrn);
 
     if (datahubConf.getPlatformInstance() != null) {
@@ -577,7 +625,13 @@ public class OpenLineageToDataHub {
       datasetUrn.ifPresent(
           urn ->
               downstreamsFields.add(
-                  UrnUtils.getUrn("urn:li:schemaField:" + "(" + urn + "," + field.getKey() + ")")));
+                  UrnUtils.getUrn(
+                      "urn:li:schemaField:"
+                          + "("
+                          + urn
+                          + ","
+                          + fieldPath(urn, field.getKey(), mappingConfig)
+                          + ")")));
 
       LinkedHashSet<String> transformationTexts = new LinkedHashSet<>();
       OpenLineage.StaticDatasetBuilder staticDatasetBuilder =
@@ -619,7 +673,7 @@ public class OpenLineageToDataHub {
                               + "("
                               + urn.get()
                               + ","
-                              + inputField.getField()
+                              + fieldPath(urn.get(), inputField.getField(), mappingConfig)
                               + ")");
                   upstreamFields.add(datasetFieldUrn);
                   if (upstreams.stream()
@@ -946,19 +1000,23 @@ public class OpenLineageToDataHub {
       jobProcessingEngine = event.getRun().getFacets().getProcessing_engine().getName();
     }
 
+    Optional<FabricNotebookRun> notebook = FabricNotebookRun.from(event, datahubConf);
     DataFlowUrn flowUrn =
         getFlowUrn(
             event.getJob().getNamespace(),
             job.getName(), // Use original job name for flow URN
             jobProcessingEngine,
             event.getProducer(),
-            datahubConf);
+            datahubConf,
+            notebook.map(FabricNotebookRun::getArtifactId).orElse(null));
 
     dji.setFlowUrn(flowUrn);
     dji.setType(DataJobInfo.Type.create(flowUrn.getOrchestratorEntity()));
 
-    // Use the jobNameForUrn (which includes table name for MERGE commands)
-    DataJobUrn dataJobUrn = new DataJobUrn(flowUrn, jobNames.urnName);
+    // Use the jobNameForUrn (which includes table name for MERGE commands); for Fabric notebooks,
+    // without the per-session prefix so every run of the notebook lands on the same DataJob.
+    String jobNameForUrn = notebook.map(n -> n.jobName(jobNames.urnName)).orElse(jobNames.urnName);
+    DataJobUrn dataJobUrn = new DataJobUrn(flowUrn, jobNameForUrn);
     datahubJob.setJobUrn(dataJobUrn);
 
     StringMap customProperties = generateCustomProperties(event, false);
@@ -1303,7 +1361,7 @@ public class OpenLineageToDataHub {
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
         builder.urn(datasetUrn.get());
-        if (datahubConf.isMaterializeDataset()) {
+        if (datahubConf.isMaterializeDataset() && isSchemaFromEventAllowed(datasetUrn.get())) {
           builder.schemaMetadata(getSchemaMetadata(input, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
@@ -1333,7 +1391,7 @@ public class OpenLineageToDataHub {
       if (datasetUrn.isPresent()) {
         DatahubDataset.DatahubDatasetBuilder builder = DatahubDataset.builder();
         builder.urn(datasetUrn.get());
-        if (datahubConf.isMaterializeDataset()) {
+        if (datahubConf.isMaterializeDataset() && isSchemaFromEventAllowed(datasetUrn.get())) {
           builder.schemaMetadata(getSchemaMetadata(output, datahubConf));
         }
         if (datahubConf.isCaptureColumnLevelLineage()) {
@@ -1409,6 +1467,21 @@ public class OpenLineageToDataHub {
       String processingEngine,
       URI producer,
       DatahubOpenlineageConfig datahubOpenlineageConfig) {
+    return getFlowUrn(
+        namespace, jobName, processingEngine, producer, datahubOpenlineageConfig, null);
+  }
+
+  /**
+   * As above; {@code defaultFlowName} (e.g. a Fabric notebook item id) replaces the flow name
+   * derived from the job name, unless a pipeline name is configured.
+   */
+  public static DataFlowUrn getFlowUrn(
+      String namespace,
+      String jobName,
+      String processingEngine,
+      URI producer,
+      DatahubOpenlineageConfig datahubOpenlineageConfig,
+      String defaultFlowName) {
     String producerName = null;
     if (producer != null) {
       producerName = producer.toString();
@@ -1417,6 +1490,9 @@ public class OpenLineageToDataHub {
     String orchestrator =
         getOrchestrator(processingEngine, producerName, datahubOpenlineageConfig.getOrchestrator());
     String flowName = datahubOpenlineageConfig.getPipelineName();
+    if (flowName == null) {
+      flowName = defaultFlowName;
+    }
     if (datahubOpenlineageConfig.getPlatformInstance() != null) {
       namespace = datahubOpenlineageConfig.getPlatformInstance();
     }
