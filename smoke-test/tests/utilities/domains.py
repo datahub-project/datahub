@@ -25,6 +25,7 @@ class Domain(str, Enum):
     INGESTION = "ingestion"
     AI = "ai"
     CATALOG = "catalog"
+    PLATFORM_INTERNAL = "platform-internal"
 
 
 ALL_DOMAINS: Set[str] = {domain.value for domain in Domain}

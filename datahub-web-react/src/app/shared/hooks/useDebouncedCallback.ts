@@ -1,4 +1,5 @@
-import { DebouncedFunc, debounce } from 'lodash';
+import type { DebouncedFunc } from 'lodash';
+import debounce from 'lodash/debounce';
 import { useEffect, useMemo, useRef } from 'react';
 
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';

@@ -10,7 +10,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnClause, ColumnElement, Label
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,

@@ -4,7 +4,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Button, Select, message } from 'antd';
-import { orderBy } from 'lodash';
+import orderBy from 'lodash/orderBy';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';

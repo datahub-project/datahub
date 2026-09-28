@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sqlalchemy as sa
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
     SnowflakeAdapter,

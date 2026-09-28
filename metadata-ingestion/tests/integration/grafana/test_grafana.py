@@ -13,7 +13,7 @@ from urllib3.util.retry import Retry
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_5
 
@@ -167,8 +167,6 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
         verify_grafana_entities_provisioned(timeout=180)
 
         yield docker_services
-
-    cleanup_image("grafana/grafana")
 
 
 def verify_grafana_api_ready(docker_services: pytest_docker.plugin.Services) -> None:

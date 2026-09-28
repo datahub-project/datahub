@@ -169,6 +169,8 @@
     "metrics.filterPlatform": "平台",
     "metrics.homeBlurb": "瀏覽及探索從你的資料平台擷取的指標與語意模型。",
     "metrics.homeEmptyAction": "擷取指標",
+    "metrics.homeEmptyLearnMore": "了解更多",
+    "metrics.homeEmptyMigrationHint": "已經在擷取 Snowflake Semantic Views？<anchor>了解如何將它們遷移</anchor>到新模型。",
     "metrics.homeEmptyDescription": "從你的資料平台擷取指標與語意模型後，內容就會顯示在這裡。",
     "metrics.homeEmptyTitle": "尚未擷取任何指標",
     "metrics.homeTitle": "指標",

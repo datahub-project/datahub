@@ -39,6 +39,7 @@ const PageContainer = styled.div`
 const NavBarContainer = styled.div<{ $isCollapsed: boolean }>`
     box-sizing: border-box;
     padding: ${(props) => (props.$isCollapsed ? '16px 12px' : '20px 20px')};
+    padding-right: 8px;
     background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;

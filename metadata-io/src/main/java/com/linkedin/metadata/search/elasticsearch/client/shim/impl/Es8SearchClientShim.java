@@ -501,7 +501,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     : new Time.Builder()
                         .time(searchRequest.scroll().keepAlive().getStringRep())
                         .build())
-            .size(Math.max(0, searchSourceBuilder.size()))
+            // An unset size (-1) means the engine default, as on OpenSearch; sending 0 would
+            // return no hits to callers that never set one.
+            .size(searchSourceBuilder.size() < 0 ? null : searchSourceBuilder.size())
             .highlight(highlight)
             .trackTotalHits(
                 searchSourceBuilder.trackTotalHitsUpTo() == null
@@ -1950,7 +1952,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 jacksonJsonpMapper));
   }
 
-  /** Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations) for ES 8.18+. */
+  /**
+   * Normalizes legacy OpenSearch HLRC JSON (queries, rescores, aggregations, kNN bodies) for ES
+   * 8.18+.
+   */
   private String normalizeQueryJson(String jsonString) {
     try {
       return LegacyRangeQueryNormalizer.normalize(jsonString, objectMapper);
@@ -2025,6 +2030,12 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       throws IOException {
     Map<String, Object> body = Es8KnnQueryBuilder.build(request);
 
+    // withJson(Reader) below parses the kNN body strictly and rejects unknown fields, unlike the
+    // lenient parse on the regular search path. The filter comes from OpenSearch query builders,
+    // which emit legacy fields (e.g. bool.adjust_pure_negative) the typed BoolQuery model lacks,
+    // so normalize them away here. A lenient parse would silently drop filter fields instead.
+    final String bodyJson = normalizeQueryJson(objectMapper.writeValueAsString(body));
+
     // The ES8 typed client treats a comma-joined index string as a single index name and
     // URL-encodes the commas as %2C, breaking multi-entity searches. Split explicitly.
     List<String> indexList = Arrays.asList(request.indexName().split(","));
@@ -2038,7 +2049,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                     // Always allow zero-index resolution; semantic search on partial rollouts
                     // may target indices that do not yet exist on every node.
                     .allowNoIndices(true)
-                    .withJson(toJsonReader(body)));
+                    .withJson(new StringReader(bodyJson)));
 
     co.elastic.clients.elasticsearch.core.SearchResponse<Map> resp =
         client.search(searchReq, Map.class);
