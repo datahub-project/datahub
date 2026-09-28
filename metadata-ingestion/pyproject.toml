@@ -962,7 +962,7 @@ sap-datasphere = [
 ]
 
 sigma = [
-    "requests<3.0.0",
+    "requests>=2.27,<3.0.0",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
 ]
@@ -1420,7 +1420,7 @@ dev = [
     "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
-    "requests==2.32.5,<3.0.0",
+    "requests>=2.27,==2.32.5,<3.0.0",
     "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.20.0",
@@ -1613,7 +1613,7 @@ docs = [
     "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
-    "requests==2.32.5,<3.0.0",
+    "requests>=2.27,==2.32.5,<3.0.0",
     "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.20.0",

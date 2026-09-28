@@ -896,7 +896,9 @@ plugins: Dict[str, Set[str]] = {
     "quicksight": aws_common | sqlglot_lib,
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
-    "sigma": sqlglot_lib | usage_common | {"requests<3.0.0"},
+    # requests>=2.27 for requests.exceptions.JSONDecodeError, which the
+    # source references at import time to classify a malformed response.
+    "sigma": sqlglot_lib | usage_common | {"requests>=2.27,<3.0.0"},
     # pycarlo is Monte Carlo's official sgqlc-based GraphQL client over the MCD API.
     "montecarlo": {"pycarlo>=0.15.262,<1.0.0", "tenacity>=8.0.1,!=8.4.0,<9.0.0"},
     "sac": sac,
