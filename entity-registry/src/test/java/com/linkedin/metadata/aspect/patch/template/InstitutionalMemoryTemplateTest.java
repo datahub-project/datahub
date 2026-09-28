@@ -1,47 +1,58 @@
 package com.linkedin.metadata.aspect.patch.template;
 
+import static com.linkedin.metadata.Constants.INSTITUTIONAL_MEMORY_ASPECT_NAME;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.InstitutionalMemoryMetadata;
 import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.InstitutionalMemoryTemplate;
+import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
 import java.util.List;
 import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class InstitutionalMemoryTemplateTest {
 
   private static final InstitutionalMemoryTemplate TEMPLATE = new InstitutionalMemoryTemplate();
+  private static final String ACTOR = "urn:li:corpuser:datahub";
 
-  private static InstitutionalMemoryMetadata element(String url, String description) {
+  @BeforeClass
+  public static void disableSchemaAnnotationAssertions() {
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+  }
+
+  private static InstitutionalMemoryMetadata element(String url, String description, long time) {
     return new InstitutionalMemoryMetadata()
         .setUrl(new Url(url))
         .setDescription(description)
-        .setCreateStamp(
-            new AuditStamp().setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")).setTime(0L));
+        .setCreateStamp(new AuditStamp().setActor(UrnUtils.getUrn(ACTOR)).setTime(time));
   }
 
-  /**
-   * JSON Pointer escaping, which matters more here than for the urn-keyed aspects: a URL contains
-   * slashes, and an unescaped slash is a path separator rather than part of the key.
-   */
-  private static String pointer(String url) {
-    return "/elements/" + url.replace("~", "~0").replace("/", "~1");
+  private static String escape(String value) {
+    return value.replace("~", "~0").replace("/", "~1");
   }
 
-  private static JsonPatch addElement(String url, String description) {
+  private static String pointer(String url, String description) {
+    return "/elements/" + escape(url) + "/" + escape(description);
+  }
+
+  private static JsonPatch addElement(String url, String description, long time) {
     return Json.createPatch(
         Json.createArrayBuilder()
             .add(
                 Json.createObjectBuilder()
                     .add("op", "add")
-                    .add("path", pointer(url))
-                    // ArrayMergingTemplate maps each key to a *list* of entries, so the
-                    // patch value is an array, as in GlobalTagsTemplateTest.
+                    .add("path", pointer(url, description))
                     .add(
                         "value",
                         Json.createArrayBuilder()
@@ -52,52 +63,73 @@ public class InstitutionalMemoryTemplateTest {
                                     .add(
                                         "createStamp",
                                         Json.createObjectBuilder()
-                                            .add("actor", "urn:li:corpuser:datahub")
-                                            .add("time", 0)))))
+                                            .add("actor", ACTOR)
+                                            .add("time", time)))))
             .build());
+  }
+
+  private static InstitutionalMemory empty() {
+    InstitutionalMemory institutionalMemory = new InstitutionalMemory();
+    institutionalMemory.setElements(new InstitutionalMemoryMetadataArray());
+    return institutionalMemory;
   }
 
   @Test
   public void testTwoWritersBothSurvive() throws Exception {
-    // The reason this template is worth having: institutionalMemory is an
-    // append-shaped aspect, and without patch support the only way to add a link
-    // is read-modify-write, which drops whatever another writer added in between.
-    InstitutionalMemory initial = new InstitutionalMemory();
-    initial.setElements(new InstitutionalMemoryMetadataArray());
-
     InstitutionalMemory afterFirst =
-        TEMPLATE.applyPatch(initial, addElement("https://example.org/a", "first writer"));
+        TEMPLATE.applyPatch(empty(), addElement("https://example.org/a", "first", 1L));
     InstitutionalMemory result =
-        TEMPLATE.applyPatch(afterFirst, addElement("https://example.org/b", "second writer"));
+        TEMPLATE.applyPatch(afterFirst, addElement("https://example.org/b", "second", 2L));
 
-    Assert.assertNotNull(result.getElements());
     Assert.assertEquals(result.getElements().size(), 2);
     List<String> urls = result.getElements().stream().map(e -> e.getUrl().toString()).toList();
-    Assert.assertTrue(urls.contains("https://example.org/a"), "first writer's link should survive");
-    Assert.assertTrue(
-        urls.contains("https://example.org/b"), "second writer's link should be added");
+    Assert.assertTrue(urls.contains("https://example.org/a"));
+    Assert.assertTrue(urls.contains("https://example.org/b"));
   }
 
   @Test
-  public void testAddOnSameUrlUpserts() throws Exception {
-    InstitutionalMemory initial = new InstitutionalMemory();
-    initial.setElements(
-        new InstitutionalMemoryMetadataArray(element("https://example.org/a", "before")));
-
-    InstitutionalMemory result =
-        TEMPLATE.applyPatch(initial, addElement("https://example.org/a", "after"));
-
-    Assert.assertNotNull(result.getElements());
-    Assert.assertEquals(result.getElements().size(), 1, "url is the key, so this is an update");
-    Assert.assertEquals(result.getElements().get(0).getDescription(), "after");
-  }
-
-  @Test
-  public void testRemoveOneOfTwoEntries() throws Exception {
+  public void testSameUrlDifferentDescriptionsBothSurvive() throws Exception {
     InstitutionalMemory initial = new InstitutionalMemory();
     initial.setElements(
         new InstitutionalMemoryMetadataArray(
-            element("https://example.org/a", "a"), element("https://example.org/b", "b")));
+            element("https://example.org/a", "design", 1L),
+            element("https://example.org/a", "runbook", 2L)));
+
+    InstitutionalMemory result =
+        TEMPLATE.applyPatch(initial, addElement("https://example.org/b", "other", 3L));
+
+    Assert.assertEquals(result.getElements().size(), 3);
+    List<String> descriptions =
+        result.getElements().stream()
+            .filter(e -> e.getUrl().toString().equals("https://example.org/a"))
+            .map(InstitutionalMemoryMetadata::getDescription)
+            .toList();
+    Assert.assertTrue(descriptions.contains("design"));
+    Assert.assertTrue(descriptions.contains("runbook"));
+  }
+
+  @Test
+  public void testAddOnSameUrlAndDescriptionUpserts() throws Exception {
+    InstitutionalMemory initial = new InstitutionalMemory();
+    initial.setElements(
+        new InstitutionalMemoryMetadataArray(element("https://example.org/a", "design", 1L)));
+
+    InstitutionalMemory result =
+        TEMPLATE.applyPatch(initial, addElement("https://example.org/a", "design", 9L));
+
+    Assert.assertEquals(result.getElements().size(), 1);
+    Assert.assertEquals(result.getElements().get(0).getDescription(), "design");
+    Assert.assertEquals(result.getElements().get(0).getCreateStamp().getTime().longValue(), 9L);
+  }
+
+  @Test
+  public void testRemoveOnePairLeavesSiblingLabelAndOtherUrl() throws Exception {
+    InstitutionalMemory initial = new InstitutionalMemory();
+    initial.setElements(
+        new InstitutionalMemoryMetadataArray(
+            element("https://example.org/a", "design", 1L),
+            element("https://example.org/a", "runbook", 2L),
+            element("https://example.org/b", "other", 3L)));
 
     JsonPatch patch =
         Json.createPatch(
@@ -105,14 +137,55 @@ public class InstitutionalMemoryTemplateTest {
                 .add(
                     Json.createObjectBuilder()
                         .add("op", "remove")
-                        .add("path", pointer("https://example.org/a")))
+                        .add("path", pointer("https://example.org/a", "design")))
                 .build());
 
     InstitutionalMemory result = TEMPLATE.applyPatch(initial, patch);
 
-    Assert.assertNotNull(result.getElements());
+    Assert.assertEquals(result.getElements().size(), 2);
+    List<String> keys =
+        result.getElements().stream()
+            .map(e -> e.getUrl().toString() + " " + e.getDescription())
+            .toList();
+    Assert.assertFalse(keys.contains("https://example.org/a design"));
+    Assert.assertTrue(keys.contains("https://example.org/a runbook"));
+    Assert.assertTrue(keys.contains("https://example.org/b other"));
+  }
+
+  @Test
+  public void testRemoveUrlDropsEveryLabelForThatUrl() throws Exception {
+    InstitutionalMemory initial = new InstitutionalMemory();
+    initial.setElements(
+        new InstitutionalMemoryMetadataArray(
+            element("https://example.org/a", "design", 1L),
+            element("https://example.org/a", "runbook", 2L),
+            element("https://example.org/b", "other", 3L)));
+
+    JsonPatch patch =
+        Json.createPatch(
+            Json.createArrayBuilder()
+                .add(
+                    Json.createObjectBuilder()
+                        .add("op", "remove")
+                        .add("path", "/elements/" + escape("https://example.org/a")))
+                .build());
+
+    InstitutionalMemory result = TEMPLATE.applyPatch(initial, patch);
+
     Assert.assertEquals(result.getElements().size(), 1);
     Assert.assertEquals(result.getElements().get(0).getUrl().toString(), "https://example.org/b");
+  }
+
+  @Test
+  public void testSlashInUrlIsJsonPointerEscaped() throws Exception {
+    String url = "https://example.org/a";
+    Assert.assertEquals(pointer(url, "design"), "/elements/https:~1~1example.org~1a/design");
+
+    InstitutionalMemory result = TEMPLATE.applyPatch(empty(), addElement(url, "design", 1L));
+
+    Assert.assertEquals(result.getElements().size(), 1);
+    Assert.assertEquals(result.getElements().get(0).getUrl().toString(), url);
+    Assert.assertEquals(result.getElements().get(0).getDescription(), "design");
   }
 
   @Test
@@ -120,5 +193,16 @@ public class InstitutionalMemoryTemplateTest {
     InstitutionalMemory defaultValue = TEMPLATE.getDefault();
     Assert.assertNotNull(defaultValue.getElements());
     Assert.assertTrue(defaultValue.getElements().isEmpty());
+  }
+
+  @Test
+  public void testRegistryRegistersTemplate() {
+    RecordTemplate defaultValue =
+        SnapshotEntityRegistry.getInstance()
+            .getAspectTemplateEngine()
+            .getDefaultTemplate(INSTITUTIONAL_MEMORY_ASPECT_NAME);
+    Assert.assertTrue(defaultValue instanceof InstitutionalMemory);
+    Assert.assertNotNull(((InstitutionalMemory) defaultValue).getElements());
+    Assert.assertTrue(((InstitutionalMemory) defaultValue).getElements().isEmpty());
   }
 }
