@@ -39,6 +39,7 @@ on:
       - ".github/scripts/parse_failed_pytest_tests.py"
       - ".github/scripts/docker_logs.sh"
       - ".github/actions/smoke-test-retry"
+      - ".github/actions/report-test-results/**"
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
@@ -61,6 +62,7 @@ on:
       - ".github/scripts/parse_failed_pytest_tests.py"
       - ".github/scripts/docker_logs.sh"
       - ".github/actions/smoke-test-retry"
+      - ".github/actions/report-test-results/**"
   release:
     types: [published]
 
@@ -838,6 +840,57 @@ jobs:
           path: "docker_logs/*.log"
           retention-days: 5
 
+  stack_free_smoke_tests:
+    name: Stack-free smoke pytest
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.smoke_test_change == 'true' || needs.setup.outputs.publish == 'true' || (needs.setup.outputs.ingestion_only == 'true' && needs.setup.outputs.connector_source_only != 'true') }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Run stack-free pytest
+        run: ./gradlew :smoke-test:stackFreePytest
+
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: Test Results (stack-free smoke pytest)
+          test-results-paths: |
+            smoke-test/test-results/junit.stack-free.xml
+            !**/binary/**
+          junit-file-globs: |
+            smoke-test/test-results/junit.stack-free.xml
+
+      - name: Upload pytest logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: pytest-smoke-logs-stack-free
+          path: "smoke-test/test-results/pytest-smoke.log"
+          retention-days: 5
+
   pytest_tests:
     name: Pytest Smoke Tests (Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
@@ -1360,7 +1413,7 @@ jobs:
         working-directory: smoke-test
         run: |
           source venv/bin/activate
-          pytest tests/semantic/test_local_embedding_provider.py \
+          pytest tests/e2e/semantic/test_local_embedding_provider.py \
             -v \
             --junit-xml=junit.smoke-ai.xml \
             --timeout=120
@@ -1376,7 +1429,7 @@ jobs:
         working-directory: smoke-test
         run: |
           source venv/bin/activate
-          pytest tests/semantic/test_classical_embedding_provider.py \
+          pytest tests/e2e/semantic/test_classical_embedding_provider.py \
             -v \
             --junit-xml=junit.smoke-ai.xml \
             --timeout=120
@@ -1449,7 +1502,14 @@ jobs:
     name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs:
-      [setup, base_build, java_integration_tests, pytest_tests, playwright_test]
+      [
+        setup,
+        base_build,
+        java_integration_tests,
+        pytest_tests,
+        playwright_test,
+        stack_free_smoke_tests,
+      ]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Set up Depot CLI

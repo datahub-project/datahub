@@ -28,6 +28,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -67,6 +68,10 @@ public class SpringTest extends AbstractTestNGSpringContextTests {
     assertNotNull(dailyReport);
   }
 
+  // GMSApplication is a @SpringBootApplication, so production gets the Kafka listener
+  // infrastructure from Boot auto-configuration. @ContextConfiguration bypasses auto-configuration,
+  // so enable it explicitly for beans that inject KafkaListenerEndpointRegistry.
+  @EnableKafka
   @TestConfiguration
   public static class TestBeans {
 

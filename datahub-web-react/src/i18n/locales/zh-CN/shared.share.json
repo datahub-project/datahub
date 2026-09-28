@@ -1,9 +1,14 @@
 {
+    "copyLink.success": "已复制链接",
     "copyLink.tooltip": "复制此实体的可共享链接。",
     "copyName.label": "复制名称",
+    "copyName.success": "已复制名称",
     "copyName.tooltip": "复制此 {{type}} 的完整名称",
     "copyUrn.label": "复制 URN",
+    "copyUrn.success": "已复制 URN",
     "copyUrn.tooltip": "复制此 {{type}} 的 URN。URN 用于在 DataHub 上唯一标识一个实体。",
+    "email.body": "来看看 DataHub 上的这个 {{displayType}}：{{linkText}}。URN：{{urn}}",
     "email.label": "邮件",
+    "email.subject": "{{displayName}} | {{displayType}}",
     "email.tooltip": "通过邮件共享此 {{type}}"
 }

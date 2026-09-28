@@ -74,7 +74,7 @@ export const ConfirmationModal = ({
             ]}
             title={modalTitle || tc('confirm')}
         >
-            <Text size="lg" color="gray">
+            <Text size="lg" color="text">
                 {modalText || t('confirmationModal.areYouSure')}
             </Text>
         </StyledModal>
