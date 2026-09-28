@@ -1,18 +1,7 @@
-import contextlib
-import contextvars
 import os
 import re
 import threading
-from typing import (
-    Any,
-    Dict,
-    Hashable,
-    Iterator,
-    List,
-    Optional,
-    Set,
-    Tuple,
-)
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from datahub.masking.constants import (
     CAPACITY_EXCEEDED_MESSAGE,
@@ -31,68 +20,6 @@ MAX_SECRET_VERSIONS = 3
 LARGE_SECRET_RENDERING_COUNT = 200
 
 _UNMASKABLE_LITERALS = frozenset({"true", "false", "yes", "no", "none", "null"})
-
-# Key fragments that mark a config value as a credential.
-SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
-    "password",
-    "sasl",
-    "secret",
-    "token",
-    "basic.auth.user.info",
-    "ssl.key",
-    # Key-pair auth (Snowflake) and service-account JSON (GCP) both carry the
-    # key under this name, nested one level down (`credential.private_key`), so
-    # a top-level SecretStr sweep misses it even though the field is typed.
-    "private_key",
-    # Names that carry a credential and match none of the above. Each was
-    # treated as NON-sensitive, so an `api_key` written inline in a recipe was
-    # not collected as a secret and reached the caller's output.
-    #
-    # "passwd" is not a substring of "password", and "api_key" is not a
-    # substring of "apikey", so both spellings are listed. Bare "key" is
-    # deliberately absent: it would match partition_key, primary_key,
-    # key_path and every other structural field.
-    #
-    # Checked against every registered connector's config before adding:
-    # exactly five fields become sensitive that were not -- api_key,
-    # aws_access_key_id, cloud_api_key, credential, kafka_api_key -- and all
-    # five are credential material. No ordinary field is caught.
-    "passwd",
-    "api_key",
-    "apikey",
-    "access_key",
-    # NOT "credential". It names a mixed object rather than a scalar secret:
-    # BigQuery's `credential` holds private_key -- already matched above --
-    # beside project_id, and collect_nested_secret_values has no suffix
-    # guard, so the hint swept the project id into the masked set. A project
-    # id appears in almost every line of BigQuery output, and masking it
-    # corrupts the answer rather than protecting anything.
-    # test_a_nested_private_key_is_collected pins this.
-)
-
-# A note on why this is a name heuristic at all, since replacing it with
-# ConfigModel._collect_secrets' SecretStr set has been suggested twice:
-#
-#   - These hints run over the RAW recipe dict, before any config class is
-#     built, so no field is typed yet. That is the whole point: the window
-#     this closes is the one before validation succeeds.
-#   - _collect_secrets returns only isinstance(value, SecretStr). None of
-#     the three fields that motivated this change -- elasticsearch's
-#     api_key, dynamodb's and glue's aws_access_key_id -- is SecretStr
-#     typed, so it would not have caught them.
-#   - Replacing rather than widening would also LOSE the plain-`str` fields
-#     named `password` that the hints catch today.
-#
-# The typed set is a good second source and ConfigModel already registers
-# from it; the two are complementary, not alternatives.
-
-
-# Identifies a registry's pattern content. An int for a registry with no
-# parent, a nested tuple once a scope combines with one -- so it stays
-# comparable however deep the chain is.
-_VersionToken = Hashable
-
-
 _ESCAPABLE_CHARACTERS = ("\n", "\r", "\t", "\\", '"', "'")
 
 
@@ -187,46 +114,6 @@ def _compiles(pattern_str: str) -> bool:
         return False
 
 
-def _longest_first(secrets: Dict[str, str]) -> List[Tuple[str, str]]:
-    """(value, name) pairs, longest value first: two registered secrets can
-    overlap, and masking the shorter first strands the longer one's tail."""
-    return sorted(secrets.items(), key=lambda x: len(x[0]), reverse=True)
-
-
-def _compile_masking_pattern(sorted_secrets: List[Tuple[str, str]]) -> re.Pattern:
-    """The masking pattern for these (value, name) pairs, longest first.
-
-    re.escape() ensures secrets with regex metacharacters (e.g. ".*", "a+b",
-    "test|prod") are matched literally. The marker alternative comes first so
-    that already-masked spans are consumed whole and never re-matched -- this
-    is what makes masking idempotent even when a secret value collides with
-    marker text. Only markers bearing a name the filters could have produced
-    are consumed; a wildcard would let marker-shaped delimiters arriving in
-    untrusted text smuggle a secret through unmasked.
-    """
-    names = sorted(
-        {name for _, name in sorted_secrets} | {"UNKNOWN"},
-        key=len,
-        reverse=True,
-    )
-    marker_regex = (
-        re.escape(REDACTED_PREFIX)
-        + "(?:"
-        + "|".join(re.escape(name) for name in names)
-        + ")"
-        + re.escape(REDACTED_SUFFIX)
-    )
-    return re.compile(
-        "|".join(
-            [
-                marker_regex,
-                *(re.escape(message) for message in SENTINEL_MESSAGES),
-                *(re.escape(value) for value, _ in sorted_secrets),
-            ]
-        )
-    )
-
-
 class SecretRegistry:
     """Thread-safe store of secret values to mask.
 
@@ -242,17 +129,7 @@ class SecretRegistry:
 
     MAX_SECRETS = 10000
 
-    def __init__(self, _parent: Optional["SecretRegistry"] = None) -> None:
-        # Set only for a task-scoped registry (see task_secret_scope), and
-        # READ-ONLY: this registry masks against its own secrets plus the
-        # parent's, and never writes into it.
-        #
-        # The first version of the scope had this the other way round -- a
-        # write mirror into the global. That put every task's secrets in one
-        # shared place, which is precisely why the global could not then be
-        # read as a floor: doing so would have shown task B everything task
-        # A registered. Reading up and writing down are not interchangeable.
-        self._parent = _parent
+    def __init__(self) -> None:
         self._secrets: Dict[str, str] = {}
         self._name_history: Dict[str, List[str]] = {}
         self._version = 0
@@ -261,34 +138,10 @@ class SecretRegistry:
         self._pattern: Optional[re.Pattern] = None
         self._pattern_replacements: Dict[str, str] = {}
         self._pattern_version = -1
-        # Combined-with-parent cache; see _combined_with_parent.
-        self._combined: Optional[re.Pattern] = None
-        self._combined_replacements: Dict[str, str] = {}
-        self._combined_key: Optional[_VersionToken] = None
         self._registry_lock = threading.RLock()
 
     @classmethod
     def get_instance(cls) -> "SecretRegistry":
-        """The registry this caller should read and write.
-
-        A task-scoped registry when one is active on this context, otherwise
-        the process-global one. See task_secret_scope for why both exist.
-        """
-        scoped = _active_registry.get()
-        if scoped is not None:
-            return scoped
-        return cls.global_instance()
-
-    @classmethod
-    def global_instance(cls) -> "SecretRegistry":
-        """The process-global registry, ignoring any active task scope.
-
-        The floor every task scope masks on top of: secrets registered outside
-        any scope (envelope secrets, a ConfigModel's SecretStr fields, the
-        executor's own config). A task's secrets are NOT written here -- see
-        task_secret_scope -- so a caller resolving to this registry from
-        inside a task's raw thread masks only process-level secrets.
-        """
         with cls._lock:
             if cls._instance is None:
                 cls._instance = cls()
@@ -296,15 +149,8 @@ class SecretRegistry:
 
     @classmethod
     def reset_instance(cls) -> None:
-        """Drop the process-global registry, and any active task scope with it.
-
-        The scope has to go too: a scoped registry holds a reference to the
-        OLD global as its parent, so leaving it active after a reset means
-        masking against a registry nothing can reach any more.
-        """
         with cls._lock:
             cls._instance = None
-        _active_registry.set(None)
 
     def register_secret(self, variable_name: str, raw_value: str) -> None:
         self.register_secrets_batch({variable_name: raw_value})
@@ -400,26 +246,15 @@ class SecretRegistry:
         )
 
     def is_capacity_exceeded(self) -> bool:
-        if self._capacity_exceeded:
-            return True
-        return self._parent is not None and self._parent.is_capacity_exceeded()
+        return self._capacity_exceeded
 
     def suppression_message(self) -> Optional[str]:
         """Non-None when masking must fail closed: the fixed message that
-        replaces all output.
-
-        A scope inherits the parent's state. The parent's secrets are half of
-        what a scope masks against, so a parent that can no longer mask them
-        (over capacity, or its pattern would not compile) leaves the scope
-        unable to as well -- and must suppress it, not let it mask with only
-        its own half.
-        """
+        replaces all output."""
         if self._capacity_exceeded:
             return CAPACITY_EXCEEDED_MESSAGE
         if self._compile_failed:
             return CIRCUIT_OPEN_MESSAGE
-        if self._parent is not None:
-            return self._parent.suppression_message()
         return None
 
     def get_pattern_and_replacements(
@@ -428,93 +263,10 @@ class SecretRegistry:
         """Compiled masking pattern and rendering-to-name map, rebuilt when
         the registry has changed since the last build. (None, {}) when the
         registry is empty or the pattern is uncompilable."""
-        pattern, replacements, _version = self._snapshot()
-        return pattern, replacements
-
-    def _snapshot(self) -> Tuple[Optional[re.Pattern], Dict[str, str], _VersionToken]:
-        """Pattern, replacements, and a token identifying exactly this content.
-
-        The token is read under the SAME lock that read the content, and that
-        is the whole point of this method existing. The first version of the
-        combined cache snapshotted `own` under the lock, released it, and only
-        then read `self._version` for the cache key -- so a register() landing
-        in that window got the OLD pattern stored under the NEW version's key.
-        Every later call at that version hit the cache and masked without the
-        secret whose registration caused the bump, until some further
-        registration moved the version again. A fail-open inside the code
-        added to close one.
-
-        `self._pattern_version` is what `own` was built from, so it is the
-        token; `self._version` is where the registry has got to, which is not
-        the same thing the moment another thread is registering.
-        """
         with self._registry_lock:
             if self._pattern_version != self._version:
                 self._rebuild_pattern()
-            own, replacements, own_version = (
-                self._pattern,
-                self._pattern_replacements,
-                self._pattern_version,
-            )
-
-        if self._parent is None:
-            return own, replacements, own_version
-        return self._combined_with_parent(own, replacements, own_version)
-
-    def _combined_with_parent(
-        self,
-        own: Optional[re.Pattern],
-        replacements: Dict[str, str],
-        own_version: _VersionToken,
-    ) -> Tuple[Optional[re.Pattern], Dict[str, str], _VersionToken]:
-        """This task's secrets plus the process-level ones.
-
-        A task masks against what it was given AND what was registered
-        before any task existed -- the envelope secrets load_config_file
-        registers, a ConfigModel's own SecretStr fields, the executor's
-        startup config. Without the parent those were invisible the moment a
-        scope opened, which is a leak rather than an inconvenience.
-
-        Cached on (own version, parent version) -- both taken from the
-        snapshot that produced the content, never re-read afterwards; see
-        _snapshot. A change on either side rebuilds, and neither is rebuilt on
-        an unchanged call. Measured at 1.0-1.1x a single registry for
-        realistic secret counts.
-        """
-        parent = self._parent
-        assert parent is not None
-        parent_pattern, parent_replacements, parent_version = parent._snapshot()
-        key: _VersionToken = (own_version, parent_version)
-        if parent_pattern is None:
-            return own, replacements, key
-        if own is None:
-            return parent_pattern, parent_replacements, key
-
-        with self._registry_lock:
-            if self._combined_key != key:
-                # Longest-first across BOTH, for the reason _rebuild_pattern
-                # sorts: two registered secrets can overlap, and masking the
-                # shorter first strands the longer one's tail in the output.
-                merged = dict(parent_replacements)
-                merged.update(replacements)
-                # Built by the same routine as a single registry's pattern, so
-                # it keeps the marker and sentinel alternatives: executor output
-                # is masked more than once, and without them a second pass
-                # re-matched inside existing markers and sentinels.
-                sorted_merged = _longest_first(merged)
-                try:
-                    self._combined = _compile_masking_pattern(sorted_merged)
-                except Exception as e:
-                    # Fail closed the way _rebuild_pattern does. Masking with
-                    # this scope's pattern alone would ship the parent's
-                    # secrets in the clear; the flag makes suppression_message
-                    # withhold the output instead.
-                    self._declare_compile_failed(type(e).__name__, sorted_merged)
-                    self._combined = own
-                    merged = replacements
-                self._combined_replacements = merged
-                self._combined_key = key
-            return self._combined, self._combined_replacements, key
+            return self._pattern, self._pattern_replacements
 
     def _rebuild_pattern(self) -> None:
         self._pattern_version = self._version
@@ -523,9 +275,41 @@ class SecretRegistry:
         if not self._secrets or self._compile_failed:
             return
 
-        sorted_secrets = _longest_first(self._secrets)
+        sorted_secrets = sorted(
+            self._secrets.items(), key=lambda x: len(x[0]), reverse=True
+        )
+
+        # CRITICAL: re.escape() ensures secrets with regex metacharacters
+        # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex.
+        # The marker alternative comes first so that already-masked spans are
+        # consumed whole and never re-matched - this is what makes masking
+        # idempotent even when a secret value collides with marker text. Only
+        # markers bearing a name the filters could have produced are consumed;
+        # a wildcard would let marker-shaped delimiters arriving in untrusted
+        # text smuggle a secret through unmasked.
+        names = sorted(
+            {name for _, name in sorted_secrets} | {"UNKNOWN"},
+            key=len,
+            reverse=True,
+        )
+        marker_regex = (
+            re.escape(REDACTED_PREFIX)
+            + "(?:"
+            + "|".join(re.escape(name) for name in names)
+            + ")"
+            + re.escape(REDACTED_SUFFIX)
+        )
+        escaped_values = [re.escape(value) for value, _ in sorted_secrets]
+        pattern_str = "|".join(
+            [
+                marker_regex,
+                *(re.escape(message) for message in SENTINEL_MESSAGES),
+                *escaped_values,
+            ]
+        )
+
         try:
-            self._pattern = _compile_masking_pattern(sorted_secrets)
+            self._pattern = re.compile(pattern_str)
         except Exception as e:
             self._declare_compile_failed(type(e).__name__, sorted_secrets)
             return
@@ -574,15 +358,7 @@ class SecretRegistry:
             return self._version
 
     def get_count(self) -> int:
-        """Renderings this registry masks against, the parent's included.
-
-        mask_text reads zero as "nothing to mask", so a scope with no secrets
-        of its own under a parent that has some must not report zero.
-        """
-        own = len(self._secrets)
-        if self._parent is None:
-            return own
-        return own + self._parent.get_count()
+        return len(self._secrets)
 
     def clear(self) -> None:
         with self._registry_lock:
@@ -603,46 +379,3 @@ class SecretRegistry:
     def get_secret_value(self, variable_name: str) -> Optional[str]:
         history = self._name_history.get(variable_name)
         return history[-1] if history else None
-
-
-# The registry the current context should use. A ContextVar rather than a
-# thread-local because it is the same mechanism asyncio uses, and because a
-# new thread starting from the default is exactly the behaviour the floor
-# above is written for.
-_active_registry: contextvars.ContextVar[Optional["SecretRegistry"]] = (
-    contextvars.ContextVar("datahub_active_secret_registry", default=None)
-)
-
-
-@contextlib.contextmanager
-def task_secret_scope() -> Iterator["SecretRegistry"]:
-    """Give this task its own view of the registry.
-
-    The executor runs tasks in concurrent threads and registers every task's
-    secrets into one process-global registry that is never cleared, so each
-    task inherited every earlier task's secrets. The visible harm is a later
-    task's own output being redacted against an unrelated task's password --
-    and the marker names that other task's variable, which on a shared
-    executor is one tenant's recipe leaking into another's output.
-
-    Clearing between tasks is not the fix: tasks overlap, so a clear during
-    one disarms masking for another running beside it. Scoping is, because
-    it needs no coordination between tasks.
-
-    A task's secrets stay in its scope and never reach the global, which is
-    what lets the global be read as a floor: a scope masks against its own
-    secrets PLUS the process-level ones, and never against another task's.
-
-    Residual, measured rather than assumed: a RAW thread started inside a
-    task does not inherit this ContextVar, so it masks process-level secrets
-    only. asyncio.create_task and asyncio.to_thread do inherit, which covers
-    what the executor actually uses for subprocess output and progress; a
-    raw thread that needs the scope can carry it with
-    contextvars.copy_context().
-    """
-    scoped = SecretRegistry(_parent=SecretRegistry.global_instance())
-    token = _active_registry.set(scoped)
-    try:
-        yield scoped
-    finally:
-        _active_registry.reset(token)

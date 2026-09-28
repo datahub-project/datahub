@@ -8,10 +8,6 @@ from typing import (
     Tuple,
 )
 
-from datahub.masking.secret_registry import (
-    SENSITIVE_KEY_HINTS,
-)
-
 _MASK = "***"
 
 # Below this length a value is matched only against a whole string, never as a
@@ -117,10 +113,61 @@ def mask_identity_columns(
     return out
 
 
-# The policy lives in datahub.masking so the executor can import it too --
-# datahub.executor must not depend on this package. Aliased rather than
-# re-spelled, so existing call sites and tests are unaffected.
-_SENSITIVE_KEY_HINTS: Tuple[str, ...] = SENSITIVE_KEY_HINTS
+# Key fragments that mark a config value as a credential.
+SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
+    "password",
+    "sasl",
+    "secret",
+    "token",
+    "basic.auth.user.info",
+    "ssl.key",
+    # Key-pair auth (Snowflake) and service-account JSON (GCP) both carry the
+    # key under this name, nested one level down (`credential.private_key`), so
+    # a top-level SecretStr sweep misses it even though the field is typed.
+    "private_key",
+    # Names that carry a credential and match none of the above. Each was
+    # treated as NON-sensitive, so an `api_key` written inline in a recipe was
+    # not collected as a secret and reached the caller's output.
+    #
+    # "passwd" is not a substring of "password", and "api_key" is not a
+    # substring of "apikey", so both spellings are listed. Bare "key" is
+    # deliberately absent: it would match partition_key, primary_key,
+    # key_path and every other structural field.
+    #
+    # Checked against every registered connector's config before adding:
+    # exactly five fields become sensitive that were not -- api_key,
+    # aws_access_key_id, cloud_api_key, credential, kafka_api_key -- and all
+    # five are credential material. No ordinary field is caught.
+    "passwd",
+    "api_key",
+    "apikey",
+    "access_key",
+    # NOT "credential". It names a mixed object rather than a scalar secret:
+    # BigQuery's `credential` holds private_key -- already matched above --
+    # beside project_id, and collect_nested_secret_values has no suffix
+    # guard, so the hint swept the project id into the masked set. A project
+    # id appears in almost every line of BigQuery output, and masking it
+    # corrupts the answer rather than protecting anything.
+    # test_a_nested_private_key_is_collected pins this.
+)
+
+# A note on why this is a name heuristic at all, since replacing it with
+# ConfigModel._collect_secrets' SecretStr set has been suggested twice:
+#
+#   - These hints run over the RAW recipe dict, before any config class is
+#     built, so no field is typed yet. That is the whole point: the window
+#     this closes is the one before validation succeeds.
+#   - _collect_secrets returns only isinstance(value, SecretStr). None of
+#     the three fields that motivated this change -- elasticsearch's
+#     api_key, dynamodb's and glue's aws_access_key_id -- is SecretStr
+#     typed, so it would not have caught them.
+#   - Replacing rather than widening would also LOSE the plain-`str` fields
+#     named `password` that the hints catch today.
+#
+# The typed set is a good second source and ConfigModel already registers
+# from it; the two are complementary, not alternatives.
+
+_SENSITIVE_KEY_HINTS = SENSITIVE_KEY_HINTS
 
 
 def collect_secret_values(

@@ -307,7 +307,7 @@ def test_a_credential_named_api_key_is_collected_as_a_secret():
     missed, none SecretStr-typed -- elasticsearch's api_key, and
     aws_access_key_id on dynamodb/glue/quicksight/sagemaker -- so without the
     hint the typed registry does not cover them either."""
-    from datahub.masking.secret_registry import SENSITIVE_KEY_HINTS
+    from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
 
     for key in ("api_key", "apikey", "passwd", "aws_access_key_id", "kafka_api_key"):
         found = collect_nested_secret_values({key: "the-value"}, SENSITIVE_KEY_HINTS)
@@ -321,7 +321,7 @@ def test_the_widened_hints_do_not_swallow_structural_fields():
     and masking them would corrupt ordinary output. Same reason "credential"
     is absent: it names a mixed object whose secret child is already matched.
     """
-    from datahub.masking.secret_registry import SENSITIVE_KEY_HINTS
+    from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
 
     for key in ("partition_key", "primary_key", "key_path", "sort_key", "project_id"):
         found = collect_nested_secret_values({key: "structural"}, SENSITIVE_KEY_HINTS)
