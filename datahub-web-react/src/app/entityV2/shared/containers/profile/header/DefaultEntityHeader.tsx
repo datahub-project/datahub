@@ -190,7 +190,7 @@ export const DefaultEntityHeader = ({
                     <EntityBackButton />
                     {(loading && <EntityTitleLoadingSection />) || (
                         <>
-                            <TitleWrapper>
+                            <TitleWrapper data-testid="entity-header-title">
                                 <HeaderIconsWrapper>
                                     <PlatformHeaderIcons
                                         platform={platform as DataPlatform}

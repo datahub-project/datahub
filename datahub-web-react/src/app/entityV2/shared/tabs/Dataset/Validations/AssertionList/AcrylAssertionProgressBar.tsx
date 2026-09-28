@@ -34,7 +34,7 @@ export const AcrylAssertionProgressBar: React.FC<Props> = ({ summary }) => {
     const theme = useTheme();
     const total = summary.passing + summary.failing + summary.erroring + summary.initializing + summary.notRunning;
     if (!total) {
-        return <StyledProgressContainer />;
+        return <StyledProgressContainer data-testid="assertion-progress-bar" />;
     }
     const passingPercent = (summary.passing / total) * 100;
     const failingPercent = (summary.failing / total) * 100;
@@ -42,7 +42,7 @@ export const AcrylAssertionProgressBar: React.FC<Props> = ({ summary }) => {
     const initializingPercent = (summary.initializing / total) * 100;
     const notRunningPercent = (summary.notRunning / total) * 100;
     return (
-        <StyledProgressContainer>
+        <StyledProgressContainer data-testid="assertion-progress-bar">
             <StyledSegment width={passingPercent} color={theme.colors.iconSuccess} />
             <StyledSegment width={failingPercent} color={theme.colors.iconError} />
             <StyledSegment width={erroringPercent} color={theme.colors.iconWarning} />

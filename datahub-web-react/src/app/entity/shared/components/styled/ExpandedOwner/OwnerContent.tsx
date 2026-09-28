@@ -1,5 +1,5 @@
-import { Avatar } from '@components';
-import { Popover, Typography } from 'antd';
+import { Avatar, Popover } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 

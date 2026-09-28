@@ -266,11 +266,71 @@ class ODCSSourceConfig(
             )
         return self
 
+    @model_validator(mode="after")
+    def physical_data_contract_requires_logical_parent(self) -> "ODCSSourceConfig":
+        # emit_logical_parent is the master switch for writing any aspect onto
+        # physical datasets; without it the physical contract has nowhere to go
+        # and the opt-in would silently do nothing. Fail loud instead.
+        if self.emit_physical_data_contract and not self.emit_logical_parent:
+            raise ValueError(
+                "emit_physical_data_contract requires emit_logical_parent: the "
+                "physical contract is written onto the bound physical dataset, and "
+                "emit_logical_parent is the master switch for writing any aspect "
+                "onto physical datasets. Enable emit_logical_parent or disable "
+                "emit_physical_data_contract."
+            )
+        return self
+
     emit_logical_parent: bool = Field(
         default=True,
         description="Whether to emit a `logicalParent` link from each resolved physical dataset to "
         "its logical ODCS dataset (the `PhysicalInstanceOf` relationship). Disable to keep ODCS "
         "from writing any aspect onto physical datasets.",
+    )
+    emit_data_contract: bool = Field(
+        default=True,
+        description="Whether to emit a native DataHub `dataContract` entity for each schema entry, "
+        "on the logical `odcs` dataset. This is the self-consistent home: the assertions target "
+        "the logical dataset, so `contract.entity == assertion.entity` and results resolve "
+        "directly; it renders under the LOGICAL_MODELS_ENABLED flag. The contract references the "
+        "schema and data-quality Assertion URNs (no assertions are duplicated). State mirrors the "
+        "ODCS `status` (`active` -> ACTIVE, otherwise PENDING). Requires at least one of "
+        "`emit_assertions` / `emit_schema_assertion` to have produced an assertion for the entry.",
+    )
+    emit_physical_data_contract: bool = Field(
+        default=False,
+        description="Whether to ALSO emit the native `dataContract` onto the bound physical "
+        "dataset (in addition to the logical one), so it surfaces on the table consumers browse. "
+        "Off by default because the contract URN is keyed on the target entity and matches the "
+        "hand-authored SDK convention exactly: enabling this makes ODCS the owner of that "
+        "dataset's contract and overwrites any hand-authored contract on it. It is always emitted "
+        "non-primary (never stale-removed, so it cannot soft-delete a hand-authored contract) and "
+        "requires `emit_logical_parent` (the master switch for writing onto physical datasets). "
+        "Note: the referenced assertions target the logical dataset, so the contract may render "
+        "with limited detail on the physical table until assertions can target it directly.",
+    )
+    emit_data_product_association: bool = Field(
+        default=False,
+        description="Whether to add the dataset each contract governs to the DataHub Data Product "
+        "named by the contract's `dataProduct` field, as an **output port** — under ODPS a data "
+        "product lists its contracts under `outputPorts`. The physical dataset is used when the "
+        "contract binds to one, otherwise the logical `odcs` dataset. The value is resolved "
+        "against existing products (full URN, then `urn:li:dataProduct:<value>`, then an exact "
+        "match on product name); see `verify_data_product_exists` for what happens when nothing "
+        "matches. The association is an additive patch, so ODCS never clears assets added by hand "
+        "or by another source, and the product itself is never stale-removed by ODCS. Off by "
+        "default: the ODCS field is free text, so a run only produces the right membership once "
+        "those values line up with your products.",
+    )
+    verify_data_product_exists: bool = Field(
+        default=True,
+        description="When a DataHub graph is available (datahub-rest sink), require the Data "
+        "Product named by `dataProduct` to exist before adding the contract's dataset to it; "
+        "values matching no product are reported and skipped instead of creating a stub product. "
+        "With no graph (file sink), the association is emitted without verification. Set False for "
+        "a contract-first workflow where the products do not exist yet: ODCS then creates the "
+        "product at `urn:li:dataProduct:<value>` — the same urn `datahub dataproduct upsert` "
+        "derives from a product id — named after the value.",
     )
     physical_urn_overrides: Dict[str, Dict[str, str]] = Field(
         default_factory=dict,

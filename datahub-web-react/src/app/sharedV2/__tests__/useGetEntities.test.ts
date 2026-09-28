@@ -57,6 +57,21 @@ describe('useGetEntities', () => {
         });
     });
 
+    it('should forward skipLineage and skipSiblingsSearch only when given', () => {
+        useGetEntitiesQueryMock.mockReturnValue({ data: { entities: MOCK_ENTITIES }, loading: false });
+        renderHook(() => useGetEntities([...VALID_URNS], undefined, { skipLineage: true, skipSiblingsSearch: true }));
+        expect(useGetEntitiesQueryMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                variables: {
+                    urns: VALID_URNS,
+                    checkForExistence: undefined,
+                    skipLineage: true,
+                    skipSiblingsSearch: true,
+                },
+            }),
+        );
+    });
+
     it('should skip query if urns array is empty', () => {
         renderHook(() => useGetEntities([]));
         expect(useGetEntitiesQueryMock).toHaveBeenCalledWith({
