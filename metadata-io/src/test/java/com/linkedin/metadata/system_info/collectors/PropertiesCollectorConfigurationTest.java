@@ -203,6 +203,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Search V3 template URN slots vary by intent, surface, and search engine.
           "elasticsearch.search.v3.templates.defaults.*.*",
           "elasticsearch.search.v3.templates.surfaces.*.*.*",
+          // Per-entity mapping limit overrides (e.g. mapping.total_fields.limit) keyed by entity
+          // name (with reserved key `default`) and limit name.
+          "elasticsearch.index.entityMappingLimits.*.*",
           // Postgres PgQueue configuration (non-credential settings)
           "postgres.pgQueue.topicDefaults.*",
           "postgres.pgQueue.topics.*.*",
