@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Any, Dict, List
 
 import pytest
@@ -65,6 +66,18 @@ def test_coerce_rejects_lossy_values() -> None:
         coerce_value("maybe", LogicalType.BOOLEAN)
 
 
+def test_coerce_rejects_non_finite_int64() -> None:
+    with pytest.raises(ValueError):
+        coerce_value(float("inf"), LogicalType.INT64)
+    with pytest.raises(ValueError):
+        coerce_value(Decimal("NaN"), LogicalType.INT64)
+
+
+def test_coerce_array_rejects_null_element() -> None:
+    with pytest.raises(ValueError):
+        coerce_value(["a", None], LogicalType.ARRAY_STRING)
+
+
 def test_parse_rule_row_normalizes_and_keeps_extras() -> None:
     rule = parse_rule_row(
         _coerce_all(rule_raw(), RULES_COLUMNS), {"dataset_name": "orders"}
@@ -86,6 +99,7 @@ def test_parse_rule_row_normalizes_and_keeps_extras() -> None:
         {"dataset_path": []},
         {"is_active": None},
         {"severity": "urgent"},
+        {"column_paths": [" "]},
     ],
 )
 def test_parse_rule_row_rejects_invalid(override: Dict[str, Any]) -> None:

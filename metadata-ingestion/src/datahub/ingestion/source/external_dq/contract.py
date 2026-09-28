@@ -144,6 +144,13 @@ class RuleRow(_ContractRow):
     def _column_paths(cls, value: Optional[List[str]]) -> List[str]:
         return [] if value is None else value
 
+    @field_validator("column_paths")
+    @classmethod
+    def _column_paths_non_blank(cls, value: List[str]) -> List[str]:
+        if any(not part.strip() for part in value):
+            raise ValueError("must not contain blank column names")
+        return [part.strip() for part in value]
+
     @field_validator("severity")
     @classmethod
     def _severity(cls, value: Optional[str]) -> Optional[str]:

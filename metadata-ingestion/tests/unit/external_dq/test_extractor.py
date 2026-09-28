@@ -154,6 +154,13 @@ def test_invalid_row_is_skipped_not_fatal() -> None:
     assert len(run_events) == 1 and report.results_skipped_invalid == 1
 
 
+def test_in_run_duplicate_result_is_emitted_once() -> None:
+    reader = FakeReader([result_raw(), result_raw()])
+    _, run_events, _, report = run(reader)
+    assert len(run_events) == 1
+    assert report.results_already_emitted == 1
+
+
 def test_second_run_emits_no_duplicate_run_events() -> None:
     rows = [result_raw()]
     first = FakeStateProvider()
@@ -163,7 +170,7 @@ def test_second_run_emits_no_duplicate_run_events() -> None:
     assert run_events == [] and report.results_already_emitted == 1
 
 
-def test_read_failure_does_not_advance_watermark() -> None:
+def test_read_failure_advances_only_to_emitted_rows() -> None:
     first = FakeStateProvider()
     run(FakeReader([result_raw()]), _handler(first))
     second = FakeStateProvider(last=first.current)
@@ -173,6 +180,58 @@ def test_read_failure_does_not_advance_watermark() -> None:
         result_raw(run_id="run-3", executed_at=T0 + 9),
     ]
     _, _, source_report, _ = run(FakeReader(rows, fail_after=2), _handler(second))
+    assert source_report.failures
+    assert second.current is not None
+    assert second.current.state.watermarks == {RESULTS: T0 + 5}  # type: ignore[attr-defined]
+
+
+def test_future_dated_result_is_skipped_and_does_not_poison_watermark() -> None:
+    state_provider = FakeStateProvider()
+    rows = [
+        result_raw(executed_at=T0 + 10**12),
+        result_raw(run_id="run-2"),
+    ]
+    _, run_events, _, report = run(FakeReader(rows), _handler(state_provider))
+    assert len(run_events) == 1
+    assert report.results_skipped_future == 1
+    assert state_provider.current is not None
+    assert state_provider.current.state.watermarks == {RESULTS: T0}  # type: ignore[attr-defined]
+
+
+def test_describe_failure_on_rules_carries_forward_watermark() -> None:
+    first = FakeStateProvider()
+    run(FakeReader([result_raw()]), _handler(first))
+    second = FakeStateProvider(last=first.current)
+    reader = FakeReader([result_raw()])
+    original_describe = reader.describe
+
+    def failing_describe(table: str) -> List[PhysicalColumn]:
+        if table == RULES:
+            raise ConnectionError("warehouse connection dropped")
+        return original_describe(table)
+
+    reader.describe = failing_describe  # type: ignore[method-assign]
+    workunits, _, source_report, _ = run(reader, _handler(second))
+    assert workunits == []
+    assert source_report.failures
+    assert second.current is not None
+    assert second.current.state.watermarks == {RESULTS: T0}  # type: ignore[attr-defined]
+
+
+def test_rules_read_failure_carries_forward_watermark() -> None:
+    first = FakeStateProvider()
+    run(FakeReader([result_raw()]), _handler(first))
+    second = FakeStateProvider(last=first.current)
+    reader = FakeReader([result_raw()])
+
+    def failing_read_rules(
+        table: str, columns: Sequence[SelectColumn]
+    ) -> Iterable[Mapping[str, Any]]:
+        raise ConnectionError("warehouse connection dropped")
+
+    reader.read_rules = failing_read_rules  # type: ignore[method-assign]
+    _, run_events, source_report, _ = run(reader, _handler(second))
+    assert run_events == []
     assert source_report.failures
     assert second.current is not None
     assert second.current.state.watermarks == {RESULTS: T0}  # type: ignore[attr-defined]

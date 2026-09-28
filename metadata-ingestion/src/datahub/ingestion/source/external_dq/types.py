@@ -1,4 +1,5 @@
 import json
+import math
 import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -31,8 +32,13 @@ def coerce_value(value: Any, logical_type: LogicalType) -> Any:  # noqa: C901
             raise ValueError(f"not an integer: {value!r}")
         if isinstance(value, int):
             return value
-        if isinstance(value, (float, Decimal)) and value == int(value):
-            return int(value)
+        if isinstance(value, (float, Decimal)):
+            # int(inf)/int(Decimal('NaN')) raise OverflowError/InvalidOperation
+            # instead of ValueError, which would escape the row-skip in _parse.
+            if not math.isfinite(float(value)):
+                raise ValueError(f"not an integer: {value!r}")
+            if value == int(value):
+                return int(value)
         if isinstance(value, str):
             return int(value.strip())
         raise ValueError(f"not an integer: {value!r}")
@@ -59,7 +65,10 @@ def coerce_value(value: Any, logical_type: LogicalType) -> Any:  # noqa: C901
             value = value.tolist()
         if not isinstance(value, (list, tuple)):
             raise ValueError(f"not an array: {value!r}")
-        return [str(item) for item in value if item is not None]
+        for item in value:
+            if item is None:
+                raise ValueError("array elements must not be null")
+        return [str(item) for item in value]
     raise ValueError(f"unsupported logical type {logical_type}")
 
 

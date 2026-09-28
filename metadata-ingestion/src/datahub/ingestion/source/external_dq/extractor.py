@@ -94,6 +94,12 @@ class ExternalDQExtractor:
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         rules_table, results_table = self.config.rules_table, self.config.results_table
         assert rules_table and results_table, "guaranteed by ExternalDQConfig"
+        # Load (and carry forward) the checkpoint before any table validation or
+        # read, so a failure below still commits the previous watermark instead
+        # of losing it to a rewritten, checkpoint-less file.
+        last_watermark, last_recent = (
+            self.state.load(results_table) if self.state else (None, {})
+        )
         rule_columns = self._validated_columns(rules_table, RULES_COLUMNS)
         result_columns = self._validated_columns(results_table, RESULTS_COLUMNS)
         if rule_columns is None or result_columns is None:
@@ -124,19 +130,23 @@ class ExternalDQExtractor:
         for mcp in self.mapper.map_rules(rules):
             yield mcp.as_workunit()
 
-        yield from self._result_workunits(results_table, result_columns)
+        yield from self._result_workunits(
+            results_table, result_columns, last_watermark, last_recent
+        )
 
     def _result_workunits(
-        self, table: str, columns: Sequence[SelectColumn]
+        self,
+        table: str,
+        columns: Sequence[SelectColumn],
+        last_watermark: Optional[int],
+        last_recent: Mapping[str, int],
     ) -> Iterable[MetadataWorkUnit]:
-        last_watermark, last_recent = (
-            self.state.load(table) if self.state else (None, {})
-        )
         overlap_ms = self.config.late_arrival_minutes * 60_000
+        now = self.now_millis()
         window = plan_window(
             last_watermark=last_watermark,
             last_recent=last_recent,
-            now_millis=self.now_millis(),
+            now_millis=now,
             initial_lookback_ms=self.config.initial_lookback_days * 86_400_000,
             overlap_ms=overlap_ms,
         )
@@ -150,8 +160,18 @@ class ExternalDQExtractor:
             if result is None:
                 self.report.results_skipped_invalid += 1
                 continue
+            if result.executed_at_millis > now + overlap_ms:
+                self.report.results_skipped_future += 1
+                self.source_report.warning(
+                    title="Skipped external DQ result dated in the future",
+                    message="The result's executed_at is later than now plus "
+                    "late_arrival_minutes; it was skipped so it cannot advance the "
+                    "results checkpoint past real results.",
+                    context=f"{table}: rule_id={result.rule_id!r} run_id={result.run_id!r}",
+                )
+                continue
             key = run_key(result.rule_id, result.run_id)
-            if key in window.seen:
+            if key in window.seen or key in observed:
                 self.report.results_already_emitted += 1
                 continue
             mcp = self.mapper.map_result(result)
@@ -161,8 +181,11 @@ class ExternalDQExtractor:
             observed[key] = result.executed_at_millis
             yield mcp.as_workunit()
 
-        if self._read_failed or self.state is None:
+        if self.state is None:
             return
+        # Advance to whatever was actually emitted even after a read failure:
+        # reads are ordered by (executed_at, run_id), so `observed` is exactly the
+        # published prefix and nothing in it will be re-emitted or re-notified.
         watermark, recent = advance(
             last_watermark=last_watermark,
             last_recent=last_recent,
@@ -234,8 +257,8 @@ class ExternalDQExtractor:
         self._read_failed = True
         self.source_report.failure(
             title="Failed to read external DQ table",
-            message="Reading stopped early; the results checkpoint was not advanced, "
-            "so the next run retries.",
+            message="Reading stopped early; the results checkpoint only advanced to "
+            "the last result that was published, so the next run resumes after it.",
             context=table,
             exc=error,
         )
