@@ -879,13 +879,7 @@ public class EntityHealthResolverTest {
 
     // TEST_ASSERTION_URN_2 is soft-deleted.
     final Map<Urn, EntityResponse> statusResponses = new HashMap<>();
-    final EnvelopedAspectMap removedAspects = new EnvelopedAspectMap();
-    removedAspects.put(
-        Constants.STATUS_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
-    statusResponses.put(
-        Urn.createFromString(TEST_ASSERTION_URN_2),
-        new EntityResponse().setAspects(removedAspects));
+    statusResponses.put(Urn.createFromString(TEST_ASSERTION_URN_2), removedStatus());
     statusResponses.put(
         Urn.createFromString(TEST_ASSERTION_URN),
         new EntityResponse().setAspects(new EnvelopedAspectMap()));
@@ -955,17 +949,11 @@ public class EntityHealthResolverTest {
                                 .setEntity(Urn.createFromString(TEST_ASSERTION_URN))
                                 .setType("Asserts")))));
 
-    final EnvelopedAspectMap removedAspects = new EnvelopedAspectMap();
-    removedAspects.put(
-        Constants.STATUS_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
     Mockito.when(
             mockEntityClient.batchGetV2(
                 any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
         .thenReturn(
-            Collections.singletonMap(
-                Urn.createFromString(TEST_ASSERTION_URN),
-                new EntityResponse().setAspects(removedAspects)));
+            Collections.singletonMap(Urn.createFromString(TEST_ASSERTION_URN), removedStatus()));
 
     final EntityHealthResolver resolver =
         new EntityHealthResolver(
@@ -1078,6 +1066,15 @@ public class EntityHealthResolverTest {
 
     // Incident dimension dropped; the field still resolves (no crash).
     assertEquals(result.size(), 0);
+  }
+
+  /** A batchGetV2 EntityResponse for a soft-deleted (status.removed = true) assertion. */
+  private static EntityResponse removedStatus() {
+    final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.STATUS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
+    return new EntityResponse().setAspects(aspects);
   }
 
   /** Builds a DataFetchingEnvironment for the legacy (non-batch) resolver path. */

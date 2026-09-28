@@ -61,9 +61,8 @@ import org.dataloader.DataLoaderOptions;
  *
  * <p>One dimension has no batch primitive today and is still computed once per entity, but
  * concurrently within this loader: active-assertion graph lookups ({@link
- * GraphClient#getRelatedEntities}). The follow-up soft-delete status check on the related assertion
- * urns IS batched: one {@code batchGetV2} for every related assertion urn in the page, via {@link
- * HealthComputationUtils#filterActiveAssertions}.
+ * GraphClient#getRelatedEntities}). The follow-up soft-delete status check IS batched: one {@code
+ * batchGetV2} per page via {@link HealthComputationUtils#filterActiveAssertions}.
  *
  * <p><b>Failure isolation:</b> a failure in one dimension degrades to an empty result for that
  * dimension (logged) rather than failing the whole page — both in the concurrent FETCH phase (each
@@ -292,9 +291,8 @@ public class EntityHealthBatchLoader {
     final Map<Urn, Set<Urn>> relatedAssertionsByAsset = new HashMap<>();
     futures.forEach((assetUrn, future) -> relatedAssertionsByAsset.put(assetUrn, future.join()));
 
-    // Phase 2: one batched status lookup across every related assertion urn in this page, so
-    // soft-deleted assertions are excluded before any asset's health is assembled — a single
-    // batchGetV2 for the whole page, not one per asset.
+    // Phase 2: one batched status lookup for every related assertion urn in the page, not one
+    // call per asset, so soft-deleted assertions are excluded before assembly.
     final Set<Urn> allRelatedAssertions =
         relatedAssertionsByAsset.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
     final Set<Urn> activeAssertions =

@@ -151,14 +151,14 @@ public final class HealthComputationUtils {
   }
 
   /**
-   * Drops soft-deleted (status.removed == true) assertion urns from {@code assertionUrns} in a
-   * single batched status lookup, mirroring the filter {@link
+   * Drops soft-deleted (status.removed == true) urns from {@code assertionUrns} via one batched
+   * status lookup, mirroring the filter {@link
    * com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver} applies to {@code
-   * dataset.assertions} — otherwise a removed assertion's stale run results still count toward
-   * {@code health}. Shared by both the per-entity {@link EntityHealthResolver} and the batched
-   * {@link com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader} so a status-lookup
-   * failure is handled identically by both: falls back to returning every input urn unchanged
-   * (treating everything as active), logging a warning, rather than failing the caller's request.
+   * dataset.assertions}. Shared by {@link EntityHealthResolver} and {@link
+   * com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader}. On any lookup failure —
+   * including a {@link RuntimeException}, since {@code JavaEntityClient.batchGetV2} wraps its
+   * checked exceptions and DB errors in one — falls back to returning every input urn unchanged
+   * (treating everything as active) and logs a warning, rather than failing the caller's request.
    */
   public static Set<Urn> filterActiveAssertions(
       @Nonnull final EntityClient entityClient,
@@ -177,7 +177,7 @@ public final class HealthComputationUtils {
       return assertionUrns.stream()
           .filter(urn -> !isRemoved(entities.get(urn)))
           .collect(Collectors.toSet());
-    } catch (RemoteInvocationException | URISyntaxException e) {
+    } catch (RemoteInvocationException | URISyntaxException | RuntimeException e) {
       log.warn(
           "Failed to fetch assertion status for {} assertions; counting all as active",
           assertionUrns.size(),

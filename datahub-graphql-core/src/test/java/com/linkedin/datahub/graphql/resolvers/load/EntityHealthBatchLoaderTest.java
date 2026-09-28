@@ -110,10 +110,9 @@ public class EntityHealthBatchLoaderTest {
 
   /**
    * A soft-deleted (status.removed = true) assertion must not count toward asset health, even
-   * though its stale run results are still in the timeseries index — mirrors {@link
-   * com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolverTest#testLegacyAssertionHealthIgnoresRemovedAssertion}.
-   * Also proves the status lookup is a single batched {@code batchGetV2} across every related
-   * assertion urn in the page, not one call per asset.
+   * though its stale run results are still in the timeseries index. Two assets (each with its own
+   * assertion) so {@code times(1)} actually proves page-level batching, not a coincidence of only
+   * one asset being in the page.
    */
   @Test
   public void testAssertionHealthIgnoresRemovedAssertion() throws Exception {
@@ -123,34 +122,11 @@ public class EntityHealthBatchLoaderTest {
         Mockito.mock(TimeseriesAspectService.class);
     final EntitySearchService entitySearchService = Mockito.mock(EntitySearchService.class);
 
-    final Urn datasetA = Urn.createFromString(DATASET_A);
     final Urn assertionA = Urn.createFromString(ASSERTION_A);
     final Urn assertionB = Urn.createFromString(ASSERTION_B);
+    stubActiveAssertions(graphClient, DATASET_A, ASSERTION_A); // removed
+    stubActiveAssertions(graphClient, DATASET_B, ASSERTION_B); // active
 
-    Mockito.when(
-            graphClient.getRelatedEntities(
-                Mockito.eq(DATASET_A),
-                Mockito.eq(ImmutableSet.of("Asserts")),
-                any(),
-                Mockito.anyInt(),
-                Mockito.anyInt(),
-                any()))
-        .thenReturn(
-            new EntityRelationships()
-                .setStart(0)
-                .setCount(0)
-                .setTotal(2)
-                .setRelationships(
-                    new EntityRelationshipArray(
-                        ImmutableList.of(
-                            new EntityRelationship().setEntity(assertionA).setType("Asserts"),
-                            new EntityRelationship().setEntity(assertionB).setType("Asserts")))));
-
-    // ASSERTION_A is soft-deleted; ASSERTION_B is active.
-    final EnvelopedAspectMap removedAspects = new EnvelopedAspectMap();
-    removedAspects.put(
-        Constants.STATUS_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
     Mockito.when(
             entityClient.batchGetV2(
                 any(),
@@ -159,22 +135,13 @@ public class EntityHealthBatchLoaderTest {
                 Mockito.eq(ImmutableSet.of(Constants.STATUS_ASPECT_NAME))))
         .thenReturn(
             Map.of(
-                assertionA, new EntityResponse().setAspects(removedAspects),
+                assertionA, removedStatus(),
                 assertionB, new EntityResponse().setAspects(new EnvelopedAspectMap())));
 
-    // The removed assertion's latest run is still FAILURE in the timeseries index.
+    // Both runs are FAILURE; A's is stale (its only assertion is removed), B's is real.
     final Map<Urn, GenericTable> batchResult = new HashMap<>();
-    batchResult.put(
-        datasetA,
-        new GenericTable()
-            .setColumnNames(
-                new StringArray(ImmutableList.of("assertionUrn", "type", "timestampMillis")))
-            .setColumnTypes(new StringArray("string", "string", "long"))
-            .setRows(
-                new StringArrayArray(
-                    ImmutableList.of(
-                        new StringArray(ImmutableList.of(ASSERTION_A, "FAILURE", "0")),
-                        new StringArray(ImmutableList.of(ASSERTION_B, "SUCCESS", "0"))))));
+    batchResult.put(Urn.createFromString(DATASET_A), assertionRunTable(ASSERTION_A, "FAILURE"));
+    batchResult.put(Urn.createFromString(DATASET_B), assertionRunTable(ASSERTION_B, "FAILURE"));
     Mockito.when(
             timeseriesAspectService.batchGetAggregatedStats(
                 any(), any(), any(), any(), any(), any(), any(), any()))
@@ -185,23 +152,20 @@ public class EntityHealthBatchLoaderTest {
             entityClient, graphClient, timeseriesAspectService, entitySearchService);
 
     final List<List<Health>> result =
-        loader.batchLoad(ImmutableList.of(assertionsOnlyKey(DATASET_A)), mockContext());
+        loader.batchLoad(
+            ImmutableList.of(assertionsOnlyKey(DATASET_A), assertionsOnlyKey(DATASET_B)),
+            mockContext());
 
-    assertEquals(result.size(), 1);
-    assertEquals(result.get(0).size(), 1);
-    assertEquals(result.get(0).get(0).getType(), HealthStatusType.ASSERTIONS);
-    assertEquals(result.get(0).get(0).getStatus(), HealthStatus.PASS);
+    assertTrue(result.get(0).isEmpty()); // A: only assertion removed -> no health
+    assertEquals(result.get(1).get(0).getType(), HealthStatusType.ASSERTIONS);
+    assertEquals(result.get(1).get(0).getStatus(), HealthStatus.FAIL); // B: active and failing
 
-    // Exactly one batched status lookup for both related assertion urns, never one per asset.
+    // One call covering both assets' assertion urns, not one call per asset.
     Mockito.verify(entityClient, Mockito.times(1))
         .batchGetV2(any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any());
   }
 
-  /**
-   * When every assertion related to an asset is soft-deleted, assertion health is absent — same as
-   * when there are no related assertions at all. Mirrors {@link
-   * com.linkedin.datahub.graphql.resolvers.health.EntityHealthResolverTest#testLegacyAssertionHealthAbsentWhenAllAssertionsRemoved}.
-   */
+  /** Every related assertion removed -> assertion health absent, same as no related assertions. */
   @Test
   public void testAssertionHealthAbsentWhenAllRelatedAssertionsRemoved() throws Exception {
     final EntityClient entityClient = Mockito.mock(EntityClient.class);
@@ -211,20 +175,11 @@ public class EntityHealthBatchLoaderTest {
     final EntitySearchService entitySearchService = Mockito.mock(EntitySearchService.class);
 
     stubActiveAssertions(graphClient, DATASET_A, ASSERTION_A);
-
-    final EnvelopedAspectMap removedAspects = new EnvelopedAspectMap();
-    removedAspects.put(
-        Constants.STATUS_ASPECT_NAME,
-        new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
     Mockito.when(
             entityClient.batchGetV2(
                 any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
-        .thenReturn(
-            Collections.singletonMap(
-                Urn.createFromString(ASSERTION_A),
-                new EntityResponse().setAspects(removedAspects)));
-    // The removed assertion's latest run is still FAILURE in the timeseries index — without the
-    // removed-filter this would report a failing health rather than none.
+        .thenReturn(Collections.singletonMap(Urn.createFromString(ASSERTION_A), removedStatus()));
+    // Stale FAILURE row still in the index: without the filter this would be a failing health.
     Mockito.when(
             timeseriesAspectService.batchGetAggregatedStats(
                 any(), any(), any(), any(), any(), any(), any(), any()))
@@ -241,6 +196,44 @@ public class EntityHealthBatchLoaderTest {
 
     assertEquals(result.size(), 1);
     assertTrue(result.get(0).isEmpty());
+  }
+
+  /**
+   * The status lookup itself failing with a {@link RuntimeException} (how {@code
+   * JavaEntityClient.batchGetV2} surfaces most real failures) falls back to counting every related
+   * assertion as active, rather than dropping assertion health.
+   */
+  @Test
+  public void testAssertionHealthFallsBackWhenStatusLookupThrowsRuntimeException()
+      throws Exception {
+    final EntityClient entityClient = Mockito.mock(EntityClient.class);
+    final GraphClient graphClient = Mockito.mock(GraphClient.class);
+    final TimeseriesAspectService timeseriesAspectService =
+        Mockito.mock(TimeseriesAspectService.class);
+    final EntitySearchService entitySearchService = Mockito.mock(EntitySearchService.class);
+
+    stubActiveAssertions(graphClient, DATASET_A, ASSERTION_A);
+    Mockito.when(
+            entityClient.batchGetV2(
+                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+        .thenThrow(new RuntimeException("boom: assertion status lookup down"));
+    Mockito.when(
+            timeseriesAspectService.batchGetAggregatedStats(
+                any(), any(), any(), any(), any(), any(), any(), any()))
+        .thenReturn(
+            Collections.singletonMap(
+                Urn.createFromString(DATASET_A), assertionRunTable(ASSERTION_A, "FAILURE")));
+
+    final EntityHealthBatchLoader loader =
+        new EntityHealthBatchLoader(
+            entityClient, graphClient, timeseriesAspectService, entitySearchService);
+
+    final List<List<Health>> result =
+        loader.batchLoad(ImmutableList.of(assertionsOnlyKey(DATASET_A)), mockContext());
+
+    assertEquals(result.get(0).size(), 1);
+    assertEquals(result.get(0).get(0).getType(), HealthStatusType.ASSERTIONS);
+    assertEquals(result.get(0).get(0).getStatus(), HealthStatus.FAIL);
   }
 
   /**
@@ -644,6 +637,14 @@ public class EntityHealthBatchLoaderTest {
     // failed.
     assertEquals(h.getActiveIncidentHealthDetails().getLatestIncidentUrn(), incidentUrn.toString());
     assertNull(h.getActiveIncidentHealthDetails().getLatestIncidentTitle());
+  }
+
+  private static EntityResponse removedStatus() {
+    final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(
+        Constants.STATUS_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
+    return new EntityResponse().setAspects(aspects);
   }
 
   private static GenericTable malformedAssertionRunTable() {
