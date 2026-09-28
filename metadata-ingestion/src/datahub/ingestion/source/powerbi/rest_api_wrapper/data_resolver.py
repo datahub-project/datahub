@@ -1,8 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from time import sleep
-from typing import Any, Dict, Iterator, List, Optional, Union
+from time import monotonic, sleep
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from urllib.parse import quote
 
 import msal
 import requests
@@ -59,6 +60,10 @@ def is_http_failure(response: Response, message: str) -> bool:
     return True
 
 
+class SemanticModelDefinitionError(Exception):
+    """The Fabric getDefinition long-running operation did not return a definition."""
+
+
 class SessionWithTimeout(requests.Session):
     timeout: int
 
@@ -78,6 +83,10 @@ class DataResolverBase(ABC):
         "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
         "MY_ORG_URL": "https://api.powerbi.com/v1.0/myorg",
         "AUTHORITY": "https://login.microsoftonline.com/",
+        # Fabric REST API (semantic model definitions). Only the commercial cloud
+        # is supported; config validation rejects the government environment.
+        "FABRIC_SCOPE": "https://api.fabric.microsoft.com/.default",
+        "FABRIC_API_URL": "https://api.fabric.microsoft.com/v1",
     }
 
     GOVERNMENT_URLS = {
@@ -108,9 +117,13 @@ class DataResolverBase(ABC):
         self._base_url = f"{self._my_org_url}/groups"
         self._admin_base_url = f"{self._my_org_url}/admin"
         self._authority = urls["AUTHORITY"]
+        self._fabric_scope: Optional[str] = urls.get("FABRIC_SCOPE")
+        self._fabric_api_url: Optional[str] = urls.get("FABRIC_API_URL")
 
         self._access_token: Optional[str] = None
         self._access_token_expiry_time: Optional[datetime] = None
+        self._fabric_access_token: Optional[str] = None
+        self._fabric_access_token_expiry_time: Optional[datetime] = None
 
         self._tenant_id = tenant_id
         # Test connection by generating access token
@@ -204,8 +217,15 @@ class DataResolverBase(ABC):
             return self._access_token
 
         logger.info("Generating PowerBi access token")
+        self._access_token, self._access_token_expiry_time = self._acquire_token(
+            self._scope
+        )
+        logger.info("Generated PowerBi access token")
 
-        auth_response = self._msal_client.acquire_token_for_client(scopes=[self._scope])
+        return self._access_token
+
+    def _acquire_token(self, scope: str) -> Tuple[str, datetime]:
+        auth_response = self._msal_client.acquire_token_for_client(scopes=[scope])
 
         if not auth_response.get(Constant.ACCESS_TOKEN):
             logger.warning(
@@ -215,19 +235,174 @@ class DataResolverBase(ABC):
                 "Failed to retrieve access token for PowerBI principal. Please verify your configuration values"
             )
 
-        logger.info("Generated PowerBi access token")
-
-        self._access_token = "Bearer {}".format(
-            auth_response.get(Constant.ACCESS_TOKEN)
-        )
+        access_token = "Bearer {}".format(auth_response.get(Constant.ACCESS_TOKEN))
         safety_gap = 300
-        self._access_token_expiry_time = datetime.now() + timedelta(
+        expiry_time = datetime.now() + timedelta(
             seconds=(
                 max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0)
             )
         )
+        return access_token, expiry_time
 
-        return self._access_token
+    def _get_fabric_authorization_header(self) -> Dict[str, str]:
+        if self._fabric_scope is None:
+            raise ConfigurationError(
+                f"The Fabric REST API is not supported for the {self._environment} environment"
+            )
+        if (
+            self._fabric_access_token is None
+            or self._fabric_access_token_expiry_time is None
+            or self._fabric_access_token_expiry_time < datetime.now()
+        ):
+            logger.info("Generating Fabric access token")
+            (
+                self._fabric_access_token,
+                self._fabric_access_token_expiry_time,
+            ) = self._acquire_token(self._fabric_scope)
+        return {Constant.Authorization: self._fabric_access_token}
+
+    # Fabric long-running operation states:
+    # https://learn.microsoft.com/en-us/rest/api/fabric/core/long-running-operations/get-operation-state
+    _LRO_PENDING_STATES = {"notstarted", "running"}
+    # Poll delay when the response carries no usable ``Retry-After``; a
+    # server-provided delay is honoured but never exceeds the remaining budget.
+    _LRO_DEFAULT_POLL_SECONDS = 1
+
+    def _is_fabric_url(self, url: Optional[str]) -> bool:
+        # Only send the bearer token back to the Fabric API host.
+        return bool(
+            url and self._fabric_api_url and url.startswith(self._fabric_api_url + "/")
+        )
+
+    def _retry_after_seconds(self, response: Response) -> int:
+        try:
+            value = int(response.headers.get("Retry-After", ""))
+        except ValueError:
+            value = self._LRO_DEFAULT_POLL_SECONDS
+        return max(value, self._LRO_DEFAULT_POLL_SECONDS)
+
+    def get_semantic_model_definition(
+        self, workspace_id: str, dataset_id: str, max_wait_seconds: int
+    ) -> List[dict]:
+        """Definition parts of a semantic model, in TMDL format.
+
+        Calls Fabric ``getDefinition``, which is a long-running operation: a 200
+        carries the definition, a 202 is polled via its ``Location`` header
+        (Get Operation State) until it succeeds, then the result is read from
+        Get Operation Result. The caller needs read and write permission on the
+        semantic model. The bearer token is only sent to the Fabric API host.
+
+        Raises ``requests.HTTPError`` for HTTP failures (e.g. 401/403),
+        ``requests.Timeout`` for request timeouts, ``ConfigurationError`` when no
+        Fabric access token can be acquired, and ``SemanticModelDefinitionError``
+        when the operation fails, does not finish within ``max_wait_seconds``, or
+        returns an unexpected body.
+        """
+        fabric_api_url = self._fabric_api_url
+        if fabric_api_url is None:
+            raise ConfigurationError(
+                f"The Fabric REST API is not supported for the {self._environment} environment"
+            )
+        url = (
+            f"{fabric_api_url}/workspaces/{quote(workspace_id, safe='')}"
+            f"/semanticModels/{quote(dataset_id, safe='')}/getDefinition"
+        )
+        logger.debug("Requesting semantic model definition: %s", url)
+        response = self._request_session.post(
+            url,
+            params={"format": "TMDL"},
+            headers=self._get_fabric_authorization_header(),
+        )
+        response.raise_for_status()
+
+        if response.status_code == 202:
+            response = self._wait_for_fabric_operation(
+                response, fabric_api_url, max_wait_seconds
+            )
+
+        try:
+            parts = response.json()["definition"]["parts"]
+        except (ValueError, KeyError, TypeError) as e:
+            raise SemanticModelDefinitionError(
+                f"Unexpected getDefinition response body: {e}"
+            ) from e
+        if not isinstance(parts, list):
+            raise SemanticModelDefinitionError(
+                "Unexpected getDefinition response body: parts is not a list"
+            )
+        return parts
+
+    def _wait_for_fabric_operation(
+        self, accepted: Response, fabric_api_url: str, max_wait_seconds: int
+    ) -> Response:
+        location = accepted.headers.get("Location")
+        if location is not None and self._is_fabric_url(location):
+            operation_url = location
+        else:
+            operation_id = accepted.headers.get("x-ms-operation-id")
+            if not operation_id:
+                raise SemanticModelDefinitionError(
+                    "getDefinition returned 202 without a Fabric operation location"
+                )
+            operation_url = (
+                f"{fabric_api_url}/operations/{quote(operation_id, safe='')}"
+            )
+
+        # The budget covers wall-clock time (including request latency), not
+        # only the time spent sleeping between polls.
+        started = monotonic()
+        slept = 0
+        delay = self._retry_after_seconds(accepted)
+        while True:
+            remaining = max_wait_seconds - max(slept, int(monotonic() - started))
+            if remaining <= 0:
+                raise SemanticModelDefinitionError(
+                    f"getDefinition did not finish within {max_wait_seconds} seconds"
+                )
+            delay = min(delay, remaining)
+            sleep(delay)
+            slept += delay
+
+            state_response = self._request_session.get(
+                operation_url, headers=self._get_fabric_authorization_header()
+            )
+            state_response.raise_for_status()
+            try:
+                state = state_response.json()
+            except ValueError as e:
+                raise SemanticModelDefinitionError(
+                    f"Unexpected operation state response: {e}"
+                ) from e
+            if not isinstance(state, dict):
+                raise SemanticModelDefinitionError(
+                    "Unexpected operation state response: not an object"
+                )
+            status = str(state.get("status") or "").lower()
+
+            if status == "succeeded":
+                result_location = state_response.headers.get("Location")
+                result_url = (
+                    result_location
+                    if result_location is not None
+                    and self._is_fabric_url(result_location)
+                    and result_location != operation_url
+                    else f"{operation_url}/result"
+                )
+                result = self._request_session.get(
+                    result_url, headers=self._get_fabric_authorization_header()
+                )
+                result.raise_for_status()
+                return result
+
+            if status not in self._LRO_PENDING_STATES:
+                error = state.get("error")
+                if not isinstance(error, dict):
+                    error = {}
+                raise SemanticModelDefinitionError(
+                    f"getDefinition operation {status or 'unknown'}: "
+                    f"{error.get('errorCode', '')} {error.get('message', '')}".strip()
+                )
+            delay = self._retry_after_seconds(state_response)
 
     def _is_access_token_expired(self) -> bool:
         if not self._access_token_expiry_time:
