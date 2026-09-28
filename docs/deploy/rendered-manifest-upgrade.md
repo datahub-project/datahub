@@ -107,14 +107,11 @@ yq 'select(
 yq 'select(.kind == "Job" and .metadata.name == strenv(RELEASE) + "-system-update")' \
   "$BUILD/all.yaml" > "$BUILD/phase1-job.yaml"
 
-# Phase 2: workloads and the rest of the render. The two system-update Jobs stay out.
-# Any other Job is included here. With the values above, the legacy setup Jobs are not rendered.
+# Phase 2: workloads and the rest of the render. Every Helm hook Job stays out.
+# That covers the two system-update Jobs and the legacy setup Jobs, if any are rendered.
 yq 'select(
       .kind != "Job"
-      or (
-        .metadata.name != strenv(RELEASE) + "-system-update"
-        and .metadata.name != strenv(RELEASE) + "-system-update-nonblk"
-      )
+      or (.metadata.annotations["helm.sh/hook"] == null)
     )' "$BUILD/all.yaml" > "$BUILD/phase2.yaml"
 
 # Phase 3: non-blocking Job only.
@@ -126,19 +123,23 @@ If the blocking Job depends on another object, such as a NetworkPolicy or an Ext
 
 `kubectl apply` of one file creates every object in that file together. Keep the blocking Job in its own file and apply it only after the dependency apply has returned.
 
+Check the Job conditions, not the pod counts. `status.failed` counts failed pods. The system-update Jobs use `restartPolicy: Never`, so Kubernetes retries a failed pod up to `backoffLimit`, and that counter is 1 after the first retry while the Job may still succeed. The `Failed` condition is set only when retries are exhausted.
+
 ```bash
-# Exit as soon as the Job fails. kubectl wait --for=condition=complete keeps
-# running until the timeout when status.failed is set, because Complete never appears.
+# Exit on the Job's Complete or Failed condition. kubectl wait --for=condition=complete
+# keeps running until the timeout when the Job fails, because Complete never appears.
 wait_for_job() {
   job="$1"
   deadline=$((SECONDS + 10800)) # 180 minutes; use a timeout that covers a full index build
   while true; do
-    succeeded=$(kubectl -n "$NAMESPACE" get "job/${job}" -o jsonpath='{.status.succeeded}')
-    failed=$(kubectl -n "$NAMESPACE" get "job/${job}" -o jsonpath='{.status.failed}')
-    if [ "${succeeded:-0}" -ge 1 ]; then
+    complete=$(kubectl -n "$NAMESPACE" get "job/${job}" \
+      -o jsonpath='{.status.conditions[?(@.type=="Complete")].status}')
+    failed=$(kubectl -n "$NAMESPACE" get "job/${job}" \
+      -o jsonpath='{.status.conditions[?(@.type=="Failed")].status}')
+    if [ "$complete" = "True" ]; then
       return 0
     fi
-    if [ "${failed:-0}" -ge 1 ]; then
+    if [ "$failed" = "True" ]; then
       echo "Job ${job} failed" >&2
       kubectl -n "$NAMESPACE" logs "job/${job}" >&2 || true
       return 1
@@ -201,7 +202,7 @@ Split that baked manifest with the `yq` filters above. The split files are pipel
 
 Then Deploy Manifest stages, with a wait between them:
 
-1. Deploy `phase1-dependencies.yaml`. After that stage finishes, deploy `phase1-job.yaml`. Wait until `<release>-system-update` succeeds, and fail the pipeline as soon as the Job's `status.failed` is set.
+1. Deploy `phase1-dependencies.yaml`. After that stage finishes, deploy `phase1-job.yaml`. Wait until `<release>-system-update` reports the `Complete` condition, and fail the pipeline as soon as it reports the `Failed` condition.
 2. Deploy phase 2. Wait until GMS, MAE, and MCE are Ready. A default `helm upgrade` does not wait for Ready before the post-upgrade hook unless you pass `--wait`. This wait is required here because phase 3 calls the live GMS.
 3. Deploy phase 3. Wait until `<release>-system-update-nonblk` succeeds, and fail the pipeline as soon as that Job fails.
 
