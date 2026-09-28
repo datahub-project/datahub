@@ -47,6 +47,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
     from datahub.sql_parsing.schema_resolver import SchemaResolver
 
 logger = logging.getLogger(__name__)
@@ -839,6 +840,8 @@ class BaseConnector:
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
     schema_resolver: Optional["SchemaResolver"] = None
+    # Set by ConnectorRegistry from the SchemaResolverProvider; see _get_graph().
+    graph: Optional["DataHubGraph"] = None
     all_cluster_topics: Optional[List[str]] = (
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
     )
@@ -860,6 +863,20 @@ class BaseConnector:
             return list(self.all_cluster_topics)
         if self.connector_manifest.topic_names:
             return list(self.connector_manifest.topic_names)
+        return None
+
+    def _get_graph(self) -> Optional["DataHubGraph"]:
+        """DataHub graph for lookups the schema resolver's bulk cache cannot serve.
+
+        ``SchemaResolverProvider`` builds resolvers without a graph so that table
+        resolution stays within the bulk-fetched cache, and ``ConnectorRegistry``
+        hands the provider's graph to the connector instead. A resolver that was
+        constructed directly with a graph still works as a fallback.
+        """
+        if self.graph is not None:
+            return self.graph
+        if self.schema_resolver is not None:
+            return self.schema_resolver.graph
         return None
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
@@ -1280,11 +1297,12 @@ class BaseConnector:
         target_platform: str,
     ) -> Optional[List[FineGrainedLineageClass]]:
         """Extract column-level lineage for sink connectors (Kafka topic → DB table)."""
+        graph = self._get_graph()
         if not (
             self.config.use_schema_resolver
             and self.config.schema_resolver_finegrained_lineage
             and self.schema_resolver
-            and self.schema_resolver.graph
+            and graph
         ):
             return None
 
@@ -1299,9 +1317,7 @@ class BaseConnector:
                 platform_instance=kafka_platform_instance,
             )
 
-            kafka_schema_aspect = self.schema_resolver.graph.get_aspect(
-                str(source_urn), SchemaMetadataClass
-            )
+            kafka_schema_aspect = graph.get_aspect(str(source_urn), SchemaMetadataClass)
             if not kafka_schema_aspect:
                 logger.debug(
                     f"No schema found in DataHub for Kafka topic '{source_topic}'. "
@@ -1557,7 +1573,8 @@ class BaseConnector:
             return matched_topics
 
         # Priority 2: Query DataHub for Kafka topics
-        if self.schema_resolver and self.schema_resolver.graph:
+        graph = self._get_graph()
+        if self.schema_resolver and graph:
             logger.info(
                 f"Kafka API unavailable for connector '{self.connector_manifest.name}' - "
                 f"querying DataHub for Kafka topics to expand pattern '{topics_regex}'"
@@ -1565,7 +1582,7 @@ class BaseConnector:
             try:
                 # Query DataHub for all Kafka topics
                 kafka_topic_urns = list(
-                    self.schema_resolver.graph.get_urns_by_filter(
+                    graph.get_urns_by_filter(
                         platform="kafka",
                         env=self.schema_resolver.env,
                         entity_types=["dataset"],

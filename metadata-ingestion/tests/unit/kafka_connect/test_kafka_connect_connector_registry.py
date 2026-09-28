@@ -682,6 +682,44 @@ class TestConnectorRegistrySchemaResolver:
             env="PROD",
         )
 
+    def test_provider_graph_attached_to_connector(self) -> None:
+        """The provider's graph is handed to the connector alongside the resolver.
+
+        Provider-built resolvers carry no graph, and sink column lineage needs one
+        to fetch Kafka topic schemas.
+        """
+        manifest = create_manifest(SOURCE, POSTGRES_CDC_SOURCE_CLOUD)
+        config = create_mock_config()
+        config.use_schema_resolver = True
+        report = create_mock_report()
+
+        mock_graph = Mock()
+        mock_provider = Mock(spec=SchemaResolverProvider)
+        mock_provider.get.return_value = Mock()
+        mock_provider.graph = mock_graph
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report, schema_resolver_provider=mock_provider
+        )
+
+        assert connector is not None
+        assert connector.graph is mock_graph
+
+    def test_no_graph_without_provider(self) -> None:
+        """Without a provider there is neither a resolver nor a graph."""
+        manifest = create_manifest(SOURCE, POSTGRES_CDC_SOURCE_CLOUD)
+        config = create_mock_config()
+        config.use_schema_resolver = True
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert connector.schema_resolver is None
+        assert connector.graph is None
+
 
 class TestConnectorRegistryTopicExtraction:
     """Test get_topics_from_config() method."""
