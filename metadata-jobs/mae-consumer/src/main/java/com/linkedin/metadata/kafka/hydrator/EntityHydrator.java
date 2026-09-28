@@ -23,6 +23,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EntityHydrator {
 
+  /** Auth/service principals that are not bootstrapped corpuser entities. */
+  private static final Set<String> NON_HYDRATABLE_ACTOR_URNS =
+      Set.of(SYSTEM_ACTOR, ANONYMOUS_ACTOR, UNKNOWN_ACTOR);
+
   private final EntityRegistry entityRegistry;
   private final SystemEntityClient entityClient;
 
@@ -52,6 +56,10 @@ public class EntityHydrator {
       log.info("Invalid URN: {}", urn);
       return Optional.empty();
     }
+    if (NON_HYDRATABLE_ACTOR_URNS.contains(urn)) {
+      log.debug("Skipping hydration for synthetic actor urn {}", urn);
+      return Optional.empty();
+    }
     // Hydrate fields from snapshot
     EntityResponse entityResponse;
     try {
@@ -71,7 +79,7 @@ public class EntityHydrator {
     }
 
     if (entityResponse == null) {
-      log.error("Could not find entity for urn {}", urn);
+      log.debug("Could not find entity for urn {}", urn);
       return Optional.empty();
     }
 

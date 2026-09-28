@@ -15,6 +15,7 @@ import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/Expa
 import NameColumn from '@app/entityV2/shared/tabs/Properties/NameColumn';
 import ValuesColumn from '@app/entityV2/shared/tabs/Properties/ValuesColumn';
 import useStructuredProperties from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { filterHiddenProperties } from '@app/entityV2/shared/tabs/Properties/utils';
 import { TabRenderType } from '@app/entityV2/shared/types';
 import Loading from '@app/shared/Loading';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -76,7 +77,7 @@ export const PropertiesTab = ({ renderType = TabRenderType.DEFAULT, properties }
     // only show entity custom properties on entity level, not on field level
     const customProperties = !fieldPath ? getFilteredCustomProperties(filterText, entityData) || [] : [];
     const customPropertyRows = mapCustomPropertiesToPropertyRows(customProperties);
-    const dataSource: PropertyRow[] = structuredPropertyRows
+    const dataSource: PropertyRow[] = filterHiddenProperties(structuredPropertyRows)
         .concat(customPropertyRows)
         .filter((row) => !row.structuredProperty?.settings?.isHidden);
 
