@@ -2083,7 +2083,9 @@ class OracleSource(SQLAlchemySource):
         sql_config: OracleConfig,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         """Loop through materialized views in the schema."""
-        if hasattr(inspector, "get_materialized_view_names"):
+        # isinstance, not hasattr: SA 2.0's Inspector has its own
+        # get_materialized_view_names, which doesn't exclude system schemas.
+        if isinstance(inspector, OracleInspectorObjectWrapper):
             mview_names = inspector.get_materialized_view_names(schema=schema)
         else:
             logger.info("Fallback for regular inspector")
@@ -2154,15 +2156,18 @@ class OracleSource(SQLAlchemySource):
         """Process materialized view similar to regular view but with materialized flag."""
         try:
             # Get materialized view definition
-            if hasattr(inspector, "get_materialized_view_definition"):
-                mview_definition = inspector.get_materialized_view_definition(
+            if isinstance(inspector, OracleInspectorObjectWrapper):
+                found_definition = inspector.get_materialized_view_definition(
                     mview_name=mview, schema=schema
                 )
             else:
                 # Fallback for regular inspector
-                mview_definition = self._get_materialized_view_definition_fallback(
+                found_definition = self._get_materialized_view_definition_fallback(
                     inspector=inspector, mview_name=mview, schema=schema
                 )
+            # Like regular views: an unavailable definition is empty, not None
+            # (viewLogic and customProperties require strings).
+            mview_definition = found_definition or ""
 
             description, properties, location_urn = self.get_table_properties(
                 inspector=inspector, schema=schema, table=mview

@@ -1083,8 +1083,8 @@ class TestOracleSource:
         """Test looping through materialized views."""
         source = OracleSource(self.config, self.ctx)
 
-        # Mock inspector with materialized view support
-        mock_inspector = Mock()
+        # DataHub's own inspector wrapper (DBA mode), which filters system schemas
+        mock_inspector = Mock(spec=OracleInspectorObjectWrapper)
         mock_inspector.get_materialized_view_names.return_value = ["MV1", "MV2"]
 
         # Mock the _process_materialized_view method
@@ -1104,6 +1104,30 @@ class TestOracleSource:
             # Should process both materialized views
             assert len(result) == 2
             assert all(wu == mock_workunit for wu in result)
+
+    def test_loop_materialized_views_plain_inspector_uses_filtered_fallback(self):
+        # SA 2.0's Inspector has its own get_materialized_view_names, which doesn't
+        # exclude system schemas. ALL mode must still use DataHub's filtered query.
+        source = OracleSource(self.config, self.ctx)
+        plain_inspector = sqlalchemy.inspect(sqlalchemy.create_engine("sqlite://"))
+        assert hasattr(plain_inspector, "get_materialized_view_names")
+
+        with (
+            patch.object(
+                source, "_get_materialized_view_names_fallback", return_value=[]
+            ) as fallback,
+            patch.object(
+                type(plain_inspector), "get_materialized_view_names"
+            ) as sa_method,
+        ):
+            list(
+                source.loop_materialized_views(
+                    plain_inspector, "TEST_SCHEMA", self.config
+                )
+            )
+
+        fallback.assert_called_once()
+        sa_method.assert_not_called()
 
     def test_get_materialized_view_names_fallback(self):
         """Test fallback method for getting materialized view names."""
