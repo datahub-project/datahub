@@ -3430,9 +3430,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             if inherited_container_urn is not None:
                 effective_container = ContainerClass(container=inherited_container_urn)
-            elif entity_aspects.container_written_here:
-                # Ours, and no longer corroborated - stop asserting it.
-                effective_container = None
+            # A container of ours that is no longer corroborated is left in place.
+            # Withdrawing it would mean moving the entity's browse path back to the
+            # instance root while the Container aspect still made it a member of the
+            # old folder - visible in its contents and matched by container-scoped
+            # filters - and these writes are not primary, so stale removal would not
+            # reconcile the two. Better to leave last run's placement whole than to
+            # split it.
 
         container_entries = self._resolve_container_browse_path_entries(
             node_datahub_urn, effective_container

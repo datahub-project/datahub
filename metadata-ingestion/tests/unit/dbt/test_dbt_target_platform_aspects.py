@@ -789,3 +789,30 @@ def test_inheritance_key_folds_case_like_the_urn() -> None:
     container = get_aspect(grouped[urn_for(stub)], ContainerClass)
     assert container is not None
     assert container.container == SCHEMA_CONTAINER_URN
+
+
+def test_uncorroborated_container_is_left_whole_not_half_withdrawn() -> None:
+    # The warehouse no longer ingests anything from this schema, so there is no
+    # evidence either way. Moving the browse path back to the root while the
+    # Container aspect still made the entity a member of the old folder would
+    # leave the two disagreeing, so neither is touched.
+    stub = create_dbt_node(name="stub_table")
+    source = create_dbt_source(
+        graph=make_graph(
+            browse_path=BrowsePathsV2Class(
+                path=[
+                    BrowsePathEntryClass(id=INSTANCE_URN, urn=INSTANCE_URN),
+                    BrowsePathEntryClass(
+                        id=SCHEMA_CONTAINER_URN, urn=SCHEMA_CONTAINER_URN
+                    ),
+                ]
+            ),
+            containers={urn_for(stub): SCHEMA_CONTAINER_URN},
+            browse_path_written_here=True,
+            containers_written_here={urn_for(stub)},
+        )
+    )
+    grouped = aspects_by_urn(source, [stub])
+
+    assert get_aspect(grouped[urn_for(stub)], BrowsePathsV2Class) is None
+    assert get_aspect(grouped[urn_for(stub)], ContainerClass) is None
