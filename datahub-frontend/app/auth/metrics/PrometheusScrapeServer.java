@@ -66,8 +66,8 @@ public final class PrometheusScrapeServer {
 
   /**
    * If {@code MANAGEMENT_SERVER_PORT} is set, binds {@code 0.0.0.0}:{port} and serves {@code GET
-   * /actuator/prometheus}, {@code GET /health/live}, and {@code GET /health/ready}. Stopped on JVM
-   * shutdown.
+   * /health/live} and {@code GET /health/ready}. {@code GET /actuator/prometheus} is served only
+   * when a Prometheus registry is provided. Stopped on JVM shutdown.
    */
   public static void startIfConfigured(PrometheusMeterRegistry prometheusRegistry) {
     String portStr =
@@ -115,24 +115,24 @@ public final class PrometheusScrapeServer {
               "In-flight /health/live and /health/ready on the management listener, not the Play filter chain")
           .strongReference(true)
           .register(prometheusRegistry);
+      server.createContext(
+          "/actuator/prometheus",
+          exchange -> {
+            if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+              exchange.sendResponseHeaders(405, -1);
+              exchange.close();
+              return;
+            }
+            byte[] body = prometheusRegistry.scrape().getBytes(StandardCharsets.UTF_8);
+            exchange
+                .getResponseHeaders()
+                .add("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+            exchange.sendResponseHeaders(200, body.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+              os.write(body);
+            }
+          });
     }
-    server.createContext(
-        "/actuator/prometheus",
-        exchange -> {
-          if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
-            exchange.sendResponseHeaders(405, -1);
-            exchange.close();
-            return;
-          }
-          byte[] body = prometheusRegistry.scrape().getBytes(StandardCharsets.UTF_8);
-          exchange
-              .getResponseHeaders()
-              .add("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
-          exchange.sendResponseHeaders(200, body.length);
-          try (OutputStream os = exchange.getResponseBody()) {
-            os.write(body);
-          }
-        });
     server.createContext(
         "/health/live",
         exchange -> track(healthInFlight, exchange, ex -> sendPlainText(ex, 200, "LIVE")));

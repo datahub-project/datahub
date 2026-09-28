@@ -475,6 +475,31 @@ public class ApplicationControllerTest {
   }
 
   @Test
+  void proxy_requestBuildFailure_releasesPermit() {
+    ProxyAdmission capped = new ProxyAdmission(1, null);
+    Application cappedApp =
+        new Application(
+            mockHttpClient,
+            mock(Environment.class),
+            config,
+            mock(GracefulShutdownModule.class),
+            capped);
+    Http.Request broken = mockProxyRequest("/api/graphql", Optional.empty());
+    when(broken.getHeaders()).thenThrow(new IllegalStateException("headers"));
+    assertThrows(IllegalStateException.class, () -> cappedApp.proxy("graphql", broken));
+
+    Http.Request request = mockProxyRequest("/api/graphql", Optional.empty());
+    doReturn(
+            CompletableFuture.failedFuture(
+                new java.util.concurrent.CompletionException(
+                    new java.net.http.HttpTimeoutException("timed out"))))
+        .when(mockHttpClient)
+        .sendAsync(any(), any());
+    assertEquals(504, cappedApp.proxy("graphql", request).join().status());
+    verify(mockHttpClient, times(1)).sendAsync(any(), any());
+  }
+
+  @Test
   void proxy_malformedPath_returnsBadRequestWithoutCallingUpstream() throws Exception {
     Http.Request request = mockProxyRequest("/api/gms/foo bar", Optional.empty());
 

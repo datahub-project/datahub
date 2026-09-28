@@ -220,53 +220,54 @@ public class Application extends Controller {
     if (!proxyAdmission.tryAcquire()) {
       return CompletableFuture.completedFuture(proxyAdmission.overloadedResult());
     }
-    HttpRequest.Builder httpRequestBuilder =
-        HttpRequest.newBuilder().uri(targetUri).timeout(Duration.ofSeconds(120));
-    httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
-    Map<String, List<String>> headers = request.getHeaders().toMap();
-    if (headers.containsKey(Http.HeaderNames.HOST)
-        && !headers.containsKey(Http.HeaderNames.X_FORWARDED_HOST)) {
-      headers.put(Http.HeaderNames.X_FORWARDED_HOST, headers.get(Http.HeaderNames.HOST));
-    }
-    if (!headers.containsKey(Http.HeaderNames.X_FORWARDED_PROTO)) {
-      final String schema =
-          Optional.ofNullable(URI.create(request.uri()).getScheme()).orElse("http");
-      headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of(schema));
-    }
-    headers.entrySet().stream()
-        .filter(
-            entry ->
-                !RESTRICTED_HEADERS.contains(entry.getKey().toLowerCase())
-                    && !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(
-                        entry.getKey())
-                    && !REQUEST_SOURCE_HEADER.equalsIgnoreCase(entry.getKey())
-                    && !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey())
-                    && !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
-        .forEach(
-            entry -> entry.getValue().forEach(v -> httpRequestBuilder.header(entry.getKey(), v)));
-    if (!authorizationHeaderValue.isEmpty()) {
-      httpRequestBuilder.header(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue);
-    }
-    httpRequestBuilder.header(
-        AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request));
-    // Browser = authenticated UI session (signed cookie); everything else = programmatic/SDK.
-    httpRequestBuilder.header(
-        REQUEST_SOURCE_HEADER,
-        AuthUtils.hasValidSessionCookie(request) ? REQUEST_SOURCE_BROWSER : REQUEST_SOURCE_SDK);
-    request
-        .contentType()
-        .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
-    Instant start = Instant.now();
-    boolean useStreaming =
-        streamingPathPrefixes.stream().anyMatch(prefix -> resolvedUri.startsWith(prefix));
-
-    HttpResponse.BodyHandler<?> bodyHandler =
-        useStreaming
-            ? HttpResponse.BodyHandlers.ofInputStream()
-            : HttpResponse.BodyHandlers.ofByteArray();
-
     final CompletableFuture<HttpResponse<?>> upstream;
+    final Instant start;
+    final boolean useStreaming;
     try {
+      HttpRequest.Builder httpRequestBuilder =
+          HttpRequest.newBuilder().uri(targetUri).timeout(Duration.ofSeconds(120));
+      httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
+      Map<String, List<String>> headers = request.getHeaders().toMap();
+      if (headers.containsKey(Http.HeaderNames.HOST)
+          && !headers.containsKey(Http.HeaderNames.X_FORWARDED_HOST)) {
+        headers.put(Http.HeaderNames.X_FORWARDED_HOST, headers.get(Http.HeaderNames.HOST));
+      }
+      if (!headers.containsKey(Http.HeaderNames.X_FORWARDED_PROTO)) {
+        final String schema =
+            Optional.ofNullable(URI.create(request.uri()).getScheme()).orElse("http");
+        headers.put(Http.HeaderNames.X_FORWARDED_PROTO, List.of(schema));
+      }
+      headers.entrySet().stream()
+          .filter(
+              entry ->
+                  !RESTRICTED_HEADERS.contains(entry.getKey().toLowerCase())
+                      && !AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER.equalsIgnoreCase(
+                          entry.getKey())
+                      && !REQUEST_SOURCE_HEADER.equalsIgnoreCase(entry.getKey())
+                      && !Http.HeaderNames.CONTENT_TYPE.equalsIgnoreCase(entry.getKey())
+                      && !Http.HeaderNames.AUTHORIZATION.equalsIgnoreCase(entry.getKey()))
+          .forEach(
+              entry -> entry.getValue().forEach(v -> httpRequestBuilder.header(entry.getKey(), v)));
+      if (!authorizationHeaderValue.isEmpty()) {
+        httpRequestBuilder.header(Http.HeaderNames.AUTHORIZATION, authorizationHeaderValue);
+      }
+      httpRequestBuilder.header(
+          AuthenticationConstants.LEGACY_X_DATAHUB_ACTOR_HEADER, getDataHubActorHeader(request));
+      // Browser = authenticated UI session (signed cookie); everything else = programmatic/SDK.
+      httpRequestBuilder.header(
+          REQUEST_SOURCE_HEADER,
+          AuthUtils.hasValidSessionCookie(request) ? REQUEST_SOURCE_BROWSER : REQUEST_SOURCE_SDK);
+      request
+          .contentType()
+          .ifPresent(ct -> httpRequestBuilder.header(Http.HeaderNames.CONTENT_TYPE, ct));
+      start = Instant.now();
+      useStreaming =
+          streamingPathPrefixes.stream().anyMatch(prefix -> resolvedUri.startsWith(prefix));
+
+      HttpResponse.BodyHandler<?> bodyHandler =
+          useStreaming
+              ? HttpResponse.BodyHandlers.ofInputStream()
+              : HttpResponse.BodyHandlers.ofByteArray();
       upstream =
           httpClient
               .sendAsync(httpRequestBuilder.build(), bodyHandler)

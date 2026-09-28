@@ -101,6 +101,19 @@ class PrometheusScrapeServerTest {
   }
 
   @Test
+  void healthLive_withoutPrometheusRegistry_stillServesProbes() throws Exception {
+    int port = freePort();
+    HttpServer server = PrometheusScrapeServer.createAndStartForTests(null, port);
+    try {
+      assertEquals(200, getStatus(port, "/health/live"));
+      assertEquals("LIVE", getBody(port, "/health/live"));
+      assertEquals(404, getStatus(port, "/actuator/prometheus"));
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
   void healthReady_beforeBind_returnsStarting() throws Exception {
     PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     int port = freePort();
