@@ -3,8 +3,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -53,15 +55,18 @@ const PlatformText = styled(Typography.Text)`
 
 export const Preview = ({
     urn,
+    previewType,
     name,
     title,
 }: {
     urn: string;
+    previewType: PreviewType;
     name: string;
     title?: string | undefined;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpUser, urn);
+    const { propagationDetails } = usePreviewData();
 
     return (
         <PreviewContainer>
@@ -81,6 +86,9 @@ export const Preview = ({
                     <TitleContainer>
                         <SearchTextHighlighter field="title" text={title} />
                     </TitleContainer>
+                )}
+                {previewType === PreviewType.HOVER_CARD && (
+                    <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                 )}
             </div>
         </PreviewContainer>

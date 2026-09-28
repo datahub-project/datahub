@@ -30,6 +30,7 @@ import {
     useRemoveGlossaryTermAssets,
 } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
@@ -140,6 +141,7 @@ interface Props {
     owners?: Array<Owner> | null;
     deprecation?: Deprecation | null;
     topUsers?: Array<CorpUser> | null;
+    entityTitleSuffix?: React.ReactNode;
     subHeader?: React.ReactNode;
     snippet?: React.ReactNode;
     insights?: Array<SearchInsight> | null;
@@ -201,6 +203,7 @@ export default function DefaultPreviewCard({
     entityCount,
     titleSizePx,
     dataTestID,
+    entityTitleSuffix,
     onClick,
     degree,
     parentEntities,
@@ -227,13 +230,15 @@ export default function DefaultPreviewCard({
     const shouldShowDescriptionsForSearch =
         previewType === PreviewType.SEARCH && config.searchCardConfig.showDescription;
     const shouldShowDescription =
-        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType) || shouldShowDescriptionsForSearch;
+        previewType === PreviewType.HOVER_CARD ||
+        ENTITY_TYPES_WITH_DESCRIPTION_PREVIEW.has(entityType) ||
+        shouldShowDescriptionsForSearch;
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     // Passing previewType via context because not all entities pass it via props
     // But not using previewContextType everywhere to avoid regressions... sorry
-    const { previewData } = usePreviewData();
+    const { previewData, propagationDetails } = usePreviewData();
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -270,6 +275,7 @@ export default function DefaultPreviewCard({
         <EntityHeader
             name={name}
             onClick={onClick}
+            previewType={previewType}
             titleSizePx={titleSizePx}
             url={url}
             urn={urn}
@@ -284,7 +290,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
-            {isFullViewCard ? (
+            {isFullViewCard || previewType === PreviewType.HOVER_CARD ? (
                 <>
                     <RowContainer alignment="self-start">
                         {isIconPresent ? (
@@ -306,7 +312,7 @@ export default function DefaultPreviewCard({
                                 </TransparentButton>
                             )}
                             <ViewInPlatform urn={urn} data={data} shouldFillAllAvailableSpace={false} />
-                            {headerDropdownItems && (
+                            {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
                                 <MoreOptionsMenuAction
                                     menuItems={headerDropdownItems}
                                     urn={urn}
@@ -326,7 +332,7 @@ export default function DefaultPreviewCard({
                             entityType={entityType}
                             browsePaths={browsePaths}
                             parentEntities={parentEntities}
-                            entityTitleWidth={200}
+                            entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
                         />
                     </RowContainer>
                     {shouldShowDescription &&
@@ -344,6 +350,9 @@ export default function DefaultPreviewCard({
                         <RowContainer style={{ marginTop: 8, justifyContent: 'flex-end' }}>
                             <DataProcessInstanceInfo {...lastRunEvent} />
                         </RowContainer>
+                    )}
+                    {previewType === PreviewType.HOVER_CARD && (
+                        <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                     )}
                 </>
             ) : (
@@ -366,6 +375,7 @@ export default function DefaultPreviewCard({
                     isOutputPort={isOutputPort}
                     entityIcon={entityIcon}
                     headerDropdownItems={headerDropdownItems}
+                    previewType={previewType}
                     urn={urn}
                     entityType={entityType}
                     finalType={finalType}
@@ -379,6 +389,8 @@ export default function DefaultPreviewCard({
                 owners={owners}
                 entityCapabilities={supportedCapabilities}
                 tier={tier}
+                previewType={previewType}
+                entityTitleSuffix={entityTitleSuffix}
                 entityType={entityType}
                 urn={urn}
                 entityRegistry={entityRegistry}

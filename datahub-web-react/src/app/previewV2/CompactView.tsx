@@ -2,6 +2,7 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
+import { PreviewType } from '@app/entity/Entity';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
@@ -59,6 +60,7 @@ interface Props {
     // this is provided by the impact analysis view. it is used to display
     // how the listed node is connected to the source node
     degree?: number;
+    previewType?: Maybe<PreviewType>;
     health?: Health[];
     // eslint-disable-next-line react/no-unused-prop-types
     description?: string;
@@ -95,6 +97,7 @@ export const CompactView = ({
     isOutputPort,
     entityIcon,
     headerDropdownItems,
+    previewType,
     urn,
     entityType,
     finalType,
@@ -107,6 +110,7 @@ export const CompactView = ({
                 <EntityHeader
                     name={name}
                     onClick={onClick}
+                    previewType={previewType}
                     titleSizePx={titleSizePx}
                     url={url}
                     urn={urn}
@@ -117,7 +121,7 @@ export const CompactView = ({
                 />
                 <CompactActionsAndStatusSection>
                     <ViewInPlatform data={data} urn={urn} />
-                    {headerDropdownItems && (
+                    {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
                         <MoreOptionsMenuAction
                             menuItems={headerDropdownItems}
                             urn={urn}
@@ -151,7 +155,7 @@ export const CompactView = ({
                     entityType={entityType}
                     browsePaths={browsePaths}
                     parentEntities={parentEntities}
-                    entityTitleWidth={200}
+                    entityTitleWidth={previewType === PreviewType.HOVER_CARD ? 150 : 200}
                     isCompactView
                 />
             </ContextPathRowContainer>
