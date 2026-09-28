@@ -1518,6 +1518,7 @@ module.exports = {
         "docs/deploy/azure",
         "docker/README",
         "docs/deploy/kubernetes",
+        "docs/deploy/rendered-manifest-upgrade",
       ],
     },
     {

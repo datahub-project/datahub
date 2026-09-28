@@ -12,13 +12,14 @@ The following jobs are supported:
 
 1. **SystemUpdate**: Performs any tasks required to update to a new version of DataHub. For example, applying new configurations to the search & graph indexes, ingesting default settings, and more.
    Note that this _must_ be executed any time the DataHub version is incremented before starting or restarting other system containers. Deploy ordering (Helm pre-install hooks / Compose `depends_on` for the blocking system-update job) is the gate; GMS, MAE, and MCE no longer wait on a Kafka upgrade-history message.
-   A unique "version id" is generated based on a combination of the a) embedded git tag corresponding to the version of DataHub running and b) an optional revision number, provided via the `DATAHUB_REVISION` environment variable. Helm uses
-   the latter to ensure that the system upgrade job is executed every single time a deployment of DataHub is performed, even if the container version has not changed.
+   Upgrade bookkeeping uses a version id from the embedded git tag of the running DataHub version. The chart still sets `DATAHUB_REVISION` from the Helm release revision. That value used to be sent on `DataHubUpgradeHistory_v1`, which GMS, MAE, and MCE no longer consume. Leave `DATAHUB_REVISION` as the chart renders it.
    Important: This job runs as a pre-install hook via the DataHub Helm Charts, i.e. before deploying new version tags for each container.
 
 2. **SystemUpdateBlocking**: Performs any _blocking_ tasks required to update to a new version of DataHub, as a subset of **SystemUpdate**.
 
 3. **SystemUpdateNonBlocking**: Performs any _nonblocking_ tasks required to update to a new version of DataHub, as a subset of **SystemUpdate**.
+
+   Pipelines that render the Helm chart and apply the YAML with Spinnaker, Kustomize, or `kubectl` must run **SystemUpdateBlocking**, roll out components, then run **SystemUpdateNonBlocking**. See [Upgrading with rendered manifests](../../docs/deploy/rendered-manifest-upgrade.md).
 
    Notable non-blocking steps include **GenerateSchemaFieldsFromSchemaMetadata** (`SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED`), which scans dataset `schemaMetadata`/`status`, builds RESTATE MCLItems (`APP_SOURCE=SYSTEM_UPDATE`), and invokes post-MCP `SchemaFieldSideEffect` via async `ingestProposal` (not a no-op parent upsert) so schemaField entities are materialized. Its upgrade id is fingerprinted by the effective MCP domain/ownership mirror flags (`schema-field-from-schema-metadata-v2-d{0|1}-o{0|1}`): a **first-time** change to a new fingerprint schedules a pass that backfills when enabling and, when disabling, deletes field `domains`/`ownership` for the off flag(s) on **every** schemaField under each scanned dataset — including manually written field aspects, not only mirrored copies. **Toggling flags in a cycle** back to a fingerprint that already SUCCEEDED does **not** re-run — use **manual reprocess** (`SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_REPROCESS=true`) or clear/modify that fingerprint's `dataHubUpgradeResult` (either is valid). Keep MCP side-effect flags aligned on GMS, MCE, and the upgrade job. See `docs/how/updating-datahub.md` and `docs/deploy/environment-vars.md`.
 
