@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport
+from datahub.ingestion.source.external_dq.report import ExternalDQReport
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
@@ -26,6 +27,7 @@ class UnityCatalogReport(SQLSourceReport):
         type="ml_model_version"
     )
     metric_views: EntityFilterReport = EntityFilterReport.field(type="metric_view")
+    external_dq: ExternalDQReport = field(default_factory=ExternalDQReport)
 
     hive_metastore_catalog_found: Optional[bool] = None
 

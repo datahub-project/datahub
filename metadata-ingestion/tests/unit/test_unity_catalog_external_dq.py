@@ -4,7 +4,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.ingestion.source.external_dq.contract import LogicalType
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.external_dq.contract import (
+    RESULTS_COLUMNS,
+    RULES_COLUMNS,
+    LogicalType,
+)
+from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.external_dq import (
     UnityDatasetLocator,
     UnityExternalDQReader,
@@ -13,6 +19,9 @@ from datahub.ingestion.source.unity.identifier_helper import quote_databricks_id
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.ingestion.source.unity.source import UnityCatalogSource
+from datahub.metadata.schema_classes import AssertionInfoClass, AssertionRunEventClass
+from tests.unit.external_dq._fixtures import result_raw, rule_raw
 
 
 class _Row(dict):
@@ -107,3 +116,70 @@ def test_iter_sql_rows_raises_instead_of_swallowing(mock_connect: MagicMock) -> 
     proxy = UnityCatalogApiProxy(workspace_client=client, report=UnityCatalogReport())
     with pytest.raises(RuntimeError, match="boom"):
         list(proxy.iter_sql_rows("SELECT 1"))
+
+
+_DBX = {
+    LogicalType.STRING: "string",
+    LogicalType.BOOLEAN: "boolean",
+    LogicalType.INT64: "bigint",
+    LogicalType.FLOAT64: "double",
+    LogicalType.TIMESTAMP: "timestamp",
+    LogicalType.ARRAY_STRING: "array<string>",
+}
+_BASE = {
+    "token": "t",
+    "workspace_url": "https://test.databricks.com",
+    "include_hive_metastore": False,
+}
+_DQ = {
+    "enabled": True,
+    "rules_table": "main.governance.dq_rules",
+    "results_table": "main.governance.dq_results",
+}
+
+
+def test_config_requires_warehouse_and_three_part_names() -> None:
+    with pytest.raises(ValueError, match="warehouse_id"):
+        UnityCatalogSourceConfig.model_validate({**_BASE, "external_dq": _DQ})
+    with pytest.raises(ValueError, match="catalog.schema.table"):
+        UnityCatalogSourceConfig.model_validate(
+            {
+                **_BASE,
+                "warehouse_id": "wh",
+                "external_dq": {**_DQ, "rules_table": "dq_rules"},
+            }
+        )
+
+
+class ContractProxy:
+    def describe_table_columns(
+        self, catalog: str, schema: str, table: str
+    ) -> List[Tuple[str, str, int]]:
+        contract = RULES_COLUMNS if table == "dq_rules" else RESULTS_COLUMNS
+        return [(c.name, _DBX[c.logical_type], i + 1) for i, c in enumerate(contract)]
+
+    def iter_sql_rows(self, query: str, params: Sequence[Any] = ()) -> Iterator[_Row]:
+        row = rule_raw() if "dq_rules" in query else result_raw()
+        yield _Row(row)
+
+
+def test_source_emits_external_dq_assertions_for_ingested_tables() -> None:
+    config = UnityCatalogSourceConfig.model_validate(
+        {**_BASE, "warehouse_id": "wh", "external_dq": _DQ}
+    )
+    with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+        source = UnityCatalogSource(PipelineContext(run_id="test"), config)
+    source.table_refs = {
+        TableReference(metastore=None, catalog="main", schema="sales", table="orders")
+    }
+    source.unity_catalog_api_proxy = ContractProxy()  # type: ignore[assignment]
+    workunits = list(source._get_external_dq_workunits())
+    aspects = [wu.metadata.aspect for wu in workunits]  # type: ignore[union-attr]
+    info = next(a for a in aspects if isinstance(a, AssertionInfoClass))
+    assert info.customAssertion is not None
+    assert info.customAssertion.entity == source.gen_dataset_urn(
+        next(iter(source.table_refs))
+    )
+    assert info.customAssertion.type == "Databricks Data Quality"
+    assert any(isinstance(a, AssertionRunEventClass) for a in aspects)
+    assert source.report.external_dq.run_events_emitted == 1

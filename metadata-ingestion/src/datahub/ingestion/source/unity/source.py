@@ -74,6 +74,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.external_dq.extractor import ExternalDQExtractor
+from datahub.ingestion.source.external_dq.mapper import ExternalDQMapper
+from datahub.ingestion.source.external_dq.state import ExternalDQStateHandler
+from datahub.ingestion.source.external_dq.types import DATABRICKS_TYPE_PROFILE
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -87,6 +91,10 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
+from datahub.ingestion.source.unity.external_dq import (
+    UnityDatasetLocator,
+    UnityExternalDQReader,
+)
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -453,6 +461,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         # Global set of table refs
         self.table_refs: Set[TableReference] = set()
         self.view_refs: Set[TableReference] = set()
+
+        # Handlers must register during __init__, before checkpoints are created.
+        self.external_dq_state: Optional[ExternalDQStateHandler] = None
+        if (
+            self.config.external_dq.enabled
+            and self.config.stateful_ingestion
+            and self.config.stateful_ingestion.enabled
+        ):
+            self.external_dq_state = ExternalDQStateHandler(
+                state_provider=self.state_provider,
+                pipeline_name=ctx.pipeline_name,
+                run_id=ctx.run_id,
+                ignore_new_state=self.config.stateful_ingestion.ignore_new_state,
+            )
         self.notebooks: FileBackedDict[Notebook] = FileBackedDict()
 
         # Global map of tables, for profiling
@@ -628,6 +650,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from usage_extractor.get_usage_workunits(
                     self.table_refs | self.view_refs
                 )
+
+        if self.config.external_dq.enabled:
+            with self.report.new_stage("Ingest external data quality"):
+                yield from self._get_external_dq_workunits()
 
         if self.config.is_profiling_enabled():
             with self.report.new_stage("Start warehouse"):
@@ -1256,6 +1282,38 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             name=str(table_ref),
             env=self.config.env,
         )
+
+    def _ingested_field_names(self, dataset_urn: str) -> Optional[Iterable[str]]:
+        # Only consult schemas registered during this run; resolve_urn on an
+        # unknown URN may fall back to a graph lookup.
+        if not self.sql_parser_schema_resolver.has_urn(dataset_urn):
+            return None
+        _, schema_info = self.sql_parser_schema_resolver.resolve_urn(dataset_urn)
+        return schema_info.keys() if schema_info else None
+
+    def _get_external_dq_workunits(self) -> Iterable[MetadataWorkUnit]:
+        mapper = ExternalDQMapper(
+            platform=self.platform,
+            platform_instance=self.platform_instance_name,
+            rule_namespace=self.config.external_dq.rule_namespace,
+            locator=UnityDatasetLocator(
+                self.table_refs | self.view_refs,
+                self.gen_dataset_urn,
+                field_names=self._ingested_field_names,
+            ),
+            report=self.report.external_dq,
+            source_report=self.report,
+            category="Databricks Data Quality",
+        )
+        yield from ExternalDQExtractor(
+            config=self.config.external_dq,
+            reader=UnityExternalDQReader(self.unity_catalog_api_proxy),
+            mapper=mapper,
+            profile=DATABRICKS_TYPE_PROFILE,
+            source_report=self.report,
+            report=self.report.external_dq,
+            state=self.external_dq_state,
+        ).get_workunits()
 
     def gen_ml_model_urn(self, name: str) -> str:
         return make_ml_model_group_urn(

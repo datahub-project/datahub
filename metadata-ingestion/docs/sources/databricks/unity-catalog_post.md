@@ -104,6 +104,73 @@ The upstream lineage edge only resolves if the external source is **also ingeste
 
 The `emit_siblings` option described under _Delta Lake External Tables_ above is unrelated: it governs only the Delta Lake (S3 external table) sibling path, not Lakehouse Federation.
 
+#### External data quality tables
+
+If a data-quality engine outside DataHub (for example, an in-house framework running as Databricks jobs) evaluates rules, it can publish them to DataHub by writing two tables that follow the **DataHub external DQ table contract (v1)**. The connector reads them and publishes each rule as an externally-managed assertion on the dataset it checks, with one run event per evaluation.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    warehouse_id: "<warehouse-id>"
+    stateful_ingestion:
+      enabled: true # read results incrementally; strongly recommended
+    external_dq:
+      enabled: true
+      rules_table: main.governance.dq_rules
+      results_table: main.governance.dq_results
+```
+
+```sql
+CREATE TABLE main.governance.dq_rules (
+  rule_id STRING NOT NULL,           -- stable across renames/threshold changes
+  dataset_path ARRAY<STRING> NOT NULL, -- ["catalog", "schema", "table"]
+  column_paths ARRAY<STRING>,         -- empty = table-level; several = multi-column rule
+  rule_name STRING NOT NULL,
+  rule_type STRING NOT NULL,
+  rule_description STRING,
+  dimension STRING,
+  operator STRING,                    -- NOT_NULL, UNIQUE, BETWEEN, GREATER_THAN, LESS_THAN, EQUAL_TO
+  threshold_min DOUBLE,
+  threshold_max DOUBLE,
+  threshold_value DOUBLE,
+  logic STRING,
+  severity STRING,                    -- LOW, MEDIUM, HIGH
+  is_active BOOLEAN NOT NULL,         -- false retires the assertion
+  rule_version STRING,
+  external_url STRING,
+  updated_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE main.governance.dq_results (
+  run_id STRING NOT NULL,
+  rule_id STRING NOT NULL,
+  executed_at TIMESTAMP NOT NULL,
+  status STRING NOT NULL,             -- SUCCESS, FAILURE, ERROR, INIT
+  is_warning BOOLEAN,                 -- SUCCESS + true = non-blocking warning
+  severity STRING,
+  actual_value DOUBLE,
+  evaluated_row_count BIGINT,
+  failed_row_count BIGINT,
+  missing_row_count BIGINT,
+  operator_snapshot STRING,
+  threshold_min_snapshot DOUBLE,
+  threshold_max_snapshot DOUBLE,
+  threshold_value_snapshot DOUBLE,
+  rule_version_snapshot STRING,
+  error_type STRING,
+  error_message STRING,
+  external_url STRING
+);
+```
+
+- Every contract column must exist with a compatible type (widening such as `INT` for `BIGINT` or `DECIMAL` for `DOUBLE` is accepted; `TIMESTAMP_NTZ` is not). Ingestion fails for that table otherwise.
+- Additional columns are allowed after the contract columns and are shown on the assertion (rules) or run (results).
+- Assertion identity is `(platform instance, rule_namespace, rule_id)`, so renaming a table keeps the assertion's history.
+- Results are append-only. With stateful ingestion, each result is published once, including results that arrive up to `late_arrival_minutes` late. Without it, the last `initial_lookback_days` of results are re-published on every run, which re-sends notifications to subscribers.
+- Rules for tables that were not ingested in the same run are skipped and reported.
+- `column_paths` should name top-level columns. Column casing is matched to the ingested schema; nested (struct) fields are passed through as written and may not link to the column in DataHub.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces
