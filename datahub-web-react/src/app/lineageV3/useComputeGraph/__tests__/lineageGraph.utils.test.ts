@@ -20,180 +20,73 @@ describe('lineageGraph.utils', () => {
     describe('getNodesWithLineage (orphaned node filtering)', () => {
         const A = 'urn:li:dataset:A';
         const B = 'urn:li:dataset:B';
-        const C = 'urn:li:dataset:C'; // Orphaned node
+        const C = 'urn:li:dataset:C';
         const D = 'urn:li:dataset:D';
+        const E = 'urn:li:dataset:E';
 
-        it('identifies nodes with downstream edges', () => {
+        it('includes all nodes in a linear chain', () => {
             // Chain: A -> B -> D
-            // A has downstream neighbors {B}
-            // B has downstream neighbors {D}
             const adjacencyList = createAdjacencyList(
-                new Map(), // no upstream edges
                 new Map([
-                    [A, new Set([B])],
-                    [B, new Set([D])],
+                    [B, new Set([A])], // B upstream from A
+                    [D, new Set([B])], // D upstream from B
+                ]),
+                new Map([
+                    [A, new Set([B])], // A downstream to B
+                    [B, new Set([D])], // B downstream to D
                 ]),
             );
 
             const result = getNodesWithLineage([A, B, C, D], adjacencyList);
 
-            // A and B have downstream edges. D and C have none.
-            expect(result).toEqual(new Set([A, B]));
-            expect(result).not.toContain(C);
-            expect(result).not.toContain(D);
-        });
-
-        it('identifies nodes with upstream edges', () => {
-            // Chain: A -> B -> D
-            // B has upstream neighbors {A}
-            // D has upstream neighbors {B}
-            const adjacencyList = createAdjacencyList(
-                new Map([
-                    [B, new Set([A])],
-                    [D, new Set([B])],
-                ]),
-                new Map(), // no downstream edges
-            );
-
-            const result = getNodesWithLineage([A, B, C, D], adjacencyList);
-
-            // B and D have upstream edges. A and C have none.
-            expect(result).toEqual(new Set([B, D]));
-            expect(result).not.toContain(A);
-            expect(result).not.toContain(C);
-        });
-
-        it('identifies nodes with both upstream and downstream edges', () => {
-            // Chain: A -> B -> D
-            // A has downstream {B}
-            // B has upstream {A} and downstream {D}
-            // D has upstream {B}
-            const adjacencyList = createAdjacencyList(
-                new Map([
-                    [B, new Set([A])],
-                    [D, new Set([B])],
-                ]),
-                new Map([
-                    [A, new Set([B])],
-                    [B, new Set([D])],
-                ]),
-            );
-
-            const result = getNodesWithLineage([A, B, C, D], adjacencyList);
-
-            // A, B, D all have edges. C is orphaned.
+            // All chain members appear in edges
             expect(result).toEqual(new Set([A, B, D]));
+            // C is truly orphaned
             expect(result).not.toContain(C);
         });
 
-        it('excludes nodes with no edges (orphaned nodes)', () => {
-            const adjacencyList = createAdjacencyList(new Map([[B, new Set([A])]]), new Map([[B, new Set([D])]]));
-
-            const result = getNodesWithLineage([A, B, C, D], adjacencyList);
-
-            // C has no upstream or downstream edges, so it should be excluded
-            expect(result).not.toContain(C);
-        });
-
-        it('handles empty node list', () => {
-            const adjacencyList = createAdjacencyList(new Map(), new Map());
-
-            const result = getNodesWithLineage([], adjacencyList);
-
-            expect(result).toEqual(new Set());
-        });
-
-        it('handles nodes with undefined IDs', () => {
+        it('includes nodes from multiple upstream sources (fan-in)', () => {
+            // Edges: A -> B, C -> B (two sources to one target)
             const adjacencyList = createAdjacencyList(
-                new Map(),
-                new Map([[A, new Set([B])]]), // A has downstream B
-            );
-
-            const result = getNodesWithLineage([A, undefined, B, C], adjacencyList);
-
-            // A has downstream edges, B and C don't appear in maps, undefined is skipped
-            expect(result).toEqual(new Set([A]));
-        });
-
-        it('correctly filters a mixed scenario: some members have lineage, some are orphaned', () => {
-            // Scenario: Data product with 4 members
-            // - A -> B (A has downstream to B, B has upstream from A)
-            // - C has no lineage (orphaned pipeline)
-            // - D has no lineage (orphaned container)
-            const adjacencyList = createAdjacencyList(
-                new Map([[B, new Set([A])]]), // B <- A (B has upstream A)
-                new Map([[A, new Set([B])]]), // A -> B (A has downstream B)
+                new Map([
+                    [B, new Set([A, C])], // B upstream from both A and C
+                ]),
+                new Map([
+                    [A, new Set([B])], // A downstream to B
+                    [C, new Set([B])], // C downstream to B
+                ]),
             );
 
             const result = getNodesWithLineage([A, B, C, D], adjacencyList);
 
-            // A and B are connected. C and D are orphaned.
-            expect(result).toEqual(new Set([A, B]));
-            expect(result).not.toContain(C);
+            // All three nodes in edges (A, B, C)
+            expect(result).toEqual(new Set([A, B, C]));
+            // D is orphaned
             expect(result).not.toContain(D);
         });
 
-        it('preserves nodes in a linear chain', () => {
-            // Chain: A -> B -> D
+        it('includes nodes from multiple downstream targets (fan-out)', () => {
+            // Edges: A -> B, A -> C (one source to two targets)
             const adjacencyList = createAdjacencyList(
                 new Map([
-                    [B, new Set([A])],
-                    [D, new Set([B])],
+                    [B, new Set([A])], // B upstream from A
+                    [C, new Set([A])], // C upstream from A
                 ]),
                 new Map([
-                    [A, new Set([B])],
-                    [B, new Set([D])],
+                    [A, new Set([B, C])], // A downstream to both B and C
                 ]),
             );
 
             const result = getNodesWithLineage([A, B, C, D], adjacencyList);
 
-            // All nodes in the chain should be kept
-            expect(result).toEqual(new Set([A, B, D]));
-            // C (not in chain) should be filtered out
-            expect(result).not.toContain(C);
-        });
-
-        it('handles nodes with multiple upstream connections', () => {
-            // Multiple inputs: A -> B, C -> B
-            // B has upstream from both A and C
-            const adjacencyList = createAdjacencyList(
-                new Map([
-                    [B, new Set([A, C])], // B has upstream from A and C
-                ]),
-                new Map(),
-            );
-
-            const result = getNodesWithLineage([A, B, C, D], adjacencyList);
-
-            // B has upstream edges. A and C don't have any edges.
-            expect(result).toEqual(new Set([B]));
-            expect(result).not.toContain(A);
-            expect(result).not.toContain(C);
+            // All three nodes in edges (A, B, C)
+            expect(result).toEqual(new Set([A, B, C]));
+            // D is orphaned
             expect(result).not.toContain(D);
         });
 
-        it('handles nodes with multiple downstream connections', () => {
-            // Multiple outputs: A -> B, A -> C
-            // A has downstream to both B and C
-            const adjacencyList = createAdjacencyList(
-                new Map(),
-                new Map([
-                    [A, new Set([B, C])], // A has downstream to B and C
-                ]),
-            );
-
-            const result = getNodesWithLineage([A, B, C, D], adjacencyList);
-
-            // A has downstream edges. B and C don't have any edges.
-            expect(result).toEqual(new Set([A]));
-            expect(result).not.toContain(B);
-            expect(result).not.toContain(C);
-            expect(result).not.toContain(D);
-        });
-
-        it('handles complex branching scenarios (diamond pattern)', () => {
-            // Diamond pattern: A -> B, A -> C, B -> D, C -> D
+        it('handles complex diamond pattern (A -> B, A -> C, B -> D, C -> D)', () => {
+            // All four nodes connected in diamond shape
             const adjacencyList = createAdjacencyList(
                 new Map([
                     [B, new Set([A])],
@@ -213,35 +106,90 @@ describe('lineageGraph.utils', () => {
             expect(result).toEqual(new Set([A, B, C, D]));
         });
 
-        it('handles nodes with self-loops', () => {
-            // Self-loop: A -> A (edge case)
+        it('filters a data product with both connected and orphaned members', () => {
+            // Real-world scenario: Product has A->B (connected) and C, D (orphaned)
+            const adjacencyList = createAdjacencyList(new Map([[B, new Set([A])]]), new Map([[A, new Set([B])]]));
+
+            const result = getNodesWithLineage([A, B, C, D], adjacencyList);
+
+            expect(result).toEqual(new Set([A, B]));
+            expect(result).not.toContain(C);
+            expect(result).not.toContain(D);
+        });
+
+        it('handles multiple separate lineage chains', () => {
+            // Two independent chains: A -> B and C -> D
             const adjacencyList = createAdjacencyList(
-                new Map([[A, new Set([A])]]), // A has upstream from itself
-                new Map([[A, new Set([A])]]), // A has downstream to itself
+                new Map([
+                    [B, new Set([A])],
+                    [D, new Set([C])],
+                ]),
+                new Map([
+                    [A, new Set([B])],
+                    [C, new Set([D])],
+                ]),
             );
+
+            const result = getNodesWithLineage([A, B, C, D], adjacencyList);
+
+            // All four nodes are in lineage chains
+            expect(result).toEqual(new Set([A, B, C, D]));
+        });
+
+        it('handles complex real-world scenario with multiple levels and orphans', () => {
+            // Scenario: E->D->B->A and C orphaned
+            // Shows multi-level chain with orphaned member
+            const adjacencyList = createAdjacencyList(
+                new Map([
+                    [D, new Set([E])],
+                    [B, new Set([D])],
+                    [A, new Set([B])],
+                ]),
+                new Map([
+                    [E, new Set([D])],
+                    [D, new Set([B])],
+                    [B, new Set([A])],
+                ]),
+            );
+
+            const result = getNodesWithLineage([A, B, D, E, C], adjacencyList);
+
+            // Chain members: E, D, B, A
+            expect(result).toEqual(new Set([E, D, B, A]));
+            // C is orphaned
+            expect(result).not.toContain(C);
+        });
+
+        it('handles empty node list', () => {
+            const adjacencyList = createAdjacencyList(new Map(), new Map());
+
+            const result = getNodesWithLineage([], adjacencyList);
+
+            expect(result).toEqual(new Set());
+        });
+
+        it('handles undefined node IDs in input', () => {
+            // A -> B edge, with undefined in input list
+            const adjacencyList = createAdjacencyList(new Map([[B, new Set([A])]]), new Map([[A, new Set([B])]]));
+
+            const result = getNodesWithLineage([A, undefined, B], adjacencyList);
+
+            // Only A and B are valid; undefined is skipped
+            expect(result).toEqual(new Set([A, B]));
+        });
+
+        it('handles self-loop edge (A -> A)', () => {
+            // A has an edge to itself, B has no edges
+            const adjacencyList = createAdjacencyList(new Map([[A, new Set([A])]]), new Map([[A, new Set([A])]]));
 
             const result = getNodesWithLineage([A, B], adjacencyList);
 
-            // A has edges (to itself), B doesn't
             expect(result).toEqual(new Set([A]));
             expect(result).not.toContain(B);
         });
 
-        it('filters only specified nodes from input list', () => {
-            // Only check lineage for A and B, don't check C and D
-            const adjacencyList = createAdjacencyList(
-                new Map(),
-                new Map([[A, new Set([B])]]), // A -> B
-            );
-
-            const result = getNodesWithLineage([A, B], adjacencyList); // Only check A and B
-
-            expect(result).toEqual(new Set([A]));
-            expect(result).not.toContain(C); // C wasn't even checked
-            expect(result).not.toContain(D); // D wasn't even checked
-        });
-
-        it('preserves order-independent results', () => {
+        it('returns deterministic results regardless of input order', () => {
+            // Tests that A -> B produces same result in any input order
             const adjacencyList = createAdjacencyList(new Map([[B, new Set([A])]]), new Map([[A, new Set([B])]]));
 
             const result1 = getNodesWithLineage([A, B, C], adjacencyList);
@@ -250,6 +198,20 @@ describe('lineageGraph.utils', () => {
 
             expect(result1).toEqual(result2);
             expect(result2).toEqual(result3);
+            expect(result1).toEqual(new Set([A, B]));
+        });
+
+        it('only checks nodes specified in input list', () => {
+            // Tests that function scopes to input: A->B exists, but we only check A and B
+            const adjacencyList = createAdjacencyList(new Map([[B, new Set([A])]]), new Map([[A, new Set([B])]]));
+
+            // Only check A and B, not C and D
+            const result = getNodesWithLineage([A, B], adjacencyList);
+
+            expect(result).toEqual(new Set([A, B]));
+            // C and D never in input, so can't be in result
+            expect(result).not.toContain(C);
+            expect(result).not.toContain(D);
         });
     });
 });
