@@ -1143,7 +1143,11 @@ Like `dataplatform2instance`, this command migrates datasets, charts, dashboards
 When the target entity already exists, the command uses a strategy controlled by `--on-conflict`
 (see [Conflict strategies](#conflict-strategies) below).
 
-**Merge limitation**: Full aspect-level merge (via the Patch API) is only supported for **dataset** entities. For charts, dashboards, dataflows, and datajobs, the merge path falls back to overwrite when the target entity already exists.
+**Merge behavior by entity type**:
+
+- **Dataset**: the full aspect-level merge runs (additive union of ownership/tags/terms/structured properties/lineage, plus scalar conflict resolution driven by `--on-conflict`).
+- **Charts, dashboards, dataflows, datajobs, data products**: these carry their lineage and description in a single non-additive `*Info` aspect (`chartInfo`, `dashboardInfo`, `dataFlowInfo`, `dataJobInputOutput`, `dataProductProperties`) that cannot be safely unioned, so they are **always fully overwritten** with the source — regardless of `--on-conflict`. This preserves the migrated source's lineage on the target rather than stranding it. (Per-aspect union for these types is tracked as future work.)
+- **Other non-dataset types** (e.g. schema fields, glossary terms, containers): the union-able aspects (ownership, tags, terms, structured properties) are merged additively and every other aspect is handled conflict-aware — the target's value is kept on conflict unless you pass `--on-conflict overwrite` (or resolve interactively with `prompt`).
 
 **Container limitation**: Containers are migrated via a separate legacy code path that always overwrites the target. `--on-conflict`, `--skip-on-error`, and `--checkpoint-file` apply only to the entity migration (datasets, charts, dashboards, dataflows, datajobs) — not to containers. In practice this is rarely an issue: containers are a small bounded set per migration and are typically re-created by ingestion.
 
@@ -1152,8 +1156,8 @@ When the target entity already exists, the command uses a strategy controlled by
 `--on-conflict` controls what happens when the target URN already exists. It is available on all
 `migrate` commands.
 
-- `patch`: Additively merge ownership, tags, terms, and lineage. Skip scalar fields (description, custom properties) that conflict.
-- `overwrite`: Replace conflicting target aspects with source values.
+- `patch`: Additively merge ownership, tags, terms, and structured properties, plus lineage (dataset targets only). Skip scalar fields (description, custom properties) that conflict. Note: charts, dashboards, dataflows, datajobs, and data products are always fully overwritten instead (their lineage lives in a non-unionable `*Info` aspect — see the merge-behavior-by-entity-type notes above).
+- `overwrite`: Replace conflicting target aspects (descriptions, custom properties, schema, view properties) with source values. Note: ownership, tags, glossary terms, and structured properties are set-valued and are always **unioned** onto the target — they have no scalar "conflict" to resolve, so `overwrite` adds to them rather than replacing them.
 - `prompt`: Ask interactively for each conflict.
 - `preserve`: Leave the existing target **completely untouched** (no additive merge, no overwrite). Incoming references are still repointed to the existing target and the source is still deleted (unless `--keep`) — i.e. the existing target is _adopted_ in place of the source. Use this when the target is authoritative and you only want to redirect references and retire the source.
 

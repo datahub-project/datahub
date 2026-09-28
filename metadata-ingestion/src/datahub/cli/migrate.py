@@ -257,7 +257,9 @@ def _migrate_containers(
 
             for mcp in migration_utils.clone_aspect(
                 src_urn,
-                aspect_names=migration_utils.get_migratable_aspect_names("container"),
+                aspect_names=migration_utils.require_migratable_aspect_names(
+                    "container"
+                ),
                 dst_urn=dst_urn,
                 run_id=run_id,
             ):

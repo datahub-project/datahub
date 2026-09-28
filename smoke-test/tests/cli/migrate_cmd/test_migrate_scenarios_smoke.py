@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from typing import Optional
 
 import pytest
 
@@ -127,6 +128,42 @@ ct_src = f"urn:li:container:{_ct_src_key.guid()}"
 _ct_dst_key = DatabaseKey.model_validate(dict(_ct_props))
 _ct_dst_key.instance = CT_NEW
 ct_dst = f"urn:li:container:{_ct_dst_key.guid()}"
+
+# --- non-dataset additive-merge scenarios (urns-mapping --on-conflict patch) ---
+# A no-builder container pair. urns-mapping routes containers through the normal
+# entity merge (not the i2i/p2i legacy container path), so a pre-seeded target
+# exercises _merge_generic_entity: the union must keep both sides' owners/tags/terms,
+# reseat containerProperties, and keep the target on a conflicting scalar.
+NDP_OLD = f"mig_ndpold_{_suffix}"
+NDP_NEW = f"mig_ndpnew_{_suffix}"
+_ndp_src_key = DatabaseKey(
+    platform=PLATFORM, instance=NDP_OLD, env=ENV, database=f"mig_ndpdb_{_suffix}"
+)
+ndp_src = f"urn:li:container:{_ndp_src_key.guid()}"
+_ndp_dst_key = DatabaseKey(
+    platform=PLATFORM, instance=NDP_NEW, env=ENV, database=f"mig_ndpdb_{_suffix}"
+)
+ndp_dst = f"urn:li:container:{_ndp_dst_key.guid()}"
+ndp_prop = f"urn:li:structuredProperty:ndp_tier_{_suffix}"
+
+# A separate container pair for the overwrite (full-replace) case.
+NDO_OLD = f"mig_ndoold_{_suffix}"
+NDO_NEW = f"mig_ndonew_{_suffix}"
+_ndo_src_key = DatabaseKey(
+    platform=PLATFORM, instance=NDO_OLD, env=ENV, database=f"mig_ndodb_{_suffix}"
+)
+ndo_src = f"urn:li:container:{_ndo_src_key.guid()}"
+_ndo_dst_key = DatabaseKey(
+    platform=PLATFORM, instance=NDO_NEW, env=ENV, database=f"mig_ndodb_{_suffix}"
+)
+ndo_dst = f"urn:li:container:{_ndo_dst_key.guid()}"
+
+# schemaField pair — the motivating cascade case (col_a → Col_A on the same dataset).
+_ndp_ds = make_dataset_urn_with_platform_instance(
+    PLATFORM, f"my_db.my_schema.ndp_sf_{_suffix}", None, ENV
+)
+ndp_sf_src = make_schema_field_urn(_ndp_ds, "col_a")
+ndp_sf_dst = make_schema_field_urn(_ndp_ds, "Col_A")
 
 
 def _schema(field_name: str, platform: str = PLATFORM) -> SchemaMetadataClass:
@@ -609,6 +646,280 @@ def test_container_migration_regenerates_instance(graph_client: DataHubGraph) ->
         assert instance is not None and instance.instance == (
             make_dataplatform_instance_urn(PLATFORM, CT_NEW)
         )
+    finally:
+        delete_urns(graph_client, all_urns)
+        wait_for_writes_to_sync()
+
+
+def _seed_container(
+    graph_client: DataHubGraph,
+    urn: str,
+    props: dict,
+    name: str,
+    tag: str,
+    owner: str,
+    term: str,
+    subtype: str,
+    prop_urn: Optional[str] = None,
+    prop_value: Optional[str] = None,
+) -> None:
+    mcps = [
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=ContainerPropertiesClass(name=name, customProperties=props),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=urn, aspect=SubTypesClass(typeNames=[subtype])
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=urn, aspect=GlobalTagsClass(tags=[TagAssociationClass(tag=tag)])
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=OwnershipClass(
+                owners=[OwnerClass(owner=owner, type=OwnershipTypeClass.DATAOWNER)]
+            ),
+        ),
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=GlossaryTermsClass(
+                terms=[GlossaryTermAssociationClass(urn=term)],
+                auditStamp=AuditStampClass(time=0, actor="urn:li:corpuser:datahub"),
+            ),
+        ),
+    ]
+    if prop_urn is not None:
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=StructuredPropertiesClass(
+                    properties=[
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=prop_urn, values=[prop_value]
+                        )
+                    ]
+                ),
+            )
+        )
+    for mcp in mcps:
+        graph_client.emit_mcp(mcp)
+
+
+def test_urns_mapping_patch_unions_nondataset_target(
+    graph_client: DataHubGraph, tmp_path
+) -> None:
+    """urns-mapping --on-conflict patch on a pre-seeded container (a no-builder type,
+    so it runs _merge_generic_entity) unions ownership/tags/terms from both sides,
+    reseats containerProperties, keeps a target-only structured property, and keeps
+    the target on a conflicting scalar. This is the server-side union a MagicMock
+    unit test cannot demonstrate — arrayPrimaryKeys is enforced by GMS."""
+    all_urns = [ndp_prop, ndp_src, ndp_dst]
+    delete_urns(graph_client, all_urns)
+    wait_for_writes_to_sync()
+    graph_client.emit_mcp(
+        MetadataChangeProposalWrapper(
+            entityUrn=ndp_prop,
+            aspect=StructuredPropertyDefinitionClass(
+                qualifiedName=f"ndp_tier_{_suffix}",
+                valueType="urn:li:dataType:datahub.string",
+                entityTypes=["urn:li:entityType:datahub.container"],
+                displayName="NDP Tier",
+            ),
+        )
+    )
+    _seed_container(
+        graph_client,
+        ndp_src,
+        _ndp_src_key.model_dump(by_alias=True, exclude_none=True),
+        name="src_ct",
+        tag="urn:li:tag:ndp_src",
+        owner="urn:li:corpuser:ndp_alice",
+        term="urn:li:glossaryTerm:ndp_SrcTerm",
+        subtype="Database",
+    )
+    # Pre-seeded target with its OWN owner/tag/term, a target-only structured
+    # property, a conflicting subtype, and its own name.
+    _seed_container(
+        graph_client,
+        ndp_dst,
+        _ndp_dst_key.model_dump(by_alias=True, exclude_none=True),
+        name="tgt_ct",
+        tag="urn:li:tag:ndp_tgt",
+        owner="urn:li:corpuser:ndp_bob",
+        term="urn:li:glossaryTerm:ndp_TgtTerm",
+        subtype="Schema",
+        prop_urn=ndp_prop,
+        prop_value="silver",
+    )
+    wait_for_writes_to_sync()
+
+    mapping_file = tmp_path / "ndp_mapping.json"
+    mapping_file.write_text(json.dumps([{"source": ndp_src, "target": ndp_dst}]))
+    try:
+        result = run_datahub_cmd(
+            [
+                "migrate",
+                "urns-mapping",
+                "--mapping-file",
+                str(mapping_file),
+                "--on-conflict",
+                "patch",
+                "--force",
+                "--keep",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        wait_for_writes_to_sync()
+
+        tags = graph_client.get_aspect(ndp_dst, GlobalTagsClass)
+        assert tags is not None
+        assert {t.tag for t in tags.tags} == {
+            "urn:li:tag:ndp_src",
+            "urn:li:tag:ndp_tgt",
+        }
+        owners = graph_client.get_aspect(ndp_dst, OwnershipClass)
+        assert owners is not None
+        assert {o.owner for o in owners.owners} == {
+            "urn:li:corpuser:ndp_alice",
+            "urn:li:corpuser:ndp_bob",
+        }
+        terms = graph_client.get_aspect(ndp_dst, GlossaryTermsClass)
+        assert terms is not None
+        assert {t.urn for t in terms.terms} == {
+            "urn:li:glossaryTerm:ndp_SrcTerm",
+            "urn:li:glossaryTerm:ndp_TgtTerm",
+        }
+        # The target's own structured property survives the union (arrayPrimaryKeys).
+        props = graph_client.get_aspect(ndp_dst, StructuredPropertiesClass)
+        assert props is not None
+        assert any(p.propertyUrn == ndp_prop for p in props.properties)
+        # containerProperties is always reseated from the source.
+        cprops = graph_client.get_aspect(ndp_dst, ContainerPropertiesClass)
+        assert cprops is not None and cprops.name == "src_ct"
+        # A conflicting scalar keeps the target under patch.
+        subtypes = graph_client.get_aspect(ndp_dst, SubTypesClass)
+        assert subtypes is not None and subtypes.typeNames == ["Schema"]
+    finally:
+        delete_urns(graph_client, all_urns)
+        wait_for_writes_to_sync()
+
+
+def test_urns_mapping_overwrite_replaces_nondataset_target(
+    graph_client: DataHubGraph, tmp_path
+) -> None:
+    """--on-conflict overwrite on a non-dataset fully replaces the source-carried
+    aspects on the target — no union."""
+    all_urns = [ndo_src, ndo_dst]
+    delete_urns(graph_client, all_urns)
+    wait_for_writes_to_sync()
+    _seed_container(
+        graph_client,
+        ndo_src,
+        _ndo_src_key.model_dump(by_alias=True, exclude_none=True),
+        name="src_ct",
+        tag="urn:li:tag:ndo_src",
+        owner="urn:li:corpuser:ndo_alice",
+        term="urn:li:glossaryTerm:ndo_SrcTerm",
+        subtype="Database",
+    )
+    _seed_container(
+        graph_client,
+        ndo_dst,
+        _ndo_dst_key.model_dump(by_alias=True, exclude_none=True),
+        name="tgt_ct",
+        tag="urn:li:tag:ndo_tgt",
+        owner="urn:li:corpuser:ndo_bob",
+        term="urn:li:glossaryTerm:ndo_TgtTerm",
+        subtype="Schema",
+    )
+    wait_for_writes_to_sync()
+
+    mapping_file = tmp_path / "ndo_mapping.json"
+    mapping_file.write_text(json.dumps([{"source": ndo_src, "target": ndo_dst}]))
+    try:
+        result = run_datahub_cmd(
+            [
+                "migrate",
+                "urns-mapping",
+                "--mapping-file",
+                str(mapping_file),
+                "--on-conflict",
+                "overwrite",
+                "--force",
+                "--keep",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        wait_for_writes_to_sync()
+
+        # Overwrite replaces the source-carried aspects: the target's own tag is gone.
+        tags = graph_client.get_aspect(ndo_dst, GlobalTagsClass)
+        assert tags is not None
+        assert {t.tag for t in tags.tags} == {"urn:li:tag:ndo_src"}
+    finally:
+        delete_urns(graph_client, all_urns)
+        wait_for_writes_to_sync()
+
+
+def test_urns_mapping_patch_unions_schema_field_target(
+    graph_client: DataHubGraph, tmp_path
+) -> None:
+    """The motivating cascade case: a schemaField pair under --on-conflict patch
+    unions tags and terms on a pre-seeded target (col_a → Col_A re-key)."""
+    all_urns = [ndp_sf_src, ndp_sf_dst]
+    delete_urns(graph_client, all_urns)
+    wait_for_writes_to_sync()
+    for urn, tag, term in (
+        (ndp_sf_src, "urn:li:tag:sf_src", "urn:li:glossaryTerm:sf_SrcTerm"),
+        (ndp_sf_dst, "urn:li:tag:sf_tgt", "urn:li:glossaryTerm:sf_TgtTerm"),
+    ):
+        graph_client.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=GlobalTagsClass(tags=[TagAssociationClass(tag=tag)]),
+            )
+        )
+        graph_client.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=GlossaryTermsClass(
+                    terms=[GlossaryTermAssociationClass(urn=term)],
+                    auditStamp=AuditStampClass(time=0, actor="urn:li:corpuser:datahub"),
+                ),
+            )
+        )
+    wait_for_writes_to_sync()
+
+    mapping_file = tmp_path / "sf_mapping.json"
+    mapping_file.write_text(json.dumps([{"source": ndp_sf_src, "target": ndp_sf_dst}]))
+    try:
+        result = run_datahub_cmd(
+            [
+                "migrate",
+                "urns-mapping",
+                "--mapping-file",
+                str(mapping_file),
+                "--on-conflict",
+                "patch",
+                "--force",
+                "--keep",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        wait_for_writes_to_sync()
+
+        tags = graph_client.get_aspect(ndp_sf_dst, GlobalTagsClass)
+        assert tags is not None
+        assert {t.tag for t in tags.tags} == {
+            "urn:li:tag:sf_src",
+            "urn:li:tag:sf_tgt",
+        }
+        terms = graph_client.get_aspect(ndp_sf_dst, GlossaryTermsClass)
+        assert terms is not None
+        assert {t.urn for t in terms.terms} == {
+            "urn:li:glossaryTerm:sf_SrcTerm",
+            "urn:li:glossaryTerm:sf_TgtTerm",
+        }
     finally:
         delete_urns(graph_client, all_urns)
         wait_for_writes_to_sync()

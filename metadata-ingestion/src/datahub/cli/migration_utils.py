@@ -2,7 +2,7 @@
 
 import logging
 import uuid
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Set, TypeVar, Union
 
 import click
 from avrogen.dict_wrapper import DictWrapper
@@ -10,6 +10,7 @@ from avrogen.dict_wrapper import DictWrapper
 from datahub.cli import cli_utils
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.graph.openapi import RelatedEntity
@@ -17,18 +18,28 @@ from datahub.metadata.schema_classes import (
     ENTITY_TYPE_TO_ASPECT_NAMES,
     GlobalTagsClass,
     GlossaryTermsClass,
+    MetadataChangeProposalClass,
     OwnershipClass,
     SchemaMetadataClass,
+    StructuredPropertiesClass,
     SystemMetadataClass,
     UpstreamLineageClass,
     _Aspect,
 )
 from datahub.migration.models import ConflictStrategy, MergeResult
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
+from datahub.specific.aspect_helpers.tags import HasTagsPatch
+from datahub.specific.aspect_helpers.terms import HasTermsPatch
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.urn import guess_entity_type
 from datahub.utilities.urns.urn_iter import list_urns, transform_urns
 
 log = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
 
 
 # --- Constants ---
@@ -55,13 +66,40 @@ ALL_ENTITY_TYPES = ["dataset", "chart", "dashboard", "dataFlow", "dataJob"]
 # Charts, dashboards, dataflows, and datajobs don't have env/origin fields.
 ENV_ENTITY_TYPES = {"dataset"}
 
+# Non-dataset types whose lineage and description live in a single non-additive
+# *Info aspect (chartInfo, dashboardInfo, dataFlowInfo, dataJobInputOutput,
+# dataProductProperties) that the entity-agnostic patch builder cannot union. An
+# additive merge would keep the target's copy and strand the source's lineage
+# before the source is deleted, so these keep the full overwrite under every
+# conflict strategy. Other non-dataset types (schemaField, glossaryTerm,
+# container, …) only carry union-able or safely-copyable aspects.
+NON_ADDITIVE_MERGE_ENTITY_TYPES = frozenset(
+    {"chart", "dashboard", "dataFlow", "dataJob", "dataProduct"}
+)
 
-# Aspects that can be merged additively (lists of items, deduplicated)
+
+# Aspects the dataset path unions rather than overwrites, so a target's existing
+# values survive the merge. ownership/tags/terms/structuredProperties union by key
+# on any entity; upstreamLineage unions too but only through DatasetPatchBuilder's
+# dataset-only lineage template, so it is dataset-path-only (non-dataset carriers
+# fall to conflict-aware copy — see _GENERIC_UNIONABLE_ASPECTS).
 ADDITIVE_ASPECTS = {
     "ownership",
     "globalTags",
     "glossaryTerms",
+    "structuredProperties",
     "upstreamLineage",
+}
+
+# The additive aspects the entity-agnostic patch builder can union. upstreamLineage
+# is additive but only unionable through DatasetPatchBuilder's dataset-only lineage
+# template, so on non-dataset entities it falls into the conflict-aware complement
+# in _merge_generic_entity rather than being unioned here.
+_GENERIC_UNIONABLE_ASPECTS = {
+    "ownership",
+    "globalTags",
+    "glossaryTerms",
+    "structuredProperties",
 }
 
 # Aspects where conflicts need resolution (non-list, scalar values)
@@ -158,6 +196,25 @@ def get_migratable_aspect_names(entity_type: str) -> List[str]:
     ]
 
 
+def require_migratable_aspect_names(entity_type: str) -> List[str]:
+    """Like get_migratable_aspect_names, but refuses an entity type the registry
+    doesn't model.
+
+    An empty list is dangerous for every write path: cli_utils.get_aspects_for_entity
+    treats aspects=[] as "no filter" and fetches *everything*, while clone_aspect's
+    loop over an empty list yields nothing — so a migration would write zero aspects,
+    delete the source, and report a clean success. Fail loudly instead.
+    """
+    aspect_names = get_migratable_aspect_names(entity_type)
+    if not aspect_names:
+        raise ValueError(
+            f"Refusing to migrate entity type '{entity_type}': no migratable aspects "
+            f"are known for it. The CLI's entity registry is likely older than this "
+            f"entity type; upgrade acryl-datahub before migrating it."
+        )
+    return aspect_names
+
+
 def make_self_urn_rewriter(old_urn: str, new_urn: str) -> Callable[[str], str]:
     """Rewrite references to a single migrated entity URN.
 
@@ -219,13 +276,7 @@ def rewrite_incoming_references(
     time. For a heavily-referenced entity (many downstreams) that's a full-entity
     read per reference and can get slow on large migrations — worth batching.
     """
-    aspect_map = cli_utils.get_aspects_for_entity(
-        graph._session,
-        graph.config.server,
-        target_urn,
-        aspects=[],
-        typed=True,
-    )
+    aspect_map = _get_aspects(graph, target_urn, [])
     changed: List[MetadataChangeProposalWrapper] = []
     for aspect in aspect_map.values():
         if not isinstance(aspect, DictWrapper):
@@ -242,6 +293,14 @@ def rewrite_incoming_references(
 # --- Aspect cloning and relationship fetching ---
 
 
+def _get_aspects(
+    graph: DataHubGraph, urn: str, aspects: List[str]
+) -> Dict[str, Union[dict, _Aspect]]:
+    return cli_utils.get_aspects_for_entity(
+        graph._session, graph.config.server, urn, aspects=aspects, typed=True
+    )
+
+
 def clone_aspect(
     src_urn: str,
     aspect_names: List[str],
@@ -253,28 +312,21 @@ def clone_aspect(
     # at import time and would share a single run_id across every migration.
     run_id = run_id or str(uuid.uuid4())
     client = graph or get_default_graph(ClientMode.CLI)
-    aspect_map = cli_utils.get_aspects_for_entity(
-        client._session,
-        client.config.server,
-        entity_urn=src_urn,
-        aspects=aspect_names,
-        typed=True,
-    )
+    aspect_map = _get_aspects(client, src_urn, aspect_names)
 
-    if aspect_names is not None:
-        for a in aspect_names:
-            if a in aspect_map:
-                aspect_value = aspect_map[a]
-                assert isinstance(aspect_value, DictWrapper)
-                new_mcp = MetadataChangeProposalWrapper(
-                    entityUrn=dst_urn,
-                    aspect=aspect_value,
-                    systemMetadata=SystemMetadataClass(runId=run_id),
-                )
-                log.debug(f"Emitting mcp for {dst_urn} aspect {a}")
-                yield new_mcp
-            else:
-                log.debug(f"did not find aspect {a} in response, continuing...")
+    for a in aspect_names:
+        if a in aspect_map:
+            aspect_value = aspect_map[a]
+            assert isinstance(aspect_value, DictWrapper)
+            new_mcp = MetadataChangeProposalWrapper(
+                entityUrn=dst_urn,
+                aspect=aspect_value,
+                systemMetadata=SystemMetadataClass(runId=run_id),
+            )
+            log.debug(f"Emitting mcp for {dst_urn} aspect {a}")
+            yield new_mcp
+        else:
+            log.debug(f"did not find aspect {a} in response, continuing...")
 
 
 def get_incoming_relationships(
@@ -293,7 +345,7 @@ def get_incoming_relationships(
     plain URN fields (e.g. structured-property URN values) are not discovered here.
     """
     client = graph or get_default_graph(ClientMode.CLI)
-    seen: set = set()
+    seen: Set[str] = set()
     scroll_id: Optional[str] = None
     while True:
         result = client.scroll_relationships(
@@ -317,16 +369,106 @@ def get_incoming_relationships(
 # --- Merge logic (for instance2instance with overlapping entities) ---
 
 
+class _AdditivePatchBuilder(
+    HasOwnershipPatch,
+    HasTagsPatch,
+    HasTermsPatch,
+    HasStructuredPropertiesPatch,
+    MetadataPatchProposal,
+):
+    """Only the aspect mixins that set ``array_primary_keys`` on their patches.
+
+    GMS routes any patch carrying non-empty ``arrayPrimaryKeys`` through
+    ``applyGenericPatch``, which unions by those keys without needing a registered
+    per-aspect template — so this is safe on any entity type (schemaField, chart,
+    dashboard, ...), unlike DatasetPatchBuilder which also carries dataset-only
+    schema/lineage/customProperties surface. A fifth mixin is only valid here if it
+    likewise sets ``array_primary_keys``."""
+
+    def build(self) -> List[MetadataChangeProposalClass]:
+        # Enforce the mixin invariant at merge time, not GMS emit time. A mixin that
+        # emitted a plain JSON patch (no arrayPrimaryKeys) would be silently dropped
+        # by GMS on a non-dataset entity — surface it here as a hard failure instead.
+        for aspect_name, patches in self.patches.items():
+            for patch in patches:
+                if not patch.array_primary_keys:
+                    raise TypeError(
+                        f"_AdditivePatchBuilder produced a non-generic patch for "
+                        f"'{aspect_name}'; every mixin here must set array_primary_keys."
+                    )
+        return super().build()
+
+
+def _add_each(
+    dst_urn: str, kind: str, items: Optional[List[_T]], add: Callable[[_T], object]
+) -> None:
+    # Isolate per item: one malformed owner/tag/term/property must not void the
+    # entity's other additive aspects (this codebase's don't-fail-the-batch rule).
+    item_list = list(items or [])
+    if not item_list:
+        return
+    failed = 0
+    last_error: Optional[Exception] = None
+    for item in item_list:
+        try:
+            add(item)
+        except Exception as e:
+            failed += 1
+            last_error = e
+            log.warning(f"Skipping a {kind} on {dst_urn} during additive merge: {e}")
+    # Every item of a present aspect failing is diagnostic of a systemic bug (e.g. a
+    # schema mismatch in the patch mixin), not bad data. Abort the pair so the caller
+    # doesn't delete the source and report success with the aspect silently missing.
+    if failed == len(item_list):
+        raise RuntimeError(
+            f"All {failed} {kind}(s) failed to merge onto {dst_urn}; aborting the "
+            f"pair rather than dropping the aspect and deleting the source"
+        ) from last_error
+
+
+def _apply_union_patches(
+    patch_builder: Union[DatasetPatchBuilder, _AdditivePatchBuilder],
+    src_aspects: Dict[str, DictWrapper],
+    dst_urn: str,
+) -> None:
+    if "ownership" in src_aspects:
+        aspect = src_aspects["ownership"]
+        assert isinstance(aspect, OwnershipClass)
+        _add_each(dst_urn, "owner", aspect.owners, patch_builder.add_owner)
+
+    if "globalTags" in src_aspects:
+        aspect = src_aspects["globalTags"]
+        assert isinstance(aspect, GlobalTagsClass)
+        _add_each(dst_urn, "tag", aspect.tags, patch_builder.add_tag)
+
+    if "glossaryTerms" in src_aspects:
+        aspect = src_aspects["glossaryTerms"]
+        assert isinstance(aspect, GlossaryTermsClass)
+        _add_each(dst_urn, "term", aspect.terms, patch_builder.add_term)
+
+    if "structuredProperties" in src_aspects:
+        aspect = src_aspects["structuredProperties"]
+        assert isinstance(aspect, StructuredPropertiesClass)
+        _add_each(
+            dst_urn,
+            "structured property",
+            aspect.properties,
+            patch_builder.set_structured_property_manual,
+        )
+
+
 def merge_additive_aspects(
     src_aspects: Dict[str, DictWrapper],
     dst_urn: str,
     graph: DataHubGraph,
     dry_run: bool,
-) -> int:
+) -> List[str]:
     """Merge additive aspects from source into existing target via Patch API.
 
-    Returns the number of MCPs emitted (JSON patches, plus a lineage UPSERT
-    when the target has no ``upstreamLineage`` aspect yet).
+    Returns the aspect names that actually produced a write (JSON patches, plus a
+    lineage UPSERT when the target has no ``upstreamLineage`` aspect yet). An
+    empty source aspect (e.g. ``GlobalTagsClass(tags=[])``) yields no MCP and is
+    therefore not reported as merged — keeping the count and the name list in sync.
 
     **Known limitation (multi-downstream FGL):** the Patch API keys
     fine-grained lineage entries on ``(transformOp, downstream, query)`` and
@@ -339,25 +481,9 @@ def merge_additive_aspects(
     multi-downstream FGL entries.
     """
     patch_builder = DatasetPatchBuilder(dst_urn)
-    lineage_upserts = 0
+    emitted: List[str] = []
 
-    if "ownership" in src_aspects:
-        aspect = src_aspects["ownership"]
-        assert isinstance(aspect, OwnershipClass)
-        for owner in aspect.owners or []:
-            patch_builder.add_owner(owner)
-
-    if "globalTags" in src_aspects:
-        aspect = src_aspects["globalTags"]
-        assert isinstance(aspect, GlobalTagsClass)
-        for tag in aspect.tags or []:
-            patch_builder.add_tag(tag)
-
-    if "glossaryTerms" in src_aspects:
-        aspect = src_aspects["glossaryTerms"]
-        assert isinstance(aspect, GlossaryTermsClass)
-        for term in aspect.terms or []:
-            patch_builder.add_term(term)
+    _apply_union_patches(patch_builder, src_aspects, dst_urn)
 
     if "upstreamLineage" in src_aspects:
         aspect = src_aspects["upstreamLineage"]
@@ -379,18 +505,58 @@ def merge_additive_aspects(
                             aspect=aspect,
                         )
                     )
-                lineage_upserts = 1
+                emitted.append("upstreamLineage")
             else:
+                # Unlike the per-item-isolated additive loops above, lineage edges
+                # are NOT isolated per item: a malformed fine-grained entry
+                # (0 or >1 downstreams) raises and aborts the aspect. Deliberate —
+                # a lineage edge is structural, so silently dropping one would
+                # corrupt the graph; surface it and let the operator use overwrite.
                 for upstream in aspect.upstreams or []:
                     patch_builder.add_upstream_lineage(upstream)
                 for fine_grained in aspect.fineGrainedLineages or []:
                     patch_builder.add_fine_grained_lineage(fine_grained)
 
-    mcps = patch_builder.build()
-    for mcp in mcps:
+    for mcp in patch_builder.build():
         if not dry_run:
             graph.emit(mcp)
-    return len(mcps) + lineage_upserts
+        if mcp.aspectName:
+            emitted.append(mcp.aspectName)
+    return emitted
+
+
+def _resolve_conflict(
+    label: str,
+    src_preview: str,
+    dst_preview: str,
+    src_urn: str,
+    dst_urn: str,
+    on_conflict: ConflictStrategy,
+) -> bool:
+    # True = take source (overwrite target); False = keep target.
+    if on_conflict == ConflictStrategy.OVERWRITE:
+        return True
+    if on_conflict == ConflictStrategy.PATCH:
+        log.info(
+            f"Conflict on {label} for {dst_urn} — keeping target "
+            f"(strategy: {on_conflict.value})"
+        )
+        return False
+    if on_conflict == ConflictStrategy.PROMPT:
+        click.echo(f"\nConflict on {label} for {dst_urn}")
+        click.echo(f"  Source ({src_urn}): {src_preview}")
+        click.echo(f"  Target ({dst_urn}): {dst_preview}")
+        choice = click.prompt(
+            "  Keep [s]ource or [t]arget?",
+            type=click.Choice(["s", "t"]),
+            default="t",
+        )
+        return choice == "s"
+    return False
+
+
+def _preview(value: str) -> str:
+    return f'"{value[:80]}{"..." if len(value) > 80 else ""}"'
 
 
 def should_overwrite_scalar(
@@ -401,28 +567,14 @@ def should_overwrite_scalar(
     dst_urn: str,
     on_conflict: ConflictStrategy,
 ) -> bool:
-    """Decide whether to overwrite a scalar field based on conflict strategy."""
-    if on_conflict == ConflictStrategy.OVERWRITE:
-        return True
-    elif on_conflict == ConflictStrategy.PATCH:
-        log.info(
-            f"Conflict on {field_name} for {dst_urn} — keeping target "
-            f"(strategy: {on_conflict.value})"
-        )
-        return False
-    elif on_conflict == ConflictStrategy.PROMPT:
-        click.echo(f"\nConflict on '{field_name}' for {dst_urn}")
-        src_preview = src_value[:80] + ("..." if len(src_value) > 80 else "")
-        dst_preview = dst_value[:80] + ("..." if len(dst_value) > 80 else "")
-        click.echo(f'  Source ({src_urn}): "{src_preview}"')
-        click.echo(f'  Target ({dst_urn}): "{dst_preview}"')
-        choice = click.prompt(
-            "  Keep [s]ource or [t]arget?",
-            type=click.Choice(["s", "t"]),
-            default="t",
-        )
-        return choice == "s"
-    return False
+    return _resolve_conflict(
+        f"'{field_name}'",
+        _preview(src_value),
+        _preview(dst_value),
+        src_urn,
+        dst_urn,
+        on_conflict,
+    )
 
 
 def should_overwrite_non_additive(
@@ -433,33 +585,16 @@ def should_overwrite_non_additive(
     dst_urn: str,
     on_conflict: ConflictStrategy,
 ) -> bool:
-    """Decide whether to overwrite a non-additive aspect based on conflict strategy."""
     if src_aspect.to_obj() == dst_aspect.to_obj():
-        return True  # No conflict, same data
-
-    if on_conflict == ConflictStrategy.OVERWRITE:
-        return True
-    elif on_conflict == ConflictStrategy.PATCH:
-        log.info(
-            f"Conflict on {aspect_name} for {dst_urn} — keeping target "
-            f"(strategy: {on_conflict.value})"
-        )
-        return False
-    elif on_conflict == ConflictStrategy.PROMPT:
-        click.echo(f"\nConflict on aspect '{aspect_name}' for {dst_urn}")
-        click.echo(
-            f"  Source ({src_urn}): {_summarize_aspect(aspect_name, src_aspect)}"
-        )
-        click.echo(
-            f"  Target ({dst_urn}): {_summarize_aspect(aspect_name, dst_aspect)}"
-        )
-        choice = click.prompt(
-            "  Keep [s]ource or [t]arget?",
-            type=click.Choice(["s", "t"]),
-            default="t",
-        )
-        return choice == "s"
-    return False
+        return True  # identical data, no conflict
+    return _resolve_conflict(
+        f"aspect '{aspect_name}'",
+        _summarize_aspect(aspect_name, src_aspect),
+        _summarize_aspect(aspect_name, dst_aspect),
+        src_urn,
+        dst_urn,
+        on_conflict,
+    )
 
 
 def _summarize_aspect(aspect_name: str, aspect: DictWrapper) -> str:
@@ -481,14 +616,14 @@ def merge_mixed_aspects(
     graph: DataHubGraph,
     on_conflict: ConflictStrategy,
     dry_run: bool,
-) -> tuple[int, int]:
-    """Merge aspects with both additive and scalar fields.
-
-    Returns (aspects_merged, conflicts_skipped).
-    """
+) -> MergeResult:
     patch_builder = DatasetPatchBuilder(dst_urn)
     has_patches = False
     conflicts_skipped = 0
+    # An aspect can both write (e.g. customProperties) and skip (e.g. a conflicting
+    # description) in one pass; track which aspects were skipped so the report lists
+    # each aspect in exactly one bucket rather than in both.
+    skipped_names: Set[str] = set()
 
     for aspect_name in MIXED_ASPECTS:
         if aspect_name not in src_aspects:
@@ -496,14 +631,7 @@ def merge_mixed_aspects(
         src_aspect = src_aspects[aspect_name]
 
         # Fetch target aspect once for both customProperties and description
-        dst_aspect_map = cli_utils.get_aspects_for_entity(
-            graph._session,
-            graph.config.server,
-            dst_urn,
-            aspects=[aspect_name],
-            typed=True,
-        )
-        dst_asp = dst_aspect_map.get(aspect_name)
+        dst_asp = _get_aspects(graph, dst_urn, [aspect_name]).get(aspect_name)
 
         src_custom_props: Dict[str, str] = {}
         if hasattr(src_aspect, "customProperties") and src_aspect.customProperties:
@@ -529,6 +657,7 @@ def merge_mixed_aspects(
                         has_patches = True
                     else:
                         conflicts_skipped += 1
+                        skipped_names.add(aspect_name)
                 else:
                     patch_builder.add_custom_property(key, value)
                     has_patches = True
@@ -553,20 +682,73 @@ def merge_mixed_aspects(
                     has_patches = True
                 else:
                     conflicts_skipped += 1
+                    skipped_names.add(aspect_name)
             elif not dst_desc:
                 editable = aspect_name == "editableDatasetProperties"
                 patch_builder.set_description(src_desc, editable=editable)
                 has_patches = True
 
-    aspects_merged = 0
+    emitted: List[str] = []
     if has_patches:
-        mcps = patch_builder.build()
-        for mcp in mcps:
+        for mcp in patch_builder.build():
             if not dry_run:
                 graph.emit(mcp)
-            aspects_merged += 1
+            if mcp.aspectName:
+                emitted.append(mcp.aspectName)
 
-    return aspects_merged, conflicts_skipped
+    return MergeResult(
+        merged=len(emitted),
+        skipped=conflicts_skipped,
+        merged_aspects=emitted,
+        # An aspect that produced any write is reported as merged, not skipped.
+        skipped_aspects=[a for a in skipped_names if a not in emitted],
+    )
+
+
+def _fetch_and_rewrite_source_aspects(
+    src_urn: str,
+    dst_urn: str,
+    graph: DataHubGraph,
+    rewrite_urn: Optional[Callable[[str], str]],
+) -> Dict[str, Union[dict, _Aspect]]:
+    """Fetch the source's migratable aspects and repoint their self-references at
+    the target, so merged aspects never carry the old URN.
+
+    Shared prologue for the dataset and generic merge paths. Raises if the registry
+    models no aspects for the entity type (see require_migratable_aspect_names).
+    """
+    aspect_names = require_migratable_aspect_names(guess_entity_type(dst_urn))
+    src_aspect_map = _get_aspects(graph, src_urn, aspect_names)
+    if rewrite_urn is None:
+        rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
+    for aspect in src_aspect_map.values():
+        if isinstance(aspect, DictWrapper):
+            transform_urns(aspect, rewrite_urn)
+    return src_aspect_map
+
+
+def _reseat_always_overwrite_aspects(
+    src_aspect_map: Dict[str, Union[dict, _Aspect]],
+    dst_urn: str,
+    graph: DataHubGraph,
+    dry_run: bool,
+) -> MergeResult:
+    """Emit ALWAYS_OVERWRITE_ASPECTS (e.g. containerProperties) verbatim.
+
+    These carry instance-bound data (customProperties that moved with the GUID) and
+    must land on the target rather than be skipped as a conflict.
+    """
+    result = MergeResult(merged=0, skipped=0)
+    for aspect_name in ALWAYS_OVERWRITE_ASPECTS:
+        src_val = src_aspect_map.get(aspect_name)
+        if isinstance(src_val, DictWrapper):
+            if not dry_run:
+                graph.emit_mcp(
+                    MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_val)
+                )
+            result.merged += 1
+            result.merged_aspects.append(aspect_name)
+    return result
 
 
 def _overwrite_entity(
@@ -587,7 +769,7 @@ def _overwrite_entity(
         rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
     aspect_names = [
         a
-        for a in get_migratable_aspect_names(guess_entity_type(dst_urn))
+        for a in require_migratable_aspect_names(guess_entity_type(dst_urn))
         if a not in MERGE_EXCLUDED_ASPECTS
     ]
     aspects_written = 0
@@ -608,6 +790,110 @@ def _overwrite_entity(
     return MergeResult(merged=aspects_written, skipped=0, merged_aspects=written_names)
 
 
+def _merge_additive_aspects_generic(
+    src_aspects: Dict[str, DictWrapper],
+    dst_urn: str,
+    graph: DataHubGraph,
+    dry_run: bool,
+) -> List[str]:
+    # Non-dataset counterpart to merge_additive_aspects: unions only the
+    # entity-agnostic aspects (no dataset-only lineage template). Returns the
+    # aspect names that actually produced a patch — an empty GlobalTagsClass(tags=[])
+    # yields no MCP, so it must not be reported as merged.
+    patch_builder = _AdditivePatchBuilder(dst_urn)
+    _apply_union_patches(patch_builder, src_aspects, dst_urn)
+    emitted: List[str] = []
+    for mcp in patch_builder.build():
+        if not dry_run:
+            graph.emit(mcp)
+        if mcp.aspectName:
+            emitted.append(mcp.aspectName)
+    return emitted
+
+
+def _merge_generic_entity(
+    src_urn: str,
+    dst_urn: str,
+    on_conflict: ConflictStrategy,
+    graph: DataHubGraph,
+    dry_run: bool,
+    rewrite_urn: Optional[Callable[[str], str]] = None,
+) -> MergeResult:
+    # Additive union of the union-able aspects + conflict-aware handling of
+    # everything else, so an existing non-dataset target's curated metadata is
+    # never clobbered.
+    src_aspect_map = _fetch_and_rewrite_source_aspects(
+        src_urn, dst_urn, graph, rewrite_urn
+    )
+    result = MergeResult(merged=0, skipped=0)
+
+    additive: Dict[str, DictWrapper] = {
+        k: v
+        for k, v in src_aspect_map.items()
+        if k in _GENERIC_UNIONABLE_ASPECTS and isinstance(v, DictWrapper)
+    }
+    if additive:
+        merged_names = _merge_additive_aspects_generic(
+            additive, dst_urn, graph, dry_run
+        )
+        result = result + MergeResult(len(merged_names), 0, merged_names, [])
+
+    # _merge_default_aspects skips ALWAYS_OVERWRITE_ASPECTS, so a container reached
+    # via urns-mapping would otherwise silently drop containerProperties (whose
+    # customProperties moved with the GUID). Reseat them here, like the dataset path.
+    result = result + _reseat_always_overwrite_aspects(
+        src_aspect_map, dst_urn, graph, dry_run
+    )
+
+    # Everything not handled above is copied conflict-aware. Taking the complement
+    # (rather than enumerating buckets) means a NON_ADDITIVE/MIXED aspect that a
+    # non-dataset entity happens to carry — e.g. schemaMetadata on glossaryTerm, or
+    # upstreamLineage on a semanticModel — and any newly-modeled aspect can never
+    # silently fall through and be lost when the source is deleted.
+    handled_elsewhere = (
+        _GENERIC_UNIONABLE_ASPECTS | ALWAYS_OVERWRITE_ASPECTS | MERGE_EXCLUDED_ASPECTS
+    )
+    remaining = [name for name in src_aspect_map if name not in handled_elsewhere]
+    result = result + _copy_aspects_conflict_aware(
+        remaining, src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
+    )
+    return result
+
+
+def _copy_aspects_conflict_aware(
+    aspect_names: Iterable[str],
+    src_aspect_map: Dict[str, Union[dict, _Aspect]],
+    dst_urn: str,
+    src_urn: str,
+    graph: DataHubGraph,
+    on_conflict: ConflictStrategy,
+    dry_run: bool,
+) -> MergeResult:
+    """Copy each named source aspect onto the target, honoring the conflict strategy.
+
+    On a value conflict the target is kept unless the strategy says otherwise.
+    """
+    result = MergeResult(merged=0, skipped=0)
+    for aspect_name in aspect_names:
+        src_aspect = src_aspect_map.get(aspect_name)
+        if not isinstance(src_aspect, DictWrapper):
+            continue
+        dst_aspect = _get_aspects(graph, dst_urn, [aspect_name]).get(aspect_name)
+        if isinstance(dst_aspect, DictWrapper) and not should_overwrite_non_additive(
+            aspect_name, src_aspect, dst_aspect, src_urn, dst_urn, on_conflict
+        ):
+            result.skipped += 1
+            result.skipped_aspects.append(aspect_name)
+            continue
+        if not dry_run:
+            graph.emit_mcp(
+                MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_aspect)
+            )
+        result.merged += 1
+        result.merged_aspects.append(aspect_name)
+    return result
+
+
 def _merge_non_additive_aspects(
     src_aspect_map: Dict[str, Union[dict, _Aspect]],
     dst_urn: str,
@@ -615,39 +901,16 @@ def _merge_non_additive_aspects(
     graph: DataHubGraph,
     on_conflict: ConflictStrategy,
     dry_run: bool,
-) -> Tuple[int, int, List[str], List[str]]:
-    """Merge scalar (non-additive) aspects, honoring the conflict strategy.
-
-    Returns (aspects_merged, conflicts_skipped, merged_names, skipped_names).
-    """
-    merged = 0
-    skipped = 0
-    merged_names: List[str] = []
-    skipped_names: List[str] = []
-    for aspect_name in NON_ADDITIVE_ASPECTS:
-        src_aspect = src_aspect_map.get(aspect_name)
-        if not isinstance(src_aspect, DictWrapper):
-            continue
-        dst_aspect_map = cli_utils.get_aspects_for_entity(
-            graph._session,
-            graph.config.server,
-            dst_urn,
-            aspects=[aspect_name],
-            typed=True,
-        )
-        dst_aspect = dst_aspect_map.get(aspect_name)
-        if isinstance(dst_aspect, DictWrapper) and not should_overwrite_non_additive(
-            aspect_name, src_aspect, dst_aspect, src_urn, dst_urn, on_conflict
-        ):
-            skipped += 1
-            skipped_names.append(aspect_name)
-            continue
-        mcp = MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_aspect)
-        if not dry_run:
-            graph.emit_mcp(mcp)
-        merged += 1
-        merged_names.append(aspect_name)
-    return merged, skipped, merged_names, skipped_names
+) -> MergeResult:
+    return _copy_aspects_conflict_aware(
+        NON_ADDITIVE_ASPECTS,
+        src_aspect_map,
+        dst_urn,
+        src_urn,
+        graph,
+        on_conflict,
+        dry_run,
+    )
 
 
 def merge_entity(
@@ -660,8 +923,11 @@ def merge_entity(
 ) -> MergeResult:
     """Merge all aspects from source entity into existing target.
 
-    Only dataset entities support full merge via the Patch API. For other entity
-    types (chart, dashboard, dataFlow, dataJob), this falls back to overwrite.
+    Datasets run the full Patch pipeline. Non-datasets whose lineage lives in a
+    non-unionable *Info aspect (NON_ADDITIVE_MERGE_ENTITY_TYPES) are fully
+    overwritten; the rest get an additive union of the union-able aspects plus
+    conflict-aware handling of the remainder. An explicit OVERWRITE always fully
+    replaces the target.
 
     When ``rewrite_urn`` is provided (batch migration), it is used instead of a
     single-pair rewriter so that cross-pair references are rewritten correctly.
@@ -672,99 +938,57 @@ def merge_entity(
     if on_conflict == ConflictStrategy.PRESERVE:
         return MergeResult(merged=0, skipped=1, skipped_aspects=["*"])
 
-    # Only datasets support Patch-based merge. Other entity types fall back to
-    # overwrite because there's no ChartPatchBuilder/DashboardPatchBuilder etc.
+    # NON_ADDITIVE_MERGE_ENTITY_TYPES (and any explicit OVERWRITE) fully overwrite
+    # the target; other non-datasets union the union-able aspects and copy the
+    # remainder conflict-aware.
     entity_type = guess_entity_type(dst_urn)
     if entity_type != "dataset":
-        log.info(
-            f"Entity type '{entity_type}' does not support merge — "
-            f"falling back to overwrite for {dst_urn}"
+        if (
+            on_conflict == ConflictStrategy.OVERWRITE
+            or entity_type in NON_ADDITIVE_MERGE_ENTITY_TYPES
+        ):
+            return _overwrite_entity(src_urn, dst_urn, graph, dry_run, rewrite_urn)
+        return _merge_generic_entity(
+            src_urn, dst_urn, on_conflict, graph, dry_run, rewrite_urn
         )
-        return _overwrite_entity(src_urn, dst_urn, graph, dry_run, rewrite_urn)
 
-    src_aspect_map = cli_utils.get_aspects_for_entity(
-        graph._session,
-        graph.config.server,
-        src_urn,
-        aspects=get_migratable_aspect_names(entity_type),
-        typed=True,
+    src_aspect_map = _fetch_and_rewrite_source_aspects(
+        src_urn, dst_urn, graph, rewrite_urn
     )
+    result = MergeResult(merged=0, skipped=0)
 
-    # Rewrite the source's self-references (e.g. fineGrainedLineages schemaField
-    # URNs) to the target URN before merging, so merged aspects don't carry the
-    # old URN — mirroring the clone path. When a batch rewriter is provided, use
-    # it so that cross-pair references are also rewritten.
-    if rewrite_urn is None:
-        rewrite_urn = make_self_urn_rewriter(src_urn, dst_urn)
-    for aspect in src_aspect_map.values():
-        if isinstance(aspect, DictWrapper):
-            transform_urns(aspect, rewrite_urn)
-
-    total_merged = 0
-    total_skipped = 0
-    all_merged_aspects: List[str] = []
-    all_skipped_aspects: List[str] = []
-
-    # Additive aspects via Patch API
-    additive: Dict[str, DictWrapper] = {}
-    for k, v in src_aspect_map.items():
-        if k in ADDITIVE_ASPECTS and isinstance(v, DictWrapper):
-            additive[k] = v
+    # Additive aspects via Patch API.
+    additive: Dict[str, DictWrapper] = {
+        k: v
+        for k, v in src_aspect_map.items()
+        if k in ADDITIVE_ASPECTS and isinstance(v, DictWrapper)
+    }
     if additive:
-        total_merged += merge_additive_aspects(additive, dst_urn, graph, dry_run)
-        all_merged_aspects.extend(additive.keys())
+        merged_names = merge_additive_aspects(additive, dst_urn, graph, dry_run)
+        result = result + MergeResult(len(merged_names), 0, merged_names, [])
 
-    # Mixed aspects (customProperties + description)
-    mixed: Dict[str, DictWrapper] = {}
-    for k, v in src_aspect_map.items():
-        if k in MIXED_ASPECTS and isinstance(v, DictWrapper):
-            mixed[k] = v
+    # Mixed aspects (customProperties + description).
+    mixed: Dict[str, DictWrapper] = {
+        k: v
+        for k, v in src_aspect_map.items()
+        if k in MIXED_ASPECTS and isinstance(v, DictWrapper)
+    }
     if mixed:
-        merged, skipped = merge_mixed_aspects(
+        result = result + merge_mixed_aspects(
             mixed, dst_urn, src_urn, graph, on_conflict, dry_run
         )
-        total_merged += merged
-        total_skipped += skipped
-        # Mixed aspects are either fully merged or fully skipped per aspect
-        if merged > 0:
-            all_merged_aspects.extend(mixed.keys())
-        if skipped > 0:
-            all_skipped_aspects.extend(mixed.keys())
 
-    # Non-additive aspects with conflict strategy
-    merged, skipped, na_merged_names, na_skipped_names = _merge_non_additive_aspects(
+    result = result + _merge_non_additive_aspects(
         src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
     )
-    total_merged += merged
-    total_skipped += skipped
-    all_merged_aspects.extend(na_merged_names)
-    all_skipped_aspects.extend(na_skipped_names)
-
-    # Always overwrite migration-specific aspects
-    for aspect_name in ALWAYS_OVERWRITE_ASPECTS:
-        src_val = src_aspect_map.get(aspect_name)
-        if src_val is not None and isinstance(src_val, DictWrapper):
-            mcp = MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_val)
-            if not dry_run:
-                graph.emit_mcp(mcp)
-            total_merged += 1
-            all_merged_aspects.append(aspect_name)
-
+    result = result + _reseat_always_overwrite_aspects(
+        src_aspect_map, dst_urn, graph, dry_run
+    )
     # Default bucket: any registry aspect not explicitly classified above.
-    merged, skipped, def_merged_names, def_skipped_names = _merge_default_aspects(
+    result = result + _merge_default_aspects(
         src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
     )
-    total_merged += merged
-    total_skipped += skipped
-    all_merged_aspects.extend(def_merged_names)
-    all_skipped_aspects.extend(def_skipped_names)
-
-    return MergeResult(
-        merged=total_merged,
-        skipped=total_skipped,
-        merged_aspects=all_merged_aspects,
-        skipped_aspects=all_skipped_aspects,
-    )
+    return result
 
 
 def _merge_default_aspects(
@@ -774,13 +998,13 @@ def _merge_default_aspects(
     graph: DataHubGraph,
     on_conflict: ConflictStrategy,
     dry_run: bool,
-) -> Tuple[int, int, List[str], List[str]]:
+) -> MergeResult:
     """Merge source aspects not handled by any explicit classification bucket.
 
     Because the aspect list is now sourced dynamically from the entity registry,
     newly-modeled aspects would otherwise be silently dropped in merge mode.
     They are treated conflict-aware, like the non-additive bucket, so nothing is
-    lost. Returns (aspects_merged, conflicts_skipped, merged_names, skipped_names).
+    lost.
     """
     classified = (
         ADDITIVE_ASPECTS
@@ -789,30 +1013,7 @@ def _merge_default_aspects(
         | ALWAYS_OVERWRITE_ASPECTS
         | MERGE_EXCLUDED_ASPECTS
     )
-    merged = 0
-    skipped = 0
-    merged_names: List[str] = []
-    skipped_names: List[str] = []
-    for aspect_name, src_aspect in src_aspect_map.items():
-        if aspect_name in classified or not isinstance(src_aspect, DictWrapper):
-            continue
-        dst_aspect_map = cli_utils.get_aspects_for_entity(
-            graph._session,
-            graph.config.server,
-            dst_urn,
-            aspects=[aspect_name],
-            typed=True,
-        )
-        dst_aspect = dst_aspect_map.get(aspect_name)
-        if isinstance(dst_aspect, DictWrapper) and not should_overwrite_non_additive(
-            aspect_name, src_aspect, dst_aspect, src_urn, dst_urn, on_conflict
-        ):
-            skipped += 1
-            skipped_names.append(aspect_name)
-            continue
-        mcp = MetadataChangeProposalWrapper(entityUrn=dst_urn, aspect=src_aspect)
-        if not dry_run:
-            graph.emit_mcp(mcp)
-        merged += 1
-        merged_names.append(aspect_name)
-    return merged, skipped, merged_names, skipped_names
+    unclassified = [name for name in src_aspect_map if name not in classified]
+    return _copy_aspects_conflict_aware(
+        unclassified, src_aspect_map, dst_urn, src_urn, graph, on_conflict, dry_run
+    )
