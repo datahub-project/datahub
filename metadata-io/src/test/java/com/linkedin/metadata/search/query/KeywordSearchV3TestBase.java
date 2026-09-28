@@ -1,0 +1,737 @@
+package com.linkedin.metadata.search.query;
+
+import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
+import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS_DISABLED;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
+import static io.datahubproject.test.search.SearchTestUtils.createDelegatingSettingsBuilder;
+import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
+import static org.mockito.Mockito.mock;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertEqualsNoOrder;
+import static org.testng.Assert.assertTrue;
+
+import com.datahub.context.OperationFingerprint;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.linkedin.chart.ChartInfo;
+import com.linkedin.common.AuditStamp;
+import com.linkedin.common.BrowsePathEntry;
+import com.linkedin.common.BrowsePathEntryArray;
+import com.linkedin.common.BrowsePathsV2;
+import com.linkedin.common.ChangeAuditStamps;
+import com.linkedin.common.Status;
+import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.browse.BrowseResultGroupV2;
+import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
+import com.linkedin.metadata.config.search.CustomConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.AutoCompleteResult;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.FilterValue;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
+import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
+import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.mxe.MetadataChangeLog;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
+import com.linkedin.structured.StructuredProperties;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
+import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
+import com.linkedin.test.metadata.aspect.MockAspectRetriever;
+import com.linkedin.test.metadata.aspect.batch.TestMCL;
+import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.metadata.context.SearchContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.annotation.Nonnull;
+import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.opensearch.action.explain.ExplainResponse;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.indices.GetIndexRequest;
+import org.opensearch.client.indices.GetMappingsRequest;
+import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+/**
+ * Keyword (non-vector) reads with Search V3 keyword reads on, run against each engine's test
+ * container. Entities are written through the V3 update-indices strategy only. With the V2 entity
+ * indices disabled no V2 index exists under the test prefix, so a read that still resolved one
+ * would fail with index_not_found, or come back empty through a V2 wildcard. With V2 enabled (see
+ * {@link #isV2Enabled()}) the V2 indices exist but stay empty, so a read routed to V2 finds
+ * nothing.
+ *
+ * <p>Legacy browse ({@code browse}, {@code getBrowsePaths}) is not covered: it reads browsePaths
+ * fields that only exist on V2 mappings.
+ */
+public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContextTests {
+
+  private static final Urn HIVE = UrnUtils.getUrn("urn:li:dataPlatform:hive");
+  private static final Urn POSTGRES = UrnUtils.getUrn("urn:li:dataPlatform:postgres");
+  private static final Urn ORDERS =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sales.orders,PROD)");
+  private static final Urn CUSTOMERS =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:postgres,sales.customers,PROD)");
+  private static final Urn ORDERS_CHART = UrnUtils.getUrn("urn:li:chart:(looker,orders_by_region)");
+  private static final List<String> ENTITY_TYPES = List.of(DATASET_ENTITY_NAME, CHART_ENTITY_NAME);
+  // Its indices get no documents, so the dynamic _search.tier_N fields stay unmapped in its V3
+  // index
+  private static final String EMPTY_ENTITY_TYPE = GLOSSARY_TERM_ENTITY_NAME;
+  private static final String BROWSE_DELIMITER = "␟";
+  private static final Urn RETENTION_POLICY =
+      UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
+
+  private final List<String> createdIndices = new ArrayList<>();
+  private OperationContext opContext;
+  private ElasticSearchService searchService;
+
+  @Nonnull
+  protected abstract SearchClientShim<?> getSearchClient();
+
+  @Nonnull
+  protected abstract ESBulkProcessor getBulkProcessor();
+
+  /** Keep the V2 entity indices enabled next to V3 keyword reads, as before V2 is turned off. */
+  protected boolean isV2Enabled() {
+    return false;
+  }
+
+  @BeforeClass
+  public void setUp() throws Exception {
+    EntityIndexConfiguration entityIndex =
+        V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.toBuilder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(isV2Enabled()).build())
+            .v3(
+                V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().toBuilder()
+                    .keywordReadEnabled(true)
+                    .build())
+            .build();
+    ElasticSearchConfiguration config =
+        TEST_ES_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build();
+    IndexConvention indexConvention =
+        new IndexConventionImpl(
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver(isV2Enabled() ? "keywordv3dual" : "keywordv3"),
+            entityIndex);
+    EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
+    MappingsBuilder mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
+    // Both the document transformer and the filter resolver look the definition up
+    StructuredPropertyDefinition retentionPolicy =
+        new StructuredPropertyDefinition()
+            .setQualifiedName(RETENTION_POLICY.getId())
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "string"))
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")));
+    MockAspectRetriever aspectRetriever =
+        new MockAspectRetriever(RETENTION_POLICY, retentionPolicy, new Status().setRemoved(false));
+    aspectRetriever.setEntityRegistry(entityRegistry);
+    RetrieverContext retrieverContext =
+        RetrieverContext.builder()
+            .aspectRetriever(aspectRetriever)
+            .cachingAspectRetriever(
+                TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
+            .build();
+    opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            () -> retrieverContext,
+            SearchContext.builder()
+                .indexConvention(indexConvention)
+                .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
+                .searchableFieldTypes(
+                    ESUtils.buildSearchableFieldTypes(entityRegistry, mappingsBuilder))
+                .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
+                .build());
+
+    ESIndexBuilder indexBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            config,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+    SettingsBuilder settingsBuilder =
+        createDelegatingSettingsBuilder(entityIndex, config.getIndex(), indexConvention);
+    // The production query configurations, e.g. quoted queries skip the simple query
+    CustomConfiguration customConfiguration = new CustomConfiguration();
+    customConfiguration.setEnabled(true);
+    customConfiguration.setFile("search_config.yaml");
+    searchService =
+        new ElasticSearchService(
+            indexBuilder,
+            TEST_SEARCH_SERVICE_CONFIG,
+            config,
+            mappingsBuilder,
+            settingsBuilder,
+            new ESSearchDAO(
+                false,
+                config,
+                customConfiguration.resolve(new YAMLMapper()),
+                QueryFilterRewriteChain.EMPTY,
+                TEST_SEARCH_SERVICE_CONFIG),
+            new ESBrowseDAO(
+                config, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG),
+            new ESWriteDAO(
+                config,
+                getSearchClient(),
+                getBulkProcessor(),
+                SearchWriteAccess.fixed(getBulkProcessor())));
+
+    // Only the seeded entity types' indices plus the empty one; the registry would build one per
+    // entity type
+    Map<String, Map<String, Object>> mappings =
+        mappingsBuilder
+            .getIndexMappings(opContext, List.of(Pair.of(RETENTION_POLICY, retentionPolicy)))
+            .stream()
+            .collect(
+                Collectors.toMap(
+                    MappingsBuilder.IndexMapping::getIndexName,
+                    MappingsBuilder.IndexMapping::getMappings));
+    for (String entityType :
+        Stream.concat(ENTITY_TYPES.stream(), Stream.of(EMPTY_ENTITY_TYPE))
+            .collect(Collectors.toList())) {
+      List<String> indexNames = new ArrayList<>();
+      indexNames.add(
+          indexConvention.getEntityIndexNameV3(
+              opContext, V3IndexKeys.resolve(entityRegistry.getEntitySpec(entityType))));
+      if (isV2Enabled()) {
+        indexNames.add(indexConvention.getEntityIndexName(opContext, entityType));
+      }
+      for (String indexName : indexNames) {
+        indexBuilder.buildIndex(
+            opContext,
+            indexBuilder.buildReindexState(
+                opContext,
+                indexName,
+                mappings.get(indexName),
+                settingsBuilder.getSettings(config.getIndex(), indexName)));
+        createdIndices.add(indexName);
+      }
+    }
+
+    new UpdateIndicesV3Strategy(
+            entityIndex.getV3(),
+            searchService,
+            new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH),
+            mock(TimeseriesAspectService.class),
+            null)
+        .processBatch(
+            opContext,
+            Map.of(
+                ORDERS,
+                events(
+                    ORDERS,
+                    new DatasetProperties().setName("orders"),
+                    browsePaths("prod", "sales"),
+                    new StructuredProperties()
+                        .setProperties(
+                            new StructuredPropertyValueAssignmentArray(
+                                new StructuredPropertyValueAssignment()
+                                    .setPropertyUrn(RETENTION_POLICY)
+                                    .setValues(
+                                        new PrimitivePropertyValueArray(
+                                            PrimitivePropertyValue.create("90d")))))),
+                CUSTOMERS,
+                events(
+                    CUSTOMERS,
+                    new DatasetProperties().setName("customers"),
+                    browsePaths("prod", "marketing")),
+                ORDERS_CHART,
+                events(
+                    ORDERS_CHART,
+                    new ChartInfo()
+                        .setTitle("Orders by region")
+                        .setDescription("Monthly orders")
+                        .setLastModified(new ChangeAuditStamps()),
+                    browsePaths("prod", "sales"))),
+            false);
+    syncAfterWrite(getBulkProcessor());
+  }
+
+  @AfterClass(alwaysRun = true)
+  public void deleteV3Indices() throws IOException {
+    for (String index : createdIndices) {
+      getSearchClient()
+          .deleteIndex(
+              OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+    }
+  }
+
+  @Test
+  public void testV2EntityIndexExistsOnlyWhenEnabled() throws IOException {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    for (String entityType : ENTITY_TYPES) {
+      String v2Index = indexConvention.getEntityIndexName(opContext, entityType);
+      assertEquals(indexExists(v2Index), isV2Enabled(), v2Index);
+    }
+    for (String index : createdIndices) {
+      assertTrue(indexExists(index), index);
+    }
+  }
+
+  @Test
+  public void testFilter() {
+    assertUrns(
+        searchService
+            .filter(
+                opContext,
+                DATASET_ENTITY_NAME,
+                QueryUtils.newFilter("platform", HIVE.toString()),
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS);
+    // Callers that name the V2 .keyword subfield read the root field
+    assertUrns(
+        searchService
+            .filter(
+                opContext,
+                DATASET_ENTITY_NAME,
+                QueryUtils.newFilter("platform.keyword", HIVE.toString()),
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS);
+    // The UI sends entity type enum names; V3 stores the registry entity name
+    SearchResult byType =
+        searchService.filter(
+            opContext,
+            DATASET_ENTITY_NAME,
+            QueryUtils.newFilter("_entityType", "DATASET"),
+            null,
+            0,
+            10);
+    assertEquals(byType.getNumEntities(), 2);
+    // Facet extraction gets the same value as the query, so the Type facet does not list the
+    // filter value a second time next to its bucket
+    assertEquals(
+        byType.getMetadata().getAggregations().stream()
+            .filter(agg -> agg.getName().equals("_entityType"))
+            .flatMap(agg -> agg.getFilterValues().stream().map(FilterValue::getValue))
+            .collect(Collectors.toList()),
+        List.of(DATASET_ENTITY_NAME));
+  }
+
+  @Test
+  public void testStructuredPropertyFilter() {
+    String field = "structuredProperties." + RETENTION_POLICY.getId();
+    assertUrns(
+        searchService
+            .filter(opContext, DATASET_ENTITY_NAME, QueryUtils.newFilter(field, "90d"), null, 0, 10)
+            .getEntities(),
+        ORDERS);
+    assertEquals(
+        searchService.aggregateByValue(opContext, List.of(DATASET_ENTITY_NAME), field, null, 10),
+        Map.of("90d", 1L));
+  }
+
+  @Test
+  public void testLineageUrnFilter() {
+    // The filter LineageSearchService sends for a batch of related entities
+    DataHubAppConfiguration appConfig = new DataHubAppConfiguration();
+    appConfig.setMetadataChangeProposal(new MetadataChangeProposalConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .setSideEffects(new MetadataChangeProposalConfig.SideEffectsConfig());
+    appConfig
+        .getMetadataChangeProposal()
+        .getSideEffects()
+        .setSchemaField(new MetadataChangeProposalConfig.SchemaFieldSideEffectsConfig());
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+
+    Filter lineageFilter =
+        QueryUtils.buildFilterWithUrns(appConfig, Set.of(ORDERS, ORDERS_CHART), null);
+    assertUrns(
+        searchService.search(fulltext, ENTITY_TYPES, "*", lineageFilter, null, 0, 10).getEntities(),
+        ORDERS,
+        ORDERS_CHART);
+
+    // A facet filter picked on the lineage tab is combined with the URN criterion
+    Filter facetedLineageFilter =
+        QueryUtils.buildFilterWithUrns(
+            appConfig,
+            Set.of(ORDERS, CUSTOMERS),
+            QueryUtils.newFilter("platform", HIVE.toString()));
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "*", facetedLineageFilter, null, 0, 10)
+            .getEntities(),
+        ORDERS);
+  }
+
+  @Test
+  public void testAggregateByValue() {
+    assertEquals(
+        searchService.aggregateByValue(
+            opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10),
+        Map.of(HIVE.toString(), 1L, POSTGRES.toString(), 1L));
+  }
+
+  @Test
+  public void testDocCount() {
+    assertEquals(searchService.docCount(opContext, DATASET_ENTITY_NAME, null), 2L);
+    assertEquals(searchService.docCount(opContext, CHART_ENTITY_NAME, null), 1L);
+    // Callers pass registry keys, which are lower-cased (glossaryterm for glossaryTerm), so the
+    // stored entity type must match ignoring case
+    assertEquals(searchService.docCount(opContext, "DATASET", null), 2L);
+  }
+
+  @Test
+  public void testRawEntity() {
+    Map<Urn, Map<String, Object>> raw = searchService.raw(opContext, Set.of(ORDERS, ORDERS_CHART));
+    assertEquals(raw.keySet(), Set.of(ORDERS, ORDERS_CHART));
+    // _entityType is only stored on V3 documents
+    assertEquals(raw.get(ORDERS).get("_entityType"), DATASET_ENTITY_NAME);
+    assertEquals(raw.get(ORDERS_CHART).get("_entityType"), CHART_ENTITY_NAME);
+  }
+
+  @Test
+  public void testExplain() {
+    // Callers pass the URN; V3 documents live under a hashed _id
+    ExplainResponse explain =
+        searchService.explain(
+            opContext,
+            "orders",
+            ORDERS.toString(),
+            DATASET_ENTITY_NAME,
+            null,
+            null,
+            null,
+            null,
+            10,
+            List.of());
+    assertTrue(explain.isExists());
+    assertTrue(explain.isMatch());
+  }
+
+  @Test
+  public void testSearch() {
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "orders", null, null, 0, 10)
+            .getEntities(),
+        ORDERS);
+    assertUrns(
+        searchService
+            .search(fulltext, List.of(DATASET_ENTITY_NAME), "ORDERS", null, null, 0, 10)
+            .getEntities(),
+        ORDERS);
+
+    SearchResult acrossEntities =
+        searchService.search(
+            fulltext,
+            ENTITY_TYPES,
+            "orders",
+            null,
+            null,
+            0,
+            10,
+            List.of("platform", "_entityType"));
+    assertUrns(acrossEntities.getEntities(), ORDERS, ORDERS_CHART);
+    Map<String, Map<String, Long>> facets =
+        acrossEntities.getMetadata().getAggregations().stream()
+            .collect(
+                Collectors.toMap(
+                    AggregationMetadata::getName, AggregationMetadata::getAggregations));
+    assertEquals(facets.get("platform"), Map.of(HIVE.toString(), 1L));
+    assertEquals(facets.get("_entityType"), Map.of(DATASET_ENTITY_NAME, 1L, CHART_ENTITY_NAME, 1L));
+    // Each returned Type value filters back to its entities
+    for (Map.Entry<String, Urn> type :
+        Map.of(DATASET_ENTITY_NAME, ORDERS, CHART_ENTITY_NAME, ORDERS_CHART).entrySet()) {
+      assertUrns(
+          searchService
+              .search(
+                  fulltext,
+                  ENTITY_TYPES,
+                  "orders",
+                  QueryUtils.newFilter("_entityType", type.getKey()),
+                  null,
+                  0,
+                  10)
+              .getEntities(),
+          type.getValue());
+    }
+
+    // A quoted query runs no simple query, so only the phrase prefix reaches the description
+    assertUrns(
+        searchService
+            .search(fulltext, ENTITY_TYPES, "\"monthly orders\"", null, null, 0, 10)
+            .getEntities(),
+        ORDERS_CHART);
+
+    // _entityName aliases the raw name, so the chart title's capital sorts first ascending. The urn
+    // tie-break gives that order too; only a working name sort reverses it descending
+    for (Map.Entry<SortOrder, List<Urn>> sort :
+        Map.of(
+                SortOrder.ASCENDING, List.of(ORDERS_CHART, ORDERS),
+                SortOrder.DESCENDING, List.of(ORDERS, ORDERS_CHART))
+            .entrySet()) {
+      assertEquals(
+          searchService
+              .search(
+                  fulltext,
+                  ENTITY_TYPES,
+                  "orders",
+                  null,
+                  List.of(new SortCriterion().setField("_entityName").setOrder(sort.getKey())),
+                  0,
+                  10)
+              .getEntities()
+              .stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toList()),
+          sort.getValue(),
+          sort.getKey().toString());
+    }
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSearchWithEmptyIndex() throws IOException {
+    // No document reached the empty index, so the tier fields the queries name are unmapped there
+    String emptyIndex =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(
+                opContext,
+                V3IndexKeys.resolve(
+                    opContext.getEntityRegistry().getEntitySpec(EMPTY_ENTITY_TYPE)));
+    Map<String, Object> properties =
+        (Map<String, Object>)
+            getSearchClient()
+                .getIndexMapping(
+                    OperationFingerprint.EMPTY,
+                    new GetMappingsRequest().indices(emptyIndex),
+                    RequestOptions.DEFAULT)
+                .mappings()
+                .get(emptyIndex)
+                .sourceAsMap()
+                .get("properties");
+    Map<String, Object> searchFields =
+        (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
+    assertTrue(searchFields.keySet().stream().noneMatch(field -> field.startsWith("tier_")));
+
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    for (String query : List.of("orders", "\"orders\"")) {
+      assertUrns(
+          searchService
+              .search(
+                  fulltext,
+                  List.of(EMPTY_ENTITY_TYPE, DATASET_ENTITY_NAME),
+                  query,
+                  null,
+                  null,
+                  0,
+                  10)
+              .getEntities(),
+          ORDERS);
+      assertEquals(
+          searchService
+              .search(fulltext, List.of(EMPTY_ENTITY_TYPE), query, null, null, 0, 10)
+              .getNumEntities()
+              .intValue(),
+          0,
+          query);
+    }
+    assertEquals(
+        urns(searchService.autoComplete(opContext, EMPTY_ENTITY_TYPE, "ord", null, null, 10)),
+        List.of());
+  }
+
+  @Test
+  public void testScroll() {
+    assertUrns(
+        searchService
+            .fullTextScroll(opContext, ENTITY_TYPES, "*", null, null, null, null, 10, List.of())
+            .getEntities(),
+        ORDERS,
+        CUSTOMERS,
+        ORDERS_CHART);
+  }
+
+  @Test
+  public void testAutoComplete() {
+    AutoCompleteResult name =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ord", null, null, 10);
+    assertEquals(urns(name), List.of(ORDERS));
+    assertEquals(name.getSuggestions(), List.of("orders"));
+
+    // Only a later word of the title matches
+    AutoCompleteResult word =
+        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "reg", null, null, 10);
+    assertEquals(urns(word), List.of(ORDERS_CHART));
+    assertEquals(word.getSuggestions(), List.of("Orders by region"));
+
+    // The dataset key id has no search tier, so only its root value holds "sales"
+    AutoCompleteResult keyId =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "sales", null, null, 10);
+    assertEqualsNoOrder(urns(keyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
+    assertEqualsNoOrder(
+        keyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
+    // A urn request matches and highlights the default fields
+    assertEqualsNoOrder(
+        urns(searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "sales", "urn", null, 10))
+            .toArray(),
+        new Urn[] {ORDERS, CUSTOMERS});
+
+    // Mixed-case input: tier text lowercases it and root prefixes ignore case, so upper case
+    // "SALES" can only match through the case-insensitive prefix on the key id
+    AutoCompleteResult upperName =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "ORD", null, null, 10);
+    assertEquals(urns(upperName), List.of(ORDERS));
+    assertEquals(upperName.getSuggestions(), List.of("orders"));
+    AutoCompleteResult upperKeyId =
+        searchService.autoComplete(opContext, DATASET_ENTITY_NAME, "SALES", null, null, 10);
+    assertEqualsNoOrder(urns(upperKeyId).toArray(), new Urn[] {ORDERS, CUSTOMERS});
+    assertEqualsNoOrder(
+        upperKeyId.getSuggestions().toArray(), new String[] {"sales.orders", "sales.customers"});
+
+    // A requested field is the only one matched, not the entity name
+    AutoCompleteResult tool =
+        searchService.autoComplete(opContext, CHART_ENTITY_NAME, "look", "tool", null, 10);
+    assertEquals(urns(tool), List.of(ORDERS_CHART));
+    assertEquals(tool.getSuggestions(), List.of("looker"));
+    assertEquals(
+        urns(searchService.autoComplete(opContext, CHART_ENTITY_NAME, "ord", "tool", null, 10)),
+        List.of());
+    // A requested date field takes no prefix query and matches nothing
+    assertEquals(
+        urns(
+            searchService.autoComplete(
+                opContext, CHART_ENTITY_NAME, "2024", "lastModifiedAt", null, 10)),
+        List.of());
+  }
+
+  @Test
+  public void testBrowseV2() {
+    BrowseResultV2 datasets =
+        searchService.browseV2(opContext, DATASET_ENTITY_NAME, "", null, "*", 0, 10);
+    assertEquals(datasets.getMetadata().getTotalNumEntities().longValue(), 2L);
+    assertEquals(groups(datasets), Map.of("prod", 2L));
+
+    BrowseResultV2 acrossEntities =
+        searchService.browseV2(
+            opContext, ENTITY_TYPES, BROWSE_DELIMITER + "prod", null, "*", 0, 10);
+    assertEquals(acrossEntities.getMetadata().getTotalNumEntities().longValue(), 3L);
+    assertEquals(groups(acrossEntities), Map.of("sales", 2L, "marketing", 1L));
+  }
+
+  private List<MCLItem> events(Urn urn, RecordTemplate... aspects) {
+    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
+    AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    return Stream.concat(
+            Stream.of(EntityKeyUtils.convertUrnToEntityKey(urn, entitySpec.getKeyAspectSpec())),
+            Arrays.stream(aspects))
+        .map(
+            aspect ->
+                (MCLItem)
+                    TestMCL.builder()
+                        .urn(urn)
+                        .changeType(ChangeType.UPSERT)
+                        .metadataChangeLog(new MetadataChangeLog())
+                        .entitySpec(entitySpec)
+                        .aspectSpec(
+                            entitySpec.getAspectSpec(
+                                PegasusUtils.getAspectNameFromSchema(aspect.schema())))
+                        .recordTemplate(aspect)
+                        .auditStamp(auditStamp)
+                        .build())
+        .collect(Collectors.toList());
+  }
+
+  private static BrowsePathsV2 browsePaths(String... ids) {
+    return new BrowsePathsV2()
+        .setPath(
+            new BrowsePathEntryArray(
+                Arrays.stream(ids)
+                    .map(id -> new BrowsePathEntry().setId(id))
+                    .collect(Collectors.toList())));
+  }
+
+  private static List<Urn> urns(AutoCompleteResult result) {
+    return result.getEntities().stream()
+        .map(AutoCompleteEntity::getUrn)
+        .collect(Collectors.toList());
+  }
+
+  private static Map<String, Long> groups(BrowseResultV2 result) {
+    return result.getGroups().stream()
+        .collect(Collectors.toMap(BrowseResultGroupV2::getName, BrowseResultGroupV2::getCount));
+  }
+
+  private boolean indexExists(String index) throws IOException {
+    return getSearchClient()
+        .indexExists(opContext, new GetIndexRequest(index), RequestOptions.DEFAULT);
+  }
+
+  private static void assertUrns(SearchEntityArray entities, Urn... expected) {
+    assertEqualsNoOrder(entities.stream().map(SearchEntity::getEntity).toArray(), expected);
+  }
+}

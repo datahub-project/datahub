@@ -65,4 +65,8 @@ export class DataPlatformInstanceEntity implements Entity<DataPlatformInstance> 
     getGraphName = () => {
         return 'dataPlatformInstance';
     };
+
+    getPlatformProperties = (data: DataPlatformInstance) => {
+        return data?.platform;
+    };
 }

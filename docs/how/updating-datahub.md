@@ -619,6 +619,32 @@ Requirements:
 
 - **(Spark lineage)** The `acryl-spark-lineage` agent now shades its bundled OpenLineage under `io.acryl.shaded.io.openlineage` instead of exposing it at `io.openlineage`. This lets the agent run alongside environments that ship their own OpenLineage on the Spark classpath — notably **Amazon EMR 7.12+ / SageMaker Unified Studio (DataZone)**, whose built-in `/usr/share/aws/datazone-openlineage-spark/lib/` jars previously collided with the agent's copy and failed the Spark job. The destructive workaround (`rm -rf /usr/share/aws/datazone-openlineage-spark/lib/`) is no longer needed; both DataHub and DataZone lineage can be captured on the same cluster. The user-facing listener (`datahub.spark.DatahubSparkListener`) and all `spark.datahub.*` / `spark.openlineage.*` config are unchanged — no recipe changes required. The OpenLineage extension SPI (`io.openlineage.spark.extension.*`), which data-source connectors implement at its canonical name, is intentionally left unrelocated. **Action:** only required if you depended on the agent transitively exposing `io.openlineage.*` classes to your own code (rare) — reference the shaded coordinates instead.
 
+## v1.6.0.3
+
+LTS hotfix on v1.6.0: authorization tightening, SecretService caller guard, Python **3.11+** on this line, and CVE dependency bumps. Changelog: [v1.6.0.2...v1.6.0.3](https://github.com/datahub-project/datahub/compare/v1.6.0.2...v1.6.0.3).
+
+Requirements:
+
+- CLI / Python SDK: **1.7.0.13** (default; security patches). Older 1.6.0.x / 1.7.0.x CLIs still work.
+- Helm Chart: 1.1.2
+
+From v1.6.0 / v1.6.0.1 / v1.6.0.2: drop-in image bump. Upgrade the CLI to 1.7.0.13 for the security patches; older CLIs remain compatible. No ZDU or Helm chart change.
+
+### Breaking Changes
+
+- **(CLI / Python, v1.6.0.x packages only)** The v1.6.0 LTS hotfix CLI/SDK line requires **Python 3.11+** (`master` / 1.7.0.x still supports 3.10). If you stay on 1.6.0.3 packages, rebuild venvs. Notable floors on that line: `urllib3` 2.x, `confluent-kafka` ≥2.15.1, `snowflake-connector-python` ≥4.7.3, patched `unstructured` extras. Airflow 2.x urllib3 1.26 constraint files are unsatisfiable.
+
+- **(GMS / Secrets)** `SECRET_SERVICE_CALLER_GUARD_MODE` defaults to **`ENFORCE`**. Browser sessions and user PATs can no longer decrypt UI secrets via `getSecretValues`. Use [datahub-actions](../actions/actions/executor.md) with system client credentials, or `AUDIT` during rollout. Custom plugins must call `SecretService.encrypt/decrypt(OperationContext, ...)`.
+
+- **(GMS / Authorization)** Stricter checks across GraphQL, OpenAPI, and Rest.li: `patchEntity` authorizes by URN type; asset-settings writes need **Edit Entity** or **Manage Asset Summary**; form assign/unassign needs **Manage Compliance Forms**; analytics `_search` needs **Analytics API access**; `corpUserCredentials` reads need **Manage User Credentials**.
+
+### Other Notable Changes
+
+- Default bundled CLI / Python SDK is **1.7.0.13** for security patches; older CLIs still work.
+- Opt-in Play security headers (`DATAHUB_SECURITY_HEADERS_*`). `getSecretValues` isolates per-secret decrypt failures.
+- Additive document `semanticText` embedding-source aspect.
+- Java and Python CVE bumps (Spring 7.0/4.0 patches, Jackson 2.22.2 / Parquet 1.18.1, mariadb-java-client 2.7.14, aiohttp 3.14.3, and related lockfile pins). Rebuild/redeploy picks them up.
+
 ## v1.6.0.2
 
 Patch release for v1.6.0 — security and authorization hardening plus CVE dependency bumps. No new features; no schema or model changes.

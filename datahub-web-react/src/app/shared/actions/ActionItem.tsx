@@ -1,9 +1,10 @@
 import { Tooltip } from '@components';
-import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
 import styled from 'styled-components';
 
 import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
+
+type TooltipPlacement = NonNullable<React.ComponentProps<typeof Tooltip>['placement']>;
 
 const StyledActionButtonContainer = styled.div`
     display: flex;
@@ -12,15 +13,15 @@ const StyledActionButtonContainer = styled.div`
 `;
 
 type Props = {
-    tip?: string;
+    tip?: React.ReactNode;
     disabled?: boolean;
     onClick: () => void;
     icon: React.ReactNode;
-    key?: string;
     placement?: TooltipPlacement;
     isExpandedView?: boolean;
     actionName?: string;
     dataTestId?: string;
+    onActionTriggered?: () => void;
 };
 
 export const ActionItem = ({
@@ -28,27 +29,26 @@ export const ActionItem = ({
     disabled = false,
     onClick,
     icon,
-    key,
     placement = 'top',
     isExpandedView = false,
     actionName,
     dataTestId,
+    onActionTriggered,
 }: Props) => {
+    const tooltipTitle = isExpandedView && !disabled ? '' : tip;
+    const actionTitle = typeof tip === 'string' && !isExpandedView ? tip : undefined;
+
     return (
-        <Tooltip placement={placement} title={isExpandedView ? '' : tip}>
+        <Tooltip placement={placement} title={tooltipTitle}>
             <StyledActionButtonContainer
                 onClick={(e) => {
                     e.stopPropagation();
                     if (disabled) return;
                     onClick();
+                    onActionTriggered?.();
                 }}
             >
-                <ActionMenuItem
-                    key={key}
-                    disabled={disabled}
-                    title={!isExpandedView ? tip : undefined}
-                    data-testid={dataTestId}
-                >
+                <ActionMenuItem disabled={disabled} title={actionTitle} data-testid={dataTestId}>
                     {icon}
                 </ActionMenuItem>
                 {isExpandedView && actionName && <span>{actionName}</span>}
