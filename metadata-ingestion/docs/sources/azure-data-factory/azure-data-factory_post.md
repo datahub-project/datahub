@@ -122,16 +122,19 @@ The connector extracts **column-level lineage** from Copy activities, enabled by
 
 **Supported Mapping Formats**
 
-| Format                | Description                                                                 | ADF Configuration                                       |
-| --------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------- |
-| **Dictionary Format** | Legacy format with direct source-to-sink column mapping                     | `translator.columnMappings: {"src_col": "sink_col"}`    |
-| **List Format**       | Current format with structured source/sink objects                          | `translator.mappings: [{source: {name}, sink: {name}}]` |
-| **Auto-mapping**      | Inferred 1:1 mappings when no explicit mappings and source schema available | TabularTranslator with no columnMappings or mappings    |
+| Format                | Description                                                                 | ADF Configuration                                        |
+| --------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------- |
+| **Dictionary Format** | Legacy format with direct source-to-sink column mapping                     | `translator.columnMappings: {"src_col": "sink_col"}`     |
+| **String Format**     | Legacy comma-separated `source: sink` pairs                                 | `translator.columnMappings: "src_col: sink_col, a: b"`   |
+| **List Format**       | Current format with structured source/sink objects                          | `translator.mappings: [{source: {name}, sink: {name}}]`  |
+| **Path Format**       | Hierarchical `path` mappings, emitted as dotted column paths                | `translator.mappings: [{source: {path: "$['a']['b']"}}]` |
+| **Auto-mapping**      | Inferred 1:1 mappings when no explicit mappings and source schema available | TabularTranslator with no columnMappings or mappings     |
 
 **Limitations**
 
 - **Copy Activity Only**: Column lineage is currently extracted only from Copy activities. Other activity types (Data Flow, Lookup, etc.) produce table-level lineage only.
 - **Schema Availability**: Auto-mapping inference requires source dataset schema information (defined in ADF dataset's `schema` or `structure` property). If schema is unavailable, only explicit mappings are extracted.
+- **Ordinal Mappings**: Position-based (`ordinal`) mappings, used for header-less delimited text, are not extracted. When a translator has only such mappings, no column lineage is emitted for the activity (auto-mapping is not applied, since ADF does not map those columns by name). Such activities are counted in the ingestion report under `column_lineage_skipped_unresolvable_mappings`.
 
 #### Execution History
 

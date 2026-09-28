@@ -26,6 +26,7 @@ source:
     # Feature flags
     extract_pipelines: true
     include_lineage: true
+    include_column_lineage: true # Copy activity column mappings
     include_execution_history: true
     execution_history_days: 7 # 1-90 days
 

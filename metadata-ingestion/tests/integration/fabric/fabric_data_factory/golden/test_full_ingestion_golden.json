@@ -161,7 +161,45 @@
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-11111111-1111-1111-1111-111111111111.lh-artifact-0000-0000-0000-000000000001.dbo.customers,PROD)"
             ],
-            "inputDatajobEdges": []
+            "inputDatajobEdges": [],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD),ID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-11111111-1111-1111-1111-111111111111.lh-artifact-0000-0000-0000-000000000001.dbo.customers,PROD),customer_id)"
+                    ],
+                    "transformOperation": "COPY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD),NAME)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-11111111-1111-1111-1111-111111111111.lh-artifact-0000-0000-0000-000000000001.dbo.customers,PROD),name)"
+                    ],
+                    "transformOperation": "COPY",
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD),EMAIL)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,ws-11111111-1111-1111-1111-111111111111.lh-artifact-0000-0000-0000-000000000001.dbo.customers,PROD),email)"
+                    ],
+                    "transformOperation": "COPY",
+                    "confidenceScore": 1.0
+                }
+            ]
         }
     },
     "systemMetadata": {

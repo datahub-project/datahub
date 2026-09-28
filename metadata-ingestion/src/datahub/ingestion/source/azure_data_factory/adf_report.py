@@ -44,6 +44,12 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     column_lineage_activities_unsupported: Dict[str, int] = field(
         default_factory=dict
     )  # Activity types without CLL support
+    # Copy activities whose explicit mappings are all non-name-based (e.g.
+    # ordinal-only), so no column lineage can be extracted for them.
+    column_lineage_skipped_unresolvable_mappings: int = 0
+    column_lineage_skipped_unresolvable_mappings_details: LossyList[str] = field(
+        default_factory=LossyList
+    )
 
     # Execution history metrics
     pipeline_runs_scanned: int = 0
@@ -139,6 +145,11 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
         if activity_type not in self.column_lineage_activities_unsupported:
             self.column_lineage_activities_unsupported[activity_type] = 0
         self.column_lineage_activities_unsupported[activity_type] += 1
+
+    def report_column_lineage_unresolvable_mappings(self, activity_name: str) -> None:
+        """Record a Copy activity whose explicit mappings are not name-based."""
+        self.column_lineage_skipped_unresolvable_mappings += 1
+        self.column_lineage_skipped_unresolvable_mappings_details.append(activity_name)
 
     def report_pipeline_run_scanned(self) -> None:
         """Increment pipeline runs scanned counter."""

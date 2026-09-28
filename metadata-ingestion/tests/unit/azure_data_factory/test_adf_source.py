@@ -16,6 +16,14 @@ We do NOT test:
 from typing import Callable, Optional
 
 import pytest
+from azure.mgmt.datafactory.models import (
+    DatasetResource,
+    LinkedServiceReference,
+    SalesforceObjectDataset,
+    SalesforceServiceCloudObjectDataset,
+    SalesforceServiceCloudV2ObjectDataset,
+    SalesforceV2ObjectDataset,
+)
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
 from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
@@ -23,8 +31,12 @@ from datahub.ingestion.source.azure_data_factory.adf_column_lineage import (
     CopyActivityColumnLineageExtractor,
     DatasetSchemaInfo,
 )
+from datahub.ingestion.source.azure_data_factory.adf_report import (
+    AzureDataFactorySourceReport,
+)
 from datahub.ingestion.source.azure_data_factory.adf_source import (
     ACTIVITY_SUBTYPE_MAP,
+    AzureDataFactorySource,
 )
 from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
@@ -177,6 +189,42 @@ class TestTableNameExtractionLogic:
         table = type_props.get("table", "")
         result = f"{schema}.{table}" if schema and table else table or schema
         assert result == "orders"
+
+
+_LINKED_SERVICE_REF = LinkedServiceReference(
+    type="LinkedServiceReference", reference_name="ls"
+)
+
+
+class TestExtractTableName:
+    @pytest.mark.parametrize(
+        "dataset_class",
+        [
+            SalesforceObjectDataset,
+            SalesforceV2ObjectDataset,
+            SalesforceServiceCloudObjectDataset,
+            SalesforceServiceCloudV2ObjectDataset,
+        ],
+    )
+    def test_salesforce_object_api_name(self, dataset_class: type) -> None:
+        """Salesforce datasets resolve to the sObject name, not the ADF dataset name."""
+        dataset = DatasetResource(
+            name="ds_crm_opportunities",
+            properties=dataset_class(
+                linked_service_name=_LINKED_SERVICE_REF,
+                object_api_name="Opportunity__c",
+            ),
+        )
+        assert AzureDataFactorySource._extract_table_name(dataset) == "Opportunity__c"
+
+    def test_salesforce_without_object_api_name_returns_none(self) -> None:
+        dataset = DatasetResource(
+            name="ds_crm",
+            properties=SalesforceV2ObjectDataset(
+                linked_service_name=_LINKED_SERVICE_REF
+            ),
+        )
+        assert AzureDataFactorySource._extract_table_name(dataset) is None
 
 
 class TestFilePathExtractionLogic:
@@ -782,6 +830,37 @@ class TestCopyActivityColumnLineageExtractor:
         )
 
         assert lineages == []
+
+    def test_no_inference_for_ordinal_only_mappings(self) -> None:
+        """Ordinal mappings are applied by ADF; identity edges would be wrong."""
+        report = AzureDataFactorySourceReport()
+        extractor = CopyActivityColumnLineageExtractor(report=report)
+        activity = MockActivity(
+            translator={
+                "type": "TabularTranslator",
+                "mappings": [
+                    {"source": {"ordinal": 1}, "sink": {"name": "id"}},
+                    {"source": {"ordinal": 2}, "sink": {"name": "email"}},
+                ],
+            },
+        )
+
+        source_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,src,PROD)"
+        sink_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,dest,PROD)"
+        source_schema = DatasetSchemaInfo(columns=["Prop_0", "Prop_1"])
+
+        lineages = extractor.extract_column_lineage(
+            activity=activity,
+            inlets=[source_urn],
+            outlets=[sink_urn],
+            schema_resolver=make_schema_resolver({source_urn: source_schema}),
+        )
+
+        assert lineages == []
+        assert report.column_lineage_skipped_unresolvable_mappings == 1
+        assert list(report.column_lineage_skipped_unresolvable_mappings_details) == [
+            "TestActivity"
+        ]
 
 
 class TestSourceDatasetSchemaExtraction:

@@ -50,7 +50,9 @@ from datahub.ingestion.source.fabric.data_factory.config import (
     FabricDataFactorySourceConfig,
 )
 from datahub.ingestion.source.fabric.data_factory.lineage import (
+    CopyActivityColumnLineageExtractor,
     CopyActivityLineageExtractor,
+    DataHubDatasetColumnsResolver,
     InvokePipelineLineageExtractor,
 )
 from datahub.ingestion.source.fabric.data_factory.models import (
@@ -69,6 +71,7 @@ from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     DataProcessTypeClass,
     EdgeClass,
+    FineGrainedLineageClass,
 )
 from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.sdk.dataflow import DataFlow
@@ -162,6 +165,10 @@ def _parse_iso_to_millis(iso_str: str) -> int:
     "Enabled by default via Copy and InvokePipeline activities",
 )
 @capability(
+    SourceCapability.LINEAGE_FINE,
+    "Enabled by default via Copy activity column mappings",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Optionally enabled via stateful_ingestion config",
 )
@@ -207,6 +214,11 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
         # when emitting the child activity's DataJobInputOutput to merge the edge in.
         self._cross_pipeline_edges: dict[str, list[str]] = {}
 
+        # Built in get_workunits_internal when column lineage is enabled.
+        self._copy_column_lineage_extractor: Optional[
+            CopyActivityColumnLineageExtractor
+        ] = None
+
     @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
@@ -233,6 +245,10 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     platform_instance=self.config.platform_instance,
                     platform_instance_map=self.config.platform_instance_map,
                 )
+                if self.config.include_column_lineage:
+                    self._copy_column_lineage_extractor = (
+                        self._build_column_lineage_extractor()
+                    )
                 self._invoke_pipeline_extractor = InvokePipelineLineageExtractor(
                     pipeline_activities_cache=self._pipeline_activities_cache,
                     report=self.report,
@@ -296,6 +312,25 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
             )
         finally:
             self.client.close()
+
+    def _build_column_lineage_extractor(self) -> CopyActivityColumnLineageExtractor:
+        columns_resolver = None
+        if self.ctx.graph is not None:
+            columns_resolver = DataHubDatasetColumnsResolver(
+                self.ctx.graph, self.report
+            ).get_columns
+        else:
+            self.report.info(
+                title="Column Lineage Schema Lookup Unavailable",
+                message="No DataHub graph connection is available, so Copy activities "
+                "without explicit column mappings only get column lineage when their "
+                "inline dataset schema is defined.",
+                log=False,
+            )
+        return CopyActivityColumnLineageExtractor(
+            report=self.report,
+            columns_resolver=columns_resolver,
+        )
 
     def _fetch_pipeline_activities(self, workspace_id: str) -> list[FabricItem]:
         """Fetch pipelines and their activities for a workspace into cache.
@@ -497,6 +532,9 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 input_urns, output_urns = self._extract_activity_lineage(
                     activity, pipeline_item
                 )
+                fine_grained_lineages = self._extract_copy_column_lineage(
+                    activity, pipeline_item, input_urns, output_urns
+                )
 
                 datajob_urn_str = str(activity_urn_map[activity.name])
                 self._merge_cross_pipeline_info(
@@ -522,15 +560,13 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                             inputDatasets=input_urns,
                             outputDatasets=output_urns,
                             inputDatajobEdges=upstream_edges,
+                            fineGrainedLineages=fine_grained_lineages or None,
                         )
                     ]
                     if has_io
                     else None,
                 )
                 datajob._set_container(workspace_key)
-
-                yield datajob
-                self.report.report_activity_scanned()
             except Exception as e:
                 self.report.warning(
                     title="Failed to Emit Activity",
@@ -540,6 +576,12 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                     exc=e,
                     log=False,
                 )
+                continue
+
+            # Yield outside the try so downstream (consumer) errors are not
+            # misreported as activity processing failures.
+            yield datajob
+            self.report.report_activity_scanned()
 
     def _resolve_upstream_edges(
         self,
@@ -630,6 +672,44 @@ class FabricDataFactorySource(StatefulIngestionSourceBase):
                 log=False,
             )
             return [], []
+
+    def _extract_copy_column_lineage(
+        self,
+        activity: PipelineActivity,
+        pipeline_item: FabricItem,
+        input_urns: list[str],
+        output_urns: list[str],
+    ) -> list[FineGrainedLineageClass]:
+        """Extract column lineage for a Copy activity with resolved source and sink."""
+        extractor = self._copy_column_lineage_extractor
+        if (
+            extractor is None
+            or activity.type != "Copy"
+            or not self.config.include_lineage
+            or not self.config.include_column_lineage
+            or not input_urns
+            or not output_urns
+        ):
+            return []
+        activity_key = f"{pipeline_item.name}.{activity.name}"
+        try:
+            return extractor.extract_column_lineage(
+                activity=activity,
+                input_urn=input_urns[0],
+                output_urn=output_urns[0],
+                activity_key=activity_key,
+            )
+        except Exception as e:
+            self.report.report_column_lineage_failed()
+            self.report.warning(
+                title="Copy Activity Column Lineage Extraction Error",
+                message="Unexpected error extracting column lineage. "
+                "Activity will be emitted with dataset-level lineage only.",
+                context=activity_key,
+                exc=e,
+                log=False,
+            )
+            return []
 
     def _merge_cross_pipeline_info(
         self,
