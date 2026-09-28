@@ -205,10 +205,6 @@ mutation updateApplicationsSettings($input: UpdateApplicationsSettingsInput!) {
     updateApplicationsSettings(input: $input)
 }
 
-mutation updateEnvironmentBadgeSettings($input: UpdateEnvironmentBadgeSettingsInput!) {
-    updateEnvironmentBadgeSettings(input: $input)
-}
-
 query getLatestProductUpdate($locale: String) {
     latestProductUpdate(locale: $locale) {
         enabled

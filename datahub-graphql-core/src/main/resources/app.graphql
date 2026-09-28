@@ -61,10 +61,10 @@ extend type Mutation {
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 
   """
-  Update the environment badge settings. Requires the Manage Features privilege.
+  Update organization display preferences. Requires the Manage Features privilege.
   """
-  updateEnvironmentBadgeSettings(
-    input: UpdateEnvironmentBadgeSettingsInput!
+  updateOrganizationDisplayPreferences(
+    input: UpdateOrganizationDisplayPreferencesInput!
   ): Boolean!
 }
 
@@ -985,13 +985,13 @@ input UpdateApplicationsSettingsInput {
 }
 
 """
-Input for updating environment badge settings
+Input required to update organization display preferences. Omitted fields are left unchanged.
 """
-input UpdateEnvironmentBadgeSettingsInput {
+input UpdateOrganizationDisplayPreferencesInput {
   """
-  Whether the environment badge is shown
+  Whether to show the environment (fabric) badge on assets in search and on entity pages
   """
-  enabled: Boolean!
+  showEnvironmentBadge: Boolean
 }
 
 """

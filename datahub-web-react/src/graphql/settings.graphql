@@ -13,3 +13,7 @@ mutation updateAssetSettings($input: UpdateAssetSettingsInput!) {
         ...AssetSettingsFields
     }
 }
+
+mutation updateOrganizationDisplayPreferences($input: UpdateOrganizationDisplayPreferencesInput!) {
+    updateOrganizationDisplayPreferences(input: $input)
+}

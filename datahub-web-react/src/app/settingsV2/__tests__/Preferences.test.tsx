@@ -28,7 +28,11 @@ vi.mock('@app/sharedV2/hooks/useFeatureFlag', () => ({
 
 vi.mock('@graphql/app.generated', () => ({
     useUpdateApplicationsSettingsMutation: () => [vi.fn()],
-    useUpdateEnvironmentBadgeSettingsMutation: () => [vi.fn()],
+}));
+
+vi.mock('@graphql/settings.generated', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@graphql/settings.generated')>()),
+    useUpdateOrganizationDisplayPreferencesMutation: () => [vi.fn()],
 }));
 
 describe('Preferences', () => {

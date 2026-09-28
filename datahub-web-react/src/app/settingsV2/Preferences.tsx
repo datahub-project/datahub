@@ -12,10 +12,8 @@ import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 import { THEME_DARK_MODE_FLAG } from '@app/theme/useIsDarkMode';
 import { useAppConfig } from '@app/useAppConfig';
 
-import {
-    useUpdateApplicationsSettingsMutation,
-    useUpdateEnvironmentBadgeSettingsMutation,
-} from '@graphql/app.generated';
+import { useUpdateApplicationsSettingsMutation } from '@graphql/app.generated';
+import { useUpdateOrganizationDisplayPreferencesMutation } from '@graphql/settings.generated';
 
 const Page = styled.div`
     width: 100%;
@@ -89,7 +87,7 @@ export const Preferences = () => {
     const showEnvironmentBadge = appConfig.config?.visualConfig?.showEnvironmentBadge ?? false;
 
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
-    const [updateEnvironmentBadgeSettingsMutation] = useUpdateEnvironmentBadgeSettingsMutation();
+    const [updateOrganizationDisplayPreferencesMutation] = useUpdateOrganizationDisplayPreferencesMutation();
 
     const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
 
@@ -154,10 +152,10 @@ export const Preferences = () => {
                                 label=""
                                 checked={showEnvironmentBadge}
                                 onChange={async () => {
-                                    await updateEnvironmentBadgeSettingsMutation({
+                                    await updateOrganizationDisplayPreferencesMutation({
                                         variables: {
                                             input: {
-                                                enabled: !showEnvironmentBadge,
+                                                showEnvironmentBadge: !showEnvironmentBadge,
                                             },
                                         },
                                     });

@@ -1,0 +1,11 @@
+namespace com.linkedin.settings.global
+
+/**
+ * Global settings for the UI
+ */
+record GlobalVisualSettings {
+  /**
+   * Whether to show the environment (fabric) badge on assets in search and on entity pages.
+   */
+  showEnvironmentBadge: boolean = false
+}
