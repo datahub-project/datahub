@@ -70,7 +70,7 @@ datahubSystemUpdate:
 
 `datahubSystemUpdate.nonblocking.enabled: false` renders one Job with `-u SystemUpdate`. That is a different procedure from the three phases below.
 
-`consolidatedUpgrade: true` skips the legacy Elasticsearch, Kafka, and SQL setup Jobs. SQL and index setup run inside system-update.
+Keep `consolidatedUpgrade: true`. SQL and index setup run inside system-update. The separate Elasticsearch, Kafka, and SQL setup Jobs that `consolidatedUpgrade: false` renders are not supported. Do not turn them on for this procedure.
 
 ## Hooks do not order an apply
 
@@ -108,7 +108,7 @@ yq 'select(.kind == "Job" and .metadata.name == strenv(RELEASE) + "-system-updat
   "$BUILD/all.yaml" > "$BUILD/phase1-job.yaml"
 
 # Phase 2: workloads and the rest of the render. Every Helm hook Job stays out.
-# That covers the two system-update Jobs and the legacy setup Jobs, if any are rendered.
+# With the values above, the only hook Jobs are the two system-update Jobs.
 yq 'select(
       .kind != "Job"
       or (.metadata.annotations["helm.sh/hook"] == null)
