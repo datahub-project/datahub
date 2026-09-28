@@ -63,6 +63,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
+    optionDataTestId,
     updateLabel,
     icon,
     renderCustomOptionText,
@@ -235,6 +236,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
+                                        data-testid={optionDataTestId?.(option) ?? `option-${option.value}`}
                                         onClick={() => !isMultiSelect && handleOptionChange(option)}
                                         isSelected={tempValues.includes(option.value)}
                                         isMultiSelect={isMultiSelect}
