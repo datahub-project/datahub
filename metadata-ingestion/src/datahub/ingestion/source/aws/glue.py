@@ -30,7 +30,10 @@ from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetLineageProviderConfigBase,
+    DatasetSourceConfigMixin,
+)
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
@@ -158,6 +161,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
+# DataHub platforms Glue emits as storage lineage, i.e. the only keys
+# `platform_instance_map` is read for.
+LINEAGE_PLATFORMS = frozenset({"s3"})
+
 GLUE_TABLE_TYPE_ICEBERG = "ICEBERG"
 
 # Structural shape of a Glue catalog ARN authority: arn:{partition}:glue:{region}:{account}. The
@@ -260,6 +267,7 @@ class OwnerSchemaFetch:
 class GlueSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
+    DatasetLineageProviderConfigBase,
     AwsSourceConfig,
     IncrementalPropertiesConfigMixin,
 ):
@@ -459,6 +467,23 @@ class GlueSourceConfig(
                 f"invalid keys: {invalid}"
             )
         return v
+
+    @field_validator("platform_instance_map", mode="after")
+    @classmethod
+    def validate_lineage_platform_keys(
+        cls, platform_instance_map: Optional[Dict[str, str]]
+    ) -> Optional[Dict[str, str]]:
+        # Glue only emits S3 as a storage upstream, so `s3` is the only key read. Any
+        # other key would be accepted and then silently ignored, leaving the lineage
+        # unjoined with no error -- the failure this mapping exists to prevent.
+        unknown = sorted(set(platform_instance_map or {}) - LINEAGE_PLATFORMS)
+        if unknown:
+            raise ValueError(
+                f"platform_instance_map keys {unknown} are not read by the Glue source. "
+                f"It emits storage lineage for {sorted(LINEAGE_PLATFORMS)} only, and keys "
+                f"are case-sensitive."
+            )
+        return platform_instance_map
 
     @field_validator("platform", mode="after")
     @classmethod
@@ -1771,13 +1796,16 @@ class GlueSource(StatefulIngestionSourceBase):
             ):
                 location = dataset_properties.customProperties["Location"]
                 if is_s3_uri(location):
-                    # TODO: no config for the platform_instance the S3 source was
-                    # ingested under, so this edge will not join an S3 dataset ingested
-                    # with one. `catalog_to_platform_instance` is not it -- that stamps
-                    # cross-catalog *table* URNs. Snowflake solves this with
-                    # `platform_instance_map` (PR #18781); Unity has the same gap.
+                    # The instance that matters is the one the *S3* recipe was ingested
+                    # with, not this source's `platform_instance`, which names the Glue
+                    # catalog. `catalog_to_platform_instance` is not it either -- that
+                    # stamps cross-catalog *table* URNs.
                     table_storage_urn = make_s3_urn_for_lineage(
-                        location, self.source_config.env
+                        location,
+                        self.source_config.env,
+                        platform_instance=(
+                            self.source_config.platform_instance_map or {}
+                        ).get("s3"),
                     )
 
             if table_storage_urn:

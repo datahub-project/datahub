@@ -2862,6 +2862,105 @@ class TestUnityCatalogExternalS3Lineage:
         parsed = DatasetUrn.from_string(urn)  # raises if malformed
         assert parsed.name == "bucket/topics/event"
 
+    @patch("datahub.ingestion.source.unity.source.create_workspace_client")
+    @patch("datahub.ingestion.source.unity.source.UnityCatalogApiProxy")
+    @patch("datahub.ingestion.source.unity.source.HiveMetastoreProxy")
+    @pytest.mark.parametrize(
+        "platform_instance_map,expected_name",
+        [
+            (None, "bucket/topics/event"),
+            ({"s3": "prod_s3"}, "prod_s3.bucket/topics/event"),
+        ],
+    )
+    def test_external_lineage_applies_s3_platform_instance(
+        self,
+        mock_hive_proxy,
+        mock_unity_proxy,
+        mock_ws,
+        platform_instance_map,
+        expected_name,
+    ):
+        """
+        The S3 upstream must carry the instance the *S3* recipe was ingested with. Without
+        it the Unity-side URN (`s3,bucket/path,PROD`) and the S3-side URN
+        (`s3,prod_s3.bucket/path,PROD`) never join, and the lineage silently disappears.
+        """
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            ExternalTableReference,
+            Metastore,
+            Schema,
+            Table,
+        )
+        from datahub.metadata.urns import DatasetUrn
+
+        raw_config = {
+            "token": "test_token",
+            "workspace_url": "https://test.databricks.com",
+            "warehouse_id": "test_warehouse",
+            "include_hive_metastore": False,
+            "include_external_lineage": True,
+            # Names this Unity source, NOT the bucket -- the two are independent.
+            "platform_instance": "unity_metastore",
+        }
+        if platform_instance_map is not None:
+            raw_config["platform_instance_map"] = platform_instance_map
+
+        config = UnityCatalogSourceConfig.model_validate(raw_config)
+        source = UnityCatalogSource.create(config, PipelineContext(run_id="t"))
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c", name="c", metastore=metastore, comment=None, owner=None, type=None
+        )
+        schema = Schema(id="c.s", name="s", catalog=catalog, comment=None, owner=None)
+        table = Table(
+            id="c.s.t",
+            name="t",
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=None,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition=None,
+            properties={},
+        )
+        table.external_upstreams.add(
+            ExternalTableReference(
+                path="s3://bucket/topics/event",
+                has_permission=True,
+                name=None,
+                type=None,
+                storage_location="s3://bucket/topics/event",
+                last_updated=None,
+            )
+        )
+
+        aspect = source._generate_lineage_aspect(
+            source.gen_dataset_urn(table.ref), table
+        )
+        assert aspect is not None
+        s3_upstreams = [u for u in aspect.upstreams if "dataPlatform:s3" in u.dataset]
+        assert len(s3_upstreams) == 1
+        assert DatasetUrn.from_string(s3_upstreams[0].dataset).name == expected_name
+
 
 class TestUnityCatalogMlModelControls:
     @pytest.fixture(autouse=True)
