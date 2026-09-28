@@ -1,9 +1,10 @@
-import enum
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, field_validator
+
+from datahub.utilities.str_enum import StrEnum
 
 CONTRACT_VERSION = 1
 
@@ -16,7 +17,7 @@ def datetime_to_millis(dt: datetime) -> int:
     return (dt - EPOCH) // timedelta(milliseconds=1)
 
 
-class LogicalType(str, enum.Enum):
+class LogicalType(StrEnum):
     STRING = "STRING"
     BOOLEAN = "BOOLEAN"
     INT64 = "INT64"
