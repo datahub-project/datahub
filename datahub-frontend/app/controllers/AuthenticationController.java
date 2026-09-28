@@ -13,6 +13,8 @@ import auth.CookieConfigs;
 import auth.GuestAuthenticationConfigs;
 import auth.JAASConfigs;
 import auth.NativeAuthenticationConfigs;
+import auth.ProxyConfigs;
+import auth.proxy.ProxyCallbackLogic;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import client.NativeUserCredentialVerifyResult;
@@ -70,6 +72,7 @@ public class AuthenticationController extends Controller {
   private final GuestAuthenticationConfigs guestAuthenticationConfigs;
 
   private final boolean verbose;
+  private final ProxyConfigs proxyConfigs;
   private final Config config;
 
   private final String basePath;
@@ -82,6 +85,8 @@ public class AuthenticationController extends Controller {
 
   @Inject AuthServiceClient authClient;
 
+  @Inject ProxyCallbackLogic proxyCallbackLogic;
+
   @Inject
   public AuthenticationController(@Nonnull Config configs) {
     this.config = configs;
@@ -90,6 +95,7 @@ public class AuthenticationController extends Controller {
     nativeAuthenticationConfigs = new NativeAuthenticationConfigs(configs);
     guestAuthenticationConfigs = new GuestAuthenticationConfigs(configs);
     verbose = configs.hasPath(AUTH_VERBOSE_LOGGING) && configs.getBoolean(AUTH_VERBOSE_LOGGING);
+    proxyConfigs = new ProxyConfigs(configs);
     basePath = getBasePath();
   }
 
@@ -156,6 +162,13 @@ public class AuthenticationController extends Controller {
 
     if (AuthUtils.hasValidSessionCookie(request)) {
       return Results.redirect(redirectPath);
+    }
+
+    if (proxyConfigs.isEnabled()) {
+      final Optional<String> proxyUser = request.header(proxyConfigs.getUserHeader());
+      if (proxyUser.isPresent() && !proxyUser.get().isEmpty()) {
+        return proxyCallbackLogic.handleProxyLogin(request, redirectPath);
+      }
     }
 
     if (guestAuthenticationConfigs.isGuestEnabled()
