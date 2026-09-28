@@ -1,0 +1,64 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+    "dbt_version": "1.7.3",
+    "generated_at": "2024-02-20T08:05:00.000000Z",
+    "invocation_id": "invocation-catalog"
+  },
+  "nodes": {
+    "model.project_b.customers": {
+      "metadata": {
+        "type": "BASE TABLE",
+        "schema": "crm",
+        "name": "customers",
+        "database": "analytics_db",
+        "comment": null,
+        "owner": null
+      },
+      "columns": {
+        "id": {
+          "type": "integer",
+          "index": 1,
+          "name": "id",
+          "comment": null
+        },
+        "email": {
+          "type": "text",
+          "index": 2,
+          "name": "email",
+          "comment": null
+        }
+      },
+      "stats": {},
+      "unique_id": "model.project_b.customers"
+    },
+    "model.project_b.customer_stats": {
+      "metadata": {
+        "type": "BASE TABLE",
+        "schema": "crm",
+        "name": "customer_stats",
+        "database": "analytics_db",
+        "comment": null,
+        "owner": null
+      },
+      "columns": {
+        "customer_id": {
+          "type": "integer",
+          "index": 1,
+          "name": "customer_id",
+          "comment": null
+        },
+        "order_count": {
+          "type": "bigint",
+          "index": 2,
+          "name": "order_count",
+          "comment": null
+        }
+      },
+      "stats": {},
+      "unique_id": "model.project_b.customer_stats"
+    }
+  },
+  "sources": {},
+  "errors": null
+}
