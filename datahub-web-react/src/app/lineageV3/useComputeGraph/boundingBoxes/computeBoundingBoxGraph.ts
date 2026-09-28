@@ -171,11 +171,13 @@ export default function computeBoundingBoxGraph(
     // Filter out nodes with no lineage connections (except the root node and filter nodes).
     const nodesWithLineage = getNodesWithLineage(
         shownNodes.map((n) => n.id),
-        revealedGraphStore.adjacencyList,
+        graphStore.adjacencyList,
     );
+    // Only filter orphans once all nodes' entity data loads; edges load in the same batch callback.
+    const allNodesLoaded = shownNodes.every((node) => node.id === urn || nodes.get(node.id)?.entity);
     const shownFilteredNodes = shownNodes.filter(
         (node) =>
-            node.id === urn || node.type === LINEAGE_FILTER_TYPE || edges.size === 0 || nodesWithLineage.has(node.id), // filter nodes without lineage after edges load
+            node.id === urn || node.type === LINEAGE_FILTER_TYPE || !allNodesLoaded || nodesWithLineage.has(node.id),
     );
 
     const displayedIds = new Set(shownFilteredNodes.map((node) => node.id));
