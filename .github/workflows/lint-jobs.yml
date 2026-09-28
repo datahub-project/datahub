@@ -472,8 +472,6 @@ jobs:
         with:
           header: i18n-parity
           delete: true
-      # After the parity steps so a failure here does not skip the parity report or make the
-      # "clear comment" step delete the parity comment for a run that never checked parity.
       - name: Check i18n locale files use flat keys
         run: |
           ./gradlew :datahub-web-react:yarnI18nFlatKeysCheck

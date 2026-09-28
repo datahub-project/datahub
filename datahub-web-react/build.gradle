@@ -201,7 +201,7 @@ task yarnI18nParityCheck(type: YarnTask, dependsOn: [yarnInstall]) {
 }
 
 // Fails when any locale JSON file (`en` included) stores a key as a nested object instead of a
-// flat dotted key. Always blocking, independent of I18N_PARITY_MODE.
+// flat dotted key.
 task yarnI18nFlatKeysCheck(type: YarnTask, dependsOn: [yarnInstall]) {
   args = ['run', 'check-i18n-flat-keys']
   inputs.files(project.fileTree(dir: 'src/i18n/locales', include: ['**/*.json']))

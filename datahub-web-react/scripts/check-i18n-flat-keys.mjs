@@ -7,9 +7,6 @@
  * (stale-key cleanup, translation backfill) treat the two shapes as different keys, so one locale
  * storing a key nested while another stores it flat makes them report wrong results.
  *
- * Unlike check-i18n-parity, this check always fails on a finding: it is not gated on
- * I18N_PARITY_MODE.
- *
  * Usage:
  *   node scripts/check-i18n-flat-keys.mjs
  */
