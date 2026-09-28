@@ -12,6 +12,7 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchClusterIndexSettings;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityMappingLimits;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -46,6 +47,7 @@ public class SearchClusterRegistryFactory {
       @Qualifier("searchClientShim") final SearchClientShim<?> primaryShim,
       @Qualifier("elasticSearchIndexSettingsOverrides")
           final Map<String, Map<String, Object>> indexSettingOverrides,
+      @Qualifier("elasticSearchEntityMappingLimits") final EntityMappingLimits entityMappingLimits,
       final GitVersion gitVersion,
       final ObjectMapper objectMapper,
       final MetricUtils metricUtils,
@@ -86,6 +88,7 @@ public class SearchClusterRegistryFactory {
               configurationProvider.getStructuredProperties(),
               indexSettingOverrides,
               gitVersion);
+      indexBuilder.setEntityMappingLimits(entityMappingLimits);
 
       connections.put(
           clusterName,
