@@ -1,6 +1,6 @@
 ---
 title: Context Generation
-description: "Context Generation turns your team's analytics activity into context documents that show AI agents how your business answers its questions."
+description: "Turn your team's analytics activity into context documents that show AI agents how your business answers its questions."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -13,29 +13,17 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 Context Generation is part of the DataHub Cloud **Context** add-on and is in Public Beta. Details on this page may change as the feature evolves.
 :::
 
-Your team has already answered most of its analytics questions. The answers live in your warehouse query history, BI tools, and semantic models, but rarely in any documentation an agent can use.
+Your team has already answered most of its analytics questions. The answers live in warehouse query history, BI tools, and semantic models, but rarely in documentation an agent can use. Context Generation turns that analytics exhaust into **context documents**, called **Semantic Anchors**, each of which shows an agent how your team answers a recurring business question: which tables to use, how they connect, and what the business calls the result.
 
-**Context Generation** turns that analytics exhaust into **context documents**. Each document captures a business question your team answers repeatedly, and shows an agent how to answer it: which tables to use, how they connect, and what the business calls the result. DataHub calls these generated documents **Semantic Anchors**.
+Hand-written documentation covers the questions everyone asks. Context Generation covers the long tail, across every domain, so your experts refine a draft instead of starting from a blank page.
 
-## Why it matters
+## How Context Generation works
 
-Hand-written documentation covers the questions everyone asks. It rarely covers the long tail: the hundreds of questions that are each asked by a few people, across many domains, and that no one will ever document by hand.
-
-Context Generation solves this cold-start problem. It gives your agents a map of how your organization actually uses its data, so they can answer long-tail questions correctly and consistently, and your experts can refine a draft instead of starting from a blank page.
-
-## How it works
-
-Context Generation works from metadata that DataHub has already collected. It never reads the data in your tables.
-
-1. **It reads your analytics activity** for the domains, databases, or schemas you choose: warehouse query history, BI and semantic definitions such as Looker explores and Snowflake semantic views, and the descriptions, owners, and usage DataHub already knows.
-2. **It finds recurring patterns,** the analyses people run again and again, and sets aside one-off queries.
-3. **It writes a context document for each pattern,** describing the business questions it answers and the general shape of the SQL behind it. Raw query logs, which can contain literal values, aren't sent to a language model.
-
-Generated documents are ordinary context documents. You can read, edit, and publish them like any other, and they're refreshed as your data and usage change.
-
-## Where to find it
-
-Go to **Settings > Context** to create and manage Context Generation jobs. Each job defines a scope (the domains, databases, or schemas to cover), where generated documents go, whether they publish automatically, and how often the job runs. Setting up jobs requires the **Manage Platform Settings** privilege.
+1. **You choose a scope,** such as a domain or a set of databases or schemas.
+2. **DataHub reads your analytics activity** for that scope: warehouse query history, BI and semantic definitions such as Looker explores and Snowflake semantic views, and the descriptions, owners, and usage it already knows. It works only from metadata and never reads the data in your tables.
+3. **It finds recurring patterns,** the analyses your team runs again and again, and sets aside one-off queries.
+4. **It writes a context document for each pattern,** describing the business questions it answers and the general shape of the query behind it.
+5. **Documents are published,** automatically or after review, and refreshed as your data and usage change.
 
 <p align="center">
   <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-generation-create.png"/>
@@ -43,21 +31,28 @@ Go to **Settings > Context** to create and manage Context Generation jobs. Each 
 
 _Screenshot: configuring a Context Generation job in Settings > Context._
 
-## How it fits
+## Setting up Context Generation
 
-Context Generation is step 3 of [Build a Data Agent](../../../managed-datahub/build-a-data-agent/generate-context.md). A few principles apply:
+Context Generation runs as jobs, which you manage under **Settings > Context**. Setting up a job requires the **Manage Platform Settings** privilege. For each job, you choose:
 
-- **Validate with evals.** Publishing generated documents automatically, then checking them against your [evals](./context-evals.md), is the fastest path to value. For sensitive domains, you can require a person to approve documents first. See [Reviewing Context Changes](./context-review.md).
-- **Scope by domain.** Generate context for one domain at a time, and assign the documents to that domain so domain agents can see them.
-- **Bring in your BI and semantic models.** Query history shows what people run; BI and semantic definitions show what they meant. Results are best with both.
+- **The scope** to cover, such as a domain or specific databases or schemas
+- **Where documents go:** the domain to assign them to, so domain agents can see them, and optionally a folder in **Documents**
+- **How documents are published:** automatically, or after approval by the reviewers you choose
+- **How often the job runs,** so context keeps pace as your data and usage change
+
+Start with one domain, check the results against your evals, then expand. See [Step 3: Generate context](../../../managed-datahub/build-a-data-agent/generate-context.md) in the Build a Data Agent guide.
+
+## Publishing and validating documents
+
+We recommend publishing generated documents automatically and validating them with [evals](./context-evals.md). A single run can produce many documents, and evals tell you quickly whether they help. If an eval gets worse, edit or unpublish the documents behind it. For sensitive domains, you can require approval before anything is published. See [Reviewing Context Changes](./context-review.md).
 
 ## Editing generated documents
 
 Generated documents are yours to edit. Once you edit one, it's **detached** from Context Generation: later runs never overwrite it, it isn't removed during cleanup, and your version is the one agents use. Documents nobody has edited continue to update as your data and usage change.
 
-## Prerequisites
+## Before you begin
 
-Context Generation depends on warehouse query history. Make sure your warehouse's data source collects queries (SQL text) and query usage statistics (how often each query runs), over a window that covers a representative period of analytical work. Connecting your BI tools and dbt improves the business language in generated documents.
+Context Generation depends on warehouse query history. Make sure your warehouse's data source collects queries and query usage statistics over a representative period of analytical work. Connecting your BI tools and dbt improves the business language in generated documents.
 
 ### Reference recipes
 
@@ -160,13 +155,14 @@ Redshift keeps only a few days of query history (often two to five), so a `start
 
 </details>
 
+## API access
+
+You can also manage Context Generation programmatically with the [DataHub GraphQL API](../../../api/graphql/overview.md), including creating jobs and working with the documents they generate.
+
 ## FAQ
 
 **Does Context Generation read our data?**
 No. It works from metadata DataHub has already collected, such as query history, schemas, and BI and semantic definitions. It never reads the data in your tables, and raw query logs aren't sent to a language model.
-
-**Will my edits survive the next run?**
-Yes. Edited documents are detached from Context Generation, and your version becomes the one agents use. See [Editing generated documents](#editing-generated-documents).
 
 **Does Context Generation use AI Credits?**
 Yes. Context Generation runs consume AI Credits, as do evals, Ask DataHub, and custom agents. Scoping jobs to the domains you need keeps usage focused.
