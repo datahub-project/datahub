@@ -12,7 +12,7 @@ const owner = {
     urn: 'urn:li:corpuser:jdoe',
     type: EntityType.CorpUser,
     username: 'jdoe',
-    properties: { displayName: 'Jane Doe', active: true },
+    properties: { displayName: 'Jane Doe', title: 'Director of Data Engineering', active: true },
 } as CorpUser;
 
 const tag = {
@@ -65,6 +65,14 @@ describe('EntityHoverCard', () => {
         expect(screen.getByText('Tags')).toBeInTheDocument();
         expect(screen.getByTestId(`${DATASET_URN}-health-icon`)).toBeInTheDocument();
         expect(screen.getByText(/42/)).toBeInTheDocument();
+    });
+
+    it('shows a job title instead of the type name for a person', () => {
+        renderCard(owner);
+
+        expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+        expect(screen.getByText('Director of Data Engineering')).toBeInTheDocument();
+        expect(screen.queryByText('User')).not.toBeInTheDocument();
     });
 
     it('prefers the edited description over the ingested one', () => {

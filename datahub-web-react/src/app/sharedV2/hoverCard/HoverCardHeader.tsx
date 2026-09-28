@@ -58,12 +58,14 @@ type Props = {
     title: string;
     icon?: React.ReactNode;
     typeName?: string;
+    /** Replaces `typeName` on the second line when something more specific is known, e.g. a person's job title. */
+    subtitle?: string;
     crumbs?: string[];
     badge?: React.ReactNode;
 };
 
-export default function HoverCardHeader({ title, icon, typeName, crumbs = [], badge }: Props) {
-    const path = [typeName, ...crumbs].filter((crumb): crumb is string => !!crumb);
+export default function HoverCardHeader({ title, icon, typeName, subtitle, crumbs = [], badge }: Props) {
+    const path = [subtitle || typeName, ...crumbs].filter((crumb): crumb is string => !!crumb);
 
     return (
         <Header>

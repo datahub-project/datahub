@@ -89,6 +89,17 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
         properties?.description ||
         undefined;
 
+    // People get their job title where other entities show the type name; it's what the previous
+    // user hover card led with, and every owner fragment already fetches it. Same precedence as
+    // `UserEntity.renderPreview`.
+    const jobTitle =
+        entity.type === EntityType.CorpUser
+            ? (entity as CorpUser).editableProperties?.title ||
+              (entity as CorpUser).properties?.title ||
+              (entity as CorpUser).info?.title ||
+              undefined
+            : undefined;
+
     const owners = properties?.ownership?.owners ?? [];
     const tags = properties?.globalTags?.tags ?? [];
     const terms = properties?.glossaryTerms?.terms ?? [];
@@ -136,6 +147,7 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
                 title={entityRegistry.getDisplayName(entity.type, entity)}
                 icon={<EntityIcon entity={entity} size={32} />}
                 typeName={entityRegistry.getEntityName(entity.type)}
+                subtitle={jobTitle}
                 crumbs={crumbs}
                 badge={
                     <HoverCardStatusBadges
