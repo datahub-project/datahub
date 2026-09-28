@@ -1196,6 +1196,27 @@ scrape job for port **4319**. Outside Docker, leave `MANAGEMENT_SERVER_PORT` uns
 application port; set it when you want a separate management listener (Spring maps the env var to
 `management.server.port`).
 
+The Play frontend exports HTTP server pool gauges on that scrape, comparable to GMS Jetty
+`jetty_threads_*` / `jetty_connections_*`. Request handling runs on Pekko's default dispatcher (a fork-join
+pool shared with other Pekko actors). Pekko HTTP does not expose a live connection count, so the connection
+series are the configured limits.
+
+| Series                                                          | Meaning                                                   |
+| --------------------------------------------------------------- | --------------------------------------------------------- |
+| `play_http_threads_busy`                                        | Threads actively executing on the dispatcher              |
+| `play_http_threads_idle`                                        | Dispatcher threads not executing                          |
+| `play_http_threads_current`                                     | Current dispatcher pool size                              |
+| `play_http_threads_jobs`                                        | Tasks queued on the dispatcher                            |
+| `play_http_threads_parallelism`                                 | Live pool cap (saturation denominator)                    |
+| `play_http_threads_config_min` / `play_http_threads_config_max` | Configured fork-join parallelism bounds                   |
+| `play_http_connections_max`                                     | Configured `pekko.http.server.max-connections`            |
+| `play_http_connections_backlog`                                 | Configured accept backlog                                 |
+| `play_http_requests_inflight`                                   | Requests inside the Play filter chain, including `/admin` |
+
+```promql
+play_http_threads_busy / play_http_threads_parallelism
+```
+
 In the JVM dashboard, you can find detailed charts based on JVM metrics like CPU/memory/disk usage. In the DataHub
 dashboard, you can find charts to monitor each endpoint and the kafka topics. Using the example implementation, go
 to http://localhost:3001 to find the grafana dashboards! (Username: admin, PW: admin)
