@@ -242,6 +242,21 @@ describe('mfeConfigLoader', () => {
         consoleErrorSpy.mockRestore();
     });
 
+    it('loadMFEConfigFromYAML ignores a loadTimeoutMs above the browser timer limit', async () => {
+        // setTimeout treats delays above 2^31-1 ms as ~1 ms, which would fail the MFE immediately.
+        const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        mockYamlLoad({
+            subNavigationMode: false,
+            loadTimeoutMs: 2_147_483_647,
+            microFrontends: [{ ...validParsedYaml.microFrontends[0], loadTimeoutMs: 2_147_483_648 }],
+        });
+        const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');
+        const result = loadMFEConfigFromYAML('irrelevant');
+        expect(result.loadTimeoutMs).toBe(2_147_483_647);
+        expect(result.microFrontends[0].loadTimeoutMs).toBeUndefined();
+        consoleErrorSpy.mockRestore();
+    });
+
     it('loadMFEConfigFromYAML throws if microFrontends is missing', async () => {
         mockYamlLoad({});
         const { loadMFEConfigFromYAML } = await import('../mfeConfigLoader');

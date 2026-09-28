@@ -43,10 +43,16 @@ const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'path', 'remoteEntr
  * - Returns undefined (so the caller falls back to the next level) when absent or unusable,
  *   rather than rejecting the surrounding config: a bad timeout should never take an MFE offline.
  */
+// setTimeout stores its delay as a signed 32-bit int; anything larger fires after ~1 ms.
+const MAX_LOAD_TIMEOUT_MS = 2_147_483_647;
+
 function parseLoadTimeoutMs(value: unknown, context: string): number | undefined {
     if (value === undefined || value === null) return undefined;
-    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-        console.error(`[MFE Loader] Ignoring invalid loadTimeoutMs for ${context}; expected a positive number:`, value);
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value > MAX_LOAD_TIMEOUT_MS) {
+        console.error(
+            `[MFE Loader] Ignoring invalid loadTimeoutMs for ${context}; expected a positive number up to ${MAX_LOAD_TIMEOUT_MS}:`,
+            value,
+        );
         return undefined;
     }
     return value;

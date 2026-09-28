@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
 import * as navBarHooks from '@app/useShowNavBarRedesign';
@@ -67,6 +67,11 @@ vi.mock('virtual:__federation__', () => ({
 }));
 
 describe('MFEBaseConfigurablePage', () => {
+    // Restore real timers even when a fake-timer test fails, so they can't leak into later tests.
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     beforeEach(() => {
         vi.clearAllMocks();
     });

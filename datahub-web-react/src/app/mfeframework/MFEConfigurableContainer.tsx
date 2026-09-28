@@ -83,8 +83,9 @@ async function mountMFE({
         setRemote(remoteName, remoteConfig);
 
         // Create a timeout promise that rejects once the configured load timeout elapses
+        let timeoutHandle: number | undefined;
         const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(
+            timeoutHandle = window.setTimeout(
                 () => reject(new Error(`Timeout loading from remote ${remoteName}, module: ${modulePathWithDot}`)),
                 loadTimeoutMs,
             );
@@ -95,7 +96,10 @@ async function mountMFE({
         if (import.meta.env.DEV) {
             console.log('[HOST] Attempting to load remote module with config:', remoteConfig);
         }
-        const remoteModule = await Promise.race([getRemote(remoteName, modulePathWithDot), timeoutPromise]);
+        // Clear the timer once the race settles so it doesn't outlive a successful load or an unmount.
+        const remoteModule = await Promise.race([getRemote(remoteName, modulePathWithDot), timeoutPromise]).finally(
+            () => window.clearTimeout(timeoutHandle),
+        );
         const fetchEnd = performance.now();
         if (import.meta.env.DEV) {
             console.log(`latency for remote module fetch: ${config.id}`, fetchEnd - fetchStart, 'ms');
