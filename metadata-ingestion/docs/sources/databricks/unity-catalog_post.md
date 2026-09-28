@@ -139,7 +139,7 @@ CREATE TABLE main.governance.dq_rules (
   is_active BOOLEAN NOT NULL,         -- false retires the assertion
   rule_version STRING,
   external_url STRING,
-  updated_at TIMESTAMP NOT NULL
+  updated_at TIMESTAMP NOT NULL -- reserved; not yet used by DataHub
 );
 
 CREATE TABLE main.governance.dq_results (
@@ -164,11 +164,14 @@ CREATE TABLE main.governance.dq_results (
 );
 ```
 
-- Every contract column must exist with a compatible type (widening such as `INT` for `BIGINT` or `DECIMAL` for `DOUBLE` is accepted; `TIMESTAMP_NTZ` is not). Ingestion fails for that table otherwise.
+- Every contract column must exist with a compatible type (widening such as `INT` for `BIGINT` or `DECIMAL` for `DOUBLE` is accepted; `TIMESTAMP_NTZ` is not). If either table does not match the contract, nothing is read from either table and the run reports a failure.
 - Additional columns are allowed after the contract columns and are shown on the assertion (rules) or run (results).
 - Assertion identity is `(platform instance, rule_namespace, rule_id)`, so renaming a table keeps the assertion's history.
 - Results are append-only. With stateful ingestion, each result is published once, including results that arrive up to `late_arrival_minutes` late. Without it, the last `initial_lookback_days` of results are re-published on every run, which re-sends notifications to subscribers.
+- `executed_at` should be when the evaluation finished. Lateness is measured against the newest `executed_at` already published, so a result stamped more than `late_arrival_minutes` earlier than that is not picked up. Results dated more than `late_arrival_minutes` in the future are skipped with a warning.
 - Rules for tables that were not ingested in the same run are skipped and reported.
+- Results for a rule that is invalid or not yet published are retried while they are inside the late-arrival window, then dropped.
+- Both tables must be in Unity Catalog (not `hive_metastore`), and the ingestion principal needs `SELECT` on them.
 - `column_paths` should name top-level columns. Column casing is matched to the ingested schema; nested (struct) fields are passed through as written and may not link to the column in DataHub.
 
 #### Advanced
