@@ -395,6 +395,22 @@ def get_disable_secret_masking() -> bool:
     return os.getenv("DATAHUB_DISABLE_SECRET_MASKING", "").lower() in ("true", "1")
 
 
+def get_disable_executor_task_secret_scope() -> bool:
+    """Turn off per-task secret scopes in the executor (on by default).
+
+    An operational rollback, not a tuning knob. With scopes off, every task's
+    secrets go to the one process-global registry, as they did before scopes
+    existed: masking then over-masks across tasks -- a later task's output
+    redacted against an earlier task's secret, with that task's variable
+    name in the marker -- but never under-masks. Read per task, so a
+    restart with the variable set is enough to switch.
+    """
+    return os.getenv("DATAHUB_DISABLE_EXECUTOR_TASK_SECRET_SCOPE", "").lower() in (
+        "true",
+        "1",
+    )
+
+
 def get_disable_agent_probe_raw_access() -> bool:
     """
     Refuse the recipe probe's raw passthrough commands (`sql`, `api`).

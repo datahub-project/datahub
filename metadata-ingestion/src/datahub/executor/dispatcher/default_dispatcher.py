@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import logging
 import threading
 import traceback
 import uuid
 from typing import Callable
 
+from datahub.configuration.env_vars import get_disable_executor_task_secret_scope
 from datahub.executor.dispatcher.dispatcher import Dispatcher
 from datahub.executor.execution.executor import Executor
 from datahub.executor.request.execution_request import ExecutionRequest
@@ -57,7 +59,12 @@ def dispatch_async(
         # the failure path -- the one that renders a traceback, the leakiest
         # channel here -- was masked against the global registry while the
         # comment claimed it was masked against this task's.
-        with task_secret_scope():
+        scope = (
+            contextlib.nullcontext()
+            if get_disable_executor_task_secret_scope()
+            else task_secret_scope()
+        )
+        with scope:
             try:
                 res = executor.execute(request)
                 res.pretty_print_summary()

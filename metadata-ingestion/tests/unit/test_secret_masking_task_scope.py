@@ -516,3 +516,40 @@ def test_remasking_inside_a_scope_leaves_markers_and_sentinels_whole() -> None:
         )
         for sentinel in SENTINEL_MESSAGES:
             assert masking.mask_text(sentinel) == sentinel
+
+
+def test_the_rollback_switch_restores_one_shared_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """DATAHUB_DISABLE_EXECUTOR_TASK_SECRET_SCOPE is the operator's way back
+    to the pre-scope behaviour without a release: every task's secrets land
+    in the global registry, so a later task masks an earlier task's secret."""
+    from datahub.executor.dispatcher.default_dispatcher import dispatch_async
+
+    monkeypatch.setenv("DATAHUB_DISABLE_EXECUTOR_TASK_SECRET_SCOPE", "true")
+    seen = {}
+
+    class _Result:
+        def pretty_print_summary(self) -> None:
+            pass
+
+    class _Executor:
+        def __init__(self, name: str, secret: str, probe: str) -> None:
+            self._name, self._secret, self._probe = name, secret, probe
+
+        def execute(self, _request: object) -> "_Result":
+            SecretRegistry.get_instance().register_secrets_batch(
+                {self._name: self._secret}
+            )
+            seen[self._name] = SecretMaskingFilter().mask_text(
+                f"mine={self._secret} theirs={self._probe}"
+            )
+            return _Result()
+
+    first = _Executor("FIRST_PW", "first-task-secret", "second-task-secret")
+    second = _Executor("SECOND_PW", "second-task-secret", "first-task-secret")
+    dispatch_async(first, object(), lambda: None)  # type: ignore[arg-type]
+    dispatch_async(second, object(), lambda: None)  # type: ignore[arg-type]
+
+    assert "second-task-secret" not in seen["SECOND_PW"]
+    assert "***REDACTED:FIRST_PW***" in seen["SECOND_PW"], seen["SECOND_PW"]
