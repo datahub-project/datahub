@@ -161,6 +161,9 @@ export default function FloatingOverlay({
     const arrowRef = useRef<HTMLDivElement>(null);
     const openTimer = useRef<ReturnType<typeof setTimeout>>();
     const closeTimer = useRef<ReturnType<typeof setTimeout>>();
+    // Clicking non-focusable content inside the overlay blurs the trigger with a null
+    // `relatedTarget`, so the pointer state is tracked separately to keep the overlay open.
+    const pointerDownInOverlay = useRef(false);
     const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
     const [overlayId] = useState(() => `alchemy-overlay-${Math.random().toString(36).slice(2)}`);
     const isControlled = controlledOpen !== undefined || visible !== undefined;
@@ -187,6 +190,9 @@ export default function FloatingOverlay({
         open: isOpen && hasContent(content),
         placement: PLACEMENTS[placement],
         whileElementsMounted: autoUpdate,
+        // Position with top/left rather than transform so callers can pin an edge via
+        // `overlayStyle` (e.g. `left: 0` for full-width menus) and keep their offsets.
+        transform: false,
         middleware: [
             offset({
                 mainAxis: 8 + (alignmentOffset?.[1] ?? 0),
@@ -229,33 +235,62 @@ export default function FloatingOverlay({
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') setOpen(false);
         };
-        const handlePointerDown = (event: MouseEvent) => {
-            if (!triggers.includes('click')) return;
-            const target = event.target as Node;
+        const isWithinReference = (node: EventTarget | null) => {
             const referenceElement = refs.reference.current;
-            const isWithinReference = referenceElement instanceof Element && referenceElement.contains(target);
-            if (!isWithinReference && !refs.floating.current?.contains(target)) setOpen(false);
+            return node instanceof Node && referenceElement instanceof Element && referenceElement.contains(node);
+        };
+        const isWithinOverlay = (node: EventTarget | null) =>
+            node instanceof Node && !!refs.floating.current?.contains(node);
+
+        const handlePointerDown = (event: MouseEvent) => {
+            const withinOverlay = isWithinOverlay(event.target);
+            pointerDownInOverlay.current = withinOverlay;
+            if (!triggers.includes('click')) return;
+            if (!isWithinReference(event.target) && !withinOverlay) setOpen(false);
+        };
+        // A press that starts in the overlay may end elsewhere; don't let a stale flag block the next blur.
+        const handlePointerUp = () => {
+            pointerDownInOverlay.current = false;
+        };
+        // Focus leaving the overlay for somewhere other than the trigger closes it, so keyboard users
+        // aren't left with an orphaned popover after tabbing through its contents.
+        const handleFocusOut = (event: FocusEvent) => {
+            if (!triggers.includes('focus')) return;
+            const next = event.relatedTarget;
+            if (isWithinOverlay(next) || isWithinReference(next)) return;
+            setOpen(false);
         };
 
+        const floatingElement = refs.floating.current;
         document.addEventListener('keydown', handleKeyDown);
         document.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('mouseup', handlePointerUp);
+        floatingElement?.addEventListener('focusout', handleFocusOut);
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('mousedown', handlePointerDown);
+            document.removeEventListener('mouseup', handlePointerUp);
+            floatingElement?.removeEventListener('focusout', handleFocusOut);
         };
     }, [isOpen, refs.floating, refs.reference, setOpen, triggers]);
 
-    const child = React.isValidElement(children) ? (children as ElementWithRef) : undefined;
+    // Text or missing children get a synthesized trigger, as antd did, so always-open overlays
+    // (e.g. chart series cards rendered inside a positioned container) still have an anchor.
+    const child = (
+        React.isValidElement(children) ? children : React.createElement('span', undefined, children)
+    ) as ElementWithRef;
     const referenceRef = useCallback(
         (node: HTMLElement | null) => {
             refs.setReference(node);
-            assignRef(child?.ref, node);
+            assignRef(child.ref, node);
         },
-        [child?.ref, refs],
+        [child.ref, refs],
     );
 
-    if (!child) return <>{children}</>;
     if (!hasContent(content)) return child;
+
+    const isWithinOverlay = (node: EventTarget | null): boolean =>
+        node instanceof Node && !!refs.floating.current?.contains(node);
 
     // A disabled control can't host the listeners itself, so they go on a wrapper and the child's
     // own handlers are dropped — matching the browser, which fires nothing for a disabled control.
@@ -276,11 +311,13 @@ export default function FloatingOverlay({
         },
         onFocus: (event: React.FocusEvent<HTMLElement>) => {
             forwardTo?.onFocus?.(event);
-            if (triggers.includes('focus') || triggers.includes('hover')) setOpen(true);
+            if (triggers.includes('focus')) setOpen(true);
         },
         onBlur: (event: React.FocusEvent<HTMLElement>) => {
             forwardTo?.onBlur?.(event);
-            if (triggers.includes('focus') || triggers.includes('hover')) setOpen(false);
+            if (!triggers.includes('focus')) return;
+            if (isWithinOverlay(event.relatedTarget) || pointerDownInOverlay.current) return;
+            setOpen(false);
         },
         onClick: (event: React.MouseEvent<HTMLElement>) => {
             forwardTo?.onClick?.(event);
@@ -353,8 +390,8 @@ export default function FloatingOverlay({
             role={role}
             className={[overlayClassName, className].filter(Boolean).join(' ') || undefined}
             style={{
-                ...overlayStyle,
                 ...floatingStyles,
+                ...overlayStyle,
                 display: isOpen ? overlayStyle?.display : 'none',
                 zIndex: overlayStyle?.zIndex ?? zIndex,
             }}
