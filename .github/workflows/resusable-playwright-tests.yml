@@ -108,7 +108,7 @@ jobs:
       # Path 1: Pull images from depot cache (docker-unified non fork trigger)
       - name: Set up Depot CLI
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
-        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+        uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c # v1
 
       - name: Pull images from depot
         if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
