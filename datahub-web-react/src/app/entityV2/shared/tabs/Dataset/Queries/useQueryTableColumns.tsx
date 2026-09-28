@@ -114,15 +114,19 @@ export default function useQueryTableColumns({ showDetails, onDeleted, onEdited,
         },
     };
 
+    // Applied to the full Downstream list before paging. A function `sorter` would only
+    // reorder the page Alchemy already received.
+    const powersSorter = (queryA: Query, queryB: Query) => {
+        if (!queryA.poweredEntity || !queryB.poweredEntity) return 0;
+        const poweredA = entityRegistry.getDisplayName(queryA.poweredEntity.type, queryA.poweredEntity);
+        const poweredB = entityRegistry.getDisplayName(queryB.poweredEntity.type, queryB.poweredEntity);
+        return poweredA.localeCompare(poweredB);
+    };
+
     const powersColumn: Column<Query> = {
         title: t('queryCard.columnPowers'),
         key: 'powers',
-        sorter: (queryA, queryB) => {
-            if (!queryA.poweredEntity || !queryB.poweredEntity) return 0;
-            const createdByA = entityRegistry.getDisplayName(queryA.poweredEntity.type, queryA.poweredEntity);
-            const createdByB = entityRegistry.getDisplayName(queryB.poweredEntity.type, queryB.poweredEntity);
-            return createdByA.localeCompare(createdByB);
-        },
+        sorter: true,
         render: (query) => {
             const entity = query.poweredEntity as Entity;
             if (!entity) return null;
@@ -177,6 +181,7 @@ export default function useQueryTableColumns({ showDetails, onDeleted, onEdited,
         createdByColumn,
         createdDateColumn,
         powersColumn,
+        powersSorter,
         topUsersColumn,
         columnsColumn,
         editColumn,

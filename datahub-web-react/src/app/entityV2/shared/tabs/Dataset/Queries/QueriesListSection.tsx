@@ -1,6 +1,6 @@
 import { Pagination, Popover, Table, Text } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
@@ -128,15 +128,13 @@ export default function QueriesListSection({
     const { t } = useTranslation('entity.profile.queries');
     const defaultPagination = usePagination(DEFAULT_PAGE_SIZE);
     // Popular / Highlighted pass a server-backed pagination hook; Downstream / Recent omit it and
-    // fall back to local page state. Alchemy's Table does not slice rows itself.
+    // fall back to local page state. Alchemy's Table renders the rows it is given. Paging is done
+    // by the Pagination control, so client-paged sections slice here.
     const isServerPaginated = pagination != null;
     const { pageSize, page, setPage, setPageSize } = pagination || defaultPagination;
-    const tableData = getQueriesTableData({
-        queries,
-        isServerPaginated,
-        page,
-        pageSize,
-    });
+    // Downstream's Powers column sorts in the client. Remember the click so the full list
+    // is ordered before this section slices a page.
+    const [clientSort, setClientSort] = useState<{ sortColumn: string; sortOrder: SortingState } | null>(null);
     const showPagination = totalQueries > pageSize;
     // Visibility is independent of the current page size so choosing a size that fits every row
     // does not hide the control needed to switch back.
@@ -149,6 +147,7 @@ export default function QueriesListSection({
         createdByColumn,
         createdDateColumn,
         powersColumn,
+        powersSorter,
         topUsersColumn,
         columnsColumn,
         editColumn,
@@ -175,7 +174,33 @@ export default function QueriesListSection({
 
     const recentQueriesColumns = [queryTextColumn('550px')];
 
+    const columnsBySection: Record<QueriesTabSection, Column<Query>[]> = {
+        [QueriesTabSection.Highlighted]: highlightedQueriesColumns,
+        [QueriesTabSection.Popular]: popularQueriesColumns,
+        [QueriesTabSection.Downstream]: downstreamQueriesColumns,
+        [QueriesTabSection.Recent]: recentQueriesColumns,
+    };
+    const activeSorter = columnsBySection[section].find((column) => column.key === clientSort?.sortColumn)?.sorter;
+    // `sorter: true` marks Powers sortable without letting the table reorder the current page.
+    const clientSorters: Record<string, (queryA: Query, queryB: Query) => number> = { powers: powersSorter };
+    const clientSorter =
+        typeof activeSorter === 'function' ? activeSorter : clientSorters[clientSort?.sortColumn ?? ''];
+    const tableData = getQueriesTableData({
+        queries,
+        isServerPaginated,
+        page,
+        pageSize,
+        sorter: clientSorter,
+        sortOrder: clientSort?.sortOrder,
+    });
+
     const handleSortColumnChange = ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => {
+        // Downstream never receives a server `sorting` config. Record the click and order the
+        // full list before slicing, instead of letting the table sort the current page.
+        if (!isServerPaginated) {
+            setClientSort(sortOrder === SortingState.ORIGINAL ? null : { sortColumn, sortOrder });
+            return;
+        }
         if (!showPagination || !sorting) return;
 
         const sortFields: Record<string, string> = {
