@@ -20,12 +20,12 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.external_dq.contract import (
     RESULTS_COLUMNS,
     RULES_COLUMNS,
-    LogicalType,
 )
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query
 from datahub.testing import mce_helpers
+from tests.unit.external_dq._fixtures import SqlRow, databricks_columns
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 SERVICE_PRINCIPAL_ID_1 = str(uuid.uuid4())
@@ -1810,14 +1810,6 @@ def test_include_tables_false_skips_tables(pytestconfig, tmp_path, requests_mock
 
 _DQ_RULES_TABLE = "quickstart_catalog.governance.dq_rules"
 _DQ_RESULTS_TABLE = "quickstart_catalog.governance.dq_results"
-_DBX_TYPES = {
-    LogicalType.STRING: "string",
-    LogicalType.BOOLEAN: "boolean",
-    LogicalType.INT64: "bigint",
-    LogicalType.FLOAT64: "double",
-    LogicalType.TIMESTAMP: "timestamp",
-    LogicalType.ARRAY_STRING: "array<string>",
-}
 # One hour before FROZEN_TIME, inside the default initial lookback.
 _DQ_T0 = (
     int(
@@ -1829,12 +1821,7 @@ _DQ_T0 = (
 _ORDERS_PATH = ["quickstart_catalog", "quickstart_schema", "orders"]
 
 
-class _SqlRow(dict):
-    def asDict(self) -> dict:
-        return dict(self)
-
-
-def _dq_rule(rule_id: str, **overrides: object) -> _SqlRow:
+def _dq_rule(rule_id: str, **overrides: object) -> SqlRow:
     row: dict = {c.name: None for c in RULES_COLUMNS}
     row.update(
         rule_id=rule_id,
@@ -1846,12 +1833,12 @@ def _dq_rule(rule_id: str, **overrides: object) -> _SqlRow:
         updated_at=_DQ_T0,
     )
     row.update(overrides)
-    return _SqlRow(row)
+    return SqlRow(row)
 
 
 def _dq_result(
     rule_id: str, run_id: str, offset_ms: int, **overrides: object
-) -> _SqlRow:
+) -> SqlRow:
     row: dict = {c.name: None for c in RESULTS_COLUMNS}
     row.update(
         rule_id=rule_id,
@@ -1860,7 +1847,7 @@ def _dq_result(
         status="SUCCESS",
     )
     row.update(overrides)
-    return _SqlRow(row)
+    return SqlRow(row)
 
 
 _DQ_RULES = [
@@ -1914,14 +1901,14 @@ _DQ_RESULTS = [
 
 
 def _dq_describe_table_columns(self, catalog, schema, table):
-    contract = RULES_COLUMNS if table == "dq_rules" else RESULTS_COLUMNS
-    # Databricks information_schema ordinal_position is 0-based.
-    return [(c.name, _DBX_TYPES[c.logical_type], i) for i, c in enumerate(contract)]
+    return databricks_columns(RULES_COLUMNS if table == "dq_rules" else RESULTS_COLUMNS)
 
 
-def _dq_iter_sql_rows(self, query, params=(), batch_size=10000):
+def _dq_execute_sql_query_streaming(
+    self, query, params=(), batch_size=10000, *, raise_on_error=False
+):
     if "count(*)" in query:
-        return iter([_SqlRow(n=0)])
+        return iter([SqlRow(n=0)])
     if "dq_rules" in query:
         return iter(_DQ_RULES)
     return iter(r for r in _DQ_RESULTS if r["executed_at"] >= params[0])
@@ -1992,7 +1979,11 @@ def test_external_dq_ingestion(pytestconfig, tmp_path, requests_mock):
         patch.object(
             UnityCatalogApiProxy, "describe_table_columns", _dq_describe_table_columns
         ),
-        patch.object(UnityCatalogApiProxy, "iter_sql_rows", _dq_iter_sql_rows),
+        patch.object(
+            UnityCatalogApiProxy,
+            "_execute_sql_query_streaming",
+            _dq_execute_sql_query_streaming,
+        ),
     ):
         workspace_client: mock.MagicMock = mock.MagicMock()
         mock_client.return_value = workspace_client

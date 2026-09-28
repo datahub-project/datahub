@@ -6,6 +6,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    FrozenSet,
     Iterable,
     Iterator,
     List,
@@ -23,7 +24,9 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.external_dq.config import ExternalDQConfig
 from datahub.ingestion.source.external_dq.contract import (
     RESULTS_COLUMNS,
+    RESULTS_NAMES,
     RULES_COLUMNS,
+    RULES_NAMES,
     ContractColumn,
     LogicalType,
     ResultRow,
@@ -130,7 +133,9 @@ class ExternalDQExtractor:
             partial(self.reader.read_rules, rules_table, rule_columns), rules_table
         ):
             self.report.rules_read += 1
-            rule = self._parse(raw, RULES_COLUMNS, parse_rule_row, rules_table)
+            rule = self._parse(
+                raw, RULES_COLUMNS, RULES_NAMES, parse_rule_row, rules_table
+            )
             if rule is None:
                 self.report.rules_skipped_invalid += 1
             else:
@@ -153,6 +158,7 @@ class ExternalDQExtractor:
         now = self.now_millis()
         window = plan_window(
             last_watermark=last_watermark,
+            last_next_start=loaded.next_start,
             last_recent=last_recent,
             now_millis=now,
             initial_lookback_ms=self.config.initial_lookback_days * 86_400_000,
@@ -163,7 +169,7 @@ class ExternalDQExtractor:
             if self.state is not None
             else None
         )
-        # ponytail: holds one int64 per row read, so memory is O(rows read per run).
+        # One int64 per row read; memory is O(rows read per run).
         read_timestamps = array("q")
         unknown_rules: Set[str] = set()
         observed: Dict[str, int] = {}
@@ -179,9 +185,11 @@ class ExternalDQExtractor:
                     )
                     if executed_at is not None:
                         read_timestamps.append(datetime_to_millis(executed_at))
-                except (ValueError, TypeError, OverflowError):
+                except (ValueError, TypeError):
                     pass  # invalid rows are reported by _parse below
-            result = self._parse(raw, RESULTS_COLUMNS, parse_result_row, table)
+            result = self._parse(
+                raw, RESULTS_COLUMNS, RESULTS_NAMES, parse_result_row, table
+            )
             if result is None:
                 self.report.results_skipped_invalid += 1
                 continue
@@ -231,17 +239,20 @@ class ExternalDQExtractor:
             last_recent=last_recent,
             observed=observed,
             overlap_ms=overlap_ms,
+            now_millis=now,
         )
         if watermark is None:
             return
+        # The window start never moves backward: `recent` only covers rows from
+        # here on, and rows below the first window were never read.
+        next_start = max(watermark - overlap_ms, window.start_millis)
         baseline: Optional[List[int]] = None
         if below is not None:
-            next_start = watermark - overlap_ms
             baseline = [
                 next_start,
                 below + sum(1 for ts in read_timestamps if ts < next_start),
             ]
-        self.state.save(table, watermark, recent, baseline)
+        self.state.save(table, watermark, recent, baseline, next_start=next_start)
 
     def _check_late_results(
         self, table: str, start_millis: int, loaded: LoadedState
@@ -358,10 +369,10 @@ class ExternalDQExtractor:
         self,
         raw: Mapping[str, Any],
         contract: Sequence[ContractColumn],
+        names: FrozenSet[str],
         parser: Callable[[Mapping[str, Any], Mapping[str, str]], RowT],
         table: str,
     ) -> Optional[RowT]:
-        names = {c.name for c in contract}
         try:
             values = {
                 c.name: coerce_value(raw.get(c.name), c.logical_type) for c in contract

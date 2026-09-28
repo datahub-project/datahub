@@ -653,10 +653,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.table_refs | self.view_refs
                 )
 
-        if self.config.external_dq.enabled:
-            with self.report.new_stage("Ingest external data quality"):
-                yield from self._get_external_dq_workunits()
-
         if self.config.is_profiling_enabled():
             with self.report.new_stage("Start warehouse"):
                 # Need to start the warehouse again for profiling,
@@ -698,6 +694,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ).get_workunits(list(self.tables.values()))
                 else:
                     raise ValueError("Unknown profiling config method")
+
+        # Last on purpose: an uncaught error later in the run would skip the
+        # checkpoint commit and re-publish this stage's run events next time.
+        if self.config.external_dq.enabled:
+            with self.report.new_stage("Ingest external data quality"):
+                yield from self._get_external_dq_workunits()
 
     def build_service_principal_map(self) -> None:
         try:

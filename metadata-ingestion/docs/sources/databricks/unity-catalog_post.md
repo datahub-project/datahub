@@ -139,7 +139,7 @@ CREATE TABLE main.governance.dq_rules (
   is_active BOOLEAN NOT NULL,         -- false retires the assertion
   rule_version STRING,
   external_url STRING,
-  updated_at TIMESTAMP NOT NULL -- reserved; not yet used by DataHub
+  updated_at TIMESTAMP NOT NULL       -- when the rule definition last changed
 );
 
 CREATE TABLE main.governance.dq_results (
@@ -168,10 +168,13 @@ CREATE TABLE main.governance.dq_results (
 - Additional columns are allowed after the contract columns and are shown on the assertion (rules) or run (results).
 - Assertion identity is `(platform instance, rule_namespace, rule_id)`, so renaming a table keeps the assertion's history.
 - Results are append-only. With stateful ingestion, each result is published once, including results that arrive up to `late_arrival_minutes` late. Without it, the last `initial_lookback_days` of results are re-published on every run, which re-sends notifications to subscribers.
+- The read window never moves backward, so raising `late_arrival_minutes` only applies to results newer than the previous run's window start. If a run is aborted by an error the connector did not report itself (for example, the process is killed later in the run), its checkpoint is not saved and the next run re-publishes that run's results; failures the connector reports keep the checkpoint at the last published result.
+- The first run publishes the last `initial_lookback_days` of results. Lower it before enabling if subscribers should not be notified about that history.
 - `executed_at` should be when the evaluation finished. Lateness is measured against the newest `executed_at` already published, so a result stamped more than `late_arrival_minutes` earlier than that is not picked up. With stateful ingestion, the next run detects such results and reports a warning with how many were missed. This detection assumes the results table is append-only: deleting old results (for example, for retention) can hide the warning for that run. Results dated more than `late_arrival_minutes` in the future are skipped with a warning.
 - Rules for tables that were not ingested in the same run are skipped and reported.
 - Results for a rule that is invalid or not yet published are retried while they are inside the late-arrival window, then dropped. Each run reports a warning naming each such `rule_id`.
 - Setting `is_active` to `false` marks the assertion as removed, and no further results are published for it. Results already published stay as history.
+- A rule deleted from the rules table is soft-deleted by stale-entity removal like any other ingested entity; re-adding it restores the assertion and its history.
 - Both tables must be in Unity Catalog (not `hive_metastore`), and the ingestion principal needs `SELECT` on them.
 - `column_paths` should name top-level columns. Column casing is matched to the ingested schema; nested (struct) fields are passed through as written and may not link to the column in DataHub.
 

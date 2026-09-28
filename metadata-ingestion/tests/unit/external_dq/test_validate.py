@@ -1,32 +1,13 @@
-from typing import List, Sequence
+from typing import List
 
-from datahub.ingestion.source.external_dq.contract import (
-    RULES_COLUMNS,
-    ContractColumn,
-    LogicalType,
-)
+from datahub.ingestion.source.external_dq.contract import RULES_COLUMNS
 from datahub.ingestion.source.external_dq.types import DATABRICKS_TYPE_PROFILE
 from datahub.ingestion.source.external_dq.validate import (
     PhysicalColumn,
     TableValidation,
     validate_table,
 )
-
-DBX_TYPES = {
-    LogicalType.STRING: "string",
-    LogicalType.BOOLEAN: "boolean",
-    LogicalType.INT64: "bigint",
-    LogicalType.FLOAT64: "double",
-    LogicalType.TIMESTAMP: "timestamp",
-    LogicalType.ARRAY_STRING: "array<string>",
-}
-
-
-def physical_for(contract: Sequence[ContractColumn]) -> List[PhysicalColumn]:
-    return [
-        PhysicalColumn(c.name, DBX_TYPES[c.logical_type], i + 1)
-        for i, c in enumerate(contract)
-    ]
+from tests.unit.external_dq._fixtures import databricks_columns as physical_for
 
 
 def _validate(physical: List[PhysicalColumn], strict: bool = False) -> TableValidation:

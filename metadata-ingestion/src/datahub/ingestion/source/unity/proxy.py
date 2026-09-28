@@ -9,18 +9,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-    Generator,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-    cast,
-)
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
 from unittest.mock import patch
 
 import cachetools
@@ -58,6 +47,7 @@ from typing_extensions import assert_never
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.ingestion.source.external_dq.validate import PhysicalColumn
 from datahub.ingestion.source.unity.config import (
     LineageDataSource,
     UsageDataSource,
@@ -1738,6 +1728,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         query: str,
         params: Sequence[Any] = (),
         batch_size: int = 10000,
+        *,
+        raise_on_error: bool = False,
     ) -> Generator[Row, None, None]:
         """Execute a SQL query and yield rows in batches.
 
@@ -1745,8 +1737,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         exchange for a longer-held connection. Callers must fully consume or close the
         generator to release the connection.
         On failure, reports a warning, increments num_usage_query_fetch_failures, and
-        yields nothing (does not raise). Consumer errors propagate cleanly because yield
-        is never inside a try/except.
+        yields nothing (does not raise) — unless raise_on_error is set, for callers
+        that persist progress and must tell an empty result from a failed query.
+        Consumer errors propagate cleanly because yield is never inside a try/except.
         """
         logger.debug(f"Executing SQL query (streaming) with {len(params)} parameters")
         if logger.isEnabledFor(logging.DEBUG):
@@ -1754,6 +1747,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if params:
                 logger.debug(f"Query parameters: {params}")
 
+        if raise_on_error and not self.warehouse_id:
+            raise RuntimeError("warehouse_id is not configured")
         if not self._check_warehouse_configured():
             return
 
@@ -1762,6 +1757,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         try:
             connection = connect(**sql_connection_params)
         except Exception as e:
+            if raise_on_error:
+                raise
             self._report_sql_query_failure(
                 e, query, params, count_as_fetch_failure=True
             )
@@ -1771,6 +1768,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 cursor = connection.cursor()
                 cursor.execute(query, list(params))
             except Exception as e:
+                if raise_on_error:
+                    raise
                 self._report_sql_query_failure(
                     e, query, params, count_as_fetch_failure=True
                 )
@@ -1780,6 +1779,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     try:
                         batch = cursor.fetchmany(batch_size)
                     except Exception as e:
+                        if raise_on_error:
+                            raise
                         self._report_sql_query_failure(
                             e, query, params, count_as_fetch_failure=True
                         )
@@ -1788,29 +1789,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                         break
                     yield from batch  # OUTSIDE any try/except — consumer errors propagate cleanly
 
-    def iter_sql_rows(
-        self, query: str, params: Sequence[Any] = (), batch_size: int = 10000
-    ) -> Generator[Row, None, None]:
-        """Stream rows like _execute_sql_query_streaming, but raise on failure.
-
-        Callers that persist progress (the external DQ results checkpoint) must be
-        able to tell an empty result from a failed query.
-        """
-        if not self.warehouse_id:
-            raise RuntimeError("warehouse_id is not configured")
-        sql_connection_params = get_sql_connection_params(self._workspace_client)
-        with closing(connect(**sql_connection_params)) as connection:
-            with closing(connection.cursor()) as cursor:
-                cursor.execute(query, list(params))
-                while True:
-                    batch = cursor.fetchmany(batch_size)
-                    if not batch:
-                        return
-                    yield from batch
-
     def describe_table_columns(
         self, catalog: str, schema: str, table: str
-    ) -> List[Tuple[str, str, int]]:
+    ) -> List[PhysicalColumn]:
         query = f"""
             SELECT column_name, full_data_type, ordinal_position
             FROM {quote_databricks_identifier(catalog)}.information_schema.columns
@@ -1818,8 +1799,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             ORDER BY ordinal_position
         """
         return [
-            (row["column_name"], row["full_data_type"], int(row["ordinal_position"]))
-            for row in self.iter_sql_rows(query, [schema, table])
+            PhysicalColumn(
+                name=row["column_name"],
+                data_type=row["full_data_type"],
+                position=int(row["ordinal_position"]),
+            )
+            for row in self._execute_sql_query_streaming(
+                query, [schema, table], raise_on_error=True
+            )
         ]
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))

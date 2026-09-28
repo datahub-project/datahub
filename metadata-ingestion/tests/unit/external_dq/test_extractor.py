@@ -10,8 +10,6 @@ from datahub.ingestion.source.external_dq.config import ExternalDQConfig
 from datahub.ingestion.source.external_dq.contract import (
     RESULTS_COLUMNS,
     RULES_COLUMNS,
-    ContractColumn,
-    LogicalType,
 )
 from datahub.ingestion.source.external_dq.extractor import (
     ExternalDQExtractor,
@@ -24,24 +22,15 @@ from datahub.ingestion.source.external_dq.types import DATABRICKS_TYPE_PROFILE
 from datahub.ingestion.source.external_dq.validate import PhysicalColumn
 from datahub.ingestion.source.state.stateful_ingestion_base import StateProviderWrapper
 from datahub.metadata.schema_classes import AssertionRunEventClass
-from tests.unit.external_dq._fixtures import T0, FakeStateProvider, result_raw, rule_raw
+from tests.unit.external_dq._fixtures import (
+    T0,
+    FakeStateProvider,
+    databricks_columns,
+    result_raw,
+    rule_raw,
+)
 
 RULES, RESULTS = "main.governance.dq_rules", "main.governance.dq_results"
-DBX = {
-    LogicalType.STRING: "string",
-    LogicalType.BOOLEAN: "boolean",
-    LogicalType.INT64: "bigint",
-    LogicalType.FLOAT64: "double",
-    LogicalType.TIMESTAMP: "timestamp",
-    LogicalType.ARRAY_STRING: "array<string>",
-}
-
-
-def _physical(contract: Sequence[ContractColumn]) -> List[PhysicalColumn]:
-    return [
-        PhysicalColumn(c.name, DBX[c.logical_type], i + 1)
-        for i, c in enumerate(contract)
-    ]
 
 
 class FakeReader:
@@ -49,8 +38,8 @@ class FakeReader:
         self, results: List[Dict[str, Any]], fail_after: Optional[int] = None
     ) -> None:
         self.tables = {
-            RULES: _physical(RULES_COLUMNS),
-            RESULTS: _physical(RESULTS_COLUMNS),
+            RULES: databricks_columns(RULES_COLUMNS),
+            RESULTS: databricks_columns(RESULTS_COLUMNS),
         }
         self.rules = [rule_raw()]
         self.results = results
@@ -94,9 +83,15 @@ class Locator:
         return make_schema_field_urn(dataset_urn, column_path)
 
 
-def run(reader: FakeReader, state: Optional[ExternalDQStateHandler] = None) -> tuple:
+def run(
+    reader: FakeReader,
+    state: Optional[ExternalDQStateHandler] = None,
+    **config_overrides: Any,
+) -> tuple:
     source_report, report = SourceReport(), ExternalDQReport()
-    config = ExternalDQConfig(enabled=True, rules_table=RULES, results_table=RESULTS)
+    config = ExternalDQConfig(
+        enabled=True, rules_table=RULES, results_table=RESULTS, **config_overrides
+    )
     mapper = ExternalDQMapper(
         platform="databricks",
         platform_instance=None,
@@ -174,6 +169,61 @@ def test_second_run_emits_no_duplicate_run_events() -> None:
     second = FakeStateProvider(last=first.current)
     _, run_events, _, report = run(FakeReader(rows), _handler(second))
     assert run_events == [] and report.results_already_emitted == 1
+
+
+def test_raising_late_arrival_minutes_does_not_replay_published_results() -> None:
+    rows = [
+        result_raw(run_id="a", executed_at=T0 - 100 * 60_000),
+        result_raw(run_id="b", executed_at=T0 - 70 * 60_000),
+        result_raw(run_id="c"),
+    ]
+    first = FakeStateProvider()
+    assert len(run(FakeReader(rows), _handler(first), late_arrival_minutes=60)[1]) == 3
+    # The "arrived too late" warning tells operators to raise the window.
+    second = FakeStateProvider(last=first.current)
+    _, run_events, _, _ = run(
+        FakeReader(rows), _handler(second), late_arrival_minutes=120
+    )
+    assert run_events == []
+
+
+def test_watermark_is_capped_at_now_so_skewed_producers_keep_the_late_window() -> None:
+    now = T0 + 1_000
+    ahead = result_raw(run_id="ahead", executed_at=now + 30 * 60_000)
+    first = FakeStateProvider()
+    _, run_events, _, _ = run(FakeReader([ahead]), _handler(first))
+    assert len(run_events) == 1
+    assert _state(first).watermarks == {RESULTS: now}
+
+    second = FakeStateProvider(last=first.current)
+    late = result_raw(run_id="late", executed_at=now - 50 * 60_000)
+    _, run_events, _, _ = run(FakeReader([ahead, late]), _handler(second))
+    assert [e.metadata.aspect.runId for e in run_events] == ["late"]  # type: ignore[union-attr]
+
+
+def test_first_run_window_never_extends_below_the_initial_lookback() -> None:
+    lookback_start = T0 + 1_000 - 7 * 86_400_000
+    first = FakeStateProvider()
+    rows = [result_raw(run_id="in", executed_at=lookback_start + 10 * 60_000)]
+    assert len(run(FakeReader(rows), _handler(first))[1]) == 1
+
+    second = FakeStateProvider(last=first.current)
+    rows.append(result_raw(run_id="older", executed_at=lookback_start - 20 * 60_000))
+    _, run_events, _, report = run(FakeReader(rows), _handler(second))
+    assert run_events == []
+    assert report.results_missed_late == 1
+
+
+def test_non_finite_float_result_is_skipped() -> None:
+    _, run_events, _, report = run(FakeReader([result_raw(actual_value=float("nan"))]))
+    assert run_events == [] and report.results_skipped_invalid == 1
+
+
+def test_out_of_range_timestamp_is_skipped_not_fatal() -> None:
+    # e.g. a producer that wrote microseconds where millis were expected.
+    rows = [result_raw(executed_at=1_700_000_000_000_000)]
+    _, run_events, _, report = run(FakeReader(rows))
+    assert run_events == [] and report.results_skipped_invalid == 1
 
 
 def test_read_failure_advances_only_to_emitted_rows() -> None:

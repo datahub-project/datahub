@@ -44,10 +44,12 @@ def test_contract_column_order_is_fixed() -> None:
 
 def test_coerce_array_variants() -> None:
     assert coerce_value(["a", "b"], LogicalType.ARRAY_STRING) == ["a", "b"]
-    assert coerce_value(_NumpyLikeArray(), LogicalType.ARRAY_STRING) == ["a", "b"]
     assert coerce_value('["a", "b"]', LogicalType.ARRAY_STRING) == ["a", "b"]
     with pytest.raises(ValueError):
         coerce_value('{"a": 1}', LogicalType.ARRAY_STRING)
+    # Driver-specific array objects are normalized by the reader, not here.
+    with pytest.raises(ValueError):
+        coerce_value(_NumpyLikeArray(), LogicalType.ARRAY_STRING)
 
 
 def test_coerce_timestamp_is_utc_and_exact() -> None:
@@ -71,6 +73,19 @@ def test_coerce_rejects_non_finite_int64() -> None:
         coerce_value(float("inf"), LogicalType.INT64)
     with pytest.raises(ValueError):
         coerce_value(Decimal("NaN"), LogicalType.INT64)
+
+
+def test_coerce_rejects_non_finite_float64() -> None:
+    # A NaN reaches the sink as a bare `NaN` JSON token, which GMS rejects after
+    # the checkpoint has already recorded the row as emitted.
+    for value in (float("nan"), "inf", Decimal("-Infinity")):
+        with pytest.raises(ValueError):
+            coerce_value(value, LogicalType.FLOAT64)
+
+
+def test_coerce_timestamp_out_of_range_is_a_value_error() -> None:
+    with pytest.raises(ValueError):
+        coerce_value(1_700_000_000_000_000, LogicalType.TIMESTAMP)
 
 
 def test_coerce_array_rejects_null_element() -> None:

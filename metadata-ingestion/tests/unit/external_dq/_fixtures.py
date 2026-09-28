@@ -1,8 +1,33 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
+from datahub.ingestion.source.external_dq.contract import ContractColumn, LogicalType
+from datahub.ingestion.source.external_dq.validate import PhysicalColumn
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 
 T0 = 1_700_000_000_000  # epoch millis used across tests
+
+DBX_TYPES: Dict[LogicalType, str] = {
+    LogicalType.STRING: "string",
+    LogicalType.BOOLEAN: "boolean",
+    LogicalType.INT64: "bigint",
+    LogicalType.FLOAT64: "double",
+    LogicalType.TIMESTAMP: "timestamp",
+    LogicalType.ARRAY_STRING: "array<string>",
+}
+
+
+def databricks_columns(contract: Sequence[ContractColumn]) -> List[PhysicalColumn]:
+    return [
+        PhysicalColumn(c.name, DBX_TYPES[c.logical_type], i + 1)
+        for i, c in enumerate(contract)
+    ]
+
+
+class SqlRow(dict):
+    """Stands in for databricks.sql.types.Row."""
+
+    def asDict(self) -> Dict[str, Any]:
+        return dict(self)
 
 
 def rule_raw(**overrides: Any) -> Dict[str, Any]:

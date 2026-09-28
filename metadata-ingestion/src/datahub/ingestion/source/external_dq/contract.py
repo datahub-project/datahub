@@ -27,11 +27,11 @@ class LogicalType(str, enum.Enum):
 
 @dataclass(frozen=True)
 class ContractColumn:
+    """A column every table implementing the contract must have. Which columns
+    may be NULL per row is defined by the row models below."""
+
     name: str
     logical_type: LogicalType
-    # Row-level only: NULL makes the row invalid. Every contract column must exist
-    # physically regardless of this flag.
-    required: bool
 
 
 _S = LogicalType.STRING
@@ -42,45 +42,48 @@ _T = LogicalType.TIMESTAMP
 _A = LogicalType.ARRAY_STRING
 
 RULES_COLUMNS: Tuple[ContractColumn, ...] = (
-    ContractColumn("rule_id", _S, True),
-    ContractColumn("dataset_path", _A, True),
-    ContractColumn("column_paths", _A, False),
-    ContractColumn("rule_name", _S, True),
-    ContractColumn("rule_type", _S, True),
-    ContractColumn("rule_description", _S, False),
-    ContractColumn("dimension", _S, False),
-    ContractColumn("operator", _S, False),
-    ContractColumn("threshold_min", _F, False),
-    ContractColumn("threshold_max", _F, False),
-    ContractColumn("threshold_value", _F, False),
-    ContractColumn("logic", _S, False),
-    ContractColumn("severity", _S, False),
-    ContractColumn("is_active", _B, True),
-    ContractColumn("rule_version", _S, False),
-    ContractColumn("external_url", _S, False),
-    ContractColumn("updated_at", _T, True),
+    ContractColumn("rule_id", _S),
+    ContractColumn("dataset_path", _A),
+    ContractColumn("column_paths", _A),
+    ContractColumn("rule_name", _S),
+    ContractColumn("rule_type", _S),
+    ContractColumn("rule_description", _S),
+    ContractColumn("dimension", _S),
+    ContractColumn("operator", _S),
+    ContractColumn("threshold_min", _F),
+    ContractColumn("threshold_max", _F),
+    ContractColumn("threshold_value", _F),
+    ContractColumn("logic", _S),
+    ContractColumn("severity", _S),
+    ContractColumn("is_active", _B),
+    ContractColumn("rule_version", _S),
+    ContractColumn("external_url", _S),
+    ContractColumn("updated_at", _T),
 )
 
 RESULTS_COLUMNS: Tuple[ContractColumn, ...] = (
-    ContractColumn("run_id", _S, True),
-    ContractColumn("rule_id", _S, True),
-    ContractColumn("executed_at", _T, True),
-    ContractColumn("status", _S, True),
-    ContractColumn("is_warning", _B, False),
-    ContractColumn("severity", _S, False),
-    ContractColumn("actual_value", _F, False),
-    ContractColumn("evaluated_row_count", _I, False),
-    ContractColumn("failed_row_count", _I, False),
-    ContractColumn("missing_row_count", _I, False),
-    ContractColumn("operator_snapshot", _S, False),
-    ContractColumn("threshold_min_snapshot", _F, False),
-    ContractColumn("threshold_max_snapshot", _F, False),
-    ContractColumn("threshold_value_snapshot", _F, False),
-    ContractColumn("rule_version_snapshot", _S, False),
-    ContractColumn("error_type", _S, False),
-    ContractColumn("error_message", _S, False),
-    ContractColumn("external_url", _S, False),
+    ContractColumn("run_id", _S),
+    ContractColumn("rule_id", _S),
+    ContractColumn("executed_at", _T),
+    ContractColumn("status", _S),
+    ContractColumn("is_warning", _B),
+    ContractColumn("severity", _S),
+    ContractColumn("actual_value", _F),
+    ContractColumn("evaluated_row_count", _I),
+    ContractColumn("failed_row_count", _I),
+    ContractColumn("missing_row_count", _I),
+    ContractColumn("operator_snapshot", _S),
+    ContractColumn("threshold_min_snapshot", _F),
+    ContractColumn("threshold_max_snapshot", _F),
+    ContractColumn("threshold_value_snapshot", _F),
+    ContractColumn("rule_version_snapshot", _S),
+    ContractColumn("error_type", _S),
+    ContractColumn("error_message", _S),
+    ContractColumn("external_url", _S),
 )
+
+RULES_NAMES: FrozenSet[str] = frozenset(c.name for c in RULES_COLUMNS)
+RESULTS_NAMES: FrozenSet[str] = frozenset(c.name for c in RESULTS_COLUMNS)
 
 RESULT_STATUSES: FrozenSet[str] = frozenset({"SUCCESS", "FAILURE", "ERROR", "INIT"})
 SEVERITIES: FrozenSet[str] = frozenset({"LOW", "MEDIUM", "HIGH"})

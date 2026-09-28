@@ -46,7 +46,12 @@ def coerce_value(value: Any, logical_type: LogicalType) -> Any:  # noqa: C901
         if isinstance(value, bool):
             raise ValueError(f"not a number: {value!r}")
         if isinstance(value, (int, float, Decimal, str)):
-            return float(value)
+            number = float(value)
+            # NaN/inf serialize to bare JSON tokens the sink rejects; failing here
+            # skips the row instead of checkpointing a result that never landed.
+            if not math.isfinite(number):
+                raise ValueError(f"not a finite number: {value!r}")
+            return number
         raise ValueError(f"not a number: {value!r}")
     if logical_type is LogicalType.TIMESTAMP:
         if isinstance(value, datetime):
@@ -54,15 +59,15 @@ def coerce_value(value: Any, logical_type: LogicalType) -> Any:  # noqa: C901
                 return value.replace(tzinfo=timezone.utc)
             return value.astimezone(timezone.utc)
         if isinstance(value, int) and not isinstance(value, bool):
-            return EPOCH + timedelta(milliseconds=value)
+            try:
+                return EPOCH + timedelta(milliseconds=value)
+            except OverflowError as e:
+                raise ValueError(f"timestamp out of range: {value!r}") from e
         raise ValueError(f"not a timestamp: {value!r}")
     if logical_type is LogicalType.ARRAY_STRING:
         if isinstance(value, str):
             # Platforms without a native array type encode it as a JSON string.
             value = json.loads(value)
-        elif hasattr(value, "tolist"):
-            # databricks-sql / pyarrow can hand back numpy arrays.
-            value = value.tolist()
         if not isinstance(value, (list, tuple)):
             raise ValueError(f"not an array: {value!r}")
         for item in value:

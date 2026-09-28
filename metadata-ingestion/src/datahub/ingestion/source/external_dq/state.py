@@ -21,15 +21,16 @@ def run_key(rule_id: str, run_id: str) -> str:
 
 
 class ExternalDQCheckpointState(CheckpointStateBase):
-    """Per results table: the highest executed_at emitted (epoch millis) and the
-    run keys emitted inside the late-arrival overlap window, so re-reading that
-    window never re-emits a run event (each re-emit re-fires notifications), and
-    [next window start, expected row count below it] to detect rows that landed
-    too late to ever be read."""
+    """Per results table: the highest executed_at emitted (epoch millis), the
+    run keys emitted from the next window start on, so re-reading that window
+    never re-emits a run event (each re-emit re-fires notifications), where the
+    next read starts, and [next window start, expected row count below it] to
+    detect rows that landed too late to ever be read."""
 
     watermarks: Dict[str, int] = pydantic.Field(default_factory=dict)
     recent_keys: Dict[str, Dict[str, int]] = pydantic.Field(default_factory=dict)
     late_baselines: Dict[str, List[int]] = pydantic.Field(default_factory=dict)
+    next_starts: Dict[str, int] = pydantic.Field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -37,6 +38,7 @@ class LoadedState:
     watermark: Optional[int]
     recent: Dict[str, int]
     late_baseline: Optional[List[int]]
+    next_start: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -48,6 +50,7 @@ class ReadWindow:
 def plan_window(
     *,
     last_watermark: Optional[int],
+    last_next_start: Optional[int],
     last_recent: Mapping[str, int],
     now_millis: int,
     initial_lookback_ms: int,
@@ -57,9 +60,13 @@ def plan_window(
         return ReadWindow(
             start_millis=now_millis - initial_lookback_ms, seen=frozenset()
         )
-    return ReadWindow(
-        start_millis=last_watermark - overlap_ms, seen=frozenset(last_recent)
-    )
+    start = last_watermark - overlap_ms
+    if last_next_start is not None:
+        # `recent` only covers rows from the previous next start on. Reading
+        # earlier (e.g. after raising late_arrival_minutes) would re-emit results
+        # that were already published.
+        start = max(start, last_next_start)
+    return ReadWindow(start_millis=start, seen=frozenset(last_recent))
 
 
 def advance(
@@ -68,13 +75,16 @@ def advance(
     last_recent: Mapping[str, int],
     observed: Mapping[str, int],
     overlap_ms: int,
+    now_millis: int,
 ) -> Tuple[Optional[int], Dict[str, int]]:
     timestamps = list(observed.values())
     if last_watermark is not None:
         timestamps.append(last_watermark)
     if not timestamps:
         return None, {}
-    watermark = max(timestamps)
+    # Capped at now: a producer whose clock runs ahead must not shrink the late
+    # window for every other result.
+    watermark = min(max(timestamps), now_millis)
     cutoff = watermark - overlap_ms
     merged = {**last_recent, **observed}
     return watermark, {key: ts for key, ts in merged.items() if ts >= cutoff}
@@ -130,11 +140,18 @@ class ExternalDQStateHandler(
             watermark=state.watermarks.get(table),
             recent=dict(state.recent_keys.get(table, {})),
             late_baseline=state.late_baselines.get(table),
+            next_start=state.next_starts.get(table),
         )
         if loaded.watermark is not None:
             # Carry forward now, so a run that fails before save() keeps the
             # previous watermark instead of re-reading the initial lookback.
-            self.save(table, loaded.watermark, loaded.recent, loaded.late_baseline)
+            self.save(
+                table,
+                loaded.watermark,
+                loaded.recent,
+                loaded.late_baseline,
+                next_start=loaded.next_start,
+            )
         return loaded
 
     def save(
@@ -143,6 +160,8 @@ class ExternalDQStateHandler(
         watermark: int,
         recent: Mapping[str, int],
         late_baseline: Optional[Sequence[int]],
+        *,
+        next_start: Optional[int],
     ) -> None:
         current = self.state_provider.get_current_checkpoint(self.job_id)
         if current is None:
@@ -155,3 +174,5 @@ class ExternalDQStateHandler(
         # window start is unchanged, since the table is append-only.
         if late_baseline is not None:
             state.late_baselines[table] = list(late_baseline)
+        if next_start is not None:
+            state.next_starts[table] = next_start

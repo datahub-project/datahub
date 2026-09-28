@@ -1,6 +1,7 @@
-from typing import Any, Dict, Iterator, List, Sequence, Tuple
+from typing import Any, Iterator, List, Sequence, Tuple
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from datahub.emitter.mce_builder import make_dataset_urn
@@ -10,6 +11,7 @@ from datahub.ingestion.source.external_dq.contract import (
     RULES_COLUMNS,
     LogicalType,
 )
+from datahub.ingestion.source.external_dq.validate import PhysicalColumn
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.external_dq import (
     UnityDatasetLocator,
@@ -21,25 +23,36 @@ from datahub.ingestion.source.unity.proxy_types import TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 from datahub.metadata.schema_classes import AssertionInfoClass, AssertionRunEventClass
-from tests.unit.external_dq._fixtures import result_raw, rule_raw
-
-
-class _Row(dict):
-    def asDict(self) -> Dict[str, Any]:
-        return dict(self)
+from tests.unit.external_dq._fixtures import (
+    SqlRow,
+    databricks_columns,
+    result_raw,
+    rule_raw,
+)
 
 
 class FakeProxy:
     def __init__(self) -> None:
         self.queries: List[Tuple[str, Sequence[Any]]] = []
-        self.rows = [_Row(rule_id="r1", updated_at=1)]
+        self.rows = [SqlRow(rule_id="r1", updated_at=1)]
 
     def describe_table_columns(
         self, catalog: str, schema: str, table: str
-    ) -> List[Tuple[str, str, int]]:
-        return [("rule_id", "string", 1), ("updated_at", "timestamp", 2)]
+    ) -> List[PhysicalColumn]:
+        return [
+            PhysicalColumn("rule_id", "string", 1),
+            PhysicalColumn("updated_at", "timestamp", 2),
+        ]
 
-    def iter_sql_rows(self, query: str, params: Sequence[Any] = ()) -> Iterator[_Row]:
+    def _execute_sql_query_streaming(
+        self,
+        query: str,
+        params: Sequence[Any] = (),
+        batch_size: int = 10000,
+        *,
+        raise_on_error: bool = False,
+    ) -> Iterator[SqlRow]:
+        assert raise_on_error, "the DQ reader must not swallow query failures"
         self.queries.append((query, params))
         yield from self.rows
 
@@ -76,9 +89,23 @@ def test_reader_filters_and_orders_results() -> None:
     assert list(params) == [42]
 
 
+def test_reader_converts_numpy_arrays_to_lists() -> None:
+    # databricks-sql materializes rows through pandas, so ARRAY columns arrive as
+    # numpy arrays; the contract layer only accepts lists.
+    proxy = FakeProxy()
+    proxy.rows = [SqlRow(rule_id="r1", dataset_path=np.array(["main", "s", "t"]))]
+    reader = UnityExternalDQReader(proxy)  # type: ignore[arg-type]
+    [row] = reader.read_rules("main.gov.dq_rules", [("rule_id", LogicalType.STRING)])
+    assert type(row["dataset_path"]) is list and row["dataset_path"] == [
+        "main",
+        "s",
+        "t",
+    ]
+
+
 def test_reader_counts_results_before_boundary() -> None:
     proxy = FakeProxy()
-    proxy.rows = [_Row(n=7)]
+    proxy.rows = [SqlRow(n=7)]
     reader = UnityExternalDQReader(proxy)  # type: ignore[arg-type]
     assert reader.count_results_before("main.gov.dq_results", 42) == 7
     query, params = proxy.queries[0]
@@ -89,13 +116,11 @@ def test_reader_counts_results_before_boundary() -> None:
     assert list(params) == [42]
 
 
-def test_reader_describe_maps_physical_columns() -> None:
-    reader = UnityExternalDQReader(FakeProxy())  # type: ignore[arg-type]
-    described = reader.describe("main.gov.dq_rules")
-    assert [(c.name, c.data_type, c.position) for c in described] == [
-        ("rule_id", "string", 1),
-        ("updated_at", "timestamp", 2),
-    ]
+def test_reader_describe_splits_the_table_name() -> None:
+    proxy = FakeProxy()
+    proxy.describe_table_columns = MagicMock(return_value=[])  # type: ignore[method-assign]
+    UnityExternalDQReader(proxy).describe("main.gov.`dq.rules`")  # type: ignore[arg-type]
+    proxy.describe_table_columns.assert_called_once_with("main", "gov", "dq.rules")
 
 
 def test_locator_is_case_insensitive() -> None:
@@ -118,28 +143,49 @@ def test_locator_fixes_column_casing_from_ingested_schema() -> None:
     assert locator.field_urn(urn, "not_a_column").endswith(",not_a_column)")
 
 
-@patch("datahub.ingestion.source.unity.proxy.connect")
-def test_iter_sql_rows_raises_instead_of_swallowing(mock_connect: MagicMock) -> None:
-    mock_connect.return_value.cursor.return_value.execute.side_effect = RuntimeError(
-        "boom"
-    )
+def _proxy(warehouse_id: Any = "wh") -> UnityCatalogApiProxy:
     client = MagicMock()
     client.config.host = "https://test.databricks.com"
     client.config.token = "t"
-    client.config.warehouse_id = "wh"
-    proxy = UnityCatalogApiProxy(workspace_client=client, report=UnityCatalogReport())
+    client.config.warehouse_id = warehouse_id
+    return UnityCatalogApiProxy(workspace_client=client, report=UnityCatalogReport())
+
+
+@patch("datahub.ingestion.source.unity.proxy.connect")
+def test_streaming_query_raises_when_asked(mock_connect: MagicMock) -> None:
+    mock_connect.return_value.cursor.return_value.execute.side_effect = RuntimeError(
+        "boom"
+    )
+    proxy = _proxy()
+    # Default: reported, not raised (usage/lineage callers rely on this).
+    assert list(proxy._execute_sql_query_streaming("SELECT 1")) == []
     with pytest.raises(RuntimeError, match="boom"):
-        list(proxy.iter_sql_rows("SELECT 1"))
+        list(proxy._execute_sql_query_streaming("SELECT 1", raise_on_error=True))
 
 
-_DBX = {
-    LogicalType.STRING: "string",
-    LogicalType.BOOLEAN: "boolean",
-    LogicalType.INT64: "bigint",
-    LogicalType.FLOAT64: "double",
-    LogicalType.TIMESTAMP: "timestamp",
-    LogicalType.ARRAY_STRING: "array<string>",
-}
+def test_streaming_query_without_warehouse_raises_when_asked() -> None:
+    with pytest.raises(RuntimeError, match="warehouse_id"):
+        list(
+            _proxy(warehouse_id=None)._execute_sql_query_streaming(
+                "SELECT 1", raise_on_error=True
+            )
+        )
+
+
+@patch("datahub.ingestion.source.unity.proxy.connect")
+def test_describe_table_columns_returns_physical_columns(
+    mock_connect: MagicMock,
+) -> None:
+    cursor = mock_connect.return_value.cursor.return_value
+    cursor.fetchmany.side_effect = [
+        [SqlRow(column_name="rule_id", full_data_type="string", ordinal_position=0)],
+        [],
+    ]
+    assert _proxy().describe_table_columns("main", "gov", "dq_rules") == [
+        PhysicalColumn("rule_id", "string", 0)
+    ]
+
+
 _BASE = {
     "token": "t",
     "workspace_url": "https://test.databricks.com",
@@ -168,16 +214,24 @@ def test_config_requires_warehouse_and_three_part_names() -> None:
 class ContractProxy:
     def describe_table_columns(
         self, catalog: str, schema: str, table: str
-    ) -> List[Tuple[str, str, int]]:
-        contract = RULES_COLUMNS if table == "dq_rules" else RESULTS_COLUMNS
-        return [(c.name, _DBX[c.logical_type], i + 1) for i, c in enumerate(contract)]
+    ) -> List[PhysicalColumn]:
+        return databricks_columns(
+            RULES_COLUMNS if table == "dq_rules" else RESULTS_COLUMNS
+        )
 
-    def iter_sql_rows(self, query: str, params: Sequence[Any] = ()) -> Iterator[_Row]:
+    def _execute_sql_query_streaming(
+        self,
+        query: str,
+        params: Sequence[Any] = (),
+        batch_size: int = 10000,
+        *,
+        raise_on_error: bool = False,
+    ) -> Iterator[SqlRow]:
         if "count(*)" in query:
-            yield _Row(n=0)
+            yield SqlRow(n=0)
             return
         row = rule_raw() if "dq_rules" in query else result_raw()
-        yield _Row(row)
+        yield SqlRow(row)
 
 
 def test_source_emits_external_dq_assertions_for_ingested_tables() -> None:
