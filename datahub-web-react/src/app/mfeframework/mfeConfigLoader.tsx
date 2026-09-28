@@ -21,9 +21,6 @@ export interface MFEConfig {
     module: string;
     flags: MFEFlags;
     navIcon: string;
-    // Optional per-MFE override for how long to wait on the remote module before showing the
-    // error state. Takes precedence over the top-level MFESchema.loadTimeoutMs.
-    loadTimeoutMs?: number;
 }
 
 // MFESchema: The overall config schema.
@@ -31,7 +28,7 @@ export interface MFESchema {
     topLevelMenuTitle: string;
     subNavigationMode: boolean;
     microFrontends: MFEConfig[];
-    // Optional default remote-module load timeout, applied to every MFE without its own override.
+    // Optional remote-module load timeout, applied to every MFE. Falls back to DEFAULT_LOAD_TIMEOUT_MS.
     loadTimeoutMs?: number;
 }
 
@@ -93,11 +90,8 @@ function validateMFEConfig(config: any): MFEConfig | null {
         console.error(`[MFE Loader] Invalid config for entry (id: ${config.id || 'unknown'}):`, errors);
         return null;
     }
-    // Otherwise, return as valid MFEConfig, with the optional timeout normalized
-    return {
-        ...config,
-        loadTimeoutMs: parseLoadTimeoutMs(config.loadTimeoutMs, `MFE '${config.id}'`),
-    } as MFEConfig;
+    // Otherwise, return as valid MFEConfig
+    return config as MFEConfig;
 }
 
 /**
@@ -166,7 +160,7 @@ export function useDynamicRoutes(): JSX.Element[] {
             render={() => (
                 <MFEBaseConfigurablePage
                     config={mfe}
-                    loadTimeoutMs={mfe.loadTimeoutMs ?? mfeConfig.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS}
+                    loadTimeoutMs={mfeConfig.loadTimeoutMs ?? DEFAULT_LOAD_TIMEOUT_MS}
                 />
             )}
         />

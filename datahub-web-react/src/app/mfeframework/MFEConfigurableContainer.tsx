@@ -12,7 +12,7 @@ import { ErrorComponent } from '@app/mfeframework/ErrorComponent';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-// Used when the MFE config yaml specifies no loadTimeoutMs, at either the top level or per-MFE.
+// Used when the MFE config yaml specifies no loadTimeoutMs.
 export const DEFAULT_LOAD_TIMEOUT_MS = 10000;
 
 const MFEConfigurableContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -170,7 +170,7 @@ async function mountMFE({
 
 interface MFEBaseConfigurablePageProps {
     config: MFEConfig;
-    // Already resolved from the yaml by useDynamicRoutes (per-MFE override, then top-level default).
+    // Already resolved from the yaml by useDynamicRoutes (the yaml's loadTimeoutMs, else the default).
     loadTimeoutMs?: number;
 }
 
