@@ -749,6 +749,29 @@
             },
             "fields": [
                 {
+                    "fieldPath": "Order Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:Dimension"
+                            },
+                            {
+                                "tag": "urn:li:tag:Temporal"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false,
+                    "jsonProps": "{\"baseFormCategory\": \"DATE\", \"baseFormType\": \"\", \"microstrategyFormId\": \"form-1\", \"microstrategyObjectId\": \"attr-1\", \"microstrategyObjectType\": \"attribute\"}"
+                },
+                {
                     "fieldPath": "Revenue",
                     "nullable": false,
                     "description": "```\nSum(Revenue Fact)\n```",
@@ -768,27 +791,6 @@
                     },
                     "isPartOfKey": false,
                     "jsonProps": "{\"microstrategyColumnGroup\": \"SALES\", \"microstrategyMetricExpressionText\": \"Sum(Revenue Fact)\", \"microstrategyMetricExpressionTokens\": \"[{\\\"id\\\": \\\"fact-1\\\", \\\"name\\\": \\\"NET_SALES_AMT\\\"}]\", \"microstrategyObjectId\": \"metric-1\", \"microstrategyObjectType\": \"metric\"}"
-                },
-                {
-                    "fieldPath": "Revenue LY",
-                    "nullable": false,
-                    "description": "```\nSum(NET_SALES_AMT_LY)\n```",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "double",
-                    "recursive": false,
-                    "globalTags": {
-                        "tags": [
-                            {
-                                "tag": "urn:li:tag:Measure"
-                            }
-                        ]
-                    },
-                    "isPartOfKey": false,
-                    "jsonProps": "{\"microstrategyMetricExpressionText\": \"Sum(NET_SALES_AMT_LY)\", \"microstrategyObjectId\": \"metric-ly\", \"microstrategyObjectType\": \"metric\"}"
                 },
                 {
                     "fieldPath": "Revenue Growth",
@@ -812,27 +814,25 @@
                     "jsonProps": "{\"microstrategyMetricExpressionText\": \"({Revenue} - {Revenue LY}) / Abs({Revenue LY})\", \"microstrategyObjectId\": \"metric-growth\", \"microstrategyObjectType\": \"metric\"}"
                 },
                 {
-                    "fieldPath": "Order Date",
+                    "fieldPath": "Revenue LY",
                     "nullable": false,
+                    "description": "```\nSum(NET_SALES_AMT_LY)\n```",
                     "type": {
                         "type": {
-                            "com.linkedin.schema.NullType": {}
+                            "com.linkedin.schema.NumberType": {}
                         }
                     },
-                    "nativeDataType": "date",
+                    "nativeDataType": "double",
                     "recursive": false,
                     "globalTags": {
                         "tags": [
                             {
-                                "tag": "urn:li:tag:Dimension"
-                            },
-                            {
-                                "tag": "urn:li:tag:Temporal"
+                                "tag": "urn:li:tag:Measure"
                             }
                         ]
                     },
                     "isPartOfKey": false,
-                    "jsonProps": "{\"baseFormCategory\": \"DATE\", \"baseFormType\": \"\", \"microstrategyFormId\": \"form-1\", \"microstrategyObjectId\": \"attr-1\", \"microstrategyObjectType\": \"attribute\"}"
+                    "jsonProps": "{\"microstrategyMetricExpressionText\": \"Sum(NET_SALES_AMT_LY)\", \"microstrategyObjectId\": \"metric-ly\", \"microstrategyObjectType\": \"metric\"}"
                 },
                 {
                     "fieldPath": "Revenue Pct",

@@ -380,12 +380,13 @@ class MicroStrategyConfig(
         default="report",
         description=(
             "Order of the schema fields emitted for each dataset. `report` "
-            "(the default) keeps the order the report or cube definition lists "
-            "its objects in - metrics, then attributes and their forms, then "
-            "derived metrics - which is how the Report Objects pane shows "
-            "them. `alphabetical` sorts fields by name, the behaviour of "
-            "earlier releases. Either way the DataHub schema tab re-sorts the "
-            "fields alphabetically when the column header is clicked."
+            "(the default) mirrors Strategy's own Datasets panel: the "
+            "attributes first, then the metrics, each run sorted by the name "
+            "the report displays, with report-derived metrics sorted in among "
+            "the catalog ones. `alphabetical` sorts every field by name in a "
+            "single run, the behaviour of earlier releases. Either way the "
+            "DataHub schema tab re-sorts the fields alphabetically when the "
+            "column header is clicked."
         ),
     )
     datasource_platform_mapping: Dict[str, ConnectionPlatformConfig] = Field(
