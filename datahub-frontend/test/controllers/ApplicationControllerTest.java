@@ -33,6 +33,7 @@ public class ApplicationControllerTest {
   private Application application;
   private Config config;
   private HttpClient mockHttpClient;
+  private ProxyAdmission proxyAdmission;
 
   @BeforeEach
   void setUp() {
@@ -46,7 +47,10 @@ public class ApplicationControllerTest {
     mockHttpClient = mock(HttpClient.class);
     Environment mockEnvironment = mock(Environment.class);
     GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
-    application = new Application(mockHttpClient, mockEnvironment, config, mockShutdownModule);
+    proxyAdmission = new ProxyAdmission(ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null);
+    application =
+        new Application(
+            mockHttpClient, mockEnvironment, config, mockShutdownModule, proxyAdmission);
   }
 
   @Test
@@ -239,7 +243,8 @@ public class ApplicationControllerTest {
             mock(java.net.http.HttpClient.class),
             mock(Environment.class),
             verboseConfig,
-            mock(GracefulShutdownModule.class));
+            mock(GracefulShutdownModule.class),
+            new ProxyAdmission(ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null));
 
     Http.Request request = mock(Http.Request.class);
     HttpResponse<?> apiResponse = mock(HttpResponse.class);
@@ -392,7 +397,8 @@ public class ApplicationControllerTest {
             mock(HttpClient.class),
             mock(Environment.class),
             configWithBasePath,
-            mock(GracefulShutdownModule.class));
+            mock(GracefulShutdownModule.class),
+            new ProxyAdmission(ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null));
     String result = invokeMapPath(appWithBasePath, "/datahub/openapi/swagger-ui");
     assertEquals("/datahub/openapi/swagger-ui", result);
   }
@@ -408,7 +414,8 @@ public class ApplicationControllerTest {
             mock(HttpClient.class),
             mock(Environment.class),
             configWithBasePath,
-            mock(GracefulShutdownModule.class));
+            mock(GracefulShutdownModule.class),
+            new ProxyAdmission(ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null));
     assertEquals("/api/graphql", invokeMapPath(appWithBasePath, "/datahub/api/graphql"));
   }
 
@@ -423,10 +430,48 @@ public class ApplicationControllerTest {
             mock(HttpClient.class),
             mock(Environment.class),
             configWithBasePath,
-            mock(GracefulShutdownModule.class));
+            mock(GracefulShutdownModule.class),
+            new ProxyAdmission(ProxyAdmission.DEFAULT_MAX_IN_FLIGHT, null));
     assertEquals(
         "/api/graphql?operationName=appConfig",
         invokeMapPath(appWithBasePath, "/datahub/api/v2/graphql?operationName=appConfig"));
+  }
+
+  @Test
+  void proxy_atInFlightCap_returns503WithoutCallingUpstream() throws Exception {
+    ProxyAdmission capped = new ProxyAdmission(1, null);
+    Application cappedApp =
+        new Application(
+            mockHttpClient,
+            mock(Environment.class),
+            config,
+            mock(GracefulShutdownModule.class),
+            capped);
+    Http.Request request = mockProxyRequest("/api/graphql", Optional.empty());
+    CompletableFuture<HttpResponse<byte[]>> pending = new CompletableFuture<>();
+    doReturn(pending).when(mockHttpClient).sendAsync(any(), any());
+
+    CompletableFuture<Result> first = cappedApp.proxy("graphql", request);
+    Result rejected = cappedApp.proxy("graphql", request).get();
+
+    assertEquals(503, rejected.status());
+    assertEquals("1", rejected.headers().get(Http.HeaderNames.RETRY_AFTER));
+    verify(mockHttpClient, times(1)).sendAsync(any(), any());
+
+    pending.completeExceptionally(
+        new java.util.concurrent.CompletionException(
+            new java.net.http.HttpTimeoutException("timed out")));
+    assertEquals(504, first.get().status());
+
+    doReturn(
+            CompletableFuture.failedFuture(
+                new java.util.concurrent.CompletionException(
+                    new java.net.http.HttpTimeoutException("timed out"))))
+        .when(mockHttpClient)
+        .sendAsync(any(), any());
+    Result afterRelease = cappedApp.proxy("graphql", request).get();
+    assertEquals(504, afterRelease.status());
+    verify(mockHttpClient, times(2)).sendAsync(any(), any());
   }
 
   @Test

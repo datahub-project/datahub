@@ -1,16 +1,25 @@
 package auth.metrics;
 
+import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import health.FrontendProbeState;
+import health.FrontendProbeState.Readiness;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Minimal HTTP listener for Micrometer Prometheus scrape (parity with Spring Actuator on :4319).
+ * Minimal HTTP listener for Micrometer Prometheus scrape and Kubernetes probes (parity with Spring
+ * Actuator on :4319).
+ *
+ * <p>This listener has its own thread pool and does not share the Play/Pekko connection table, so
+ * {@code /health/live} and {@code /health/ready} can still respond when Play is saturated. Paths
+ * are not prefixed with {@code DATAHUB_BASE_PATH}.
  */
 @Slf4j
 public final class PrometheusScrapeServer {
@@ -48,7 +57,8 @@ public final class PrometheusScrapeServer {
 
   /**
    * If {@code MANAGEMENT_SERVER_PORT} is set, binds {@code 0.0.0.0}:{port} and serves {@code GET
-   * /actuator/prometheus}. Stopped on JVM shutdown.
+   * /actuator/prometheus}, {@code GET /health/live}, and {@code GET /health/ready}. Stopped on JVM
+   * shutdown.
    */
   public static void startIfConfigured(PrometheusMeterRegistry prometheusRegistry) {
     String portStr =
@@ -69,7 +79,8 @@ public final class PrometheusScrapeServer {
       HttpServer server = createAndStart(prometheusRegistry, port);
       activeScrapeServer = server;
       log.info(
-          "Micrometer Prometheus scrape endpoint at http://0.0.0.0:{}/actuator/prometheus", port);
+          "Management endpoints at http://0.0.0.0:{} (/actuator/prometheus, /health/live, /health/ready)",
+          port);
       Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(0)));
     } catch (IOException e) {
       log.error("Failed to bind Micrometer Prometheus scrape server on port {}", port, e);
@@ -105,14 +116,51 @@ public final class PrometheusScrapeServer {
             os.write(body);
           }
         });
-    server.setExecutor(
-        Executors.newSingleThreadExecutor(
+    server.createContext("/health/live", exchange -> sendPlainText(exchange, 200, "LIVE"));
+    server.createContext(
+        "/health/ready",
+        exchange -> {
+          Readiness readiness = FrontendProbeState.readiness();
+          if (readiness == Readiness.READY) {
+            sendPlainText(exchange, 200, "READY");
+          } else {
+            sendPlainText(exchange, 503, readinessBody(readiness));
+          }
+        });
+    // A scrape must not block a probe, so this is not a single thread.
+    ExecutorService executor =
+        Executors.newFixedThreadPool(
+            2,
             r -> {
-              Thread t = new Thread(r, "prometheus-scrape");
+              Thread t = new Thread(r, "frontend-management");
               t.setDaemon(true);
               return t;
-            }));
+            });
+    server.setExecutor(executor);
     server.start();
     return server;
+  }
+
+  private static String readinessBody(Readiness readiness) {
+    return switch (readiness) {
+      case SHUTTING_DOWN -> "Shutting down";
+      case SATURATED -> "Saturated";
+      case STARTING, READY -> "Starting";
+    };
+  }
+
+  private static void sendPlainText(HttpExchange exchange, int status, String body)
+      throws IOException {
+    if (!"GET".equalsIgnoreCase(exchange.getRequestMethod())) {
+      exchange.sendResponseHeaders(405, -1);
+      exchange.close();
+      return;
+    }
+    byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+    exchange.getResponseHeaders().set("Content-Type", "text/plain; charset=utf-8");
+    exchange.sendResponseHeaders(status, bytes.length);
+    try (OutputStream os = exchange.getResponseBody()) {
+      os.write(bytes);
+    }
   }
 }

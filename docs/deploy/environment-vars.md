@@ -1421,6 +1421,7 @@ DataHub supports CDC mode for MetadataChangeLog generation, which guarantees ord
 | -------------------------------------- | ------- | --------------------------------- | ---------- |
 | `DATAHUB_AKKA_MAX_HEADER_COUNT`        | `64`    | Maximum number of headers allowed | Frontend   |
 | `DATAHUB_AKKA_MAX_HEADER_VALUE_LENGTH` | `32k`   | Maximum header value length       | Frontend   |
+| `DATAHUB_FRONTEND_PROXY_MAX_IN_FLIGHT` | `256`   | Max concurrent GMS proxy calls    | Frontend   |
 
 ### Session Configuration
 

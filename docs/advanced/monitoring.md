@@ -1246,4 +1246,19 @@ Or start the base stack with `./gradlew quickstartDebug` and add monitoring comp
 
 ## Health check endpoint
 
-For monitoring healthiness of your DataHub service, `/admin` endpoint can be used.
+Play serves `GET /admin` and `GET /health` on the main HTTP port (9002). Both return `200 GOOD`, or `503` while graceful shutdown is in progress. They do not call GMS. `datahub-dev` and existing monitors can keep using `/admin`.
+
+Those routes run on the Play server. A burst of slow proxied GMS calls holds Play connections (each proxy waits up to 120s), and once that table is full a probe to port 9002 can connect and then time out waiting for headers. Liveness and readiness must not share that failure mode.
+
+The management listener (`MANAGEMENT_SERVER_PORT`, default **4319**, the same port as `/actuator/prometheus`) has its own thread pool:
+
+| Path | Meaning |
+| --- | --- |
+| `GET /health/live` | **200** if this listener can run. Process is up. This is the restart signal (Docker `HEALTHCHECK` uses it). It does not check GMS, saturation, or shutdown. |
+| `GET /health/ready` | **200** when the process has finished starting, is not shutting down, and in-flight GMS proxy calls are at or below the low-water mark. **503** while starting (`Starting`), shutting down (`Shutting down`), or saturated (`Saturated`). |
+
+Readiness fails when in-flight proxy calls reach **80%** of `DATAHUB_FRONTEND_PROXY_MAX_IN_FLIGHT` (default **256**) and recovers when they fall to **50%**. At **100%**, new `/api` and `/openapi` proxy calls return **503** with `Retry-After: 1` and are not forwarded. That sheds load before Play stops writing response headers.
+
+Point Kubernetes liveness at `GET /health/live` and readiness at `GET /health/ready` on port **4319**. Do not prefix those paths with `DATAHUB_BASE_PATH`. Current Helm charts still probe `/admin` on port 9002 until the chart is updated; that keeps today's behavior on older charts.
+
+`/health/ready` does not mean GMS is healthy. A down or slow GMS should produce a fast proxy error (or 503 once the cap is hit) and can take the pod out of rotation. It should not restart the pod.

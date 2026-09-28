@@ -62,6 +62,7 @@ public class Application extends Controller {
   private final Config config;
   private final Environment environment;
   private final GracefulShutdownModule shutdownModule;
+  private final ProxyAdmission proxyAdmission;
 
   private final String basePath;
   private final String gaTrackingId;
@@ -72,11 +73,13 @@ public class Application extends Controller {
       HttpClient httpClient,
       Environment environment,
       @Nonnull Config config,
-      GracefulShutdownModule shutdownModule) {
+      GracefulShutdownModule shutdownModule,
+      ProxyAdmission proxyAdmission) {
     this.httpClient = httpClient;
     this.config = config;
     this.environment = environment;
     this.shutdownModule = shutdownModule;
+    this.proxyAdmission = proxyAdmission;
     this.basePath = config.getString("datahub.basePath");
     this.gaTrackingId =
         config.hasPath("analytics.google.tracking.id")
@@ -208,6 +211,10 @@ public class Application extends Controller {
       logger.warn("Rejecting proxy request with invalid URI: {}", request.uri());
       return CompletableFuture.completedFuture(badRequest("Invalid request path or query string"));
     }
+    if (!proxyAdmission.tryAcquire()) {
+      return CompletableFuture.completedFuture(
+          status(SERVICE_UNAVAILABLE, "Proxy overloaded.").withHeader(RETRY_AFTER, "1"));
+    }
     HttpRequest.Builder httpRequestBuilder =
         HttpRequest.newBuilder().uri(targetUri).timeout(Duration.ofSeconds(120));
     httpRequestBuilder.method(request.method(), buildBodyPublisher(request));
@@ -253,8 +260,18 @@ public class Application extends Controller {
             ? HttpResponse.BodyHandlers.ofInputStream()
             : HttpResponse.BodyHandlers.ofByteArray();
 
-    return httpClient
-        .sendAsync(httpRequestBuilder.build(), bodyHandler)
+    final CompletableFuture<HttpResponse<?>> upstream;
+    try {
+      upstream =
+          httpClient
+              .sendAsync(httpRequestBuilder.build(), bodyHandler)
+              .thenApply(response -> (HttpResponse<?>) response);
+    } catch (RuntimeException e) {
+      proxyAdmission.release();
+      throw e;
+    }
+    return upstream
+        .whenComplete((response, error) -> proxyAdmission.release())
         .thenApply(
             apiResponse -> buildProxyResult(request, resolvedUri, start, apiResponse, useStreaming))
         .exceptionally(this::handleProxyException);
