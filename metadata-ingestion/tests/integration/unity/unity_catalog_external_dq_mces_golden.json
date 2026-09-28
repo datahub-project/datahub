@@ -1,0 +1,721 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "quickstart_catalog"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog",
+            "name": "quickstart_catalog",
+            "description": "",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Catalog"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "databricks",
+                "env": "PROD",
+                "catalog": "quickstart_catalog",
+                "unity_schema": "quickstart_schema"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema",
+            "name": "quickstart_schema",
+            "description": "A new Unity Catalog schema called quickstart_schema",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:databricks"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/tables/orders",
+                "data_source_format": "DELTA",
+                "generation": "2",
+                "table_type": "MANAGED",
+                "created_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2897",
+                "owner": "account users",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2022-10-19 13:27:29.633000+00:00",
+                "created_at": "2022-10-19 13:21:38.688000+00:00"
+            },
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/quickstart_catalog/quickstart_schema/orders",
+            "name": "orders",
+            "qualifiedName": "quickstart_catalog.quickstart_schema.orders",
+            "created": {
+                "time": 1666185698688,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "lastModified": {
+                "time": 1666186049633,
+                "actor": "urn:li:corpuser:abc@acryl.io"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "quickstart_catalog.quickstart_schema.orders",
+            "platform": "urn:li:dataPlatform:databricks",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "OrderId",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "region",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "amount",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:730e95cd0271453376b3c1d9623838d6",
+                    "urn": "urn:li:container:730e95cd0271453376b3c1d9623838d6"
+                },
+                {
+                    "id": "urn:li:container:934b6043df189ef6dc63ac3519be34ac",
+                    "urn": "urn:li:container:934b6043df189ef6dc63ac3519be34ac"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rule_id": "orders_id_not_null",
+                "rule_namespace": "default",
+                "severity": "HIGH"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Databricks Data Quality",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+                "field": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD),OrderId)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD),OrderId)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "IDENTITY",
+                "operator": "NOT_NULL",
+                "nativeType": "custom",
+                "logic": "OrderId IS NOT NULL"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1638860400000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "orders_id_not_null rule"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rule_id": "orders_id_region_unique",
+                "rule_namespace": "default",
+                "dimension": "Uniqueness"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Databricks Data Quality",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+                "fields": [
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD),OrderId)",
+                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD),region)"
+                ],
+                "scope": "DATASET_COLUMN",
+                "aggregation": "UNIQUE_PROPOTION",
+                "operator": "EQUAL_TO",
+                "parameters": {
+                    "value": {
+                        "value": "1.0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "uniqueness"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1638860400000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "orders_id_region_unique rule"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:cd261fc4e6b6c19b35011d33589ca9ef",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "rule_id": "orders_retired",
+                "rule_namespace": "default"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "Databricks Data Quality",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "IDENTITY",
+                "operator": "GREATER_THAN",
+                "parameters": {
+                    "value": {
+                        "value": "0.0",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "custom"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1638860400000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "orders_retired rule"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:cd261fc4e6b6c19b35011d33589ca9ef",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1638856800000,
+            "runId": "run-1",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "rowCount": 100,
+                "unexpectedCount": 0
+            },
+            "assertionUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1638856801000,
+            "runId": "run-2",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "rowCount": 100,
+                "unexpectedCount": 2,
+                "actualAggValue": 0.98
+            },
+            "assertionUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1638856802000,
+            "runId": "run-3",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "ERROR",
+                "nativeResults": {
+                    "error_type": "timeout",
+                    "error_message": "query timed out"
+                },
+                "error": {
+                    "type": "UNKNOWN_ERROR",
+                    "properties": {
+                        "error_type": "timeout",
+                        "error_message": "query timed out"
+                    }
+                }
+            },
+            "assertionUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1638856803000,
+            "runId": "run-4",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResults": {
+                    "warning": "true"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,quickstart_catalog.quickstart_schema.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+}
+]

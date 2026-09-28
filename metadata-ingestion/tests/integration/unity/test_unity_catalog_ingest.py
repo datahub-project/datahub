@@ -17,6 +17,11 @@ from databricks.sdk.service.iam import ServicePrincipal
 from databricks.sdk.service.sql import QueryStatementType
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.external_dq.contract import (
+    RESULTS_COLUMNS,
+    RULES_COLUMNS,
+    LogicalType,
+)
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import Query
@@ -1801,3 +1806,237 @@ def test_include_tables_false_skips_tables(pytestconfig, tmp_path, requests_mock
     urns = _run_view_filter_pipeline(tmp_path, requests_mock, {"include_tables": False})
     assert not any("my_table" in urn for urn in urns)
     assert any("my_view" in urn for urn in urns)
+
+
+_DQ_RULES_TABLE = "quickstart_catalog.governance.dq_rules"
+_DQ_RESULTS_TABLE = "quickstart_catalog.governance.dq_results"
+_DBX_TYPES = {
+    LogicalType.STRING: "string",
+    LogicalType.BOOLEAN: "boolean",
+    LogicalType.INT64: "bigint",
+    LogicalType.FLOAT64: "double",
+    LogicalType.TIMESTAMP: "timestamp",
+    LogicalType.ARRAY_STRING: "array<string>",
+}
+# One hour before FROZEN_TIME, inside the default initial lookback.
+_DQ_T0 = (
+    int(
+        datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc).timestamp()
+        * 1000
+    )
+    - 3_600_000
+)
+_ORDERS_PATH = ["quickstart_catalog", "quickstart_schema", "orders"]
+
+
+class _SqlRow(dict):
+    def asDict(self) -> dict:
+        return dict(self)
+
+
+def _dq_rule(rule_id: str, **overrides: object) -> _SqlRow:
+    row: dict = {c.name: None for c in RULES_COLUMNS}
+    row.update(
+        rule_id=rule_id,
+        dataset_path=_ORDERS_PATH,
+        column_paths=[],
+        rule_name=f"{rule_id} rule",
+        rule_type="custom",
+        is_active=True,
+        updated_at=_DQ_T0,
+    )
+    row.update(overrides)
+    return _SqlRow(row)
+
+
+def _dq_result(
+    rule_id: str, run_id: str, offset_ms: int, **overrides: object
+) -> _SqlRow:
+    row: dict = {c.name: None for c in RESULTS_COLUMNS}
+    row.update(
+        rule_id=rule_id,
+        run_id=run_id,
+        executed_at=_DQ_T0 + offset_ms,
+        status="SUCCESS",
+    )
+    row.update(overrides)
+    return _SqlRow(row)
+
+
+_DQ_RULES = [
+    # Lower-cased column name: the published field URN must use the ingested "OrderId".
+    _dq_rule(
+        "orders_id_not_null",
+        column_paths=["orderid"],
+        operator="NOT_NULL",
+        severity="HIGH",
+        logic="OrderId IS NOT NULL",
+    ),
+    _dq_rule(
+        "orders_id_region_unique",
+        column_paths=["OrderId", "region"],
+        operator="UNIQUE",
+        rule_type="uniqueness",
+        dimension="Uniqueness",
+    ),
+    _dq_rule(
+        "orders_retired", operator="GREATER_THAN", threshold_value=0.0, is_active=False
+    ),
+    _dq_rule(
+        "other_table_rule",
+        dataset_path=["quickstart_catalog", "quickstart_schema", "not_ingested"],
+    ),
+]
+_DQ_RESULTS = [
+    _dq_result(
+        "orders_id_not_null", "run-1", 0, evaluated_row_count=100, failed_row_count=0
+    ),
+    _dq_result(
+        "orders_id_region_unique",
+        "run-2",
+        1_000,
+        status="FAILURE",
+        actual_value=0.98,
+        evaluated_row_count=100,
+        failed_row_count=2,
+    ),
+    _dq_result(
+        "orders_id_not_null",
+        "run-3",
+        2_000,
+        status="ERROR",
+        error_type="timeout",
+        error_message="query timed out",
+    ),
+    _dq_result("orders_id_region_unique", "run-4", 3_000, is_warning=True),
+    _dq_result("orders_retired", "run-5", 4_000),
+]
+
+
+def _dq_describe_table_columns(self, catalog, schema, table):
+    contract = RULES_COLUMNS if table == "dq_rules" else RESULTS_COLUMNS
+    # Databricks information_schema ordinal_position is 0-based.
+    return [(c.name, _DBX_TYPES[c.logical_type], i) for i, c in enumerate(contract)]
+
+
+def _dq_iter_sql_rows(self, query, params=(), batch_size=10000):
+    if "count(*)" in query:
+        return iter([_SqlRow(n=0)])
+    if "dq_rules" in query:
+        return iter(_DQ_RULES)
+    return iter(r for r in _DQ_RESULTS if r["executed_at"] >= params[0])
+
+
+def register_mock_data_for_external_dq(workspace_client):
+    register_mock_data(workspace_client)
+    workspace_client.tables.list = lambda *args, **kwargs: [
+        databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "orders",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "MANAGED",
+                "data_source_format": "DELTA",
+                "columns": [
+                    {
+                        "name": name,
+                        "type_text": type_text,
+                        "type_json": f'{{"name":"{name}","type":"{type_json}","nullable":true,"metadata":{{}}}}',
+                        "type_name": type_text.upper(),
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": position,
+                        "nullable": True,
+                    }
+                    for position, (name, type_text, type_json) in enumerate(
+                        [
+                            ("OrderId", "bigint", "long"),
+                            ("region", "string", "string"),
+                            ("amount", "double", "double"),
+                        ]
+                    )
+                ],
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/tables/orders",
+                "owner": "account users",
+                "properties": {},
+                "generation": 2,
+                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                "full_name": "quickstart_catalog.quickstart_schema.orders",
+                "created_at": 1666185698688,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186049633,
+                "updated_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2897",
+            }
+        ),
+    ]
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_external_dq_ingestion(pytestconfig, tmp_path, requests_mock):
+    """External DQ contract tables are published as assertions on ingested tables.
+
+    Runs without stateful ingestion (that needs a DataHub graph), so the
+    "re-read every run" warning is expected.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_external_dq_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(
+            UnityCatalogApiProxy, "describe_table_columns", _dq_describe_table_columns
+        ),
+        patch.object(UnityCatalogApiProxy, "iter_sql_rows", _dq_iter_sql_rows),
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data_for_external_dq(workspace_client)
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-external-dq-test",
+            "pipeline_name": "unity-catalog-external-dq-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "warehouse_id": "test",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_tags": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "external_dq": {
+                        "enabled": True,
+                        "rules_table": _DQ_RULES_TABLE,
+                        "results_table": _DQ_RESULTS_TABLE,
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {"filename": f"/{tmp_path}/{output_file_name}"},
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        report = pipeline.source.get_report().external_dq  # type: ignore[attr-defined]
+        assert report.assertions_emitted == 3
+        assert report.rules_unresolved_dataset == 1
+        assert report.run_events_emitted == 4
+        assert report.results_skipped_retired == 1
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/unity_catalog_external_dq_mces_golden.json",
+        )
