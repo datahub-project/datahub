@@ -137,7 +137,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Gradle build (and test) for NOT metadata ingestion
         # datahub-schematron:cli excluded due to dependency on metadata-ingestion
         # --max-workers=$(nproc): gradle.properties caps workers at 2 (an 8GB-laptop-safe
@@ -307,7 +307,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: Gradle build and test for frontend (no JS tests)
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --max-workers="$(nproc)" \
@@ -370,7 +370,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           # Matrix legs read the cache only; the primary build job (build-except-metadata-ingestion)
           # is the writer. Prevents the 6 shard legs from racing to write the same Gradle cache.
@@ -525,7 +525,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           # setup-gradle handles deps/wrapper; the local build cache is managed explicitly
           # below with a run-scoped key so shards deterministically restore the seed's output.
@@ -613,7 +613,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           # Shards read the seed's cache; only the seed writes. Avoids matrix write races.
           cache-read-only: true
@@ -744,7 +744,7 @@ jobs:
         with:
           distribution: "temurin"
           java-version: 25
-      - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
         with:
           cache-read-only: true
           gradle-home-cache-excludes: caches/build-cache-1
