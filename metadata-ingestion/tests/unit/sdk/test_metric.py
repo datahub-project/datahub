@@ -3,9 +3,11 @@
 These tests assert the producer contract for the ``metric`` entity: URN
 pattern, ``metricInfo`` shape (with optional expression and semantic-model
 back-ref), the always-emitted ``metricRelationships`` (so ``hasParentMetric``
-indexes as false), the always-emitted ``metricUpstreams`` (empty clears stale
-upstreams), aiContext-only-when-non-empty, and
-``metricUpstreams.datasetUpstreams`` for Metric → SMD lineage.
+indexes as false), the always-emitted ``metricUpstreams`` (empty ``datasetUpstreams`` and
+``fieldUpstreams`` clear stale table and column edges),
+aiContext-only-when-non-empty, and
+``metricUpstreams.datasetUpstreams`` / ``fieldUpstreams`` for Metric →
+SMD / column lineage.
 """
 
 from datetime import datetime, timezone
@@ -13,6 +15,7 @@ from typing import Any
 
 import pytest
 
+from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     AiContextClass,
     DerivedMetricInputClass,
@@ -24,7 +27,7 @@ from datahub.metadata.schema_classes import (
     MetricUpstreamsClass,
     StatusClass,
 )
-from datahub.metadata.urns import DataPlatformUrn, MetricUrn
+from datahub.metadata.urns import DataPlatformUrn, MetricUrn, SchemaFieldUrn
 from datahub.sdk.entity import Entity
 from datahub.sdk.metric import Metric
 from datahub.sdk.semantic_model import (
@@ -77,6 +80,7 @@ def test_metric_urn_and_core_aspects() -> None:
     upstreams = aspects["metricUpstreams"]
     assert isinstance(upstreams, MetricUpstreamsClass)
     assert upstreams.datasetUpstreams == []
+    assert upstreams.fieldUpstreams == []
     # No aiContext when none provided.
     assert "aiContext" not in aspects
 
@@ -96,14 +100,17 @@ def test_metric_upstream_datasets() -> None:
     upstreams = aspects["metricUpstreams"]
     assert isinstance(upstreams, MetricUpstreamsClass)
     assert upstreams.datasetUpstreams == [EdgeClass(destinationUrn=smd_urn)]
+    assert upstreams.fieldUpstreams == []
 
-    metric.set_upstream_datasets([smd_urn, customers_urn])
+    metric.set_upstreams(datasets=[smd_urn, customers_urn])
     assert metric.upstream_datasets == [smd_urn, customers_urn]
+    assert metric.upstream_fields == []
     aspects = _aspects_by_name(metric)
     assert aspects["metricUpstreams"].datasetUpstreams == [
         EdgeClass(destinationUrn=smd_urn),
         EdgeClass(destinationUrn=customers_urn),
     ]
+    assert aspects["metricUpstreams"].fieldUpstreams == []
 
 
 def test_metric_name_defaults_to_id() -> None:
@@ -377,3 +384,134 @@ def test_clear_hydrated_ai_context_emits_empty_overwrite() -> None:
     assert cleared.instructions is None
     assert cleared.examples is None
     assert cleared.customInstructions is None
+
+
+_ORDERS_DS = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
+_CUSTOMERS_DS = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+    "analytics.orders_model.customers_ds,PROD)"
+)
+
+
+def test_metric_field_only_derives_parent_dataset() -> None:
+    amount = SchemaFieldUrn(_ORDERS_DS, "amount")
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model=_SM,
+        upstream_fields=[amount],
+    )
+    assert metric.upstream_datasets == [_ORDERS_DS]
+    assert metric.upstream_fields == [str(amount)]
+    aspects = _aspects_by_name(metric)
+    upstreams = aspects["metricUpstreams"]
+    assert isinstance(upstreams, MetricUpstreamsClass)
+    assert upstreams.datasetUpstreams == [EdgeClass(destinationUrn=_ORDERS_DS)]
+    assert upstreams.fieldUpstreams == [EdgeClass(destinationUrn=str(amount))]
+
+
+def test_metric_dataset_only_emits_empty_field_upstreams() -> None:
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model=_SM,
+        upstream_datasets=[_ORDERS_DS],
+    )
+    aspects = _aspects_by_name(metric)["metricUpstreams"]
+    assert aspects.datasetUpstreams == [EdgeClass(destinationUrn=_ORDERS_DS)]
+    assert aspects.fieldUpstreams == []
+
+
+def test_metric_mixed_upstreams_union_order() -> None:
+    amount = SchemaFieldUrn(_ORDERS_DS, "amount")
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model=_SM,
+        upstream_datasets=[_CUSTOMERS_DS],
+        upstream_fields=[amount],
+    )
+    assert metric.upstream_datasets == [_CUSTOMERS_DS, _ORDERS_DS]
+    assert metric.upstream_fields == [str(amount)]
+    aspects = _aspects_by_name(metric)["metricUpstreams"]
+    assert aspects.datasetUpstreams == [
+        EdgeClass(destinationUrn=_CUSTOMERS_DS),
+        EdgeClass(destinationUrn=_ORDERS_DS),
+    ]
+    assert aspects.fieldUpstreams == [EdgeClass(destinationUrn=str(amount))]
+
+
+def test_metric_explicit_dataset_matching_field_parent_is_not_duplicated() -> None:
+    amount = SchemaFieldUrn(_ORDERS_DS, "amount")
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model=_SM,
+        upstream_datasets=[_ORDERS_DS],
+        upstream_fields=[amount],
+    )
+    assert metric.upstream_datasets == [_ORDERS_DS]
+    assert metric.upstream_fields == [str(amount)]
+
+
+def test_metric_upstream_fields_rejects_non_schema_field() -> None:
+    with pytest.raises(SdkUsageError, match="not a schemaField URN"):
+        Metric(
+            platform="snowflake",
+            path="analytics",
+            id="total_revenue",
+            semantic_model=_SM,
+            upstream_fields=[_ORDERS_DS],
+        )
+
+
+def test_metric_upstream_fields_rejects_non_dataset_parent() -> None:
+    chart_field = SchemaFieldUrn("urn:li:chart:(looker,c1)", "col")
+    with pytest.raises(SdkUsageError, match="parent is not a dataset URN"):
+        Metric(
+            platform="snowflake",
+            path="analytics",
+            id="total_revenue",
+            semantic_model=_SM,
+            upstream_fields=[chart_field],
+        )
+
+
+def test_set_upstreams_omitting_fields_clears_hydrated_field_upstreams() -> None:
+    amount = SchemaFieldUrn(_ORDERS_DS, "amount")
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model=_SM,
+        upstream_fields=[amount],
+    )
+    hydrated = Metric._new_from_graph(metric.urn, dict(metric._aspects))
+    assert hydrated.upstream_fields == [str(amount)]
+
+    hydrated.set_upstreams(datasets=[_ORDERS_DS])
+    emitted = _aspects_by_name(hydrated)["metricUpstreams"]
+    assert emitted.datasetUpstreams == [EdgeClass(destinationUrn=_ORDERS_DS)]
+    assert emitted.fieldUpstreams == []
+
+
+def test_set_upstream_datasets_is_deprecated_and_clears_fields() -> None:
+    amount = SchemaFieldUrn(_ORDERS_DS, "amount")
+    metric = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model=_SM,
+        upstream_fields=[amount],
+    )
+    hydrated = Metric._new_from_graph(metric.urn, dict(metric._aspects))
+
+    with pytest.warns(DeprecationWarning, match="set_upstream_datasets"):
+        hydrated.set_upstream_datasets([_ORDERS_DS])
+    emitted = _aspects_by_name(hydrated)["metricUpstreams"]
+    assert emitted.datasetUpstreams == [EdgeClass(destinationUrn=_ORDERS_DS)]
+    assert emitted.fieldUpstreams == []

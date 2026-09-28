@@ -93,6 +93,106 @@ class _MetricKey:
     logical_table: Optional[str]
 
 
+_ColumnsByTable = Dict[str, Dict[str, SemanticViewColumnMetadata]]
+
+
+@dataclass(frozen=True)
+class _FoldedColumnRef:
+    """Quote-aware fold of one sqlglot Column, matching the existing walks."""
+
+    table: Optional[str]
+    name_key: str
+    display: str
+
+
+@dataclass(frozen=True)
+class _FieldUpstreamResolution:
+    """Column edges for one metric, plus refs that did not become edges."""
+
+    edges: List[EdgeClass]
+    skipped_outside_upstreams: Tuple[str, ...]
+    unresolved_columns: Tuple[str, ...]
+
+
+def _fold_column_ref(
+    column: sqlglot.expressions.Column,
+    identifiers: SnowflakeIdentifierBuilder,
+) -> _FoldedColumnRef:
+    """Fold a sqlglot Column the way Snowflake resolves identifiers.
+
+    An unquoted identifier folds to uppercase; a quoted one is already the
+    stored spelling. Used only by the field-upstream walk.
+    """
+    stored_name = (
+        column.name if getattr(column.this, "quoted", False) else column.name.upper()
+    )
+    name_key = identifiers.column_identity_key(stored_name)
+    if column.table:
+        ref_table = (
+            column.table
+            if getattr(column.args.get("table"), "quoted", False)
+            else column.table.upper()
+        )
+        return _FoldedColumnRef(
+            table=ref_table,
+            name_key=name_key,
+            display=f"{column.table}.{column.name}",
+        )
+    return _FoldedColumnRef(table=None, name_key=name_key, display=column.name)
+
+
+def _resolve_metric_field_upstreams(
+    *,
+    parsed: Optional[sqlglot.expressions.Expr],
+    logical_table: Optional[str],
+    allowed_dataset_urns: Set[str],
+    logical_dataset_urns: Dict[str, str],
+    table_bound_metrics: Dict[Tuple[str, str], SemanticViewColumnMetadata],
+    columns_by_table: _ColumnsByTable,
+    identifiers: SnowflakeIdentifierBuilder,
+) -> _FieldUpstreamResolution:
+    """Column-level upstreams for one metric, restricted to its dataset upstreams.
+
+    Pure: no report, no I/O. Walks ``parsed.find_all(Column)`` once. A field is
+    emitted only when its parent logical dataset is already in
+    ``allowed_dataset_urns`` and the name is a non-metric occurrence on that
+    table. Table-bound metric refs stay ``derivedFrom`` only.
+    """
+    if parsed is None:
+        return _FieldUpstreamResolution(
+            edges=[],
+            skipped_outside_upstreams=(),
+            unresolved_columns=(),
+        )
+
+    edges: Dict[str, EdgeClass] = {}
+    skipped_outside: List[str] = []
+    unresolved: List[str] = []
+    for column in parsed.find_all(sqlglot.expressions.Column):
+        ref = _fold_column_ref(column, identifiers)
+        parent_table = ref.table if ref.table is not None else logical_table
+        if parent_table is None:
+            continue
+        if (parent_table, ref.name_key) in table_bound_metrics:
+            continue
+        dataset_urn = logical_dataset_urns.get(parent_table)
+        if dataset_urn is None or dataset_urn not in allowed_dataset_urns:
+            skipped_outside.append(ref.display)
+            continue
+        occurrence = columns_by_table.get(parent_table, {}).get(ref.name_key)
+        if occurrence is None:
+            unresolved.append(ref.display)
+            continue
+        field_path = identifiers.logical_dataset_field_path(occurrence.name)
+        field_urn = SchemaFieldUrn(dataset_urn, field_path).urn()
+        edges.setdefault(field_urn, EdgeClass(destinationUrn=field_urn))
+    return _FieldUpstreamResolution(
+        edges=[edges[urn] for urn in sorted(edges)],
+        skipped_outside_upstreams=tuple(skipped_outside),
+        unresolved_columns=tuple(unresolved),
+    )
+
+
 class SnowflakeSemanticModelMapper:
     """Maps a SnowflakeSemanticView onto semanticModel, dataset, and metric entities.
 
@@ -104,8 +204,10 @@ class SnowflakeSemanticModelMapper:
     first-class ``metric`` entities linked back to the model (``ModeledBy``,
     containment). The SemanticModel is a container of its datasets and metrics;
     lineage flows ``Metric -> Logical Dataset -> Physical Dataset`` via
-    ``metricUpstreams.datasetUpstreams`` and each logical dataset's
-    ``upstreamLineage``.
+    ``metricUpstreams.datasetUpstreams`` / ``fieldUpstreams`` and each
+    logical dataset's ``upstreamLineage``. Metric column edges name logical
+    schema fields only; the logical-to-physical column mapping stays on the
+    logical dataset.
     """
 
     platform = "snowflake"
@@ -158,6 +260,7 @@ class SnowflakeSemanticModelMapper:
             for key, occ in distinct_metrics.items()
             if key.logical_table is None
         }
+        columns_by_table = self._non_metric_columns_by_table(semantic_view)
         shadowed_metric_names = self._shadowed_metric_names(semantic_view)
         lineages_by_dataset = self._route_lineages(
             fine_grained_lineages,
@@ -215,6 +318,7 @@ class SnowflakeSemanticModelMapper:
                 table_bound_metrics=table_bound_metrics,
                 view_scoped_metrics=view_scoped_metrics,
                 shadowed_metric_names=shadowed_metric_names,
+                columns_by_table=columns_by_table,
                 model_urn=model_urn,
                 logical_dataset_urns=logical_dataset_urns,
                 semantic_view=semantic_view,
@@ -804,6 +908,67 @@ class SnowflakeSemanticModelMapper:
                         aspect=AiContextClass(synonyms=list(synonyms)),
                     ).as_workunit()
 
+    def _non_metric_columns_by_table(
+        self, semantic_view: SnowflakeSemanticView
+    ) -> _ColumnsByTable:
+        """Per-view index of fact/dimension occurrences by logical table.
+
+        Same selection as ``_build_schema_fields``: subtype is not METRIC and
+        ``table_name`` is set. First occurrence per identity key wins, so the
+        emitted field path is the one schemaMetadata actually declares.
+        """
+        index: _ColumnsByTable = {}
+        for occurrences in semantic_view.column_occurrences.values():
+            for occurrence in occurrences:
+                if occurrence.subtype == SemanticViewColumnSubtype.METRIC:
+                    continue
+                if not occurrence.table_name:
+                    continue
+                table_map = index.setdefault(occurrence.table_name, {})
+                if occurrence.identity_key not in table_map:
+                    table_map[occurrence.identity_key] = occurrence
+        return index
+
+    def _report_skipped_field_refs(
+        self,
+        resolution: _FieldUpstreamResolution,
+        semantic_view: SnowflakeSemanticView,
+        occurrence: SemanticViewColumnMetadata,
+    ) -> None:
+        if resolution.skipped_outside_upstreams:
+            self.report.num_semantic_view_metric_field_refs_outside_dataset_upstreams += len(
+                resolution.skipped_outside_upstreams
+            )
+            self.report.warning(
+                title="Semantic view metric column refs outside dataset upstreams",
+                message=(
+                    "A metric expression referenced columns on logical tables "
+                    "that are not dataset upstreams of this metric. Those "
+                    "column edges were skipped so fieldUpstreams stays a "
+                    "subset of datasetUpstreams."
+                ),
+                context=(
+                    f"{semantic_view.name}.{occurrence.name}: "
+                    f"{sorted(resolution.skipped_outside_upstreams)}"
+                ),
+            )
+        if resolution.unresolved_columns:
+            self.report.num_semantic_view_metric_field_refs_unresolved += len(
+                resolution.unresolved_columns
+            )
+            self.report.warning(
+                title="Semantic view metric column refs unresolved",
+                message=(
+                    "A metric expression referenced columns that are not facts "
+                    "or dimensions on the resolved logical table, so no field "
+                    "upstream was emitted."
+                ),
+                context=(
+                    f"{semantic_view.name}.{occurrence.name}: "
+                    f"{sorted(resolution.unresolved_columns)}"
+                ),
+            )
+
     def _gen_metric_workunits(
         self,
         occurrence: SemanticViewColumnMetadata,
@@ -811,6 +976,7 @@ class SnowflakeSemanticModelMapper:
         table_bound_metrics: "Dict[Tuple[str, str], SemanticViewColumnMetadata]",
         view_scoped_metrics: Dict[str, SemanticViewColumnMetadata],
         shadowed_metric_names: Set[str],
+        columns_by_table: _ColumnsByTable,
         model_urn: str,
         logical_dataset_urns: "Dict[str, str]",
         semantic_view: SnowflakeSemanticView,
@@ -872,7 +1038,7 @@ class SnowflakeSemanticModelMapper:
             metric_urn, semantic_view, schema_name, db_name
         )
 
-        # Parse once; both derivedFrom and datasetUpstreams walk the same AST.
+        # Parse once; derivedFrom, datasetUpstreams, and fieldUpstreams share it.
         parsed = self._parse_metric_expression(occurrence, semantic_view)
 
         derived_from = self._derived_from_metrics(
@@ -895,17 +1061,29 @@ class SnowflakeSemanticModelMapper:
             aspect=MetricRelationshipsClass(derivedFrom=derived_from),
         ).as_workunit()
 
-        # Always emit metricUpstreams (even empty) so re-ingestion clears stale
-        # server-side datasetUpstreams via whole-aspect UPSERT.
+        # Always emit metricUpstreams (even empty lists) so re-ingestion clears
+        # stale server-side dataset and column edges via whole-aspect UPSERT.
+        dataset_upstreams = self._metric_dataset_upstreams(
+            logical_table=logical_table,
+            logical_dataset_urns=logical_dataset_urns,
+            table_bound_metrics=table_bound_metrics,
+            parsed=parsed,
+        )
+        field_resolution = _resolve_metric_field_upstreams(
+            parsed=parsed,
+            logical_table=logical_table,
+            allowed_dataset_urns={edge.destinationUrn for edge in dataset_upstreams},
+            logical_dataset_urns=logical_dataset_urns,
+            table_bound_metrics=table_bound_metrics,
+            columns_by_table=columns_by_table,
+            identifiers=self.identifiers,
+        )
+        self._report_skipped_field_refs(field_resolution, semantic_view, occurrence)
         yield MetadataChangeProposalWrapper(
             entityUrn=metric_urn,
             aspect=MetricUpstreamsClass(
-                datasetUpstreams=self._metric_dataset_upstreams(
-                    logical_table=logical_table,
-                    logical_dataset_urns=logical_dataset_urns,
-                    table_bound_metrics=table_bound_metrics,
-                    parsed=parsed,
-                )
+                datasetUpstreams=dataset_upstreams,
+                fieldUpstreams=field_resolution.edges,
             ),
         ).as_workunit()
 
@@ -914,7 +1092,7 @@ class SnowflakeSemanticModelMapper:
         occurrence: SemanticViewColumnMetadata,
         semantic_view: SnowflakeSemanticView,
     ) -> Optional[sqlglot.expressions.Expr]:
-        """Parse a metric expression once for derivedFrom and datasetUpstreams.
+        """Parse a metric expression once for derivedFrom and metricUpstreams.
 
         Warns and increments the parse-failure counter on ``SqlglotError``;
         callers treat ``None`` as "no edges from this expression".
