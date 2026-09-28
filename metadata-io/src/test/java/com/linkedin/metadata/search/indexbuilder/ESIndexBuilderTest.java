@@ -2587,6 +2587,16 @@ public class ESIndexBuilderTest {
   }
 
   @Test
+  void testHasEntityMappingLimits() {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 2500)));
+
+    assertTrue(builder.hasEntityMappingLimits(opContext, "datasetindex_v2"));
+    assertFalse(builder.hasEntityMappingLimits(opContext, "chartindex_v2"));
+    assertFalse(indexBuilder.hasEntityMappingLimits(opContext, "datasetindex_v2"));
+  }
+
+  @Test
   void testBuildIndex_NoPutWhenLimitAlreadyMatches() throws IOException {
     ESIndexBuilder builder =
         builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 2500)));

@@ -706,6 +706,16 @@ public class ESIndexBuilder {
         changes);
   }
 
+  /**
+   * True when {@code entityMappingLimits} configure a limit for {@code indexName}. The limit is not
+   * part of the {@link ReindexConfig} settings diff, so callers that only call {@link #buildIndex}
+   * for indices with a diff must also call it for these, or a limit-only change is never applied.
+   */
+  public boolean hasEntityMappingLimits(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return !entityMappingLimitsFor(opContext, indexName).isEmpty();
+  }
+
   @Nonnull
   private Map<String, String> entityMappingLimitsFor(
       @Nonnull OperationContext opContext, @Nonnull String indexName) {
