@@ -222,9 +222,10 @@ class ExternalDQExtractor:
 
         if self.state is None:
             return
-        # Advance to whatever was actually emitted even after a read failure:
+        # Advance to whatever was actually processed even after a read failure:
         # reads are ordered by (executed_at, run_id), so `observed` is exactly the
-        # published prefix and nothing in it will be re-emitted or re-notified.
+        # processed prefix (published or retired) and nothing in it will be
+        # re-emitted or re-notified.
         watermark, recent = advance(
             last_watermark=last_watermark,
             last_recent=last_recent,

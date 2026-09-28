@@ -272,10 +272,13 @@ def test_unknown_rule_is_warned_once_per_rule() -> None:
     )
     _, run_events, source_report, _ = run(reader)
     assert run_events == []
-    titles = [w.title for w in source_report.warnings]
-    assert (
-        titles.count("External DQ results reference a rule that was not published") == 1
-    )
+    # SourceReport groups by (title, message), so the dedupe shows in the contexts.
+    [entry] = [
+        w
+        for w in source_report.warnings
+        if w.title == "External DQ results reference a rule that was not published"
+    ]
+    assert list(entry.context) == [f"{RESULTS}: rule_id=gone"]
 
 
 _LATE_TITLE = "External DQ results arrived too late to be read"

@@ -14,7 +14,6 @@ from typing import (
     Dict,
     Generator,
     Iterable,
-    Iterator,
     List,
     Optional,
     Sequence,
@@ -1791,7 +1790,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     def iter_sql_rows(
         self, query: str, params: Sequence[Any] = (), batch_size: int = 10000
-    ) -> Iterator[Row]:
+    ) -> Generator[Row, None, None]:
         """Stream rows like _execute_sql_query_streaming, but raise on failure.
 
         Callers that persist progress (the external DQ results checkpoint) must be

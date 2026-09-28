@@ -1,3 +1,4 @@
+from contextlib import closing
 from typing import (
     Any,
     Callable,
@@ -85,9 +86,12 @@ class UnityExternalDQReader:
             f"SELECT count(*) AS n FROM {_fqn(table)} "
             "WHERE `executed_at` < timestamp_millis(%s)"
         )
-        for row in self.proxy.iter_sql_rows(query, [before_millis]):
-            return int(row.asDict()["n"])
-        raise ValueError(f"count query returned no rows for {table}")
+        with closing(self.proxy.iter_sql_rows(query, [before_millis])) as rows:
+            row = next(rows, None)
+        # COUNT(*) always returns one row; raise rather than report a false 0.
+        if row is None:
+            raise ValueError(f"count query returned no rows for {table}")
+        return int(row.asDict()["n"])
 
 
 class UnityDatasetLocator:
