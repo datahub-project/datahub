@@ -396,7 +396,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
 
         // Also handle indices that don't need reindex but need mapping/settings updates, note that
         // while we call the
-        // get again it avoids reprocessing so has minimal cost.
+        // get again it avoids reprocessing so has minimal cost. Indices with configured
+        // entityMappingLimits are included too: the limit is not in the ReindexConfig settings
+        // diff, and buildIndex no-ops when the live value already matches.
         Set<String> incrementallyBuiltIndices =
             configsNeedingReindex.stream()
                 .map(ReindexConfig::name)
@@ -411,7 +413,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                     c ->
                         c.requiresApplyMappings()
                             || c.requiresApplySettings()
-                            || c.hasNewStructuredProperty())
+                            || c.hasNewStructuredProperty()
+                            || requireIndexBuilder(c.name())
+                                .hasEntityMappingLimits(opContext, c.name()))
                 .collect(Collectors.toList());
 
         for (ReindexConfig config : configsNoReindex) {
