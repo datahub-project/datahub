@@ -140,6 +140,12 @@ public class Application extends Controller {
     }
   }
 
+  /**
+   * Play-port health URL. Deprecated for liveness and readiness probes: it shares the Play
+   * connection table, so a saturated proxy can accept the TCP connection and never write headers.
+   * Use {@code GET /health/live} and {@code GET /health/ready} on {@code MANAGEMENT_SERVER_PORT}.
+   * Kept so existing monitors and Helm charts that still call {@code /admin} keep working.
+   */
   @Nonnull
   public Result healthcheck() {
     if (shutdownModule.isShuttingDown()) {
