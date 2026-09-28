@@ -339,13 +339,13 @@ def test_doris_reports_the_database_spelling_ingestion_matches():
     probe.container_normalizer = _container_normalizer(config)  # type: ignore[assignment]
 
     # Whichever spelling the server lists, the probe reports the short one.
-    probe._insp.get_schema_names = lambda: ["iceberg_catalog.sales", "other"]  # type: ignore[method-assign]
+    probe._insp.get_schema_names = lambda **kw: ["iceberg_catalog.sales", "other"]  # type: ignore[method-assign]
     assert probe.containers() == ["sales"]
-    probe._insp.get_schema_names = lambda: ["sales", "other"]  # type: ignore[method-assign]
+    probe._insp.get_schema_names = lambda **kw: ["sales", "other"]  # type: ignore[method-assign]
     assert probe.containers() == ["sales"]
 
     # And both spellings in one listing are one database, not two.
-    probe._insp.get_schema_names = lambda: ["sales", "iceberg_catalog.sales"]  # type: ignore[method-assign]
+    probe._insp.get_schema_names = lambda **kw: ["sales", "iceberg_catalog.sales"]  # type: ignore[method-assign]
     assert probe.containers() == ["sales"]
 
     # An internal-catalog recipe normalizes to identity.

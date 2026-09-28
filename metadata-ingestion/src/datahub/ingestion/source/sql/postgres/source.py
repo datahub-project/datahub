@@ -25,7 +25,7 @@ import sqlalchemy.dialects.postgresql as custom_types
 from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import BaseModel, field_validator, model_validator
 from pydantic.fields import Field
-from sqlalchemy import create_engine, event, inspect, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.dialects.postgresql import ranges
 from sqlalchemy.engine import Connection
 from sqlalchemy.engine.reflection import Inspector
