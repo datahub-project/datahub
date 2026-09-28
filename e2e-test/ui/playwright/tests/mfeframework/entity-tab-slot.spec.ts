@@ -54,7 +54,12 @@ const yaml = (...entries: string[]) => `subNavigationMode: false\nmicroFrontends
 const TAB_MFE = yaml(tabEntry('      entityTypes: [dataset]\n'));
 const TAB_MFE_CHART_ONLY = yaml(tabEntry('      entityTypes: [chart]\n'));
 const TAB_MFE_DISABLED = TAB_MFE.replace('enabled: true', 'enabled: false');
-const MIXED = yaml(NAV_ENTRY, tabEntry('      entityTypes: [dataset]\n'));
+// The slot entry deliberately says `showInNav: true`: a placement is never a navigation item, so the
+// flag must be ignored rather than producing a stray sidebar entry.
+const MIXED = yaml(
+  NAV_ENTRY,
+  tabEntry('      entityTypes: [dataset]\n').replace('showInNav: false', 'showInNav: true'),
+);
 
 /**
  * Stub remote in the same `window.<remoteName>` shape as a webpack Module Federation `var` remote.
@@ -207,7 +212,7 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     await mfePage.setupMFEFramework(MIXED);
 
     await expect(mfePage.navSidebar().getByText(NAV_LABEL)).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(mfePage.navSidebar().getByText(TAB_LABEL)).toHaveCount(0);
+    // a slot placement is never a navigation item, whatever `showInNav` says
     await expect(mfePage.navSidebar().getByText(TAB_LABEL)).toHaveCount(0);
 
     // nav.page entries still route and mount, now with a nav.page context
