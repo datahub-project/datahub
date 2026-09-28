@@ -1,8 +1,5 @@
 # Micro-Frontends in DataHub
 
-> User-facing documentation, including the YAML reference and the typed slot contract, lives at
-> [docs/micro-frontends.md](/docs/micro-frontends.md). This file covers local development of the framework.
-
 DataHub now supports hosting micro-frontends (MFEs), which can be easily configured via YAML files. Each MFE must expose a `remoteEntry.js` file using [Module Federation](https://webpack.js.org/concepts/module-federation/).
 
 > **Note:** Exporting your `<App/>` component is not sufficient.  
@@ -94,10 +91,14 @@ By default an MFE is a **full page** reached from the left navigation (`/mfe<pat
 instead be placed into a named, host-owned region of an existing page — a _slot_ — with the optional
 `placement` field. The host owns the slot and everything around it; the MFE owns only what renders inside.
 
-| Slot                | Where it renders                    | Extra context passed to `mount` |
-| ------------------- | ----------------------------------- | ------------------------------- |
-| `nav.page`          | Full page at `/mfe<path>` (default) | —                               |
-| `entity.detail.tab` | A tab on every entity profile page  | `entity: { urn, type }`         |
+| Slot                | Where it renders                                        | Extra context passed to `mount` |
+| ------------------- | ------------------------------------------------------- | ------------------------------- |
+| `nav.page`          | A standalone page at `/mfe<path>` (default)             | —                               |
+| `entity.detail.tab` | A tab on the profile pages of the entity types it lists | `entity: { urn, type }`         |
+
+An entry declares one placement, but that placement can cover several pages: `entityTypes` is a list, so a
+single tab entry can appear on datasets, charts and dashboards at once. To put the same remote in more than
+one slot, list it more than once with different `id`s — the `remoteEntry` and `module` can repeat.
 
 ```yaml
 microFrontends:
@@ -117,6 +118,11 @@ microFrontends:
 `path` and `navIcon` are only required for `nav.page` entries, and `flags.showInNav` is nav-only. A slot
 entry never gets a `/mfe` route or a navigation item. The remote bundle is loaded the first time the tab
 is opened.
+
+The left-navigation item is not the slot — `nav.page` means "a standalone page at `/mfe<path>`", and the
+sidebar entry is an optional way to reach it, controlled by `flags.showInNav`. Set it to `false` and the
+page stays routable at its URL with no navigation item, which is how you deep-link to a page from
+elsewhere in the product.
 
 The tab caption is the entry's `label` — the same generic, user-visible text every MFE already supplies.
 There is deliberately no slot-specific caption field, so `placement` stays free of presentation concerns
@@ -189,9 +195,23 @@ on the per-slot type (`EntityDetailTabContext`, `NavPageContext`).
 Entries with no `placement` at all (every pre-slot config) are treated as `nav.page` on the default
 version, so existing configs keep working with no edits.
 
+**Unknown fields must be ignored.** An MFE reads the fields it knows and ignores the rest. That rule is
+what makes the context extensible: the host can add a new optional field to a shipped version without a
+new version and without breaking anyone. Code that enumerates keys, snapshots the serialised context, or
+validates it strictly (zod `.strict()`, ajv `additionalProperties: false`) will break on an addition, and
+is the client's bug rather than a contract violation.
+
+So versions are not bumped for additions. Bump when a change can break a reader — removing a field,
+renaming it, changing its type, or changing what it means — or when an MFE needs to _require_ something
+newly added rather than tolerate its absence. At that point the version stops describing a shape and
+starts asserting a capability: "a host serving this version guarantees the field is there."
+
+Because an added field may be absent on an older host, mark it optional and feature-detect
+(`ctx.thing ?? fallback`), and note in its doc comment which DataHub version began sending it.
+
 To add a version: add the new versioned type in `slotTypes.ts`, add a builder in
-`slotContextBuilders.ts`, and register it under its version key. Shipped versions are frozen — an MFE
-built against an older version keeps receiving exactly the shape it expects.
+`slotContextBuilders.ts`, and register it under its version key. Never change the meaning or shape of a
+field in a version that has shipped — an MFE built against it keeps receiving what it expects.
 
 ### Adding a new slot
 
@@ -220,7 +240,7 @@ Steps, using `entity.detail.tab` as the worked example:
 5. **Lazy.** Make sure the remote is only loaded when the region is shown (antd `Tabs` does this for tabs).
 6. **Tests.** Add a Playwright flow under `e2e-test/ui/playwright/tests/mfeframework/` modelled on
    `entity-tab-slot.spec.ts`: presence, context delivery, filter, disabled, remote failure, lazy load.
-7. **Docs.** Add the slot to the table in `docs/micro-frontends.md`.
+7. **Docs.** Add the slot to the table in this file.
 
 Versioning: adding a new slot does not need a new contract version. Changing the shape of an existing
 slot's context does — add a new version rather than editing a shipped one, and note the change in
@@ -235,7 +255,33 @@ placements can be changed without restarting the Play service:
 DATAHUB_DEV_MFE_CONFIG_FILE=/path/to/mfe.config.yaml yarn start
 ```
 
-## Deploying to Kubernetes
+## Deploying
+
+`datahub-frontend` reads the YAML named by `MFE_CONFIG_FILE_PATH` **once at startup** and serves it at
+`/mfe/config`; browsers cache that response for five minutes. So restart the service after editing the
+file, and allow a few minutes for clients to pick it up. An unreadable or empty file makes `/mfe/config`
+return 500 and the UI runs with no micro frontends. The Docker image defaults to
+[`mfe.config.dev.yaml`](/datahub-frontend/conf/mfe.config.dev.yaml), an empty list;
+[`mfe.config.local.yaml`](/datahub-frontend/conf/mfe.config.local.yaml) carries an annotated example of
+every field. See also the
+[environment variable reference](/docs/deploy/environment-vars.md#micro-frontends).
+
+Remote bundles are subject to the frontend Content-Security-Policy. The defaults are permissive, so
+remotes load out of the box; tighten them with `DATAHUB_CSP_SCRIPT_SRC` and `DATAHUB_CSP_CONNECT_SRC`.
+
+### Security and operations
+
+- An MFE runs in the host window and shares its session. It can call any API the viewer can and can
+  navigate the page; it is not sandboxed. Only load remotes you control, over HTTPS, and allow their
+  origins explicitly in the CSP.
+- There is no per-MFE permission model. Every authenticated user who can see the page or entity can open
+  the MFE.
+- Remote loading times out after 5 seconds. A slow, unreachable or throwing remote degrades to an error
+  message inside its own region and leaves the rest of the page working.
+- Nothing about an MFE is stored in the metadata graph. Removing an entry from the YAML removes it from
+  the UI on the next restart.
+
+### Kubernetes
 
 Suppose HelloWorld is deployed at `https://mydomain-dev.com/helloworld/remoteEntry.js`.
 

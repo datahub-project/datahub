@@ -42,8 +42,9 @@ function buildEntityDetailTabContextV1({
  * The context shapes this host can produce, keyed by `placement.contractVersion` then by slot.
  *
  * Adding a version is purely additive: add the new versioned type in `slotTypes`, add a builder here,
- * and register it under its version key. Existing keys are frozen once released so an MFE built
- * against an older version keeps receiving exactly the shape it expects.
+ * and register it under its version key. A released key may gain an optional field — MFEs ignore what
+ * they do not recognise — but never loses one or changes what one means, so an MFE built against it
+ * keeps receiving what it expects.
  */
 export const SLOT_CONTEXT_BUILDERS: Record<string, Partial<Record<MFESlotId, SlotContextBuilder>>> = {
     '1.0.0': {

@@ -7,9 +7,12 @@
  * sides of the boundary share one definition.
  *
  * Versioning: an entry declares the shape it was built against via `placement.contractVersion`, and the
- * host stamps that version back into the context it hands over. To change a slot's payload, add a NEW
- * versioned type here plus a builder in `slotContextBuilders` — never mutate a version that has shipped,
- * and never widen `SlotBaseContext` with surface-specific fields.
+ * host stamps that version back into the context it hands over. MFEs must ignore fields they do not
+ * recognise, so a new OPTIONAL field can be added to a shipped version without a new version — mark it
+ * optional and note which release began sending it, since older hosts will omit it. Add a NEW versioned
+ * type here plus a builder in `slotContextBuilders` only when a change can break a reader (removing or
+ * renaming a field, changing its type or its meaning) or when an MFE must be able to *require* something
+ * newly added. Never widen `SlotBaseContext` with surface-specific fields.
  */
 
 /** Slots the host currently exposes. `nav.page` is the original full-page MFE surface. */
@@ -50,7 +53,8 @@ export type EntityDetailTabContextV1 = SlotBaseContext & {
 
 /**
  * Every versioned context the host can emit for a slot. Widen these unions as new versions ship
- * (e.g. `NavPageContextV1 | NavPageContextV2`); never edit a shipped version in place.
+ * (e.g. `NavPageContextV1 | NavPageContextV2`). Adding an optional field to a shipped version is fine;
+ * removing one, or changing its type or meaning, needs a new version.
  */
 export type NavPageContext = NavPageContextV1;
 export type EntityDetailTabContext = EntityDetailTabContextV1;
