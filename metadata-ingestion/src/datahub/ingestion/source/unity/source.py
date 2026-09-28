@@ -191,6 +191,8 @@ _DISPLAY_NAME_MAX_LEN = 255
 _SYNONYMS_MAX_COUNT = 10
 _SYNONYM_MAX_LEN = 255
 
+EXTERNAL_DQ_CATEGORY = "Databricks Data Quality"
+
 # Databricks external lineage can return object-storage paths with a trailing
 # partition-set component in brace-list syntax, e.g.
 #   s3://bucket/topics/event/{20260410,20260411,20260412}
@@ -1303,7 +1305,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             ),
             report=self.report.external_dq,
             source_report=self.report,
-            category="Databricks Data Quality",
+            category=EXTERNAL_DQ_CATEGORY,
         )
         yield from ExternalDQExtractor(
             config=self.config.external_dq,

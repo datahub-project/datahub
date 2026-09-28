@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, FrozenSet, Mapping, Optional, Tuple, cast
+from typing import Dict, FrozenSet, Mapping, Optional, Tuple
 
 import pydantic
 
@@ -12,6 +12,8 @@ from datahub.ingestion.source.state.use_case_handler import (
 
 # ASCII unit separator: cannot appear in normal identifiers, so keys never collide.
 _KEY_SEPARATOR = "\x1f"
+
+EXTERNAL_DQ_JOB_ID = JobId("external_dq_results")
 
 
 def run_key(rule_id: str, run_id: str) -> str:
@@ -87,7 +89,7 @@ class ExternalDQStateHandler(
 
     @property
     def job_id(self) -> JobId:
-        return JobId("external_dq_results")
+        return EXTERNAL_DQ_JOB_ID
 
     def is_checkpointing_enabled(self) -> bool:
         return (
@@ -112,7 +114,8 @@ class ExternalDQStateHandler(
         )
         if not last or not last.state:
             return None, {}
-        state = cast(ExternalDQCheckpointState, last.state)
+        assert isinstance(last.state, ExternalDQCheckpointState)
+        state = last.state
         watermark = state.watermarks.get(table)
         recent = dict(state.recent_keys.get(table, {}))
         if watermark is not None:
@@ -125,6 +128,7 @@ class ExternalDQStateHandler(
         current = self.state_provider.get_current_checkpoint(self.job_id)
         if current is None:
             return
-        state = cast(ExternalDQCheckpointState, current.state)
+        assert isinstance(current.state, ExternalDQCheckpointState)
+        state = current.state
         state.watermarks[table] = watermark
         state.recent_keys[table] = dict(recent)

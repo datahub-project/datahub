@@ -15,6 +15,9 @@ from datahub.ingestion.source.external_dq.contract import ResultRow, RuleRow
 from datahub.ingestion.source.external_dq.report import ExternalDQReport
 from datahub.metadata.schema_classes import DatasetAssertionScopeClass
 
+_IDENTITY_SOURCE = "external_dq"
+DEFAULT_CATEGORY = "External Data Quality"
+
 
 class DatasetLocator(Protocol):
     """Resolves contract paths to the URNs the host connector itself emits."""
@@ -43,7 +46,7 @@ class ExternalDQMapper:
         locator: DatasetLocator,
         report: ExternalDQReport,
         source_report: SourceReport,
-        category: str = "External Data Quality",
+        category: str = DEFAULT_CATEGORY,
     ) -> None:
         self.platform = platform
         self.platform_instance = platform_instance
@@ -59,7 +62,7 @@ class ExternalDQMapper:
         # the assertion instead of forking its run history.
         return make_external_assertion_urn(
             {
-                "source": "external_dq",
+                "source": _IDENTITY_SOURCE,
                 "platform": self.platform,
                 "instance": self.platform_instance or "",
                 "namespace": self.rule_namespace,

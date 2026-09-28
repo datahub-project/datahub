@@ -12,6 +12,7 @@ from datahub.metadata.schema_classes import (
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
+    AssertionStdAggregationClass,
     AssertionStdOperatorClass,
     AssertionTypeClass,
     DatasetAssertionScopeClass,
@@ -129,8 +130,6 @@ def test_map_operator_structured_and_native_fallback() -> None:
 
 
 def test_map_operator_unique_and_not_null() -> None:
-    from datahub.metadata.schema_classes import AssertionStdAggregationClass
-
     scope = DatasetAssertionScopeClass.DATASET_COLUMN
     unique = map_operator("unique", None, None, None, scope=scope)
     assert unique.operator == AssertionStdOperatorClass.EQUAL_TO
