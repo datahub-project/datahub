@@ -103,6 +103,15 @@ public class Config extends HttpServlet {
       datahubConfig.put("serverEnv", configProvider.getDatahub().serverEnv);
       newConfig.put("datahub", datahubConfig);
 
+      // Feature Flags (subset needed by the frontend before appConfig GraphQL resolves)
+      Map<String, Object> featureFlagsConfig = new HashMap<>();
+      featureFlagsConfig.put(
+          "showSeparateSiblings", configProvider.getFeatureFlags().isShowSeparateSiblings());
+      featureFlagsConfig.put(
+          "hideLineageInSearchCards",
+          configProvider.getFeatureFlags().isHideLineageInSearchCards());
+      newConfig.put("featureFlags", featureFlagsConfig);
+
       // pgQueue Configuration (exposed for Python CLI/executor)
       try {
         PostgresSqlSetupProperties pgProps = ctx.getBean(PostgresSqlSetupProperties.class);
