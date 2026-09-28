@@ -3,8 +3,8 @@ from unittest.mock import MagicMock
 import pytest
 import requests
 
-from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utilities.domains import Domain
+from utilities.consistency_utils import wait_for_writes_to_sync
+from utilities.domains import Domain
 
 pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
@@ -38,10 +38,10 @@ def lag_env(monkeypatch):
     monkeypatch.delenv("DATAHUB_TEST_FORCE_LEGACY_WAIT", raising=False)
     monkeypatch.setenv("DATAHUB_TEST_LAG_AUTH_TIMEOUT_SECONDS", "2")
     monkeypatch.setattr(
-        "tests.consistency_utils.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 0
+        "utilities.consistency_utils.ELASTICSEARCH_REFRESH_INTERVAL_SECONDS", 0
     )
     clock = _Clock()
-    monkeypatch.setattr("tests.consistency_utils.time", clock)
+    monkeypatch.setattr("utilities.consistency_utils.time", clock)
     return clock
 
 
@@ -54,7 +54,7 @@ def test_missing_token_is_fatal(monkeypatch):
 
 def test_persistent_403_raises_with_privilege_hint(lag_env, monkeypatch):
     monkeypatch.setattr(
-        "tests.consistency_utils.requests.get",
+        "utilities.consistency_utils.requests.get",
         lambda *args, **kwargs: _json_response(403),
     )
     with pytest.raises(RuntimeError, match="VIEW_SYSTEM_STATUS") as exc:
@@ -65,7 +65,7 @@ def test_persistent_403_raises_with_privilege_hint(lag_env, monkeypatch):
 
 def test_5xx_retries_until_timeout(lag_env, monkeypatch):
     monkeypatch.setattr(
-        "tests.consistency_utils.requests.get",
+        "utilities.consistency_utils.requests.get",
         lambda *args, **kwargs: _json_response(500),
     )
     wait_for_writes_to_sync(legacy_wait=True, max_timeout_in_sec=30)
@@ -75,7 +75,7 @@ def test_5xx_retries_until_timeout(lag_env, monkeypatch):
 def test_lag_zero_returns(lag_env, monkeypatch):
     empty_lag: dict = {"consumerGroups": {}}
     monkeypatch.setattr(
-        "tests.consistency_utils.requests.get",
+        "utilities.consistency_utils.requests.get",
         lambda *args, **kwargs: _json_response(200, empty_lag),
     )
     wait_for_writes_to_sync(legacy_wait=True, max_timeout_in_sec=30)
@@ -90,7 +90,7 @@ def test_auth_retry_window_resets_after_success(lag_env, monkeypatch):
             return _json_response(200, lagging)
         return _json_response(403)
 
-    monkeypatch.setattr("tests.consistency_utils.requests.get", fake_get)
+    monkeypatch.setattr("utilities.consistency_utils.requests.get", fake_get)
     with pytest.raises(RuntimeError, match="VIEW_SYSTEM_STATUS"):
         wait_for_writes_to_sync(legacy_wait=True, max_timeout_in_sec=30)
     assert lag_env.t >= 5

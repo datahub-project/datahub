@@ -64,7 +64,7 @@ All domain call sites use [`BoundHierarchyAccess`](../../metadata-io/src/main/ja
 2. **Authoritative verify** — `batchGetV2` on `domainProperties` for each candidate; a child counts only when `parentDomain` still points at the parent URN in primary storage.
 3. **Truncation safety** — when the filter page is **full** (`entities.size() >= 200`) and `numEntities > 200`, the walker returns `true` conservatively (true pagination). It does **not** treat `numEntities > entities.size()` alone as truncation: [`ValidationUtils.validateSearchResult`](../../metadata-io/src/main/java/com/linkedin/metadata/entity/validation/ValidationUtils.java) can strip index **ghosts** (entities deleted in primary storage but still counted in ES `numEntities`) without adjusting `numEntities`, so an empty validated entity list with a positive count must fall through to “no children” rather than blocking parent delete.
 
-After a child domain is hard-deleted, the parent should be deletable immediately even when the search index still lists the child — verified by `smoke-test/tests/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
+After a child domain is hard-deleted, the parent should be deletable immediately even when the search index still lists the child — verified by `smoke-test/tests/e2e/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
 
 ### Soft delete
 
@@ -615,7 +615,7 @@ PARTIAL graphs store **one Hazelcast entry per WCC** at `{graphId}@{source}:{fin
 
 ## Verification (smoke tests)
 
-Python smoke tests under [`smoke-test/tests/entity_graph_cache/`](../../smoke-test/tests/entity_graph_cache/) exercise cache-backed GraphQL hierarchy reads and sync invalidation against a running GMS instance (default bundled `entity-graph-cache.yaml`, no JSON overlay required).
+Python smoke tests under [`smoke-test/tests/e2e/entity_graph_cache/`](../../smoke-test/tests/e2e/entity_graph_cache/) exercise cache-backed GraphQL hierarchy reads and sync invalidation against a running GMS instance (default bundled `entity-graph-cache.yaml`, no JSON overlay required).
 
 | Test                                                    | What it validates                                                                               |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -631,12 +631,12 @@ Python smoke tests under [`smoke-test/tests/entity_graph_cache/`](../../smoke-te
 
 ```bash
 cd smoke-test
-pytest tests/entity_graph_cache -q
+pytest tests/e2e/entity_graph_cache -q
 ```
 
 Hierarchy setup uses batched `graph_client.emit_mcp` plus one `wait_for_writes_to_sync()` per test; GraphQL mutations are reserved for sync invalidation cases only. Prometheus counter tests skip when pytest-xdist is active, `BATCH_COUNT > 1`, or GMS management port (`4319`) is not reachable from the test runner — GraphQL assertions are the CI contract.
 
-Related domain regression coverage (including immediate parent delete after child removal): `pytest tests/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
+Related domain regression coverage (including immediate parent delete after child removal): `pytest tests/e2e/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
 
 ## Related documentation
 
