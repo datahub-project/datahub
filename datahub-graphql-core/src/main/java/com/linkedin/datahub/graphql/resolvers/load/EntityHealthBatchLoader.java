@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -60,7 +61,9 @@ import org.dataloader.DataLoaderOptions;
  *
  * <p>One dimension has no batch primitive today and is still computed once per entity, but
  * concurrently within this loader: active-assertion graph lookups ({@link
- * GraphClient#getRelatedEntities}).
+ * GraphClient#getRelatedEntities}). The follow-up soft-delete status check on the related assertion
+ * urns IS batched: one {@code batchGetV2} for every related assertion urn in the page, via {@link
+ * HealthComputationUtils#filterActiveAssertions}.
  *
  * <p><b>Failure isolation:</b> a failure in one dimension degrades to an empty result for that
  * dimension (logged) rather than failing the whole page — both in the concurrent FETCH phase (each
@@ -251,26 +254,28 @@ public class EntityHealthBatchLoader {
   }
 
   private Map<Urn, Set<String>> fetchActiveAssertions(
-      final List<Urn> assertionUrns, final QueryContext context) {
-    if (assertionUrns.isEmpty()) {
+      final List<Urn> assetUrns, final QueryContext context) {
+    if (assetUrns.isEmpty()) {
       return Collections.emptyMap();
     }
-    final Map<Urn, CompletableFuture<Set<String>>> futures = new LinkedHashMap<>();
-    for (Urn urn : assertionUrns) {
+
+    // Phase 1: one graph lookup per asset (no batch primitive for relationships), concurrently.
+    final Map<Urn, CompletableFuture<Set<Urn>>> futures = new LinkedHashMap<>();
+    for (Urn assetUrn : assetUrns) {
       futures.put(
-          urn,
+          assetUrn,
           GraphQLConcurrencyUtils.supplyAsync(
                   () -> {
                     final EntityRelationships relationships =
                         graphClient.getRelatedEntities(
-                            urn.toString(),
+                            assetUrn.toString(),
                             ImmutableSet.of(HealthComputationUtils.ASSERTS_RELATIONSHIP_NAME),
                             RelationshipDirection.INCOMING,
                             0,
                             HealthComputationUtils.MAX_ACTIVE_ASSERTIONS,
                             context.getActorUrn());
                     return relationships.getRelationships().stream()
-                        .map(relationship -> relationship.getEntity().toString())
+                        .map(EntityRelationship::getEntity)
                         .collect(Collectors.toSet());
                   },
                   LOADER_NAME,
@@ -279,13 +284,32 @@ public class EntityHealthBatchLoader {
               // health, not every entity's.
               .exceptionally(
                   ex -> {
-                    log.warn("Active-assertion lookup failed for {}; skipping", urn, ex);
-                    return Collections.<String>emptySet();
+                    log.warn("Active-assertion lookup failed for {}; skipping", assetUrn, ex);
+                    return Collections.<Urn>emptySet();
                   }));
     }
     CompletableFuture.allOf(futures.values().toArray(new CompletableFuture[0])).join();
+    final Map<Urn, Set<Urn>> relatedAssertionsByAsset = new HashMap<>();
+    futures.forEach((assetUrn, future) -> relatedAssertionsByAsset.put(assetUrn, future.join()));
+
+    // Phase 2: one batched status lookup across every related assertion urn in this page, so
+    // soft-deleted assertions are excluded before any asset's health is assembled — a single
+    // batchGetV2 for the whole page, not one per asset.
+    final Set<Urn> allRelatedAssertions =
+        relatedAssertionsByAsset.values().stream().flatMap(Set::stream).collect(Collectors.toSet());
+    final Set<Urn> activeAssertions =
+        HealthComputationUtils.filterActiveAssertions(
+            entityClient, context.getOperationContext(), allRelatedAssertions);
+
     final Map<Urn, Set<String>> result = new HashMap<>();
-    futures.forEach((urn, future) -> result.put(urn, future.join()));
+    relatedAssertionsByAsset.forEach(
+        (assetUrn, related) ->
+            result.put(
+                assetUrn,
+                related.stream()
+                    .filter(activeAssertions::contains)
+                    .map(Urn::toString)
+                    .collect(Collectors.toSet())));
     return result;
   }
 

@@ -3,7 +3,6 @@ package com.linkedin.datahub.graphql.resolvers.health;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
-import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -31,7 +30,6 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -242,7 +240,11 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       // must be excluded here the same way EntityAssertionsResolver excludes them from
       // dataset.assertions.
       final Set<String> activeAssertionUrns =
-          filterOutRemovedAssertions(assertionUrns, entityUrn, context);
+          HealthComputationUtils.filterActiveAssertions(
+                  _entityClient, context.getOperationContext(), new HashSet<>(assertionUrns))
+              .stream()
+              .map(Urn::toString)
+              .collect(Collectors.toSet());
       if (activeAssertionUrns.isEmpty()) {
         return null;
       }
@@ -253,44 +255,6 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       return HealthComputationUtils.buildAssertionsHealth(assertionRunResults, activeAssertionUrns);
     }
     return null;
-  }
-
-  /**
-   * Drops soft-deleted (status.removed == true) assertion urns, mirroring the filter {@link
-   * com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver} applies to {@code
-   * dataset.assertions}. Falls back to treating every urn as active if the status lookup itself
-   * fails, so a batchGetV2 outage degrades to the pre-fix (over-counting) behavior instead of
-   * failing the health query.
-   */
-  private Set<String> filterOutRemovedAssertions(
-      final List<Urn> assertionUrns, final String entityUrn, final QueryContext context) {
-    try {
-      final Map<Urn, EntityResponse> entities =
-          _entityClient.batchGetV2(
-              context.getOperationContext(),
-              Constants.ASSERTION_ENTITY_NAME,
-              new HashSet<>(assertionUrns),
-              ImmutableSet.of(Constants.STATUS_ASPECT_NAME));
-      return assertionUrns.stream()
-          .filter(urn -> !isRemoved(entities.get(urn)))
-          .map(Urn::toString)
-          .collect(Collectors.toSet());
-    } catch (RemoteInvocationException | URISyntaxException e) {
-      log.warn(
-          "Failed to fetch assertion status for {} assertions on {}; counting all as active",
-          assertionUrns.size(),
-          entityUrn,
-          e);
-      return assertionUrns.stream().map(Urn::toString).collect(Collectors.toSet());
-    }
-  }
-
-  private static boolean isRemoved(@Nullable final EntityResponse response) {
-    if (response == null || !response.getAspects().containsKey(Constants.STATUS_ASPECT_NAME)) {
-      return false;
-    }
-    return new Status(response.getAspects().get(Constants.STATUS_ASPECT_NAME).getValue().data())
-        .isRemoved();
   }
 
   private GenericTable getAssertionRunsTable(
