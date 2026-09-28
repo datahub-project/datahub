@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import pytest
 
-from datahub.executor.execution import venv_utils
 from datahub.executor.execution.sub_process_ingestion_task import (
     SubProcessIngestionTaskArgs,
 )
@@ -133,14 +132,6 @@ def test_parse_args():
     assert args.extra_env_vars == {"MY_CUSTOM_ENV": "my_custom_value2"}
     assert args.debug_mode != "true"
 
-    # Note: The hash may be different due to the new VenvResolver implementation
-    # This test verifies the venv name format is still consistent
-    venv_name = args.get_venv_name(plugin="demo-data")
-    assert venv_name.startswith("demo-data-")
-    # For plugin names with hyphens, we need to get the last part after splitting
-    hash_part = venv_name[len("demo-data-") :]  # Get everything after "demo-data-"
-    assert len(hash_part) == 16  # Hash length should still be 16
-
     with pytest.raises(ValueError):
         SubProcessIngestionTaskArgs.model_validate(
             {
@@ -176,26 +167,6 @@ def test_bundled_version_behavior():
 
     assert args.version == "bundled"
     assert args.should_use_bundled_venv()
-
-    # Bundled version should ignore extra requirements/plugins in venv name
-    venv_name_1 = args.get_venv_name(plugin="demo-data")
-
-    args_with_extras = SubProcessIngestionTaskArgs.model_validate(
-        {
-            "recipe": recipe,
-            "version": "bundled",
-            "extra_pip_plugins": json.dumps(["bigquery"]),
-            "extra_pip_requirements": json.dumps(["sqlparse==0.4.3"]),
-        }
-    )
-
-    venv_name_2 = args_with_extras.get_venv_name(plugin="demo-data")
-
-    # Should be the same venv name despite different extra requirements
-    assert venv_name_1 == venv_name_2
-
-    # Should use simple naming for bundled version
-    assert venv_name_1 == "demo-data-bundled"
 
 
 def test_dependency_resolution_disabled():
@@ -236,98 +207,3 @@ def test_dependency_resolution_disabled():
 
         # should_use_bundled_venv returns False for non-bundled versions (backwards compatible)
         assert not args_latest.should_use_bundled_venv()
-
-
-def test_venv_path_resolution():
-    """Test venv path resolution using venv utilities."""
-    # Test dynamic venv path (regular version)
-    dynamic_venv_name = venv_utils.get_venv_name("demo-data", "v0.12.1")
-    dynamic_path = venv_utils.get_venv_path(dynamic_venv_name, "/tmp/test")
-    assert dynamic_path == f"/tmp/test/venv-{dynamic_venv_name}"
-
-    # Test bundled venv path
-    bundled_venv_name = venv_utils.get_venv_name("demo-data", "bundled")
-    bundled_path = venv_utils.get_venv_path(bundled_venv_name, "/tmp/test")
-    assert bundled_path == f"/opt/datahub/venvs/{bundled_venv_name}"
-
-
-def test_venv_name_deterministic():
-    """Test that venv names are deterministic for the same inputs."""
-    recipe = json.dumps(
-        {
-            "source": {"type": "demo-data", "config": {}},
-            "pipeline_name": "test-pipeline",
-        }
-    )
-
-    # Create multiple instances with same configuration
-    args1 = SubProcessIngestionTaskArgs.model_validate(
-        {
-            "recipe": recipe,
-            "version": "v0.12.1",
-            "extra_pip_requirements": json.dumps(["pkg1", "pkg2"]),
-        }
-    )
-
-    args2 = SubProcessIngestionTaskArgs.model_validate(
-        {
-            "recipe": recipe,
-            "version": "v0.12.1",
-            "extra_pip_requirements": json.dumps(["pkg1", "pkg2"]),
-        }
-    )
-
-    # Should generate the same venv name
-    assert args1.get_venv_name("demo-data") == args2.get_venv_name("demo-data")
-
-    # Different configurations should generate different names
-    args3 = SubProcessIngestionTaskArgs.model_validate(
-        {
-            "recipe": recipe,
-            "version": "v0.12.1",
-            "extra_pip_requirements": json.dumps(["pkg1", "pkg3"]),  # Different package
-        }
-    )
-
-    assert args1.get_venv_name("demo-data") != args3.get_venv_name("demo-data")
-
-
-def test_venv_name_generation_with_different_configs():
-    """Test that different configs result in different venv names and same configs result in same name."""
-    recipe = json.dumps(
-        {
-            "source": {"type": "demo-data", "config": {}},
-            "pipeline_name": "test-pipeline",
-        }
-    )
-
-    # Two identical configurations should generate the same venv name
-    args1 = SubProcessIngestionTaskArgs.model_validate(
-        {
-            "recipe": recipe,
-            "version": "v0.12.1",
-            "extra_pip_requirements": json.dumps(["pkg1", "pkg2"]),
-        }
-    )
-
-    args2 = SubProcessIngestionTaskArgs.model_validate(
-        {
-            "recipe": recipe,
-            "version": "v0.12.1",
-            "extra_pip_requirements": json.dumps(["pkg1", "pkg2"]),
-        }
-    )
-
-    # Should generate the same venv name
-    assert args1.get_venv_name("demo-data") == args2.get_venv_name("demo-data")
-
-    # Different configurations should generate different names
-    args3 = SubProcessIngestionTaskArgs.model_validate(
-        {
-            "recipe": recipe,
-            "version": "v0.12.1",
-            "extra_pip_requirements": json.dumps(["pkg1", "pkg3"]),  # Different package
-        }
-    )
-
-    assert args1.get_venv_name("demo-data") != args3.get_venv_name("demo-data")

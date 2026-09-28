@@ -18,8 +18,6 @@ from datahub.executor.context.executor_context import ExecutorContext
 from datahub.executor.execution.runner import (
     LogHolder,
     SubprocessRunner,
-    VenvConfig,
-    VenvReference,
     referenced_env_values,
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
@@ -32,6 +30,10 @@ from datahub.executor.execution.sub_process_task_common import (
     SubProcessTaskUtil,
 )
 from datahub.executor.execution.task import TaskError
+from datahub.executor.execution.venv_config import (
+    VenvConfig,
+    VenvReference,
+)
 from datahub.executor.report.execution_report import ExecutionReport
 from datahub.executor.request.execution_request import ExecutionRequest
 from datahub.masking.constants import MASKING_ERROR_MESSAGE
@@ -333,7 +335,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 secret_values,
             )
 
-            assert result == mock_process
+            assert result == (mock_process, mock_venv_ref)
 
             mock_setup_venv.assert_called_once_with(
                 validated_args, plugin, exec_out_dir, shared_logs
@@ -405,6 +407,108 @@ class TestSubProcessIngestionTaskSubprocessCreation:
             assert envelope["__report_out_file__"] == "/tmp/report.json"
             assert envelope["__debug_mode__"] == "false"
 
+    async def test_a_stdin_failure_after_spawning_keeps_the_venv_cache_lock(
+        self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+    ) -> None:
+        """Releasing this process's copy is safe once a child exists.
+
+
+
+        Under the old model the parent's lock was the ONLY protection, so every
+
+
+        path here had to work out whether a child might still be running before
+
+
+        letting go -- and that reasoning is where most of this PR's review
+
+
+        findings lived. Now the child inherited its own descriptor at spawn, so
+
+
+        the entry stays locked by the kernel for exactly as long as that process
+
+
+        lives. Whether this process releases early, late or not at all no longer
+
+
+        changes correctness.
+
+
+
+        What DOES still matter is that the descriptor actually reached the
+
+
+        child, which is what this asserts. Real two-hop inheritance is covered
+
+
+        against live processes in test_venv_cache.
+
+
+        """
+        validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+
+        mock_process = AsyncMock()
+        mock_process.returncode = None  # never reaped: may still be running
+        mock_process.stdin = Mock()
+        mock_process.stdin.write = Mock(side_effect=BrokenPipeError("EPIPE"))
+
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+
+        with (
+            patch("asyncio.create_subprocess_exec", return_value=mock_process) as spawn,
+            patch.object(ingestion_task, "_setup_venv", return_value=venv_ref),
+            pytest.raises(BrokenPipeError),
+        ):
+            await ingestion_task._create_subprocess(
+                validated_args,
+                "demo-data",
+                {"source": {"type": "demo-data"}},
+                "/tmp/report.json",
+                {"PATH": "/usr/bin"},
+                "/tmp/exec",
+                LogHolder(),
+                {},
+            )
+
+        assert spawn.call_args is not None
+        assert spawn.call_args.kwargs.get("pass_fds"), (
+            "the child was spawned without the lock descriptor, so nothing "
+            "protects the venv it is about to execute from"
+        )
+
+    async def test_a_spawn_failure_before_any_child_releases_the_lock(
+        self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+    ) -> None:
+        # The other half: no child was ever created, so holding the lock buys
+        # nothing and leaking it would make the entry unevictable for free.
+        validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+        # Captured before the call: releasing detaches the lock from
+        # the reference, so venv_ref.lock is None by the time we assert.
+        captured_lock = venv_ref.lock
+
+        with (
+            patch("asyncio.create_subprocess_exec", side_effect=OSError("ENOMEM")),
+            patch.object(ingestion_task, "_setup_venv", return_value=venv_ref),
+            pytest.raises(OSError, match="ENOMEM"),
+        ):
+            await ingestion_task._create_subprocess(
+                validated_args,
+                "demo-data",
+                {"source": {"type": "demo-data"}},
+                "/tmp/report.json",
+                {"PATH": "/usr/bin"},
+                "/tmp/exec",
+                LogHolder(),
+                {},
+            )
+
+        captured_lock.release.assert_called_once()
+
     async def test_create_subprocess_secrets_not_in_env(
         self, ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
     ) -> None:
@@ -468,7 +572,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),
@@ -487,6 +591,46 @@ class TestSubProcessIngestionTaskExecution:
             ingestion_task._create_subprocess.assert_called_once()  # type: ignore[attr-defined]
             ingestion_task._monitor_subprocess.assert_called_once()  # type: ignore[attr-defined]
             ingestion_task._handle_subprocess_completion.assert_called_once()  # type: ignore[attr-defined]
+
+    async def test_execute_forwards_the_venv_ref_to_completion(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        sample_args: dict[str, str],
+        mock_execution_context: Mock,
+    ) -> None:
+        """This wiring is the ONLY thing that releases the lock on the happy path.
+
+        _handle_subprocess_completion delegates to finalize_task_output, which
+        releases venv_ref.lock. Drop the keyword here and every cached entry
+        stays held SHARED for the pod's life, so eviction -- which needs a
+        non-blocking exclusive -- can never reclaim any of them, and the cache
+        grows without bound. Nothing else observes the forwarding.
+        """
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        venv_ref = Mock()
+        mock_completion = Mock()
+
+        with (
+            patch.multiple(
+                ingestion_task,
+                _setup_directories=Mock(
+                    return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
+                ),
+                _prepare_subprocess_environment=Mock(return_value={}),
+                _create_subprocess=AsyncMock(return_value=(mock_process, venv_ref)),
+                _monitor_subprocess=AsyncMock(),
+                _handle_subprocess_completion=mock_completion,
+            ),
+            patch(
+                _RESOLVE_RECIPE, return_value=({"source": {"type": "demo-data"}}, {})
+            ),
+            patch(_GET_PLUGIN, return_value="demo-data"),
+            patch("builtins.open", mock_open()),
+        ):
+            await ingestion_task.execute(sample_args, mock_execution_context)
+
+        assert mock_completion.call_args.kwargs["venv_ref"] is venv_ref
 
     async def test_execute_publishes_artifact_dir_on_context(
         self,
@@ -510,7 +654,7 @@ class TestSubProcessIngestionTaskExecution:
                     )
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),
@@ -618,7 +762,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(side_effect=asyncio.CancelledError()),
                 _handle_subprocess_completion=mock_completion,
             ),
@@ -655,7 +799,7 @@ class TestSubProcessIngestionTaskExecution:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=mock_process),
+                _create_subprocess=AsyncMock(return_value=(mock_process, Mock())),
                 _monitor_subprocess=AsyncMock(),  # completes normally
                 _handle_subprocess_completion=mock_completion,
             ),
@@ -669,6 +813,42 @@ class TestSubProcessIngestionTaskExecution:
             await ingestion_task.execute(sample_args, mock_execution_context)
 
             assert mock_completion.call_args.kwargs.get("cancelled") is False
+
+    async def test_a_confirmed_exit_still_releases_the_venv_cache_lock(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        sample_args: dict[str, str],
+        mock_execution_context: Mock,
+    ) -> None:
+        # The other half of the branch: once the child has been reaped, holding
+        # the lock buys nothing and leaks the entry, so it must survive to
+        # finalize_task_output, which is what releases it.
+        mock_process = AsyncMock()
+        mock_process.returncode = 0
+        venv_ref = Mock()
+        lock = venv_ref.lock
+        mock_completion = Mock()
+
+        with (
+            patch.multiple(
+                ingestion_task,
+                _setup_directories=Mock(
+                    return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
+                ),
+                _prepare_subprocess_environment=Mock(return_value={}),
+                _create_subprocess=AsyncMock(return_value=(mock_process, venv_ref)),
+                _monitor_subprocess=AsyncMock(),
+                _handle_subprocess_completion=mock_completion,
+            ),
+            patch(
+                _RESOLVE_RECIPE, return_value=({"source": {"type": "demo-data"}}, {})
+            ),
+            patch(_GET_PLUGIN, return_value="demo-data"),
+            patch("builtins.open", mock_open()),
+        ):
+            await ingestion_task.execute(sample_args, mock_execution_context)
+
+        assert mock_completion.call_args.kwargs["venv_ref"].lock is lock
 
 
 class TestSubProcessIngestionTaskCompletion:
@@ -1293,7 +1473,7 @@ class TestSubProcessIngestionTaskHybridArchitecture:
         env = call_args[1]["env"]
         assert env["VENV_PATH"] == str(mock_venv_ref.venv_loc)
 
-        assert result == mock_process
+        assert result == (mock_process, mock_venv_ref)
 
     async def test_log_holder_integration_in_task_context(
         self,
@@ -1309,7 +1489,7 @@ class TestSubProcessIngestionTaskHybridArchitecture:
                     return_value=("/tmp/exec", "/tmp/logs", "/tmp/report.json")
                 ),
                 _prepare_subprocess_environment=Mock(return_value={}),
-                _create_subprocess=AsyncMock(return_value=AsyncMock()),
+                _create_subprocess=AsyncMock(return_value=(AsyncMock(), Mock())),
                 _monitor_subprocess=AsyncMock(),
                 _handle_subprocess_completion=Mock(),
             ),

@@ -3,7 +3,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
@@ -11,6 +11,7 @@ import yaml
 
 from datahub.executor.context.execution_context import ExecutionContext
 from datahub.executor.context.executor_context import ExecutorContext
+from datahub.executor.execution.sub_process_task_common import SubProcessTaskUtil
 from datahub.executor.execution.sub_process_test_connection_task import (
     SubProcessTestConnectionTask,
     SubProcessTestConnectionTaskConfig,
@@ -394,3 +395,358 @@ async def test_exec_out_dir_exists_when_the_subprocess_is_launched(
         await task.execute(sample_args, exec_ctx)
 
     assert observed["exec_out_dir_exists"]
+
+
+@pytest.mark.asyncio
+async def test_a_popen_failure_releases_the_venv_cache_lock(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """Spawning sits before the try/finally that calls finalize_task_output.
+
+    So an OSError from Popen -- ENOMEM, a bad interpreter path -- or a broken
+    pipe on the stdin write is the one window on this path where nothing
+    releases the cached venv's SHARED lock. Left held, eviction can never
+    reclaim that entry, because eviction needs a non-blocking exclusive.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+    # Captured before the call: releasing detaches the lock from
+    # the reference, so venv_ref.lock is None by the time we assert.
+    captured_lock = venv_ref.lock
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            side_effect=OSError("cannot fork"),
+        ),
+        pytest.raises(OSError, match="cannot fork"),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    captured_lock.release.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_a_successful_run_forwards_the_venv_ref_to_finalize(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """finalize_task_output is the only thing that releases the lock here.
+
+    It is what releases venv_ref.lock, and the keyword in the finally block is
+    the only place the reference reaches it. Drop it and every test connection
+    leaves its cached entry held SHARED for the life of the pod, so eviction --
+    which needs a non-blocking exclusive -- can never reclaim any of them.
+    Nothing else on this path observes the forwarding.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    finished_process = Mock()
+    finished_process.poll.return_value = 0
+    finished_process.stdin = Mock()
+
+    mock_finalize = Mock()
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=finished_process,
+        ),
+        patch.object(SubProcessTaskUtil, "finalize_task_output", new=mock_finalize),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert mock_finalize.call_args.kwargs["venv_ref"] is venv_ref
+
+
+@pytest.mark.asyncio
+async def test_a_stdin_failure_after_popen_keeps_the_venv_cache_lock(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """Releasing this process's copy is safe once a child exists.
+
+    Under the old model the parent's lock was the ONLY protection, so every
+    path here had to work out whether a child might still be running before
+    letting go -- and that reasoning is where most of this PR's review
+    findings lived. Now the child inherited its own descriptor at spawn, so
+    the entry stays locked by the kernel for exactly as long as that process
+    lives. Whether this process releases early, late or not at all no longer
+    changes correctness.
+
+    What DOES still matter is that the descriptor actually reached the
+    child, which is what this asserts. Real two-hop inheritance is covered
+    against live processes in test_venv_cache.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    live_child = Mock()
+    live_child.poll = Mock(return_value=None)  # never reaped: may still be running
+    live_child.stdin = Mock()
+    live_child.stdin.write = Mock(side_effect=BrokenPipeError("EPIPE"))
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=live_child,
+        ) as popen,
+        pytest.raises(BrokenPipeError),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert popen.call_args is not None
+    assert popen.call_args.kwargs.get("pass_fds"), (
+        "the child was spawned without the lock descriptor, so nothing "
+        "protects the venv it is about to execute from"
+    )
+
+
+@pytest.mark.asyncio
+async def test_cancellation_keeps_the_venv_cache_lock_while_the_child_lives(
+    task_config: SubProcessTestConnectionTaskConfig,
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+) -> None:
+    """Releasing this process's copy is safe once a child exists.
+
+    Under the old model the parent's lock was the ONLY protection, so every
+    path here had to work out whether a child might still be running before
+    letting go -- and that reasoning is where most of this PR's review
+    findings lived. Now the child inherited its own descriptor at spawn, so
+    the entry stays locked by the kernel for exactly as long as that process
+    lives. Whether this process releases early, late or not at all no longer
+    changes correctness.
+
+    What DOES still matter is that the descriptor actually reached the
+    child, which is what this asserts. Real two-hop inheritance is covered
+    against live processes in test_venv_cache.
+    """
+    task = SubProcessTestConnectionTask(task_config, executor_ctx)
+    args: dict[str, Any] = {
+        **sample_args,
+        "extra_env_vars": {},
+        "extra_pip_requirements": [],
+        "extra_pip_plugins": [],
+    }
+
+    entered_read_loop = asyncio.Event()
+
+    def _readline() -> str:
+        entered_read_loop.set()
+        return ""
+
+    live_child = Mock()
+    live_child.returncode = None
+    live_child.poll = Mock(return_value=None)
+    live_child.stdout = Mock()
+    live_child.stdout.readline = Mock(side_effect=_readline)
+    live_child.stdin = Mock()
+    live_child.terminate = Mock()
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = "/tmp/venv-demo-data-test"
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._resolve_recipe",
+            return_value=({"source": {"type": "demo-data"}}, {}),
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._get_plugin_from_recipe",
+            return_value="demo-data",
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=live_child,
+        ) as popen,
+        patch("os.path.exists", return_value=False),
+        patch(
+            "datahub.executor.execution.sub_process_task_common.SubProcessTaskUtil._remove_directory"
+        ),
+    ):
+        pending = asyncio.ensure_future(task.execute(args, exec_ctx))
+        await asyncio.wait_for(entered_read_loop.wait(), timeout=5)
+        pending.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await pending
+
+    assert popen.call_args is not None
+    assert popen.call_args.kwargs.get("pass_fds"), (
+        "the child was spawned without the lock descriptor, so nothing "
+        "protects the venv it is about to execute from"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_wrapper_resolution_failure_releases_the_lock_and_cleans_up(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """The window between prepare_recipe_run and the spawn try was unguarded.
+
+    prepare_recipe_run returns holding the entry SHARED, and
+    resolve_wrapper_script runs before any handler: it raises RuntimeError
+    when importlib.util.find_spec returns None, which is what a packaging or
+    partially-installed-image failure looks like. Nothing released the lock
+    and nothing removed exec_out_dir -- and because the failure is
+    deterministic, every test-connection request repeated it, pinning one
+    unevictable entry per distinct recipe key for the life of the pod.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+    # Captured before the call: releasing detaches the lock from
+    # the reference, so venv_ref.lock is None by the time we assert.
+    captured_lock = venv_ref.lock
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.resolve_wrapper_script",
+            side_effect=RuntimeError("wrapper module not found"),
+        ),
+        pytest.raises(RuntimeError, match="wrapper module not found"),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    captured_lock.release.assert_called_once()
+    assert not Path(f"{config.tmp_dir}/{exec_ctx.exec_id}").exists(), (
+        "the per-execution directory was left behind; on the cache-off path "
+        "it holds a complete per-run venv"
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_popen_failure_also_removes_the_execution_directory(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """The ingestion task removes exec_out_dir in the identical situation.
+
+    On the cache-off or cache-busy path that directory holds a complete
+    per-run venv, so each such failure leaks a full venv's worth of disk.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            side_effect=OSError("cannot fork"),
+        ),
+        pytest.raises(OSError, match="cannot fork"),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    assert not Path(f"{config.tmp_dir}/{exec_ctx.exec_id}").exists()
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_run_reaps_its_child_before_cleanup(
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    sample_args: dict[str, str],
+    tmp_path: Path,
+) -> None:
+    """Signalling without waiting leaves the child's state unknowable.
+
+    The venv LOCK no longer depends on this -- the child inherited the
+    descriptor and the kernel releases it when the child dies. exec_out_dir
+    still does: a non-cacheable venv lives inside it and
+    finalize_task_output removes it, so deleting it under a live
+    interpreter would take that child's python with it. Popen.poll()
+    answers None for a signalled-but-unreaped child, so without the wait
+    the caller cannot tell.
+    """
+    config = SubProcessTestConnectionTaskConfig(tmp_dir=str(tmp_path / "ingest"))
+    task = SubProcessTestConnectionTask(config, executor_ctx)
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = tmp_path / "venv-demo-data"
+
+    process = Mock()
+    process.pid = 4321
+    process.stdin = Mock()
+    process.stdout = Mock()
+    process.stdout.readline = Mock(side_effect=asyncio.CancelledError)
+    # None while running; terminate()+wait() is what makes it report exited.
+    poll_results: list[Optional[int]] = [None]
+    process.poll = Mock(side_effect=lambda: poll_results[0])
+
+    def reaped(timeout: object = None) -> int:
+        poll_results[0] = -15
+        return -15
+
+    process.wait = Mock(side_effect=reaped)
+
+    with (
+        patch(
+            "datahub.executor.execution.sub_process_task_common.setup_venv",
+            return_value=venv_ref,
+        ),
+        patch(
+            "datahub.executor.execution.sub_process_test_connection_task.subprocess.Popen",
+            return_value=process,
+        ),
+        pytest.raises(asyncio.CancelledError),
+    ):
+        await task.execute(sample_args, exec_ctx)
+
+    process.terminate.assert_called_once()
+    process.wait.assert_called(), "the child was signalled but never reaped"
+    assert process.poll() is not None, (
+        "after the reap the child must report exited, or every downstream "
+        "check has to assume it may still be running"
+    )

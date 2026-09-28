@@ -64,9 +64,11 @@ Note that the executor itself consumes some memory, as does each running Observe
 
 Two things consume the executor's ephemeral disk (under `/tmp/datahub/`) during a run, and they are reclaimed differently:
 
-- **Dynamic virtual environments** under `/tmp/datahub/ingest/<execution-id>/`, built per run for non-bundled CLI versions
-  and connectors. Each is deleted when its run ends, so venv disk is released continuously as runs finish. The shared `uv`
-  cache that keeps this bounded is covered in [the uv cache](#ingestion-virtual-environments-and-the-uv-cache) below.
+- **Dynamic virtual environments** for non-bundled CLI versions and connectors. A venv whose contents are fully determined
+  by its name is kept in a node-local cache under `/tmp/datahub/ingest/_venv_cache/` and reused across runs, bounded by
+  entry count and age rather than deleted per run; everything else is built under `/tmp/datahub/ingest/<execution-id>/`
+  and deleted when its run ends. Both the shared `uv` cache and the venv cache's tunables are covered in
+  [the uv cache](#ingestion-virtual-environments-and-the-uv-cache) below.
 - **Per-execution logs** under `/tmp/datahub/logs/`. Unlike venvs, logs are **kept after the run** so you can inspect them
   directly (logs visible via UI are stored in DataHub and are truncated)
 
@@ -85,12 +87,18 @@ older than the retention window, with a size cap as a safety net. Tunables:
 
 Size ephemeral storage — Fargate
 [`ephemeral_storage`](../operator-guide/setting-up-remote-ingestion-executor.md#deploy-on-amazon-ecs), or the node /
-`emptyDir` backing `/tmp` on Kubernetes — for the largest single venv, plus the `uv` cache, plus your retained-log budget.
+`emptyDir` backing `/tmp` on Kubernetes — for the retained venv cache (`DATAHUB_VENV_CACHE_MAX_ENTRIES`, default `10`,
+**plus one** — eviction runs just before a new venv is created, so it counts only what is already on disk — × your
+largest connector's venv), plus one in-flight per-run venv, plus the `uv` cache, plus your retained-log budget.
+Lower `DATAHUB_VENV_CACHE_MAX_ENTRIES` if that does not fit: the kubelet enforces `emptyDir` `sizeLimit` and
+`limits.ephemeral-storage` by evicting the pod, not by failing the write.
 
 ## Ingestion virtual environments and the uv cache
 
 Runs that target a **non-[bundled](/docs/docker/bundled-ingestion-venvs.md)** CLI version or connector build a **dynamic
-virtual environment** per execution under `/tmp/datahub/ingest/<execution-id>/`, removed when the run ends. To stop repeated
+virtual environment**. Reusable ones are kept in a node-local cache and shared across runs (see
+[Reusing venvs between runs](/docs/docker/bundled-ingestion-venvs.md#reusing-venvs-between-runs)); the rest are built per
+execution under `/tmp/datahub/ingest/<execution-id>/` and removed when the run ends. To stop repeated
 installs from filling ephemeral storage, package installs go through the [`uv`](https://docs.astral.sh/uv/) cache: each
 package is unpacked **once** into `UV_CACHE_DIR` (by default: `$HOME/.cache/uv`) and shared across venvs,
 so many runs that share a dependency pay for its bytes roughly once rather than once per run.

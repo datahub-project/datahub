@@ -231,6 +231,42 @@ def build_datahub_stdin(recipe_yaml: str, secrets: dict[str, str]) -> str:
     return yaml.dump(resolved)
 
 
+# Carries the inherited venv-cache lock descriptor down the spawn chain.
+# The executor hands the fd to the wrapper with pass_fds, which preserves the
+# number, so the same value is valid in every process that inherits it.
+VENV_LOCK_FD_ENV = "DATAHUB_VENV_LOCK_FD"
+
+
+def _inherited_lock_fds() -> tuple[int, ...]:
+    """The venv-cache lock descriptor to pass on, if this process has one.
+
+    The datahub CLI is a GRANDCHILD: the executor spawns this wrapper, and
+    the wrapper spawns the CLI. The lock has to reach the process that is
+    actually importing out of the venv, because that is the one whose death
+    should release it -- if the wrapper is SIGKILLed while the CLI keeps
+    running (which is exactly why the CLI gets its own session), a lock held
+    only by the wrapper would be released with a live interpreter still in
+    the venv.
+
+    A malformed or stale value is ignored rather than raised on: the lock is
+    an optimisation and must never fail a run that could have worked.
+    """
+    raw = os.environ.get(VENV_LOCK_FD_ENV)
+    if not raw:
+        return ()
+    try:
+        fd = int(raw)
+        os.fstat(fd)
+    except (ValueError, OSError):
+        print(
+            f"WARNING: {VENV_LOCK_FD_ENV}={raw!r} is not an open descriptor; "
+            "the venv cache entry will not be protected for this run",
+            file=sys.stderr,
+        )
+        return ()
+    return (fd,)
+
+
 def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
     """Launch datahub CLI, pipe stdin_data, stream masked output. Returns exit code."""
     print(f"Executing: {' '.join(cmd)}", file=sys.stderr)
@@ -274,6 +310,10 @@ def run_datahub_subprocess(cmd: list[str], stdin_data: str) -> int:
         stderr=subprocess.STDOUT,
         text=True,
         bufsize=1,
+        # Hand the venv-cache lock on to the CLI. Without this the
+        # descriptor stops here, and a SIGKILLed wrapper would release the
+        # lock while the CLI is still executing from the venv.
+        pass_fds=_inherited_lock_fds(),
     )
 
     try:

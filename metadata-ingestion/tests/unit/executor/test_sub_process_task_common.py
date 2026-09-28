@@ -8,14 +8,18 @@ import errno
 import inspect
 import json
 import os
+import pathlib
 import subprocess
 import tempfile
+import time
+from collections import deque
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 from pydantic import ValidationError
 
+from datahub.executor.execution import venv_utils
 from datahub.executor.execution.runner import LogHolder
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
@@ -23,6 +27,8 @@ from datahub.executor.execution.sub_process_task_common import (
     unprotectable_disclosed_values,
 )
 from datahub.executor.execution.task import TaskError
+from datahub.executor.execution.venv_cache import EntryLock
+from datahub.masking.masking_filter import SecretMaskingFilter
 from datahub.masking.secret_registry import SecretRegistry
 
 
@@ -561,6 +567,48 @@ class TestSharedRecipeTaskSkeleton:
         assert not exec_out_dir.exists(), "the run directory outlived the failure"
 
     @pytest.mark.asyncio
+    async def test_a_failure_after_the_venv_releases_its_cache_lock(
+        self, tmp_path: Path
+    ) -> None:
+        """The window between setup_task_venv returning and PreparedRun existing.
+
+        PreparedRun is the only thing that carries venv_ref out to the caller
+        whose finally releases the lock, so a failure while BUILDING it --
+        build_subprocess_env or build_stdin_envelope raising, or a
+        cancellation between them -- leaves the entry held SHARED with no
+        owner. Eviction needs a non-blocking exclusive, so that entry becomes
+        unreclaimable for the life of the pod.
+        """
+        venv_ref = Mock()
+        venv_ref.venv_loc = "/tmp/venv"
+        # Captured before the call: releasing detaches the lock from
+        # the reference, so venv_ref.lock is None by the time we assert.
+        captured_lock = venv_ref.lock
+
+        with (
+            patch.object(
+                SubProcessTaskUtil,
+                "_resolve_recipe",
+                return_value=({"source": {"type": "mysql"}}, {}),
+            ),
+            patch.object(SubProcessTaskUtil, "setup_task_venv", return_value=venv_ref),
+            patch.object(
+                SubProcessTaskUtil,
+                "build_stdin_envelope",
+                side_effect=RuntimeError("envelope failed"),
+            ),
+        ):
+            with pytest.raises(RuntimeError, match="envelope failed"):
+                await SubProcessTaskUtil.prepare_recipe_run(
+                    self._args(),
+                    execution_ctx=Mock(),
+                    executor_ctx=Mock(),
+                    exec_out_dir=str(tmp_path / "exec-789"),
+                )
+
+        captured_lock.release.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_a_directory_the_caller_already_made_is_left_alone(
         self, tmp_path: Path
     ) -> None:
@@ -994,3 +1042,103 @@ def test_extra_cannot_overwrite_the_envelopes_own_keys() -> None:
     assert envelope["__recipe_yaml__"] != "hijacked"
     assert envelope["__secrets__"].get("PW") == "real-secret"
     assert envelope["ok"] == 1, "an ordinary extra key is still passed through"
+
+
+def test_finalize_without_a_venv_ref_is_unchanged(tmp_path: Path) -> None:
+    """Every existing caller passes nothing, and the ephemeral path has no
+    lock to release."""
+    exec_dir = tmp_path / "exec-dir"
+    exec_dir.mkdir()
+
+    SubProcessTaskUtil.finalize_task_output(
+        str(tmp_path / "absent-report.json"), str(exec_dir), [], Mock()
+    )
+
+    assert not exec_dir.exists()
+
+
+def test_finalizing_stamps_the_entry_as_used(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A long run must not look idle the moment it ends.
+
+    The hit path touches the marker when the task STARTS, and eviction is
+    LRU, so the recorded age is really "age since this run began". An
+    ingestion running longer than DATAHUB_VENV_CACHE_MAX_AGE_HOURS would
+    therefore become eligible for age eviction the instant it finishes,
+    having been in continuous use the entire time -- only the shared lock
+    kept it alive, and finalize is where that lock goes away.
+    """
+    venv_loc = tmp_path / "venv-demo-data-abc123"
+    venv_loc.mkdir()
+    venv_utils.touch_last_used(venv_loc)
+    # As if the run had been going for three hours.
+    began = time.time() - 3 * 3600
+    os.utime(venv_loc / venv_utils.LAST_USED_MARKER, (began, began))
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = str(venv_loc)
+
+    SubProcessTaskUtil.finalize_task_output(
+        str(tmp_path / "absent-report.json"),
+        str(tmp_path / "exec-out"),
+        deque(),
+        Mock(),
+        masking_filter=SecretMaskingFilter(),
+        venv_ref=venv_ref,
+    )
+
+    assert venv_utils.last_used_at(venv_loc) > began + 3000, (
+        "the entry still records when the run started, so a run longer than "
+        "the max age is evictable the moment it ends"
+    )
+
+
+def test_the_last_used_stamp_happens_while_the_entry_is_still_held(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Recording the hit must not race the eviction it exists to prevent.
+
+    Handing the descriptor to the child and immediately dropping this
+    process's copy leaves the child as the only holder -- so the kernel
+    releases the entry the moment the child exits, and the end-of-run stamp
+    lands later, after _monitor_subprocess unwinds through an in-flight
+    heartbeat sleep. In that window a concurrent build sees an unlocked
+    entry whose marker still says "when the run started" and evicts it as
+    idle: exactly the case the stamp was added to prevent.
+
+    Keeping this process's copy costs nothing in the ownership model -- the
+    child's copy covers the child, and the kernel closes both on death --
+    and it puts the stamp back inside the protected window.
+    """
+    venv_loc = tmp_path / "venv-demo"
+    venv_loc.mkdir()
+    lock = EntryLock(tmp_path / "venv-demo.lock")
+    assert lock.try_acquire(exclusive=False).ok
+
+    venv_ref = Mock()
+    venv_ref.venv_loc = str(venv_loc)
+    venv_ref.lock = lock
+
+    held_at_stamp: list[bool] = []
+    real_touch = venv_utils.touch_last_used
+
+    def spy(loc: pathlib.Path) -> None:
+        held_at_stamp.append(lock.held)
+        real_touch(loc)
+
+    with patch.object(venv_utils, "touch_last_used", spy):
+        SubProcessTaskUtil.finalize_task_output(
+            str(tmp_path / "absent-report.json"),
+            str(tmp_path / "exec-out"),
+            deque(),
+            Mock(),
+            masking_filter=SecretMaskingFilter(),
+            venv_ref=venv_ref,
+        )
+
+    assert held_at_stamp == [True], (
+        "the entry was already unlocked when its last-used marker was "
+        "stamped, so eviction could have taken it first"
+    )
+    assert not lock.held, "finalize must let go once the stamp is recorded"

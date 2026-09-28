@@ -17,6 +17,7 @@ import logging
 import subprocess
 import sys
 from collections import deque
+from typing import Optional
 
 from datahub.executor.common.config import ConfigModel
 from datahub.executor.context.execution_context import ExecutionContext
@@ -73,34 +74,78 @@ class SubProcessTestConnectionTask(Task):
             envelope_extra={"__report_out_file__": report_out_file},
         )
 
-        # Invoked with this interpreter rather than by bare name off PATH: the wrapper
-        # must run in the executor's own environment (it then activates the per-run
-        # target venv itself). By absolute path rather than -m: see
-        # resolve_wrapper_script.
-        command_script: str = resolve_wrapper_script(
-            "datahub.executor.wrappers.run_test_connection"
-        )
         stdout_lines: deque = deque(maxlen=SubProcessTaskUtil.MAX_LOG_LINES)
 
-        ingest_process = subprocess.Popen(
-            [
-                sys.executable,
-                command_script,
-                str(prepared.venv_ref.venv_loc),
-            ],
-            env=prepared.subprocess_env,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-        )
+        # Bound before the try so the except can tell "Popen never ran" from
+        # "Popen produced a child and the stdin write then failed". Those need
+        # opposite answers about the venv lock.
+        ingest_process: Optional[subprocess.Popen] = None
+        try:
+            # Invoked with this interpreter rather than by bare name off PATH: the
+            # wrapper must run in the executor's own environment (it then activates
+            # the per-run target venv itself). By absolute path rather than -m: see
+            # resolve_wrapper_script.
+            #
+            # Inside the try, not before it. prepare_recipe_run returns holding
+            # the cache entry SHARED, and resolve_wrapper_script raises
+            # RuntimeError when importlib.util.find_spec returns None -- a
+            # packaging or partially-installed-image failure. Outside a handler
+            # that is a deterministic leak: every test-connection request pins
+            # one more unevictable entry for the life of the pod.
+            command_script: str = resolve_wrapper_script(
+                "datahub.executor.wrappers.run_test_connection"
+            )
+            # Also inside, and before the spawn. finalize_task_output's own
+            # comment notes that constructing this can fail; after a child
+            # exists that would be the same unguarded window again.
+            masking_filter = SecretMaskingFilter()
 
-        # Write envelope to stdin and close
-        assert ingest_process.stdin is not None
-        ingest_process.stdin.write(prepared.stdin_envelope)
-        ingest_process.stdin.close()
+            # Hand the venv-cache lock to the child; see lock_handoff.
+            lock_fds, lock_env = SubProcessTaskUtil.lock_handoff(prepared.venv_ref)
 
-        masking_filter = SecretMaskingFilter()
+            ingest_process = subprocess.Popen(
+                [
+                    sys.executable,
+                    command_script,
+                    str(prepared.venv_ref.venv_loc),
+                ],
+                env={**prepared.subprocess_env, **lock_env},
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                pass_fds=lock_fds,
+            )
+
+            # Write envelope to stdin and close
+            assert ingest_process.stdin is not None
+            ingest_process.stdin.write(prepared.stdin_envelope)
+            ingest_process.stdin.close()
+        except BaseException:
+            # Everything above sits before the try/finally that calls
+            # finalize_task_output, so a failure here -- an OSError from Popen,
+            # a broken pipe, a missing wrapper module, a cancellation -- is the
+            # one window where nothing releases the cached venv's SHARED lock.
+            # Left held, the entry can never be evicted for the rest of the
+            # pod's life. Guarded inside, so it cannot replace the exception in
+            # flight.
+            #
+            # No "is the child alive?" question to answer any more. If the
+            # spawn got far enough to produce a child, that child inherited
+            # the lock descriptor and owns the hold; this only closes our own
+            # copy, which the kernel would do at exit anyway.
+            SubProcessTaskUtil.release_venv_lock(prepared.venv_ref)
+            # finalize_task_output is what normally removes this, and it is
+            # never reached from here, so on the cache-off or cache-busy path
+            # the complete per-run venv inside it would leak.
+            #
+            # Only when nothing can still be running out of it. A
+            # non-cacheable venv lives INSIDE exec_out_dir, so removing it
+            # while a forked child is executing from it deletes that child's
+            # interpreter -- strictly worse than leaking the disk.
+            if ingest_process is None or ingest_process.poll() is not None:
+                SubProcessTaskUtil._remove_directory(exec_out_dir)
+            raise
 
         try:
             while ingest_process.poll() is None:
@@ -115,8 +160,17 @@ class SubProcessTestConnectionTask(Task):
             return_code = ingest_process.poll()
 
         except asyncio.CancelledError:
-            # Terminate the running child process
-            ingest_process.terminate()
+            # Terminate the child AND wait for it. The venv lock no longer
+            # depends on this -- the kernel releases it when the child dies
+            # -- but exec_out_dir still does: a NON-cacheable venv lives
+            # inside it, and finalize_task_output removes it. Deleting it
+            # under a live interpreter is the ImportError-on-a-deleted-.so
+            # failure this whole mechanism exists to prevent.
+            #
+            # Bounded, and blocking on purpose: this unwinds a CancelledError,
+            # where awaiting invites a second cancellation and turns cleanup
+            # into a new failure mode.
+            SubProcessTaskUtil.terminate_and_reap(ingest_process)
             raise
 
         finally:
@@ -126,6 +180,7 @@ class SubProcessTestConnectionTask(Task):
                 stdout_lines,
                 ctx,
                 masking_filter=masking_filter,
+                venv_ref=prepared.venv_ref,
             )
 
         if return_code != 0:
