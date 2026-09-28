@@ -815,7 +815,7 @@ class MicroStrategyMapper:
         dataset: DatasetObject,
         report_fields: bool = False,
     ) -> DatasetSchemaFields:
-        fields: List[SchemaFieldClass] = []
+        ranked_fields: List[Tuple[int, SchemaFieldClass]] = []
         fields_by_object_id: Dict[str, List[SchemaFieldClass]] = {}
         object_names: Dict[str, str] = {}
 
@@ -845,7 +845,7 @@ class MicroStrategyMapper:
                     ),
                     numeric=True,
                 )
-                fields.append(schema_field)
+                ranked_fields.append((_FIELD_GROUP_RANK[spec.kind], schema_field))
                 _add_schema_field_object_mapping(
                     fields_by_object_id, metric, schema_field
                 )
@@ -897,7 +897,7 @@ class MicroStrategyMapper:
                     ),
                     numeric=True,
                 )
-                fields.append(schema_field)
+                ranked_fields.append((_FIELD_GROUP_RANK[spec.kind], schema_field))
                 _add_schema_field_object_mapping(
                     fields_by_object_id, spec.item, schema_field
                 )
@@ -932,7 +932,7 @@ class MicroStrategyMapper:
                         fallback=attribute,
                     ),
                 )
-                fields.append(schema_field)
+                ranked_fields.append((_FIELD_GROUP_RANK[spec.kind], schema_field))
                 _add_schema_field_object_mapping(
                     fields_by_object_id, attribute, schema_field
                 )
@@ -942,13 +942,17 @@ class MicroStrategyMapper:
                 if report_fields:
                     self.report.report_attribute_field(temporal=spec.temporal)
 
-        # Report order (the definition's object order, as the Report Objects
-        # pane lists them) unless the operator asked for the old sorted view;
-        # the DataHub schema tab re-sorts by name on a header click anyway.
+        # "report" reproduces Strategy's own Datasets panel: the attributes
+        # first, then the metrics, each run sorted by the name the report
+        # displays, so a dataset reads the same way in both products.
+        # "alphabetical" is the flat pre-1.2 order. Either way the DataHub
+        # schema tab re-sorts by name on a header click.
         if self.config.dataset_field_order == "alphabetical":
-            fields.sort(key=lambda field: field.fieldPath)
+            ranked_fields.sort(key=lambda ranked: ranked[1].fieldPath)
+        else:
+            ranked_fields.sort(key=lambda ranked: (ranked[0], ranked[1].fieldPath))
         return DatasetSchemaFields(
-            fields=fields,
+            fields=[field for _, field in ranked_fields],
             by_object_id=fields_by_object_id,
             object_names=object_names,
         )
@@ -1652,11 +1656,12 @@ def _attribute_field_path(
 ) -> str:
     attribute_name = _field_name(attribute)
     form_name = _field_name(form)
-    if form_count == 1 and form_name.lower() in {
-        "id",
-        attribute_name.lower(),
-        f"{attribute_name} id".lower(),
-    }:
+    if form_count == 1:
+        # A single form has nothing to disambiguate against, and the form name
+        # is rarely the one users know: Strategy's own grid headers and Datasets
+        # panel both show "Region Number", never "Region Number.NUMBER". The
+        # suffix only earns its place when an attribute contributes several
+        # forms to the same dataset.
         return attribute_name
     return f"{attribute_name}.{form_name}"
 
@@ -2015,6 +2020,16 @@ class _FieldSpec:
     form: Optional[Dict[str, object]] = None
     temporal: bool = False
     derived: Optional[DerivedMetricSpec] = None
+
+
+# Strategy's Datasets panel lists a report's objects in two alphabetical runs:
+# the attributes first, then the metrics, with report-derived metrics sorted in
+# among the catalog ones under the name the report displays.
+_FIELD_GROUP_RANK: Dict[str, int] = {
+    "attribute": 0,
+    "metric": 1,
+    "derived_metric": 1,
+}
 
 
 def _iter_dataset_fields(dataset: DatasetObject) -> Iterator[_FieldSpec]:

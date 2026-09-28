@@ -2076,9 +2076,10 @@ def test_ungrouped_grid_attributes_carry_no_group_prefix_or_form_suffix() -> Non
         for name in by_display
     )
     # Each ungrouped header is attributed to one dataset (the leftmost
-    # group's), and the urn keeps the dataset's real form field path.
+    # group's), and the urn keeps the dataset's real field path - which for a
+    # single-form attribute is now the bare name, matching the header.
     assert by_display["Region Number"].schemaFieldUrn.endswith(
-        "dash-salon.ds-retail,PROD),Region Number.NUMBER)"
+        "dash-salon.ds-retail,PROD),Region Number)"
     )
     # Only the displayed form of the two-form attribute is a chart input.
     district_urns = [
@@ -2153,7 +2154,8 @@ def test_chart_input_fields_follow_grid_order() -> None:
 
 def test_dataset_schema_field_paths_are_unchanged_by_grid_display_names() -> None:
     # Only the chart's display copies are renamed; the dataset schema (and
-    # therefore every schemaField urn) keeps its form-qualified paths.
+    # therefore every schemaField urn) keeps its own paths - form-qualified
+    # only where an attribute contributes more than one form.
     mapper = _mapper()
     dashboard = _salon_grid_definition()
     mapper.attach_derived_metrics(dashboard)
@@ -2165,7 +2167,10 @@ def test_dataset_schema_field_paths_are_unchanged_by_grid_display_names() -> Non
         SchemaMetadataClass,
     )
     paths = [field.fieldPath for field in schema.fields]
-    assert "Region Number.NUMBER" in paths
+    # One form: nothing to disambiguate, so no suffix.
+    assert "Region Number" in paths
+    assert "Region Number.NUMBER" not in paths
+    # Two forms: the suffix is load-bearing and stays.
     assert "District Number.NUMBER" in paths
     assert "District Number.DESC" in paths
     assert "Salon RTL % Plan" in paths
@@ -2505,12 +2510,17 @@ def _schema_field_paths(
     return [field.fieldPath for field in schema.fields]
 
 
-def test_dataset_fields_follow_report_object_order_by_default() -> None:
+def test_dataset_fields_follow_strategy_datasets_panel_order_by_default() -> None:
+    # Strategy's Datasets panel shows two alphabetical runs, attributes then
+    # metrics. The fixture's availableObjects are deliberately in neither that
+    # order nor a flat alphabetical one, so this pins the grouping as well as
+    # the sort: "Zeta Amt" must fall behind every attribute despite leading
+    # the definition, and "Month" must precede it despite leading nothing.
     dashboard = _unsorted_objects_definition()
 
     paths = _schema_field_paths(_mapper(), dashboard, dashboard.datasets[0])
 
-    assert paths == ["Zeta Amt", "Alpha Amt", "Month", "Brand.ID", "Brand.DESC"]
+    assert paths == ["Brand.DESC", "Brand.ID", "Month", "Alpha Amt", "Zeta Amt"]
 
 
 def test_dataset_field_order_alphabetical_restores_sorted_fields() -> None:
@@ -2544,7 +2554,7 @@ def _derived_field_paths(
     ]
 
 
-def test_derived_metrics_follow_report_definition_order_after_catalog_objects() -> None:
+def test_derived_metrics_sort_in_among_catalog_metrics() -> None:
     mapper = _mapper()
     dashboard = _salon_grid_definition()
     mapper.attach_derived_metrics(dashboard)
@@ -2553,10 +2563,18 @@ def test_derived_metrics_follow_report_definition_order_after_catalog_objects() 
 
     paths = _schema_field_paths(mapper, dashboard, retail)
 
-    # The report lists RTL PLN before Qty Var LYS %; alphabetical order would
-    # reverse them. Derived metrics stay after the catalog objects.
-    assert paths[-2:] == ["RTL PLN", "Qty Var LYS %"]
-    assert paths[:2] == ["Net Sales Retail Amt", "Salon RTL % Plan"]
+    # Strategy's Datasets panel does not segregate derived metrics - they sit
+    # among the catalog ones under the name the report displays. So a derived
+    # "Qty Var LYS %" precedes a catalog "Salon RTL % Plan" and follows a
+    # catalog "Net Sales Retail Amt", rather than trailing both.
+    assert paths.index("Net Sales Retail Amt") < paths.index("Qty Var LYS %")
+    assert paths.index("Qty Var LYS %") < paths.index("Salon RTL % Plan")
+    # Attributes lead, and the single-form one carries no suffix.
+    assert paths[:3] == [
+        "District Number.DESC",
+        "District Number.NUMBER",
+        "Region Number",
+    ]
 
 
 def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> None:
@@ -2570,6 +2588,9 @@ def test_report_definition_order_outranks_grid_order_for_derived_metrics() -> No
     mapper.attach_report_derived_metrics(retail, list(reversed(_report_definitions())))
 
     assert list(retail.derived_metrics) == ["D-QTY-VAR", "D-RTL"]
+    # The emitted paths agree here, but only incidentally: schema fields are
+    # sorted by display name, so this pair would come out the same whatever
+    # the definition said. The dict order above is what proves the re-ranking.
     assert _derived_field_paths(mapper, dashboard, retail) == [
         "Qty Var LYS %",
         "RTL PLN",
