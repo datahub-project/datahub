@@ -4,7 +4,7 @@ import logging
 import sqlite3
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,12 +18,18 @@ from datahub.ingestion.source.profiling.config import (
 )
 from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
+    SQLAlchemyQueryCombiner,
+)
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
     format_profile_value,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.type_mapping import ProfilerDataType
-from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
+    DatasetProfileClass,
+)
 from datahub.utilities.stats_collections import float_top_k_dict
 
 
@@ -1493,3 +1499,126 @@ class TestFormatProfileValue:
     def test_string_type(self) -> None:
         assert format_profile_value("hello", ProfilerDataType.STRING) == "hello"
         assert format_profile_value(42, ProfilerDataType.STRING) == "42"
+
+
+class TestSampledProfileRowCount:
+    """A sampled profile reports the table's own rowCount, not the sample's.
+
+    The two counts must not be conflated: rowCount answers "how big is this
+    table", while nullCount and nullProportion describe only the rows that were
+    actually measured.
+    """
+
+    @staticmethod
+    def _make_table(engine: sa.engine.Engine) -> None:
+        metadata = sa.MetaData()
+        table = sa.Table(
+            "sampled",
+            metadata,
+            Column("id", Integer),
+            Column("label", String(10)),
+        )
+        metadata.create_all(engine)
+        with engine.connect() as conn, conn.begin():
+            conn.execute(
+                sa.insert(table),
+                [
+                    {"id": 1, "label": "a"},
+                    {"id": 2, "label": "b"},
+                    {"id": 3, "label": "c"},
+                    {"id": 4, "label": None},
+                ],
+            )
+
+    @staticmethod
+    def _profile(
+        engine: sa.engine.Engine,
+        *,
+        is_sampled: bool,
+        pre_sample_row_count: Optional[int],
+    ) -> Tuple[SQLAlchemyProfiler, DatasetProfileClass]:
+        profiler = SQLAlchemyProfiler(
+            conn=engine,
+            report=SQLSourceReport(),
+            config=ProfilingConfig(enabled=True, include_field_null_count=True),
+            platform="sqlite",
+            env="TEST",
+        )
+        # sqlite has no sampling adapter, so stand in for one. Profiling still
+        # runs over the four real rows, which is exactly what a materialized
+        # sample looks like from the profiler's side.
+        build_adapter = profiler._thread_adapter
+
+        def thread_adapter(platform: str) -> Any:
+            adapter = build_adapter(platform)
+            setup_profiling = adapter.setup_profiling
+
+            def sampled_setup(context: Any, conn: Any) -> Any:
+                context = setup_profiling(context, conn)
+                context.is_sampled = is_sampled
+                context.pre_sample_row_count = pre_sample_row_count
+                return context
+
+            adapter.setup_profiling = sampled_setup  # type: ignore[method-assign]
+            return adapter
+
+        profiler._thread_adapter = thread_adapter  # type: ignore[method-assign]
+
+        profile = profiler._generate_single_profile(
+            query_combiner=SQLAlchemyQueryCombiner(
+                enabled=False,
+                catch_exceptions=True,
+                serial_execution_fallback_enabled=True,
+            ),
+            pretty_name="sampled",
+            table="sampled",
+        )
+        assert profile is not None
+        return profiler, profile
+
+    def test_sampled_reports_table_count_and_sample_derived_column_stats(
+        self, sqlite_engine: sa.engine.Engine
+    ) -> None:
+        self._make_table(sqlite_engine)
+
+        profiler, profile = self._profile(
+            sqlite_engine, is_sampled=True, pre_sample_row_count=1_000_000
+        )
+
+        assert profile.rowCount == 1_000_000
+        assert profiler.total_row_count == 1_000_000
+        # The only surviving record of how many rows were actually measured.
+        assert profile.partitionSpec is not None
+        assert profile.partitionSpec.partition == "SAMPLE (sample rows 4)"
+
+        assert profile.fieldProfiles is not None
+        label = next(p for p in profile.fieldProfiles if p.fieldPath == "label")
+        # Over the 4 rows measured, not the 1,000,000 reported.
+        assert label.nullCount == 1
+        assert label.nullProportion == 0.25
+
+    def test_sampled_without_a_known_table_count_falls_back_to_the_sample(
+        self, sqlite_engine: sa.engine.Engine
+    ) -> None:
+        self._make_table(sqlite_engine)
+
+        _, profile = self._profile(
+            sqlite_engine, is_sampled=True, pre_sample_row_count=None
+        )
+
+        assert profile.rowCount == 4
+        assert profile.partitionSpec is not None
+        assert profile.partitionSpec.partition == "SAMPLE (sample rows 4)"
+
+    def test_unsampled_profile_is_unchanged(
+        self, sqlite_engine: sa.engine.Engine
+    ) -> None:
+        self._make_table(sqlite_engine)
+
+        _, profile = self._profile(
+            sqlite_engine, is_sampled=False, pre_sample_row_count=None
+        )
+
+        assert profile.rowCount == 4
+        assert profile.partitionSpec is not None
+        assert "SAMPLE" not in profile.partitionSpec.partition

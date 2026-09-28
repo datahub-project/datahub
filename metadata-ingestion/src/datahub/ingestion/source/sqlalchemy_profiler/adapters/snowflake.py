@@ -90,6 +90,10 @@ class SnowflakeAdapter(PlatformAdapter):
                 context = self._create_sampled_temp_table(
                     context, conn, effective_row_count
                 )
+                # Deliberately `row_count`, not `effective_row_count`: the
+                # fabricated fallback above is a sizing guess, not something we
+                # are willing to emit as the table's rowCount.
+                context.pre_sample_row_count = row_count
         else:
             context.sql_table = self._create_sqlalchemy_table(
                 schema=context.schema,

@@ -779,6 +779,8 @@ class TestSnowflakeAdapter:
         assert result.is_sampled
         assert result.temp_table == "dh_sample_abc123"
         mock_sample.assert_called_once_with(context, mock_conn, 1_000_000)
+        # Carried so the profile can report the table's rowCount, not the sample's.
+        assert result.pre_sample_row_count == 1_000_000
 
     def test_setup_profiling_no_row_count_conservative_sampling(self, adapter, config):
         """When INFORMATION_SCHEMA row count is unavailable, be conservative and sample."""
@@ -797,10 +799,12 @@ class TestSnowflakeAdapter:
                 adapter, "_create_sampled_temp_table", return_value=context
             ) as mock_sample,
         ):
-            adapter.setup_profiling(context, mock_conn)
+            result = adapter.setup_profiling(context, mock_conn)
 
         # Should use sample_size * 10 as effective row count
         mock_sample.assert_called_once_with(context, mock_conn, 100_000)
+        # ...but that assumed figure is a sizing guess, never a rowCount to emit.
+        assert result.pre_sample_row_count is None
 
     def test_setup_profiling_sampling_disabled(self, adapter, config):
         """When use_sampling=False, profile the original table directly."""

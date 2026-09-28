@@ -49,8 +49,15 @@ class ProfilingContext:
     # Sampling information. sample_percentage is diagnostic only -- adapters
     # set it, nothing reads it back; extrapolating sampled statistics to
     # full-table scale is not done today.
+    #
+    # pre_sample_row_count is the row count of whatever the adapter sampled
+    # *from* -- the base table, or the partition temp table on BigQuery, which
+    # is not the same thing as `row_count` above. Once profiling runs against
+    # the materialized sample it is the only way back to a truthful
+    # `rowCount`, so adapters leave it None when they could not establish it.
     is_sampled: bool = False
     sample_percentage: Optional[float] = None
+    pre_sample_row_count: Optional[int] = None
 
     # Resource tracking for cleanup
     resources_to_cleanup: List[str] = field(default_factory=list)
