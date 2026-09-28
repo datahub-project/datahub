@@ -1371,3 +1371,47 @@ def test_probe_errors_map_to_the_documented_exit_codes(raised: str, code: int) -
     with pytest.raises(SystemExit) as exit_info, _exit_codes(fallback=EXIT_CONNECTION):
         raise exc
     assert exit_info.value.code == code
+
+
+@pytest.mark.parametrize(
+    "recipe, secret",
+    [
+        (
+            "source:\n"
+            "  type: delta-lake\n"
+            "  config:\n"
+            "    base_path: abfss://c@acct.dfs.core.windows.net/x\n"
+            "    azure:\n"
+            "      azure_config:\n"
+            "        account_name: acct\n"
+            "        container_name: c\n"
+            "        account_key: inline-account-key-value\n",
+            "inline-account-key-value",
+        ),
+        (
+            "source:\n"
+            "  type: lookml\n"
+            "  config:\n"
+            "    base_folder: /tmp/x\n"
+            "    git_info:\n"
+            "      repo: org/repo\n"
+            "      deploy_key: inline-deploy-key-value\n",
+            "inline-deploy-key-value",
+        ),
+    ],
+)
+def test_a_nested_inline_secret_no_hint_names_is_not_declared_disclosed(
+    tmp_path: pathlib.Path, recipe: str, secret: str
+) -> None:
+    """A typed SecretStr nested under a key no hint matches read as a plain
+    value the recipe states, and a declared disclosure evicts it from masking."""
+    from datahub.masking.masking_filter import SecretMaskingFilter
+    from datahub.masking.secret_registry import SecretRegistry
+
+    path = tmp_path / "r.yml"
+    path.write_text(recipe)
+    rc._load_recipe(str(path))
+
+    assert secret not in rc._disclosed_recipe_values
+    SecretRegistry.get_instance().register_secrets_batch({"INLINE": secret})
+    assert secret not in SecretMaskingFilter().mask_text(f"leaked {secret}")

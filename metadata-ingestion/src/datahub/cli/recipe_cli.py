@@ -18,6 +18,7 @@ from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
+    config_class_for,
     list_probe_methods,
     run_probe_method,
 )
@@ -27,6 +28,7 @@ from datahub.ingestion.agent.redact import (
     collect_nested_secret_values,
     collect_plain_config_values,
     collect_secret_values,
+    collect_typed_secret_values,
     redact,
 )
 from datahub.ingestion.agent.secrets import (
@@ -260,7 +262,7 @@ def _stdin_aware_resolvers() -> List[SecretResolver]:
 
 
 def _disclosed_config_values(
-    config: Dict[str, object], secret_fields: Set[str]
+    config: Dict[str, object], secret_fields: Set[str], source_type: str
 ) -> Set[str]:
     """Values this config states in the clear, which masking cannot protect.
 
@@ -282,6 +284,10 @@ def _disclosed_config_values(
     inline_secrets = collect_secret_values(
         config, secret_fields
     ) | collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    # The two above see only top-level SECRET fields and hint-named keys, so a
+    # nested typed secret no hint names (azure_config.account_key) read as
+    # disclosed -- and a declared disclosure evicts it from masking.
+    inline_secrets |= collect_typed_secret_values(config_class_for(source_type), config)
     return collect_plain_config_values(config, _SENSITIVE_KEY_HINTS) - inline_secrets
 
 
@@ -312,9 +318,16 @@ def _declare_disclosed_values(recipe: Dict[str, object]) -> None:
         # Unknown or unloadable source type: we cannot tell which fields are
         # secret, so we do not claim anything is disclosed.
         return
-    disclosed = _disclosed_config_values(
-        raw_config, {f.name for f in spec.fields if f.kind == FieldKind.SECRET}
-    )
+    try:
+        disclosed = _disclosed_config_values(
+            raw_config,
+            {f.name for f in spec.fields if f.kind == FieldKind.SECRET},
+            str(source.get("type")),
+        )
+    except Exception:
+        # Same rule as above: if we cannot tell which values are secret,
+        # nothing is disclosed.
+        return
     if not disclosed:
         return
     _disclosed_recipe_values.update(disclosed)
@@ -457,7 +470,7 @@ def _resolve_for_probe(
     # The same set _load_recipe declared to the registry, by construction:
     # this payload's redaction and the process-wide masking must exempt the
     # same values or the report disagrees with the stream it is printed on.
-    secret_values -= _disclosed_config_values(config, secret_fields)
+    secret_values -= _disclosed_config_values(config, secret_fields, source_type)
     return source_type, resolved.config, secret_values
 
 
