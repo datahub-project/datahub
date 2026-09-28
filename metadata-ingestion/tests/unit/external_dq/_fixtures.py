@@ -1,4 +1,6 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+from datahub.ingestion.source.state.checkpoint import Checkpoint
 
 T0 = 1_700_000_000_000  # epoch millis used across tests
 
@@ -50,3 +52,26 @@ def result_raw(**overrides: Any) -> Dict[str, Any]:
     }
     row.update(overrides)
     return row
+
+
+class FakeStateProvider:
+    """Stands in for StateProviderWrapper: one last checkpoint, one current one."""
+
+    def __init__(self, last: Optional[Checkpoint] = None) -> None:
+        self.last = last
+        self.current: Optional[Checkpoint] = None
+        self.handler: Any = None
+
+    def is_stateful_ingestion_configured(self) -> bool:
+        return True
+
+    def register_stateful_ingestion_usecase_handler(self, handler: Any) -> None:
+        self.handler = handler
+
+    def get_last_checkpoint(self, job_id: str, cls: type) -> Optional[Checkpoint]:
+        return self.last
+
+    def get_current_checkpoint(self, job_id: str) -> Optional[Checkpoint]:
+        if self.current is None:
+            self.current = self.handler.create_checkpoint()
+        return self.current
