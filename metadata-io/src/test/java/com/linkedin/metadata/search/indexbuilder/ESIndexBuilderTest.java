@@ -2506,4 +2506,189 @@ public class ESIndexBuilderTest {
     assertTrue(result.reindexStartTime() > 0);
     Assert.assertFalse(result.skippedEmpty());
   }
+
+  private static final String TOTAL_FIELDS = "index.mapping.total_fields.limit";
+
+  private ESIndexBuilder builderWithMappingLimits(Map<String, Map<String, Integer>> limits) {
+    when(elasticSearchConfiguration.getIndex())
+        .thenReturn(
+            IndexConfiguration.builder()
+                .numShards(NUM_SHARDS)
+                .numReplicas(NUM_REPLICAS)
+                .numRetries(NUM_RETRIES)
+                .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
+                .entityMappingLimits(limits)
+                .build());
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion);
+  }
+
+  private void stubLiveSettings(String indexName, Settings settings) throws IOException {
+    GetSettingsResponse settingsResponse = mock(GetSettingsResponse.class);
+    when(settingsResponse.getIndexToSettings()).thenReturn(Map.of(indexName, settings));
+    when(searchClient.getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(settingsResponse);
+  }
+
+  private void stubUpdateSettingsAck(boolean acknowledged) throws IOException {
+    AcknowledgedResponse ack = mock(AcknowledgedResponse.class);
+    when(ack.isAcknowledged()).thenReturn(acknowledged);
+    when(searchClient.updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(ack);
+  }
+
+  /** An existing index with no mapping/settings diff, so only the mapping-limit path can act. */
+  private ReindexConfig existingIndexWithoutDiff(String indexName) {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.name()).thenReturn(indexName);
+    when(indexState.requiresApplyMappings()).thenReturn(false);
+    when(indexState.requiresApplySettings()).thenReturn(false);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    return indexState;
+  }
+
+  private Settings capturedSettingsUpdate() throws IOException {
+    ArgumentCaptor<UpdateSettingsRequest> captor =
+        ArgumentCaptor.forClass(UpdateSettingsRequest.class);
+    verify(searchClient)
+        .updateIndexSettings(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    return captor.getValue().settings();
+  }
+
+  @DataProvider(name = "datasetIndices")
+  public Object[][] datasetIndices() {
+    return new Object[][] {{"datasetindex_v2"}, {"datasetindex_v2_semantic"}};
+  }
+
+  @Test(dataProvider = "datasetIndices")
+  void testBuildIndex_AppliesEntityMappingLimitsToExistingIndex(String indexName)
+      throws IOException {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 2500)));
+    stubLiveSettings(indexName, Settings.builder().put(TOTAL_FIELDS, "1000").build());
+    stubUpdateSettingsAck(true);
+
+    builder.buildIndex(opContext, existingIndexWithoutDiff(indexName));
+
+    assertEquals(capturedSettingsUpdate().get(TOTAL_FIELDS), "2500");
+  }
+
+  @Test
+  void testHasEntityMappingLimits() {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 2500)));
+
+    assertTrue(builder.hasEntityMappingLimits(opContext, "datasetindex_v2"));
+    assertFalse(builder.hasEntityMappingLimits(opContext, "chartindex_v2"));
+    assertFalse(indexBuilder.hasEntityMappingLimits(opContext, "datasetindex_v2"));
+  }
+
+  @Test
+  void testBuildIndex_NoPutWhenLimitAlreadyMatches() throws IOException {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 2500)));
+    stubLiveSettings("datasetindex_v2", Settings.builder().put(TOTAL_FIELDS, "2500").build());
+
+    builder.buildIndex(opContext, existingIndexWithoutDiff("datasetindex_v2"));
+
+    verify(searchClient, never())
+        .updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  void testBuildIndex_DefaultAppliesToUnlistedEntityIndex() throws IOException {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(Map.of("default", Map.of("totalFields", 1500)));
+    stubLiveSettings("chartindex_v2", Settings.EMPTY);
+    stubUpdateSettingsAck(true);
+
+    builder.buildIndex(opContext, existingIndexWithoutDiff("chartindex_v2"));
+
+    assertEquals(capturedSettingsUpdate().get(TOTAL_FIELDS), "1500");
+  }
+
+  @Test
+  void testBuildIndex_DefaultSkipsNonEntityIndex() throws IOException {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(Map.of("default", Map.of("totalFields", 1500)));
+
+    builder.buildIndex(opContext, existingIndexWithoutDiff("graph_service_v1"));
+
+    verify(searchClient, never())
+        .getIndexSettings(
+            any(OperationFingerprint.class),
+            any(GetSettingsRequest.class),
+            any(RequestOptions.class));
+    verify(searchClient, never())
+        .updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  void testBuildIndex_UnacknowledgedMappingLimitUpdateFails() throws IOException {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 2500)));
+    stubLiveSettings("datasetindex_v2", Settings.EMPTY);
+    stubUpdateSettingsAck(false);
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> builder.buildIndex(opContext, existingIndexWithoutDiff("datasetindex_v2")));
+  }
+
+  @Test
+  void testBuildIndex_MappingLimitUpdateErrorPropagates() throws IOException {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 2500)));
+    stubLiveSettings("datasetindex_v2", Settings.EMPTY);
+    when(searchClient.updateIndexSettings(
+            any(OperationFingerprint.class),
+            any(UpdateSettingsRequest.class),
+            any(RequestOptions.class)))
+        .thenThrow(new IOException("rejected"));
+
+    assertThrows(
+        IOException.class,
+        () -> builder.buildIndex(opContext, existingIndexWithoutDiff("datasetindex_v2")));
+  }
+
+  @Test
+  void testBuildReindexState_TargetSettingsIncludeMappingLimit() throws IOException {
+    ESIndexBuilder builder =
+        builderWithMappingLimits(
+            Map.of("default", Map.of("totalFields", 1500), "dataset", Map.of("totalFields", 2500)));
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+
+    Map<String, Object> dataset =
+        builder
+            .buildReindexState(opContext, "datasetindex_v2", Map.of(), Map.of())
+            .targetSettings();
+    Map<String, Object> graph =
+        builder
+            .buildReindexState(opContext, "graph_service_v1", Map.of(), Map.of())
+            .targetSettings();
+
+    assertEquals(((Map<?, ?>) dataset.get("index")).get("mapping.total_fields.limit"), "2500");
+    assertFalse(((Map<?, ?>) graph.get("index")).containsKey("mapping.total_fields.limit"));
+  }
 }

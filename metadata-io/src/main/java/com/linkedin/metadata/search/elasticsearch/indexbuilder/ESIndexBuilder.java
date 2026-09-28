@@ -139,6 +139,8 @@ public class ESIndexBuilder {
 
   @Getter private final Map<String, Map<String, String>> indexSettingOverrides;
 
+  @Getter @VisibleForTesting private final EntityMappingLimits entityMappingLimits;
+
   @Getter @VisibleForTesting private final GitVersion gitVersion;
 
   @Getter @VisibleForTesting private final OpenSearchJvmInfo jvminfo;
@@ -170,6 +172,7 @@ public class ESIndexBuilder {
     this.searchClient = searchClient;
     this.config = elasticSearchConfiguration;
     this.indexConfig = elasticSearchConfiguration.getIndex();
+    this.entityMappingLimits = EntityMappingLimits.fromConfig(indexConfig.getEntityMappingLimits());
     this.structPropConfig = structuredPropertiesConfiguration;
     this.indexSettingOverrides = indexSettingOverrides;
     this.gitVersion = gitVersion;
@@ -415,6 +418,9 @@ public class ESIndexBuilder {
       baseSettings.put("codec", "zstd_no_dict");
     }
     baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
+    // entityMappingLimits feeds the same settings on creation/reindex so a new or rebuilt index
+    // is born at the configured ceiling, matching the value pushed to live indices below.
+    baseSettings.putAll(entityMappingLimitsFor(opContext, indexName));
     Map<String, Object> targetSetting = ImmutableMap.of("index", baseSettings);
     builder.targetSettings(targetSetting);
 
@@ -579,6 +585,12 @@ public class ESIndexBuilder {
       result = ReindexResult.CREATED_NEW;
       return result;
     }
+
+    // Apply configured entityMappingLimits to the live index. Runs independent of the
+    // mapping/settings diff below so that limit changes (e.g. mapping.total_fields.limit) take
+    // effect on a long-lived index without requiring a reindex.
+    applyEntityMappingLimitsToExistingIndex(opContext, indexState.name());
+
     log.info("Current mappings for index {}", indexState.name());
     log.info("{}", indexState.currentMappings());
     log.info("Target mappings for index {}", indexState.name());
@@ -625,6 +637,93 @@ public class ESIndexBuilder {
       }
     }
     return result;
+  }
+
+  /**
+   * Pushes the configured {@code entityMappingLimits} to the live index, but only for keys whose
+   * current value differs from the configured value. No-op when the index has no configured limits
+   * and no default applies. Each per-attribute change is logged with from/to so operators can audit
+   * exactly what shifted on a given run.
+   */
+  private void applyEntityMappingLimitsToExistingIndex(
+      @Nonnull OperationContext opContext, String indexName) throws IOException {
+    Map<String, String> desired = entityMappingLimitsFor(opContext, indexName);
+    if (desired.isEmpty()) {
+      return;
+    }
+
+    Settings currentSettings =
+        searchClient
+            .getIndexSettings(
+                opContext, new GetSettingsRequest().indices(indexName), requestOptionsLong)
+            .getIndexToSettings()
+            .values()
+            .iterator()
+            .next();
+
+    Map<String, Object> changes = new HashMap<>();
+    for (Map.Entry<String, String> e : desired.entrySet()) {
+      String key = e.getKey();
+      String desiredValue = e.getValue();
+      String current = currentSettings.get("index." + key);
+      if (Objects.equals(desiredValue, current)) {
+        log.info(
+            "Index: {} - entityMappingLimits key 'index.{}' already at {}, no change",
+            indexName,
+            key,
+            current);
+        continue;
+      }
+      log.info(
+          "Index: {} - entityMappingLimits change: index.{}: {} -> {}",
+          indexName,
+          key,
+          current,
+          desiredValue);
+      changes.put("index." + key, desiredValue);
+    }
+
+    if (changes.isEmpty()) {
+      return;
+    }
+
+    UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
+    request.settings(changes);
+    // Fail the build rather than continue: the operator configured this limit because writes are
+    // hitting the field cap, so a silently unapplied limit would leave indexing broken.
+    if (!searchClient
+        .updateIndexSettings(opContext, request, requestOptionsLong)
+        .isAcknowledged()) {
+      throw new IllegalStateException(
+          String.format(
+              "Index: %s - entityMappingLimits update %s was not acknowledged",
+              indexName, changes));
+    }
+    log.info(
+        "Index: {} - Applied {} entityMappingLimits change(s): {}",
+        indexName,
+        changes.size(),
+        changes);
+  }
+
+  /**
+   * True when {@code entityMappingLimits} configure a limit for {@code indexName}. The limit is not
+   * part of the {@link ReindexConfig} settings diff, so callers that only call {@link #buildIndex}
+   * for indices with a diff must also call it for these, or a limit-only change is never applied.
+   */
+  public boolean hasEntityMappingLimits(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    return !entityMappingLimitsFor(opContext, indexName).isEmpty();
+  }
+
+  @Nonnull
+  private Map<String, String> entityMappingLimitsFor(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    if (entityMappingLimits.isEmpty()) {
+      return Map.of();
+    }
+    return entityMappingLimits.forIndex(
+        opContext.getSearchContext().getIndexConvention(), opContext, indexName);
   }
 
   /**

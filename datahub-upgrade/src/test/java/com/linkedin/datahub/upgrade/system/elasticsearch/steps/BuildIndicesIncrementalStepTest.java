@@ -138,6 +138,27 @@ public class BuildIndicesIncrementalStepTest {
   }
 
   @Test
+  public void testAppliesEntityMappingLimitsToIndexWithoutDiff() throws Throwable {
+    // A limit-only change is not part of the ReindexConfig settings diff, so the index must still
+    // reach buildIndex for the configured limit to be applied in place.
+    ReindexConfig limitOnly = mockReindexConfig(INDEX_NAME, false);
+    ReindexConfig settingsOnly = mockReindexConfig("dashboardindex_v2", false);
+    when(settingsOnly.requiresApplySettings()).thenReturn(true);
+    ReindexConfig untouched = mockReindexConfig("chartindex_v2", false);
+    when(indexedService.buildReindexConfigs(any(), any()))
+        .thenReturn(List.of(limitOnly, settingsOnly, untouched));
+    when(indexBuilder.hasEntityMappingLimits(any(OperationContext.class), eq(INDEX_NAME)))
+        .thenReturn(true);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(limitOnly));
+    verify(indexBuilder).buildIndex(any(OperationContext.class), eq(settingsOnly));
+    verify(indexBuilder, never()).buildIndex(any(OperationContext.class), eq(untouched));
+  }
+
+  @Test
   public void testReconcilesInPlaceMappingUpdateWhenEnabled() throws Throwable {
     buildIndicesConfig.setReconcileInPlaceMappingUpdates(true);
     step = createStep();

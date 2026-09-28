@@ -194,6 +194,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.sslContext.trustStoreType",
           "elasticsearch.clusters.*.sslContext.keyStoreFile",
           "elasticsearch.clusters.*.sslContext.keyStoreType",
+          // Per-entity mapping limit overrides (e.g. mapping.total_fields.limit) keyed by entity
+          // name (with reserved key `default`) and limit name.
+          "elasticsearch.index.entityMappingLimits.*.*",
           // Postgres PgQueue configuration (non-credential settings)
           "postgres.pgQueue.topicDefaults.*",
           "postgres.pgQueue.topics.*.*",
