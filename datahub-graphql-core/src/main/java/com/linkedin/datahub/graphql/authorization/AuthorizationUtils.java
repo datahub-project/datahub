@@ -234,18 +234,15 @@ public class AuthorizationUtils {
   }
 
   /**
-   * Can view relationship logic goes here. Should be considered directionless for now. Or direction
-   * added to the interface.
-   *
-   * @param opContext
-   * @param a
-   * @param b
-   * @return
+   * Whether the actor may see that a relationship exists between two entities. Directionless: the
+   * relationship is visible only when both endpoints pass {@link #canView}, so callers hide or
+   * replace the far endpoint with a {@code Restricted} placeholder otherwise. Inherits the
+   * activation rules of {@link #canView} (View Authorization enabled, non-system actor,
+   * view-restricted entity types), so it is a no-op when view authorization is off.
    */
   public static boolean canViewRelationship(
       @Nonnull OperationContext opContext, @Nonnull Urn a, @Nonnull Urn b) {
-    // TODO  relationships filter
-    return true;
+    return canView(opContext, a) && canView(opContext, b);
   }
 
   /**

@@ -24,6 +24,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.RestrictedService;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -79,6 +80,12 @@ public class EntityLineageResultResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            // A source the actor may not view keeps only urn/type after mapper redaction; its
+            // lineage must not disclose neighbors, counts or degrees either.
+            if (isViewAuthorizationEnabled()
+                && !AuthorizationUtils.canView(context.getOperationContext(), finalUrn)) {
+              return emptyLineageResult();
+            }
             com.linkedin.metadata.graph.EntityLineageResult entityLineageResult =
                 _siblingGraphService.getLineage(
                     context
@@ -104,7 +111,7 @@ public class EntityLineageResultResolver
                 .getRelationships()
                 .forEach(
                     rel -> {
-                      if (_authorizationConfiguration.getView().isEnabled()
+                      if (isViewAuthorizationEnabled()
                           && !AuthorizationUtils.canViewRelationship(
                               context.getOperationContext(), rel.getEntity(), urn)) {
                         restrictedUrns.add(rel.getEntity());
@@ -120,6 +127,22 @@ public class EntityLineageResultResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private boolean isViewAuthorizationEnabled() {
+    return _authorizationConfiguration != null
+        && _authorizationConfiguration.getView() != null
+        && _authorizationConfiguration.getView().isEnabled();
+  }
+
+  private static EntityLineageResult emptyLineageResult() {
+    final EntityLineageResult result = new EntityLineageResult();
+    result.setStart(0);
+    result.setCount(0);
+    result.setTotal(0);
+    result.setFiltered(0);
+    result.setRelationships(Collections.emptyList());
+    return result;
   }
 
   private EntityLineageResult mapEntityRelationships(
