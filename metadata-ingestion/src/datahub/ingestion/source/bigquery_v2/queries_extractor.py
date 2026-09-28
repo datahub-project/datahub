@@ -4,7 +4,17 @@ import pathlib
 import re
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, TypedDict
+from typing import (
+    Collection,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import sqlglot
 from google.cloud.bigquery import Client
@@ -844,12 +854,27 @@ def _build_user_filter(
     return result
 
 
-_TEMP_FUNCTION_HEADS = (
-    ["CREATE", "TEMP", "FUNCTION"],
-    ["CREATE", "TEMPORARY", "FUNCTION"],
-)
-_OR_REPLACE = ["OR", "REPLACE"]
-_AGGREGATE = ["AGGREGATE"]
+# AGGREGATE is not a keyword token, so it is matched by text.
+_AGGREGATE = "AGGREGATE"
+_TEMP_FUNCTION_HEADS: List[List[Union[TokenType, str]]] = [
+    [TokenType.CREATE, TokenType.TEMPORARY, TokenType.FUNCTION],
+    [TokenType.CREATE, TokenType.TEMPORARY, _AGGREGATE, TokenType.FUNCTION],
+    [
+        TokenType.CREATE,
+        TokenType.OR,
+        TokenType.REPLACE,
+        TokenType.TEMPORARY,
+        TokenType.FUNCTION,
+    ],
+    [
+        TokenType.CREATE,
+        TokenType.OR,
+        TokenType.REPLACE,
+        TokenType.TEMPORARY,
+        _AGGREGATE,
+        TokenType.FUNCTION,
+    ],
+]
 _FUNCTION_WORD_RE = re.compile(r"\bFUNCTION\b", re.IGNORECASE)
 _STATEMENT_SEPARATOR = ";"
 
@@ -917,7 +942,8 @@ def _strip_temp_functions(query: str, *, strip_semicolons: bool) -> str:
     if main_statements != 1:
         return query
 
-    kept, position = [], 0
+    kept: List[str] = []
+    position = 0
     for start, end in removed:
         kept.append(query[position:start])
         position = end + 1
@@ -926,12 +952,11 @@ def _strip_temp_functions(query: str, *, strip_semicolons: bool) -> str:
 
 
 def _is_temp_function(statement: List[Token]) -> bool:
-    words = [token.text.upper() for token in statement[:6]]
-    if words[1:3] == _OR_REPLACE:
-        del words[1:3]
-    if words[2:3] == _AGGREGATE:
-        del words[2]
-    return words[:3] in _TEMP_FUNCTION_HEADS
+    head = [
+        _AGGREGATE if token.text.upper() == _AGGREGATE else token.token_type
+        for token in statement[:6]
+    ]
+    return any(head[: len(form)] == form for form in _TEMP_FUNCTION_HEADS)
 
 
 def _build_enriched_query_log_query(

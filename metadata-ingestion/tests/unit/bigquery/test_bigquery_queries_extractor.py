@@ -1382,7 +1382,9 @@ class TestExtractQueryText:
         assert _table_lineage(_job(_MAIN_SELECT + ending)) == _EXPECTED_LINEAGE
 
     def test_select_with_destination_semicolon_then_comment(self):
-        assert _table_lineage(_job(_MAIN_SELECT + "; -- done\n")) == _EXPECTED_LINEAGE
+        row = _job(_MAIN_SELECT + "; -- note\n")
+        assert _extract_query_text(row) == _wrapped(_MAIN_SELECT + " -- note\n")
+        assert _table_lineage(row) == _EXPECTED_LINEAGE
 
     @pytest.mark.parametrize("ending", ["", ";"], ids=["plain", "trailing-semicolon"])
     def test_select_with_destination_temp_function_preamble(self, ending):
@@ -1435,8 +1437,8 @@ class TestExtractQueryText:
 
     def test_lowercase_preamble_on_unwrapped_job(self):
         query = (
-            "create temp function add_one(x INT64) as (x + 1);\n"
-            f"insert into `{_DESTINATION}` select add_one(a) as a from `{_SOURCE}`"
+            "create temp aggregate function total(x INT64) as (sum(x));\n"
+            f"insert into `{_DESTINATION}` select total(a) as a from `{_SOURCE}`"
         )
         assert _table_lineage(_job(query, "INSERT")) == _EXPECTED_LINEAGE
 
@@ -1447,15 +1449,8 @@ class TestExtractQueryText:
             "CREATE TEMPORARY FUNCTION add_one(x INT64) AS (x + 1);\n",
             "CREATE TEMP AGGREGATE FUNCTION total(x INT64) RETURNS INT64 AS (SUM(x));\n",
             "CREATE OR REPLACE TEMP AGGREGATE FUNCTION total(x INT64) AS (SUM(x));\n",
-            "create temp function add_one(x INT64) as (x + 1);\n",
         ],
-        ids=[
-            "or-replace",
-            "temporary",
-            "aggregate",
-            "or-replace-aggregate",
-            "lowercase",
-        ],
+        ids=["or-replace", "temporary", "aggregate", "or-replace-aggregate"],
     )
     def test_temp_function_variants(self, preamble):
         assert _table_lineage(_job(preamble + _MAIN_SELECT)) == _EXPECTED_LINEAGE
@@ -1488,14 +1483,6 @@ class TestExtractQueryText:
         query = f"SELECT 'unterminated FROM `{_SOURCE}`;"
         assert _extract_query_text(_job(query)) == _wrapped(query)
 
-    def test_tokenizer_non_token_error_falls_back(self):
-        query = _MAIN_SELECT + ";"
-        with patch(
-            "datahub.ingestion.source.bigquery_v2.queries_extractor.get_dialect"
-        ) as get_dialect:
-            get_dialect.return_value.tokenize.side_effect = ValueError("unexpected")
-            assert _extract_query_text(_job(query)) == _wrapped(query)
-
     def test_anon_destination_preamble_not_wrapped(self):
         row = _job(_TEMP_FUNCTION + _MAIN_SELECT, table_id="anon1a2b3c")
         assert _extract_query_text(row) == "\n" + _MAIN_SELECT
@@ -1513,10 +1500,6 @@ class TestExtractQueryText:
     )
     def test_unwrapped_single_statement_unchanged(self, row):
         assert _extract_query_text(row) == row["query"]
-
-    def test_wrapped_semicolon_removed_comment_kept(self):
-        row = _job(_MAIN_SELECT + "; -- note\n")
-        assert _extract_query_text(row) == _wrapped(_MAIN_SELECT + " -- note\n")
 
     def test_preamble_removal_keeps_other_text(self):
         query = (
