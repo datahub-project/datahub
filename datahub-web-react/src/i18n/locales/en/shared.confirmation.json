@@ -1,4 +1,6 @@
 {
-    "unsavedChanges.text": "Exiting now will discard your changes. You can continue or exit and start over later",
-    "unsavedChanges.title": "You have unsaved changes"
+    "unsavedChanges": {
+        "text": "Exiting now will discard your changes. You can continue or exit and start over later",
+        "title": "You have unsaved changes"
+    }
 }
