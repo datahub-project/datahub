@@ -2,7 +2,7 @@
 # This image has two variants: full and slim.
 # The full variant has a larger set of ingestion sources, but is a larger image.
 ARG APP_ENV=full
-ARG PYTHON_VERSION=3.10
+ARG PYTHON_VERSION=3.11
 
 # INLINE-BEGIN @/docker/snippets/ingestion_base
 # This is the "base" image workflow.
@@ -186,7 +186,8 @@ FROM add-code-full AS final-full
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
     UV_LINK_MODE=copy uv pip install \
-        -e "/metadata-ingestion/[all]" \
+        -e "/metadata-ingestion/[all,datahub-documents,notion,confluence]" \
+    && python -m spacy download en_core_web_sm \
     && datahub --version
 RUN rm -rf $HOME/.config/uv
 

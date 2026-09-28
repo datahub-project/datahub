@@ -129,6 +129,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - name: Check product-update JSONs match the latest release notes and UI locales
         run: ./gradlew :metadata-service:configuration:productUpdateReleaseSyncCheck
+      - name: Probe product-update CTA URLs
+        run: python3 .github/scripts/check_product_update_cta.py
 
   docs-website-lint:
     name: docs-website-lint

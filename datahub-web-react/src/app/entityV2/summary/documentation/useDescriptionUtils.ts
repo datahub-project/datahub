@@ -6,6 +6,7 @@ import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app
 import { GenericEntityUpdate } from '@app/entity/shared/types';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { sanitizeRichText } from '@src/alchemy-components/components/Editor/utils';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 
@@ -38,7 +39,7 @@ export function useDescriptionUtils() {
         return updateDescriptionMutation({
             variables: {
                 input: {
-                    description: updatedDescription,
+                    description: sanitizeRichText(updatedDescription),
                     resourceUrn: mutationUrn,
                 },
             },

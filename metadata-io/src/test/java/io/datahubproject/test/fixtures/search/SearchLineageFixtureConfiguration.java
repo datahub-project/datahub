@@ -33,7 +33,8 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -50,6 +51,7 @@ import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
@@ -156,7 +158,6 @@ public abstract class SearchLineageFixtureConfiguration {
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            searchClient,
             false,
             getElasticSearchConfiguration(),
             customSearchConfiguration,
@@ -164,13 +165,16 @@ public abstract class SearchLineageFixtureConfiguration {
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClient,
             getElasticSearchConfiguration(),
             customSearchConfiguration,
             queryFilterRewriteChain,
             TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO =
-        new ESWriteDAO(getElasticSearchConfiguration(), searchClient, bulkProcessor);
+        new ESWriteDAO(
+            getElasticSearchConfiguration(),
+            searchClient,
+            bulkProcessor,
+            SearchWriteAccess.fixed(bulkProcessor));
 
     return new ElasticSearchService(
         indexBuilder,
@@ -178,7 +182,7 @@ public abstract class SearchLineageFixtureConfiguration {
         TEST_ES_SEARCH_CONFIG,
         new V2MappingsBuilder(
             TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-            OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
         new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
         searchDAO,
         browseDAO,
@@ -201,6 +205,7 @@ public abstract class SearchLineageFixtureConfiguration {
                     testOpContext.getEntityRegistry(), mappingsBuilder))
             .searchableFieldPaths(
                 ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .searchClusterAccess(SearchClusterAccess.fixed(searchClient))
             .build();
 
     return testOpContext.toBuilder()

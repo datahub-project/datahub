@@ -103,7 +103,11 @@ const ColumnLinkWrapper = styled(Link)`
 `;
 
 const ColumnText = styled(Typography.Text)`
-    color: inherit;
+    // Outranks the global '.ant-typography' color, which otherwise keeps a disabled column's
+    // label at full strength instead of letting it inherit the wrapper's disabled color
+    &&& {
+        color: inherit;
+    }
 `;
 
 const StyledLoadingIndicator = styled(LoadingOutlined)`

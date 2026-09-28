@@ -75,11 +75,12 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(
-            SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build());
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(
+                SearchContext.EMPTY.toBuilder().indexConvention(indexConvention).build()),
+            mockClient);
     browseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -175,7 +176,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // Create a new browse DAO with our test configuration
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -234,7 +234,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // Create a new browse DAO with our test configuration
     ESBrowseDAO testBrowseDAO =
         new ESBrowseDAO(
-            mockClient,
             TEST_OS_SEARCH_CONFIG,
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -254,6 +253,36 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     // This method doesn't directly use the size parameter in the captured request,
     // but we can still verify the page size in the result
     assertEquals(result.getPageSize(), 25);
+  }
+
+  @Test
+  public void testBrowseV2OnV3UsesAspectDepthAndTierFields() throws Exception {
+    SearchResponse mockGroupsResponse = mock(SearchResponse.class);
+    SearchHits mockGroupsHits = mock(SearchHits.class);
+    when(mockGroupsResponse.getHits()).thenReturn(mockGroupsHits);
+    when(mockGroupsHits.getTotalHits()).thenReturn(new TotalHits(0L, TotalHits.Relation.EQUAL_TO));
+    Aggregations mockAggs = mock(Aggregations.class);
+    when(mockAggs.get("groups")).thenReturn(new ParsedStringTerms());
+    when(mockGroupsResponse.getAggregations()).thenReturn(mockAggs);
+    when(mockClient.search(
+            any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockGroupsResponse);
+
+    new ESBrowseDAO(
+            v3KeywordReadConfig(),
+            customSearchConfiguration,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .browseV2(opContext, "dataset", "", null, "orders", 0, 10);
+
+    ArgumentCaptor<SearchRequest> requestCaptor = ArgumentCaptor.forClass(SearchRequest.class);
+    verify(mockClient)
+        .search(any(OperationContext.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    String query = requestCaptor.getValue().source().query().toString();
+    // The root browsePathV2 alias cannot reach the length subfield on V3
+    assertTrue(query.contains("_aspects.browsePathsV2.browsePathV2.length"), query);
+    assertTrue(query.contains("_search.tier_1.full"), query);
+    assertFalse(query.contains("query_urn_component"), query);
   }
 
   @Test
@@ -280,7 +309,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     ESBrowseDAO v3ReadBrowseDao =
         new ESBrowseDAO(
-            mockClient,
             v3KeywordReadConfig(),
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,
@@ -308,7 +336,6 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
 
     ESBrowseDAO v3ReadBrowseDao =
         new ESBrowseDAO(
-            mockClient,
             v3KeywordReadConfig(),
             customSearchConfiguration,
             QueryFilterRewriteChain.EMPTY,

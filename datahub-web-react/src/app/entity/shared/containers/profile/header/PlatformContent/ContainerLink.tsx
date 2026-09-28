@@ -5,7 +5,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Container, EntityType } from '@types';
@@ -13,11 +12,11 @@ import { Container, EntityType } from '@types';
 const ContainerText = styled(Typography.Text)`
     font-size: 12px;
     line-height: 20px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ContainerIcon = styled(FolderOpenOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 
     &&& {
         font-size: 12px;

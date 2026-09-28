@@ -214,8 +214,23 @@ def _make_ref(
     column: Optional[str],
     is_parameter: bool = False,
 ) -> BracketRef:
-    raw = f"{source}/{column}" if column else source
-    return BracketRef(raw=raw, source=source, column=column, is_parameter=is_parameter)
+    """Build a ref the way the scanner would, from the formula text.
+
+    Previously this used the four-argument constructor, which had to guess
+    ``segments`` from the first-slash split -- so a multi-segment column would
+    have produced a ref whose segmentation disagreed with its own text. It also
+    set ``raw`` without brackets, contradicting that field's contract.
+
+    ``is_parameter`` is kept for call-site readability; the scanner derives it
+    from the ``P_`` prefix, and the assert pins the two in agreement.
+    """
+    body = f"{source}/{column}" if column else source
+    ref = BracketRef.from_body(body)
+    assert ref.is_parameter == is_parameter, (
+        f"scanner derived is_parameter={ref.is_parameter} for {body!r}, "
+        f"but the call site says {is_parameter}"
+    )
+    return ref
 
 
 class TestResolveChartFormulaUpstream:

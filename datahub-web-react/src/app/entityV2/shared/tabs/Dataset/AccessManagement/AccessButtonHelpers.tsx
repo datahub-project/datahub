@@ -11,7 +11,7 @@ import styled from 'styled-components';
 export const AccessButton = styled(Button)`
     background-color: ${(props) => props.theme.colors.buttonFillBrand};
     color: ${(props) => props.theme.colors.textOnFillBrand};
-    width: 80px;
+    min-width: 80px;
     height: 30px;
     border-radius: 3.5px;
     border: none;
@@ -48,19 +48,6 @@ export interface RoleAccessData {
 }
 
 /**
- * Returns the button text based on whether the user has access.
- */
-export const getAccessButtonText = (hasAccess: boolean): string =>
-    hasAccess
-        ? i18next.t('entity.profile.access:accessManagement.granted')
-        : i18next.t('entity.profile.access:accessManagement.request');
-
-/**
- * Returns whether the access button should be disabled.
- */
-export const isAccessButtonDisabled = (hasAccess: boolean): boolean => hasAccess;
-
-/**
  * Handles the click event for access request buttons.
  * Only opens the URL if the user doesn't already have access.
  */
@@ -70,6 +57,19 @@ export const handleAccessButtonClick = (hasAccess: boolean, url?: string) => (e:
         window.open(url);
     }
 };
+
+/**
+ * Determines the button text based on access status
+ */
+export const getAccessButtonText = (hasAccess: boolean): string =>
+    hasAccess
+        ? i18next.t('entity.profile.access:accessManagement.granted')
+        : i18next.t('entity.profile.access:accessManagement.request');
+
+/**
+ * Determines if the button should be disabled
+ */
+export const isAccessButtonDisabled = (hasAccess: boolean): boolean => hasAccess;
 
 /**
  * Renders an access button with appropriate state and tooltip.
@@ -85,7 +85,7 @@ export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement
 
     const button = (
         <AccessButton
-            disabled={hasAccess}
+            disabled={isAccessButtonDisabled(hasAccess)}
             onClick={handleAccessButtonClick(hasAccess, url)}
             aria-label={
                 hasAccess
@@ -93,9 +93,7 @@ export const renderAccessButton = (roleData: RoleAccessData): React.ReactElement
                     : i18next.t('entity.profile.access:accessManagement.requestAccess')
             }
         >
-            {hasAccess
-                ? i18next.t('entity.profile.access:accessManagement.granted')
-                : i18next.t('entity.profile.access:accessManagement.request')}
+            {getAccessButtonText(hasAccess)}
         </AccessButton>
     );
 

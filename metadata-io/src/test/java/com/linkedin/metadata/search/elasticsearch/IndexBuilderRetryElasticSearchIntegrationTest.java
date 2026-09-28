@@ -36,8 +36,7 @@ import org.testng.annotations.Test;
 /**
  * Integration tests that use {@link io.datahubproject.test.search.FaultInjectingSearchClientShim}
  * to simulate count/createIndex failures and assert retry logic succeeds against a real ES
- * container. Runs in all ES test suites (es7-testcontainers, es8-testcontainers) where the search
- * container is available.
+ * container. Runs in ES test suites (es8-testcontainers) where the search container is available.
  */
 @Test
 @Import({ElasticSearchSuite.class, RetryFaultInjectionTestConfiguration.class})

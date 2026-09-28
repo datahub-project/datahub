@@ -792,6 +792,11 @@
           {
             "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD)"
           }
+        ],
+        "fieldUpstreams": [
+          {
+            "destinationUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,pw_metrics.analytics.orders_model.orders_ds,PROD),amount)"
+          }
         ]
       }
     }
@@ -1547,6 +1552,21 @@
     }
   },
   {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(looker,pw_metrics.orders_chart)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamMetrics",
+    "aspect": {
+      "json": {
+        "metrics": [
+          {
+            "destinationUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)"
+          }
+        ]
+      }
+    }
+  },
+  {
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(looker,pw_metrics.orders_dashboard)",
     "changeType": "UPSERT",
@@ -1579,6 +1599,21 @@
         "chartEdges": [
           {
             "destinationUrn": "urn:li:chart:(looker,pw_metrics.orders_chart)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(looker,pw_metrics.orders_dashboard)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamMetrics",
+    "aspect": {
+      "json": {
+        "metrics": [
+          {
+            "destinationUrn": "urn:li:metric:(urn:li:dataPlatform:snowflake,pw_metrics.analytics,total_revenue)"
           }
         ]
       }

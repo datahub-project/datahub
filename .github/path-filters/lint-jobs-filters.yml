@@ -70,7 +70,6 @@ product-update-sync:
   - metadata-service/configuration/src/main/resources/product-update.json
   - metadata-service/configuration/src/main/resources/product-update-saas.json
   - metadata-service/configuration/src/productUpdateCiGate/**
-  - metadata-service/configuration/src/test/java/com/linkedin/metadata/config/productupdate/**
   - metadata-service/configuration/build.gradle
   # ProductUpdateReleaseSyncTest requires every UI locale under this tree to have
   # toast copy. Frontend-only locale PRs skipped the lint job without this glob.

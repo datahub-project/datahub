@@ -11,7 +11,7 @@ from sqlalchemy.dialects import mssql, mysql, postgresql
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import SQLAlchemyError
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.athena import AthenaAdapter
@@ -366,8 +366,8 @@ class TestGenericAdapter:
         This prevents:
           - MSSQL integer truncation (`AVG(int_col)` returns int there).
           - MySQL/Doris precision loss (DECIMAL(N,4) for AVG over int columns).
-        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Catches future
-        regressions that drop `* 1.0` from base or re-add an MSSQL-specific override.
+        Catches future regressions that drop `* 1.0` from base or re-add an
+        MSSQL-specific override.
         """
         expr = adapter.get_mean_expr("my_col")
         rendered = compile_expr_to_sql(expr, mock_generic_engine.dialect)
@@ -378,11 +378,6 @@ class TestGenericAdapter:
         """Test generic adapter returns None for quantiles (not supported)."""
         expr = adapter.get_quantiles_expr("test_column", [0.25, 0.5, 0.75])
         assert expr is None
-
-    def test_get_sample_clause(self, adapter):
-        """Test generic adapter returns None for sample clause (not supported)."""
-        clause = adapter.get_sample_clause(1000)
-        assert clause is None
 
     def test_supports_row_count_estimation(self, adapter):
         """Test generic adapter doesn't support row count estimation."""
@@ -882,7 +877,7 @@ class TestSnowflakeAdapter:
         assert result.is_sampled
 
     def test_setup_profiling_custom_sql_rejected(self, adapter):
-        """custom_sql is GE-only; the SQLAlchemy adapter rejects it."""
+        """The SQLAlchemy adapter rejects custom_sql."""
         context = ProfilingContext(
             schema="MY_SCHEMA",
             table="MY_TABLE",
@@ -1264,7 +1259,7 @@ class TestBigQueryAdapter:
         mock_raw_conn.close.assert_called_once()
 
     def test_setup_sampling_samples_partition_temp_table(self, adapter, config):
-        """A partition temp table (from step 1) is itself sampled, matching GE."""
+        """A partition temp table (from step 1) is itself sampled."""
         config.use_sampling = True
         config.sample_size = 1000
         adapter.config = config
@@ -1993,7 +1988,7 @@ class TestExecuteAggregateGuard:
 
 
 class TestRowCountRungChoice:
-    """get_row_count is the one site where the wrong rung is a correctness bug."""
+    """get_row_count counts a whole table, so it must take the flattenable rung."""
 
     @staticmethod
     def _adapter() -> Any:
@@ -2002,18 +1997,6 @@ class TestRowCountRungChoice:
             report=SQLSourceReport(),
             base_engine=sa.create_engine("sqlite://"),
         )
-
-    def test_sampled_row_count_is_not_flattenable(self) -> None:
-        # Flattening would drop the sample clause and count the whole table,
-        # reporting a full count as a sampled one.
-        conn = MagicMock()
-        conn.execute_single_row.return_value.scalar.return_value = 10
-        table = sa.table("t", sa.column("v"))
-
-        self._adapter().get_row_count(table, conn, sample_clause="TABLESAMPLE (10)")
-
-        conn.execute_aggregate.assert_not_called()
-        assert "TABLESAMPLE" in str(conn.execute_single_row.call_args.args[0])
 
     def test_unsampled_row_count_is_flattenable(self) -> None:
         conn = MagicMock()

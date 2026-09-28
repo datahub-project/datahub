@@ -21,6 +21,10 @@ import {
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
 import ExpandIcon from '@app/entityV2/shared/tabs/Dataset/Schema/components/ExpandIcon';
 import SchemaFieldDrawer from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import {
+    MetadataStatus,
+    renderMetadataCell as renderMetadataCellFor,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/metadataStatus';
 import useKeyboardControls from '@app/entityV2/shared/tabs/Dataset/Schema/useKeyboardControls';
 import useBusinessAttributeRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
 import useDescriptionRenderer from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useDescriptionRenderer';
@@ -166,6 +170,8 @@ type Props = {
     }[];
     refetch?: () => void;
     visibleColumns?: string[];
+    /** Phase 2 (full metadata) state; drives skeleton / unavailable rendering of metadata cells. */
+    metadataStatus?: MetadataStatus;
 };
 
 const EMPTY_SET: Set<string> = new Set();
@@ -187,6 +193,7 @@ export default function SchemaTable({
     setOpenTimelineDrawer,
     refetch,
     visibleColumns,
+    metadataStatus = 'ready',
 }: Props): JSX.Element {
     const { t } = useTranslation('entity.profile.schema');
     const { t: tc } = useTranslation('common.labels');
@@ -239,7 +246,7 @@ export default function SchemaTable({
     const businessAttributesFlag = useBusinessAttributesFlag();
 
     const tableColumnStructuredProps = useGetTableColumnProperties(entityData?.platform?.urn);
-    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps, metadataStatus);
 
     const fieldColumn = useMemo(
         () => ({
@@ -269,6 +276,15 @@ export default function SchemaTable({
         [schemaTypeRenderer, tc],
     );
 
+    // One shared wrapper for every Phase 2 metadata column (description/tags/terms): skeleton
+    // while full metadata loads, an explicit "unavailable" marker when the full query failed
+    // (a blank cell would read as "no tags"), real content otherwise.
+    const renderMetadataCell = useCallback(
+        (width: number, content: () => React.ReactNode): React.ReactNode =>
+            renderMetadataCellFor(metadataStatus, width, content),
+        [metadataStatus],
+    );
+
     const descriptionColumn = useMemo(
         () => ({
             ellipsis: true,
@@ -276,12 +292,13 @@ export default function SchemaTable({
             title: tc('description'),
             dataIndex: 'description',
             key: 'description',
-            render: descriptionRender,
+            render: (description, record, index) =>
+                renderMetadataCell(120, () => descriptionRender(description, record, index)),
             sorter: (sourceA, sourceB) =>
                 (extractFieldDescription(sourceA).sanitizedDescription ? 1 : 0) -
                 (extractFieldDescription(sourceB).sanitizedDescription ? 1 : 0),
         }),
-        [descriptionRender, extractFieldDescription, tc],
+        [descriptionRender, extractFieldDescription, tc, renderMetadataCell],
     );
 
     const tagColumn = useMemo(
@@ -290,11 +307,11 @@ export default function SchemaTable({
             title: tc('tags'),
             dataIndex: 'globalTags',
             key: 'tag',
-            render: tagRenderer,
+            render: (tags, record) => renderMetadataCell(80, () => tagRenderer(tags, record)),
             sorter: (sourceA, sourceB) =>
                 extractFieldTagsInfo(sourceA).numberOfTags - extractFieldTagsInfo(sourceB).numberOfTags,
         }),
-        [tagRenderer, extractFieldTagsInfo, tc],
+        [tagRenderer, extractFieldTagsInfo, tc, renderMetadataCell],
     );
 
     const termColumn = useMemo(
@@ -303,12 +320,12 @@ export default function SchemaTable({
             title: t('schemaTable.glossaryTermsColumn'),
             dataIndex: 'globalTags',
             key: 'term',
-            render: termRenderer,
+            render: (tags, record) => renderMetadataCell(80, () => termRenderer(tags, record)),
             sorter: (sourceA, sourceB) =>
                 extractFieldGlossaryTermsInfo(sourceA).numberOfTerms -
                 extractFieldGlossaryTermsInfo(sourceB).numberOfTerms,
         }),
-        [termRenderer, extractFieldGlossaryTermsInfo, t],
+        [termRenderer, extractFieldGlossaryTermsInfo, t, renderMetadataCell],
     );
 
     const businessAttributeColumn = useMemo(
@@ -511,30 +528,39 @@ export default function SchemaTable({
         updateDisplayedRows();
     }, [expandedRows, dataSource, sortedDataSource, schemaSorter]);
 
-    const sortData = (data, sorter) => {
-        if (sorter.order) {
-            const { field, order } = sorter;
-
-            const column = finalColumns.find((col) => col.key === field);
-
-            if (column && column.sorter) {
-                const sortedRows = data.slice().sort((a, b) => {
-                    const sorterFunction = typeof column.sorter === 'function' ? column.sorter : undefined;
-
-                    return sorterFunction ? sorterFunction(a, b) : 0;
-                });
-                return order === 'ascend' ? sortedRows : sortedRows.reverse();
-            }
-        }
-        return data;
+    // Single sorter used by the header-click handler and the metadata-refresh effect below:
+    // resolves the active column by key, applies its sorter at every tree level (children
+    // sort within their parent, matching antd), and reverses for descending order.
+    const sortRows = (data: ExtendedSchemaFields[], sorter?: SorterResult<any>): ExtendedSchemaFields[] => {
+        if (!sorter?.order) return data;
+        const column = finalColumns.find((col) => col.key === sorter.columnKey);
+        const sorterFunction = typeof column?.sorter === 'function' ? column.sorter : undefined;
+        if (!sorterFunction) return data;
+        const sortTree = (rows_: ExtendedSchemaFields[]): ExtendedSchemaFields[] => {
+            const sorted = rows_.slice().sort((a, b) => sorterFunction(a, b, sorter.order));
+            if (sorter.order === 'descend') sorted.reverse();
+            return sorted.map((row) => (row.children ? { ...row, children: sortTree(row.children) } : row));
+        };
+        return sortTree(data);
     };
 
     const handleTableChange = (_, __, sorter, { currentDataSource }) => {
         setSchemaSorter(sorter as SorterResult<ExtendedSchemaFields>);
         setSortedDataSource(currentDataSource);
-        const sortedrows = sortData(displayedRows, sorter);
-        setSortedDisplayedRows(sortedrows);
+        setSortedDisplayedRows(sortRows(displayedRows, sorter));
     };
+
+    // sortedDataSource is a snapshot taken when the user last clicked a column header. The
+    // rows are rebuilt when Phase 2 metadata lands (and on any later refetch), so re-sort the
+    // new rows with the active sorter or the sorted view keeps showing the old Phase 1 rows,
+    // with metadata-column ordering computed before there were any tags/descriptions.
+    useEffect(() => {
+        if (!schemaSorter?.order) return;
+        setSortedDataSource(sortRows(dataSource, schemaSorter));
+        // Only the row payload and sort state matter here; sortRows/finalColumns are derived from
+        // them plus stable renderers, and depending on them would re-sort on every render.
+        /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    }, [dataSource, schemaSorter, metadataStatus]);
 
     return (
         <>

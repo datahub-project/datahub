@@ -20,7 +20,7 @@ export function useGetOutputPorts(initialCount = NUMBER_OF_OUTPUT_PORTS_TO_FETCH
                 query: '*',
                 start,
                 count,
-                filters: [{ field: OUTPUT_PORTS_FIELD, value: 'true' }],
+                filters: [{ field: OUTPUT_PORTS_FIELD, values: ['true'] }],
                 searchFlags: { skipCache: true },
             },
         }),

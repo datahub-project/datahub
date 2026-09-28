@@ -315,4 +315,8 @@ export class ContainerEntity implements Entity<Container> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
+
+    getPlatformProperties = (data: Container) => {
+        return data?.platform;
+    };
 }

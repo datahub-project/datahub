@@ -134,6 +134,28 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
+  public void testMappingContributorReceivesIndexKey() throws IOException {
+    java.util.concurrent.atomic.AtomicReference<String> seenKey =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    V3MappingContributor contributor =
+        new V3MappingContributor() {
+          @Override
+          public Map<String, Object> extraRootProperties() {
+            return Map.of();
+          }
+
+          @Override
+          public Map<String, Object> extraRootProperties(String indexKey) {
+            seenKey.set(indexKey);
+            return Map.of();
+          }
+        };
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
+    mappingsBuilder.getIndexMappings(operationContext);
+    assertEquals(seenKey.get(), "testEntity");
+  }
+
+  @Test
   public void testGetIndexMappingsWithV3Disabled() throws IOException {
     // Setup: V3 disabled
     when(mockV3Config.isEnabled()).thenReturn(false);

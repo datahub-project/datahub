@@ -7,7 +7,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Relating Glossary Terms
 
-<FeatureAvailability />
+<FeatureAvailability saasOnly stage="private-beta"/>
+
+:::caution Private Beta
+Ontology is currently in Private Beta. Features, UI, and configuration options are subject to change.
+:::
 
 Relationships are what turn a glossary into an ontology. This page covers how to create them in the
 UI and through the API.

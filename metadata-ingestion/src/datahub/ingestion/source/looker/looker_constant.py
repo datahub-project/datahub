@@ -1,4 +1,5 @@
 IMPORTED_PROJECTS = "imported_projects"
+IMPORTED_PROJECTS_PREFIX = f"{IMPORTED_PROJECTS}/"
 DIMENSIONS = "dimensions"
 MEASURES = "measures"
 DIMENSION_GROUPS = "dimension_groups"

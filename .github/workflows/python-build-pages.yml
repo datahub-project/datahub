@@ -34,7 +34,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-      deployments: write
     outputs:
       pypi_index_url: ${{ steps.cloudflare.outputs.deployment-url }}
       pypi_index_simple_url: ${{ steps.set-pypi-url.outputs.pypi_index_simple_url }}
@@ -68,28 +67,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           DATAHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      # pages-action is unpublished (repo 404); Cloudflare's replacement is wrangler-action.
+      # Do not pass gitHubToken: wrangler-action would create a GitHub Deployment named
+      # "preview"/"production", colliding with the frontend Pages deploy that Meticulous
+      # watches. Connector tests read the wheels URL from this artifact instead.
       - name: Publish
         id: cloudflare
-        uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
           workingDirectory: python-build
-          directory: site
-          gitHubToken: ${{ github.token }}
+          command: pages deploy site --project-name=${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
 
       - name: Set PyPI index URL output
         id: set-pypi-url
         run: |
-          PYPI_URL="${{ steps.cloudflare.outputs.deployment-url }}/simple"
+          DEPLOY_URL="${{ steps.cloudflare.outputs.deployment-url }}"
+          PYPI_URL="${DEPLOY_URL}/simple"
           echo "pypi_index_simple_url=$PYPI_URL" >> "$GITHUB_OUTPUT"
           echo "PyPI index URL: $PYPI_URL"
 
-          # Save to artifact for consumption by docker-unified.yml
           mkdir -p /tmp/pypi-config
+          echo "$DEPLOY_URL" > /tmp/pypi-config/deployment-url.txt
           echo "$PYPI_URL" > /tmp/pypi-config/pypi-index-url.txt
-          echo "Base URL: ${{ steps.cloudflare.outputs.deployment-url }}" > /tmp/pypi-config/deployment-info.txt
+          echo "Base URL: ${DEPLOY_URL}" > /tmp/pypi-config/deployment-info.txt
           echo "Simple URL: $PYPI_URL" >> /tmp/pypi-config/deployment-info.txt
 
       - name: Upload PyPI config artifact
@@ -97,4 +99,4 @@ jobs:
         with:
           name: pypi-config
           path: /tmp/pypi-config/
-          retention-days: 1
+          retention-days: 7

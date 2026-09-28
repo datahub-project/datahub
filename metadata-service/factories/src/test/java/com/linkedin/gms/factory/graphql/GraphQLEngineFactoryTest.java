@@ -18,6 +18,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.MappingsBuilderFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
@@ -114,6 +115,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockitoBean(answers = Answers.RETURNS_MOCKS)
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
+
+  @MockitoBean(answers = Answers.RETURNS_MOCKS)
+  @Qualifier("searchClusterRegistry")
+  private SearchClusterRegistry searchClusterRegistry;
 
   @MockitoBean
   @Qualifier("indexConvention")
@@ -373,7 +378,6 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
     GraphQLEngineFactory factoryWithAnalytics = new GraphQLEngineFactory();
 
     // Set up dependencies using reflection
-    setField(factoryWithAnalytics, "elasticClient", elasticClient);
     setField(factoryWithAnalytics, "indexConvention", indexConvention);
     setField(factoryWithAnalytics, "graphClient", graphClient);
     setField(factoryWithAnalytics, "entityService", entityService);

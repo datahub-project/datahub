@@ -16,7 +16,7 @@ jobs:
       github.event.workflow_run.head_repository.full_name == github.repository
     permissions:
       actions: read
-      deployments: read
+      contents: read
     steps:
       - name: Generate GitHub App token
         id: app-token
@@ -33,51 +33,50 @@ jobs:
           SHA="${{ github.event.workflow_run.head_sha }}"
           REPO="${{ github.repository }}"
 
-          WB=$(gh api "/repos/${REPO}/actions/workflows/python-build-pages.yml/runs?head_sha=${SHA}&per_page=1" \
-            --jq '.workflow_runs[0].conclusion // empty')
+          WB_JSON=$(gh api "/repos/${REPO}/actions/workflows/python-build-pages.yml/runs?head_sha=${SHA}&per_page=10")
+          WB=$(echo "$WB_JSON" | jq -r '[.workflow_runs[] | select(.conclusion == "success")][0].conclusion // empty')
+          WB_RUN_ID=$(echo "$WB_JSON" | jq -r '[.workflow_runs[] | select(.conclusion == "success")][0].id // empty')
           MI_RUNS=$(gh api "/repos/${REPO}/actions/workflows/metadata-ingestion.yml/runs?head_sha=${SHA}&per_page=1")
           MI=$(echo "$MI_RUNS" | jq -r '.workflow_runs[0].conclusion // empty')
           MI_RUN_ID=$(echo "$MI_RUNS" | jq -r '.workflow_runs[0].id // empty')
           echo "mi_run_id=${MI_RUN_ID}" >> "$GITHUB_OUTPUT"
+          echo "python_build_run_id=${WB_RUN_ID}" >> "$GITHUB_OUTPUT"
 
-          echo "Python Build: $WB, Metadata Ingestion: $MI"
+          echo "Python Build: $WB (run ${WB_RUN_ID}), Metadata Ingestion: $MI"
 
-          if [ "$WB" = "success" ] && [ "$MI" = "success" ]; then
+          if [ "$WB" = "success" ] && [ -n "$WB_RUN_ID" ] && [ "$MI" = "success" ]; then
             echo "both_passed=true" >> "$GITHUB_OUTPUT"
           else
             echo "Not both passed yet (WB=$WB, MI=$MI) — other trigger will handle it. If one of the upstream job failed, then connector tests will not run for this SHA."
             echo "both_passed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Download wheels URL artifact
+        if: steps.check-both.outputs.both_passed == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pypi-config
+          path: /tmp/pypi-config
+          run-id: ${{ steps.check-both.outputs.python_build_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Get Cloudflare URL
         if: steps.check-both.outputs.both_passed == 'true'
         id: cloudflare
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           SHA="${{ github.event.workflow_run.head_sha }}"
-          REPO="${{ github.repository }}"
-
-          # The wheels build publishes to Cloudflare Pages, which registers a GitHub
-          # deployment whose .environment is the generic Pages environment ("preview" on
-          # PRs, "production" on master) — it does NOT contain "wheels". The wheels project
-          # is only identifiable by its deployment URL (*.datahub-wheels.pages.dev). The
-          # same SHA also carries unrelated docs/frontend Pages deployments, so we scan all
-          # deployments for the SHA and pick the one whose success-status URL is the wheels
-          # site.
           DEPLOY_URL=""
-          for ID in $(gh api "/repos/${REPO}/deployments?sha=${SHA}&per_page=30" --jq '.[].id'); do
-            URL=$(gh api "/repos/${REPO}/deployments/${ID}/statuses" \
-              --jq '[.[] | select(.state == "success") | .environment_url][0] // empty')
-            case "$URL" in
-              *wheels*) DEPLOY_URL="$URL"; break ;;
-            esac
-          done
-
-          if [ -z "$DEPLOY_URL" ]; then
-            echo "::error::No Cloudflare wheels deployment (*.datahub-wheels.pages.dev) found for SHA ${SHA}. Re-run the Python Build workflow."
-            exit 1
+          if [ -f /tmp/pypi-config/deployment-url.txt ]; then
+            DEPLOY_URL=$(tr -d '[:space:]' < /tmp/pypi-config/deployment-url.txt)
           fi
+
+          case "$DEPLOY_URL" in
+            *wheels*) ;;
+            *)
+              echo "::error::pypi-config artifact for SHA ${SHA} did not contain a *.datahub-wheels.pages.dev URL (got '${DEPLOY_URL}'). Re-run the Python Build workflow."
+              exit 1
+              ;;
+          esac
 
           echo "url=${DEPLOY_URL}" >> "$GITHUB_OUTPUT"
           echo "Cloudflare URL: ${DEPLOY_URL}"

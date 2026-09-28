@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLConcurrencyConfiguration;
+import com.linkedin.metadata.config.graphql.GraphQLDocumentCacheConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLMetricsConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -125,6 +126,133 @@ public class GraphQLEngineTest {
     Map<String, Object> data = result.getData();
     assertNotNull(data);
     assertEquals(data.get("hello"), "World");
+  }
+
+  @Test
+  public void testRepeatedQueryIsServedFromDocumentCache() {
+    graphQLEngine =
+        GraphQLEngine.builder()
+            .addSchema(TEST_SCHEMA)
+            .setGraphQLConfiguration(graphQLConfiguration)
+            .setMetricUtils(mockMetricUtils)
+            .configureRuntimeWiring(
+                wiring ->
+                    wiring.type(
+                        "Query", typeWiring -> typeWiring.dataFetcher("hello", env -> "World")))
+            .build();
+
+    String query = "query cachedHello { hello }";
+    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+
+    assertEquals(graphQLEngine.getDocumentCache().stats().hitCount(), 1);
+  }
+
+  @Test
+  public void testDocumentCacheCanBeDisabledViaConfiguration() {
+    GraphQLDocumentCacheConfiguration documentCacheConfig = new GraphQLDocumentCacheConfiguration();
+    documentCacheConfig.setEnabled(false);
+    graphQLConfiguration.setDocumentCache(documentCacheConfig);
+
+    graphQLEngine =
+        GraphQLEngine.builder()
+            .addSchema(TEST_SCHEMA)
+            .setGraphQLConfiguration(graphQLConfiguration)
+            .setMetricUtils(mockMetricUtils)
+            .configureRuntimeWiring(
+                wiring ->
+                    wiring.type(
+                        "Query", typeWiring -> typeWiring.dataFetcher("hello", env -> "World")))
+            .build();
+
+    String query = "query disabledCacheHello { hello }";
+    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+
+    assertEquals(graphQLEngine.getDocumentCache().stats().hitCount(), 0);
+  }
+
+  @Test
+  public void testDocumentCacheMaximumWeightIsConfigurable() {
+    GraphQLDocumentCacheConfiguration documentCacheConfig = new GraphQLDocumentCacheConfiguration();
+    documentCacheConfig.setEnabled(true);
+    documentCacheConfig.setMaximumWeightBytes(4096);
+    graphQLConfiguration.setDocumentCache(documentCacheConfig);
+
+    graphQLEngine =
+        GraphQLEngine.builder()
+            .addSchema(TEST_SCHEMA)
+            .setGraphQLConfiguration(graphQLConfiguration)
+            .setMetricUtils(mockMetricUtils)
+            .configureRuntimeWiring(
+                wiring ->
+                    wiring.type(
+                        "Query", typeWiring -> typeWiring.dataFetcher("hello", env -> "World")))
+            .build();
+
+    assertEquals(graphQLEngine.getDocumentCache().getMaximumWeightBytes(), 4096);
+  }
+
+  @Test
+  public void testDocumentCacheDefaultMaximumWeightAppliesWhenUnconfigured() {
+    graphQLEngine =
+        GraphQLEngine.builder()
+            .addSchema(TEST_SCHEMA)
+            .setGraphQLConfiguration(graphQLConfiguration)
+            .setMetricUtils(mockMetricUtils)
+            .configureRuntimeWiring(
+                wiring ->
+                    wiring.type(
+                        "Query", typeWiring -> typeWiring.dataFetcher("hello", env -> "World")))
+            .build();
+
+    assertEquals(
+        graphQLEngine.getDocumentCache().getMaximumWeightBytes(),
+        GraphqlDocumentCache.DEFAULT_MAXIMUM_WEIGHT_BYTES);
+  }
+
+  @Test
+  public void testDocumentCacheEnabledByDefaultWhenConfigPresentButUnset() {
+    // A present-but-unset config block (e.g. hand-built, not YAML-bound) must still default to
+    // enabled -- only an explicit `enabled: false` should turn caching off.
+    graphQLConfiguration.setDocumentCache(new GraphQLDocumentCacheConfiguration());
+
+    graphQLEngine =
+        GraphQLEngine.builder()
+            .addSchema(TEST_SCHEMA)
+            .setGraphQLConfiguration(graphQLConfiguration)
+            .setMetricUtils(mockMetricUtils)
+            .configureRuntimeWiring(
+                wiring ->
+                    wiring.type(
+                        "Query", typeWiring -> typeWiring.dataFetcher("hello", env -> "World")))
+            .build();
+
+    String query = "query defaultEnabledHello { hello }";
+    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+    graphQLEngine.execute(query, null, Map.of(), mockQueryContext);
+
+    assertEquals(graphQLEngine.getDocumentCache().stats().hitCount(), 1);
+  }
+
+  @Test
+  public void testCachedDocumentIsReadOnlyBeforeAnyExecution() {
+    graphQLEngine =
+        GraphQLEngine.builder()
+            .addSchema(TEST_SCHEMA)
+            .setGraphQLConfiguration(graphQLConfiguration)
+            .setMetricUtils(mockMetricUtils)
+            .configureRuntimeWiring(
+                wiring ->
+                    wiring.type(
+                        "Query", typeWiring -> typeWiring.dataFetcher("hello", env -> "World")))
+            .build();
+
+    assertNull(graphQLEngine.getCachedDocument("{ hello }"));
+
+    graphQLEngine.execute("{ hello }", null, Map.of(), mockQueryContext);
+
+    assertNotNull(graphQLEngine.getCachedDocument("{ hello }"));
   }
 
   @Test

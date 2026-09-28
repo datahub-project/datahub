@@ -145,9 +145,8 @@ import software.amazon.awssdk.auth.signer.Aws4Signer;
  * <p>Wire behavior is identical to the legacy REST high-level client by construction: requests are
  * produced by the RHLC's own request converters (via {@link OpenSearchShimBridge}) and responses
  * are parsed with the same public {@code fromXContent} parsers and named-XContent registry the RHLC
- * uses internally. The {@code RestHighLevelClient} itself performs no I/O for OS2/OS3; it remains
- * on the classpath as a type library and as the ES 7.x transport ({@link
- * Es7CompatibilitySearchClientShim}).
+ * uses internally. The {@code RestHighLevelClient} itself performs no I/O; it remains on the
+ * classpath as a type library.
  */
 @Slf4j
 public class OpenSearchSearchClientShim extends AbstractBulkProcessorShim<BulkProcessor>

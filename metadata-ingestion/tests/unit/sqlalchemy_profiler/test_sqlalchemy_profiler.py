@@ -11,11 +11,11 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
 
-from datahub.ingestion.source.ge_profiling_config import (
+from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
+from datahub.ingestion.source.profiling.config import (
     ProfilingConfig,
     ProfilingIsolationLevel,
 )
-from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
 from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
@@ -652,8 +652,8 @@ class TestSQLAlchemyProfiler:
         Test that profiling returns None when row_count metric fails.
 
         This prevents empty profiles from being emitted when we can't get basic
-        metrics like row count (e.g., due to permission errors). This matches
-        GE profiler behavior which asserts that profile.rowCount is not None.
+        metrics like row count (e.g., due to permission errors): a profile is
+        only emitted when profile.rowCount is not None.
 
         The row_count extraction includes explicit exception handling and early
         return logic to prevent emitting profiles without this critical metric.
@@ -706,7 +706,7 @@ class TestSQLAlchemyProfiler:
         """
         Test that empty tables (row_count == 0) skip column profiling but return basic profile.
 
-        This optimization matches GE profiler behavior:
+        This optimization:
         - Empty tables get a basic profile with rowCount=0
         - Column profiling is skipped (no field profiles generated)
         - No wasted queries on empty tables
