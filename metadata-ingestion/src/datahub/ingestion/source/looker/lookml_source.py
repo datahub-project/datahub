@@ -264,7 +264,7 @@ class LookerManifest:
 
 @platform_name("Looker")
 @config_class(LookMLSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "Use the `platform_instance` and `connection_to_platform_map` fields",

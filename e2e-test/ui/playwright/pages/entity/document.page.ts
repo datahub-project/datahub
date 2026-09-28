@@ -100,13 +100,25 @@ export class DocumentPage extends BasePage {
   async createNewDocumentViaButton(): Promise<string> {
     await this.expectSidebarVisible();
     await this.expectCreateButtonEnabled();
+    const previousUrn = this.extractDocumentUrnFromUrl(this.page.url());
     await this.clickCreateButton();
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // Create is async (mutation + history.push). networkidle alone can resolve while we are
+    // still on the previous document — then setDocumentTitle would rename that doc.
+    await expect
+      .poll(
+        () => {
+          const urn = this.extractDocumentUrnFromUrl(this.page.url());
+          return urn && urn !== previousUrn ? urn : '';
+        },
+        { timeout: TIMEOUTS.LONG },
+      )
+      .not.toBe('');
     return this.extractDocumentUrnFromUrl(this.page.url());
   }
 
   async createDocumentWithTitle(title: string): Promise<string> {
     const docUrn = await this.createNewDocumentViaButton();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
     await this.navigateToDocument(docUrn);
     await this.setDocumentTitle(title);
@@ -126,12 +138,15 @@ export class DocumentPage extends BasePage {
     await expect(this.titleInput).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     // Triple-click selects all text in textarea reliably
     await this.titleInput.click({ clickCount: 3 });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await this.titleInput.pressSequentially(title, { delay: DELAYS.SEQUENTIAL });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
     // Press Enter to save the title (triggers blur/save handler)
     await this.page.keyboard.press(KEYS.ENTER);
     // Wait for title update to persist in the backend
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -172,10 +187,13 @@ export class DocumentPage extends BasePage {
     const editor = this.getEditorTextbox();
     await expect(editor).toBeVisible();
     await editor.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await editor.clear({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
     await editor.fill(text);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -190,11 +208,13 @@ export class DocumentPage extends BasePage {
     const trigger = this.getStatusSelectTrigger();
     await expect(trigger).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await trigger.click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     const option = this.getDropdownOption(status);
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
     await option.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     // Verify optimistic update with case-insensitive match
@@ -202,6 +222,7 @@ export class DocumentPage extends BasePage {
 
     // Wait for network and database persistence before allowing reload
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
   }
 
@@ -215,11 +236,13 @@ export class DocumentPage extends BasePage {
     const trigger = this.getTypeSelectTrigger();
     await expect(trigger).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await trigger.click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     const option = this.getDropdownOption(type);
     await expect(option).toBeVisible({ timeout: TIMEOUTS.LONG });
     await option.click();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
 
     // Verify optimistic update with case-insensitive match
@@ -227,6 +250,7 @@ export class DocumentPage extends BasePage {
 
     // Wait for network and database persistence before allowing reload
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
   }
 
@@ -237,6 +261,7 @@ export class DocumentPage extends BasePage {
   async searchForDocument(query: string): Promise<void> {
     await this.searchInput.click();
     await this.searchInput.fill(query);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -246,6 +271,7 @@ export class DocumentPage extends BasePage {
 
   async closeSearchAndVerifyClosed(): Promise<void> {
     await this.searchInput.clear();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
     await expect(this.searchResults).not.toBeVisible({ timeout: TIMEOUTS.SHORT });
   }
@@ -280,6 +306,7 @@ export class DocumentPage extends BasePage {
     await expect(searchInput).toBeVisible();
     await searchInput.clear();
     await searchInput.fill(text);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -302,6 +329,7 @@ export class DocumentPage extends BasePage {
     await expect(this.actionsMenuButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await expect(this.actionsMenuButton).toBeEnabled({ timeout: TIMEOUTS.MEDIUM });
     await this.actionsMenuButton.click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -309,6 +337,7 @@ export class DocumentPage extends BasePage {
     const deleteMenuItem = this.getDeleteMenuOption();
     await expect(deleteMenuItem).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await deleteMenuItem.click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -334,6 +363,7 @@ export class DocumentPage extends BasePage {
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     const childUrn = await this.createDocumentWithTitle(childTitle);
+    expect(childUrn).not.toBe(parentUrn);
 
     // Return to the documents list so both tree rows are mounted before Move.
     await this.navigateToDocuments();
@@ -345,8 +375,14 @@ export class DocumentPage extends BasePage {
     await this.clickTreeItemMenu(childUrn);
     await this.clickMoveOption();
     await this.expectMovePopoverVisible();
-    await this.searchInMovePopover(parentTitle);
-    await this.selectMoveSearchResult(parentTitle);
+    // Pick by URN in the browse tree. Search-by-title is flaky here: the rename often
+    // hasn't hit the search index yet (row still shows "New Document"), which is unrelated
+    // to filters/sort — only the destination identity matters for this helper.
+    const parentRow = this.movePopover.getByTestId(`document-tree-item-${parentUrn}`);
+    await expect(parentRow).toBeVisible({ timeout: TIMEOUTS.LONG });
+    await parentRow.scrollIntoViewIfNeeded();
+    await parentRow.click();
+    await expect(this.moveConfirmButton).toBeEnabled({ timeout: TIMEOUTS.MEDIUM });
     await this.clickMoveConfirmButton();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
     await this.expectMoveSuccessMessage();
@@ -393,6 +429,7 @@ export class DocumentPage extends BasePage {
     await expandButton.hover({ force: true });
     await expect(expandButton).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
     await expandButton.click({ force: true });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -419,6 +456,7 @@ export class DocumentPage extends BasePage {
     await button.click();
     // Expand-all can take a while on large libraries; wait for the control to unlock.
     await expect(button).toBeEnabled({ timeout: 60_000 });
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(TIMEOUTS.OPERATION);
   }
 
@@ -431,6 +469,7 @@ export class DocumentPage extends BasePage {
     if (/collapse/i.test(label)) {
       await button.click();
       await expect(button).toBeEnabled({ timeout: TIMEOUTS.LONG });
+      // eslint-disable-next-line playwright/no-wait-for-timeout
       await this.page.waitForTimeout(TIMEOUTS.OPERATION);
     }
   }

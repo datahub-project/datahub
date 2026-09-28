@@ -2,6 +2,9 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.SEMANTIC_TEXT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
@@ -10,10 +13,12 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -28,10 +33,15 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -47,6 +57,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -102,6 +115,7 @@ public class UpdateIndicesV3StrategyTest {
 
     // Setup mock index builder
     when(elasticSearchService.getIndexBuilder()).thenReturn(mockIndexBuilder);
+    when(elasticSearchService.getIndexBuilder(anyString())).thenReturn(mockIndexBuilder);
 
     // Create strategy with V2 disabled (testing V3-only scenario)
     strategy =
@@ -110,8 +124,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false, // v2Enabled = false
             null);
   }
 
@@ -155,13 +167,15 @@ public class UpdateIndicesV3StrategyTest {
     // Execute
     strategy.processBatch(operationContext, groupedEvents, true);
 
-    // Verify
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
     verify(elasticSearchService)
         .upsertDocumentBySearchGroup(
-            eq(operationContext),
-            anyString(), // search group
-            anyString(), // document
-            anyString()); // doc id
+            eq(operationContext), anyString(), documentCaptor.capture(), docIdCaptor.capture());
+    assertEquals(docIdCaptor.getValue(), expectedDocId);
+    assertTrue(documentCaptor.getValue().contains("\"urn\":\"" + testUrn + "\""));
+    assertFalse(docIdCaptor.getValue().contains("urn:li:"));
   }
 
   @Test
@@ -182,11 +196,179 @@ public class UpdateIndicesV3StrategyTest {
 
     strategy.processBatch(operationContext, groupedEvents, true);
 
+    String expectedDocId = DigestUtils.sha256Hex(testUrn.toString());
     verify(elasticSearchService)
-        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), anyString(), eq(expectedDocId));
     verify(elasticSearchService)
         .appendRunIdBySearchGroup(
-            eq(operationContext), eq("dataset"), anyString(), eq(testUrn), eq("run-456"));
+            eq(operationContext), eq("dataset"), eq(expectedDocId), eq(testUrn), eq("run-456"));
+  }
+
+  @Test
+  public void testProcessBatch_ReplacementHasherChangesDocId() throws Exception {
+    EntityDocumentIdHasher replacement =
+        (operation, urn) -> DigestUtils.sha256Hex("extra|" + urn.toString());
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            replacement,
+            List.of());
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    String defaultId = new Sha256UrnEntityDocumentIdHasher().documentId(operationContext, testUrn);
+    String replacedId = replacement.documentId(operationContext, testUrn);
+    ArgumentCaptor<String> docIdCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), anyString(), anyString(), docIdCaptor.capture());
+    assertEquals(docIdCaptor.getValue(), replacedId);
+    assertFalse(docIdCaptor.getValue().equals(defaultId));
+  }
+
+  @Test
+  public void testProcessBatch_DocumentContributorAddsRootField() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("_ext", "1");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), anyString(), documentCaptor.capture(), anyString());
+    assertTrue(documentCaptor.getValue().contains("\"_ext\":\"1\""));
+  }
+
+  @Test
+  public void testProcessBatch_DocumentContributorCannotOverwriteUrn() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("urn", "overwritten");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    expectThrows(
+        IllegalStateException.class,
+        () ->
+            strategy.processBatch(
+                operationContext,
+                Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+                true));
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_DocumentContributorOverwriteDoesNotFailDualWrite() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("urn", "overwritten");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor),
+            true);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_DocumentContributorCannotOverwriteRunId() throws Exception {
+    V3SearchDocumentContributor contributor =
+        (operation, urn, document) -> document.put("runId", "stolen");
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(contributor));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    expectThrows(
+        IllegalStateException.class,
+        () ->
+            strategy.processBatch(
+                operationContext,
+                Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+                true));
   }
 
   // Note: Key aspect deletion test is complex due to static method calls
@@ -247,33 +429,6 @@ public class UpdateIndicesV3StrategyTest {
             anyString(), // search group
             anyString(), // document
             anyString()); // doc id
-  }
-
-  @Test
-  public void testUpdateIndexMappings_V2Enabled_SkipsProcessing() {
-    // Create strategy with V2 enabled
-    UpdateIndicesV3Strategy v2EnabledStrategy =
-        new UpdateIndicesV3Strategy(
-            v3Config,
-            elasticSearchService,
-            searchDocumentTransformer,
-            timeseriesAspectService,
-            "MD5",
-            true, // v2Enabled = true
-            null);
-
-    // Setup for structured property
-    when(mockEntitySpec.getName()).thenReturn(STRUCTURED_PROPERTY_ENTITY_NAME);
-    when(mockAspectSpec.getName()).thenReturn(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
-
-    // Execute
-    v2EnabledStrategy.updateIndexMappings(
-        operationContext, testUrn, mockEntitySpec, mockAspectSpec, mockAspect, null);
-
-    // Verify no processing occurred (V2 handles it)
-    verify(elasticSearchService, never())
-        .buildReindexConfigsWithNewStructProp(
-            any(OperationContext.class), any(Urn.class), any(StructuredPropertyDefinition.class));
   }
 
   @Test
@@ -355,8 +510,6 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
-                    "MD5",
-                    false,
                     null));
 
     // Verify the exception message and cause
@@ -380,8 +533,6 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
-                    "MD5",
-                    false,
                     null));
 
     // Verify the exception message and cause
@@ -404,8 +555,6 @@ public class UpdateIndicesV3StrategyTest {
                     elasticSearchService,
                     searchDocumentTransformer,
                     timeseriesAspectService,
-                    "MD5",
-                    false,
                     null));
 
     // Verify the exception message and cause
@@ -427,8 +576,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             null);
 
     // Verify strategy was created successfully
@@ -447,8 +594,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             null);
 
     // Verify strategy was created successfully
@@ -467,8 +612,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             null);
 
     // Verify strategy was created successfully
@@ -577,12 +720,11 @@ public class UpdateIndicesV3StrategyTest {
           .thenReturn(Pair.of(mockEntitySpec, mockAspectSpec));
       mockedStatic.when(() -> UpdateIndicesUtil.isDeletingKey(any(Pair.class))).thenReturn(true);
 
-      // Execute - should handle null search group gracefully
       strategy.processBatch(operationContext, groupedEvents, true);
 
-      // Verify that no delete operation was performed due to null search group
-      verify(elasticSearchService, never())
-          .deleteDocumentBySearchGroup(any(), anyString(), anyString());
+      // Unset searchGroup uses the entity type as the V3 index key
+      verify(elasticSearchService)
+          .deleteDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString());
     }
   }
 
@@ -630,9 +772,8 @@ public class UpdateIndicesV3StrategyTest {
     // Execute - should handle null search group gracefully
     strategy.processBatch(operationContext, groupedEvents, true);
 
-    // Verify that no upsert operation was performed due to null search group
-    verify(elasticSearchService, never())
-        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(eq(operationContext), eq("dataset"), anyString(), anyString());
   }
 
   @Test
@@ -721,8 +862,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -762,8 +901,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -801,8 +938,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -839,8 +974,6 @@ public class UpdateIndicesV3StrategyTest {
             elasticSearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            false,
             cache);
 
     when(mockAspectSpec.getName()).thenReturn("datasetProfile");
@@ -916,5 +1049,341 @@ public class UpdateIndicesV3StrategyTest {
     // Verify that no upsert operation was performed due to the exception
     verify(elasticSearchService, never())
         .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testLiftsEmbeddingsToDocumentV3RootWhenSemanticEnabled() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn("document");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+    semanticDoc.put("skipReason", "EMPTY_TEXT");
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
+    model.setVectorDimension(1024);
+    semanticConfig.setModels(Map.of("cohere_embed_v3", model));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("document"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertTrue(written.has("embeddings"));
+    assertEquals(written.get("skipReason").asText(), "EMPTY_TEXT");
+    assertTrue(written.has("resolvedTextSha256"));
+    assertFalse(written.get("_aspects").get("semanticContent").has("embeddings"));
+    assertFalse(written.get("_aspects").get("semanticContent").has("skipReason"));
+  }
+
+  @Test
+  public void testDoesNotLiftEmbeddingsWhenSemanticDisabled() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn("document");
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(false);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("document"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertFalse(written.has("embeddings"));
+    assertTrue(written.get("_aspects").get("semanticContent").has("embeddings"));
+  }
+
+  @Test
+  public void testDoesNotLiftEmbeddingsForDataset() throws Exception {
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", testUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq("dataset"), documentCaptor.capture(), anyString());
+    ObjectNode written =
+        (ObjectNode)
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
+    assertFalse(written.has("embeddings"));
+  }
+
+  @Test
+  public void testStampsResolvedHashOnDocumentInfoOnlyMcl() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+
+    ObjectNode infoDoc = JsonNodeFactory.instance.objectNode();
+    infoDoc.put("urn", documentUrn.toString());
+    infoDoc.put("text", "the body");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(infoDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("the body"));
+  }
+
+  @Test
+  public void testStampsResolvedHashOnSemanticTextOnlyMcl() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(SEMANTIC_TEXT_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(SEMANTIC_TEXT_ASPECT_NAME);
+
+    ObjectNode textDoc = JsonNodeFactory.instance.objectNode();
+    textDoc.put("urn", documentUrn.toString());
+    textDoc.put("semanticText", "curated override");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(textDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, Collections.singletonList(mockEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("curated override"));
+  }
+
+  @Test
+  public void testStampsResolvedHashWhenDocumentInfoLeadsMixedBatch() throws Exception {
+    Urn documentUrn = UrnUtils.getUrn("urn:li:document:bridge-1");
+    when(mockEvent.getUrn()).thenReturn(documentUrn);
+    when(mockEntitySpec.getName()).thenReturn(DOCUMENT_ENTITY_NAME);
+    when(mockEntitySpec.getSearchGroup()).thenReturn("document");
+    when(mockAspectSpec.getName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(DOCUMENT_INFO_ASPECT_NAME);
+    when(mockEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(mockEvent.getAspectSpec()).thenReturn(mockAspectSpec);
+
+    AspectSpec semanticAspectSpec = mock(AspectSpec.class);
+    when(semanticAspectSpec.getName()).thenReturn("semanticContent");
+    when(semanticAspectSpec.isTimeseries()).thenReturn(false);
+    MCLItem semanticEvent = mock(MCLItem.class);
+    when(semanticEvent.getUrn()).thenReturn(documentUrn);
+    when(semanticEvent.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(semanticEvent.getAspectSpec()).thenReturn(semanticAspectSpec);
+    when(semanticEvent.getAspectName()).thenReturn("semanticContent");
+    when(semanticEvent.getRecordTemplate()).thenReturn(mockAspect);
+    when(semanticEvent.getSystemMetadata()).thenReturn(mockSystemMetadata);
+    when(semanticEvent.getAuditStamp()).thenReturn(mockAuditStamp);
+    when(semanticEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    ObjectNode infoDoc = JsonNodeFactory.instance.objectNode();
+    infoDoc.put("urn", documentUrn.toString());
+    infoDoc.put("text", "the body");
+    ObjectNode semanticDoc = JsonNodeFactory.instance.objectNode();
+    semanticDoc.put("urn", documentUrn.toString());
+    ObjectNode embeddings = JsonNodeFactory.instance.objectNode();
+    embeddings.put("model", "cohere_embed_v3");
+    semanticDoc.set("embeddings", embeddings);
+
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            eq(mockAspectSpec),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(infoDoc));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            eq(semanticAspectSpec),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(semanticDoc));
+
+    enableDocumentSemanticStrategy();
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(documentUrn, List.of(mockEvent, semanticEvent)),
+        true);
+
+    ObjectNode written = capturedDocument("document");
+    assertTrue(written.has("embeddings"));
+    assertEquals(
+        written.get("resolvedTextSha256").asText(),
+        com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
+            .sha256Hex("the body"));
+  }
+
+  private void enableDocumentSemanticStrategy() {
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    ModelEmbeddingConfig model = new ModelEmbeddingConfig();
+    model.setVectorDimension(1024);
+    semanticConfig.setModels(Map.of("cohere_embed_v3", model));
+    strategy =
+        new UpdateIndicesV3Strategy(
+            v3Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            null,
+            new Sha256UrnEntityDocumentIdHasher(),
+            List.of(),
+            false,
+            semanticConfig);
+  }
+
+  private ObjectNode capturedDocument(String searchGroup) throws Exception {
+    ArgumentCaptor<String> documentCaptor = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentBySearchGroup(
+            eq(operationContext), eq(searchGroup), documentCaptor.capture(), anyString());
+    return (ObjectNode)
+        new com.fasterxml.jackson.databind.ObjectMapper().readTree(documentCaptor.getValue());
   }
 }

@@ -74,6 +74,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    escape_unity_name,
     usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -1396,7 +1397,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     @staticmethod
     def _escape_sequence(value: str) -> str:
-        return value.replace(" ", "_")
+        return escape_unity_name(value)
 
     @staticmethod
     def _create_metastore(

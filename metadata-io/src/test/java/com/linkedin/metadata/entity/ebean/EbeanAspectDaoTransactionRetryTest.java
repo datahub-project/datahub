@@ -220,7 +220,14 @@ public class EbeanAspectDaoTransactionRetryTest {
 
     TestableEbeanAspectDao(
         PrimaryStorageResolver resolver, EbeanConfiguration config, MetricUtils metricUtils) {
-      super(resolver, config, metricUtils, List.of(), null);
+      super(
+          resolver,
+          config,
+          metricUtils,
+          List.of(),
+          null,
+          new PlainAspectTableResolver(),
+          new PassThroughScopedTransactionFactory(resolver.resolveEbeanPrimary()));
     }
 
     @Override

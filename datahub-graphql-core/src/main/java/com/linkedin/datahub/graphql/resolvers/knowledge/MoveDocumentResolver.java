@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.MoveDocumentInput;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
 import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -55,7 +56,8 @@ public class MoveDocumentResolver implements DataFetcher<CompletableFuture<Boole
                 context.getOperationContext(),
                 documentUrn,
                 newParentUrn,
-                UrnUtils.getUrn(context.getActorUrn()));
+                UrnUtils.getUrn(context.getActorUrn()),
+                SearchIndexMode.SYNC);
 
             return true;
           } catch (ServiceAuthorizationException e) {

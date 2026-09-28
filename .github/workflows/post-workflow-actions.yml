@@ -9,11 +9,11 @@ run-name: Post Workflow Actions for ${{ github.event_name == 'workflow_dispatch'
 on:
   workflow_run:
     workflows:
-      - "AI Smoke Tests (Local Embeddings)"
       - "Airflow Plugin"
       - "build & test"
       - "Check Datahub Jars"
       - "check python dependencies"
+      - "CI Cache Warmup"
       - "Dagster Plugin"
       - "DataHub Actions"
       - "DataHub Agent Context"

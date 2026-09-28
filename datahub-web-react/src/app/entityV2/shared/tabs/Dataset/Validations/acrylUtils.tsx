@@ -95,6 +95,17 @@ export const ASSERTION_INFO = [
     },
     {
         get name() {
+            return i18next.t('entity.profile.validations:assertionType.custom');
+        },
+        get description() {
+            return i18next.t('entity.profile.validations:assertionTypeDescription.custom');
+        },
+        icon: React.createElement(getStyledIconComponent(AssertionType.Custom)),
+        type: AssertionType.Custom,
+        entityTypes: [EntityType.Dataset],
+    },
+    {
+        get name() {
             return i18next.t('entity.profile.validations:assertionType.other');
         },
         get description() {

@@ -17,6 +17,7 @@
     "executions.cancelError": "Échec de l'annulation de l'exécution!: \n {{errorMessage}}",
     "executions.cancelSuccess": "Demande d'annulation envoyée avec succès!",
     "executions.cliExecution": "Exécution CLI",
+    "executions.cliExecutionBy": "Exécution CLI par <user></user>",
     "executions.colDuration": "Durée",
     "executions.colExecutedBy": "Exécuté par",
     "executions.colStartedAt": "Démarré le",

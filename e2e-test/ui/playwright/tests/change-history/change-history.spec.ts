@@ -503,6 +503,7 @@ test.describe('sidebar keyboard and close interactions', () => {
     // (or show only matching entries). We type something nonsensical.
     await searchInput.fill('xyzzy_no_match_12345');
     // Give the filter a moment to apply (synchronous state update)
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(300);
 
     // After filtering with a non-matching term, version milestones and change events
@@ -515,6 +516,7 @@ test.describe('sidebar keyboard and close interactions', () => {
 
     // Clear the search and entries should re-appear
     await searchInput.clear();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(300);
   });
 });
@@ -936,6 +938,7 @@ test.describe('Types filter per category', () => {
     await expect(docOption).toBeVisible({ timeout: TIMEOUTS.SHORT });
     await docOption.click();
     await page.keyboard.press('Escape');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(400);
 
     // Tag and owner events should now be hidden
@@ -958,6 +961,7 @@ test.describe('Types filter per category', () => {
     await expect(ownershipOption).toBeVisible({ timeout: TIMEOUTS.SHORT });
     await ownershipOption.click();
     await page.keyboard.press('Escape');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(400);
 
     await expect(sidebar.getByText(/Documentation (added|updated)/, { exact: false })).toHaveCount(0);
@@ -1045,11 +1049,13 @@ test.describe('edge cases', () => {
 
     // Type a specific term we know will match version events
     await searchInput.fill('Version');
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(300);
     const afterFilter = sidebar.getByText('Version created');
 
     // Clear search — the entries should be back
     await searchInput.clear();
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(300);
     // After clear, "Version created" milestone should return if it was there before
     const afterClear = sidebar.getByText('Version created');

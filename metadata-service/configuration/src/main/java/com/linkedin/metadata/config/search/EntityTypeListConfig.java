@@ -30,13 +30,13 @@ public class EntityTypeListConfig {
    * in sync for tests and docs — production still loads from YAML.
    */
   public static final String DEFAULT_SEARCH_ENTITY_TYPES =
-      "dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document";
+      "dataset,dashboard,chart,mlModel,mlModelGroup,mlFeatureTable,mlFeature,mlPrimaryKey,dataFlow,dataJob,glossaryTerm,glossaryNode,tag,role,corpuser,corpGroup,container,domain,dataProduct,notebook,businessAttribute,schemaField,application,document,metric,semanticModel";
 
   /**
    * Mirrors {@code elasticsearch.search.autocompleteEntityTypes.value} in {@code application.yaml}.
    */
   public static final String DEFAULT_AUTOCOMPLETE_ENTITY_TYPES =
-      "dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty";
+      "dataset,dashboard,chart,container,mlModel,mlModelGroup,mlFeatureTable,dataFlow,dataJob,glossaryTerm,tag,corpuser,corpGroup,notebook,dataProduct,domain,businessAttribute,application,structuredProperty,metric,semanticModel";
 
   /** Mirrors {@code elasticsearch.search.browseEntityTypes.value} in {@code application.yaml}. */
   public static final String DEFAULT_BROWSE_ENTITY_TYPES =

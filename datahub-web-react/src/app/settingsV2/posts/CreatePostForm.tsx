@@ -1,9 +1,8 @@
-import { Editor } from '@components';
+import { Editor, TabButtons } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { TabButtons } from '@app/homeV3/modules/shared/ButtonTabs/TabButtons';
 import { Input } from '@src/alchemy-components';
 import { Label } from '@src/alchemy-components/components/Input/components';
 
@@ -43,13 +42,11 @@ export default function CreatePostForm({ formData, onChange }: Props) {
                         {
                             key: PostContentType.Text,
                             label: t('announcementTab'),
-                            content: null,
                             dataTestId: 'post-type-announcement',
                         },
                         {
                             key: PostContentType.Link,
                             label: t('pinnedLinkTab'),
-                            content: null,
                             dataTestId: 'post-type-pinned-link',
                         },
                     ]}

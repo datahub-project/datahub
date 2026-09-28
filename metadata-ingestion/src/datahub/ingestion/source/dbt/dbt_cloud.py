@@ -373,7 +373,7 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 class DBTCloudSource(DBTSourceBase, TestableSource):
     config: DBTCloudConfig

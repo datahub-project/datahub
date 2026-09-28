@@ -215,6 +215,9 @@ public class DomainFieldResolverProviderTest
             .source(com.linkedin.metadata.graph.cache.GraphSnapshotSource.SEARCH)
             .build();
     when(entityGraphCache.bindingForPolicyField("DOMAIN")).thenReturn(Optional.of(binding));
+    when(entityGraphCache.bindingForKnownGraph(
+            com.linkedin.metadata.graph.cache.KnownEntityGraph.DOMAIN))
+        .thenReturn(Optional.of(binding));
     when(entityGraphCache.expand(
             eq("domain"),
             eq(com.linkedin.metadata.graph.cache.GraphSnapshotSource.SEARCH),

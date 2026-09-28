@@ -39,6 +39,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nonnull;
@@ -67,6 +68,34 @@ public class DocumentService {
   }
 
   /**
+   * Builds an UPSERT proposal honoring the caller's {@link SearchIndexMode}. SYNC proposals are
+   * marked so GMS updates the indices in the request path and the MAE consumer skips them; ASYNC
+   * proposals are indexed by the consumer. Every proposal a mutation emits must use the same mode —
+   * splitting one document's writes across the two index writers is exactly the out-of-order stale
+   * state {@link SearchIndexMode} warns about.
+   */
+  @Nonnull
+  private static MetadataChangeProposal buildProposal(
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nonnull com.linkedin.data.template.RecordTemplate aspect,
+      @Nonnull SearchIndexMode indexMode) {
+    // Fail fast rather than silently routing a null mode down the ASYNC path — a caller that
+    // didn't choose a mode must not accidentally split the document across two index writers.
+    Objects.requireNonNull(indexMode, "indexMode is required");
+    if (indexMode == SearchIndexMode.SYNC) {
+      return AspectUtils.buildSynchronousMetadataChangeProposal(urn, aspectName, aspect);
+    }
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(urn);
+    proposal.setEntityType(urn.getEntityType());
+    proposal.setAspectName(aspectName);
+    proposal.setChangeType(ChangeType.UPSERT);
+    proposal.setAspect(GenericRecordUtils.serializeAspect(aspect));
+    return proposal;
+  }
+
+  /**
    * Creates a new document.
    *
    * @param opContext the operation context
@@ -82,6 +111,7 @@ public class DocumentService {
    * @param settings optional document settings (defaults to showInGlobalContext=true if not
    *     provided)
    * @param actorUrn the URN of the user creating the document
+   * @param indexMode how the write is applied to the search index (one mode per document)
    * @return the URN of the created document
    * @throws Exception if creation fails
    */
@@ -98,7 +128,8 @@ public class DocumentService {
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
       @Nullable com.linkedin.knowledge.DocumentSettings settings,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
     return createDocument(
         opContext,
@@ -113,7 +144,8 @@ public class DocumentService {
         relatedDocumentUrns,
         settings,
         null,
-        actorUrn);
+        actorUrn,
+        indexMode);
   }
 
   /**
@@ -135,7 +167,8 @@ public class DocumentService {
       @Nullable List<Urn> relatedDocumentUrns,
       @Nullable com.linkedin.knowledge.DocumentSettings settings,
       @Nullable List<Owner> owners,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     // Generate document URN
@@ -223,10 +256,9 @@ public class DocumentService {
       documentInfo.setRelatedDocuments(documentsArray, SetMode.IGNORE_NULL);
     }
 
-    // Create synchronous MCP for document info with all relationships embedded
+    // Create MCP for document info with all relationships embedded
     final MetadataChangeProposal infoMcp =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, documentInfo);
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, documentInfo, indexMode);
 
     // Prepare list of MCPs to ingest
     final List<MetadataChangeProposal> mcps = new java.util.ArrayList<>();
@@ -238,8 +270,7 @@ public class DocumentService {
       subTypesAspect.setTypeNames(new com.linkedin.data.template.StringArray(subTypes));
 
       final MetadataChangeProposal subTypesMcp =
-          AspectUtils.buildSynchronousMetadataChangeProposal(
-              documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect);
+          buildProposal(documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect, indexMode);
       mcps.add(subTypesMcp);
     }
 
@@ -256,8 +287,8 @@ public class DocumentService {
     finalSettings.setLastModified(settingsAuditStamp, SetMode.IGNORE_NULL);
 
     final MetadataChangeProposal settingsMcp =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, finalSettings);
+        buildProposal(
+            documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, finalSettings, indexMode);
     mcps.add(settingsMcp);
 
     final List<Owner> initialOwners;
@@ -270,8 +301,11 @@ public class DocumentService {
       initialOwners = Collections.singletonList(creatorOwner);
     }
     final MetadataChangeProposal ownershipMcp =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.OWNERSHIP_ASPECT_NAME, buildOwnership(initialOwners, actorUrn));
+        buildProposal(
+            documentUrn,
+            Constants.OWNERSHIP_ASPECT_NAME,
+            buildOwnership(initialOwners, actorUrn),
+            indexMode);
     mcps.add(ownershipMcp);
 
     // Ingest the document with all aspects
@@ -332,9 +366,11 @@ public class DocumentService {
       @Nullable String text,
       @Nullable String title,
       @Nullable List<String> subTypes,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
-    updateDocumentContents(opContext, documentUrn, text, null, title, subTypes, actorUrn);
+    updateDocumentContents(
+        opContext, documentUrn, text, null, title, subTypes, actorUrn, indexMode);
   }
 
   /**
@@ -355,7 +391,8 @@ public class DocumentService {
       @Nullable String semanticText,
       @Nullable String title,
       @Nullable List<String> subTypes,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
@@ -390,39 +427,26 @@ public class DocumentService {
     final List<MetadataChangeProposal> mcps = new java.util.ArrayList<>();
 
     // Ingest updated info
-    final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
-    infoMcp.setEntityUrn(documentUrn);
-    infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    infoMcp.setChangeType(ChangeType.UPSERT);
-    infoMcp.setAspect(GenericRecordUtils.serializeAspect(existingInfo));
-    mcps.add(infoMcp);
+    mcps.add(
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, existingInfo, indexMode));
 
     // semanticText is a standalone aspect. Only write it when the caller opts in so ordinary
     // document body/title mutations leave an existing curated embedding source untouched.
     if (semanticText != null) {
-      final MetadataChangeProposal semanticTextMcp = new MetadataChangeProposal();
-      semanticTextMcp.setEntityUrn(documentUrn);
-      semanticTextMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-      semanticTextMcp.setAspectName(Constants.SEMANTIC_TEXT_ASPECT_NAME);
-      semanticTextMcp.setChangeType(ChangeType.UPSERT);
-      semanticTextMcp.setAspect(
-          GenericRecordUtils.serializeAspect(new SemanticText().setText(semanticText)));
-      mcps.add(semanticTextMcp);
+      mcps.add(
+          buildProposal(
+              documentUrn,
+              Constants.SEMANTIC_TEXT_ASPECT_NAME,
+              new SemanticText().setText(semanticText),
+              indexMode));
     }
 
     // Update subTypes if provided
     if (subTypes != null && !subTypes.isEmpty()) {
       final com.linkedin.common.SubTypes subTypesAspect = new com.linkedin.common.SubTypes();
       subTypesAspect.setTypeNames(new com.linkedin.data.template.StringArray(subTypes));
-
-      final MetadataChangeProposal subTypesMcp = new MetadataChangeProposal();
-      subTypesMcp.setEntityUrn(documentUrn);
-      subTypesMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-      subTypesMcp.setAspectName(Constants.SUB_TYPES_ASPECT_NAME);
-      subTypesMcp.setChangeType(ChangeType.UPSERT);
-      subTypesMcp.setAspect(GenericRecordUtils.serializeAspect(subTypesAspect));
-      mcps.add(subTypesMcp);
+      mcps.add(
+          buildProposal(documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect, indexMode));
     }
 
     // Batch ingest all proposals
@@ -447,7 +471,8 @@ public class DocumentService {
       @Nonnull Urn documentUrn,
       @Nullable List<Urn> relatedAssetUrns,
       @Nullable List<Urn> relatedDocumentUrns,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
@@ -498,12 +523,8 @@ public class DocumentService {
     info.setLastModified(lastModified);
 
     // Ingest updated info
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(documentUrn);
-    mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    mcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(info));
+    final MetadataChangeProposal mcp =
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
     entityClient.ingestProposal(opContext, mcp, false);
 
@@ -522,7 +543,8 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nullable Urn newParentUrn,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
@@ -574,10 +596,9 @@ public class DocumentService {
     lastModified.setActor(actorUrn);
     info.setLastModified(lastModified);
 
-    // Ingest updated info with synchronous MCP
+    // Ingest updated info
     final MetadataChangeProposal mcp =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info);
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
     entityClient.ingestProposal(opContext, mcp, false);
 
@@ -597,7 +618,8 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nonnull com.linkedin.knowledge.DocumentState newState,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
@@ -628,12 +650,8 @@ public class DocumentService {
     info.setLastModified(lastModified);
 
     // Ingest updated info
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(documentUrn);
-    mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    mcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-    mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(info));
+    final MetadataChangeProposal mcp =
+        buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
     entityClient.ingestProposal(opContext, mcp, false);
 
@@ -653,7 +671,8 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nonnull com.linkedin.knowledge.DocumentSettings settings,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
@@ -671,12 +690,8 @@ public class DocumentService {
     settings.setLastModified(lastModified, SetMode.IGNORE_NULL);
 
     // Create metadata change proposal for DocumentSettings
-    final MetadataChangeProposal settingsMcp = new MetadataChangeProposal();
-    settingsMcp.setEntityUrn(documentUrn);
-    settingsMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    settingsMcp.setAspectName(Constants.DOCUMENT_SETTINGS_ASPECT_NAME);
-    settingsMcp.setChangeType(ChangeType.UPSERT);
-    settingsMcp.setAspect(GenericRecordUtils.serializeAspect(settings));
+    final MetadataChangeProposal settingsMcp =
+        buildProposal(documentUrn, Constants.DOCUMENT_SETTINGS_ASPECT_NAME, settings, indexMode);
 
     // Also update lastModified timestamp in DocumentInfo
     final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
@@ -686,12 +701,8 @@ public class DocumentService {
       infoLastModified.setActor(actorUrn);
       info.setLastModified(infoLastModified);
 
-      final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
-      infoMcp.setEntityUrn(documentUrn);
-      infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-      infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-      infoMcp.setChangeType(ChangeType.UPSERT);
-      infoMcp.setAspect(GenericRecordUtils.serializeAspect(info));
+      final MetadataChangeProposal infoMcp =
+          buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
       // Batch ingest both proposals
       entityClient.batchIngestProposals(
@@ -717,7 +728,8 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nullable String subType,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
@@ -739,12 +751,8 @@ public class DocumentService {
     }
 
     // Create metadata change proposal for SubTypes
-    final MetadataChangeProposal subTypesMcp = new MetadataChangeProposal();
-    subTypesMcp.setEntityUrn(documentUrn);
-    subTypesMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    subTypesMcp.setAspectName(Constants.SUB_TYPES_ASPECT_NAME);
-    subTypesMcp.setChangeType(ChangeType.UPSERT);
-    subTypesMcp.setAspect(GenericRecordUtils.serializeAspect(subTypesAspect));
+    final MetadataChangeProposal subTypesMcp =
+        buildProposal(documentUrn, Constants.SUB_TYPES_ASPECT_NAME, subTypesAspect, indexMode);
 
     // Also update lastModified timestamp in DocumentInfo
     final DocumentInfo info = getDocumentInfoWithoutAuthorization(opContext, documentUrn);
@@ -754,12 +762,8 @@ public class DocumentService {
       lastModified.setActor(actorUrn);
       info.setLastModified(lastModified);
 
-      final MetadataChangeProposal infoMcp = new MetadataChangeProposal();
-      infoMcp.setEntityUrn(documentUrn);
-      infoMcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-      infoMcp.setAspectName(Constants.DOCUMENT_INFO_ASPECT_NAME);
-      infoMcp.setChangeType(ChangeType.UPSERT);
-      infoMcp.setAspect(GenericRecordUtils.serializeAspect(info));
+      final MetadataChangeProposal infoMcp =
+          buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, info, indexMode);
 
       // Batch ingest both proposals
       entityClient.batchIngestProposals(
@@ -779,7 +783,10 @@ public class DocumentService {
    * @param documentUrn the document URN to soft delete
    * @throws Exception if deletion fails
    */
-  public void deleteDocument(@Nonnull OperationContext opContext, @Nonnull Urn documentUrn)
+  public void deleteDocument(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn documentUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanDelete(opContext, documentUrn);
@@ -790,13 +797,12 @@ public class DocumentService {
           String.format("Document with URN %s does not exist", documentUrn));
     }
 
-    // Soft delete by setting Status aspect removed = true with synchronous MCP
+    // Soft delete by setting Status aspect removed = true
     final com.linkedin.common.Status status = new com.linkedin.common.Status();
     status.setRemoved(true);
 
     final MetadataChangeProposal statusProposal =
-        AspectUtils.buildSynchronousMetadataChangeProposal(
-            documentUrn, Constants.STATUS_ASPECT_NAME, status);
+        buildProposal(documentUrn, Constants.STATUS_ASPECT_NAME, status, indexMode);
 
     entityClient.ingestProposal(opContext, statusProposal, false);
     log.debug("Soft deleted document {}", documentUrn);
@@ -815,18 +821,19 @@ public class DocumentService {
       @Nonnull OperationContext opContext,
       @Nonnull Urn documentUrn,
       @Nonnull List<Owner> owners,
-      @Nonnull Urn actorUrn)
+      @Nonnull Urn actorUrn,
+      @Nonnull SearchIndexMode indexMode)
       throws Exception {
 
     DocumentAuthorizationUtils.assertCanUpdate(opContext, documentUrn);
 
     // Create MCP for ownership
-    final MetadataChangeProposal mcp = new MetadataChangeProposal();
-    mcp.setEntityUrn(documentUrn);
-    mcp.setEntityType(Constants.DOCUMENT_ENTITY_NAME);
-    mcp.setAspectName(Constants.OWNERSHIP_ASPECT_NAME);
-    mcp.setChangeType(ChangeType.UPSERT);
-    mcp.setAspect(GenericRecordUtils.serializeAspect(buildOwnership(owners, actorUrn)));
+    final MetadataChangeProposal mcp =
+        buildProposal(
+            documentUrn,
+            Constants.OWNERSHIP_ASPECT_NAME,
+            buildOwnership(owners, actorUrn),
+            indexMode);
 
     entityClient.ingestProposal(opContext, mcp, false);
 

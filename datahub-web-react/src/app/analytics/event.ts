@@ -6,7 +6,7 @@ import { Direction } from '@app/lineage/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
-    AllowedValue,
+    AllowedValueInput,
     DataHubPageModuleType,
     DataHubViewType,
     EntityType,
@@ -79,6 +79,7 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
@@ -652,6 +653,12 @@ export interface MoveDomainEvent extends BaseEvent {
     parentDomainUrn?: string;
 }
 
+export interface MoveDataProductEvent extends BaseEvent {
+    type: EventType.MoveDataProductEvent;
+    oldParentDataProductUrn?: string;
+    parentDataProductUrn?: string;
+}
+
 // Managed Ingestion Events
 
 export interface IngestionTestConnectionEvent extends BaseEvent {
@@ -973,7 +980,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     appliesTo: string[];
     qualifiedName?: string;
     allowedAssetTypes?: string[];
-    allowedValues?: AllowedValue[];
+    allowedValues?: AllowedValueInput[];
     cardinality?: PropertyCardinality;
     showInFilters?: boolean;
     isHidden: boolean;
@@ -1455,6 +1462,7 @@ export type Event =
     | CreateGlossaryEntityEvent
     | CreateDomainEvent
     | MoveDomainEvent
+    | MoveDataProductEvent
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent

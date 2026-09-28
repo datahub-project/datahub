@@ -519,6 +519,15 @@ def _dev_env() -> Dict[str, str]:
     env = os.environ.copy()
     if not DEV_ENV_FILE.exists():
         DEV_ENV_FILE.touch()
+    # AWS_PROFILE is declared as pass-through in Compose so it is absent—not an empty profile
+    # name—when unconfigured. Promote the datahub-dev value for Compose interpolation/pass-through.
+    if "AWS_PROFILE" not in env:
+        for line in DEV_ENV_FILE.read_text().splitlines():
+            if line.startswith("AWS_PROFILE="):
+                profile = line.split("=", 1)[1]
+                if profile:
+                    env["AWS_PROFILE"] = profile
+                break
     env["DATAHUB_LOCAL_COMMON_ENV"] = str(DEV_ENV_FILE)
     # Only inject if not already set (respects explicit user override)
     env.setdefault("COMPOSE_PROJECT_NAME", COMPOSE_PROJECT)
@@ -680,13 +689,13 @@ def _suggest_recovery(
     if all_down and not services:
         return "No DataHub containers found. Run: ./gradlew quickstartDebug"
     if all_down:
-        return "All services are down. Try: python3 scripts/datahub_dev.py nuke --keep-data"
+        return "All services are down. Try: python3 scripts/dev/datahub_dev.py nuke --keep-data"
     if any_crash_loop:
-        return "Services are crash-looping. Try: python3 scripts/datahub_dev.py reset"
+        return "Services are crash-looping. Try: python3 scripts/dev/datahub_dev.py reset"
     if any_bad_exit:
-        return "Some services have exited with errors. Try: python3 scripts/datahub_dev.py reset"
+        return "Some services have exited with errors. Try: python3 scripts/dev/datahub_dev.py reset"
     if not gms_ok:
-        return "GMS is not healthy. It may still be bootstrapping — wait a minute. If it persists: python3 scripts/datahub_dev.py reset"
+        return "GMS is not healthy. It may still be bootstrapping — wait a minute. If it persists: python3 scripts/dev/datahub_dev.py reset"
     return None
 
 
@@ -907,7 +916,7 @@ def cmd_test(args: argparse.Namespace) -> int:
     gms_status, _ = _http_get(f"{_gms_url()}/health", timeout=3)
     if gms_status != 200:
         _log(f"WARNING: GMS is not healthy (status={gms_status}). Tests may fail.")
-        _log("Run 'python3 scripts/datahub_dev.py wait' to wait for readiness.")
+        _log("Run 'python3 scripts/dev/datahub_dev.py wait' to wait for readiness.")
 
     # Check smoke-test venv exists
     venv_python = SMOKE_TEST_DIR / "venv" / "bin" / "python"
@@ -926,7 +935,7 @@ def cmd_test(args: argparse.Namespace) -> int:
             _log("Failed to set up smoke-test venv.")
             return 1
 
-    # Set up environment variables (replicate set-test-env-vars.sh and set-cypress-creds.sh)
+    # Set up environment variables (replicate set-test-env-vars.sh)
     env = _dev_env()
     gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
     instance_gms_url = _gms_url()
@@ -943,12 +952,8 @@ def cmd_test(args: argparse.Namespace) -> int:
         )
         env.setdefault("DATAHUB_GMS_URL", f"{instance_gms_url}{gms_base_path}")
 
-    # Cypress creds (used by some test fixtures)
     env.setdefault("ADMIN_USERNAME", "datahub")
     env.setdefault("ADMIN_PASSWORD", "datahub")
-    env.setdefault("CYPRESS_ADMIN_USERNAME", env.get("ADMIN_USERNAME", "datahub"))
-    env.setdefault("CYPRESS_ADMIN_PASSWORD", env.get("ADMIN_PASSWORD", "datahub"))
-    env.setdefault("CYPRESS_ADMIN_DISPLAYNAME", "DataHub")
 
     # Disable telemetry during tests
     env["DATAHUB_TELEMETRY_ENABLED"] = "false"
@@ -1007,7 +1012,7 @@ def _load_flag_classification() -> Dict[str, Any]:
         _log(
             "Run: ./gradlew :metadata-service:configuration:generateFlagClassification"
         )
-        _log("Or:  scripts/datahub-dev.sh sync-flags")
+        _log("Or:  scripts/dev/datahub-dev.sh sync-flags")
         return {"dynamic": {}, "static": {}}
     with open(GENERATED_MANIFEST) as f:
         try:
@@ -1106,7 +1111,7 @@ def cmd_env_set(args: argparse.Namespace) -> int:
     DEV_ENV_FILE.write_text("\n".join(new_lines) + "\n")
 
     _log(f"Set {key}={value} in {DEV_ENV_FILE}")
-    _log("Run: scripts/datahub-dev.sh env restart  (to apply)")
+    _log("Run: scripts/dev/datahub-dev.sh env restart  (to apply)")
     return 0
 
 

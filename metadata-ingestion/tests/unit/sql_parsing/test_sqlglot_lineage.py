@@ -191,6 +191,52 @@ SELECT id, name FROM my_db.my_schema.my_table
     )
 
 
+def test_snowflake_create_view_copy_grants_with_casts() -> None:
+    assert_sql_result(
+        """
+CREATE OR REPLACE VIEW my_view
+COPY GRANTS
+                (
+    "COL_STR",
+    "COL_NUM",
+    "COL_TS",
+    "COL_BOOL"
+)
+AS SELECT
+    "COL_STR"::VARCHAR(134217728) AS "COL_STR",
+    "COL_NUM"::NUMBER(19,0) AS "COL_NUM",
+    "COL_TS"::TIMESTAMP_NTZ(6) AS "COL_TS",
+    "COL_BOOL"::BOOLEAN AS "COL_BOOL"
+FROM my_db.my_schema.my_source_table
+WHERE _FIVETRAN_DELETED != TRUE
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_create_view_copy_grants_with_casts.json",
+    )
+
+
+def test_create_view_block_semicolon_with_comment() -> None:
+    """Block([Create, Semicolon]) from a trailing semicolon with attached comment.
+
+    A semicolon followed by a comment (e.g. "; -- comment") causes sqlglot to
+    produce Block([Create, Semicolon]). Without filtering the Semicolon node,
+    parse_statement raises "Block contains 2 statements" and lineage is lost.
+
+    This is the pattern behind ~2,600 view parse failures observed in a
+    Snowflake ingestion run.
+    """
+    assert_sql_result(
+        """
+CREATE VIEW my_view AS SELECT id, name FROM my_db.my_schema.my_table
+WHERE active = TRUE; -- end of view
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_create_view_block_semicolon_with_comment.json",
+    )
+
+
 def test_create_view_as_block_statement() -> None:
     """Test Block with multiple statements where only 1 is not None.
 
@@ -258,6 +304,23 @@ def test_block_with_multiple_statements() -> None:
     assert result.debug_info.table_error is not None
     assert "Block contains 2 statements" in str(result.debug_info.table_error)
     assert "Use parse_statements_and_pick" in str(result.debug_info.table_error)
+
+
+def test_identifier_dynamic_arg_skips_only_that_table() -> None:
+    """A non-literal IDENTIFIER(...) can't be resolved, but it must not drop lineage for the
+    real tables in the same query."""
+    result = sqlglot_lineage(
+        "SELECT r.x FROM db.schema.real_table r "
+        "JOIN IDENTIFIER('prefix_' || r.col) d ON r.id = d.id",
+        schema_resolver=SchemaResolver(
+            platform="snowflake",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is None
+    assert len(result.in_tables) == 1
+    assert any("real_table" in urn for urn in result.in_tables)
 
 
 def test_snowflake_create_table_as_select_with_tag() -> None:

@@ -163,6 +163,14 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
 
     properties.setCreatedOn(createdAuditStamp);
 
+    if (dataProductProperties.hasParentDataProduct()
+        && dataProductProperties.getParentDataProduct() != null) {
+      final DataProduct parentStub = new DataProduct();
+      parentStub.setUrn(dataProductProperties.getParentDataProduct().toString());
+      parentStub.setType(EntityType.DATA_PRODUCT);
+      properties.setParentDataProduct(parentStub);
+    }
+
     dataProduct.setProperties(properties);
   }
 

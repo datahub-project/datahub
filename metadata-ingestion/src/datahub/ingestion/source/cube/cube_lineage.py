@@ -90,12 +90,26 @@ class CubeLineageBuilder:
         if not self._resolver_ready:
             self._resolver_ready = True
             if self.ctx.graph is not None and self.warehouse_platform:
-                self._schema_resolver = create_and_cache_schema_resolver(
-                    platform=self.warehouse_platform,
-                    env=self.config.warehouse_env,
-                    graph=self.ctx.graph,
-                    platform_instance=self.config.warehouse_platform_instance,
-                )
+                try:
+                    self._schema_resolver = create_and_cache_schema_resolver(
+                        platform=self.warehouse_platform,
+                        env=self.config.warehouse_env,
+                        graph=self.ctx.graph,
+                        platform_instance=self.config.warehouse_platform_instance,
+                    )
+                except Exception as e:
+                    # Mark ready regardless: retrying this on every entity
+                    # would just repeat the same failure. Reported once, here,
+                    # rather than surfacing as a "Failed to emit Cube entity"
+                    # on whichever entity happens to trigger it first.
+                    self.report.warning(
+                        title="Could not initialize schema-aware lineage resolution",
+                        message=(
+                            "Column casing and warehouse-table resolution will "
+                            "fall back to configured defaults for this run."
+                        ),
+                        exc=e,
+                    )
         return self._schema_resolver
 
     def _resolve_table(self, ref: CubeTableReference) -> ResolvedWarehouseTable:

@@ -66,7 +66,7 @@ class HexReport(
 
 @platform_name("Hex")
 @config_class(HexSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DESCRIPTIONS, "Supported by default")
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")

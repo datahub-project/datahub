@@ -18,11 +18,18 @@ public class ConsistencyCheckResult {
 
   /** Creates a ConsistencyCheckResult from a service-layer CheckResult. */
   public static ConsistencyCheckResult from(@Nonnull CheckResult result) {
+    return from(result, null);
+  }
+
+  /** Creates a ConsistencyCheckResult with an optional total estimate from countMatching. */
+  public static ConsistencyCheckResult from(
+      @Nonnull CheckResult result, @Nullable Long totalEstimate) {
     return ConsistencyCheckResult.builder()
         .entitiesScanned(result.getEntitiesScanned())
         .issuesFound(result.getIssuesFound())
         .issues(ConsistencyIssue.from(result.getIssues()))
         .scrollId(result.getScrollId())
+        .totalEstimate(totalEstimate)
         .build();
   }
 
@@ -41,4 +48,12 @@ public class ConsistencyCheckResult {
           "Scroll ID for pagination. Null if no more results. Pass to next request to continue.")
   @Nullable
   private String scrollId;
+
+  @Schema(
+      description =
+          "Estimated matching system-metadata documents for this request filter. "
+              + "Populated on the first request page (when no scroll ID is supplied) when a count "
+              + "is available. With keyAspectOnly, approximates unique entities.")
+  @Nullable
+  private Long totalEstimate;
 }

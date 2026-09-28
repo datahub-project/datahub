@@ -383,6 +383,149 @@ public class AuthUtilTest {
   }
 
   @Test
+  public void testExistenceAwareCreateEntityRequiresEditWhenEntityExists() {
+    Authentication createOnly =
+        new Authentication(new Actor(ActorType.USER, "createOnlyNoEdit"), "");
+    Authentication editOnly = new Authentication(new Actor(ActorType.USER, "editOnlyNoCreate"), "");
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                createOnly.getActor().toUrnStr(), Map.of("CREATE_ENTITY", Set.of(TEST_ENTITY_1)),
+                editOnly.getActor().toUrnStr(), Map.of("EDIT_ENTITY", Set.of(TEST_ENTITY_1))));
+    Pair<ChangeType, Urn> createEntity = Pair.of(ChangeType.CREATE_ENTITY, TEST_ENTITY_1);
+    Pair<ChangeType, Urn> upsert = Pair.of(ChangeType.UPSERT, TEST_ENTITY_1);
+    Map<Urn, Boolean> exists = Map.of(TEST_ENTITY_1, true);
+    Map<Urn, Boolean> missing = Map.of(TEST_ENTITY_1, false);
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer),
+            ENTITY,
+            List.of(createEntity),
+            exists),
+        Map.of(createEntity, 403),
+        "CREATE_ENTITY-only must not overwrite an existing entity");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(editOnly, mockAuthorizer), ENTITY, List.of(createEntity), exists),
+        Map.of(createEntity, 200),
+        "EDIT_ENTITY authorizes CREATE_ENTITY change type when entity already exists");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer),
+            ENTITY,
+            List.of(createEntity),
+            missing),
+        Map.of(createEntity, 200),
+        "CREATE_ENTITY-only may create a missing entity");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer), ENTITY, List.of(upsert), missing),
+        Map.of(upsert, 200),
+        "UPSERT on missing entity uses CREATE privilege path");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer), ENTITY, List.of(upsert), exists),
+        Map.of(upsert, 403),
+        "UPSERT on existing entity requires EDIT, not CREATE_ENTITY alone");
+  }
+
+  @Test
+  public void testPatchAlwaysRequiresEditEntity() {
+    Authentication createOnly =
+        new Authentication(new Actor(ActorType.USER, "createOnlyPatch"), "");
+    Authentication editOnly = new Authentication(new Actor(ActorType.USER, "editOnlyPatch"), "");
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                createOnly.getActor().toUrnStr(), Map.of("CREATE_ENTITY", Set.of(TEST_ENTITY_1)),
+                editOnly.getActor().toUrnStr(), Map.of("EDIT_ENTITY", Set.of(TEST_ENTITY_1))));
+    Pair<ChangeType, Urn> patch = Pair.of(ChangeType.PATCH, TEST_ENTITY_1);
+    Map<Urn, Boolean> missing = Map.of(TEST_ENTITY_1, false);
+    Map<Urn, Boolean> exists = Map.of(TEST_ENTITY_1, true);
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer), ENTITY, List.of(patch), missing),
+        Map.of(patch, 403),
+        "PATCH never uses CREATE_ENTITY even when entity is missing");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(editOnly, mockAuthorizer), ENTITY, List.of(patch), missing),
+        Map.of(patch, 200),
+        "PATCH on missing entity still requires EDIT_ENTITY");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(editOnly, mockAuthorizer), ENTITY, List.of(patch), exists),
+        Map.of(patch, 200),
+        "PATCH on existing entity requires EDIT_ENTITY");
+  }
+
+  @Test
+  public void testExistenceAwareMissingMapKeyFallsBackToHistoricalMapping() {
+    Authentication createOnly =
+        new Authentication(new Actor(ActorType.USER, "createOnlyMissingKey"), "");
+    Authentication editOnly =
+        new Authentication(new Actor(ActorType.USER, "editOnlyMissingKey"), "");
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                createOnly.getActor().toUrnStr(), Map.of("CREATE_ENTITY", Set.of(TEST_ENTITY_1)),
+                editOnly.getActor().toUrnStr(), Map.of("EDIT_ENTITY", Set.of(TEST_ENTITY_1))));
+    Pair<ChangeType, Urn> upsert = Pair.of(ChangeType.UPSERT, TEST_ENTITY_1);
+    // Non-null map without this URN must not be treated as "does not exist".
+    Map<Urn, Boolean> incomplete = Map.of(TEST_ENTITY_2, false);
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer), ENTITY, List.of(upsert), incomplete),
+        Map.of(upsert, 403),
+        "missing entityExists key keeps historical UPSERT→UPDATE mapping");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(editOnly, mockAuthorizer), ENTITY, List.of(upsert), incomplete),
+        Map.of(upsert, 200),
+        "EDIT_ENTITY still authorizes UPSERT when existence for URN is unknown");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer),
+            ENTITY,
+            List.of(upsert),
+            Map.of(TEST_ENTITY_1, false)),
+        Map.of(upsert, 200),
+        "explicit false still remaps UPSERT to CREATE");
+  }
+
+  @Test
+  public void testChangeTypeCreateAlwaysRequiresEditEntity() {
+    Authentication createOnly =
+        new Authentication(new Actor(ActorType.USER, "createOnlyAspectCreate"), "");
+    Authentication editOnly =
+        new Authentication(new Actor(ActorType.USER, "editOnlyAspectCreate"), "");
+    Authorizer mockAuthorizer =
+        mockAuthorizer(
+            Map.of(
+                createOnly.getActor().toUrnStr(), Map.of("CREATE_ENTITY", Set.of(TEST_ENTITY_1)),
+                editOnly.getActor().toUrnStr(), Map.of("EDIT_ENTITY", Set.of(TEST_ENTITY_1))));
+    Pair<ChangeType, Urn> aspectCreate = Pair.of(ChangeType.CREATE, TEST_ENTITY_1);
+    Map<Urn, Boolean> missing = Map.of(TEST_ENTITY_1, false);
+
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(createOnly, mockAuthorizer),
+            ENTITY,
+            List.of(aspectCreate),
+            missing),
+        Map.of(aspectCreate, 403),
+        "ChangeType.CREATE (aspect create-if-not-exists) requires EDIT_ENTITY");
+    assertEquals(
+        AuthUtil.isAPIAuthorizedUrns(
+            TestAuthSession.from(editOnly, mockAuthorizer), ENTITY, List.of(aspectCreate), missing),
+        Map.of(aspectCreate, 200),
+        "EDIT_ENTITY authorizes ChangeType.CREATE for createAspect defaults");
+  }
+
+  @Test
   public void testIsAPIAuthorizedEntityUrnsWithSubResources() {
     // Create some tag entities for subresources
     final Urn TEST_SUB_ENTITY_1 = UrnUtils.getUrn("urn:li:tag:tag1");

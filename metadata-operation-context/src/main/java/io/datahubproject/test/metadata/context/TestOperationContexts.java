@@ -23,6 +23,8 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
@@ -65,21 +67,47 @@ public class TestOperationContexts {
 
   public static EntityRegistry defaultEntityRegistry() {
     if (defaultEntityRegistryInstance == null) {
-      PathSpecBasedSchemaAnnotationVisitor.class
-          .getClassLoader()
-          .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
-      try {
-        SnapshotEntityRegistry snapshotEntityRegistry = new SnapshotEntityRegistry();
-        ConfigEntityRegistry configEntityRegistry =
-            new ConfigEntityRegistry(
-                Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-        defaultEntityRegistryInstance =
-            new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
-      } catch (EntityRegistryException e) {
-        throw new RuntimeException(e);
-      }
+      defaultEntityRegistryInstance = constructNewEntityRegistry();
     }
     return defaultEntityRegistryInstance;
+  }
+
+  // Created to not share Spring managed entity registries with static instance, this results in
+  // unexpected
+  // modifications to the static instance so instead we use this for Spring config
+  public static EntityRegistry constructNewEntityRegistry() {
+    EntityRegistry entityRegistry;
+    PathSpecBasedSchemaAnnotationVisitor.class
+        .getClassLoader()
+        .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+    try {
+      SnapshotEntityRegistry snapshotEntityRegistry = new SnapshotEntityRegistry();
+      ConfigEntityRegistry configEntityRegistry =
+          new ConfigEntityRegistry(
+              Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+      entityRegistry = new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+    } catch (EntityRegistryException e) {
+      throw new RuntimeException(e);
+    }
+    return entityRegistry;
+  }
+
+  /**
+   * Stamps a single-cluster {@link SearchClusterAccess} onto an existing context so DAO tests that
+   * already inject a client keep working without a live registry.
+   */
+  @Nonnull
+  public static OperationContext withSearchClusterAccess(
+      @Nonnull OperationContext opContext, @Nullable SearchClusterAccess access) {
+    return opContext.toBuilder()
+        .searchContext(opContext.getSearchContext().toBuilder().searchClusterAccess(access).build())
+        .build(opContext.getSessionActorContext(), false);
+  }
+
+  @Nonnull
+  public static OperationContext withFixedSearchClient(
+      @Nonnull OperationContext opContext, @Nonnull SearchClientShim<?> client) {
+    return withSearchClusterAccess(opContext, SearchClusterAccess.fixed(client));
   }
 
   public static RetrieverContext emptyActiveUsersRetrieverContext(

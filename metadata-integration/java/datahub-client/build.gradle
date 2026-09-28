@@ -81,7 +81,7 @@ task validatePythonEnv(dependsOn: [":metadata-ingestion:installDev"]) {
         def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
         def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
 
-        def result = exec {
+        def result = execOps.exec {
             commandLine pythonExe, "-c", "import sys; print(sys.executable)"
             ignoreExitValue = true
             standardOutput = new ByteArrayOutputStream()
@@ -150,6 +150,12 @@ shadowJar {
     exclude(dependency("org.scala-lang::"))
     exclude("org/apache/commons/logging/**")
   }
+  // Gradle-9 / com.gradleup.shadow 9: the dependency-coordinate excludes above no longer strip
+  // these classes from the merged jar (they leak unrelocated -> check_jar.sh fails). slf4j (client
+  // consumers provide their own binding) and antlr2 (pegasus buildtime only) must not ship in the
+  // shaded client jar, so also exclude by file pattern, which shadow 9 still honours.
+  exclude 'org/slf4j/**'
+  exclude 'antlr/**'
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
@@ -229,8 +235,7 @@ task javadocJar(type: Jar) {
 
 publishing {
   publications {
-    shadow(MavenPublication) { publication ->
-      project.shadow.component(publication)
+    shadow(MavenPublication) { from components.shadow
       pom {
         name = 'Datahub Client'
         group = 'io.acryl'

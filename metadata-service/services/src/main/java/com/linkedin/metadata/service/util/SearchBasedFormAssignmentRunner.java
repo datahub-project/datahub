@@ -21,8 +21,14 @@ public class SearchBasedFormAssignmentRunner {
           public void run() {
             try {
               SearchBasedFormAssignmentManager.apply(
-                  opContext, formFilters, formUrn, batchFormEntityCount, entityClient);
-            } catch (Exception e) {
+                  FormAssignmentScrollRequest.builder()
+                      .opContext(opContext)
+                      .formFilters(formFilters)
+                      .formUrn(formUrn)
+                      .batchFormEntityCount(batchFormEntityCount)
+                      .entityClient(entityClient)
+                      .build());
+            } catch (Throwable e) {
               log.error(
                   "SearchBasedFormAssignmentRunner failed to run. "
                       + "Options: formFilters: {}, "

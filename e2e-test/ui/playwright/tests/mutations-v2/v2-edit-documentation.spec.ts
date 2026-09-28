@@ -84,6 +84,7 @@ test.describe('edit documentation and link to dataset', () => {
 
     // Verify link is visible in entity header from the search page too
     await page.goto(`/search?query=${SAMPLE_DATASET_NAME}`);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await page.waitForTimeout(3000);
     await expect(page.getByText(SAMPLE_DATASET_NAME).first()).toBeVisible({ timeout: 30000 });
     await docPage.expectLinkInEntityHeader(sample);

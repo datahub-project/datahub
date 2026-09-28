@@ -601,6 +601,136 @@ All recent versions require Python 3.10+.
 
 DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. The lineage backend functionality was pretty limited - it did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA - and so it has been removed from the codebase. The [documentation for the lineage backend](https://archive.docs.datahub.com/docs/0.10.5/lineage/airflow#using-datahubs-airflow-lineage-backend-deprecated) has been archived.
 
+## Changelog
+
+`acryl-datahub-airflow-plugin` is published to PyPI on **every** DataHub release and carries that
+release's version, so `acryl-datahub-airflow-plugin==1.7.0.10` is the plugin built from DataHub
+`v1.7.0.10`. Most releases change nothing in the plugin, so only the versions that changed it are
+listed here. A version that is not listed behaves the same as the nearest older listed version,
+and picking the newest published version is always safe.
+
+Entries start at `1.3.1.5`. For anything earlier, and for the full migration detail behind the
+breaking changes below, see [Updating DataHub](../how/updating-datahub.md).
+
+### Versions 1.7.0 through 1.7.0.10
+
+No plugin changes. Every `1.7.x` release published so far ships the same plugin code as
+`1.6.0.16`.
+
+### Version 1.6.0.16
+
+- _Fixes_:
+  - Kafka emitter configuration is parsed with pydantic v2's `model_validate` instead of the
+    removed v1 `parse_obj`, so `DatahubKafkaHook` and the listener's Kafka sink work on pydantic 2
+    ([#18432](https://github.com/datahub-project/datahub/pull/18432))
+
+### Version 1.6.0.9
+
+- _Changes_:
+  - **The default emit mode changed from synchronous to `ASYNC`**
+    ([#18014](https://github.com/datahub-project/datahub/pull/18014)) to reduce GMS load at high
+    volume. Under async, `emit()` no longer raises on a rejected write and there is no
+    read-after-write guarantee. To restore the previous behaviour, set
+    `emit_mode = SYNC_PRIMARY` under `[datahub]` in `airflow.cfg`.
+
+### Version 1.6.0.6
+
+- _Changes_:
+  - `AssetAlias` is recognised as lineage on Airflow 3+
+    ([#17055](https://github.com/datahub-project/datahub/pull/17055)). An alias names an asset that
+    only resolves at task runtime — for example when the URI contains a Jinja template — so
+    asset-triggered DAGs now produce lineage that previously went missing.
+
+### Version 1.6.0.1
+
+- _Major changes_:
+  - **Airflow 2.x support dropped; Airflow 3.0+ required**
+    ([#17439](https://github.com/datahub-project/datahub/pull/17439)). The `apache-airflow` floor
+    is `>=3.0.0`. The standalone `openlineage-airflow` package is no longer used at all — the
+    plugin always uses `apache-airflow-providers-openlineage>=2.1.0`, now an unconditional
+    dependency — so drop `openlineage-airflow` from your constraints if it is pinned. The
+    `[airflow2]` extra is gone and `[airflow3]` is retained as a no-op, so existing
+    `pip install 'acryl-datahub-airflow-plugin[airflow3]'` commands keep working. The
+    `taskinstance` value for `datajob_url_link` is no longer accepted; use `tasks` or `grid`. The
+    `patch_snowflake_schema` option was removed and is silently ignored. To stay on Airflow 2.7
+    through 2.10, pin `acryl-datahub-airflow-plugin <= 1.6.0`.
+
+### Version 1.5.0.19
+
+- _Fixes_:
+  - OpenLineage dataset names containing a literal `None` segment are sanitized before the URN is
+    built ([#17191](https://github.com/datahub-project/datahub/pull/17191)). Some Airflow providers
+    assemble names with f-strings and no `None` guard — `S3ToRedshiftOperator` with an unset
+    `schema`, for example — which produced orphan `urn:li:dataset:(...,db.None.schema.tbl,PROD)`
+    entities instead of stitching to the URN native ingestion emits. Orphans created before
+    upgrading are not removed automatically; see
+    [Orphan dataset URNs containing `.None.`](#orphan-dataset-urns-containing-none).
+
+### Version 1.5.0.10
+
+- _Fixes_:
+  - The `MappedOperator` import falls back to
+    `airflow.serialization.definitions.mappedoperator` when `airflow.models.mappedoperator` is
+    absent ([#16963](https://github.com/datahub-project/datahub/pull/16963)), so the plugin loads
+    on Airflow 3.2+, which moved the class.
+
+### Version 1.5.0.8
+
+- _Fixes_:
+  - Hardened the import fallback in the Teradata OpenLineage wrapper
+    ([#16868](https://github.com/datahub-project/datahub/pull/16868))
+
+### Version 1.4.0.4
+
+- _Changes_:
+  - Multi-statement SQL parsing for lineage extraction
+    ([#16235](https://github.com/datahub-project/datahub/pull/16235)). See
+    [Multi-Statement SQL Parsing](#multi-statement-sql-parsing).
+  - The `datahub-file` connection type is registered with the Airflow provider
+    ([#16168](https://github.com/datahub-project/datahub/pull/16168)), so `SynchronizedFileHook` is
+    selectable in the Airflow connection UI and defaults to the `datahub_file_default` connection.
+
+### Version 1.4.0
+
+- _Fixes_:
+  - Dataset URNs in lineage use the configured DataHub cluster environment rather than a default
+    ([#16040](https://github.com/datahub-project/datahub/pull/16040)), so lineage stitches to the
+    same URNs as native ingestion when `cluster` is not `PROD`.
+
+### Version 1.3.1.8
+
+- _Major changes_:
+  - **Python 3.9 support dropped; Python 3.10+ required**
+    ([#15984](https://github.com/datahub-project/datahub/pull/15984))
+- _Changes_:
+  - Airflow Asset support on both Airflow 2 and 3
+    ([#15947](https://github.com/datahub-project/datahub/pull/15947)). See
+    [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets).
+- _Fixes_:
+  - The Airflow 2.x kill switch reads the environment variable
+    `AIRFLOW_VAR_DATAHUB_AIRFLOW_PLUGIN_DISABLE_LISTENER` instead of an Airflow Variable
+    ([#15930](https://github.com/datahub-project/datahub/pull/15930)), because Airflow 3 forbids
+    database access during listener initialization.
+
+### Version 1.3.1.7
+
+- _Fixes_:
+  - The DataFlow is emitted from the task handler
+    ([#15875](https://github.com/datahub-project/datahub/pull/15875)), so distributed Airflow 3
+    deployments — where the scheduler and workers run in separate processes — emit the pipeline
+    rather than only its tasks.
+
+### Version 1.3.1.5
+
+- _Changes_:
+  - **Airflow 3.x support** ([#13790](https://github.com/datahub-project/datahub/pull/13790)). The
+    plugin detects the Airflow version and selects the matching listener, moves to
+    `API__BASE_URL` where Airflow 3 renamed `WEBSERVER__BASE_URL`, and replaces the
+    operator-specific extractors with a unified SQLParser patch for lineage. SubDAGs are gone in
+    Airflow 3; use TaskGroups.
+  - Teradata operator support
+    ([#15418](https://github.com/datahub-project/datahub/pull/15418))
+
 ## Additional references
 
 Related DataHub videos:

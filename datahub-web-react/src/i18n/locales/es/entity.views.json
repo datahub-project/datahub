@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "La instancia de plataforma específica en la que reside el activo.",
     "prop.softDeleted": "Eliminado provisionalmente",
     "prop.softDeletedDesc": "Si el activo se ha eliminado provisionalmente.",
+    "prop.structuredPropertyGroup": "Propiedad estructurada",
     "prop.subType": "Subtipo",
     "prop.subTypeDesc": "El subtipo del activo (p. ej. Tabla, Vista, Tema).",
     "publicTab": "Vistas públicas",

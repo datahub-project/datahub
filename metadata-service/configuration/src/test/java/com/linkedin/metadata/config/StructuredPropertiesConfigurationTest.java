@@ -15,4 +15,16 @@ public class StructuredPropertiesConfigurationTest {
     fromSetter.setKeywordMaxLength(2048);
     Assert.assertEquals(fromSetter.getKeywordMaxLength(), 2048);
   }
+
+  @Test
+  public void testDropOversizedKeywordValuesFromIndex_DefaultFalse() {
+    StructuredPropertiesConfiguration defaults = new StructuredPropertiesConfiguration();
+    Assert.assertFalse(defaults.isDropOversizedKeywordValuesFromIndex());
+
+    StructuredPropertiesConfiguration enabled =
+        StructuredPropertiesConfiguration.builder()
+            .dropOversizedKeywordValuesFromIndex(true)
+            .build();
+    Assert.assertTrue(enabled.isDropOversizedKeywordValuesFromIndex());
+  }
 }

@@ -16,11 +16,11 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
 
-      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
           key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
@@ -59,7 +59,7 @@ jobs:
           retention-days: 5
 
       - name: Configure AWS credentials for S3 report upload
-        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         if: ${{ always() && !cancelled() && env.IS_FORK == 'false' }}
         with:
           role-to-assume: ${{ vars.PLAYWRIGHT_TEST_REPORT_PUBLISH_ROLE_ARN }}

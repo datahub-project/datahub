@@ -3,9 +3,8 @@ import { QueryHookOptions, QueryResult } from '@apollo/client';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
 import { FetchedEntity } from '@app/lineage/types';
-import { AttributionDetails } from '@app/sharedV2/propagation/types';
 
-import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
+import { DataPlatform, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
 
 export enum PreviewType {
     /**
@@ -120,10 +119,6 @@ export interface EntityMenuActions {
     onEdit?: () => void;
 }
 
-export interface PreviewContext {
-    propagationDetails?: AttributionDetails;
-}
-
 /**
  * Base interface used for authoring DataHub Entities on the client side.
  *
@@ -183,12 +178,7 @@ export interface Entity<T> {
      *
      * TODO: Explore using getGenericEntityProperties for rendering previews.
      */
-    renderPreview: (
-        type: PreviewType,
-        data: T,
-        actions?: EntityMenuActions,
-        extraContext?: PreviewContext,
-    ) => JSX.Element;
+    renderPreview: (type: PreviewType, data: T, actions?: EntityMenuActions) => JSX.Element;
 
     /**
      * Renders a search result
@@ -233,6 +223,11 @@ export interface Entity<T> {
      * Returns the profile component to be displayed in our Chrome extension
      */
     renderEmbeddedProfile?: (urn: string) => JSX.Element;
+
+    /**
+     * Returns entity platform properties for the entity
+     */
+    getPlatformProperties?: (data: T) => DataPlatform | null | undefined;
 
     /**
      * Returns the entity profile sidebar sections for an entity type. Only implemented on Datasets for now.

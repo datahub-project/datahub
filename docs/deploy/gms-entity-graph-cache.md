@@ -64,7 +64,7 @@ All domain call sites use [`BoundHierarchyAccess`](../../metadata-io/src/main/ja
 2. **Authoritative verify** — `batchGetV2` on `domainProperties` for each candidate; a child counts only when `parentDomain` still points at the parent URN in primary storage.
 3. **Truncation safety** — when the filter page is **full** (`entities.size() >= 200`) and `numEntities > 200`, the walker returns `true` conservatively (true pagination). It does **not** treat `numEntities > entities.size()` alone as truncation: [`ValidationUtils.validateSearchResult`](../../metadata-io/src/main/java/com/linkedin/metadata/entity/validation/ValidationUtils.java) can strip index **ghosts** (entities deleted in primary storage but still counted in ES `numEntities`) without adjusting `numEntities`, so an empty validated entity list with a positive count must fall through to “no children” rather than blocking parent delete.
 
-After a child domain is hard-deleted, the parent should be deletable immediately even when the search index still lists the child — verified by `smoke-test/tests/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
+After a child domain is hard-deleted, the parent should be deletable immediately even when the search index still lists the child — verified by `smoke-test/tests/e2e/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
 
 ### Soft delete
 
@@ -147,10 +147,9 @@ Container call sites use [`BoundHierarchyAccess`](../../metadata-io/src/main/jav
 | -------------------------------------------------------------------------------- | --------------------------------------- | ------------------------------------------- | ----------------------------- |
 | VBAC / policy `CONTAINER` field (`ContainerFieldResolverProvider`)               | **Core** — `VIEW_AUTHORIZATION_ENABLED` | `FORWARD` ancestor expand on container URNs | Aspect parent walk            |
 | GraphQL container hierarchy (`parentContainers` on datasets, charts, containers) | **Core**                                | Ordered `FORWARD` parent walk               | Aspect parent walk            |
-| GraphQL container children (`relationships` INCOMING `IsPartOf` on `container`)  | **Core**                                | `REVERSE` direct children (`maxDepth=1`)    | `GraphRetriever` scroll       |
 | Search filter rewriters (`ContainerExpansionRewriter`, `container.keyword`)      | **Core**                                | `FORWARD` or `REVERSE` per filter           | `GraphRetriever` scroll       |
 
-Direct-child `relationships` queries return **nested sub-containers only** (container → container edges), not datasets or other assets in the container. Asset listing uses `Container.entities` (search on `container.keyword`).
+GraphQL `Container.relationships(types: [IsPartOf], direction: INCOMING)` does **not** use this cache. That API is a generic graph-edge listing and returns all contained assets (datasets, charts, dashboards, nested containers, etc.) via `GraphClient` / the live graph index — the same behavior as before the entity graph cache. Prefer `Container.entities` (search on `container.keyword`) when you only need assets under a container with search filters and paging.
 
 Sync invalidation on **`container` entity** `container` aspect changes drops all partial keys (`DROP_PARTIAL`). Updates to asset `container` aspects (dataset moves between schemas) do **not** invalidate this graph — call sites read the direct parent from primary storage first.
 
@@ -168,16 +167,18 @@ Production ships a **FULL** graph for actor / group / role membership walks used
 | Population   | `SCHEDULED` (default 600s)                                                                                           |
 | Bounds       | `maxVertices: 21000`, `maxEdges: 60000` (target ~15k users + ~5k groups; raise via `ENTITY_GRAPH_CACHE_CONFIG_JSON`) |
 
+GraphQL `relationships` with `relatedEntityTypes` fetches neighbors up to **`bounds.maxEdges`** before filtering and paginating (fail closed if the listing exceeds that cap). Raise `maxEdges` when large role/group member listings need type-filtered pages.
+
 Membership call sites use [`BoundMembershipAccess`](../../metadata-io/src/main/java/com/linkedin/metadata/graph/cache/client/BoundMembershipAccess.java) with [`MembershipBindings.membershipSpec()`](../../metadata-io/src/main/java/com/linkedin/metadata/graph/cache/client/MembershipBindings.java):
 
-| Call site                                                               | Path                                                                                           | Fallback                                       |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| GraphQL `relationships` OUTGOING on session `corpuser` (groups / roles) | **Session shortcut** — `ActorContext` groups + `AuthorizationContext.resolveSessionActorRoles` | — (no cache / graph)                           |
-| GraphQL `relationships` OUTGOING on `corpuser` (groups)                 | Typed `listRelated` depth 1                                                                    | Aspect read or graph scroll                    |
-| GraphQL `relationships` OUTGOING on `corpuser` (`IsMemberOfRole`)       | **`effectiveRolesForUser`** (direct roles ∪ roles via groups)                                  | `ActorGroupMembershipService` / graph scroll   |
-| GraphQL `relationships` INCOMING on `corpGroup` (members)               | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll (ES graph index)                  |
-| GraphQL `relationships` OUTGOING on `corpGroup` (roles)                 | Typed `listRelated` depth 1                                                                    | Batch `RoleMembership` on group / graph scroll |
-| GraphQL `relationships` INCOMING on `dataHubRole` (assigned users)      | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll                                   |
+| Call site                                                                         | Path                                                                                           | Fallback                                       |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| GraphQL `relationships` OUTGOING on session `corpuser` (groups / roles)           | **Session shortcut** — `ActorContext` groups + `AuthorizationContext.resolveSessionActorRoles` | — (no cache / graph)                           |
+| GraphQL `relationships` OUTGOING on `corpuser` (groups)                           | Typed `listRelated` depth 1                                                                    | Aspect read or graph scroll                    |
+| GraphQL `relationships` OUTGOING on `corpuser` (`IsMemberOfRole`)                 | **`effectiveRolesForUser`** (direct roles ∪ roles via groups)                                  | `ActorGroupMembershipService` / graph scroll   |
+| GraphQL `relationships` INCOMING on `corpGroup` (members)                         | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll (ES graph index)                  |
+| GraphQL `relationships` OUTGOING on `corpGroup` (roles)                           | Typed `listRelated` depth 1                                                                    | Batch `RoleMembership` on group / graph scroll |
+| GraphQL `relationships` INCOMING on `dataHubRole` (members: users **and** groups) | Typed `listRelated` `REVERSE` depth 1                                                          | Graph scroll                                   |
 
 **Effective roles:** Cached / fast-path `IsMemberOfRole` OUTGOING on a `corpuser` returns **effective** roles (direct assignment plus roles inherited via group membership), aligned with [`SessionActorIdentity.resolveAllRoles`](../../li-utils/src/main/java/com/datahub/authorization/SessionActorIdentity.java). This may differ from a raw Elasticsearch graph scroll that lists only direct user→role edges.
 
@@ -248,6 +249,24 @@ Optional overlay merged **after** the config file — typical for raising domain
 
 Set `ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED=false` to supply graphs JSON-only. Invalid JSON fails startup when cache is enabled.
 
+Disable a bundled graph (call sites use live aspect / graph-scroll fallback) or switch its `buildSource`. Changing `buildSource` changes the Hazelcast cache key (`domain@search` → `domain@graph`); the previous key is unused after restart.
+
+```json
+{
+  "graphs": {
+    "domain": { "enabled": false }
+  }
+}
+```
+
+```json
+{
+  "graphs": {
+    "domain": { "buildSource": "graph" }
+  }
+}
+```
+
 Example overlay to raise glossary depth or component bounds:
 
 ```json
@@ -263,20 +282,20 @@ Example overlay to raise glossary depth or component bounds:
 
 ### Graph fields
 
-| Field                              | Required                     | Notes                                                                                                                                                                |
-| ---------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                          | Yes                          | Disabled graphs are ignored                                                                                                                                          |
-| `buildSource`                      | **Yes**                      | `primary`, `graph`, or `search` — sole build path (see [Terminology — buildSource](#buildsource-required-on-every-graph))                                            |
-| `edges[]` or `lineage`             | One mode                     | Mutually exclusive triplet vs lineage edge discovery                                                                                                                 |
-| `scope.mode`                       | Yes                          | `FULL` or `PARTIAL`                                                                                                                                                  |
-| `scope.maxDepth`                   | **Required > 0 for PARTIAL** | Per-direction BFS cap during **PARTIAL build** and in-memory read traversal (explicit in config only — **no default**). **Invalid for FULL** — use `bounds` instead. |
-| `population.strategy`              | **Yes**                      | `LAZY` or `SCHEDULED`                                                                                                                                                |
-| `population.rebuildExecution`      | No                           | `SYNC` (default), `BACKGROUND` (LAZY + FULL only — async rebuild, expand fail-closed until fresh)                                                                    |
-| `population.intervalSeconds`       | No                           | Staleness / COOLDOWN retry / SCHEDULED interval (default 300; bundled `domain` uses 600; bundled `glossary` uses 1200)                                               |
-| `bounds.maxVertices` / `maxEdges`  | No                           | Build caps (defaults 10000 / 15000; bundled `domain` uses 500 / 750; bundled `glossary` uses 30000 / 45000)                                                          |
-| `bindings.*`                       | No                           | Custom call-site wiring — see [Known graphs and bindings](#known-graphs-and-bindings)                                                                                |
-| `scroll.batchSize`                 | No                           | Build scroll page size (default 500)                                                                                                                                 |
-| `entityTypes` + `relationshipType` | No                           | Triplet shorthand — mutually exclusive with `lineage`                                                                                                                |
+| Field                              | Required                     | Notes                                                                                                                                                                  |
+| ---------------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                          | Yes                          | Disabled graphs are omitted from the registry (no snapshot, no scheduler). Built-in graphs may be disabled via overlay without failing startup. Live fallbacks remain. |
+| `buildSource`                      | **Yes**                      | `primary`, `graph`, or `search` — sole build path (see [Terminology — buildSource](#buildsource-required-on-every-graph))                                              |
+| `edges[]` or `lineage`             | One mode                     | Mutually exclusive triplet vs lineage edge discovery                                                                                                                   |
+| `scope.mode`                       | Yes                          | `FULL` or `PARTIAL`                                                                                                                                                    |
+| `scope.maxDepth`                   | **Required > 0 for PARTIAL** | Per-direction BFS cap during **PARTIAL build** and in-memory read traversal (explicit in config only — **no default**). **Invalid for FULL** — use `bounds` instead.   |
+| `population.strategy`              | **Yes**                      | `LAZY` or `SCHEDULED`                                                                                                                                                  |
+| `population.rebuildExecution`      | No                           | `SYNC` (default), `BACKGROUND` (LAZY + FULL only — async rebuild, expand fail-closed until fresh)                                                                      |
+| `population.intervalSeconds`       | No                           | Staleness / COOLDOWN retry / SCHEDULED interval (default 300; bundled `domain` uses 600; bundled `glossary` uses 1200)                                                 |
+| `bounds.maxVertices` / `maxEdges`  | No                           | Build caps (defaults 10000 / 15000; bundled `domain` uses 500 / 750; bundled `glossary` uses 30000 / 45000)                                                            |
+| `bindings.*`                       | No                           | Custom call-site wiring — see [Known graphs and bindings](#known-graphs-and-bindings)                                                                                  |
+| `scroll.batchSize`                 | No                           | Build scroll page size (default 500)                                                                                                                                   |
+| `entityTypes` + `relationshipType` | No                           | Triplet shorthand — mutually exclusive with `lineage`                                                                                                                  |
 
 #### Lineage graph examples
 
@@ -334,7 +353,7 @@ Operators define **which graphs exist** (edges, `buildSource`, scope, population
 
 **REVERSE self-only expand:** a root with no descendants returns **`EmptyHit(emptySet)`** — a valid result, not a cache miss. Call sites must not treat this as a miss.
 
-**Seed coverage (all scopes):** when some seed URNs are absent from the materialized snapshot, `expand()` returns reachable vertices for seeds that **are** present (`Hit`) rather than failing closed. PARTIAL multi-root requests fail closed earlier when any root is not cache-ready (see [PARTIAL components](#partial-components)). Call sites that need a complete expansion for every seed should check seed membership or use live fallback when partial results are insufficient.
+**Seed coverage (all scopes):** when **any** requested seed URN is absent from the materialized snapshot, `expand()` returns **`Miss(ABSENT)`** so callers fall back to the live graph (or aspect walk). A partial HIT that expands only present seeds would under-restrict VBAC / policy ancestor expansion and hierarchy reads for newly created or re-parented roots still outside the snapshot. PARTIAL multi-root requests also fail closed earlier when any root is not cache-ready (see [PARTIAL components](#partial-components)).
 
 **LAZY rebuild latency:** missing or stale keys rebuild on the request thread when `rebuildExecution` is `SYNC` (default). **`SCHEDULED`** rebuilds run on `entity-graph-scheduler` (bundled `domain@search`). **`BACKGROUND`** (LAZY + FULL only) enqueues async rebuild — cached reads return **`Miss(STALE_BLOCKED)`** until fresh. While another pod holds `BUILDING`, **FULL**-scope cached reads may still serve the previous `ACTIVE` snapshot until sync invalidation removes stale vertices or drops the graph.
 
@@ -498,13 +517,16 @@ Bundled `domain` uses `SCHEDULED` with `intervalSeconds: 600` (proactive rebuild
 
 ### Known graphs and bindings
 
-| Enum / binding               | Config / API            | Notes                                                             |
-| ---------------------------- | ----------------------- | ----------------------------------------------------------------- |
-| `KnownEntityGraph.DOMAIN`    | `graphs.domain`         | Required when cache enabled; `search` + FULL                      |
-| `KnownEntityGraph.GLOSSARY`  | `graphs.glossary`       | Required when cache enabled; `graph` + PARTIAL                    |
-| `KnownEntityGraph.CONTAINER` | `graphs.container`      | Required when cache enabled; `graph` + PARTIAL                    |
-| `bindings.filterFields`      | `bindingForFilterField` | Requires `search` + FULL                                          |
-| `bindings.policyFieldTypes`  | `bindingForPolicyField` | `primary`, or `search` with `scope.mode: FULL` (bundled `domain`) |
+| Enum / binding                | Config / API            | Default when enabled                                                      |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------- |
+| `KnownEntityGraph.DOMAIN`     | `graphs.domain`         | `search` + FULL; overlay may set `buildSource: graph` or `enabled: false` |
+| `KnownEntityGraph.GLOSSARY`   | `graphs.glossary`       | `graph` + PARTIAL; overlay may set `enabled: false`                       |
+| `KnownEntityGraph.CONTAINER`  | `graphs.container`      | `graph` + PARTIAL; overlay may set `enabled: false`                       |
+| `KnownEntityGraph.MEMBERSHIP` | `graphs.membership`     | `graph` + FULL; overlay may set `enabled: false`                          |
+| `bindings.filterFields`       | `bindingForFilterField` | Requires `search` or `graph` with `scope.mode: FULL`                      |
+| `bindings.policyFieldTypes`   | `bindingForPolicyField` | `primary`, or `search`/`graph` with `scope.mode: FULL`                    |
+
+Known graphs are **not required** when the cache is enabled. `enabled: false` (or omitting the graph) skips snapshot build and scheduled rebuild; GraphQL / VBAC / filter rewriters use live aspect walks or `GraphRetriever` scroll. `scope.mode` cannot be changed for an enabled known graph (FULL vs PARTIAL). Overlaying `buildSource` for FULL known graphs is limited to `graph` or `search` (not `primary`).
 
 Bundled domain, glossary, and container graphs use `KnownEntityGraph` in Java; container and glossary call sites resolve specs via `HierarchyBindings` (not YAML `bindings.*`).
 
@@ -593,7 +615,7 @@ PARTIAL graphs store **one Hazelcast entry per WCC** at `{graphId}@{source}:{fin
 
 ## Verification (smoke tests)
 
-Python smoke tests under [`smoke-test/tests/entity_graph_cache/`](../../smoke-test/tests/entity_graph_cache/) exercise cache-backed GraphQL hierarchy reads and sync invalidation against a running GMS instance (default bundled `entity-graph-cache.yaml`, no JSON overlay required).
+Python smoke tests under [`smoke-test/tests/e2e/entity_graph_cache/`](../../smoke-test/tests/e2e/entity_graph_cache/) exercise cache-backed GraphQL hierarchy reads and sync invalidation against a running GMS instance (default bundled `entity-graph-cache.yaml`, no JSON overlay required).
 
 | Test                                                    | What it validates                                                                               |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
@@ -609,12 +631,12 @@ Python smoke tests under [`smoke-test/tests/entity_graph_cache/`](../../smoke-te
 
 ```bash
 cd smoke-test
-pytest tests/entity_graph_cache -q
+pytest tests/e2e/entity_graph_cache -q
 ```
 
 Hierarchy setup uses batched `graph_client.emit_mcp` plus one `wait_for_writes_to_sync()` per test; GraphQL mutations are reserved for sync invalidation cases only. Prometheus counter tests skip when pytest-xdist is active, `BATCH_COUNT > 1`, or GMS management port (`4319`) is not reachable from the test runner — GraphQL assertions are the CI contract.
 
-Related domain regression coverage (including immediate parent delete after child removal): `pytest tests/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
+Related domain regression coverage (including immediate parent delete after child removal): `pytest tests/e2e/domains/domains_test.py::test_delete_parent_domain_immediately_after_child_deletion`.
 
 ## Related documentation
 

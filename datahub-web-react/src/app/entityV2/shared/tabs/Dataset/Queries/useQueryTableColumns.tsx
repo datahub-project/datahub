@@ -31,6 +31,7 @@ interface Props {
     queries: Query[];
     hoveredQueryUrn: string | null;
     showDetails?: boolean;
+    // The antd list still passes these. Editing moved off the card, so the column does not forward them.
     showEdit?: boolean;
     showDelete?: boolean;
     onDeleted?: (query) => void;
@@ -43,8 +44,6 @@ export default function useQueryTableColumns({
     queries,
     hoveredQueryUrn,
     showDetails,
-    showEdit,
-    showDelete,
     onDeleted,
     onEdited,
     sorting,
@@ -71,6 +70,9 @@ export default function useQueryTableColumns({
         title: t('queryCard.columnDescription'),
         dataIndex: 'description',
         key: 'description',
+        // Give the cell a min-width so the auto-layout table can't squeeze it to min-content, which
+        // would wrap the markdown one word (or character) per line when the side panel is open.
+        className: 'description',
         render: (description: string) => <QueryDescription description={description} />,
     };
 
@@ -84,17 +86,12 @@ export default function useQueryTableColumns({
             return (
                 <div style={{ width: width || 450 }}>
                     <QueryComponent
-                        urn={query.urn}
                         title={query.title || undefined}
                         description={query.description || undefined}
                         query={query.query}
                         createdAtMs={query.createdTime}
-                        showDelete={showDelete}
-                        showEdit={showEdit}
                         showDetails={showDetails}
                         showHeader={false}
-                        onDeleted={() => onDeleted?.(query)}
-                        onEdited={(newQuery) => onEdited?.(newQuery)}
                         isCompact
                     />
                 </div>
@@ -106,6 +103,7 @@ export default function useQueryTableColumns({
         title: t('queryCard.columnCreatedBy'),
         dataIndex: 'createdBy',
         key: 'createdBy',
+        width: 85,
         sorter: shouldRelyOnBackendSorting
             ? false // we don't support sorting by createdBy on backend since it is a text field
             : (queryA, queryB) => {

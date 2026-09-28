@@ -36,6 +36,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
                     properties: {
                         name: builderState.name,
                         description: builderState.description || undefined,
+                        parentDataProduct: builderState.parentDataProductUrn || undefined,
                     },
                 },
             },

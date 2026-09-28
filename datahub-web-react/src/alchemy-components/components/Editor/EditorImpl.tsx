@@ -25,11 +25,14 @@ import {
     TableExtension,
     UnderlineExtension,
 } from 'remirror/extensions';
+import type { CodeBlockOptions } from 'remirror/extensions';
 import { useTheme } from 'styled-components';
 
 import { EditorContainer, getEditorTheme } from '@components/components/Editor/EditorTheme';
 import { OnChangeMarkdown } from '@components/components/Editor/OnChangeMarkdown';
 import RemirrorLocaleProvider from '@components/components/Editor/RemirrorLocaleProvider';
+import { DetailsExtension } from '@components/components/Editor/extensions/details/DetailsExtension';
+import { DetailsSummaryExtension } from '@components/components/Editor/extensions/details/DetailsSummaryExtension';
 import { FileDragDropExtension } from '@components/components/Editor/extensions/fileDragDrop/FileDragDropExtension';
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
@@ -45,6 +48,16 @@ import { notEmpty } from '@app/entityV2/shared/utils';
 
 // CSS class applied to the editor surface for antd typography styling.
 const EDITOR_CLASS_NAMES = ['ant-typography'];
+
+/**
+ * Picks the prism syntax theme that matches the app theme. The light theme's
+ * token colors are mid-tone by design and become unreadable on a dark surface,
+ * so dark mode needs a genuinely dark-tuned palette rather than a recolored
+ * background.
+ */
+function getSyntaxTheme(themeId: string): CodeBlockOptions['syntaxTheme'] {
+    return themeId === 'themeV2Dark' ? 'a11y_dark' : 'base16_ateliersulphurpool_light';
+}
 
 export const Editor = forwardRef((props: EditorProps, ref) => {
     const {
@@ -66,13 +79,16 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
     } = props;
     const styledTheme = useTheme();
     const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
+    const syntaxTheme = getSyntaxTheme(styledTheme.id);
 
     const { manager, state, getContext } = useRemirror({
         extensions: () => [
+            new DetailsExtension(),
+            new DetailsSummaryExtension(),
             new BlockquoteExtension(),
             new BoldExtension({}),
             new BulletListExtension({}),
-            new CodeBlockExtension({ syntaxTheme: 'base16_ateliersulphurpool_light' }),
+            new CodeBlockExtension({ syntaxTheme }),
             new CodeExtension(),
             new DataHubMentionsExtension({}),
             new DropCursorExtension({
@@ -109,6 +125,12 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             manager.view.focus();
         }
     });
+    // The extensions factory only runs on mount, so an editor that is already open
+    // when the user toggles dark mode has to be told about the new syntax theme.
+    useEffect(() => {
+        manager.getExtension(CodeBlockExtension).setOptions({ syntaxTheme });
+    }, [manager, syntaxTheme]);
+
     useEffect(() => {
         if (readOnly && notEmpty(content)) {
             manager.store.commands.setContent(content);

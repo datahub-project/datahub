@@ -26,8 +26,11 @@ export default function useBasicAssetProperties() {
             case EntityType.GlossaryNode:
                 return [CREATED_PROPERTY, OWNERS_PROPERTY];
             case EntityType.DataProduct:
-                return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
             case EntityType.Dataset:
+            case EntityType.Application:
+            case EntityType.Container:
+            case EntityType.Chart:
+            case EntityType.Dashboard:
                 return [CREATED_PROPERTY, OWNERS_PROPERTY, DOMAIN_PROPERTY, TAGS_PROPERTY, TERMS_PROPERTY];
             case EntityType.SemanticModel:
                 return [LAST_INGESTED_PROPERTY, DOMAIN_PROPERTY, OWNERS_PROPERTY, TERMS_PROPERTY];

@@ -58,7 +58,7 @@ function DomainNavigatorInner({
 }: Props) {
     const { t } = useTranslation('governance.domain');
     const { t: tm } = useTranslation('misc');
-    const { selectedOwnerUrns, setAvailableOwners } = useDomainSidebarFilters();
+    const { selectedOwnerUrns, setAvailableOwners, sortSelection } = useDomainSidebarFilters();
     const expansion = useTreeExpansionRegistry();
     const isSidebar = variant === 'sidebar';
 
@@ -76,6 +76,7 @@ function DomainNavigatorInner({
     const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({
         selectedOwnerUrns: isSidebar ? selectedOwnerUrns : undefined,
         ignoreParentScope: isFiltering,
+        sort: isSidebar ? sortSelection : undefined,
     });
 
     // Dropdown options come from a dedicated aggregation query that covers

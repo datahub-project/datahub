@@ -40,6 +40,9 @@
     "deprecation.ok": "Descontinuar",
     "deprecation.reasonLabel": "Motivo",
     "deprecation.reasonPlaceholder": "Añadir motivo",
+    "deprecation.replacementColumnLabel": "Columna",
+    "deprecation.replacementColumnPlaceholder": "Seleccionar columna",
+    "deprecation.replacementParentPlaceholder": "Seleccionar {{entityName}}",
     "deprecation.replacementLabel": "Reemplazo",
     "deprecation.replacementSearchTitle": "Seleccione una entidad con la que reemplazar la entidad obsoleta.",
     "deprecation.selectReplacement": "Seleccionar reemplazo",
@@ -95,5 +98,8 @@
     "unlinkVersion.confirmTitle": "¿Está seguro?",
     "unlinkVersion.error": "No se pudo desvincular: \n {{errorMessage}}",
     "unlinkVersion.loading": "Desvinculando...",
-    "unlinkVersion.success": "¡{{entityName}} desvinculado!"
+    "unlinkVersion.success": "¡{{entityName}} desvinculado!",
+    "dataProductSelect.notFound": "No se encontraron Data Products",
+    "dataProductSelect.placeholder": "Seleccionar un Data Product padre",
+    "moveDataProduct.title": "Mover Data Product"
 }

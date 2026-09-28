@@ -2,9 +2,9 @@ package com.linkedin.metadata.graph.cache.client;
 
 import com.datahub.authorization.SessionActorIdentity;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.graph.cache.MembershipNeighborResult;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import java.util.ArrayList;
@@ -46,7 +46,7 @@ public final class BoundMembershipAccess {
     if (relationshipTypes.isEmpty() || count <= 0) {
       return MembershipNeighborResult.fromNeighbors(List.of(), 0);
     }
-    if (shouldUseCache(includeSoftDelete)) {
+    if (shouldUseCache(opContext, spec, includeSoftDelete)) {
       MembershipNeighborResult cached =
           EntityGraphCacheClients.listRelated(
               opContext,
@@ -138,7 +138,7 @@ public final class BoundMembershipAccess {
     for (Urn groupUrn : groupsForUser(opContext, spec, userUrn, includeSoftDelete)) {
       roles.addAll(rolesForGroup(opContext, spec, groupUrn, includeSoftDelete));
     }
-    if (!roles.isEmpty() || !shouldUseCache(includeSoftDelete)) {
+    if (!roles.isEmpty() || includeSoftDelete) {
       return roles;
     }
     ServicesRegistryContext services = opContext.getServicesRegistryContext();
@@ -252,13 +252,18 @@ public final class BoundMembershipAccess {
 
   @Nonnull
   private static Set<Urn> toNeighborUrns(@Nonnull MembershipNeighborResult result) {
-    return result.neighborsOrEmpty().stream()
-        .map(MembershipNeighborResult.Neighbor::neighborUrn)
-        .map(UrnUtils::getUrn)
-        .collect(Collectors.toCollection(LinkedHashSet::new));
+    return EntityGraphEndpoints.toUrnSet(
+        result.neighborsOrEmpty().stream()
+            .map(MembershipNeighborResult.Neighbor::neighborUrn)
+            .collect(Collectors.toCollection(LinkedHashSet::new)));
   }
 
-  private static boolean shouldUseCache(boolean includeSoftDelete) {
-    return !includeSoftDelete;
+  private static boolean shouldUseCache(
+      @Nonnull OperationContext opContext,
+      @Nonnull MembershipReadSpec spec,
+      boolean includeSoftDelete) {
+    return !includeSoftDelete
+        && EntityGraphCacheClients.isBoundKnownGraph(
+            opContext.getEntityGraphCache(), spec.getBinding());
   }
 }

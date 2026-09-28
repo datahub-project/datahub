@@ -1,13 +1,15 @@
 package com.linkedin.gms.factory.search.semantic;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +23,7 @@ public class SemanticEntitySearchServiceFactory {
 
   private static final String DEFAULT_MODEL_EMBEDDING_KEY = "text_embedding_3_large";
 
-  @Autowired
-  @Qualifier("searchClientShim")
-  private SearchClientShim<?> searchClient;
+  @Autowired private SearchClusterRegistry searchClusterRegistry;
 
   @Autowired
   @Qualifier("embeddingProvider")
@@ -39,8 +39,16 @@ public class SemanticEntitySearchServiceFactory {
     String modelEmbeddingKey = deriveModelEmbeddingKey();
     log.info("Creating SemanticEntitySearchService with modelEmbeddingKey={}", modelEmbeddingKey);
 
+    EntityIndexConfiguration entityIndex =
+        configurationProvider.getElasticSearch().getEntityIndex();
+    SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex, searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3));
     return new SemanticEntitySearchService(
-        searchClient, embeddingProvider, mappingsBuilder, modelEmbeddingKey);
+        searchClusterRegistry.clientFor(SearchComponent.SEMANTIC),
+        embeddingProvider,
+        mappingsBuilder,
+        modelEmbeddingKey,
+        entityIndex);
   }
 
   /**
@@ -99,8 +107,10 @@ public class SemanticEntitySearchServiceFactory {
    *   <li>text-embedding-3-large → text_embedding_3_large
    *   <li>embed-english-v3.0 → embed_english_v3_0
    * </ul>
+   *
+   * <p>Package-visible so {@link EmbeddingProviderFactory} validates the same key at startup.
    */
-  private static String deriveModelEmbeddingKeyFromModelId(final String modelId) {
+  static String deriveModelEmbeddingKeyFromModelId(final String modelId) {
     if (modelId == null || modelId.isBlank()) {
       return DEFAULT_MODEL_EMBEDDING_KEY;
     }

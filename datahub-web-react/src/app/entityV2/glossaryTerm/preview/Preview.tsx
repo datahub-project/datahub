@@ -8,7 +8,6 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import UrlButton from '@app/entityV2/shared/UrlButton';
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
-import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -25,7 +24,6 @@ export const Preview = ({
     previewType,
     domain,
     headerDropdownItems,
-    propagationDetails,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -37,7 +35,6 @@ export const Preview = ({
     previewType: PreviewType;
     domain?: Domain | undefined;
     headerDropdownItems?: Set<EntityMenuItems>;
-    propagationDetails?: AttributionDetails;
 }): JSX.Element => {
     const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
@@ -72,7 +69,6 @@ export const Preview = ({
                 </UrlButton>
             }
             headerDropdownItems={headerDropdownItems}
-            propagationDetails={propagationDetails}
         />
     );
 };

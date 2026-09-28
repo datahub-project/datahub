@@ -3,8 +3,7 @@ import React, { useMemo } from 'react';
 import { IconWrapper } from '@components/components/Icon/components';
 import { IconProps, IconPropsDefaults } from '@components/components/Icon/types';
 import { Tooltip } from '@components/components/Tooltip';
-import { ColorOptions } from '@components/theme/config';
-import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
+import { getFontSize, getRotationTransform, getThemedIconColor } from '@components/theme/utils';
 
 import { useCustomTheme } from '@src/customThemeContext';
 
@@ -27,10 +26,7 @@ export const Icon = ({
 }: IconProps) => {
     const { theme } = useCustomTheme();
 
-    const resolvedColor = useMemo(() => {
-        const semantic = color ? theme?.colors?.[color as keyof typeof theme.colors] : undefined;
-        return typeof semantic === 'string' ? semantic : getColor(color as ColorOptions, colorLevel, theme);
-    }, [color, colorLevel, theme]);
+    const resolvedColor = useMemo(() => getThemedIconColor(color, colorLevel, theme), [color, colorLevel, theme]);
 
     if (!IconComponent) return null;
 

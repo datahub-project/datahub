@@ -12,8 +12,9 @@ export function CheckboxField({ field }: CommonFieldProps) {
             recipeField={field}
             style={{ flexDirection: 'row', alignItems: 'center' }}
             valuePropName={VALUE_PROP_NAME}
+            showTooltip
         >
-            <AntdFormCompatibleCheckbox helper={field.helper ?? field.tooltip} disabled={field.disabled} />
+            <AntdFormCompatibleCheckbox helper={field.helper} disabled={field.disabled} />
         </RecipeFormItem>
     );
 }

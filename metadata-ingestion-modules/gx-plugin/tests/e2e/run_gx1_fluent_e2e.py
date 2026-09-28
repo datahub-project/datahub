@@ -348,7 +348,7 @@ def verify_in_datahub(ctx: Dict[str, Any], token: str) -> None:
                 print(f"  {urn}")
                 print(f"    info={json.dumps(info_obj, default=str)[:700]}")
                 custom = info_obj.get("customProperties") or {}
-                native_type = (info_obj.get("datasetAssertion") or {}).get("nativeType")
+                native_type = (info_obj.get("customAssertion") or {}).get("nativeType")
                 if native_type not in expected_by_type:
                     last_error = f"Unexpected nativeType {native_type}"
                     continue

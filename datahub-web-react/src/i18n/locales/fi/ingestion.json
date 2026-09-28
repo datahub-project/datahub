@@ -17,6 +17,7 @@
     "executions.cancelError": "Suorituksen peruuttaminen epäonnistui!: \n {{errorMessage}}",
     "executions.cancelSuccess": "Peruutuspyyntö lähetetty onnistuneesti!",
     "executions.cliExecution": "CLI-suoritus",
+    "executions.cliExecutionBy": "CLI-suoritus, suorittaja <user></user>",
     "executions.colDuration": "Kesto",
     "executions.colExecutedBy": "Suorittaja",
     "executions.colStartedAt": "Aloitettu",

@@ -3,6 +3,8 @@
 // Uses uvInstallProfile from settings.gradle (CLI -P > UV_INSTALL_PROFILE > gradle.properties).
 // Sets UV_CONFIG_FILE, UV_INSTALL_PROFILE, and NETRC on Exec tasks. Rejects profile "custom".
 
+apply from: "${rootProject.projectDir}/gradle/python/netrc.gradle"
+
 def uvInstallProfile = gradle.ext['datahub.dependencies.python.uvInstallProfile']
 def uvConfigPath = gradle.ext['resolveUvProfileFile'](uvInstallProfile)
 
@@ -14,6 +16,8 @@ def netrcPath = {
   def file = new File(path)
   return file.exists() ? file.absolutePath : null
 }()
+
+validateDatahubNetrc(netrcPath ?: System.getenv("NETRC"))
 
 if (uvConfigPath) {
   logger.lifecycle("[python-uv] ${project.path}: UV_CONFIG_FILE=${uvConfigPath} (uvInstallProfile=${uvInstallProfile})")

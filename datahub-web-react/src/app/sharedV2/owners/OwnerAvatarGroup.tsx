@@ -21,9 +21,11 @@ type OwnerLike = {
 type Props = {
     owners: OwnerLike[];
     entityRegistry: EntityRegistry;
+    /** When true, skip wrapping the single-owner avatar in a Link (avoids nested anchors). */
+    hideLink?: boolean;
 };
 
-export const OwnerAvatarGroup = ({ owners, entityRegistry }: Props) => {
+export const OwnerAvatarGroup = ({ owners, entityRegistry, hideLink }: Props) => {
     if (owners.length === 0) return null;
 
     const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
@@ -34,21 +36,28 @@ export const OwnerAvatarGroup = ({ owners, entityRegistry }: Props) => {
         urn: o.owner.urn,
     }));
 
+    const singleOwnerAvatar = singleOwner ? (
+        <Avatar
+            name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+            imageUrl={(singleOwner as any).editableProperties?.pictureLink}
+            showInPill
+            type={mapEntityTypeToAvatarType(singleOwner.type)}
+        />
+    ) : null;
+
     return (
         <>
-            {singleOwner && (
-                <Link
-                    to={entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <Avatar
-                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
-                        imageUrl={(singleOwner as any).editableProperties?.pictureLink}
-                        showInPill
-                        type={mapEntityTypeToAvatarType(singleOwner.type)}
-                    />
-                </Link>
-            )}
+            {singleOwner &&
+                (hideLink ? (
+                    singleOwnerAvatar
+                ) : (
+                    <Link
+                        to={entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {singleOwnerAvatar}
+                    </Link>
+                ))}
             {owners.length > 1 && (
                 <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
             )}

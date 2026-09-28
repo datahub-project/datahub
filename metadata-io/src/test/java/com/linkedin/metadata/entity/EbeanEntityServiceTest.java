@@ -35,11 +35,15 @@ import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.EbeanConfiguration;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanRetentionService;
+import com.linkedin.metadata.entity.ebean.PassThroughScopedTransactionFactory;
+import com.linkedin.metadata.entity.ebean.PlainAspectTableResolver;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.retention.RetentionTestUtils;
 import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
@@ -47,6 +51,7 @@ import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.retention.DataHubRetentionConfig;
@@ -98,6 +103,8 @@ public class EbeanEntityServiceTest
   /** Real retention service used to test policy resolution without spy stubbing. */
   private EbeanRetentionService<ChangeItemImpl> _realRetentionService;
 
+  private final MetricUtils metricUtils = mock(MetricUtils.class);
+
   public EbeanEntityServiceTest() throws EntityRegistryException {}
 
   @DataProvider(name = "cdcModeVariants")
@@ -137,14 +144,31 @@ public class EbeanEntityServiceTest
             EbeanConfiguration.testDefault,
             null,
             List.of(),
-            null);
+            null,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server));
 
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, _mockProducer, false, cdcMode, preProcessHooks, true);
+        new EntityServiceImpl(
+            _aspectDao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(cdcMode)
+                .setEnableBrowseV2(true),
+            metricUtils);
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
-    _realRetentionService = new EbeanRetentionService<>(_entityServiceImpl, server, 1000);
+    _realRetentionService =
+        new EbeanRetentionService<>(
+            _entityServiceImpl,
+            server,
+            1000,
+            new PlainAspectTableResolver(),
+            new PassThroughScopedTransactionFactory(server),
+            RetentionTestUtils.systemEntityClient(_entityServiceImpl, _mockProducer, metricUtils));
     _retentionService = (EbeanRetentionService<ChangeItemImpl>) spy(_realRetentionService);
     doReturn(20)
         .when(_retentionService)
@@ -295,7 +319,12 @@ public class EbeanEntityServiceTest
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(false);
     EntityServiceImpl entityService =
-        new EntityServiceImpl(aspectDao, _mockProducer, false, preProcessHooks, true);
+        new EntityServiceImpl(
+            aspectDao,
+            _mockProducer,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(false).setEnableBrowseV2(true),
+            metricUtils);
 
     // Create the test batch
     List<ChangeItemImpl> items =

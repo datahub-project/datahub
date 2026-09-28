@@ -27,7 +27,7 @@ from ._shared import read_token_passthrough
 from .base import Phase, PhaseResult
 from .upgrade_blocking import parse_indices_state
 from ..config import ZDUTestConfig
-from ..constants import REPO_ROOT
+from ..constants import REPO_ROOT, ZDU_NEW_REVISION
 from ..context import (
     IOObservation,
     IOWriteResult,
@@ -52,6 +52,7 @@ from ..mysql_client import MySQLClient
 # env var so the choice is config-driven and discoverable, not source-edit-only.
 
 log = logging.getLogger(__name__)
+
 
 _SWEEP_START_TIMEOUT = 120  # seconds to wait for STARTED event
 _BATCH_POLL_INTERVAL = 1  # seconds between queue drain cycles
@@ -336,6 +337,7 @@ class UpgradeNonBlockingPhase(Phase):
                     self._config.pre_write_delay_ms
                 ),
                 "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
+                "DATAHUB_REVISION": ZDU_NEW_REVISION,
                 "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX": "true",
             },
             service=self._config.upgrade_service,
@@ -418,6 +420,7 @@ class UpgradeNonBlockingPhase(Phase):
                             self._config.pre_write_delay_ms
                         ),
                         "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
+                        "DATAHUB_REVISION": ZDU_NEW_REVISION,
                         "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX": "true",
                     },
                     service=self._config.upgrade_service,

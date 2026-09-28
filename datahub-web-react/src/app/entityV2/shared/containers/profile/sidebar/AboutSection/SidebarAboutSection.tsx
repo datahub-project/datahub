@@ -4,7 +4,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
-import { EMPTY_MESSAGES, ENTITY_TYPES_WITH_NEW_SUMMARY_TAB } from '@app/entityV2/shared/constants';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import LinksSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/LinksSection';
 import SourceRefSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SourceRefSection';
@@ -13,7 +13,7 @@ import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
-import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
+import { useEntityHasSummaryTab } from '@app/entityV2/summary/useEntityHasSummaryTab';
 import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
 import { getAssetDescriptionDetails } from '@src/app/entityV2/shared/tabs/Documentation/utils';
 import useIsLineageMode from '@src/app/lineage/utils/useIsLineageMode';
@@ -58,7 +58,11 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
 
     const canEditDescription = useDocumentationPermission();
 
-    const showNewSummaryTab = useShowAssetSummaryPage();
+    // Edit where this profile actually renders documentation: the Summary tab when it has one,
+    // otherwise the Documentation tab.
+    const hasSummaryTab = useEntityHasSummaryTab(entityType);
+    const editTab = hasSummaryTab ? SUMMARY_TAB : DOCUMENTATION_TAB;
+    const editTabParams = hasSummaryTab ? { editingDescription: true } : { editing: true };
 
     return (
         <>
@@ -85,17 +89,7 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                 dataTestId="editDocumentation"
                                 onClick={(event) => {
                                     if (!isEmbeddedProfile) {
-                                        if (
-                                            ENTITY_TYPES_WITH_NEW_SUMMARY_TAB.includes(entityType) &&
-                                            showNewSummaryTab
-                                        ) {
-                                            routeToTab({
-                                                tabName: SUMMARY_TAB,
-                                                tabParams: { editingDescription: true },
-                                            });
-                                        } else {
-                                            routeToTab({ tabName: DOCUMENTATION_TAB, tabParams: { editing: true } });
-                                        }
+                                        routeToTab({ tabName: editTab, tabParams: editTabParams });
                                     } else {
                                         const url = getEntityPath(
                                             entityType,
@@ -103,10 +97,8 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
                                             entityRegistry,
                                             isLineageMode,
                                             isHideSiblingMode,
-                                            DOCUMENTATION_TAB,
-                                            {
-                                                editing: true,
-                                            },
+                                            editTab,
+                                            editTabParams,
                                         );
                                         window.open(url, '_blank');
                                     }

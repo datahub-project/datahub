@@ -119,8 +119,12 @@ public class GenerateAssertionEntityFieldStepTest {
     @SuppressWarnings("unchecked")
     PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
     when(mockAspectDao.streamAspectBatches(
-            any(OperationContext.class), any(RestoreIndicesArgs.class)))
-        .thenReturn(mockStream);
+            any(OperationContext.class), any(RestoreIndicesArgs.class), any()))
+        .thenAnswer(
+            inv ->
+                ((java.util.function.Function<PartitionedStream<EbeanAspectV2>, Object>)
+                        inv.getArgument(2))
+                    .apply(mockStream));
 
     // Return empty stream to avoid complex mocking of EntityUtils
     when(mockStream.partition(anyInt())).thenReturn(Stream.empty());
@@ -131,7 +135,8 @@ public class GenerateAssertionEntityFieldStepTest {
     UpgradeStepResult result = step.executable().apply(mockContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    verify(mockAspectDao).streamAspectBatches(any(OperationContext.class), argsCaptor.capture());
+    verify(mockAspectDao)
+        .streamAspectBatches(any(OperationContext.class), argsCaptor.capture(), any());
     assertEquals(argsCaptor.getValue().aspectNames().get(0), "assertionInfo");
     assertEquals(argsCaptor.getValue().batchSize(), 10);
     assertEquals(argsCaptor.getValue().limit(), 1000);

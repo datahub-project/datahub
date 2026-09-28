@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom';
 import { DocumentTreeNode, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useDocumentNavigation } from '@app/document/hooks/useDocumentNavigation';
 import { revealDocumentInTree } from '@app/document/utils/documentTreeReveal';
+import { isDocumentUnpublished, isExternalDocument } from '@app/document/utils/documentUtils';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 
@@ -19,8 +20,9 @@ interface RevealLoaders {
 
 /**
  * When the open document changes via URL (deep link / in-app navigation), expand and
- * load its ancestor path in the sidebar tree so the selected row can mount and scroll
- * into view. No-op while roots are still initializing or when there is no document URN.
+ * load its ancestor path in the sidebar tree so the selected row can mount — but only
+ * if that path's root is already in the loaded sorted window. Never pages the root
+ * list to chase the open doc (that broke Name A–Z and scrolled users to the bottom).
  */
 export function useRevealDocumentInTree({
     loadChildren,
@@ -76,6 +78,12 @@ export function useRevealDocumentInTree({
                     documentUrn,
                     documentTitle: data.document?.info?.title,
                     parentDocuments: parents,
+                    documentMeta: {
+                        platform: data.document?.platform ?? null,
+                        isExternal: isExternalDocument(data.document),
+                        isUnpublished: isDocumentUnpublished(data.document),
+                        lastModifiedAt: data.document?.info?.lastModified?.time ?? 0,
+                    },
                     getNode: (urn) => getNodeRef.current(urn),
                     expandNode: (urn) => expandNodeRef.current(urn),
                     ensureNode: (node) => {

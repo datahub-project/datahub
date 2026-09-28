@@ -57,9 +57,6 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
-from datahub.ingestion.source.profiling.common import (
-    create_datahub_ge_profiler,
-)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
@@ -125,9 +122,8 @@ from datahub.utilities.sqlalchemy_type_converter import (
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.profiling.common import (
-        ProfilerRequest as GEProfilerRequest,
+        ProfilerRequest,
     )
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
@@ -595,7 +591,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         sql_config = self.config
         for inspector in self.get_inspectors():
             profiler = None
-            profile_requests: List["GEProfilerRequest"] = []
+            profile_requests: List["ProfilerRequest"] = []
             profiler = self.get_profiler_instance(inspector)
             try:
                 self.add_profile_metadata(inspector)
@@ -1339,39 +1335,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         database, schema, _view = dataset_identifier.split(".", 2)
         return database, schema
 
-    def get_profiler_instance(
-        self, inspector: Inspector
-    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
-        # Import custom profiler first (no GE dependency)
+    def get_profiler_instance(self, inspector: Inspector) -> "SQLAlchemyProfiler":
         from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
             SQLAlchemyProfiler,
         )
 
-        if self.config.profiling.method == "sqlalchemy":
-            logger.info(
-                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
-            )
-            return SQLAlchemyProfiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
-        else:
-            logger.info(
-                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
-            )
-            return create_datahub_ge_profiler(
-                conn=inspector.bind,
-                report=self.report,
-                config=self.config.profiling,
-                platform=self.platform,
-                env=self.config.env,
-            )
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
 
     def get_profile_args(self) -> Dict:
-        """Passed down to GE profiler"""
+        """Passed down to the profiler"""
         return {}
 
     # Override if needed
@@ -1420,9 +1401,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         inspector: Inspector,
         schema: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable["GEProfilerRequest"]:
+    ) -> Iterable["ProfilerRequest"]:
         from datahub.ingestion.source.profiling.common import (
-            ProfilerRequest as GEProfilerRequest,
+            ProfilerRequest,
         )
 
         tables_seen: Set[str] = set()
@@ -1491,7 +1472,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             logger.debug(
                 f"Preparing profiling request for {schema}, {table}, {partition}"
             )
-            yield GEProfilerRequest(
+            yield ProfilerRequest(
                 pretty_name=dataset_name,
                 batch_kwargs=self.prepare_profiler_args(
                     inspector=inspector,
@@ -1511,8 +1492,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def loop_profiler(
         self,
-        profile_requests: List["GEProfilerRequest"],
-        profiler: Union["DatahubGEProfiler", "SQLAlchemyProfiler"],
+        profile_requests: List["ProfilerRequest"],
+        profiler: "SQLAlchemyProfiler",
         platform: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for request, profile in profiler.generate_profiles(

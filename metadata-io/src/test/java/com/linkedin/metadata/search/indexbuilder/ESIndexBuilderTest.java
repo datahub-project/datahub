@@ -14,6 +14,7 @@ import static org.testng.Assert.fail;
 
 import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
@@ -26,6 +27,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.ByteArrayInputStream;
@@ -39,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.http.HttpEntity;
 import org.mockito.ArgumentCaptor;
@@ -167,6 +170,31 @@ public class ESIndexBuilderTest {
     assertEquals(indexBuilder.getConfig().getIndex().getNumRetries(), NUM_RETRIES);
     assertEquals(
         indexBuilder.getConfig().getIndex().getRefreshIntervalSeconds(), REFRESH_INTERVAL_SECONDS);
+  }
+
+  @Test
+  void testShouldPreserveStructuredPropertyMappings() {
+    // Explicit copy request always preserves (the definition-driven mapping-update path).
+    Assert.assertTrue(indexBuilder.shouldPreserveStructuredPropertyMappings(true));
+    // With the structured-property system-update machinery disabled (the default), the current
+    // index's SP mappings must be carried into the reindex target: the container is mapped
+    // dynamic:false, so a target without them would leave every pre-existing SP value unindexed.
+    Assert.assertTrue(indexBuilder.shouldPreserveStructuredPropertyMappings(false));
+
+    ESIndexBuilder systemUpdateEnabledBuilder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            StructuredPropertiesConfiguration.builder()
+                .enabled(true)
+                .systemUpdateEnabled(true)
+                .build(),
+            Map.of(),
+            gitVersion);
+    // When the system-update machinery owns the SP mapping diff (including removals), current
+    // mappings must not be merged into the target.
+    Assert.assertFalse(systemUpdateEnabledBuilder.shouldPreserveStructuredPropertyMappings(false));
+    Assert.assertTrue(systemUpdateEnabledBuilder.shouldPreserveStructuredPropertyMappings(true));
   }
 
   @Test
@@ -814,8 +842,8 @@ public class ESIndexBuilderTest {
     // Names are derived from the context's IndexConvention so the semantic suffix (and any
     // configured prefix) match what isSemanticEntityIndex expects.
     IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
-    String baseName = indexConvention.getEntityIndexName("dataset");
-    String semanticSibling = indexConvention.getEntityIndexNameSemantic("dataset");
+    String baseName = indexConvention.getEntityIndexName(opContext, "dataset");
+    String semanticSibling = indexConvention.getEntityIndexNameSemantic(opContext, "dataset");
     String baseBackingOrphan = baseName + "_1700000000000";
     String semanticBackingOrphan = semanticSibling + "_1700000000000";
 
@@ -902,6 +930,87 @@ public class ESIndexBuilderTest {
 
     // Verify
     verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class));
+  }
+
+  @Test
+  void testApplyMappings_StripsKnnVectorWhenIndexKnnCannotBeEnabled() throws IOException {
+    Map<String, Object> targetMappings = new HashMap<>();
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("field1", ImmutableMap.of("type", "text"));
+    properties.put("resolvedTextSha256", ImmutableMap.of("type", "keyword"));
+    properties.put(
+        "embeddings",
+        ImmutableMap.of(
+            "properties",
+            ImmutableMap.of(
+                "model_a",
+                ImmutableMap.of(
+                    "properties",
+                    ImmutableMap.of(
+                        "vector",
+                        ImmutableMap.of(
+                            "type",
+                            ReindexConfig.KNN_VECTOR_TYPE,
+                            "dimension",
+                            8,
+                            "method",
+                            ImmutableMap.of("name", "hnsw")))))));
+    targetMappings.put("properties", properties);
+
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.isPureMappingsAddition()).thenReturn(true);
+    when(indexState.cannotApplyKnnVectorMappingInPlace()).thenReturn(true);
+    when(indexState.targetMappings()).thenReturn(targetMappings);
+
+    AcknowledgedResponse putMappingResponse = mock(AcknowledgedResponse.class);
+    when(putMappingResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.putIndexMapping(
+            any(OperationFingerprint.class),
+            any(PutMappingRequest.class),
+            any(RequestOptions.class)))
+        .thenReturn(putMappingResponse);
+
+    indexBuilder.applyMappings(opContext, indexState, true);
+
+    ArgumentCaptor<PutMappingRequest> captor = ArgumentCaptor.forClass(PutMappingRequest.class);
+    verify(searchClient)
+        .putIndexMapping(
+            any(OperationFingerprint.class), captor.capture(), any(RequestOptions.class));
+    String source = captor.getValue().source().utf8ToString();
+    assertFalse(source.contains(ReindexConfig.KNN_VECTOR_TYPE));
+    assertTrue(source.contains("field1"));
+    assertTrue(source.contains("resolvedTextSha256"));
+    assertTrue(
+        targetMappings.toString().contains(ReindexConfig.KNN_VECTOR_TYPE),
+        "targetMappings must still include knn_vector for createIndex/reindex");
+  }
+
+  @Test
+  void testBuildIndex_KnnMismatchWithSettingsReindexEnabledDoesNotPutMapping() throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.exists()).thenReturn(true);
+    when(indexState.name()).thenReturn(TEST_INDEX_NAME);
+    when(indexState.requiresApplyMappings()).thenReturn(true);
+    when(indexState.requiresApplySettings()).thenReturn(true);
+    when(indexState.requiresReindex()).thenReturn(true);
+    when(indexState.currentMappings()).thenReturn(createTestMappings());
+    when(indexState.targetMappings()).thenReturn(createTestMappings());
+    when(indexState.targetSettings()).thenReturn(createTestTargetSettings());
+
+    assertTrue(indexState.requiresReindex());
+
+    try {
+      indexBuilder.buildIndex(opContext, indexState);
+    } catch (RuntimeException ignored) {
+      // reindex() needs more cluster mocks; we only care that put-mapping is not used
+    }
+
+    verify(searchClient, never())
         .putIndexMapping(
             any(OperationFingerprint.class),
             any(PutMappingRequest.class),
@@ -1931,35 +2040,28 @@ public class ESIndexBuilderTest {
 
   // --- Incremental reindex tests ---
 
-  /**
-   * When the ES {@code _reindex} task has COMPLETED but the destination is still short of the
-   * source, documents were dropped. With no retry budget left the poll loop must give up promptly
-   * (returning not-completed) instead of silently spinning on doc counts until the reindex timeout.
-   */
-  @Test
-  void testPollReindexCompletion_completedButShort_failsWithoutRetriggerWhenRetriesExhausted()
-      throws Throwable {
-    // numRetries=0 leaves no retry budget and keeps getDocumentCounts' mismatch back-off short.
+  /** Shared poll-completion fixture: fixed dest count for both indices. */
+  private ESIndexBuilder setupPollReindexBuilder(long destDocCount) throws IOException {
+    return setupPollReindexBuilder(destDocCount, 0);
+  }
+
+  private ESIndexBuilder setupPollReindexBuilder(long destDocCount, int numRetries)
+      throws IOException {
     when(elasticSearchConfiguration.getIndex())
         .thenReturn(
             IndexConfiguration.builder()
                 .numShards(NUM_SHARDS)
                 .numReplicas(NUM_REPLICAS)
-                .numRetries(0)
+                .numRetries(numRetries)
                 .refreshIntervalSeconds(REFRESH_INTERVAL_SECONDS)
                 .maxReindexHours(1)
                 .build());
-    ESIndexBuilder builder =
-        new ESIndexBuilder(
-            searchClient,
-            elasticSearchConfiguration,
-            TEST_ES_STRUCT_PROPS_DISABLED,
-            Map.of(),
-            gitVersion);
+    when(buildIndicesConfig.getReindexNoProgressRetryMinutes()).thenReturn(0);
+    when(buildIndicesConfig.getCountRetryMaxAttempts()).thenReturn(1);
+    when(buildIndicesConfig.getCountRetryWaitSeconds()).thenReturn(0);
 
-    // Destination holds fewer docs than the source (900 of 1000) — the dropped-docs signature.
     CountResponse countResponse = mock(CountResponse.class);
-    when(countResponse.getCount()).thenReturn(900L);
+    when(countResponse.getCount()).thenReturn(destDocCount);
     when(searchClient.count(
             any(OperationContext.class), any(CountRequest.class), any(RequestOptions.class)))
         .thenReturn(countResponse);
@@ -1969,11 +2071,31 @@ public class ESIndexBuilderTest {
             any(RequestOptions.class)))
         .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
 
-    // ES reports the reindex task itself has COMPLETED, even though the target is short.
-    GetTaskResponse completedTask = mock(GetTaskResponse.class);
-    when(completedTask.isCompleted()).thenReturn(true);
+    return new ESIndexBuilder(
+        searchClient,
+        elasticSearchConfiguration,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion);
+  }
+
+  private void stubReindexTaskCompleted(boolean completed) throws IOException {
+    GetTaskResponse task = mock(GetTaskResponse.class);
+    when(task.isCompleted()).thenReturn(completed);
     when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
-        .thenReturn(Optional.of(completedTask));
+        .thenReturn(Optional.of(task));
+  }
+
+  /**
+   * When the ES {@code _reindex} task has COMPLETED but the destination is still short of the
+   * source, documents were dropped. With no retry budget left the poll loop must give up promptly
+   * (returning not-completed) instead of silently spinning on doc counts until the reindex timeout.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_failsWithoutRetriggerWhenRetriesExhausted()
+      throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(900L);
+    stubReindexTaskCompleted(true);
 
     ESIndexBuilder.PollReindexResult result =
         builder.pollReindexCompletion(
@@ -1983,10 +2105,146 @@ public class ESIndexBuilderTest {
         result.completed(), "A completed-but-short reindex must be reported as not completed");
     assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
     assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(900L));
-    // With no retry budget it must give up rather than re-submitting.
     verify(searchClient, never())
         .submitReindexTask(
             any(OperationFingerprint.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * Mid-copy false positive: dest has already reached the expected count but the ES task is still
+   * running. Poll must not complete — otherwise the launch-time swap gate would accept a partial
+   * copy.
+   */
+  @Test
+  void testPollReindexCompletion_countsMatchButTaskRunning_doesNotComplete() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    stubReindexTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(
+        result.completed(),
+        "Matching counts while the reindex task is still running must not complete");
+  }
+
+  /**
+   * Stall detection would otherwise resubmit while the ES task is still running. With
+   * waitForUnresolvedReindexTask enabled, skip that retry (retry budget is still available).
+   */
+  @Test
+  void testPollReindexCompletion_unresolvedTask_skipsRetryWhenFeatureEnabled() throws Throwable {
+    ESIndexBuilder builder = spy(setupPollReindexBuilder(1000L, NUM_RETRIES));
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(true);
+    doReturn(System.currentTimeMillis() + 200L).when(builder).computeTimeoutAt();
+    stubReindexTaskCompleted(false);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(result.completed());
+    verify(searchClient, never())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /**
+   * ZDU catch-up: dest is still short after the ES task COMPLETED, retry budget remains, and
+   * waitForUnresolvedReindexTask is on. COMPLETED is not unresolved, so poll must still resubmit
+   * {@code _reindex} rather than skipping.
+   */
+  @Test
+  void testPollReindexCompletion_completedButShort_retriesWhenFeatureEnabled() throws Throwable {
+    setupPollReindexBuilder(900L, NUM_RETRIES);
+    when(buildIndicesConfig.isWaitForUnresolvedReindexTask()).thenReturn(true);
+    when(buildIndicesConfig.isReindexOptimizationEnabled()).thenReturn(false);
+    stubReindexTaskCompleted(true);
+    when(searchClient.submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class)))
+        .thenReturn("node1:100");
+
+    ESIndexBuilder builder =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            Map.of(),
+            gitVersion) {
+          @Override
+          protected Pair<Long, Long> getDocumentCounts(
+              OperationContext ctx, Callable<Long> expectedCountSupplier, String destinationIndex) {
+            return Pair.of(1000L, 900L);
+          }
+
+          @Override
+          public long computeTimeoutAt() {
+            return System.currentTimeMillis() + 2_000L;
+          }
+        };
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:99");
+
+    assertFalse(
+        result.completed(),
+        "Completed-but-short must not be treated as success even after a catch-up resubmit");
+    verify(searchClient, atLeastOnce())
+        .submitReindexTask(
+            any(OperationContext.class), any(ReindexRequest.class), any(RequestOptions.class));
+  }
+
+  /** Counts match and the ES task reports completed — poll succeeds. */
+  @Test
+  void testPollReindexCompletion_countsMatchAndTaskCompleted_completes() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertTrue(result.completed(), "Matching counts with a completed task must complete");
+    assertEquals(result.finalDocumentCounts().getFirst(), Long.valueOf(1000L));
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1000L));
+  }
+
+  /**
+   * Destination overshoot after the ES task finishes (writes between launch-time snapshot and
+   * scroll open) must complete — otherwise busy-index ZDU Phase 1 times out forever.
+   */
+  @Test
+  void testPollReindexCompletion_destOvershootAndTaskCompleted_completes() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1005L);
+    stubReindexTaskCompleted(true);
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertTrue(result.completed(), "Completed task with dest > expected must complete");
+    assertEquals(result.finalDocumentCounts().getSecond(), Long.valueOf(1005L));
+  }
+
+  /**
+   * Transient getTask failures must not complete on matching counts alone — that reopens the
+   * mid-copy false-complete hole.
+   */
+  @Test
+  void testPollReindexCompletion_countsMatchButTaskLookupError_doesNotComplete() throws Throwable {
+    ESIndexBuilder builder = setupPollReindexBuilder(1000L);
+    when(searchClient.getTask(any(GetTaskRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("connection reset"));
+
+    ESIndexBuilder.PollReindexResult result =
+        builder.pollReindexCompletion(
+            opContext, "src_index", "dest_index", () -> 1000L, 1, new HashMap<>(), "node1:42");
+
+    assertFalse(
+        result.completed(),
+        "Matching counts during a transient task-status lookup failure must not complete");
   }
 
   @Test

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -199,9 +200,12 @@ public final class IncrementalReindexState {
       @Nonnull String indexName,
       @Nullable IndexConvention indexConvention,
       boolean rollbackDualWriteEnabled) {
+    // This static upgrade-state utility has no OperationContext available from its callers
+    // (e.g. CleanIndicesStep); the index naming convention resolves to the deploy-wide prefix
+    // regardless of caller context.
     return rollbackDualWriteEnabled
         && indexConvention != null
-        && indexConvention.getEntityName(indexName).isPresent();
+        && indexConvention.getEntityName(OperationFingerprint.EMPTY, indexName).isPresent();
   }
 
   private static boolean hasEmptyCatchUpWindow(@Nonnull Map<String, String> indexState) {

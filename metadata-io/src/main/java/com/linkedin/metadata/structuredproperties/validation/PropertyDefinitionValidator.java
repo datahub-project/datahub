@@ -312,9 +312,15 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
         AspectValidationException.forItem(
             item,
             String.format(
-                "Structured property Elasticsearch field '%s' collides with existing property"
-                    + " mapping. Qualified names that differ only by '.' vs '_' normalize to the"
-                    + " same field name (proposed qualifiedName='%s').",
+                "Structured property Elasticsearch field '%s' (from qualifiedName='%s') already"
+                    + " exists in the entity-index mapping. This is either a live collision with"
+                    + " another property whose qualified name normalizes to the same field ('.' and"
+                    + " '_' both normalize to '_'), or a residual mapping left by a hard-deleted"
+                    + " property with this field name (Elasticsearch cannot drop a field from a"
+                    + " mapping, so the field survives the delete). To resolve: choose a qualified"
+                    + " name that stays distinct after '.'->'_', or, when recreating a deleted"
+                    + " property, complete its assignment cleanup and reindex the entity indices"
+                    + " (via the SystemUpdate job) before recreating it.",
                 esField, newDefinition.getQualifiedName())));
   }
 

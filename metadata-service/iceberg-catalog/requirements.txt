@@ -1,6 +1,7 @@
 pytest>=6.2
 pytest-dependency>=0.5.1
-pyspark==3.5.6
+# 3.5.7 fixes CVE-2025-54920 (Spark History Server deserialization RCE).
+pyspark==3.5.9
 -e ../../metadata-ingestion[iceberg-catalog]
 # libaries for linting below this
 mypy==1.14.1

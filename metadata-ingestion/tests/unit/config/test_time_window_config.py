@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone
 
 import pytest
@@ -78,3 +79,23 @@ def test_invalid_relative_start_time():
         match="Relative start time should be in terms of configured bucket duration",
     ):
         BaseTimeWindowConfig.model_validate({"start_time": "-2m"})
+
+
+def test_start_time_json_schema_allows_relative_timespans():
+    # The generated JSON schema for start_time must permit relative timespans
+    # like "-7d", not only ISO 8601 datetimes (see RelativeOrAbsoluteDatetime).
+    props = BaseTimeWindowConfig.model_json_schema()["properties"]
+    branches = props["start_time"]["anyOf"]
+
+    # Absolute ISO 8601 datetimes remain described.
+    assert any(branch.get("format") == "date-time" for branch in branches)
+
+    # Relative timespans match the dedicated pattern branch.
+    patterns = [branch["pattern"] for branch in branches if "pattern" in branch]
+    assert patterns, "start_time schema is missing the relative-timespan branch"
+    pattern = patterns[0]
+    assert re.fullmatch(pattern, "-7d")
+    assert re.fullmatch(pattern, "-7 days")
+    assert re.fullmatch(pattern, "-2h")
+    assert not re.fullmatch(pattern, "7d")  # leading minus sign is required
+    assert not re.fullmatch(pattern, "-42 hello")

@@ -60,11 +60,13 @@ describe('documentUtils', () => {
                 title: 'Test Document',
                 parentUrn: 'urn:li:document:parent',
                 hasChildren: true,
+                childCount: undefined,
                 children: undefined,
                 isUnpublished: false, // No status state on the fixture → defaults to published
                 isExternal: false, // No info.source on the fixture → defaults to native
                 platform: null, // No platform on the fixture
                 creator: null, // No created actor on the fixture
+                lastModifiedAt: 1000, // from createTestDocument fixture lastModified.time
             });
         });
 
@@ -136,6 +138,19 @@ describe('documentUtils', () => {
 
             const resultWithoutChildren = documentToTreeNode(doc, false);
             expect(resultWithoutChildren.hasChildren).toBe(false);
+        });
+
+        it('should always use the persisted documentInfo title for semantic anchors', () => {
+            const doc = createTestDocument({
+                urn: 'urn:li:document:semantic-anchor-1',
+                info: {
+                    title: 'Auto-generated Title',
+                } as any,
+            } as any);
+
+            const result = documentToTreeNode(doc, false);
+
+            expect(result.title).toBe('Auto-generated Title');
         });
 
         it('should always set children to undefined', () => {
@@ -234,6 +249,9 @@ describe('documentUtils', () => {
             expect(resolveActorDisplayName({ username: 'jane' })).toBe('jane');
             expect(resolveActorDisplayName({ name: 'engineering' })).toBe('engineering');
             expect(resolveActorDisplayName({ urn: 'urn:li:corpuser:jane' })).toBe('urn:li:corpuser:jane');
+            expect(resolveActorDisplayName({ urn: 'urn:li:corpuser:__ingestion', username: '__ingestion' })).toBe(
+                'Ingestion',
+            );
         });
 
         it('should return an empty string for null/undefined actor', () => {

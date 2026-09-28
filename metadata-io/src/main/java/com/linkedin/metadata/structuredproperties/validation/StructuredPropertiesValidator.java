@@ -98,8 +98,18 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
    */
   private boolean dropMissingPropertyValuesWithWarning = false;
 
-  /** Max UTF-8 bytes for string-backed SP values; defaults to Lucene keyword term limit. */
-  private int keywordMaxLength = ESUtils.KEYWORD_MAXLENGTH;
+  /**
+   * UTF-8 byte threshold for string-backed structured property values. Set from {@code
+   * structuredProperties.keywordMaxLength}. Unset or non-positive values resolve to {@link
+   * ESUtils#KEYWORD_MAXLENGTH} at validation time.
+   */
+  private int keywordMaxLength;
+
+  /**
+   * When true, values over {@link #keywordMaxLength} are stored but not indexed. Required; set from
+   * {@code structuredProperties.dropOversizedKeywordValuesFromIndex}.
+   */
+  private boolean dropOversizedKeywordValuesFromIndex;
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
@@ -138,7 +148,8 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
         toValidate,
         aspectRetriever,
         dropMissingPropertyValuesWithWarning,
-        keywordMaxLength);
+        keywordMaxLength,
+        dropOversizedKeywordValuesFromIndex);
   }
 
   @Override
@@ -267,6 +278,22 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
       @Nonnull AspectRetriever aspectRetriever,
       boolean dropMissingPropertyValuesWithWarning,
       int keywordMaxLength) {
+    return validateProposedUpserts(
+        operationContext,
+        mcpItems,
+        aspectRetriever,
+        dropMissingPropertyValuesWithWarning,
+        keywordMaxLength,
+        false);
+  }
+
+  public static Stream<AspectValidationException> validateProposedUpserts(
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<BatchItem> mcpItems,
+      @Nonnull AspectRetriever aspectRetriever,
+      boolean dropMissingPropertyValuesWithWarning,
+      int keywordMaxLength,
+      boolean dropOversizedKeywordValuesFromIndex) {
 
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     Map<Urn, Map<String, Aspect>> allStructuredPropertiesAspects =
@@ -371,7 +398,12 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
           validateAllowedValues(i, propertyUrn, structuredPropertyDefinition, value)
               .ifPresent(exceptions::addException);
           validateKeywordByteLength(
-                  i, propertyUrn, structuredPropertyDefinition, value, keywordMaxLength)
+                  i,
+                  propertyUrn,
+                  structuredPropertyDefinition,
+                  value,
+                  keywordMaxLength,
+                  dropOversizedKeywordValuesFromIndex)
               .ifPresent(exceptions::addException);
         }
 
@@ -529,16 +561,18 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
   }
 
   /**
-   * Rejects string-backed structured property values whose UTF-8 encoding exceeds the configured
-   * keyword max length (default {@link ESUtils#KEYWORD_MAXLENGTH}). Oversized values otherwise fail
-   * Elasticsearch / OpenSearch indexing with {@code max_bytes_length_exceeded_exception}.
+   * Rejects string-backed structured property values whose UTF-8 encoding exceeds {@code
+   * keywordMaxLength}. Oversized values otherwise fail Elasticsearch / OpenSearch indexing with
+   * {@code max_bytes_length_exceeded_exception}. When {@code dropOversizedKeywordValuesFromIndex}
+   * is true, the write is allowed and the value is omitted from the search document instead.
    */
   private static Optional<AspectValidationException> validateKeywordByteLength(
       BatchItem item,
       Urn propertyUrn,
       StructuredPropertyDefinition definition,
       PrimitivePropertyValue value,
-      int keywordMaxLength) {
+      int keywordMaxLength,
+      boolean dropOversizedKeywordValuesFromIndex) {
     LogicalValueType typeDefinition = getLogicalValueType(definition.getValueType());
     if (!VALID_VALUE_STORED_AS_STRING.contains(typeDefinition) || value.getString() == null) {
       return Optional.empty();
@@ -546,6 +580,16 @@ public class StructuredPropertiesValidator extends AspectPayloadValidator {
     int maxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
     int byteLength = value.getString().getBytes(StandardCharsets.UTF_8).length;
     if (byteLength > maxLength) {
+      if (dropOversizedKeywordValuesFromIndex) {
+        log.warn(
+            "Structured property {} on {} is {} UTF-8 bytes, exceeding keywordMaxLength {};"
+                + " storing in primary storage but omitting from the search index",
+            propertyUrn,
+            item.getUrn(),
+            byteLength,
+            maxLength);
+        return Optional.empty();
+      }
       return Optional.of(
           AspectValidationException.forItem(
               item,

@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.kafka;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
@@ -21,9 +22,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 
 @Configuration
-@DependsOn("configurationProvider")
+@Import(AwsClientFactory.class)
+@DependsOn({"configurationProvider", "defaultAwsCredentialsProvider"})
 @Conditional(KafkaMessagingEnabledCondition.class)
 public class DataHubKafkaProducerFactory {
 
@@ -74,6 +77,7 @@ public class DataHubKafkaProducerFactory {
     props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, producerConfiguration.getMaxRequestSize());
     props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, producerConfiguration.getCompressionType());
 
+    KafkaMskIamAuth.configure(props);
     return createProducerWithRetry(props, producerConfiguration);
   }
 
@@ -171,6 +175,7 @@ public class DataHubKafkaProducerFactory {
       props.put(AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrl);
     }
 
+    KafkaMskIamAuth.configure(props);
     return props;
   }
 }

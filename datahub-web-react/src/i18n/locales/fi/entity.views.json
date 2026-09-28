@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "Tarkka alustan instanssi, jossa kohde sijaitsee.",
     "prop.softDeleted": "Merkitty poistetuksi",
     "prop.softDeletedDesc": "Onko kohde merkitty poistetuksi.",
+    "prop.structuredPropertyGroup": "Jäsennelty ominaisuus",
     "prop.subType": "Alatyyppi",
     "prop.subTypeDesc": "Kohteen alatyyppi (esim. taulu, näkymä, aihe).",
     "publicTab": "Julkiset näkymät",

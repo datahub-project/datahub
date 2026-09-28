@@ -36,9 +36,25 @@ export const SidebarCreateButton = styled(Button)`
 `;
 
 export const SearchSlot = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
     flex-shrink: 0;
     position: relative;
     padding: 12px;
+`;
+
+/** Flexes so SearchBar / autocomplete fills the row beside an optional sort control. */
+export const SearchControl = styled.div`
+    flex: 1;
+    min-width: 0;
+    position: relative;
+`;
+
+export const SortSlot = styled.div`
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
 `;
 
 export const HomeNavSlot = styled.div<{ $inTree?: boolean }>`

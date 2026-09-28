@@ -25,7 +25,14 @@ RUN addgroup -g 1000 datahub && \
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
+# Cache-bust the python apk layer. Wolfi is a rolling distro, so a cached build layer
+# can keep shipping a stale, vulnerable package set even after upstream fixes it (a
+# stale cache shipped setuptools 70.3.0 / CVE-2025-47273 at /usr/share/python-wheels/;
+# current Wolfi ships a fixed setuptools). Bump WOLFI_PKG_REFRESH to force a fresh
+# `apk add` whenever base packages need refreshing.
+ARG WOLFI_PKG_REFRESH=2026-08-31
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" && \
     apk add --no-cache --update-cache \
     ca-certificates \
     python-${PYTHON_VERSION} \
@@ -52,6 +59,9 @@ RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
 USER datahub
 WORKDIR $HOME
 RUN uv venv --python "${PYTHON_VERSION}"
+# Pre-create as datahub so BuildKit cache mounts at $HOME/.cache/uv do not leave
+# the parent root-owned (siblings like puccinialin then hit PermissionError).
+RUN mkdir -p $HOME/.cache
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
@@ -299,9 +309,13 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /metadata-ingestion/\n-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -310,8 +324,6 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 COPY --chown=datahub:datahub ./docker/datahub-actions/config-postgres-pgqueue /etc/datahub/actions/system/conf-postgres-pgqueue
 
 USER datahub
-
-ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION" # RELEASE_VERSION is a required build arg
@@ -328,7 +340,11 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove the BOM; the real packages
+    # in site-packages remain the source of truth.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -376,9 +392,13 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /metadata-ingestion/ \n -e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /metadata-ingestion/\n-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -387,8 +407,6 @@ COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/action
 COPY --chown=datahub:datahub ./docker/datahub-actions/config-postgres-pgqueue /etc/datahub/actions/system/conf-postgres-pgqueue
 
 USER datahub
-
-ENV UV_BUILD_CONSTRAINT=/metadata-ingestion/build-constraints.txt
 
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
@@ -405,7 +423,11 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove the BOM; the real packages
+    # in site-packages remain the source of truth.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -446,10 +468,14 @@ COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
 
+# Apply CVE floors from docker/snippets/ingestion/constraints.txt to the default app venv
+# (bundled venvs already pass --constraint explicitly).
+ENV UV_CONSTRAINT=${DATAHUB_BUNDLED_VENV_PATH}/constraints.txt
+
 USER datahub
 # Install only datahub-actions, NOT metadata-ingestion
 RUN --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
-    echo "-e /datahub-actions/[all]" | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
+    printf -- '-e /datahub-actions/[all]\n' | uv pip compile /dev/stdin | grep -v "\-e" | uv pip install -r /dev/stdin
 USER 0
 
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
@@ -468,7 +494,10 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false,uid=1000,gid=1000 \
   uv pip install -e '/datahub-actions/[all]'
-RUN rm -rf $HOME/.config/uv
+RUN rm -rf $HOME/.config/uv && \
+    # pip's vendored CycloneDX BOM lists build-time setuptools/msgpack pins that Trivy
+    # reports as installed packages (AnalyzedBy=sbom). Remove before strip_pip removes pip.
+    find /home/datahub/.venv /opt/datahub/venvs -path '*/pip/_vendor/bom.cdx.json' -delete
 
 # No uv/pip in the final locked image: build is done; package managers are unnecessary attack surface.
 # Script file avoids Docker RUN treating $v / $sp as empty Docker env vars (see docker/snippets/strip_pip_uv_from_venvs.sh).

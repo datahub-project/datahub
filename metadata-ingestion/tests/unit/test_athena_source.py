@@ -1700,8 +1700,8 @@ def test_get_column_type_list():
 
 
 def test_get_column_type_pandas_nullable_dtypes():
-    # great_expectations profiling leaks Pandas nullable dtype names through the
-    # dialect; map them back to SqlAlchemy types so the column survives reflection.
+    # Profiling can leak Pandas nullable dtype names through the dialect; map
+    # them back to SqlAlchemy types so the column survives reflection.
     dialect = CustomAthenaRestDialect()
     assert isinstance(dialect._get_column_type("Int64Dtype"), types.BIGINT)
     assert isinstance(dialect._get_column_type("UInt64Dtype"), types.BIGINT)

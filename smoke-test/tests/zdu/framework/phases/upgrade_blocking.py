@@ -19,7 +19,7 @@ from datetime import datetime
 
 from ._shared import read_token_passthrough
 from .base import Phase, PhaseResult
-from ..constants import REPO_ROOT
+from ..constants import REPO_ROOT, ZDU_NEW_REVISION
 from ..context import IndexState, TestContext, UpgradeBlockingResult
 from ..docker_compose import DockerComposeClient
 from ..host_mounts import worktree_mount_env
@@ -27,6 +27,7 @@ from ..log_monitor import Phase1State, _parse_phase1_line
 from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
+
 
 _DEFAULT_TIMEOUT_S = 600
 
@@ -329,6 +330,7 @@ class UpgradeBlockingPhase(Phase):
         env_overrides = {
             **token_env,
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
+            "DATAHUB_REVISION": ZDU_NEW_REVISION,
             "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX": "true",
         }
         return self._docker.run_upgrade_job(
@@ -348,11 +350,19 @@ class UpgradeBlockingPhase(Phase):
         ``<alias>.<key>`` keys under the top-level ``result`` block, not as a
         nested ``indicesState`` dict — so the legacy
         ``find_upgrade_result_with_field("indicesState")`` lookup always
-        returns None. The new ``find_upgrade_result_by_urn_prefix`` matches
-        on URN, then ``_parse_flat_indices_state`` unflattens.
+        returns None. We match on URN, then ``_parse_flat_indices_state``
+        unflattens.
+
+        Matched by the revision this phase ran its upgrade job under, not by
+        prefix alone. When ZDU is enabled on the base stack the boot-time run
+        also writes a ``BuildIndicesIncremental_*`` row — one covering every
+        index with ``sourceDocCount=0`` and ``requiresDataBackfill=false``,
+        since nothing needed reindexing at first boot. A prefix scan returns
+        whichever row the query happens to order first, and picking up that
+        boot-time row makes the Suite B scenarios see no reindex at all.
         """
-        upgrade_id, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
-            "BuildIndicesIncremental_"
+        upgrade_id, parsed = self._mysql.find_upgrade_result_by_urn_prefix_suffix(
+            "BuildIndicesIncremental_", f"-{ZDU_NEW_REVISION}"
         )
         raw_per_alias: dict[str, dict] = {}
         indices: list[IndexState] = []

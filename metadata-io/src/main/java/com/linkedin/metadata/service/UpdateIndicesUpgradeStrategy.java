@@ -3,15 +3,18 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.EntityResponse;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
-import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultStore;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -32,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -56,12 +60,13 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private final ElasticSearchService elasticSearchService;
   private final SearchDocumentTransformer searchDocumentTransformer;
+  private final EntityDocumentIdHasher entityDocumentIdHasher;
 
   /**
    * Map of entity name → old backing index physical name. Populated on startup from Phase 1 upgrade
    * result. Entries are removed when dual-write is disabled.
    */
-  private final ConcurrentHashMap<String, String> oldIndexTargets;
+  @VisibleForTesting @Getter private final ConcurrentHashMap<String, String> oldIndexTargets;
 
   /**
    * Tracks whether dual-write start time has been recorded for each index. Key is old index name.
@@ -85,12 +90,42 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       @Nonnull Map<String, String> oldIndexTargets,
       @Nullable DualWriteStartTimeCallback dualWriteStartTimeCallback,
       @Nullable OperationContext opContext,
-      @Nullable EntityService<?> entityService,
+      @Nullable DataHubUpgradeResultStore upgradeResultStore,
       @Nullable Urn upgradeIdUrn,
       long pollIntervalSeconds) {
+    this(
+        elasticSearchService,
+        searchDocumentTransformer,
+        oldIndexTargets,
+        dualWriteStartTimeCallback,
+        opContext,
+        upgradeResultStore,
+        upgradeIdUrn,
+        pollIntervalSeconds,
+        new Sha256UrnEntityDocumentIdHasher());
+  }
+
+  public UpdateIndicesUpgradeStrategy(
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull Map<String, String> oldIndexTargets,
+      @Nullable DualWriteStartTimeCallback dualWriteStartTimeCallback,
+      @Nullable OperationContext opContext,
+      @Nullable DataHubUpgradeResultStore upgradeResultStore,
+      @Nullable Urn upgradeIdUrn,
+      long pollIntervalSeconds,
+      @Nonnull EntityDocumentIdHasher entityDocumentIdHasher) {
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
-    this.oldIndexTargets = new ConcurrentHashMap<>(oldIndexTargets);
+    this.entityDocumentIdHasher = entityDocumentIdHasher;
+    // Keys are normalised because the two sides disagree on case: the map is built from
+    // IndexConvention.getEntityName(), which derives names from the lowercased index
+    // ("aiagentindex_v2" -> "aiagent"), while lookups use EntitySpec.getName(), which is the
+    // entity-registry name ("aiAgent"). Without this every entity whose registered name is not
+    // all-lowercase silently never dual-writes.
+    this.oldIndexTargets = new ConcurrentHashMap<>();
+    oldIndexTargets.forEach(
+        (entityName, index) -> this.oldIndexTargets.put(key(entityName), index));
     this.dualWriteStartTimeRecorded = new ConcurrentHashMap<>();
     this.dualWriteStartTimeCallback = dualWriteStartTimeCallback;
 
@@ -100,7 +135,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
           oldIndexTargets.size(),
           oldIndexTargets);
 
-      if (opContext != null && entityService != null && upgradeIdUrn != null) {
+      if (opContext != null && upgradeResultStore != null && upgradeIdUrn != null) {
         statePoller =
             Executors.newSingleThreadScheduledExecutor(
                 r -> {
@@ -111,7 +146,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
         long interval =
             pollIntervalSeconds > 0 ? pollIntervalSeconds : DEFAULT_POLL_INTERVAL_SECONDS;
         statePoller.scheduleAtFixedRate(
-            () -> pollForSwappedIndices(opContext, entityService, upgradeIdUrn),
+            () -> pollForSwappedIndices(opContext, upgradeResultStore, upgradeIdUrn),
             interval,
             interval,
             TimeUnit.SECONDS);
@@ -153,7 +188,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private void processUpdateEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     String entityName = event.getEntitySpec().getName();
-    String oldIndex = oldIndexTargets.get(entityName);
+    String oldIndex = oldIndexTargets.get(key(entityName));
     if (oldIndex == null) {
       return;
     }
@@ -172,8 +207,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
         return;
       }
 
-      String docId =
-          opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
+      String docId = documentId(opContext, oldIndex, event.getUrn());
       String document = searchDocument.get().toString();
 
       elasticSearchService.upsertDocumentByIndexName(opContext, oldIndex, document, docId);
@@ -198,7 +232,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   private void processDeleteEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
     String entityName = event.getEntitySpec().getName();
-    String oldIndex = oldIndexTargets.get(entityName);
+    String oldIndex = oldIndexTargets.get(key(entityName));
     if (oldIndex == null) {
       return;
     }
@@ -211,8 +245,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
     }
 
     try {
-      String docId =
-          opContext.getSearchContext().getIndexConvention().getEntityDocumentId(event.getUrn());
+      String docId = documentId(opContext, oldIndex, event.getUrn());
       elasticSearchService.deleteDocumentByIndexName(opContext, oldIndex, docId);
 
       log.debug(
@@ -255,7 +288,7 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
    * remain.
    */
   public void removeTarget(String entityName) {
-    String removed = oldIndexTargets.remove(entityName);
+    String removed = oldIndexTargets.remove(key(entityName));
     if (removed != null) {
       log.info(
           "Removed rollback dual-write target for entity '{}' (was '{}')", entityName, removed);
@@ -267,10 +300,10 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
 
   // Package-private for testing
   void pollForSwappedIndices(
-      OperationContext opContext, EntityService<?> entityService, Urn upgradeIdUrn) {
+      OperationContext opContext, DataHubUpgradeResultStore upgradeResultStore, Urn upgradeIdUrn) {
     try {
       Optional<DataHubUpgradeResult> result =
-          getUpgradeResult(opContext, entityService, upgradeIdUrn);
+          getUpgradeResult(opContext, upgradeResultStore, upgradeIdUrn);
       if (result.isEmpty() || result.get().getResult() == null) {
         return;
       }
@@ -286,14 +319,14 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
                       IncrementalReindexState.Status.DUAL_WRITE_DISABLED
                           .name()
                           .equals(e.getValue().get(IncrementalReindexState.STATUS)))
-              .map(e -> indexConvention.getEntityName(e.getKey()))
+              .map(e -> indexConvention.getEntityName(opContext, e.getKey()))
               .filter(Optional::isPresent)
               .map(Optional::get)
               .collect(Collectors.toSet());
 
       Set<String> toRemove =
           oldIndexTargets.keySet().stream()
-              .filter(swappedEntities::contains)
+              .filter(e -> swappedEntities.stream().anyMatch(sw -> key(sw).equals(e)))
               .collect(Collectors.toSet());
 
       for (String entityName : toRemove) {
@@ -305,23 +338,44 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
   }
 
   private Optional<DataHubUpgradeResult> getUpgradeResult(
-      OperationContext opContext, EntityService<?> entityService, Urn upgradeIdUrn) {
+      OperationContext opContext, DataHubUpgradeResultStore upgradeResultStore, Urn upgradeIdUrn) {
     try {
-      EntityResponse response =
-          entityService.getEntityV2(
-              opContext,
-              upgradeIdUrn.getEntityType(),
-              upgradeIdUrn,
-              Set.of("dataHubUpgradeResult"));
-      if (response != null && response.getAspects().containsKey("dataHubUpgradeResult")) {
-        return Optional.of(
-            new DataHubUpgradeResult(
-                response.getAspects().get("dataHubUpgradeResult").getValue().data()));
-      }
+      return Optional.ofNullable(
+          DataHubUpgradeResultConditionalPersist.fromEnveloped(
+              upgradeResultStore.readLatest(opContext, upgradeIdUrn)));
     } catch (Exception e) {
       log.debug("Could not fetch upgrade result for {}: {}", upgradeIdUrn, e.getMessage());
     }
     return Optional.empty();
+  }
+
+  /**
+   * V3 backing indexes — including incremental-reindex names from {@code
+   * ESIndexBuilder.getIncrementalNextIndexName} — always use the V3 hasher. V2 keeps URL-encoded
+   * URN ids.
+   *
+   * <p>Matches {@code index_v3} as a version token at the end of the name, or followed by {@code
+   * _<timestamp>} or {@code _<sanitizedVersion>_<timestamp>}. A substring such as {@code index_v3}
+   * in a prefix must not classify a V2 index.
+   */
+  private String documentId(
+      @Nonnull OperationContext opContext, @Nonnull String indexName, @Nonnull Urn urn) {
+    if (isV3BackingIndex(indexName)) {
+      return entityDocumentIdHasher.documentId(opContext, urn);
+    }
+    return opContext.getSearchContext().getIndexConvention().getEntityDocumentId(urn);
+  }
+
+  @VisibleForTesting
+  static boolean isV3BackingIndex(@Nonnull String indexName) {
+    final String token = "index_v3";
+    int tokenStart = indexName.lastIndexOf(token);
+    if (tokenStart <= 0 || indexName.lastIndexOf("index_v2") > tokenStart) {
+      return false;
+    }
+    String after = indexName.substring(tokenStart + token.length());
+    // Alias (`index_v3`), timestamp-only, or incremental next (`index_v3_1_2_3-4_1000`).
+    return after.isEmpty() || after.matches("_\\d+") || after.matches("_.+_\\d+");
   }
 
   private void shutdownPoller() {
@@ -354,5 +408,10 @@ public class UpdateIndicesUpgradeStrategy implements UpdateIndicesStrategy {
       @Nonnull Object newValue,
       @Nullable Object oldValue) {
     // No-op: next indices were created with target mappings during Phase 1
+  }
+
+  /** Entity-name key normaliser — see the constructor for why this is needed. */
+  private static String key(String entityName) {
+    return entityName == null ? null : entityName.toLowerCase(java.util.Locale.ROOT);
   }
 }

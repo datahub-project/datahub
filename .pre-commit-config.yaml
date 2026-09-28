@@ -6,8 +6,8 @@ repos:
     hooks:
       - id: ruff-check
         name: Ruff Check (all Python modules)
-        entry: ghcr.io/astral-sh/ruff:0.15.22 check --fix
-        language: docker_image
+        entry: bash .github/scripts/pre-commit/run_ruff.sh check --fix
+        language: system
         files: ^(datahub-actions|datahub-agent-context|metadata-ingestion|metadata-ingestion-modules/airflow-plugin|metadata-ingestion-modules/dagster-plugin|metadata-ingestion-modules/gx-plugin|metadata-ingestion-modules/prefect-plugin|metadata-service/iceberg-catalog|smoke-test)/(?:.*\.py$|(?:.*/)?(?:pyproject|ruff)\.toml$)
         exclude: (^|/)(venv|build|dist|node_modules|\.git)/
         pass_filenames: true
@@ -16,8 +16,8 @@ repos:
 
       - id: ruff-format
         name: Ruff Format (all Python modules)
-        entry: ghcr.io/astral-sh/ruff:0.15.22 format
-        language: docker_image
+        entry: bash .github/scripts/pre-commit/run_ruff.sh format
+        language: system
         files: ^(datahub-actions|datahub-agent-context|metadata-ingestion|metadata-ingestion-modules/airflow-plugin|metadata-ingestion-modules/dagster-plugin|metadata-ingestion-modules/gx-plugin|metadata-ingestion-modules/prefect-plugin|metadata-service/iceberg-catalog|smoke-test)/(?:.*\.py$|(?:.*/)?(?:pyproject|ruff)\.toml$)
         exclude: (^|/)(venv|build|dist|node_modules|\.git)/
         pass_filenames: true
@@ -38,6 +38,15 @@ repos:
         entry: ./gradlew :datahub-web-react:githubActionsPrettierWriteChanged -x generateGitPropertiesGlobal
         language: system
         files: ^\.github/.*\.(yml|yaml)$
+        pass_filenames: false
+        stages:
+          - pre-push
+
+      - id: datahub-web-react-graphqlPrettierWriteChanged
+        name: graphqlPrettierWriteChanged
+        entry: ./gradlew :datahub-web-react:graphqlPrettierWriteChanged -x generateGitPropertiesGlobal
+        language: system
+        files: ^datahub-graphql-core/src/main/resources/.*\.graphql$
         pass_filenames: false
         stages:
           - pre-push
@@ -615,15 +624,6 @@ repos:
         stages:
           - pre-push
 
-      - id: smoke-test-cypress-lint-fix
-        name: smoke-test cypress Lint Fix
-        entry: ./gradlew :smoke-test:cypressLintFix -x generateGitPropertiesGlobal
-        language: system
-        files: ^smoke-test/tests/cypress/.*\.tsx$
-        pass_filenames: false
-        stages:
-          - pre-push
-
       - id: update-lineage-file
         name: update-lineage-file
         entry: ./gradlew :metadata-ingestion:lineageGen -x generateGitPropertiesGlobal
@@ -694,6 +694,15 @@ repos:
         stages:
           - pre-push
 
+      - id: docs-website-prettier
+        name: docs-website Prettier
+        entry: ./gradlew :docs-website:yarnLintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^docs-website/(generateDocsDir\.ts|sidebars\.js|src/pages/index\.js)$
+        pass_filenames: false
+        stages:
+          - pre-push
+
       - id: bump-schema-versions
         name: Bump PDL schema versions
         entry: python .github/scripts/bump_schema_versions.py
@@ -709,6 +718,17 @@ repos:
           binary)
         entry: betterleaks git --staged --redact --verbose --config .betterleaks.toml
         language: system
+        pass_filenames: false
+        stages:
+          - pre-commit
+
+      - id: smoke-test-p0-dependencies
+        name: p0 smoke tests must not depend on non-p0 tests
+        description: pytest-dependency skips a test whose dependency was deselected,
+          so a p0 test depending on a non-p0 test silently does nothing under -m p0
+        entry: python3 .github/scripts/check_p0_dependencies.py
+        language: system
+        files: ^smoke-test/.*\.py$
         pass_filenames: false
         stages:
           - pre-commit

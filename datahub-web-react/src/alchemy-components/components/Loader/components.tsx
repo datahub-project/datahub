@@ -21,9 +21,9 @@ export const LoaderWrapper = styled.div<{
     ${(props) => props.$padding !== undefined && `padding: ${props.$padding}px;`}
 `;
 
-export const StyledSpinner = styled(CircleNotch)<{ $height: number }>`
+export const StyledSpinner = styled(CircleNotch)<{ $height: number; $color?: string }>`
     width: ${(props) => props.$height}px;
     height: ${(props) => props.$height}px;
     animation: ${spin} 1s linear infinite;
-    color: ${({ theme }) => theme?.colors?.iconBrand};
+    ${(props) => props.color && `color: ${props.color};`}
 `;

@@ -84,6 +84,11 @@ interface DocumentTreeItemProps {
     hideCreate?: boolean;
     parentUrn?: string | null;
     multiSelect?: boolean;
+    /**
+     * When true, skip scrollIntoView on selection. Used after sort changes so the
+     * list stays pinned at the top instead of jumping to the open document.
+     */
+    suppressSelectionScroll?: boolean;
 }
 
 export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
@@ -105,6 +110,7 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     hideCreate = false,
     parentUrn,
     multiSelect = false,
+    suppressSelectionScroll = false,
 }) => {
     const { t } = useTranslation('home.v2');
     // Pin ⋮/+ visible while a portaled menu/dialog is open (mouse leaves the row).
@@ -113,15 +119,16 @@ export const DocumentTreeItem: React.FC<DocumentTreeItemProps> = ({
     const didScrollForSelectionRef = useRef(false);
 
     // Deep links mount the selected row after ancestors expand — scroll once (auto).
+    // Skipped after sort changes so Name / Last modified stay at the top of the list.
     useEffect(() => {
-        if (!isSelected || multiSelect) {
+        if (!isSelected || multiSelect || suppressSelectionScroll) {
             didScrollForSelectionRef.current = false;
             return;
         }
         if (didScrollForSelectionRef.current) return;
         didScrollForSelectionRef.current = true;
         rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
-    }, [isSelected, multiSelect, urn]);
+    }, [isSelected, multiSelect, urn, suppressSelectionScroll]);
 
     const handleAddChildClick = (e: React.MouseEvent) => {
         e.stopPropagation();

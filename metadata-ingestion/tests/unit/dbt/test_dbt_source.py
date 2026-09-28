@@ -42,6 +42,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTTest,
     DBTTestResult,
     make_assertion_from_freshness,
+    make_assertion_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
@@ -51,8 +52,11 @@ from datahub.metadata.schema_classes import (
     AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
+    AssertionStdAggregationClass,
+    AssertionStdOperatorClass,
     AssertionTypeClass,
     CustomAssertionInfoClass,
+    DatasetAssertionScopeClass,
     OwnerClass,
     OwnershipClass,
     OwnershipSourceClass,
@@ -2116,6 +2120,63 @@ def test_make_assertion_from_freshness() -> None:
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
 
 
+def test_make_assertion_from_test_emits_custom_structured_fields() -> None:
+    node = DBTNode(
+        database="raw_db",
+        schema="raw",
+        name="not_null_id",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.test.not_null_id",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    node.test_info = DBTTest(
+        qualified_test_name="not_null",
+        column_name="id",
+        kw_args={"column_name": "id"},
+    )
+    upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,raw.users,PROD)"
+    field_urn = f"urn:li:schemaField:({upstream_urn},id)"
+
+    mcp = make_assertion_from_test(
+        {"dbt_unique_id": node.dbt_name},
+        node,
+        "urn:li:assertion:test",
+        upstream_urn,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionInfoClass)
+    assert mcp.aspect.type == AssertionTypeClass.CUSTOM
+    assert mcp.aspect.datasetAssertion is None
+    assert mcp.aspect.customAssertion is not None
+    assert mcp.aspect.customAssertion.type == "dbt"
+    assert mcp.aspect.customAssertion.entity == upstream_urn
+    assert mcp.aspect.customAssertion.scope == DatasetAssertionScopeClass.DATASET_COLUMN
+    assert mcp.aspect.customAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    assert (
+        mcp.aspect.customAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
+    )
+    assert mcp.aspect.customAssertion.field == field_urn
+    assert mcp.aspect.customAssertion.fields == [field_urn]
+    assert mcp.aspect.customAssertion.nativeType == "not_null_id"
+    assert mcp.aspect.customAssertion.nativeParameters == {"column_name": "id"}
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
+
+
 @pytest.mark.parametrize(
     ("status", "warnings_are_errors", "expected_type", "expected_severity"),
     [
@@ -3576,7 +3637,10 @@ def test_extract_semantic_models_basic():
                 {"name": "revenue", "agg": "sum", "description": "Total revenue"}
             ],
             "tags": ["metrics", "orders"],
-            "meta": {"team": "analytics"},
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@data-team"},
+            },
             "original_file_path": "models/semantic_models/order_metrics.yml",
         }
     }
@@ -3618,6 +3682,61 @@ def test_extract_semantic_models_basic():
     # Check tags have prefix
     assert "dbt:metrics" in node.tags
     assert "dbt:orders" in node.tags
+
+    # Check meta is read from config.meta
+    assert node.meta == {"team": "analytics", "owner": "@data-team"}
+    assert node.owner == "@data-team"
+
+
+def test_extract_semantic_models_config_meta():
+    """Test that meta is read from config.meta (not top-level) matching real dbt manifests."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.revenue_metrics": {
+            "name": "revenue_metrics",
+            "description": "Revenue metrics",
+            "node_relation": {
+                "database": "analytics",
+                "schema": "public",
+                "alias": "revenue_metrics",
+            },
+            "depends_on": {"nodes": ["model.my_project.fct_revenue"]},
+            "entities": [
+                {"name": "order_id", "type": "primary", "description": "Primary key"}
+            ],
+            "dimensions": [],
+            "measures": [
+                {"name": "total_revenue", "agg": "sum", "description": "Total revenue"}
+            ],
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@alice"},
+            },
+            "original_file_path": "models/semantic_models/revenue_metrics.yml",
+            "package_name": "my_project",
+        }
+    }
+
+    manifest_nodes: Dict[str, Any] = {
+        "model.my_project.fct_revenue": {
+            "database": "analytics",
+            "schema": "public",
+            "name": "fct_revenue",
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+
+    assert node.meta == {"team": "analytics", "owner": "@alice"}
+    assert node.owner == "@alice"
+    assert node.tags == []
 
 
 def test_extract_semantic_models_fallback_to_depends_on():

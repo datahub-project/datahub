@@ -28,10 +28,6 @@ else
   uv pip install -r requirements.txt
 fi
 
-(cd ..; ./gradlew :smoke-test:yarnInstall)
-
-source ./set-cypress-creds.sh
-
 # set environment variables for the test
 source ./set-test-env-vars.sh
 
@@ -46,6 +42,25 @@ if [[ "${PYTEST_XDIST_WORKERS:-0}" =~ ^[1-9][0-9]*$ ]]; then
   echo "PYTEST_XDIST_WORKERS=${PYTEST_XDIST_WORKERS}: enabling pytest-xdist -n ${PYTEST_XDIST_WORKERS} --dist=loadscope"
   xdist_args=(-n "${PYTEST_XDIST_WORKERS}" --dist=loadscope)
 fi
+
+# SMOKE_TIER: which criticality tier to run. "p0" selects only tests carrying
+# the p0 marker -- the pull-request gate; "full" or unset runs the whole suite.
+# CI sets it from the PYTEST_P0_SMOKE repository variable.
+#
+# Selection is a plain marker expression, so conftest's batching -- which runs
+# @pytest.hookimpl(trylast=True) -- packs the set that will actually run.
+tier_args=()
+case "${SMOKE_TIER:-full}" in
+  full) ;;
+  p0)
+    echo "SMOKE_TIER=p0: selecting only p0-marked tests"
+    tier_args=(-m p0)
+    ;;
+  *)
+    echo "ERROR: unknown SMOKE_TIER='${SMOKE_TIER}' (expected 'p0' or 'full')" >&2
+    exit 1
+    ;;
+esac
 
 # pytest exit 5 = no tests collected (empty phase for this batch is OK).
 _pytest_ok() {
@@ -92,28 +107,22 @@ run_pytest_policy_phases() {
     echo "Phase 2 failed with exit code $rc2"
   fi
 
+  # rc 5 from ONE phase is normal -- most batches hold no policy mutators
+  # (empty phase 2), and a batch of only serial modules has an empty phase 1.
+  # rc 5 from BOTH means the batch collected nothing at all, which _pytest_ok
+  # would otherwise report as success: a green job that tested nothing.
+  if [[ "$rc1" -eq 5 && "$rc2" -eq 5 ]]; then
+    echo "ERROR: both pytest phases collected 0 tests for this batch." \
+         "Refusing to report an empty run as success." >&2
+    return 1
+  fi
+
   _pytest_ok "$rc1" || return "$rc1"
   _pytest_ok "$rc2" || return "$rc2"
   return 0
 }
 
-# TEST_STRATEGY:
-#   if set to pytests, runs all pytests, skips cypress tests(though cypress test launch is via  a pytest).
-#   if set tp cypress, runs all cypress tests
-#   if blank, runs all.
 # When invoked via the github action, BATCH_COUNT and BATCH_NUMBER env vars are set to run a slice of those tests per
-# worker for parallelism. docker-unified.yml generates a test matrix of pytests/cypress in batches. As number of tests
+# worker for parallelism. docker-unified.yml generates a test matrix of pytests in batches. As number of tests
 # increase, the batch_count config (in docker-unified.yml) may need adjustment.
-if [[ "${TEST_STRATEGY}" == "pytests" ]]; then
-  #pytests only - github test matrix runs pytests in one of the runners when applicable.
-  run_pytest_policy_phases junit.smoke-pytests -k 'not test_run_cypress'
-elif [[ "${TEST_STRATEGY}" == "cypress" ]]; then
-  # run only cypress tests. The test inspects BATCH_COUNT and BATCH_NUMBER and runs only a subset of tests in that batch.
-  # github workflow test matrix will invoke this in multiple runners for each batch.
-  # Skipping the junit at the pytest level since cypress itself generates junits on a per-test basis. The pytest is a single test for all cypress
-  # tests and isnt very helpful.
-  # Cypress is launched from a single pytest module; xdist is not useful here.
-  pytest -rP --durations=20 -vvs --continue-on-collection-errors tests/cypress/integration_test.py
-else
-  run_pytest_policy_phases junit.smoke-all
-fi
+run_pytest_policy_phases junit.smoke-pytests ${tier_args[@]+"${tier_args[@]}"}

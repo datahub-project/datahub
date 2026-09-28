@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.buildFilterWithUrns;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
+import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -12,8 +13,9 @@ import com.google.common.collect.Lists;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.IntegerArray;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.Constants;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
@@ -27,27 +29,39 @@ import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
 import com.linkedin.metadata.query.LineageFlags;
+import com.linkedin.metadata.query.SchemaFieldValidationMode;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
+import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.schema.SchemaField;
+import com.linkedin.schema.SchemaMetadata;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -92,6 +106,12 @@ public class LineageSearchService {
   @Setter @Nullable private MetricUtils metricUtils;
 
   private static final String DEGREE_FILTER = "degree";
+  private static final String PARENT_FILTER = "parent";
+
+  /** Filter fields the graph-only path can answer from a urn, without the entity index. */
+  private static final Set<String> LIGHTNING_FILTER_FIELDS =
+      Set.of("platform", "origin", PARENT_FILTER);
+
   private static final AggregationMetadata DEGREE_FILTER_GROUP =
       new AggregationMetadata()
           .setName(DEGREE_FILTER)
@@ -121,7 +141,9 @@ public class LineageSearchService {
    * @param direction Direction of the relationship
    * @param entities list of entities to search (If empty, searches across all entities)
    * @param input the search input text
-   * @param maxHops the maximum number of hops away to search for. If null, defaults to 1000
+   * @param maxHops the maximum number of hops away to search for. If null, defaults to the
+   *     configured per-mode maximum (impact.maxHops for impact analysis; lineageMaxHops for
+   *     visualization), and any larger value is clamped to it
    * @param inputFilters the request map with fields and values as filters to be applied to search
    *     hits
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
@@ -231,10 +253,9 @@ public class LineageSearchService {
 
       if (SearchUtils.convertSchemaFieldToDataset(
           finalOpContext.getSearchContext().getSearchFlags())) {
-        // set schemaField relationship entity to be its reference urn
-        LineageRelationshipArray updatedRelationships =
-            convertSchemaFieldRelationships(lineageResult);
-        lineageResult.setRelationships(updatedRelationships);
+        // Copy so the cached graph result keeps its original schemaField URNs
+        lineageResult = copyEntityLineageResult(lineageResult);
+        lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
       }
 
       // Filter hopped result based on the set of entities to return and inputFilters before sending
@@ -249,12 +270,20 @@ public class LineageSearchService {
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
 
-      if (canDoLightning(lineageRelationships, finalInput, reducedFilters, sortCriteria)) {
+      boolean forceLightningMode =
+          Optional.ofNullable(finalOpContext.getSearchContext().getLineageFlags())
+              .map(LineageFlags::isForceLightningMode)
+              .orElse(false);
+
+      if (canDoLightning(
+          lineageRelationships, finalInput, reducedFilters, sortCriteria, forceLightningMode)) {
         codePath = "lightning";
         // use lightning approach to return lineage search results
+        List<LineageRelationship> countable =
+            dropSchemaFieldsMissingFromParent(finalOpContext, lineageRelationships);
         LineageSearchResult lineageSearchResult =
             getLightningSearchResult(
-                lineageRelationships, reducedFilters, from, size, new HashSet<>(entities));
+                finalOpContext, countable, reducedFilters, from, size, new HashSet<>(entities));
         if (!lineageSearchResult.getEntities().isEmpty()) {
           log.debug(
               "Lightning Lineage entity result: {}",
@@ -266,6 +295,12 @@ public class LineageSearchService {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
         }
         return lineageSearchResult;
+      } else if (forceLightningMode) {
+        // Falling through would answer from the entity index, which has nothing to return for an
+        // entity that does not exist -- so the caller would silently get a short result rather than
+        // what it asked for
+        throw new IllegalArgumentException(
+            unservableLightningMessage(finalInput, sortCriteria, reducedFilters));
       } else {
         codePath = "tortoise";
         LineageSearchResult lineageSearchResult =
@@ -298,7 +333,8 @@ public class LineageSearchService {
       List<LineageRelationship> lineageRelationships,
       String input,
       Filter inputFilters,
-      List<SortCriterion> sortCriteria) {
+      List<SortCriterion> sortCriteria,
+      boolean forceLightningMode) {
     boolean simpleFilters =
         inputFilters == null
             || inputFilters.getOr() == null
@@ -308,13 +344,207 @@ public class LineageSearchService {
                         criterion.getAnd().stream()
                             .allMatch(
                                 criterion1 ->
-                                    "platform".equals(criterion1.getField())
-                                        || "origin".equals(criterion1.getField())));
-    return (lineageRelationships.size()
-            > appConfig.getCache().getSearch().getLineage().getLightningThreshold())
+                                    LIGHTNING_FILTER_FIELDS.contains(criterion1.getField())));
+    boolean worthwhile =
+        forceLightningMode
+            || lineageRelationships.size()
+                > appConfig.getCache().getSearch().getLineage().getLightningThreshold();
+    return worthwhile
         && input.equals("*")
         && simpleFilters
         && CollectionUtils.isEmpty(sortCriteria);
+  }
+
+  /**
+   * Drops schema fields the graph points at that their parent no longer declares, which the graph
+   * keeps edges for long after a column is removed or its dataset deleted. Reads schemaMetadata for
+   * the parents in one batch and keeps only fields it still lists, under any of the urn aliases a
+   * field can be referred to by.
+   *
+   * <p>Relationships that are not schema fields are left alone: this says nothing about whether
+   * they exist.
+   */
+  @VisibleForTesting
+  List<LineageRelationship> dropSchemaFieldsMissingFromParent(
+      @Nonnull OperationContext opContext, List<LineageRelationship> relationships) {
+    final SchemaFieldValidationMode mode =
+        schemaFieldValidationMode(opContext.getSearchContext().getLineageFlags());
+    if (SchemaFieldValidationMode.NONE.equals(mode)) {
+      return relationships;
+    }
+
+    final Set<Urn> schemaFields = new HashSet<>();
+    final Set<Urn> parents = new HashSet<>();
+    for (LineageRelationship relationship : relationships) {
+      SchemaFieldUtils.parseSchemaFieldUrn(relationship.getEntity())
+          .ifPresent(
+              parsed -> {
+                schemaFields.add(relationship.getEntity());
+                parents.add(parsed.getFirst());
+              });
+    }
+
+    if (parents.isEmpty()) {
+      return relationships;
+    }
+    final int maxParentsToValidate =
+        appConfig.getSearchService().getLineage().getMaxParentsToValidate();
+    if (SchemaFieldValidationMode.AUTO.equals(mode) && parents.size() > maxParentsToValidate) {
+      log.info(
+          "Skipping schema field validation for {} parents, above the limit of {}. Request ALWAYS to"
+              + " validate regardless.",
+          parents.size(),
+          maxParentsToValidate);
+      return relationships;
+    }
+
+    final Map<Urn, Map<String, Aspect>> aspects =
+        opContext
+            .getRetrieverContext()
+            .getAspectRetriever()
+            .getLatestAspectObjects(opContext, parents, Set.of(SCHEMA_METADATA_ASPECT_NAME));
+
+    final Set<Urn> declared = new HashSet<>();
+    for (Urn parent : parents) {
+      final Aspect aspect =
+          Optional.ofNullable(aspects.get(parent))
+              .map(a -> a.get(SCHEMA_METADATA_ASPECT_NAME))
+              .orElse(null);
+      if (aspect == null) {
+        // No schema to check against, so nothing under this parent can be confirmed to exist
+        continue;
+      }
+      final SchemaMetadata schemaMetadata =
+          RecordUtils.toRecordTemplate(SchemaMetadata.class, aspect.data());
+      for (SchemaField field : schemaMetadata.getFields()) {
+        declared.addAll(SchemaFieldUtils.getSchemaFieldAliases(parent, schemaMetadata, field));
+        declared.add(SchemaFieldUtils.generateSchemaFieldUrn(parent, field));
+      }
+    }
+
+    // Preserves the incoming order, which the caller pages over
+    return relationships.stream()
+        .filter(
+            relationship ->
+                !schemaFields.contains(relationship.getEntity())
+                    || declared.contains(relationship.getEntity()))
+        .collect(Collectors.toList());
+  }
+
+  /**
+   * How much to spend checking that the schema fields counted off the graph still exist. Defaults
+   * to NONE so that callers which never asked for it are unaffected, including those that reach the
+   * graph-only path merely by exceeding its result-size threshold.
+   */
+  @VisibleForTesting
+  static SchemaFieldValidationMode schemaFieldValidationMode(@Nullable LineageFlags lineageFlags) {
+    return Optional.ofNullable(lineageFlags)
+        .map(LineageFlags::getValidateSchemaFields)
+        .filter(mode -> !SchemaFieldValidationMode.$UNKNOWN.equals(mode))
+        .orElse(SchemaFieldValidationMode.NONE);
+  }
+
+  private static void rejectUnsupportedScrollFlags(@Nullable LineageFlags lineageFlags) {
+    if (lineageFlags == null) {
+      return;
+    }
+    if (Boolean.TRUE.equals(lineageFlags.isForceLightningMode())) {
+      throw new IllegalArgumentException(
+          "forceLightningMode is not supported by scrollAcrossLineage: "
+              + "lightning mode is only a feature of searchAcrossLineage.");
+    }
+    final SchemaFieldValidationMode mode = schemaFieldValidationMode(lineageFlags);
+    if (!SchemaFieldValidationMode.NONE.equals(mode)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "validateSchemaFields=%s is not supported by scrollAcrossLineage. "
+                  + "Use searchAcrossLineage instead.",
+              mode));
+    }
+  }
+
+  private static String unservableLightningMessage(
+      String input, @Nullable List<SortCriterion> sortCriteria, @Nullable Filter filters) {
+    return String.format(
+        "forceLightningMode reads results off the lineage graph, which cannot serve this query. It "
+            + "needs a '*' query, no sort criteria, and filters only on %s, but got query '%s', %d "
+            + "sort criteria, and filters on %s.",
+        LIGHTNING_FILTER_FIELDS,
+        input,
+        sortCriteria == null ? 0 : sortCriteria.size(),
+        filterFields(filters));
+  }
+
+  /** The distinct fields the filters constrain, sorted so the message reads the same every time. */
+  private static Set<String> filterFields(@Nullable Filter filters) {
+    if (filters == null || filters.getOr() == null) {
+      return Set.of();
+    }
+    return filters.getOr().stream()
+        .map(ConjunctiveCriterion::getAnd)
+        .flatMap(CriterionArray::stream)
+        .map(Criterion::getField)
+        .collect(Collectors.toCollection(TreeSet::new));
+  }
+
+  /**
+   * Whether a urn passes the filters, which the graph-only path answers from the urn alone. A
+   * Filter is a disjunction of conjunctions, so the urn passes if every criterion of any one
+   * or-branch passes -- evaluating each branch separately rather than pooling their criteria, which
+   * would reject urns that satisfy one branch but not another.
+   *
+   * <p>Negation is honored, so excluding the columns of a node the graph draws folded into another
+   * is expressible.
+   */
+  @VisibleForTesting
+  static boolean passesLightningCriteria(
+      Urn urn, @Nullable String platform, @Nullable String environment, @Nullable Filter filters) {
+    if (filters == null || CollectionUtils.isEmpty(filters.getOr())) {
+      return true;
+    }
+    return filters.getOr().stream()
+        .anyMatch(
+            branch ->
+                !branch.hasAnd()
+                    || branch.getAnd().stream()
+                        .allMatch(
+                            criterion -> passesCriterion(urn, platform, environment, criterion)));
+  }
+
+  private static boolean passesCriterion(
+      Urn urn, @Nullable String platform, @Nullable String environment, Criterion criterion) {
+    if (CollectionUtils.isEmpty(criterion.getValues())) {
+      return true;
+    }
+    // Fields outside these are rejected by canDoLightning, which never lets them reach here
+    final String value;
+    switch (criterion.getField()) {
+      case "platform":
+        value = platform;
+        break;
+      case "origin":
+        value = environment;
+        break;
+      case PARENT_FILTER:
+        value =
+            SchemaFieldUtils.parseSchemaFieldUrn(urn)
+                .map(parsed -> parsed.getFirst().toString())
+                .orElse(null);
+        break;
+      default:
+        value = null;
+        break;
+    }
+
+    boolean matches =
+        value != null
+            && criterion.getValues().stream()
+                .anyMatch(
+                    candidate ->
+                        Condition.CONTAIN.equals(criterion.getCondition())
+                            ? value.contains(candidate)
+                            : value.equals(candidate));
+    return matches != Boolean.TRUE.equals(criterion.isNegated());
   }
 
   @VisibleForTesting
@@ -324,9 +554,41 @@ public class LineageSearchService {
       int from,
       @Nullable Integer size,
       Set<String> entityNames) {
+    return getLightningSearchResult(
+        null, lineageRelationships, inputFilters, from, size, entityNames);
+  }
+
+  /**
+   * Pages hydratable graph neighbors. When {@code opContext} is present and lightning is not
+   * forced, missing URNs are dropped before {@code from}/{@code size} so offset pagination cannot
+   * replay an earlier page. {@code total} and aggregations follow that compacted list.
+   */
+  @VisibleForTesting
+  LineageSearchResult getLightningSearchResult(
+      @Nullable OperationContext opContext,
+      List<LineageRelationship> lineageRelationships,
+      Filter inputFilters,
+      int from,
+      @Nullable Integer size,
+      Set<String> entityNames) {
     size = ConfigUtils.applyLimit(_graphService.getGraphServiceConfig(), size);
 
-    // Construct result objects
+    List<LineageRelationship> matching = new ArrayList<>();
+    for (LineageRelationship relnship : lineageRelationships) {
+      Urn entityUrn = relnship.getEntity();
+      String entityType = entityUrn.getEntityType();
+      String platform = getPlatform(entityType, entityUrn);
+      String environment = getEnvironment(entityType, entityUrn);
+      if ((entityNames.isEmpty() || entityNames.contains(entityType))
+          && passesLightningCriteria(entityUrn, platform, environment, inputFilters)) {
+        matching.add(relnship);
+      }
+    }
+
+    if (shouldCompactMissingEntities(opContext)) {
+      matching = keepExistingEntities(opContext, matching);
+    }
+
     LineageSearchResult finalResult =
         new LineageSearchResult().setMetadata(new SearchResultMetadata());
     LineageSearchEntityArray lineageSearchEntityArray = new LineageSearchEntityArray();
@@ -340,74 +602,30 @@ public class LineageSearchService {
 
     AggregationMetadataArray aggregationMetadataArray = new AggregationMetadataArray();
 
-    // Aggregations supported by this model
-    // entity type
-    // platform
-    // environment
-    int start = 0;
+    int compactedIndex = 0;
     int numElements = 0;
-    for (LineageRelationship relnship : lineageRelationships) {
+    for (LineageRelationship relnship : matching) {
       Urn entityUrn = relnship.getEntity();
       String entityType = entityUrn.getEntityType();
-      // Apply platform, entity types, and environment filters
-
       String platform = getPlatform(entityType, entityUrn);
+      String environment = getEnvironment(entityType, entityUrn);
 
-      String environment = null;
-      if (entityType.equals(DATASET_ENTITY_NAME)) {
-        environment = entityUrn.getEntityKey().get(2);
+      compactedIndex++;
+      if ((compactedIndex > from) && (numElements < size)) {
+        lineageSearchEntityArray.add(
+            new LineageSearchEntity()
+                .setEntity(entityUrn)
+                .setDegree(relnship.getDegree())
+                .setPaths(relnship.getPaths()));
+        numElements++;
       }
 
-      // Filters
-      Set<String> platformCriteriaValues = null;
-      Set<String> originCriteriaValues = null;
-      if (inputFilters != null && inputFilters.getOr() != null) {
-        platformCriteriaValues =
-            inputFilters.getOr().stream()
-                .map(ConjunctiveCriterion::getAnd)
-                .flatMap(CriterionArray::stream)
-                .filter(criterion -> "platform".equals(criterion.getField()))
-                .flatMap(criterion -> criterion.getValues().stream())
-                .collect(Collectors.toSet());
-        originCriteriaValues =
-            inputFilters.getOr().stream()
-                .map(ConjunctiveCriterion::getAnd)
-                .flatMap(CriterionArray::stream)
-                .filter(criterion -> "origin".equals(criterion.getField()))
-                .flatMap(criterion -> criterion.getValues().stream())
-                .collect(Collectors.toSet());
+      entityTypeAggregations.compute(entityType, (key, value) -> value == null ? 1L : ++value);
+      if (platform != null) {
+        platformTypeAggregations.compute(platform, (key, value) -> value == null ? 1L : ++value);
       }
-      boolean isNotFiltered =
-          (entityNames.isEmpty() || entityNames.contains(entityUrn.getEntityType()))
-              && (CollectionUtils.isEmpty(platformCriteriaValues)
-                  || (platform != null && platformCriteriaValues.contains(platform)))
-              && (CollectionUtils.isEmpty(originCriteriaValues)
-                  || (environment != null && originCriteriaValues.contains(environment)));
-
-      if (isNotFiltered) {
-        start++;
-        if ((start > from) && (numElements < size)) {
-          lineageSearchEntityArray.add(
-              new LineageSearchEntity()
-                  .setEntity(entityUrn)
-                  .setDegree(relnship.getDegree())
-                  .setPaths(relnship.getPaths()));
-          numElements++;
-        }
-
-        // entityType
-        entityTypeAggregations.compute(entityType, (key, value) -> value == null ? 1L : ++value);
-
-        // platform
-        if (platform != null) {
-          platformTypeAggregations.compute(platform, (key, value) -> value == null ? 1L : ++value);
-        }
-
-        // environment
-        if (environment != null) {
-          environmentAggregations.compute(
-              environment, (key, value) -> value == null ? 1L : ++value);
-        }
+      if (environment != null) {
+        environmentAggregations.compute(environment, (key, value) -> value == null ? 1L : ++value);
       }
     }
 
@@ -455,8 +673,35 @@ public class LineageSearchService {
     }
     finalResult.setEntities(lineageSearchEntityArray);
     finalResult.getMetadata().setAggregations(aggregationMetadataArray);
-    finalResult.setNumEntities(start);
+    finalResult.setNumEntities(compactedIndex);
     return finalResult.setFrom(from).setPageSize(size);
+  }
+
+  private static boolean shouldCompactMissingEntities(@Nullable OperationContext opContext) {
+    if (opContext == null) {
+      return false;
+    }
+    return !Optional.ofNullable(opContext.getSearchContext().getLineageFlags())
+        .map(LineageFlags::isForceLightningMode)
+        .orElse(false);
+  }
+
+  /**
+   * Drops neighbors the primary store says do not exist. Explicit {@code false} is required so an
+   * empty retriever (tests) does not wipe the page.
+   */
+  private static List<LineageRelationship> keepExistingEntities(
+      @Nonnull OperationContext opContext, List<LineageRelationship> relationships) {
+    if (relationships.isEmpty()) {
+      return relationships;
+    }
+    Set<Urn> urns =
+        relationships.stream().map(LineageRelationship::getEntity).collect(Collectors.toSet());
+    Map<Urn, Boolean> exists =
+        opContext.getRetrieverContext().getAspectRetriever().entityExists(opContext, urns);
+    return relationships.stream()
+        .filter(relationship -> !Boolean.FALSE.equals(exists.get(relationship.getEntity())))
+        .collect(Collectors.toList());
   }
 
   private AggregationMetadata constructAggMetadata(String displayName, String name) {
@@ -469,6 +714,9 @@ public class LineageSearchService {
 
   @VisibleForTesting
   String getPlatform(String entityType, Urn entityUrn) {
+    if (SCHEMA_FIELD_ENTITY_NAME.equals(entityType)) {
+      return fromParent(entityUrn, this::getPlatform);
+    }
     String platform = null;
     if (PLATFORM_ENTITY_TYPES.contains(entityType)) {
       if (DATA_JOB_ENTITY_NAME.equals(entityType)) {
@@ -484,20 +732,84 @@ public class LineageSearchService {
     return platform;
   }
 
-  // Necessary so we don't filter out schemaField entities and so that we search to get the parent
-  // reference entity
-  private LineageRelationshipArray convertSchemaFieldRelationships(
-      EntityLineageResult lineageResult) {
-    return lineageResult.getRelationships().stream()
-        .map(
-            relationship -> {
-              if (relationship.getEntity().getEntityType().equals("schemaField")) {
-                Urn entity = getSchemaFieldReferenceUrn(relationship.getEntity());
-                relationship.setEntity(entity);
-              }
-              return relationship;
-            })
-        .collect(Collectors.toCollection(LineageRelationshipArray::new));
+  @VisibleForTesting
+  @Nullable
+  String getEnvironment(String entityType, Urn entityUrn) {
+    if (SCHEMA_FIELD_ENTITY_NAME.equals(entityType)) {
+      return fromParent(entityUrn, this::getEnvironment);
+    }
+    return DATASET_ENTITY_NAME.equals(entityType) ? entityUrn.getEntityKey().get(2) : null;
+  }
+
+  /**
+   * A schema field carries neither a platform nor an environment of its own; it takes its parent's,
+   * which is nested inside its own urn.
+   */
+  @Nullable
+  private String fromParent(Urn schemaFieldUrn, BiFunction<String, Urn, String> ofParent) {
+    return SchemaFieldUtils.parseSchemaFieldUrn(schemaFieldUrn)
+        .map(parsed -> ofParent.apply(parsed.getFirst().getEntityType(), parsed.getFirst()))
+        .orElse(null);
+  }
+
+  @SneakyThrows
+  private static EntityLineageResult copyEntityLineageResult(EntityLineageResult lineageResult) {
+    return new EntityLineageResult(lineageResult.data().copy());
+  }
+
+  /**
+   * Folds schema fields into their parent dataset without mutating the graph-cache objects, and
+   * dedupes by parent so Lightning does not page the same dataset ten times.
+   */
+  @VisibleForTesting
+  @SneakyThrows
+  LineageRelationshipArray convertSchemaFieldRelationships(EntityLineageResult lineageResult) {
+    LinkedHashMap<Urn, LineageRelationship> byUrn = new LinkedHashMap<>();
+    for (LineageRelationship relationship : lineageResult.getRelationships()) {
+      LineageRelationship copy = new LineageRelationship(relationship.data().copy());
+      copy.setEntity(getSchemaFieldReferenceUrn(copy.getEntity()));
+      LineageRelationship existing = byUrn.get(copy.getEntity());
+      if (existing == null) {
+        byUrn.put(copy.getEntity(), copy);
+      } else {
+        mergePaths(existing, copy);
+      }
+    }
+    return new LineageRelationshipArray(byUrn.values());
+  }
+
+  /**
+   * Collapses two hops to the same parent. Keeps {@code min(degree)} so a later degree filter is
+   * independent of which schema field arrived first, and unions {@code degrees} the way graph walk
+   * merges do.
+   */
+  private static void mergePaths(LineageRelationship into, LineageRelationship from) {
+    int intoDegree = into.getDegree();
+    int fromDegree = from.getDegree();
+    Set<Integer> degrees = new HashSet<>();
+    if (into.hasDegrees()) {
+      degrees.addAll(into.getDegrees());
+    } else {
+      degrees.add(intoDegree);
+    }
+    if (from.hasDegrees()) {
+      degrees.addAll(from.getDegrees());
+    } else {
+      degrees.add(fromDegree);
+    }
+    into.setDegree(Math.min(intoDegree, fromDegree));
+    into.setDegrees(new IntegerArray(degrees));
+
+    if (!from.hasPaths() || from.getPaths().isEmpty()) {
+      return;
+    }
+    UrnArrayArray newPaths =
+        new UrnArrayArray((into.hasPaths() ? into.getPaths().size() : 0) + from.getPaths().size());
+    if (into.hasPaths()) {
+      newPaths.addAll(into.getPaths());
+    }
+    newPaths.addAll(from.getPaths());
+    into.setPaths(newPaths);
   }
 
   private Map<Urn, LineageRelationship> generateUrnToRelationshipMap(
@@ -626,16 +938,8 @@ public class LineageSearchService {
         .reduce(x -> false, Predicate::or);
   }
 
-  private Urn getSchemaFieldReferenceUrn(Urn urn) {
-    if (urn.getEntityType().equals(Constants.SCHEMA_FIELD_ENTITY_NAME)) {
-      try {
-        // Get the dataset urn referenced inside the schemaField urn
-        return Urn.createFromString(urn.getId());
-      } catch (Exception e) {
-        log.error("Invalid destination urn: {}", urn.getId(), e);
-      }
-    }
-    return urn;
+  private static Urn getSchemaFieldReferenceUrn(Urn urn) {
+    return SchemaFieldUtils.parseSchemaFieldUrn(urn).map(Pair::getFirst).orElse(urn);
   }
 
   private List<LineageRelationship> filterRelationships(
@@ -731,7 +1035,9 @@ public class LineageSearchService {
    * @param direction Direction of the relationship
    * @param entities list of entities to search (If empty, searches across all entities)
    * @param input the search input text
-   * @param maxHops the maximum number of hops away to search for. If null, defaults to 1000
+   * @param maxHops the maximum number of hops away to search for. If null, defaults to the
+   *     configured per-mode maximum (impact.maxHops for impact analysis; lineageMaxHops for
+   *     visualization), and any larger value is clamped to it
    * @param inputFilters the request map with fields and values as filters to be applied to search
    *     hits
    * @param sortCriteria list of {@link SortCriterion} to be applied to search results
@@ -757,6 +1063,14 @@ public class LineageSearchService {
     try (CascadeOperationContext cascade =
         CascadeOperationContext.begin(
             metricUtils, "scrollAcrossLineage", sourceUrn, -1, "datahub.lineage")) {
+      rejectUnsupportedScrollFlags(opContext.getSearchContext().getLineageFlags());
+
+      // Clamp hops the same way searchAcrossLineage does (see applyMaxHopsLimit), before building
+      // the cache key. The scroll path previously defaulted to 1000 without clamping, letting a
+      // caller-supplied maxHops drive an unbounded deep traversal; clamping before the key also
+      // keeps scroll and search cache entries aligned for the same logical request.
+      maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
+
       // Cache multihop result for faster performance
       final EntityLineageResultCacheKey cacheKey =
           new EntityLineageResultCacheKey(
@@ -773,7 +1087,6 @@ public class LineageSearchService {
               : null;
       EntityLineageResult lineageResult;
       if (cachedLineageResult == null) {
-        maxHops = maxHops != null ? maxHops : 1000;
         lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
         if (enableCache(opContext.getSearchContext().getSearchFlags())) {
           cache.put(
@@ -787,10 +1100,8 @@ public class LineageSearchService {
         }
       }
 
-      // set schemaField relationship entity to be its reference urn
-      LineageRelationshipArray updatedRelationships =
-          convertSchemaFieldRelationships(lineageResult);
-      lineageResult.setRelationships(updatedRelationships);
+      lineageResult = copyEntityLineageResult(lineageResult);
+      lineageResult.setRelationships(convertSchemaFieldRelationships(lineageResult));
 
       // Filter hopped result based on the set of entities to return and inputFilters before sending
       // to search

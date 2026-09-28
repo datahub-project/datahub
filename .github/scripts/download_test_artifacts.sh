@@ -17,10 +17,14 @@ REPOSITORY=""
 ARTIFACT_PREFIX="Test Results (smoke tests)"
 ALLOW_FAILED=false
 NO_FAIL_ON_EMPTY=false
-# When fewer than RUN_COUNT qualifying runs are found in the recent page, widen
-# the lookback window to at least this many days so a quiet stretch doesn't
-# starve the weight harvest.
+# Filtered workflow-run queries (branch=, status=, …) time out past a few thousand
+# matches and can return a created-desc page whose newest run is months old.
+# Always bound the search with created>=. Start at MIN_LOOKBACK_DAYS and widen
+# to MAX_LOOKBACK_DAYS when that window has fewer than RUN_COUNT qualifying runs.
+# MAX matches report-test-results retention (7 days); older runs have no artifacts.
+# https://github.blog/changelog/2026-09-25-changes-to-query-results-in-the-github-actions-api-and-ui/
 MIN_LOOKBACK_DAYS=3
+MAX_LOOKBACK_DAYS=7
 
 # Parse arguments
 usage() {
@@ -170,16 +174,9 @@ fi
 
 # Fetch recent successful workflow runs from master branch.
 #
-# We want RUN_COUNT qualifying runs, but also look back at least
-# MIN_LOOKBACK_DAYS so a quiet few days don't under-harvest. Strategy: grab the
-# most recent page of runs first (cheap, ~30 items, already newest-first). If
-# it already yields RUN_COUNT qualifying runs, use them; otherwise widen to the
-# last MIN_LOOKBACK_DAYS (paginated) and merge with what we already have.
-#
-# Limiting is done inside jq (not via `head`) so `gh api` is never killed by
-# SIGPIPE under `set -o pipefail`. Phase 2 is best-effort: transient GitHub API
-# failures (5xx/timeout) are retried, and if phase 2 still fails we fall back to
-# the phase 1 runs instead of aborting.
+# List with created>= so the filtered workflow-runs search stays inside a window
+# small enough to return the actual newest runs. Sort here; do not trust page
+# order from an unbounded branch query.
 echo "Fetching recent workflow runs from master branch..."
 
 # gh api with retry on transient failures (5xx, timeouts). Returns non-zero
@@ -201,45 +198,53 @@ gh_api_retry() {
     return "$rc"
 }
 
-# Phase 1: most recent page (cheap, ~30 items, already newest-first).
-PHASE1_FILE=$(mktemp)
-if ! gh_api_retry "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" > "$PHASE1_FILE"; then
-    rm -f "$PHASE1_FILE"
+# GNU date (`-d`) on the runner, BSD date (`-v`) for local macOS dev.
+utc_days_ago() {
+    date -u -d "$1 days ago" +%Y-%m-%d 2>/dev/null \
+        || date -u -v-"$1"d +%Y-%m-%d
+}
+
+# Print a JSON array of the newest RUN_COUNT qualifying runs created on or after
+# SINCE_DATE. `gh api --paginate` streams one JSON object per page; `jq -s`
+# slurps them. The created>= filter stays in the URL (not `-f`): gh's field flag
+# URL-encodes `>` and GitHub 404s on the encoded form.
+fetch_qualifying_runs_since() {
+    local since_date="$1"
+    local page_file
+    page_file=$(mktemp)
+    if ! gh_api_retry --paginate \
+        "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?branch=master&per_page=100&created=>=${since_date}" \
+        > "$page_file"; then
+        rm -f "$page_file"
+        return 1
+    fi
+    if ! jq -se --argjson n "$RUN_COUNT" \
+        '[.[] | .workflow_runs[]? | '"$RUN_FILTER"' | {id: .id, created: .created_at}]
+         | sort_by(.created) | reverse | .[0:$n]' \
+        "$page_file"; then
+        rm -f "$page_file"
+        return 1
+    fi
+    rm -f "$page_file"
+}
+
+SINCE_DATE=$(utc_days_ago "$MIN_LOOKBACK_DAYS")
+echo "Selecting up to $RUN_COUNT runs created since $SINCE_DATE..."
+if ! RUNS_JSON=$(fetch_qualifying_runs_since "$SINCE_DATE"); then
     echo "Error: Failed to fetch workflow runs from GitHub API" >&2
     exit 1
 fi
-RUNS_JSON=$(jq -c --argjson n "$RUN_COUNT" \
-    '[.workflow_runs[] | '"$RUN_FILTER"' | {id: .id, created: .created_at}][0:$n]' \
-    "$PHASE1_FILE")
-rm -f "$PHASE1_FILE"
-
 QUALIFYING_COUNT=$(printf '%s' "$RUNS_JSON" | jq 'length')
 
 if [ "$QUALIFYING_COUNT" -lt "$RUN_COUNT" ]; then
-    # date fallback: GNU (`-d`) on the runner, BSD (`-v`) for local macOS dev.
-    SINCE_DATE=$(date -u -d "$MIN_LOOKBACK_DAYS days ago" +%Y-%m-%d 2>/dev/null \
-        || date -u -v-${MIN_LOOKBACK_DAYS}d +%Y-%m-%d)
-    echo "Only $QUALIFYING_COUNT qualifying run(s) in the recent page; widening to runs since $SINCE_DATE..."
-    PHASE2_FILE=$(mktemp)
-    # `gh api --paginate` streams one JSON object per page; `jq -s` slurps them
-    # into a single array so we can sort and slice across the whole window.
-    # The `created>=` filter goes in the URL query string (not `-f`): gh's field
-    # flag URL-encodes `>` and GitHub 404s on the encoded form.
-    if gh_api_retry --paginate "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?created=>=$SINCE_DATE" > "$PHASE2_FILE"; then
-        PHASE2=$(jq -s --argjson n "$RUN_COUNT" \
-            '[.[] | .workflow_runs[]? | '"$RUN_FILTER"' | {id: .id, created: .created_at}]
-             | sort_by(.created) | reverse | .[0:$n]' \
-            "$PHASE2_FILE")
-        # Merge phase 1 + phase 2, dedup by id, keep newest RUN_COUNT. Phase 1
-        # runs are preserved even if phase 2 found nothing (e.g. the only
-        # qualifying runs are older than MIN_LOOKBACK_DAYS).
-        RUNS_JSON=$(printf '%s\n%s\n' "$RUNS_JSON" "$PHASE2" \
-            | jq -sr --argjson n "$RUN_COUNT" \
-                'add | unique_by(.id) | sort_by(.created) | reverse | .[0:$n]')
+    WIDER_DATE=$(utc_days_ago "$MAX_LOOKBACK_DAYS")
+    echo "Only $QUALIFYING_COUNT qualifying run(s) since $SINCE_DATE; widening to $WIDER_DATE..."
+    if WIDER_JSON=$(fetch_qualifying_runs_since "$WIDER_DATE"); then
+        RUNS_JSON="$WIDER_JSON"
+        SINCE_DATE="$WIDER_DATE"
     else
-        echo "Warning: phase 2 widening fetch failed; falling back to phase 1 ($QUALIFYING_COUNT qualifying run(s))." >&2
+        echo "Warning: lookback to $WIDER_DATE failed; keeping runs since $SINCE_DATE." >&2
     fi
-    rm -f "$PHASE2_FILE"
 fi
 
 RUN_IDS=$(printf '%s' "$RUNS_JSON" | jq -r '.[].id')
@@ -249,7 +254,7 @@ if [[ -z "$RUN_IDS" ]]; then
         echo "NO_DATA=true"
         exit 0
     fi
-    echo "Error: No successful workflow runs found on master branch"
+    echo "Error: No qualifying workflow runs on master since $SINCE_DATE"
     exit 1
 fi
 
@@ -308,14 +313,11 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
             else
                 artifact_subdir="$RUN_DIR/pytests-0"
             fi
-        elif [[ $artifact_name =~ "cypress" ]]; then
-            # Extract batch number if present
-            if [[ $artifact_name =~ cypress[[:space:]]+([0-9]+) ]]; then
-                batch_num="${BASH_REMATCH[1]}"
-                artifact_subdir="$RUN_DIR/cypress-$batch_num"
-            else
-                artifact_subdir="$RUN_DIR/cypress-0"
-            fi
+        elif [[ $artifact_name =~ ^playwright-junit-([0-9]+)$ ]]; then
+            # Each shard's artifact contains a same-named test-results/junit.xml; without a
+            # per-shard subdirectory here, every shard after the first overwrites the last
+            # extracted into the shared "other" dir, silently dropping 7/8 shards' data.
+            artifact_subdir="$RUN_DIR/playwright-${BASH_REMATCH[1]}"
         else
             artifact_subdir="$RUN_DIR/other"
         fi
@@ -366,5 +368,4 @@ echo
 echo "Next step: Generate test weights with:"
 echo "  python .github/scripts/generate_test_weights.py \\"
 echo "    --input-dir $OUTPUT_DIR \\"
-echo "    --cypress-output ./dev-artifacts/generated-weights/cypress_weights.json \\"
 echo "    --pytest-output ./dev-artifacts/generated-weights/pytest_weights.json"

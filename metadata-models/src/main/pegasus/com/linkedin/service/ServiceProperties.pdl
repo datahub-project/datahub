@@ -1,5 +1,6 @@
 namespace com.linkedin.service
 
+import com.linkedin.common.CustomProperties
 import com.linkedin.common.Urn
 
 /**
@@ -14,9 +15,9 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "serviceProperties",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
-record ServiceProperties {
+record ServiceProperties includes CustomProperties {
 
   /**
    * Display name shown in UI and search results.

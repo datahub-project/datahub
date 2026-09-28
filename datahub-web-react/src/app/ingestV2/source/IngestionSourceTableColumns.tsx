@@ -162,20 +162,26 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
     );
 }
 
-export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
-    const { t } = useTranslation('ingestion');
-    const theme = useTheme();
-    let scheduleText: string;
-
+/**
+ * The human-readable schedule shown in source lists ("Every day at 12:00 am (UTC)").
+ * Returns null when the cron doesn't parse so callers can render their own
+ * "invalid" copy; an empty schedule yields an empty string.
+ */
+export function formatScheduleText(schedule: string, timezone?: string): string | null {
     try {
         const text = schedule && `${cronToString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
         const cleanedText = removeTimePrefix(text);
-        const finalText = capitalizeFirstLetterOnly(capitalizeMonthsAndDays(cleanedText));
-        scheduleText = finalText ?? '-';
+        return capitalizeFirstLetterOnly(capitalizeMonthsAndDays(cleanedText)) ?? '-';
     } catch (e) {
-        scheduleText = t('source.invalidCron');
         console.debug('Error parsing cron schedule', e);
+        return null;
     }
+}
+
+export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
+    const { t } = useTranslation('ingestion');
+    const theme = useTheme();
+    const scheduleText = formatScheduleText(schedule, timezone) ?? t('source.invalidCron');
     return (
         <TextContainer
             ellipsis={{
@@ -212,7 +218,7 @@ export function wrapOwnerColumnWithHover(content: React.ReactNode, record: any):
     return content;
 }
 interface ActionsColumnProps {
-    record: any;
+    record: IngestionSourceTableData;
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
     onCancel: (executionUrn: string | undefined, ingestionSourceUrn: string) => void;
@@ -275,7 +281,7 @@ export function ActionsColumn({
             label: (
                 <MenuItem
                     onClick={() => {
-                        setFocusExecutionUrn(record.lastExecUrn);
+                        setFocusExecutionUrn(record.lastExecUrn || '');
                     }}
                 >
                     {t('source.viewLastRunResult')}
@@ -315,7 +321,7 @@ export function ActionsColumn({
             label: (
                 <MenuItem
                     onClick={() => {
-                        setFocusExecutionUrn(record.lastExecUrn);
+                        setFocusExecutionUrn(record.lastExecUrn || '');
                     }}
                 >
                     {tl('details')}

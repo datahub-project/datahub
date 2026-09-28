@@ -407,7 +407,8 @@ def _maybe_print_upgrade_message(
                 + click.style(
                     f"➡️ Downgrade via `\"pip install 'acryl-datahub=={version_stats.server.current.version}'\"",
                     fg="cyan",
-                )
+                ),
+                err=True,
             )
     elif client_server_compat > 0:
         with contextlib.suppress(Exception):

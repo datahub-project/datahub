@@ -7,6 +7,7 @@ the schemaField-anchored ``semanticFieldAnnotation`` + ``aiContext`` MCPs,
 the required-expression fallback, and aiContext-only-when-non-empty.
 """
 
+import logging
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -77,7 +78,6 @@ def test_semantic_model_urn_and_core_aspects() -> None:
     assert isinstance(info, SemanticModelInfoClass)
     assert info.name == "Orders Model"
     assert info.description == "Orders semantic model"
-    assert info.datasets == []
     assert info.relationships is None
     # No aiContext when none provided.
     assert "aiContext" not in aspects
@@ -136,14 +136,14 @@ def test_semantic_model_add_dataset_records_urn_and_back_ref() -> None:
     assert ds.alias == "ORDERS"
 
 
-def test_semantic_model_add_dataset_accepts_urn_string() -> None:
+def test_semantic_model_add_dataset_rejects_urn_string() -> None:
+    from datahub.errors import SdkUsageError
+
     model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
-    model.add_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
-    )
-    assert model.datasets == [
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
-    ]
+    with pytest.raises(SdkUsageError, match="SemanticModelDataset"):
+        model.add_dataset(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"  # type: ignore[arg-type]
+        )
 
 
 def test_semantic_model_datasets_preserve_insertion_order() -> None:
@@ -435,7 +435,7 @@ def test_logical_dataset_field_ai_context_only_when_non_empty() -> None:
 def test_end_to_end_semantic_model_with_metrics() -> None:
     """Build a small model with two logical datasets, a relationship, and two
     metrics (one derived from the other), then assert the full aspect set and
-    the lineage wiring (Metric -> SemanticModel -> Logical Dataset -> Physical).
+    the lineage wiring (Metric -> Logical Dataset -> Physical; SM is a container).
     """
     model_urn_str = (
         "urn:li:semanticModel:(urn:li:dataPlatform:snowflake,analytics,orders_model)"
@@ -497,6 +497,28 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         upstreams=["urn:li:dataset:(urn:li:dataPlatform:snowflake,raw.customers,PROD)"],
     )
 
+    total_revenue = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="total_revenue",
+        semantic_model=model_urn_str,
+        name="Total Revenue",
+        expression=DialectExpressionInput(
+            expression="SUM(ORDERS.amount)", dialect=DialectClass.SNOWFLAKE
+        ),
+        upstream_datasets=[orders_ds.urn],
+        ai_context=AiContextInput(synonyms=["revenue"]),
+    )
+    double_revenue = Metric(
+        platform="snowflake",
+        path="analytics",
+        id="double_revenue",
+        semantic_model=model_urn_str,
+        name="Double Revenue",
+        expression="2 * total_revenue",
+        derived_from=[total_revenue.urn],
+    )
+
     model = SemanticModel(
         platform="snowflake",
         path="analytics",
@@ -515,32 +537,11 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         ],
     )
 
-    total_revenue = Metric(
-        platform="snowflake",
-        path="analytics",
-        id="total_revenue",
-        semantic_model=str(model.urn),
-        name="Total Revenue",
-        expression=DialectExpressionInput(
-            expression="SUM(ORDERS.amount)", dialect=DialectClass.SNOWFLAKE
-        ),
-        ai_context=AiContextInput(synonyms=["revenue"]),
-    )
-    double_revenue = Metric(
-        platform="snowflake",
-        path="analytics",
-        id="double_revenue",
-        semantic_model=str(model.urn),
-        name="Double Revenue",
-        expression="2 * total_revenue",
-        derived_from=[total_revenue.urn],
-    )
-
     # --- Semantic model aspects ---
     model_aspects = _aspects_by_name(model)
     assert isinstance(model_aspects["status"], StatusClass)
     info = model_aspects["semanticModelInfo"]
-    assert info.datasets == [str(orders_ds.urn), str(customers_ds.urn)]
+    # Membership is member-side only; SemanticModelInfo no longer lists datasets/metrics.
     assert info.relationships is not None and len(info.relationships) == 1
     assert info.relationships[0].from_ == "ORDERS"
     assert info.relationships[0].to == "CUSTOMERS"
@@ -555,8 +556,6 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
         assert props.semanticModel == str(model.urn)
         assert "schemaMetadata" in ds_aspects
         assert "upstreamLineage" in ds_aspects
-        # A dataset never carries metricUpstreams; assert the logical dataset's
-        # actual back-ref is present instead.
         assert ds_aspects["semanticModelProperties"].semanticModel == str(model.urn)
 
     # Field-anchored annotations exist for every field.
@@ -578,8 +577,11 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
     assert tr_aspects["aiContext"].synonyms == ["revenue"]
     assert isinstance(tr_aspects["metricRelationships"], MetricRelationshipsClass)
     assert tr_aspects["metricRelationships"].derivedFrom == []
-    # No metricUpstreams for semantic-model-backed metrics.
-    assert "metricUpstreams" not in tr_aspects
+    # Metric → SMD lineage via metricUpstreams.
+    assert "metricUpstreams" in tr_aspects
+    assert [
+        e.destinationUrn for e in tr_aspects["metricUpstreams"].datasetUpstreams
+    ] == [str(orders_ds.urn)]
 
     dr_aspects = _aspects_by_name(double_revenue)
     assert dr_aspects["metricInfo"].expression.dialects[0].dialect == (
@@ -591,14 +593,15 @@ def test_end_to_end_semantic_model_with_metrics() -> None:
     # No aiContext when none provided.
     assert "aiContext" not in dr_aspects
 
-    # --- Lineage chain wiring ---
-    # Metric -> SemanticModel (ModeledBy) via metricInfo.semanticModel.
+    # --- Lineage / containment wiring ---
+    # Containment: Metrics reference their SemanticModel via ModeledBy.
     assert total_revenue.semantic_model == str(model.urn)
     assert double_revenue.semantic_model == str(model.urn)
-    # SemanticModel -> Logical Datasets (Contains) via semanticModelInfo.datasets.
+    # Containment: SemanticModel → Logical Datasets (local attach list only).
     assert str(orders_ds.urn) in model.datasets
     assert str(customers_ds.urn) in model.datasets
-    # Logical Dataset -> Physical (upstreamLineage).
+    # Lineage: Metric → Logical Dataset → Physical.
+    assert total_revenue.upstream_datasets == [str(orders_ds.urn)]
     assert orders_ds.upstreams is not None
     assert customers_ds.upstreams is not None
     assert (
@@ -1132,13 +1135,17 @@ def _model_with(
     )
 
 
-def test_datasets_scalar_string_is_single_dataset() -> None:
-    # A bare dataset URN string must be one dataset, not one per character.
+def test_datasets_rejects_bare_urn_string() -> None:
+    from datahub.errors import SdkUsageError
+
     urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)"
-    model = SemanticModel(
-        platform="snowflake", path="analytics", id="orders_model", datasets=urn
-    )
-    assert model.datasets == [urn]
+    with pytest.raises(SdkUsageError, match="SemanticModelDataset"):
+        SemanticModel(
+            platform="snowflake",
+            path="analytics",
+            id="orders_model",
+            datasets=urn,  # type: ignore[arg-type]
+        )
 
 
 def test_semantic_model_dataset_rejects_blank_semantic_model() -> None:
@@ -1249,3 +1256,120 @@ def test_semantic_model_clear_hydrated_ai_context_emits_empty_overwrite() -> Non
     cleared = emitted["aiContext"]
     assert isinstance(cleared, AiContextClass)
     assert cleared.synonyms is None
+
+
+def test_hydrated_model_partial_add_dataset_warns_on_other_aliases(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """get() does not load members; adding one SMD must not raise on other aliases."""
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        relationships=[
+            SemanticModelRelationshipInput(
+                name="orders_customers",
+                from_alias="ORDERS",
+                from_columns=["customer_id"],
+                to_alias="CUSTOMERS",
+                to_columns=["id"],
+            ),
+            SemanticModelRelationshipInput(
+                name="orders_items",
+                from_alias="ORDERS",
+                from_columns=["order_id"],
+                to_alias="ITEMS",
+                to_columns=["order_id"],
+            ),
+        ],
+    )
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+    hydrated.add_dataset(
+        _ds("ORDERS", "analytics.orders_model.orders_ds", ["customer_id", "order_id"])
+    )
+
+    with caplog.at_level(logging.WARNING, logger="datahub.sdk.semantic_model"):
+        mcps = hydrated.as_mcps()
+    assert mcps
+    warning_text = " ".join(r.message for r in caplog.records)
+    assert "CUSTOMERS" in warning_text or "ITEMS" in warning_text
+
+
+def test_hydrated_no_edit_omits_semantic_model_info() -> None:
+    """Hydrated get → emit with no edits must not emit semanticModelInfo."""
+    stale = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)",
+    ]
+    model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
+    model._ensure_model_props().datasets = list(stale)
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+
+    aspect_names = {mcp.aspectName for mcp in hydrated.as_mcps()}
+    assert "semanticModelInfo" not in aspect_names
+    assert hydrated._ensure_model_props().datasets == stale
+
+
+def test_hydrated_edit_native_definition_emits_with_datasets_cleared() -> None:
+    stale = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)",
+    ]
+    model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
+    model._ensure_model_props().datasets = list(stale)
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+
+    hydrated.set_native_definition("CREATE SEMANTIC VIEW ...")
+    info = next(
+        mcp.aspect
+        for mcp in hydrated.as_mcps()
+        if mcp.aspectName == "semanticModelInfo"
+    )
+    assert isinstance(info, SemanticModelInfoClass)
+    assert info.datasets == []
+    assert info.nativeDefinition == "CREATE SEMANTIC VIEW ..."
+    assert hydrated._ensure_model_props().datasets == stale
+
+
+def test_hydrated_add_dataset_does_not_mutate_in_memory_aspect() -> None:
+    stale = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)",
+    ]
+    model = SemanticModel(
+        platform="snowflake",
+        path="analytics",
+        id="orders_model",
+        datasets=[
+            _ds("ORDERS", "analytics.orders_model.orders_ds", ["order_id"]),
+        ],
+    )
+    model._ensure_model_props().datasets = list(stale)
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+    before = list(hydrated._ensure_model_props().datasets)
+
+    hydrated.add_dataset(
+        _ds("CUSTOMERS", "analytics.orders_model.customers_ds", ["customer_id"])
+    )
+    hydrated.as_mcps()
+
+    assert hydrated._ensure_model_props().datasets == before
+
+
+def test_hydrated_model_clears_deprecated_datasets_on_emit() -> None:
+    """get → edit → upsert must not re-emit stale semanticModelInfo.datasets."""
+    stale = [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.orders_ds,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.orders_model.customers_ds,PROD)",
+    ]
+    model = SemanticModel(platform="snowflake", path="analytics", id="orders_model")
+    model._ensure_model_props().datasets = list(stale)
+    hydrated = SemanticModel._new_from_graph(model.urn, dict(model._aspects))
+    assert hydrated._ensure_model_props().datasets == stale
+
+    hydrated.set_description("updated")
+    info = next(
+        mcp.aspect
+        for mcp in hydrated.as_mcps()
+        if mcp.aspectName == "semanticModelInfo"
+    )
+    assert isinstance(info, SemanticModelInfoClass)
+    assert info.datasets == []
+    assert hydrated._ensure_model_props().datasets == stale

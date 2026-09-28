@@ -4,6 +4,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -45,15 +46,13 @@ public abstract class StructuredPropertyMappingLookupTestBase
   public void setUp() throws IOException {
     indexConvention =
         new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix(INDEX_PREFIX)
-                .hashIdAlgo("MD5")
-                .build(),
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver(INDEX_PREFIX),
             SearchTestUtils.V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION);
     lookup = new SearchEngineStructuredPropertyMappingLookup(getSearchClient(), indexConvention);
 
-    v2IndexName = indexConvention.getEntityIndexName("dataset");
-    v3IndexName = indexConvention.getEntityIndexNameV3("dataset");
+    v2IndexName = indexConvention.getEntityIndexName(OperationFingerprint.EMPTY, "dataset");
+    v3IndexName = indexConvention.getEntityIndexNameV3(OperationFingerprint.EMPTY, "dataset");
     unrelatedIndexName = "unrelated-" + UUID.randomUUID() + "-index";
 
     createIndex(v2IndexName, structuredPropertyFieldMapping("certification_status"));

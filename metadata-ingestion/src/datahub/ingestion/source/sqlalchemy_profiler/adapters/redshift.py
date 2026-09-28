@@ -4,11 +4,13 @@ import logging
 from typing import Any, Optional
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    PlatformAdapter,
+    ProfilingConnection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +74,7 @@ class RedshiftAdapter(PlatformAdapter):
         Redshift mean (AVG) with CAST to preserve precision.
 
         Redshift's AVG on INTEGER columns returns integer (rounded).
-        To match GE behavior which shows full precision, we cast to float.
+        Cast to float to preserve full precision.
 
         Args:
             column: Column name
@@ -81,7 +83,7 @@ class RedshiftAdapter(PlatformAdapter):
             SQLAlchemy expression for AVG(CAST(column AS FLOAT))
         """
         # Cast column to float to ensure AVG returns float with full precision
-        # This matches GE behavior (e.g., '8.478238501903489')
+        # e.g., '8.478238501903489' instead of '8'
         return sa.func.avg(sa.cast(sa.column(column), sa.Float))
 
     def get_stdev_null_value(self) -> Optional[float]:
@@ -106,7 +108,7 @@ class RedshiftAdapter(PlatformAdapter):
         return True
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.Table, conn: ProfilingConnection
     ) -> Optional[int]:
         """
         Get fast row count estimate using Redshift system tables.
@@ -140,7 +142,9 @@ class RedshiftAdapter(PlatformAdapter):
                 .where(svv_table_info.c.table == table_name)
             )
 
-            result = conn.execute(query).scalar()
+            # Deliberately not single-row: filtered on schema+table, so a table
+            # absent from svv_table_info yields zero rows.
+            result = conn.execute_rows(query).scalar()
             return int(result) if result is not None else None
 
         except SQLAlchemyError as e:

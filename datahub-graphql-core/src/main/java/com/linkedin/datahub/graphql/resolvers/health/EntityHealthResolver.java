@@ -1,54 +1,33 @@
 package com.linkedin.datahub.graphql.resolvers.health;
 
-import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_STATUS_COMPLETE;
-import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
-
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
-import com.linkedin.data.template.StringArrayArray;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.generated.ActiveIncidentHealthDetails;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Health;
-import com.linkedin.datahub.graphql.generated.HealthStatus;
-import com.linkedin.datahub.graphql.generated.HealthStatusType;
 import com.linkedin.datahub.graphql.generated.IncidentState;
+import com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.r2.RemoteInvocationException;
-import com.linkedin.test.TestResults;
-import com.linkedin.timeseries.AggregationSpec;
-import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
-import com.linkedin.timeseries.GroupingBucket;
-import com.linkedin.timeseries.GroupingBucketType;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -57,25 +36,29 @@ import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.dataloader.DataLoader;
 
 /**
  * Resolver for generating the health badge for an asset, which depends on
  *
  * <p>1. Assertions status - whether the asset has active assertions 2. Incidents status - whether
  * the asset has active incidents
+ *
+ * <p>All health interpretation (aggregation specs, filters, row parsing, {@link Health} assembly)
+ * lives in {@link HealthComputationUtils}, shared with the batched {@link EntityHealthBatchLoader}
+ * so both paths compute identical health.
  */
 @Slf4j
 public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<Health>>> {
-  private static final String ASSERTS_RELATIONSHIP_NAME = "Asserts";
-  private static final String ASSERTION_RUN_EVENT_SUCCESS_TYPE = "SUCCESS";
-  private static final String INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME = "entities.keyword";
-  private static final String INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME = "state";
 
   private final EntityClient _entityClient;
   private final GraphClient _graphClient;
   private final TimeseriesAspectService _timeseriesAspectService;
 
   private final Config _config;
+
+  // Null when constructed without feature flags (legacy/test path) — treated as "batch disabled".
+  @Nullable private final FeatureFlags _featureFlags;
 
   public EntityHealthResolver(
       @Nonnull final EntityClient entityClient,
@@ -89,16 +72,39 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       @Nonnull final GraphClient graphClient,
       @Nonnull final TimeseriesAspectService timeseriesAspectService,
       @Nonnull final Config config) {
+    this(entityClient, graphClient, timeseriesAspectService, config, null);
+  }
+
+  public EntityHealthResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final GraphClient graphClient,
+      @Nonnull final TimeseriesAspectService timeseriesAspectService,
+      @Nonnull final Config config,
+      @Nullable final FeatureFlags featureFlags) {
     _entityClient = entityClient;
     _graphClient = graphClient;
     _timeseriesAspectService = timeseriesAspectService;
     _config = config;
+    _featureFlags = featureFlags;
   }
 
   @Override
   public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment)
       throws Exception {
     final Entity parent = environment.getSource();
+
+    if (_featureFlags != null && _featureFlags.isEntityHealthBatchLoadEnabled()) {
+      final EntityHealthBatchLoader.HealthQueryKey key =
+          new EntityHealthBatchLoader.HealthQueryKey(
+              UrnUtils.getUrn(parent.getUrn()),
+              _config.getAssertionsEnabled(),
+              _config.getIncidentsEnabled(),
+              _config.getTestsEnabled());
+      final DataLoader<EntityHealthBatchLoader.HealthQueryKey, List<Health>> loader =
+          environment.getDataLoaderRegistry().getDataLoader(EntityHealthBatchLoader.LOADER_NAME);
+      return loader.load(key);
+    }
+
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
@@ -147,52 +153,28 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     return new HealthStatuses(healthStatuses);
   }
 
-  /**
-   * Returns the resolved "incidents health", which is currently a static function of whether there
-   * are any active incidents open on an asset
-   *
-   * @param entityUrn the asset to compute health for
-   * @param context the query context
-   * @return an instance of {@link Health} for the entity, null if one cannot be computed.
-   */
   private Health computeIncidentsHealthForAsset(
       final String entityUrn, final QueryContext context) {
     try {
-      final Filter filter = buildIncidentsEntityFilter(entityUrn, IncidentState.ACTIVE.toString());
+      final Filter filter =
+          HealthComputationUtils.incidentsEntityFilter(entityUrn, IncidentState.ACTIVE.toString());
       final SearchResult searchResult =
           _entityClient.filter(
               context.getOperationContext(),
               Constants.INCIDENT_ENTITY_NAME,
               filter,
-              buildIncidentsSort(),
+              HealthComputationUtils.incidentsSort(),
               0,
               1);
-      final Integer activeIncidentCount = searchResult.getNumEntities();
+      final int activeIncidentCount = searchResult.getNumEntities();
+      Urn latestIncidentUrn = null;
+      IncidentInfo latestIncidentInfo = null;
       if (activeIncidentCount > 0) {
-        // There are active incidents.
-        final Urn latestIncidentUrn = searchResult.getEntities().get(0).getEntity();
-        final IncidentInfo latestIncidentInfo = getIncidentInfo(context, latestIncidentUrn);
-        final Long latestIncidentTimestamp =
-            latestIncidentInfo != null
-                ? latestIncidentInfo.getStatus().getLastUpdated().getTime()
-                : null;
-        return new Health(
-            HealthStatusType.INCIDENTS,
-            latestIncidentTimestamp != null ? latestIncidentTimestamp : 0,
-            HealthStatus.FAIL,
-            String.format(
-                "%s active incident%s", activeIncidentCount, activeIncidentCount > 1 ? "s" : ""),
-            new ActiveIncidentHealthDetails(
-                latestIncidentUrn.toString(),
-                latestIncidentInfo != null ? latestIncidentInfo.getTitle() : null,
-                latestIncidentTimestamp,
-                activeIncidentCount),
-            null,
-            ImmutableList.of("ACTIVE_INCIDENTS"));
+        latestIncidentUrn = searchResult.getEntities().get(0).getEntity();
+        latestIncidentInfo = getIncidentInfo(context, latestIncidentUrn);
       }
-      // Report pass if there are no active incidents.
-      return new Health(
-          HealthStatusType.INCIDENTS, null, HealthStatus.PASS, null, null, null, null);
+      return HealthComputationUtils.buildIncidentHealth(
+          activeIncidentCount, latestIncidentUrn, latestIncidentInfo);
     } catch (RemoteInvocationException e) {
       log.error("Failed to compute incident health status!", e);
       return null;
@@ -223,17 +205,6 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
         entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME).getValue().data());
   }
 
-  private List<SortCriterion> buildIncidentsSort() {
-    return List.of(new SortCriterion().setOrder(SortOrder.DESCENDING).setField("lastUpdated"));
-  }
-
-  private Filter buildIncidentsEntityFilter(final String entityUrn, final String state) {
-    final Map<String, String> criterionMap = new HashMap<>();
-    criterionMap.put(INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, entityUrn);
-    criterionMap.put(INCIDENT_STATE_SEARCH_INDEX_FIELD_NAME, state);
-    return QueryUtils.newFilter(criterionMap);
-  }
-
   /**
    * TODO: Replace this with the assertions summary aspect.
    *
@@ -251,14 +222,13 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     final EntityRelationships relationships =
         _graphClient.getRelatedEntities(
             entityUrn,
-            ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
+            ImmutableSet.of(HealthComputationUtils.ASSERTS_RELATIONSHIP_NAME),
             RelationshipDirection.INCOMING,
             0,
-            500,
+            HealthComputationUtils.MAX_ACTIVE_ASSERTIONS,
             context.getActorUrn());
 
     if (relationships.getTotal() > 0) {
-
       // If there are assertions defined, then we should return a non-null health for this asset.
       final Set<String> activeAssertionUrns =
           relationships.getRelationships().stream()
@@ -268,29 +238,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       final GenericTable assertionRunResults =
           getAssertionRunsTable(context.getOperationContext(), entityUrn);
 
-      if (!assertionRunResults.hasRows() || assertionRunResults.getRows().size() == 0) {
-        // No assertion run results found. Return empty health!
-        return null;
-      }
-
-      final List<String> failingAssertionUrns =
-          getFailingAssertionUrns(assertionRunResults, activeAssertionUrns);
-
-      // Finally compute & return the health.
-      final Health health = new Health();
-      health.setType(HealthStatusType.ASSERTIONS);
-      if (failingAssertionUrns.size() > 0) {
-        health.setStatus(HealthStatus.FAIL);
-        health.setMessage(
-            String.format(
-                "%s of %s assertions are failing",
-                failingAssertionUrns.size(), activeAssertionUrns.size()));
-        health.setCauses(failingAssertionUrns);
-      } else {
-        health.setStatus(HealthStatus.PASS);
-        health.setMessage("All assertions are passing");
-      }
-      return health;
+      return HealthComputationUtils.buildAssertionsHealth(assertionRunResults, activeAssertionUrns);
     }
     return null;
   }
@@ -301,9 +249,9 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
         opContext,
         Constants.ASSERTION_ENTITY_NAME,
         Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
-        createAssertionAggregationSpecs(),
-        createAssertionsFilter(asserteeUrn),
-        createAssertionGroupingBuckets());
+        HealthComputationUtils.assertionAggregationSpecs(),
+        HealthComputationUtils.assertionsFilter(asserteeUrn),
+        HealthComputationUtils.assertionGroupingBuckets());
   }
 
   /**
@@ -325,37 +273,8 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
               urn,
               ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME));
 
-      if (entityResponse == null
-          || !entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
-        return null;
-      }
-
-      final TestResults testResults =
-          new TestResults(
-              entityResponse
-                  .getAspects()
-                  .get(Constants.TEST_RESULTS_ASPECT_NAME)
-                  .getValue()
-                  .data());
-
-      final int passingCount = testResults.getPassing().size();
-      final int failingCount = testResults.getFailing().size();
-      final int totalCount = passingCount + failingCount;
-
-      if (totalCount == 0) {
-        return null;
-      }
-
-      final Health health = new Health();
-      health.setType(HealthStatusType.TESTS);
-      if (failingCount > 0) {
-        health.setStatus(HealthStatus.FAIL);
-        health.setMessage(String.format("%s of %s tests failing", failingCount, totalCount));
-      } else {
-        health.setStatus(HealthStatus.PASS);
-        health.setMessage("All tests are passing");
-      }
-      return health;
+      return HealthComputationUtils.buildTestsHealth(
+          HealthComputationUtils.extractTestResults(entityResponse));
     } catch (RemoteInvocationException e) {
       log.error("Failed to compute test health status!", e);
       return null;
@@ -363,74 +282,6 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       log.error("Failed to parse incident URN!", e);
       return null;
     }
-  }
-
-  private List<String> getFailingAssertionUrns(
-      final GenericTable assertionRunsResult, final Set<String> candidateAssertionUrns) {
-    // Create the buckets based on the result
-    return resultToFailedAssertionUrns(assertionRunsResult.getRows(), candidateAssertionUrns);
-  }
-
-  private Filter createAssertionsFilter(final String datasetUrn) {
-    final Filter filter = new Filter();
-    final ArrayList<Criterion> criteria = new ArrayList<>();
-
-    // Add filter for asserteeUrn == datasetUrn
-    Criterion datasetUrnCriterion = buildCriterion("asserteeUrn", Condition.EQUAL, datasetUrn);
-    criteria.add(datasetUrnCriterion);
-
-    // Add filter for result == result
-    Criterion startTimeCriterion =
-        buildCriterion("status", Condition.EQUAL, ASSERTION_RUN_EVENT_STATUS_COMPLETE);
-    criteria.add(startTimeCriterion);
-
-    filter.setOr(
-        new ConjunctiveCriterionArray(
-            ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
-    return filter;
-  }
-
-  private AggregationSpec[] createAssertionAggregationSpecs() {
-    // Simply fetch the timestamp, result type for the assertion URN.
-    AggregationSpec resultTypeAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.LATEST).setFieldPath("type");
-    AggregationSpec timestampAggregation =
-        new AggregationSpec()
-            .setAggregationType(AggregationType.LATEST)
-            .setFieldPath("timestampMillis");
-    return new AggregationSpec[] {resultTypeAggregation, timestampAggregation};
-  }
-
-  private GroupingBucket[] createAssertionGroupingBuckets() {
-    // String grouping bucket on "assertionUrn"
-    GroupingBucket assertionUrnBucket = new GroupingBucket();
-    assertionUrnBucket.setKey("assertionUrn").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
-    return new GroupingBucket[] {assertionUrnBucket};
-  }
-
-  private List<String> resultToFailedAssertionUrns(
-      final StringArrayArray rows, final Set<String> activeAssertionUrns) {
-    final List<String> failedAssertionUrns = new ArrayList<>();
-    for (StringArray row : rows) {
-      // Result structure should be assertionUrn, event.result.type, timestampMillis
-      if (row.size() != 3) {
-        throw new RuntimeException(
-            String.format(
-                "Failed to fetch assertion run events from Timeseries index! Expected row of size 3, found %s",
-                row.size()));
-      }
-
-      final String assertionUrn = row.get(0);
-      final String resultType = row.get(1);
-
-      // If assertion is "active" (not deleted) & is failing, then we report a degradation in
-      // health.
-      if (activeAssertionUrns.contains(assertionUrn)
-          && !ASSERTION_RUN_EVENT_SUCCESS_TYPE.equals(resultType)) {
-        failedAssertionUrns.add(assertionUrn);
-      }
-    }
-    return failedAssertionUrns;
   }
 
   @Data

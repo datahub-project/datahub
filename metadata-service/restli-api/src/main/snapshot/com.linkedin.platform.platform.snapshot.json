@@ -505,11 +505,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 128,
+          "maxLength" : 250,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 145,
+        "maxLength" : 267,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -2141,7 +2141,7 @@
             "type" : {
               "type" : "enum",
               "name" : "LineageMatchType",
-              "doc" : "How an upstream lineage reference's URN was resolved against the entities stored\nin DataHub. Populated by the lineage URN casing normalization processor for\nreferences on a configured upstream platform; absent when the reference is out of\nscope (platform not configured, feature disabled) or was ingested before the\nfeature was enabled.",
+              "doc" : "How an upstream lineage reference's URN was resolved against the entities stored\nin DataHub. Populated by the lineage URN casing normalization processor for\nreferences on a configured upstream platform; absent when the reference is out of\nscope (platform not configured, feature disabled) or was ingested before the\nfeature was enabled.\n\nThis verdict reflects DataHub's knowledge AT THE TIME THE LINEAGE EDGE WAS\nINGESTED, not the current state of the graph. It is a point-in-time record and is\nnot re-evaluated automatically: e.g. a reference recorded as UNRESOLVED (its target\ndid not exist yet) keeps that value even after the target is later ingested and the\nedge in fact resolves exactly — the verdict only refreshes when the referencing\nsource is re-ingested.",
               "symbols" : [ "EXACT", "NORMALIZED", "UNRESOLVED" ],
               "symbolDocs" : {
                 "EXACT" : "The reference matched an existing entity exactly, including URN casing.",
@@ -2149,7 +2149,7 @@
                 "UNRESOLVED" : "The reference is on a configured upstream platform but could not be resolved to\na single existing entity — either no entity matched (under any casing), or the\ncasing was ambiguous (multiple entities share the case-insensitive form). The\nreference was left unchanged; this flags potentially broken lineage."
               }
             },
-            "doc" : "How the upstream field references' URNs were resolved against the entities stored\nin DataHub. Set by the lineage URN casing normalization processor (EXACT when the\nreferences already matched existing entities, NORMALIZED when any were rewritten to\nheal a casing mismatch). Absent when no reconciliation was performed.",
+            "doc" : "Aggregate of how the upstream field references' URNs were resolved against the\nentities stored in DataHub. Set by the lineage URN casing normalization processor:\nNORMALIZED if any field was rewritten to heal a casing mismatch, else UNRESOLVED if\nany could not be resolved, else EXACT. Absent when no reconciliation was performed\n(out of scope). Reflects DataHub's knowledge at ingestion time and is not\nre-evaluated later; see LineageMatchType.",
             "optional" : true
           } ]
         }
@@ -2600,7 +2600,7 @@
     }, {
       "name" : "matchType",
       "type" : "LineageMatchType",
-      "doc" : "How this upstream reference's URN was resolved against the entities stored in\nDataHub. Set by the lineage URN casing normalization processor (EXACT when the\nreference already matched an existing entity, NORMALIZED when it was rewritten\nto heal a casing mismatch). Absent when no reconciliation was performed.",
+      "doc" : "How this upstream reference's URN was resolved against the entities stored in\nDataHub. Set by the lineage URN casing normalization processor: EXACT when the\nreference already matched an existing entity, NORMALIZED when it was rewritten to\nheal a casing mismatch, UNRESOLVED when it could not be resolved to a single\nexisting entity. Absent when no reconciliation was performed (out of scope).\nReflects DataHub's knowledge at ingestion time and is not re-evaluated later; see\nLineageMatchType.",
       "optional" : true
     } ]
   }, {
@@ -2791,13 +2791,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.CorpuserUrn"
                     },
-                    "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.",
-                    "Relationship" : {
-                      "/*" : {
-                        "entityTypes" : [ "corpuser" ],
-                        "name" : "OwnedBy"
-                      }
-                    },
+                    "doc" : "owners of this group\nDeprecated! Replaced by Ownership aspect.\nRelationship annotation intentionally omitted so OwnedBy edges are owned solely by the ownership aspect.",
                     "deprecated" : true
                   }, {
                     "name" : "members",
@@ -2856,7 +2850,8 @@
                   } ],
                   "Aspect" : {
                     "EntityUrns" : [ "com.linkedin.common.CorpGroupUrn" ],
-                    "name" : "corpGroupInfo"
+                    "name" : "corpGroupInfo",
+                    "schemaVersion" : 2
                   }
                 }, "com.linkedin.common.GlobalTags", "com.linkedin.common.Status" ]
               }
@@ -5786,14 +5781,38 @@
                                 "fields" : [ {
                                   "name" : "field",
                                   "type" : "string",
-                                  "doc" : "The name of the field that the criterion refers to"
+                                  "doc" : "The name of the field that the criterion refers to.\nExamples: TYPE, TAG, DOMAIN, STRUCTURED_PROPERTY"
                                 }, {
                                   "name" : "values",
                                   "type" : {
                                     "type" : "array",
                                     "items" : "string"
                                   },
-                                  "doc" : "Values. Matches criterion if any one of the values matches condition (OR-relationship)"
+                                  "doc" : "Values for traditional fields (TYPE, TAG, DOMAIN, etc).\nMatches criterion if any one of the values matches condition (OR-relationship).\nUse empty array [] when using structuredPropertyValues instead."
+                                }, {
+                                  "name" : "structuredPropertyValues",
+                                  "type" : {
+                                    "type" : "array",
+                                    "items" : {
+                                      "type" : "record",
+                                      "name" : "StructuredPropertyCriterionValue",
+                                      "doc" : "Represents a criterion value for structured property matching in policies.\nContains a structured property URN and values to match against.",
+                                      "fields" : [ {
+                                        "name" : "propertyUrn",
+                                        "type" : "com.linkedin.common.Urn",
+                                        "doc" : "The URN of the structured property to match against"
+                                      }, {
+                                        "name" : "values",
+                                        "type" : {
+                                          "type" : "array",
+                                          "items" : "string"
+                                        },
+                                        "doc" : "Values to match for this structured property.\nWithin a criterion, matching follows OR logic: asset matches if ANY value in this list matches."
+                                      } ]
+                                    }
+                                  },
+                                  "doc" : "Values for structured property matching.\nUsed when field is STRUCTURED_PROPERTY.",
+                                  "optional" : true
                                 }, {
                                   "name" : "condition",
                                   "type" : {
@@ -5940,7 +5959,8 @@
                     }
                   } ],
                   "Aspect" : {
-                    "name" : "dataHubPolicyInfo"
+                    "name" : "dataHubPolicyInfo",
+                    "schemaVersion" : 2
                   }
                 } ]
               }
@@ -6127,7 +6147,7 @@
       "type" : "GenericPayload",
       "doc" : "The event payload."
     } ]
-  }, "com.linkedin.mxe.PlatformEventHeader", "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.mxe.PlatformEventHeader", "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.policy.StructuredPropertyCriterionValue", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "platform",
     "namespace" : "com.linkedin.platform",

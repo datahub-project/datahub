@@ -1,19 +1,27 @@
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
 
+/** Default title written at create time — search can lag behind local renames. */
+export const DEFAULT_DOCUMENT_TITLE = 'New Document';
+
 /**
  * Merge a server-fetched child into an existing tree node.
  *
- * Server metadata wins for title/flags, but any already-loaded `children`
- * subtree is kept — otherwise re-fetching a parent wipes nested expand state
- * and the sidebar jumps empty.
+ * Server metadata wins for flags, but:
+ * - already-loaded `children` are kept (re-fetch must not wipe expand state)
+ * - a local rename is kept when search still returns the create-time default title
  */
 export function mergeServerChildNode(
     existing: DocumentTreeNode | undefined,
     serverChild: DocumentTreeNode,
 ): DocumentTreeNode {
     if (!existing) return serverChild;
+
+    const serverTitleIsStaleDefault = !serverChild.title || serverChild.title === DEFAULT_DOCUMENT_TITLE;
+    const keepLocalTitle = !!existing.title && existing.title !== serverChild.title && serverTitleIsStaleDefault;
+
     return {
         ...serverChild,
+        title: keepLocalTitle ? existing.title : serverChild.title,
         children: existing.children !== undefined ? existing.children : serverChild.children,
         hasChildren: serverChild.hasChildren || existing.hasChildren,
         childCount: serverChild.childCount ?? existing.childCount,

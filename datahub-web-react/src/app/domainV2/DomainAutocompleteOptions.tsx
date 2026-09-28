@@ -20,6 +20,7 @@ const LoadingWrapper = styled.div`
         color: ${(props) => props.theme.colors.icon};
     }
 `;
+
 const LabelWrapper = styled.div`
     display: flex;
     align-items: center;

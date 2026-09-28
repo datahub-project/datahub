@@ -327,5 +327,6 @@
     "user.tab.ownerOf": "Responsável Por",
     "user.teamLabel": "Equipe",
     "user.teamsHeading": "Equipes",
-    "user.titleRoleLabel": "Cargo/Função"
+    "user.titleRoleLabel": "Cargo/Função",
+    "dataProduct.parentLabel": "Data Product pai"
 }
