@@ -11,8 +11,10 @@ import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon'
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import HoverCardEntityRow from '@app/sharedV2/hoverCard/HoverCardEntityRow';
+import HoverCardFooter from '@app/sharedV2/hoverCard/HoverCardFooter';
 import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
 import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
+import HoverCardStatusBadges from '@app/sharedV2/hoverCard/HoverCardStatusBadges';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
@@ -76,10 +78,12 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
     const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
 
+    // Same preference as the search card: what someone typed in the UI wins over what ingestion
+    // brought in, and the `documentation` aspect is only a fallback when both are empty.
     const description =
-        properties?.documentation?.documentations?.[0]?.documentation ||
         properties?.editableProperties?.description ||
         properties?.properties?.description ||
+        properties?.documentation?.documentations?.[0]?.documentation ||
         // Tags carry their description on the deprecated top-level field rather than under
         // `properties`, and that's what the tag pill fragment selects.
         properties?.description ||
@@ -133,6 +137,13 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
                 icon={<EntityIcon entity={entity} size={32} />}
                 typeName={entityRegistry.getEntityName(entity.type)}
                 crumbs={crumbs}
+                badge={
+                    <HoverCardStatusBadges
+                        entity={entity}
+                        properties={properties}
+                        entityUrl={entityRegistry.getEntityUrl(entity.type, entity.urn)}
+                    />
+                }
             />
             {hasSections && (
                 <Sections>
@@ -233,6 +244,7 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
                     {propagationDetails && <HoverCardAttributionDetails propagationDetails={propagationDetails} />}
                 </Sections>
             )}
+            <HoverCardFooter entity={entity} properties={properties} />
         </Card>
     );
 }
