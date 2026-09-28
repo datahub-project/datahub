@@ -81,6 +81,11 @@ const FiltersContainer = styled.div`
     gap: 10px;
 `;
 
+const HighlightedQueriesContainer = styled.div`
+    height: 100%;
+    overflow: auto;
+`;
+
 type Props = {
     title: string;
     queries: Query[];
@@ -135,7 +140,7 @@ export default function QueriesListSection({
      */
     const [hoveredQueryUrn, setHoveredQueryUrn] = useState<string | null>(null);
     const defaultPagination = usePagination(DEFAULT_PAGE_SIZE);
-    const { pageSize, page, setPage } = pagination || defaultPagination;
+    const { pageSize, page, setPage, setPageSize } = pagination || defaultPagination;
     const showPagination = totalQueries > pageSize;
 
     const {
@@ -184,13 +189,17 @@ export default function QueriesListSection({
               onChange: (newPage: number) => {
                   setPage(newPage);
               },
+              pageSizeOptions: ['5', '10', '20', '50', '100'],
+              onShowSizeChange: (_, newPageSize: number) => {
+                  setPageSize(newPageSize);
+              },
           } as TablePaginationConfig)
         : false;
 
     const loadingConfig = loading
         ? {
               indicator: (
-                  <LoadingWrapper>
+                  <LoadingWrapper data-testid="queries-loading">
                       <Loading />{' '}
                   </LoadingWrapper>
               ),
@@ -214,7 +223,7 @@ export default function QueriesListSection({
     };
 
     return (
-        <SectionWrapper $borderRadiusBottom={isTopSection}>
+        <SectionWrapper $borderRadiusBottom={isTopSection} data-testid={`queries-list-section-${section}`}>
             <QueriesTitleSection>
                 <TitleWrapper>
                     <QueriesTitle>{title}</QueriesTitle>
@@ -245,18 +254,28 @@ export default function QueriesListSection({
                 )}
             </QueriesTitleSection>
             {section === QueriesTabSection.Highlighted && (
+                <HighlightedQueriesContainer>
+                    <StyledTable
+                        {...tableProps}
+                        // eslint-disable-next-line i18next/no-literal-string -- antd scroll config value, not UI text
+                        scroll={{ x: 'auto', y: 400 }}
+                        columns={highlightedQueriesColumns}
+                        onRow={(row) => {
+                            return {
+                                onMouseEnter: () => setHoveredQueryUrn((row as Query).urn || ''),
+                                onMouseLeave: () => setHoveredQueryUrn(null),
+                            };
+                        }}
+                    />
+                </HighlightedQueriesContainer>
+            )}
+            {section === QueriesTabSection.Popular && (
                 <StyledTable
                     {...tableProps}
-                    columns={highlightedQueriesColumns}
-                    onRow={(row) => {
-                        return {
-                            onMouseEnter: () => setHoveredQueryUrn((row as Query).urn || ''),
-                            onMouseLeave: () => setHoveredQueryUrn(null),
-                        };
-                    }}
+                    columns={popularQueriesColumns}
+                    onRow={() => ({ 'data-testid': 'popular-query-row' }) as React.HTMLAttributes<HTMLElement>}
                 />
             )}
-            {section === QueriesTabSection.Popular && <StyledTable {...tableProps} columns={popularQueriesColumns} />}
             {section === QueriesTabSection.Downstream && (
                 <StyledTable columns={downstreamQueriesColumns} {...tableProps} />
             )}

@@ -4602,10 +4602,10 @@ class TestOrphanedDocumentResilience:
             for f in source.report.failures
         )
 
-    def test_all_null_batch_fails_but_does_not_abort(self, ctx, config):
-        # Right length, every slot null. Unlike a length mismatch this is
-        # interpretable, and the rest of the catalog may be healthy — so the run
-        # goes red without one drifted page taking down the whole run.
+    def test_all_null_batch_warns_and_does_not_abort(self, ctx, config):
+        # Right length, every slot null, but a later batch resolves: the live
+        # catalog is being served, so the null batch is orphan drift. Warn, skip
+        # it, and keep the run green.
         source = self._make_source(ctx, config)
         urns = [f"urn:li:document:doc-{i}" for i in range(150)]
         batch1 = {"entities": [None] * 100}
@@ -4614,11 +4614,58 @@ class TestOrphanedDocumentResilience:
 
         hydrated = list(source._hydrate_documents(urns))
 
-        # Second batch still hydrated: the failure did not abort the run.
         assert len(hydrated) == 50
         assert source.report.num_documents_skipped_orphaned == 100
         assert any(
-            "resolved nothing" in (f.title or "").lower()
+            "resolved nothing in a batch" in (w.title or "").lower()
+            for w in source.report.warnings
+        )
+        assert not source.report.failures
+
+    def test_clustered_orphans_spanning_batches_do_not_fail(self, ctx, config):
+        # Enumeration is URN-ordered, so orphans sharing a prefix are contiguous.
+        # 250 of them between live documents fill two whole hydration batches;
+        # that is drift, not a serving problem, and must not fail the run.
+        source = self._make_source(ctx, config)
+        live_before = [f"urn:li:document:a-{i:03d}" for i in range(50)]
+        orphans = [f"urn:li:document:proposed-{i:03d}" for i in range(250)]
+        live_after = [f"urn:li:document:z-{i:03d}" for i in range(100)]
+        urns = live_before + orphans + live_after
+        resolvable = set(live_before + live_after)
+
+        def hydrate(_query, variables):
+            return {
+                "entities": [
+                    self._native_notion_doc(u) if u in resolvable else None
+                    for u in variables["urns"]
+                ]
+            }
+
+        source.graph.execute_graphql.side_effect = hydrate
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert len(hydrated) == 150
+        assert source.report.num_documents_skipped_orphaned == 250
+        assert not source.report.failures
+
+    def test_nothing_resolved_in_any_batch_fails(self, ctx, config):
+        # Every batch null across the whole run: nothing in the catalog is being
+        # served, which is a serving problem, not orphans. The run must go red
+        # rather than finish green having embedded nothing.
+        source = self._make_source(ctx, config)
+        urns = [f"urn:li:document:doc-{i}" for i in range(150)]
+        source.graph.execute_graphql.side_effect = [
+            {"entities": [None] * 100},
+            {"entities": [None] * 50},
+        ]
+
+        hydrated = list(source._hydrate_documents(urns))
+
+        assert hydrated == []
+        assert source.report.num_documents_skipped_orphaned == 150
+        assert any(
+            (f.title or "") == "Document hydration resolved nothing"
             for f in source.report.failures
         )
 

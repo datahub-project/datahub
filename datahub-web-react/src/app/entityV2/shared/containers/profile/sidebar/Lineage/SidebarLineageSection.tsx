@@ -8,6 +8,7 @@ import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import { useSearchSummaryLineage } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection.hooks';
 import {
@@ -76,6 +77,7 @@ type Props = {
 const SidebarLineageSection = ({ contexType }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
     const { urn, entityData, entityType } = useEntityData();
+    const { isInFormContext } = useEntityFormContext();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = useContext(CompactContext);
@@ -174,23 +176,27 @@ const SidebarLineageSection = ({ contexType }: Props) => {
                 </>
             }
             extra={
-                <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
-                    <Button
-                        variant="text"
-                        color="primary"
-                        size="md"
-                        icon={{ icon: TreeStructure }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
-                            if (isCompact) {
-                                window.open(lineagePath, '_blank');
-                            } else {
-                                history.push(lineagePath);
-                            }
-                        }}
-                    />
-                </Tooltip>
+                <>
+                    {!isInFormContext && (
+                        <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
+                            <Button
+                                variant="text"
+                                color="primary"
+                                size="md"
+                                icon={{ icon: TreeStructure }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
+                                    if (isCompact) {
+                                        window.open(lineagePath, '_blank');
+                                    } else {
+                                        history.push(lineagePath);
+                                    }
+                                }}
+                            />
+                        </Tooltip>
+                    )}
+                </>
             }
         />
     );

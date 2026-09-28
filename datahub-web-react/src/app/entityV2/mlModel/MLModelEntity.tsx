@@ -256,4 +256,8 @@ export class MLModelEntity implements Entity<MlModel> {
             EntityCapabilityType.FORMS,
         ]);
     };
+
+    getPlatformProperties = (data: MlModel) => {
+        return data?.platform;
+    };
 }

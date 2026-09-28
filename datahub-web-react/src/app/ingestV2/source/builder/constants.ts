@@ -29,6 +29,7 @@ import fivetranLogo from '@images/fivetranlogo.png';
 import flinkLogo from '@images/flinklogo.svg';
 import githubLogo from '@images/githublogo.png';
 import glueLogo from '@images/gluelogo.png';
+import googleDocsLogo from '@images/googledocslogo.svg';
 import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
 import hiveLogo from '@images/hivelogo.png';
@@ -113,11 +114,13 @@ const FEAST_LEGACY = 'feast-legacy';
 const FEAST_URN = `urn:li:dataPlatform:${FEAST}`;
 const FLINK = 'flink';
 const FLINK_URN = `urn:li:dataPlatform:${FLINK}`;
+const GOOGLE_DOCS = 'google_docs';
+const GOOGLE_DOCS_URN = `urn:li:dataPlatform:${GOOGLE_DOCS}`;
 const GRAFANA = 'grafana';
 const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 const GLUE = 'glue';
 const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
-export const HEX = 'hex';
+const HEX = 'hex';
 const HEX_URN = `urn:li:dataPlatform:${HEX}`;
 const HIVE = 'hive';
 const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
@@ -152,7 +155,7 @@ const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
 export const CONFLUENCE = 'confluence';
 const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
 export const NOTION = 'notion';
-export const GITHUB = 'github';
+const GITHUB = 'github';
 export const GITHUB_DOCUMENTS = 'github-documents';
 const GITHUB_URN = `urn:li:dataPlatform:${GITHUB}`;
 const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
@@ -272,6 +275,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [FLINK_URN]: flinkLogo,
     [GRAFANA_URN]: grafanaLogo,
     [GLUE_URN]: glueLogo,
+    [GOOGLE_DOCS_URN]: googleDocsLogo,
     [HEX_URN]: hexLogo,
     [HIVE_URN]: hiveLogo,
     [ICEBERG_URN]: icebergLogo,
