@@ -132,6 +132,7 @@ from datahub.metadata.schema_classes import (
     SiblingsClass,
     StatusClass,
     SubTypesClass,
+    SystemMetadataClass,
     TagAssociationClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -189,6 +190,12 @@ _TARGET_PLATFORM_PREFETCH_ASPECT_NAMES = [
 _TARGET_PLATFORM_PREFETCH_CHUNK_SIZE = 200
 
 
+# (database, schema) as spelled in the dbt manifest, folded the same way the
+# dataset urn is, so a source declared `Analytics` and a model declared
+# `analytics` resolve to the same warehouse container.
+SiblingContainerKey = Tuple[Optional[str], Optional[str]]
+
+
 @dataclass
 class _TargetPlatformAspects:
     """The subset of a target-platform entity's aspects the prefetch reads.
@@ -196,11 +203,17 @@ class _TargetPlatformAspects:
     Typed so a mismatch between an aspect name and its expected type (three
     aspect types keyed by string in the prefetch response) is a mypy error
     rather than something only caught at runtime.
+
+    ``*_written_here`` records whether this source wrote the aspect on an
+    earlier run, so its own output is not mistaken for evidence about the
+    warehouse. See ``_written_by_this_pipeline``.
     """
 
     browse_path: Optional[BrowsePathsV2Class] = None
     container: Optional[ContainerClass] = None
     properties: Optional[DatasetPropertiesClass] = None
+    browse_path_written_here: bool = False
+    container_written_here: bool = False
 
 
 _PrefetchedAspectT = TypeVar("_PrefetchedAspectT")
@@ -211,6 +224,16 @@ def _get_prefetched_aspect(
 ) -> Optional[_PrefetchedAspectT]:
     entry = aspects.get(aspect_class.ASPECT_NAME)  # type: ignore[attr-defined]
     return entry[0] if entry is not None else None
+
+
+def _get_prefetched_system_metadata(
+    aspects: Dict[str, Tuple[Any, Any]], aspect_class: Type[Any]
+) -> Optional[SystemMetadataClass]:
+    entry = aspects.get(aspect_class.ASPECT_NAME)
+    if entry is None or len(entry) < 2:
+        return None
+    system_metadata = entry[1]
+    return system_metadata if isinstance(system_metadata, SystemMetadataClass) else None
 
 
 # URN-safe chars only; names like "Revenue (USD)" become "Revenue_USD_" which can
@@ -409,6 +432,7 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     num_target_browse_paths_written: int = 0
     num_target_display_names_set: int = 0
     num_target_containers_inherited: int = 0
+    num_target_container_conflicts: int = 0
 
     def record_node_failure(
         self,
@@ -621,7 +645,12 @@ class DBTCommonConfig(
         description="When target_platform_instance is set, emit dataPlatformInstance and "
         "browsePathsV2 aspects for target-platform sibling entities so they are correctly "
         "grouped under their platform instance in browse and filters. Browse paths written "
-        "by the warehouse connector are never overwritten.",
+        "by the warehouse connector are never overwritten. A sibling entity the warehouse "
+        "connector has not ingested is also given the `container` of an ingested table in "
+        "the same database and schema, so it is a member of that container - counted in "
+        "its contents and matched by container-scoped filters - rather than left "
+        "unplaced. No container is created: where the warehouse connector has ingested "
+        "nothing from a schema, the entity stays under the platform instance.",
     )
     emit_target_platform_display_name: bool = Field(
         default=True,
@@ -3045,21 +3074,24 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         prefetched_target_platform_aspects: Optional[
             Dict[str, _TargetPlatformAspects]
         ] = None
+        sibling_containers: Dict[SiblingContainerKey, str] = {}
         if mce_platform_instance and self.config.emit_target_platform_instance_aspects:
-            candidate_urns = [
-                node.get_urn(mce_platform, self.config.env, mce_platform_instance)
+            target_nodes = [
+                (
+                    node,
+                    node.get_urn(mce_platform, self.config.env, mce_platform_instance),
+                )
                 for node in dbt_nodes
                 if node.exists_in_target_platform
                 and self.config.entities_enabled.can_emit_node_type(node.node_type)
             ]
             prefetched_target_platform_aspects = self._prefetch_target_platform_aspects(
-                candidate_urns
+                [urn for _node, urn in target_nodes]
             )
-        sibling_containers: Dict[Tuple[Optional[str], Optional[str]], str] = {}
-        if prefetched_target_platform_aspects:
-            sibling_containers = self._learn_sibling_containers(
-                dbt_nodes, prefetched_target_platform_aspects
-            )
+            if prefetched_target_platform_aspects:
+                sibling_containers = self._learn_sibling_containers(
+                    target_nodes, prefetched_target_platform_aspects
+                )
 
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             try:
@@ -3166,6 +3198,29 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     kind="emission",
                 )
 
+    def _written_by_this_pipeline(
+        self, system_metadata: Optional[SystemMetadataClass]
+    ) -> bool:
+        """Whether this ingestion pipeline wrote the aspect the metadata belongs to.
+
+        The warehouse connector runs under a different pipeline name, so this
+        separates our own earlier output from genuine warehouse evidence.
+        Without it, a container this source wrote onto a stub is read back next
+        run as proof of where the warehouse keeps that schema - so if the
+        warehouse's container urn later changes, the real tables move and the
+        stubs keep voting for the old one, which stale removal may soft-delete.
+
+        Degrades safely: when `pipeline_name` is unset both sides are None and
+        indistinguishable, so this returns False and behaviour matches a run
+        without the check - never a false positive that suppresses real evidence.
+        """
+        if system_metadata is None:
+            return False
+        pipeline_name = self.ctx.pipeline_name
+        if not pipeline_name:
+            return False
+        return system_metadata.pipelineName == pipeline_name
+
     def _prefetch_target_platform_aspects(
         self, urns: List[str]
     ) -> Optional[Dict[str, _TargetPlatformAspects]]:
@@ -3195,6 +3250,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     entity_name="dataset",
                     urns=list(chunk),
                     aspects=_TARGET_PLATFORM_PREFETCH_ASPECT_NAMES,
+                    with_system_metadata=True,
                 )
                 self.report.num_target_platform_aspect_prefetch_batches += 1
                 for urn, aspects in entities.items():
@@ -3203,6 +3259,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         container=_get_prefetched_aspect(aspects, ContainerClass),
                         properties=_get_prefetched_aspect(
                             aspects, DatasetPropertiesClass
+                        ),
+                        browse_path_written_here=self._written_by_this_pipeline(
+                            _get_prefetched_system_metadata(aspects, BrowsePathsV2Class)
+                        ),
+                        container_written_here=self._written_by_this_pipeline(
+                            _get_prefetched_system_metadata(aspects, ContainerClass)
                         ),
                     )
         except Exception as e:
@@ -3217,11 +3279,25 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
         return result
 
+    def _sibling_container_key(self, node: DBTNode) -> SiblingContainerKey:
+        """Group nodes by the warehouse location they share.
+
+        Folded the same way ``DBTNode.get_urn`` folds the dataset name, so a
+        source declared ``Analytics`` and a model declared ``analytics`` land on
+        one key rather than missing each other's evidence.
+        """
+        if not self.config.convert_urns_to_lowercase:
+            return (node.database, node.schema)
+        return (
+            node.database.lower() if node.database else node.database,
+            node.schema.lower() if node.schema else node.schema,
+        )
+
     def _learn_sibling_containers(
         self,
-        dbt_nodes: List[DBTNode],
+        target_nodes: List[Tuple[DBTNode, str]],
         prefetched_aspects: Dict[str, _TargetPlatformAspects],
-    ) -> Dict[Tuple[Optional[str], Optional[str]], str]:
+    ) -> Dict[SiblingContainerKey, str]:
         """Map each manifest (database, schema) to the container the warehouse uses for it.
 
         Learned by observation rather than derivation. A node the warehouse
@@ -3232,61 +3308,62 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         near-miss there is what put dbt-only entities in a second Browse folder
         in the first place (datahub-project/datahub#18539).
 
-        Grouping on the raw manifest values is safe because they are internally
-        consistent: both the ingested node and its uningested neighbours come
-        from the same manifest, so their spelling matches even where it differs
-        from the warehouse's own.
+        Only the warehouse's own writes count. A container this source wrote on
+        an earlier run is skipped, so its output never becomes evidence about
+        where the warehouse keeps a schema.
+
+        A key whose nodes disagree is dropped rather than resolved. Picking one
+        would make the result depend on manifest order, and a disagreement means
+        the premise - that everything in a (database, schema) shares a container
+        - does not hold there.
         """
-        learned: Dict[Tuple[Optional[str], Optional[str]], str] = {}
-        for node in dbt_nodes:
-            if not node.exists_in_target_platform:
-                continue
-            if not self.config.entities_enabled.can_emit_node_type(node.node_type):
-                continue
-            aspects = prefetched_aspects.get(
-                node.get_urn(
-                    self.config.target_platform,
-                    self.config.env,
-                    self.config.target_platform_instance,
-                )
-            )
+        candidates: Dict[SiblingContainerKey, Set[str]] = {}
+        for node, node_urn in target_nodes:
+            aspects = prefetched_aspects.get(node_urn)
             if aspects is None or aspects.container is None:
                 continue
-            learned.setdefault(
-                (node.database, node.schema), aspects.container.container
+            if aspects.container_written_here:
+                continue
+            candidates.setdefault(self._sibling_container_key(node), set()).add(
+                aspects.container.container
             )
+
+        learned: Dict[SiblingContainerKey, str] = {}
+        for key, container_urns in candidates.items():
+            if len(container_urns) > 1:
+                self.report.num_target_container_conflicts += 1
+                self.report.warning(
+                    title="Ambiguous target-platform container",
+                    message="Tables the dbt manifest places in one database and "
+                    "schema are in different containers in the warehouse, so there "
+                    "is no single folder to file this schema's dbt-only entities "
+                    "in; leaving them under the platform instance.",
+                    context=f"{key}: {sorted(container_urns)}",
+                )
+                continue
+            learned[key] = next(iter(container_urns))
         return learned
 
     def _inherited_container_urn(
         self,
         node: DBTNode,
-        sibling_containers: Dict[Tuple[Optional[str], Optional[str]], str],
+        sibling_containers: Dict[SiblingContainerKey, str],
     ) -> Optional[str]:
-        """The container an uningested node should join, or None if nothing is known.
+        """The container of an ingested neighbour in the same database and schema.
 
-        Only an exact (database, schema) match counts. Falling back to the
-        database container of a neighbouring schema was tried and removed: it
-        writes a container one level shallower than the key it is learned under,
-        so a later run reads it back as this schema's container and a genuinely
-        ingested table can lose to it. The entity also looks settled from then on
-        - its path is container-based - so it never moves into the real schema
-        folder once one appears.
-
-        Leaving those entities at the instance root keeps them improvable: a
-        single-entry path is never mistaken for a warehouse-owned one, so they
-        are placed as soon as the warehouse ingests anything from their schema.
-
-        Never invents a container: if the warehouse connector has ingested
-        nothing from this schema, there is no folder to join.
+        Only an exact match counts; nothing is derived and nothing is invented.
+        Falling back to a neighbouring schema's database container was tried and
+        removed - see the PR history - because it wrote a container shallower
+        than the key it was learned under.
         """
-        return sibling_containers.get((node.database, node.schema))
+        return sibling_containers.get(self._sibling_container_key(node))
 
     def _create_target_platform_instance_workunits(
         self,
         node: DBTNode,
         node_datahub_urn: str,
         prefetched_aspects: Optional[Dict[str, _TargetPlatformAspects]],
-        sibling_containers: Dict[Tuple[Optional[str], Optional[str]], str],
+        sibling_containers: Dict[SiblingContainerKey, str],
     ) -> Iterable[MetadataWorkUnit]:
         """Emit dataPlatformInstance (and, when safe, browsePathsV2) for a target entity.
 
@@ -3328,15 +3405,23 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             if existing_browse_path is not None and existing_browse_path.path
             else []
         )
-        if self._is_container_based_path(existing_entries):
+        if (
+            self._is_container_based_path(existing_entries)
+            and not entity_aspects.browse_path_written_here
+        ):
             # The warehouse connector owns this entity's browse path, which means
             # it ingested the entity and owns its properties too. Nothing to add,
             # and no need to walk the container chain to find that out.
+            #
+            # A path this source wrote is container-based too, but it is not
+            # evidence of warehouse ownership, and returning here would freeze
+            # the entity: it could never follow the warehouse to a new container,
+            # nor pick up a display name if that option were enabled afterwards.
             return
 
-        own_container = entity_aspects.container
+        effective_container = entity_aspects.container
         inherited_container_urn: Optional[str] = None
-        if own_container is None:
+        if effective_container is None or entity_aspects.container_written_here:
             # The warehouse connector never ingested this table, so it has no
             # container of its own. If it ingested a neighbour from the same
             # schema, that neighbour's container is this table's folder too.
@@ -3344,10 +3429,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 node, sibling_containers
             )
             if inherited_container_urn is not None:
-                own_container = ContainerClass(container=inherited_container_urn)
+                effective_container = ContainerClass(container=inherited_container_urn)
+            elif entity_aspects.container_written_here:
+                # Ours, and no longer corroborated - stop asserting it.
+                effective_container = None
 
         container_entries = self._resolve_container_browse_path_entries(
-            node_datahub_urn, own_container
+            node_datahub_urn, effective_container
         )
         if container_entries is None:
             return
@@ -3373,9 +3461,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             ).as_workunit(is_primary_source=False)
 
         if (
-            entity_aspects.container is None
-            and self.config.emit_target_platform_display_name
-        ):
+            entity_aspects.container is None or entity_aspects.container_written_here
+        ) and self.config.emit_target_platform_display_name:
             # No container of its own means the warehouse connector has not
             # ingested this entity, so nothing has written datasetProperties for
             # it either and the UI falls back to the urn's name - the full dotted
