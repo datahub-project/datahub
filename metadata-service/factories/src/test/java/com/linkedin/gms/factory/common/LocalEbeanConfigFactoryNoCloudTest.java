@@ -107,6 +107,38 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
   }
 
   @Test
+  public void testDetectCloudProviderNullCloudProviderFallsThrough() {
+    String result =
+        CrossCloudIamUtils.detectCloudProvider(
+            "jdbc:postgresql://mydb.rds.amazonaws.com:5432/datahub",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    assertEquals(result, "aws");
+  }
+
+  @Test
+  public void testDetectCloudProviderBlankCloudProviderFallsThrough() {
+    String result =
+        CrossCloudIamUtils.detectCloudProvider(
+            "jdbc:postgresql://googleapis.com/datahub",
+            "   ",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
+    assertEquals(result, "gcp");
+  }
+
+  @Test
   public void testBuildDataSourceConfig() {
     String dataSourceUrl = "jdbc:mysql://localhost:3306/datahub";
 

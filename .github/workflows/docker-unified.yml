@@ -255,15 +255,20 @@ jobs:
             exit 0
           fi
           echo "Found smoke label config key: $CONFIG_KEY"
-          PROFILE_NAME=$(./gradlew :docker:resolveQuickstartProfile -PconfigKey="$CONFIG_KEY" -q 2>&1 | tail -1)
-          if [[ -z "$PROFILE_NAME" ]]; then
-            echo "::error::Failed to resolve profile for config key: $CONFIG_KEY"
+          # One line: "<profile>|<space-separated modules>". tail -1 drops Gradle noise.
+          RESOLVED=$(./gradlew :docker:resolveQuickstartProfile -PconfigKey="$CONFIG_KEY" -q 2>&1 | tail -1)
+          PROFILE_NAME="${RESOLVED%%|*}"
+          SMOKE_MODULES="${RESOLVED#*|}"
+          if [[ -z "$PROFILE_NAME" || "$PROFILE_NAME" == "$RESOLVED" ]]; then
+            echo "::error::Failed to resolve profile for config key: $CONFIG_KEY (got: ${RESOLVED})"
             exit 1
           fi
           echo "Resolved compose profile: $PROFILE_NAME"
+          echo "Resolved image modules: ${SMOKE_MODULES:-<none>}"
           {
             echo "smoke_build_task=:docker:buildImages${CONFIG_KEY}"
             echo "smoke_profile_name=${PROFILE_NAME}"
+            echo "smoke_build_modules=${SMOKE_MODULES}"
           } >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/ci-optimization
@@ -285,6 +290,7 @@ jobs:
           IS_FORK: ${{ env.IS_FORK }}
           PR_PUBLISH: ${{ steps.pr-publish.outputs.publish }}
           SMOKE_BUILD_TASK: ${{ steps.smoke-profile.outputs.smoke_build_task }}
+          SMOKE_MODULES: ${{ steps.smoke-profile.outputs.smoke_build_modules }}
           CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
         run: .github/scripts/resolve_image_builds.sh
 
@@ -487,11 +493,11 @@ jobs:
         env:
           SMOKE_BUILD_TASK: ${{ needs.setup.outputs.smoke_build_task }}
         run: |
-          # -PbuildModules narrows the bake to the images this PR can affect, and
-          # only applies to the default quickstart set. The other two tasks are
-          # reached only on paths that always build everything (workflow_dispatch,
-          # or a smoke: label picking a different profile), and their module sets
-          # do not match the one the plan was computed against.
+          # -PbuildModules narrows the default quickstart bake to the images this
+          # PR can affect. A smoke: label instead runs that config's buildImages
+          # task, which bakes the selected config's modules. The image plan marks
+          # those modules build and pins the rest, so -PbuildModules is not
+          # passed. workflow_dispatch publishes the full set via buildImagesAll.
           build_modules_flag=()
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BUILD_TASK=":docker:buildImagesAll"
@@ -1253,17 +1259,27 @@ jobs:
             "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true" \
             > /tmp/ai-gms.env
 
-      # Activates two profiles simultaneously:
-      #   quickstart-consumers — core DataHub services (GMS, ES, MySQL, Kafka, …)
-      #   quickstart-ai        — Ollama server + one-shot model-pull + warmup
-      # Only the local leg needs the Ollama server; classical embeds in-process.
-      - name: Start DataHub (quickstart-consumers, plus quickstart-ai Ollama on the local leg)
+      # Boots the compose profile the smoke label selected (quickstart-consumers
+      # when there is no label). That profile may or may not run separate MAE/MCE
+      # containers. The local leg also activates quickstart-ai (Ollama); classical
+      # embeds in-process and does not.
+      - name: Start DataHub (selected smoke profile, plus quickstart-ai on the local leg)
         run: |
           SIGNING_KEY=$(openssl rand -base64 32)
           SIGNING_SALT=$(openssl rand -base64 32)
-          AI_PROFILE=()
+          PROFILE_NAME="${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}"
+          echo "Using compose profile: ${PROFILE_NAME}"
+          COMPOSE_PROFILES=()
+          IFS=',' read -ra PROFILE_PARTS <<<"${PROFILE_NAME}"
+          for part in "${PROFILE_PARTS[@]}"; do
+            [[ -n "${part}" ]] || continue
+            COMPOSE_PROFILES+=(--profile "${part}")
+          done
           if [ "${{ matrix.provider }}" = "local" ]; then
-            AI_PROFILE=(--profile quickstart-ai)
+            case ",${PROFILE_NAME}," in
+              *,quickstart-ai,*) ;;
+              *) COMPOSE_PROFILES+=(--profile quickstart-ai) ;;
+            esac
           fi
 
           DATAHUB_VERSION=${{ needs.setup.outputs.tag }} \
@@ -1284,8 +1300,7 @@ jobs:
           docker compose \
             -p datahub \
             --project-directory docker/profiles \
-            --profile quickstart-consumers \
-            "${AI_PROFILE[@]}" \
+            "${COMPOSE_PROFILES[@]}" \
             up -d --quiet-pull
 
       # Wait for GMS to be reachable before tuning OpenSearch.

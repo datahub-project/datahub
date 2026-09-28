@@ -4,9 +4,11 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeCleanupStep;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgQueueSchemaStep;
+import com.linkedin.datahub.upgrade.sqlsetup.postgres.PgTimeseriesSchemaStep;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
 import io.ebean.Database;
+import io.ebean.datasource.DataSourceBuilder;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -25,8 +27,15 @@ public class SqlSetup implements Upgrade {
    * @param setupArgs the SQL setup configuration arguments, or null to create an empty upgrade
    */
   public SqlSetup(@Nullable final Database server, @Nullable final SqlSetupArgs setupArgs) {
+    this(server, setupArgs, null);
+  }
+
+  public SqlSetup(
+      @Nullable final Database server,
+      @Nullable final SqlSetupArgs setupArgs,
+      @Nullable final DataSourceBuilder.Settings ebeanDataSourceConfig) {
     if (server != null && setupArgs != null) {
-      _steps = buildSteps(server, setupArgs);
+      _steps = buildSteps(server, setupArgs, ebeanDataSourceConfig);
     } else {
       _steps = List.of();
     }
@@ -52,12 +61,20 @@ public class SqlSetup implements Upgrade {
     return _steps;
   }
 
-  private List<UpgradeStep> buildSteps(final Database server, final SqlSetupArgs setupArgs) {
+  private List<UpgradeStep> buildSteps(
+      final Database server,
+      final SqlSetupArgs setupArgs,
+      @Nullable final DataSourceBuilder.Settings ebeanDataSourceConfig) {
     final List<UpgradeStep> steps = new ArrayList<>();
 
     steps.add(new CreateTablesStep(server, setupArgs));
 
     PostgresSqlSetupProperties postgresProperties = setupArgs.getPostgres();
+    if (setupArgs.getDbType() == DatabaseType.POSTGRES
+        && postgresProperties != null
+        && postgresProperties.getPgTimeseries().isEnabled()) {
+      steps.add(new PgTimeseriesSchemaStep(server, postgresProperties, ebeanDataSourceConfig));
+    }
     if (setupArgs.getDbType() == DatabaseType.POSTGRES
         && postgresProperties != null
         && postgresProperties.getPgQueue().isEnabled()) {
