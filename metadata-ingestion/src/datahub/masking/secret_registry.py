@@ -6,7 +6,6 @@ import threading
 from typing import (
     Any,
     Dict,
-    FrozenSet,
     Hashable,
     Iterator,
     List,
@@ -46,9 +45,8 @@ SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     # a top-level SecretStr sweep misses it even though the field is typed.
     "private_key",
     # Names that carry a credential and match none of the above. Each was
-    # treated as NON-sensitive, which for the disclosure exemption means
-    # "stated in the clear", which means exempt from masking -- so an
-    # `api_key` written inline in a recipe reached the caller's output.
+    # treated as NON-sensitive, so an `api_key` written inline in a recipe was
+    # not collected as a secret and reached the caller's output.
     #
     # "passwd" is not a substring of "password", and "api_key" is not a
     # substring of "apikey", so both spellings are listed. Bare "key" is
@@ -87,67 +85,6 @@ SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
 #
 # The typed set is a good second source and ConfigModel already registers
 # from it; the two are complementary, not alternatives.
-
-
-def plain_config_values(
-    obj: object, hints: Tuple[str, ...] = SENSITIVE_KEY_HINTS
-) -> Set[str]:
-    """String values a recipe states in the clear under a non-sensitive key.
-
-    A secret whose resolved value equals one of these cannot be protected by
-    masking. The recipe already states the value, consumers legitimately have
-    to print it -- a probe verdict's `target` is a qualified identifier, a log
-    line is full of ordinary words -- and blanking it is itself what tells a
-    reader that the secret equals the identifier they can already see. A
-    password of "my_db" otherwise rewrites `my_db_executor.coordinator` into
-    `***REDACTED:PW***_executor.coordinator`.
-
-    Same family as _UNMASKABLE_LITERALS and MIN_SECRET_LENGTH above: masking
-    that cannot protect anything only corrupts output.
-
-    Callers must read the RAW recipe, not a resolved config. A resolved config
-    holds ${ref}-sourced secrets, including under keys no hint matches
-    (`options.some_odd_key: ${PW}`), and treating those as disclosed would
-    exempt the very values the ${ref} sweep exists to catch. A raw value still
-    containing `${` is skipped for the same reason.
-
-    Callers must also subtract what the recipe carries as an inline secret
-    literal: a recipe with `password: p` and `database: p` discloses the
-    credential itself, and a report travels further than a recipe does.
-    """
-    found: Set[str] = set()
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            sensitive = any(h in str(k).lower() for h in hints)
-            if isinstance(v, str):
-                if v and not sensitive and "${" not in v:
-                    found.add(v)
-            elif not sensitive:
-                # The subtree under a sensitive key is skipped whole. Recursing
-                # into it dropped `sensitive`, so the decision was re-made from
-                # the CHILD key -- and `token: {access: ...}` was judged by
-                # `access`, which no hint matches, so the credential came back
-                # "already disclosed" and was exempted from masking everywhere.
-                # Nothing under a sensitive key is public, whatever its
-                # children are called.
-                found |= plain_config_values(v, hints)
-    elif isinstance(obj, str):
-        # Reached only through the list branch below -- the dict branch
-        # handles its own string values inline, and a sensitive subtree is
-        # never descended into -- so a string arriving here is one the recipe
-        # states in the clear under a plain key.
-        #
-        # Without this, `schemas: [public]` disclosed nothing while
-        # `schema: public` disclosed "public", and the list form is the common
-        # one: project_ids, databases, schemas are all lists. A password equal
-        # to a project named there was masked everywhere, which is exactly the
-        # corruption this exemption exists to prevent.
-        if obj and "${" not in obj:
-            found.add(obj)
-    elif isinstance(obj, list):
-        for item in obj:
-            found |= plain_config_values(item, hints)
-    return found
 
 
 # Identifies a registry's pattern content. An int for a registry with no
@@ -318,10 +255,6 @@ class SecretRegistry:
         self._parent = _parent
         self._secrets: Dict[str, str] = {}
         self._name_history: Dict[str, List[str]] = {}
-        # Values the recipe states in the clear; see declare_disclosed.
-        # Replaced wholesale rather than mutated, like _secrets, so a reader
-        # without the lock always sees one consistent set.
-        self._disclosed: FrozenSet[str] = frozenset()
         self._version = 0
         self._capacity_exceeded = False
         self._compile_failed = False
@@ -373,68 +306,6 @@ class SecretRegistry:
             cls._instance = None
         _active_registry.set(None)
 
-    def declare_disclosed(self, values: Set[str]) -> None:
-        """Values this recipe states in the clear, which must not be masked.
-
-        plain_config_values explains why: a secret whose value equals an
-        identifier the recipe already prints cannot be protected by masking,
-        and blanking it corrupts every unrelated place that identifier
-        appears -- a probe verdict's `target` becomes
-        `***REDACTED:password***.orders`, which is also what tells a reader
-        the password equals the database name.
-
-        The exemption used to be applied by each caller filtering its own
-        batch, and that could only ever hold for the callers that knew. It
-        did not hold for ConfigModel._register_secret_fields, which runs as a
-        mode="after" validator on every config the probe builds and
-        registers each SecretStr it can reach -- re-registering the exact
-        value the probe had just exempted, after the fact. The exemption is
-        a property of the value, so it lives with the value.
-
-        Applied retroactively as well as going forward: a value already
-        registered when its disclosure becomes known is evicted. Otherwise
-        the guarantee would depend on which of two registration sites ran
-        first, which is the kind of ordering that quietly stops holding.
-
-        Callers must subtract inline secret literals first -- a recipe with
-        `password: p` and `database: p` discloses the credential itself.
-        """
-        disclosed = frozenset(v for v in values if v)
-        if not disclosed:
-            return
-        with self._registry_lock:
-            newly = disclosed - self._disclosed
-            self._disclosed = self._disclosed | disclosed
-            if not newly:
-                return
-
-            # Out of the history first: _evict_renderings spares any
-            # rendering a retained value still produces, so a value left in
-            # history would spare its own renderings.
-            new_history = {
-                name: kept
-                for name, values_ in self._name_history.items()
-                if (kept := [v for v in values_ if v not in newly])
-            }
-            new_secrets = self._secrets.copy()
-            removed = _evict_renderings(new_secrets, new_history, sorted(newly))
-            if removed:
-                self._secrets = new_secrets
-                self._version += 1
-                logger.debug(
-                    f"Evicted {removed} rendering(s) of {len(newly)} value(s) the "
-                    f"recipe discloses in the clear (version {self._version})"
-                )
-            self._name_history = new_history
-
-    def _is_disclosed(self, value: str) -> bool:
-        registry: Optional[SecretRegistry] = self
-        while registry is not None:
-            if value in registry._disclosed:
-                return True
-            registry = registry._parent
-        return False
-
     def register_secret(self, variable_name: str, raw_value: str) -> None:
         self.register_secrets_batch({variable_name: raw_value})
 
@@ -449,15 +320,6 @@ class SecretRegistry:
             reason = _unprotectable_reason(value)
             if reason is not None:
                 logger.warning(f"Secret '{name}' is {reason}; it will NOT be masked")
-                continue
-            if self._is_disclosed(value):
-                # Same family as the reasons above, and checked here so it
-                # holds for every registration site rather than the ones
-                # that remember. See declare_disclosed.
-                logger.warning(
-                    f"Secret '{name}' equals a value the recipe states in the "
-                    f"clear; it will NOT be masked"
-                )
                 continue
             accepted[name] = value
 
@@ -722,18 +584,10 @@ class SecretRegistry:
             return own
         return own + self._parent.get_count()
 
-    def forget_disclosed(self) -> None:
-        """Drop every declared disclosure, for a caller starting a new recipe
-        in the same process -- a disclosure belongs to the recipe that
-        stated the value, not to the next one."""
-        with self._registry_lock:
-            self._disclosed = frozenset()
-
     def clear(self) -> None:
         with self._registry_lock:
             self._secrets = {}
             self._name_history = {}
-            self._disclosed = frozenset()
             self._capacity_exceeded = False
             self._compile_failed = False
             self._version += 1

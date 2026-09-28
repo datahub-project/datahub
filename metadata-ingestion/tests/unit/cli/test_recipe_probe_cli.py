@@ -49,7 +49,6 @@ def _isolate_secret_registry(monkeypatch):
     # the ones calling rc._load_recipe("-") directly bypass the group, so the
     # fixture is what covers them.
     monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
-    monkeypatch.setattr(rc, "_disclosed_recipe_values", set())
 
     yield
     SecretRegistry.get_instance().clear()
@@ -724,10 +723,6 @@ def test_a_second_invocation_does_not_inherit_the_first_envelope(monkeypatch, tm
 
     # Second invocation, same interpreter: a recipe from a FILE, no envelope
     # and no environment variable to resolve from.
-    # Deliberately different plain values from _envelope()'s recipe, so the
-    # disclosure assertion below can tell "cleared, then repopulated by THIS
-    # recipe" from "still holding the previous one". _disclosed_recipe_values
-    # is populated on both input paths now, so an emptiness check could not.
     path = tmp_path / "second.yml"
     path.write_text(
         "source:\n"
@@ -742,9 +737,6 @@ def test_a_second_invocation_does_not_inherit_the_first_envelope(monkeypatch, tm
     assert rc._stdin_secrets == {}, (
         "the second invocation can resolve ${PROBE_TEST_REF} from the first "
         "caller's envelope"
-    )
-    assert rc._disclosed_recipe_values == {"second-host:3307", "second_user"}, (
-        "the second invocation is still holding what the first recipe disclosed"
     )
 
 
@@ -956,14 +948,14 @@ def test_an_empty_envelope_secret_does_not_fall_through_to_the_environment(
 # a reader the secret equals the identifier they can already see.
 
 
-def test_a_secret_equal_to_a_plain_config_value_is_not_masked(monkeypatch):
-    """A password that happens to equal the database name must not blank the
-    database name out of every verdict.
+def test_a_secret_equal_to_a_plain_config_value_is_still_masked(monkeypatch):
+    """A password that happens to equal the database name is masked wherever
+    it appears, the identifier included.
 
-    `target` exists to report the string a pattern matched. Masking the
-    container turns "datahub.orders" into "***.orders", which is unreadable
-    AND discloses the collision -- the recipe plainly says `database: datahub`,
-    so the mask is the only new information in the output.
+    Masking matches strings, not meanings: hiding the value where it is the
+    password means hiding it everywhere. `target` then reads
+    `***REDACTED:...***.orders`, which over-masks the identifier -- the safe
+    side, and the redaction notice tells the caller why.
     """
     monkeypatch.setattr(
         "sys.stdin",
@@ -988,11 +980,10 @@ def test_a_secret_equal_to_a_plain_config_value_is_not_masked(monkeypatch):
     _t, config, secret_values = rc._resolve_for_probe(rc._load_recipe("-"))
 
     assert config["password"] == "datahub"
-    assert "datahub" not in secret_values
-    # and so a verdict can still name what it matched
-    assert redact({"target": "datahub.orders"}, secret_values) == {
-        "target": "datahub.orders"
-    }
+    assert "datahub" in secret_values
+    assert "datahub" not in json.dumps(
+        redact({"note": "the password is: datahub"}, secret_values)
+    )
 
 
 def test_a_secret_matching_an_inline_secret_field_is_still_masked(monkeypatch):
@@ -1061,15 +1052,9 @@ def test_a_ref_under_an_unrecognised_key_is_still_masked(monkeypatch):
     assert "not-a-database-name" in secret_values
 
 
-def test_an_envelope_secret_the_recipe_discloses_is_not_registered(monkeypatch):
-    """The masking backstop is the third place this value gets blanked.
-
-    Even with redaction exempting it, registering it with the registry masks
-    the child's whole stdout stream -- so `datahub.ingestion.source.sql` logs
-    as `***REDACTED:PW***.ingestion.source.sql`, and those lines become the
-    task's operator-visible logs. Same rule, same reason: the recipe states
-    the identifier in the clear, so masking it protects nothing.
-    """
+def test_an_envelope_secret_equal_to_a_plain_value_is_still_registered(monkeypatch):
+    """The masking backstop too: an envelope secret is registered whatever
+    else the recipe states, so `the password is: probe_db` never prints it."""
     from datahub.masking.masking_filter import SecretMaskingFilter
 
     monkeypatch.setattr(
@@ -1092,13 +1077,12 @@ def test_an_envelope_secret_the_recipe_discloses_is_not_registered(monkeypatch):
     )
     rc._load_recipe("-")
 
-    assert SecretMaskingFilter().mask_text("probe_db.orders") == "probe_db.orders"
+    masked = SecretMaskingFilter().mask_text("the password is: probe_db")
+    assert "probe_db" not in masked
 
 
-def test_an_envelope_secret_the_recipe_does_not_disclose_is_still_registered(
-    monkeypatch,
-):
-    """The exemption must not become a hole in the backstop."""
+def test_an_envelope_secret_is_registered_for_masking(monkeypatch):
+    """The registry is the backstop for anything a command prints."""
     from datahub.masking.masking_filter import SecretMaskingFilter
 
     monkeypatch.setattr(
@@ -1127,9 +1111,7 @@ def test_an_envelope_secret_the_recipe_does_not_disclose_is_still_registered(
 
 def test_a_malformed_envelope_recipe_still_registers_its_secrets(monkeypatch):
     """Registration happens before the YAML is parsed on purpose, so a parse
-    error quoting the offending document is already covered. Computing the
-    exemption must not disturb that: an unparseable recipe discloses nothing.
-    """
+    error quoting the offending document is already covered."""
     from datahub.masking.masking_filter import SecretMaskingFilter
 
     monkeypatch.setattr(
@@ -1148,28 +1130,6 @@ def test_a_malformed_envelope_recipe_still_registers_its_secrets(monkeypatch):
 
     masked = SecretMaskingFilter().mask_text("leaked still-a-secret")
     assert "still-a-secret" not in masked
-
-
-def test_the_error_path_honours_the_same_disclosure_exemption(monkeypatch):
-    """The exemption has to hold on the failure path too, or it half-works.
-
-    A secret equal to a plain recipe identifier is dropped from the redaction
-    set so `probe filter` can still print `target` -- masking a value the
-    recipe states in the clear only corrupts output and announces the
-    collision. The error path rebuilt its set with _with_stdin_secrets, which
-    unions every envelope value straight back in, so `could not connect to
-    analytics` came back with the database name blanked after all.
-    """
-    monkeypatch.setattr(rc, "_stdin_secrets", {"PW": "analytics"}, raising=False)
-    monkeypatch.setattr(rc, "_disclosed_recipe_values", {"analytics"})
-
-    assert rc._with_stdin_secrets(set()) == set()
-
-    # A genuine envelope secret is still added.
-    monkeypatch.setattr(
-        rc, "_stdin_secrets", {"PW": "analytics", "TOK": "t0k3nvalue"}, raising=False
-    )
-    assert rc._with_stdin_secrets(set()) == {"t0k3nvalue"}
 
 
 def test_a_malformed_envelope_is_a_user_error_not_an_internal_one(monkeypatch):
@@ -1377,75 +1337,6 @@ def test_probe_errors_map_to_the_documented_exit_codes(raised: str, code: int) -
     with pytest.raises(SystemExit) as exit_info, _exit_codes(fallback=EXIT_CONNECTION):
         raise exc
     assert exit_info.value.code == code
-
-
-@pytest.mark.parametrize(
-    "recipe, secret",
-    [
-        (
-            "source:\n"
-            "  type: abs\n"
-            "  config:\n"
-            "    path_specs:\n"
-            "      - include: https://acct.blob.core.windows.net/c/*.csv\n"
-            "    azure_config:\n"
-            "      account_name: acct\n"
-            "      container_name: c\n"
-            "      account_key: inline-account-key-value\n",
-            "inline-account-key-value",
-        ),
-        (
-            "source:\n"
-            "  type: delta-lake\n"
-            "  config:\n"
-            "    base_path: abfss://c@acct.dfs.core.windows.net/x\n"
-            "    azure:\n"
-            "      account_name: acct\n"
-            "      account_key: inline-delta-key-value\n",
-            "inline-delta-key-value",
-        ),
-        (
-            "source:\n"
-            "  type: lookml\n"
-            "  config:\n"
-            "    base_folder: /tmp/x\n"
-            "    git_info:\n"
-            "      repo: org/repo\n"
-            "      deploy_key: inline-deploy-key-value\n",
-            "inline-deploy-key-value",
-        ),
-    ],
-)
-def test_a_nested_inline_secret_no_hint_names_is_not_declared_disclosed(
-    tmp_path: pathlib.Path, recipe: str, secret: str
-) -> None:
-    """A typed SecretStr nested under a key no hint matches read as a plain
-    value the recipe states, and a declared disclosure evicts it from masking."""
-    from datahub.masking.masking_filter import SecretMaskingFilter
-    from datahub.masking.secret_registry import SecretRegistry
-
-    path = tmp_path / "r.yml"
-    path.write_text(recipe)
-    rc._load_recipe(str(path))
-
-    assert secret not in rc._disclosed_recipe_values
-    SecretRegistry.get_instance().register_secrets_batch({"INLINE": secret})
-    assert secret not in SecretMaskingFilter().mask_text(f"leaked {secret}")
-
-
-def test_a_disclosure_does_not_outlive_its_invocation() -> None:
-    """A value one recipe states in the clear is not disclosed for the next
-    recipe run in the same process -- there it may be a password."""
-    from datahub.masking.masking_filter import SecretMaskingFilter
-    from datahub.masking.secret_registry import SecretRegistry
-
-    shared = "shared" + "-identifier-value"
-    SecretRegistry.get_instance().declare_disclosed({shared})
-    assert rc.recipe.callback is not None
-    rc.recipe.callback()  # the group callback every invocation runs first
-
-    SecretRegistry.get_instance().register_secrets_batch({"NEXT_PW": shared})
-    assert shared not in SecretMaskingFilter().mask_text(f"login as {shared}")
 
 
 def test_the_report_file_masks_before_serializing(tmp_path: pathlib.Path) -> None:

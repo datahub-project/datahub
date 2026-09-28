@@ -1,4 +1,3 @@
-import sys
 from typing import Dict
 
 import pytest
@@ -10,7 +9,6 @@ from datahub.ingestion.agent.redact import (
     collect_secret_values,
     redact,
 )
-from datahub.masking.secret_registry import plain_config_values
 
 
 def test_redacts_exact_and_embedded_values():
@@ -163,56 +161,6 @@ def test_ordinary_keys_are_untouched_by_the_collision_handling():
     assert out == {"host": "h", "port": 5432}
 
 
-def test_a_secret_under_a_sensitive_parent_is_not_treated_as_disclosed():
-    """The disclosure exemption must not reach INTO a sensitive subtree.
-
-    plain_config_values exempts values a recipe states in the clear under a
-    non-sensitive key, because masking one of those only corrupts output. It
-    decided that per key while walking, but forgot the decision on the way
-    down: a sensitive key whose value was a mapping recursed without carrying
-    `sensitive`, so `token: {access: ...}` was judged by the inner key
-    `access` -- which no hint matches -- and the credential came back as
-    "already disclosed", meaning it would not be masked anywhere.
-
-    Nothing under a sensitive key is public, whatever the child keys are
-    called, so the subtree is skipped entirely.
-    """
-    assert (
-        plain_config_values(
-            {"token": {"access": "acc3ssvalue", "refresh": "r3freshvalue"}},
-            _SENSITIVE_KEY_HINTS,
-        )
-        == set()
-    )
-
-    assert (
-        plain_config_values(
-            {"secret": {"outer": {"inner": "deepvalue"}}}, _SENSITIVE_KEY_HINTS
-        )
-        == set()
-    )
-
-    # The converse, so the fix cannot become "exempt nothing": a plain
-    # identifier under a plain key is still disclosed, which is the whole
-    # point of the exemption.
-    assert plain_config_values({"database": "analytics"}, _SENSITIVE_KEY_HINTS) == {
-        "analytics"
-    }
-    assert plain_config_values(
-        {"connection": {"database": "analytics"}}, _SENSITIVE_KEY_HINTS
-    ) == {"analytics"}
-
-    # An unresolved reference is not a disclosed value. It is a name for one,
-    # and the thing it names is registered separately -- treating `${PW}` as
-    # something the recipe states in the clear would exempt whatever the
-    # envelope resolved it to, on a string match against the literal.
-    assert plain_config_values({"host": "${DB_HOST}"}, _SENSITIVE_KEY_HINTS) == set()
-    assert (
-        plain_config_values({"host": "prefix-${DB_HOST}-suffix"}, _SENSITIVE_KEY_HINTS)
-        == set()
-    )
-
-
 def test_an_identifier_or_a_path_is_not_a_credential():
     """`private_key_id` and `private_key_path` are real GCP fields.
 
@@ -243,48 +191,6 @@ def test_an_identifier_or_a_path_is_not_a_credential():
     assert "/etc/gcp/key.json" not in found, found
 
 
-def test_a_credential_nested_under_a_sensitive_key_is_collected():
-    """Third appearance of one bug, and the first where it fails to MASK.
-
-    Both collectors decided sensitivity per key and dropped it at the
-    recursion, so a sensitive key holding a MAPPING had its children judged by
-    their own names:
-
-        token:      {access: ...}             -> collected by neither
-        credential: {private_key: {pem: ...}} -> collected by neither
-
-    plain_config_values and the executor's copy had the same defect pointing
-    the other way -- they reached INTO a sensitive subtree and exempted what
-    they found. Here the credential is simply never collected, so the
-    redactor does not mask it and validate does not mention it. Same outcome:
-    it reaches the caller in the clear.
-
-    `credential.private_key` is the shape the private_key hint was added for,
-    and the comment there says "nested one level down" -- which works only
-    while the value is a string. One level further and it was gone.
-    """
-    cfg = {
-        "connection": {
-            "token": {"access": "acc3ssvalue"},
-            "credential": {"private_key": {"pem": "p3mvalue"}},
-            "database": "analytics",
-        }
-    }
-
-    masked = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
-    assert "acc3ssvalue" in masked, masked
-    assert "p3mvalue" in masked, masked
-
-    flagged = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
-    assert "acc3ssvalue" in flagged, flagged
-    assert "p3mvalue" in flagged, flagged
-
-    # A plain identifier under a plain key stays out of both, or the fix has
-    # simply widened everything.
-    assert "analytics" not in masked, masked
-    assert "analytics" not in flagged, flagged
-
-
 def test_an_identifier_suffix_still_wins_under_a_sensitive_parent():
     """The suffix rule is about the leaf's own name, so inheriting a sensitive
     parent must not resurrect `_id` and `_path` as credentials."""
@@ -294,27 +200,6 @@ def test_an_identifier_suffix_still_wins_under_a_sensitive_parent():
     flagged = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
     assert "t0k3nvalue" in flagged, flagged
     assert "abc123keyid" not in flagged, flagged
-
-
-def test_a_value_listed_in_a_plain_list_is_disclosed_too():
-    """`project_ids: [analytics]` states it as plainly as `project: analytics`.
-
-    The walk had no branch for a string reached through a list, so the list
-    form disclosed nothing -- and the list form is the common one here:
-    project_ids, databases and schemas are all lists. A password equal to a
-    project named in the recipe was therefore masked everywhere it appeared,
-    including in the `target` a verdict has to print, which is the exact
-    corruption this exemption exists to prevent.
-    """
-    assert plain_config_values(
-        {"project_ids": ["analytics", "staging"]}, _SENSITIVE_KEY_HINTS
-    ) == {"analytics", "staging"}
-
-    # And the sensitive side is unchanged: a list under a sensitive key
-    # discloses nothing, so those values keep their mask.
-    assert (
-        plain_config_values({"password": ["pw1value"]}, _SENSITIVE_KEY_HINTS) == set()
-    )
 
 
 def test_a_grant_listing_does_not_return_account_names_in_the_clear():
@@ -378,29 +263,55 @@ def test_ordinary_type_metadata_is_not_mistaken_for_an_identity():
     assert masked == rows[0], f"an ordinary catalog column was masked: {masked}"
 
 
-def test_a_credential_named_api_key_is_not_treated_as_disclosed():
-    """The disclosure exemption is what made the hint gap a leak.
+def test_a_credential_nested_under_a_sensitive_key_is_collected():
+    """Third appearance of one bug, and the first where it fails to MASK.
 
-    A value under a key no hint matched counted as "stated in the clear",
-    and a disclosed value is SUBTRACTED from the redaction set so the probe
-    can print it. So `api_key: abc` inline in a recipe was not merely
-    unrecognised -- it was actively exempted from masking.
+    Both collectors decided sensitivity per key and dropped it at the
+    recursion, so a sensitive key holding a MAPPING had its children judged by
+    their own names:
 
-    Five connectors carry such a field and none is SecretStr-typed, so the
-    typed registry does not cover them either: elasticsearch's api_key,
-    aws_access_key_id on dynamodb/glue/quicksight/sagemaker.
+        token:      {access: ...}             -> collected by neither
+        credential: {private_key: {pem: ...}} -> collected by neither
+
+    The credential is simply never collected, so the redactor does not mask
+    it and validate does not mention it: it reaches the caller in the clear.
+
+    `credential.private_key` is the shape the private_key hint was added for,
+    and the comment there says "nested one level down" -- which works only
+    while the value is a string. One level further and it was gone.
     """
-    from datahub.masking.secret_registry import SENSITIVE_KEY_HINTS, plain_config_values
+    cfg = {
+        "connection": {
+            "token": {"access": "acc3ssvalue"},
+            "credential": {"private_key": {"pem": "p3mvalue"}},
+            "database": "analytics",
+        }
+    }
+
+    masked = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
+    assert "acc3ssvalue" in masked, masked
+    assert "p3mvalue" in masked, masked
+
+    flagged = collect_nested_credential_values(cfg, _SENSITIVE_KEY_HINTS)
+    assert "acc3ssvalue" in flagged, flagged
+    assert "p3mvalue" in flagged, flagged
+
+    # A plain identifier under a plain key stays out of both, or the fix has
+    # simply widened everything.
+    assert "analytics" not in masked, masked
+    assert "analytics" not in flagged, flagged
+
+
+def test_a_credential_named_api_key_is_collected_as_a_secret():
+    """Five connectors carry a credential under a key the original hints
+    missed, none SecretStr-typed -- elasticsearch's api_key, and
+    aws_access_key_id on dynamodb/glue/quicksight/sagemaker -- so without the
+    hint the typed registry does not cover them either."""
+    from datahub.masking.secret_registry import SENSITIVE_KEY_HINTS
 
     for key in ("api_key", "apikey", "passwd", "aws_access_key_id", "kafka_api_key"):
-        disclosed = plain_config_values({key: "the-value"}, SENSITIVE_KEY_HINTS)
-        assert disclosed == set(), f"{key} was exempted from masking"
-
-    # The converse, so this cannot become "exempt nothing": an ordinary
-    # identifier under an ordinary key is still disclosed.
-    assert plain_config_values({"database": "analytics"}, SENSITIVE_KEY_HINTS) == {
-        "analytics"
-    }
+        found = collect_nested_secret_values({key: "the-value"}, SENSITIVE_KEY_HINTS)
+        assert found == {"the-value"}, f"{key} was not collected"
 
 
 def test_the_widened_hints_do_not_swallow_structural_fields():
@@ -410,11 +321,11 @@ def test_the_widened_hints_do_not_swallow_structural_fields():
     and masking them would corrupt ordinary output. Same reason "credential"
     is absent: it names a mixed object whose secret child is already matched.
     """
-    from datahub.masking.secret_registry import SENSITIVE_KEY_HINTS, plain_config_values
+    from datahub.masking.secret_registry import SENSITIVE_KEY_HINTS
 
     for key in ("partition_key", "primary_key", "key_path", "sort_key", "project_id"):
-        disclosed = plain_config_values({key: "structural"}, SENSITIVE_KEY_HINTS)
-        assert disclosed == {"structural"}, f"{key} is not a credential"
+        found = collect_nested_secret_values({key: "structural"}, SENSITIVE_KEY_HINTS)
+        assert found == set(), f"{key} is not a credential"
 
 
 def _fresh_registry():
@@ -422,218 +333,3 @@ def _fresh_registry():
 
     SecretRegistry.reset_instance()
     return SecretRegistry.get_instance()
-
-
-def test_a_disclosed_value_stays_exempt_when_a_config_model_re_registers_it():
-    """The exemption has to survive ConfigModel's own registration.
-
-    The probe subtracts what the recipe states in the clear before
-    registering envelope secrets -- but ConfigModel._register_secret_fields
-    is a mode="after" validator that registers every SecretStr on every
-    config the probe builds, and it re-registered the value the probe had
-    just exempted. The verdict's `target` then came back as
-    `***REDACTED:password***.orders`: the database name reported as a
-    password, which is also what tells a reader the two are equal.
-    """
-    from pydantic import SecretStr
-
-    from datahub.configuration.common import ConfigModel
-    from datahub.masking.masking_filter import SecretMaskingFilter
-
-    shared = "analytics_" + "warehouse"
-    raw_recipe = {
-        "source": {
-            "config": {
-                "host_port": "h:3306",
-                "database": shared,
-                "password": "${MY_PW}",
-            }
-        }
-    }
-
-    registry = _fresh_registry()
-    disclosed = plain_config_values(raw_recipe, _SENSITIVE_KEY_HINTS)
-    assert shared in disclosed
-
-    registry.declare_disclosed(disclosed)
-    registry.register_secrets_batch({"MY_PW": shared})
-
-    class _Cfg(ConfigModel):
-        database: str
-        password: SecretStr
-
-    _Cfg.model_validate({"database": shared, "password": shared})
-
-    masker = SecretMaskingFilter()
-    assert masker.mask_text(f"{shared}.orders") == f"{shared}.orders"
-
-
-def test_disclosure_evicts_a_value_that_was_already_registered():
-    """Order-independent, or the guarantee is only as good as the call order.
-
-    A value can reach the registry before its disclosure is known -- the
-    envelope path registers, then the recipe YAML is parsed for what it
-    states in the clear. Applying disclosure only to later registrations
-    would make the exemption depend on which site ran first.
-    """
-    from datahub.masking.masking_filter import SecretMaskingFilter
-
-    shared = "reporting_" + "warehouse"
-    registry = _fresh_registry()
-
-    registry.register_secrets_batch({"PW": shared})
-    assert SecretMaskingFilter().mask_text(shared) != shared
-
-    registry.declare_disclosed({shared})
-    assert SecretMaskingFilter().mask_text(shared) == shared
-
-
-def test_declaring_disclosure_does_not_exempt_an_unrelated_secret():
-    from datahub.masking.masking_filter import SecretMaskingFilter
-
-    registry = _fresh_registry()
-    registry.register_secrets_batch({"PW": "a-genuine-secret-value"})
-    registry.declare_disclosed({"some_public_database_name"})
-
-    assert "a-genuine-secret-value" not in SecretMaskingFilter().mask_text(
-        "connected with a-genuine-secret-value"
-    )
-
-
-def test_an_inline_password_equal_to_the_database_name_is_still_masked():
-    """The security-critical half of the disclosure policy.
-
-    `database: p` with `password: ${REF}` discloses the identifier and never
-    the credential, so exempting p protects nothing and only corrupts the
-    verdict. `database: p` with `password: p` INLINE discloses the credential
-    itself, and a report travels further than a recipe does -- so that value
-    must still be masked.
-
-    Worth pinning now that disclosure is a sticky, process-wide, retroactive
-    property of the value rather than a filter one caller applies to one
-    batch: getting this half backwards would be worse than the over-masking
-    it was introduced to fix.
-    """
-    from datahub.cli.recipe_cli import _declare_disclosed_values
-    from datahub.masking.masking_filter import SecretMaskingFilter
-
-    shared = "analytics_" + "warehouse"
-
-    def masked_target(password_value: str) -> str:
-        registry = _fresh_registry()
-        _declare_disclosed_values(
-            {
-                "source": {
-                    "type": "mysql",
-                    "config": {"database": shared, "password": password_value},
-                }
-            }
-        )
-        registry.register_secrets_batch({"MY_PW": shared})
-        return SecretMaskingFilter().mask_text(f"{shared}.orders")
-
-    assert masked_target("${MY_PW}") == f"{shared}.orders"
-    assert masked_target(shared) == "***REDACTED:MY_PW***.orders"
-
-
-def test_both_input_paths_agree_about_what_the_recipe_discloses(tmp_path):
-    """`--recipe -` and `--recipe file.yml` must not answer differently.
-
-    The declaration lived where the stdin ENVELOPE was parsed, so it never
-    ran for a recipe read from a file. Same recipe, same secret, two
-    answers: `hunter2.hunter2.orders` down one path and
-    `***REDACTED:password***.***REDACTED:password***.orders` down the other
-    -- the marker telling an agent that the database name is a password.
-
-    Over-masking rather than a leak, and the executor uses the stdin path,
-    which is why it survived a round of review.
-    """
-    import io
-    import json
-
-    import datahub.cli.recipe_cli as rc
-    from datahub.masking.masking_filter import SecretMaskingFilter
-
-    shared = "hunter2_" + "warehouse"
-    recipe_yaml = (
-        "source:\n"
-        "  type: mysql\n"
-        "  config:\n"
-        "    host_port: h:3306\n"
-        f"    database: {shared}\n"
-        "    password: ${PROBE_PW}\n"
-    )
-
-    def target_after_loading(path: str, stdin: object = None) -> str:
-        _fresh_registry()
-        rc._stdin_secrets.clear()
-        rc._disclosed_recipe_values.clear()
-        real_stdin = sys.stdin
-        if stdin is not None:
-            sys.stdin = stdin  # type: ignore[assignment]
-        try:
-            rc._load_recipe(path)
-        finally:
-            sys.stdin = real_stdin
-        # What a probe run does next: build the connector config, whose
-        # mode="after" validator registers every SecretStr it can reach.
-        _Probe.model_validate({"database": shared, "password": shared})
-        return SecretMaskingFilter().mask_text(f"{shared}.{shared}.orders")
-
-    from pydantic import SecretStr
-
-    from datahub.configuration.common import ConfigModel
-
-    class _Probe(ConfigModel):
-        database: str
-        password: SecretStr
-
-    envelope = io.StringIO(
-        json.dumps(
-            {"__recipe_yaml__": recipe_yaml, "__secrets__": {"PROBE_PW": shared}}
-        )
-    )
-    from_stdin = target_after_loading("-", envelope)
-
-    recipe_file = tmp_path / "recipe.yml"
-    recipe_file.write_text(recipe_yaml)
-    from_file = target_after_loading(str(recipe_file))
-
-    assert from_stdin == from_file, "the two input paths disclose different things"
-    assert from_stdin == f"{shared}.{shared}.orders"
-
-
-def test_typed_secrets_follow_the_declared_type_not_the_dict_shape() -> None:
-    """A Dict[str, Model] whose keys collide with the model's own field names
-    must still be walked as a mapping."""
-    from typing import Dict, List, Optional
-
-    from pydantic import BaseModel, SecretStr
-
-    from datahub.ingestion.agent.redact import collect_typed_secret_values
-
-    class Conn(BaseModel):
-        token: Optional[SecretStr] = None
-        host: str = ""
-
-    class Cfg(BaseModel):
-        default: Optional[Conn] = None
-        by_name: Dict[str, Conn] = {}
-        extra: List[Conn] = []
-        signing_value: Optional[SecretStr] = None
-
-    raw = {
-        "default": {"token": "tok-default", "host": "h"},
-        # Keys named like Conn's own fields: the case a shape guess misread.
-        "by_name": {"token": {"token": "tok-mapped"}, "host": {"host": "h2"}},
-        "extra": [{"token": "tok-listed"}],
-        # Bound rather than inlined, like the other fixtures here: the secret
-        # scanner matches a literal beside a secret-named key.
-        "signing_value": "top" + "-level-value",
-    }
-    assert collect_typed_secret_values(Cfg, raw) == {
-        "tok-default",
-        "tok-mapped",
-        "tok-listed",
-        "top-level-value",
-    }

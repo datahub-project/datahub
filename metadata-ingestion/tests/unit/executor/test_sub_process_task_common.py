@@ -20,7 +20,6 @@ from datahub.executor.execution.runner import LogHolder
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
-    unprotectable_disclosed_values,
 )
 from datahub.executor.execution.task import TaskError
 from datahub.masking.secret_registry import SecretRegistry
@@ -803,19 +802,14 @@ class TestSharedRecipeTaskSkeleton:
         assert report.set_logs.call_args[0][0] == ""
 
 
-class TestUnprotectableDisclosedSecrets:
-    """A resolved secret equal to a value the recipe states in the clear.
+class TestResolvedSecretsAreRegistered:
+    """Every resolved secret is registered for masking, whatever else the
+    recipe states.
 
-    Registering it masks that value everywhere it occurs -- in the structured
-    report, in the task logs, and inside unrelated words that merely contain
-    it. A password of "datahub" turned the log line
-    `datahub_executor.coordinator.ingestion` into
-    `***REDACTED:PW***_executor.coordinator.ingestion`, and a probe verdict's
-    target from `datahub.orders` into `***REDACTED:PW***.orders`.
-
-    Masking cannot protect such a value: the recipe already states it under a
-    non-secret key, and the mask is itself what tells a reader that the secret
-    equals the identifier they can see.
+    A value equal to a plain recipe value -- a password that is also the
+    database name -- is masked wherever it appears: masking matches strings,
+    not meanings, so hiding it where it is the password means hiding it
+    everywhere. That over-masks the identifier, which is the safe side.
     """
 
     RECIPE = json.dumps(
@@ -859,123 +853,25 @@ class TestUnprotectableDisclosedSecrets:
             except json.JSONDecodeError:
                 # ONE test passes a truncated recipe, and the parse happens
                 # AFTER registration on purpose -- so what was registered by
-                # then is exactly what that test inspects.
-                #
-                # Narrowed from `except Exception`, which also swallowed any
-                # unrelated failure. That matters most for the NEGATIVE
-                # assertions here: "the exempted value is not registered" is
-                # satisfied just as well by a resolution that fell over
-                # before registering anything at all.
+                # then is exactly what that test inspects. Narrowed from
+                # `except Exception` so an unrelated failure still fails.
                 pass
         return set(seen.values())
 
-    def test_a_secret_equal_to_a_plain_config_value_is_not_registered(self) -> None:
-        registered = self._registered(self.RECIPE, {"PW": "datahub"})
-        assert "datahub" not in registered
-
-    def test_an_ordinary_secret_is_still_registered(self) -> None:
-        registered = self._registered(self.RECIPE, {"PW": "hunter2"})
-        assert "hunter2" in registered
-
-    def test_a_secret_matching_an_inline_secret_literal_is_still_registered(
+    def test_a_secret_equal_to_a_plain_config_value_is_still_registered(
         self,
     ) -> None:
-        """The exemption is for NON-secret keys only.
+        assert "datahub" in self._registered(self.RECIPE, {"PW": "datahub"})
 
-        A recipe with `password: p` and `database: p` discloses the credential
-        itself, and the report travels further than the recipe does.
-        """
-        recipe = json.dumps(
-            {
-                "source": {
-                    "type": "mysql",
-                    "config": {
-                        "host_port": "mysql:3306",
-                        # An inline secret under any hint-matching key, and the
-                        # same string as a plain value. The ref must still be
-                        # registered: the recipe discloses the credential.
-                        "token": "shared-with-database",
-                        "database": "shared-with-database",
-                        "password": "${PW}",
-                    },
-                }
-            }
-        )
-        assert "shared-with-database" in self._registered(
-            recipe, {"PW": "shared-with-database"}
-        )
+    def test_an_ordinary_secret_is_registered(self) -> None:
+        assert "hunter2" in self._registered(self.RECIPE, {"PW": "hunter2"})
 
     def test_a_malformed_recipe_still_registers_its_secrets(self) -> None:
-        """The exemption is best-effort and must never be why a recipe fails.
-
-        Refs are resolved and registered BEFORE the JSON parse on purpose, so
-        a parse error quoting the offending document cannot echo an unmasked
-        secret. Reading the recipe to compute the exemption must not disturb
-        that: an unparseable recipe discloses nothing, so nothing is exempt.
-        """
+        """Refs are resolved and registered BEFORE the JSON parse on purpose,
+        so a parse error quoting the offending document cannot echo an
+        unmasked secret."""
         truncated = '{"source": {"config": {"password": "${PW}"'
         assert "hunter2" in self._registered(truncated, {"PW": "hunter2"})
-
-
-class TestDisclosedValues:
-    """What the executor treats as "the recipe already states this in the clear"."""
-
-    def test_a_credential_under_a_sensitive_parent_is_not_disclosed(self) -> None:
-        """Same defect as secret_registry.plain_config_values had, second copy.
-
-        `sensitive` is decided per key and then dropped at the recursion, so a
-        sensitive key holding a MAPPING had its children judged by their own
-        names. `token: {access: ...}` was read as plainly disclosed and
-        exempted from registration -- which on this side means the parent's
-        own logs and structured report stop masking it.
-        """
-        disclosed = unprotectable_disclosed_values(
-            json.dumps(
-                {
-                    "source": {
-                        "type": "mysql",
-                        "config": {
-                            "database": "analytics",
-                            "token": {"access": "acc3ssvalue"},
-                            "credential": {"private_key": {"pem": "p3mvalue"}},
-                        },
-                    }
-                }
-            )
-        )
-
-        assert "acc3ssvalue" not in disclosed, disclosed
-        assert "p3mvalue" not in disclosed, disclosed
-        # The converse: a plain identifier under a plain key is still
-        # disclosed, which is the whole reason this function exists.
-        assert "analytics" in disclosed, disclosed
-
-
-def test_the_two_layers_agree_about_strings_in_a_list() -> None:
-    """plain_config_values and the executor's split must see the same values.
-
-    A string directly inside a list is stated by the recipe exactly as one
-    under a key is. The executor's walk recursed past them, so canonical
-    returned {'public','analytics','staging'} for a recipe where this
-    returned nothing -- and a value one layer treats as disclosed and the
-    other does not is a value the two exempt differently.
-    """
-    from datahub.masking.secret_registry import (
-        SENSITIVE_KEY_HINTS,
-        plain_config_values,
-    )
-
-    recipe = {"source": {"config": {"schema_allow": ["public", "analytics"]}}}
-
-    canonical = plain_config_values(recipe, SENSITIVE_KEY_HINTS)
-    from datahub.executor.execution.sub_process_task_common import (
-        _plain_and_inline_secret_values,
-    )
-
-    plain, _inline = _plain_and_inline_secret_values(recipe)
-
-    assert canonical == {"public", "analytics"}
-    assert plain == canonical
 
 
 def test_extra_cannot_overwrite_the_envelopes_own_keys() -> None:

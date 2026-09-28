@@ -44,10 +44,7 @@ from datahub.executor.execution.task import TaskError
 from datahub.masking.bootstrap import initialize_secret_masking
 from datahub.masking.constants import SENTINEL_MESSAGES
 from datahub.masking.masking_filter import SecretMaskingFilter
-from datahub.masking.secret_registry import (
-    SENSITIVE_KEY_HINTS,
-    SecretRegistry,
-)
+from datahub.masking.secret_registry import SecretRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -81,98 +78,6 @@ class PreparedRun:
     venv_ref: VenvReference
     subprocess_env: dict
     stdin_envelope: str
-
-
-def _plain_and_inline_secret_values(
-    obj: object, under_sensitive: bool = False
-) -> tuple[set[str], set[str]]:
-    """Split a raw recipe's string scalars into (plain, inline-secret).
-
-    "Plain" means stated under a key no sensitivity hint matches, with no
-    ``${`` left in it. Those are the values the recipe discloses in the clear.
-
-    The hints come from datahub.masking.secret_registry rather than a copy
-    here. The copy carried a comment justifying itself as avoiding a
-    dependency on the ingestion AGENT package -- but the canonical list is in
-    the masking package, which this module already imports three lines up, so
-    the dependency being avoided was one that already existed. The two lists
-    were identical, and the cost of keeping them apart was not theoretical:
-    the recursion bug described below was written into both independently and
-    fixed twice.
-
-    ``under_sensitive`` carries the parent's verdict down, and it has to:
-    sensitivity was decided per key and then dropped at the recursion, so a
-    sensitive key holding a MAPPING had its children judged by their own
-    names. ``token: {access: ...}`` and ``credential: {private_key: {pem:
-    ...}}`` both came back as plainly disclosed, and a disclosed value is
-    exempted from registration -- so the parent's logs and structured report
-    stopped masking the credential. Nothing under a sensitive key is
-    disclosed, whatever its children are called.
-    """
-    plain: set[str] = set()
-    inline: set[str] = set()
-    if isinstance(obj, dict):
-        for k, v in obj.items():
-            sensitive = under_sensitive or any(
-                h in str(k).lower() for h in SENSITIVE_KEY_HINTS
-            )
-            if isinstance(v, str):
-                if not v or "${" in v:
-                    continue
-                (inline if sensitive else plain).add(v)
-            else:
-                sub_plain, sub_inline = _plain_and_inline_secret_values(v, sensitive)
-                plain |= sub_plain
-                inline |= sub_inline
-    elif isinstance(obj, list):
-        for item in obj:
-            # A string sitting directly in a list is a value the recipe
-            # states, the same as one under a key -- `schema_allow:
-            # [public, analytics]`. Recursing without handling it dropped
-            # them, so the executor's split disagreed with
-            # plain_config_values about the same recipe: canonical returned
-            # {'public','analytics','staging'} where this returned nothing,
-            # and a disclosed value that one layer does not see is a value
-            # the two layers exempt differently.
-            if isinstance(item, str):
-                if item and "${" not in item:
-                    (inline if under_sensitive else plain).add(item)
-                continue
-            sub_plain, sub_inline = _plain_and_inline_secret_values(
-                item, under_sensitive
-            )
-            plain |= sub_plain
-            inline |= sub_inline
-    return plain, inline
-
-
-def unprotectable_disclosed_values(recipe: str) -> set[str]:
-    """Values this recipe states in the clear, which masking cannot protect.
-
-    A resolved secret equal to one of these is not made safer by registering
-    it. The recipe already states the value under a non-secret key, consumers
-    legitimately have to print it -- a probe verdict's ``target`` is a
-    qualified identifier, and a log line is full of ordinary words -- and the
-    mask is itself what tells a reader that the secret equals the identifier
-    they can already see. A password of "datahub" otherwise rewrites
-    ``datahub_executor.coordinator.ingestion`` into
-    ``***REDACTED:PW***_executor.coordinator.ingestion``.
-
-    Exempts only what the recipe does NOT also carry as an inline secret
-    literal: a recipe with ``password: p`` and ``database: p`` discloses the
-    credential itself, and a report travels further than a recipe does -- to
-    GMS, the logs, and an LLM -- so that one keeps its mask.
-
-    Best-effort and never raises. Refs are registered before the recipe is
-    parsed so a parse error cannot echo an unmasked secret; this must not
-    disturb that ordering, and an unparseable recipe simply discloses nothing.
-    """
-    try:
-        parsed = json.loads(recipe, strict=False)
-    except Exception:
-        return set()
-    plain, inline = _plain_and_inline_secret_values(parsed)
-    return plain - inline
 
 
 class SubProcessTaskUtil:
@@ -329,13 +234,11 @@ class SubProcessTaskUtil:
 
         if secrets_to_resolve:
             initialize_secret_masking()
-            disclosed = unprotectable_disclosed_values(recipe)
             SecretRegistry.get_instance().register_secrets_batch(
                 {
                     name: secret_values_dict[name]
                     for name in secrets_to_resolve
                     if secret_values_dict.get(name)
-                    and secret_values_dict[name] not in disclosed
                 }
             )
 
