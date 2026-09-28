@@ -131,18 +131,6 @@ public class ESIndexBuilder {
    */
   @Getter private final SearchClientShim<?> searchClient;
 
-  /**
-   * Maps configured limit keys (under {@code elasticsearch.index.entityMappingLimits.<entity>.X})
-   * to their ES index-setting paths. Keeping this map small and code-defined is intentional: it
-   * locks the surface to a known-safe set of dynamic mapping ceilings and rejects any unknown key
-   * at apply time.
-   */
-  public static final Map<String, String> MAPPING_LIMIT_SETTING_KEYS =
-      Map.of("totalFields", "mapping.total_fields.limit");
-
-  /** Reserved entity key in {@code entityMappingLimits} that applies to all unlisted entities. */
-  public static final String MAPPING_LIMITS_DEFAULT_KEY = "default";
-
   @Getter @VisibleForTesting private final ElasticSearchConfiguration config;
 
   private final IndexConfiguration indexConfig;
@@ -151,8 +139,7 @@ public class ESIndexBuilder {
 
   @Getter private final Map<String, Map<String, String>> indexSettingOverrides;
 
-  @Getter @VisibleForTesting
-  private EntityMappingLimits entityMappingLimits = EntityMappingLimits.EMPTY;
+  @Getter @VisibleForTesting private final EntityMappingLimits entityMappingLimits;
 
   @Getter @VisibleForTesting private final GitVersion gitVersion;
 
@@ -185,6 +172,7 @@ public class ESIndexBuilder {
     this.searchClient = searchClient;
     this.config = elasticSearchConfiguration;
     this.indexConfig = elasticSearchConfiguration.getIndex();
+    this.entityMappingLimits = EntityMappingLimits.fromConfig(indexConfig.getEntityMappingLimits());
     this.structPropConfig = structuredPropertiesConfiguration;
     this.indexSettingOverrides = indexSettingOverrides;
     this.gitVersion = gitVersion;
@@ -335,16 +323,6 @@ public class ESIndexBuilder {
     }
   }
 
-  /**
-   * Provide resolved {@link EntityMappingLimits} sourced from {@code
-   * elasticsearch.index.entityMappingLimits}. Called once by {@link
-   * com.linkedin.gms.factory.search.ElasticSearchIndexBuilderFactory} after construction; not part
-   * of the constructor signature to keep the (many) existing test-time constructors unchanged.
-   */
-  public void setEntityMappingLimits(@Nonnull EntityMappingLimits entityMappingLimits) {
-    this.entityMappingLimits = entityMappingLimits;
-  }
-
   public List<ReindexConfig> buildReindexConfigs(
       @Nonnull OperationContext opContext,
       @Nonnull SettingsBuilder settingsBuilder,
@@ -442,7 +420,7 @@ public class ESIndexBuilder {
     baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
     // entityMappingLimits feeds the same settings on creation/reindex so a new or rebuilt index
     // is born at the configured ceiling, matching the value pushed to live indices below.
-    baseSettings.putAll(entityMappingLimits.forIndex(indexName));
+    baseSettings.putAll(entityMappingLimitsFor(opContext, indexName));
     Map<String, Object> targetSetting = ImmutableMap.of("index", baseSettings);
     builder.targetSettings(targetSetting);
 
@@ -669,7 +647,7 @@ public class ESIndexBuilder {
    */
   private void applyEntityMappingLimitsToExistingIndex(
       @Nonnull OperationContext opContext, String indexName) throws IOException {
-    Map<String, String> desired = entityMappingLimits.forIndex(indexName);
+    Map<String, String> desired = entityMappingLimitsFor(opContext, indexName);
     if (desired.isEmpty()) {
       return;
     }
@@ -711,19 +689,31 @@ public class ESIndexBuilder {
 
     UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
     request.settings(changes);
-    try {
-      boolean ack =
-          searchClient.updateIndexSettings(opContext, request, requestOptionsLong).isAcknowledged();
-      log.info(
-          "Index: {} - Applied {} entityMappingLimits change(s). Settings: {}, Acknowledged: {}",
-          indexName,
-          changes.size(),
-          changes,
-          ack);
-    } catch (Exception e) {
-      log.warn(
-          "Index: {} - Failed to apply entityMappingLimits {}. Continuing.", indexName, changes, e);
+    // Fail the build rather than continue: the operator configured this limit because writes are
+    // hitting the field cap, so a silently unapplied limit would leave indexing broken.
+    if (!searchClient
+        .updateIndexSettings(opContext, request, requestOptionsLong)
+        .isAcknowledged()) {
+      throw new IllegalStateException(
+          String.format(
+              "Index: %s - entityMappingLimits update %s was not acknowledged",
+              indexName, changes));
     }
+    log.info(
+        "Index: {} - Applied {} entityMappingLimits change(s): {}",
+        indexName,
+        changes.size(),
+        changes);
+  }
+
+  @Nonnull
+  private Map<String, String> entityMappingLimitsFor(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    if (entityMappingLimits.isEmpty()) {
+      return Map.of();
+    }
+    return entityMappingLimits.forIndex(
+        opContext.getSearchContext().getIndexConvention(), opContext, indexName);
   }
 
   /**

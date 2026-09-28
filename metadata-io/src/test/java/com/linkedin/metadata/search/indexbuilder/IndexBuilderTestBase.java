@@ -730,6 +730,42 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     }
   }
 
+  private ESIndexBuilder builderWithMappingLimits(Map<String, Map<String, Integer>> limits) {
+    return new ESIndexBuilder(
+        getSearchClient(),
+        testDefaultConfig.toBuilder()
+            .index(testDefaultConfig.getIndex().toBuilder().entityMappingLimits(limits).build())
+            .build(),
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        new GitVersion("0.0.0-test", "123456", Optional.empty()));
+  }
+
+  @Test
+  public void testEntityMappingLimitsAppliedAtCreationAndToExistingIndex() throws Exception {
+    String totalFields = "index.mapping.total_fields.limit";
+
+    buildIndex(
+        builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 2500))),
+        TEST_INDEX_NAME,
+        Map.of(),
+        Map.of());
+    assertEquals(getTestIndex().getSetting(TEST_INDEX_NAME, totalFields), "2500");
+    String creationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+
+    // A later system-update with a raised limit updates the live index in place.
+    buildIndex(
+        builderWithMappingLimits(Map.of("dataset", Map.of("totalFields", 3000))),
+        TEST_INDEX_NAME,
+        Map.of(),
+        Map.of());
+    assertEquals(getTestIndex().getSetting(TEST_INDEX_NAME, totalFields), "3000");
+    assertEquals(
+        getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date"),
+        creationDate,
+        "Expected the limit to be applied without a reindex");
+  }
+
   @Test
   public void testCopyStructuredPropertyMappings() throws Exception {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
