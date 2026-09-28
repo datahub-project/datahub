@@ -1124,7 +1124,7 @@ class TestSchemaMeasurementRecordsFailures:
         """The residual must stay visible, or the two fixes above would hide it."""
         src = self._measure_unknown_head(
             head="notAnIdWeHold",
-            second="_K2Iau-Uzf",
+            second="_Q7xZm-Rtp",
             # A populated map the id is absent from, so the lookup is real --
             # with no map at all "not_checked" would be the honest answer.
             owner_columns={"Amount": "someOtherColumnId"},
