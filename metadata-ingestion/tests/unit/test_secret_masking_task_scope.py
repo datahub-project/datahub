@@ -491,3 +491,28 @@ def test_a_scope_with_no_secrets_still_counts_the_globals() -> None:
     )
     with task_secret_scope() as scoped:
         assert scoped.get_count() > 0
+
+
+def test_remasking_inside_a_scope_leaves_markers_and_sentinels_whole() -> None:
+    """Executor output is masked twice (the wrapper, then finalize). The
+    combined scope+global pattern must consume existing markers whole, as a
+    single registry's does, or a secret equal to part of a variable name
+    garbles them -- and a garbled sentinel no longer reads as one."""
+    from datahub.masking.constants import SENTINEL_MESSAGES
+
+    SecretRegistry.global_instance().register_secrets_batch(
+        {"GMS_TOKEN": "process" + "-level-token-value"}
+    )
+    with task_secret_scope():
+        SecretRegistry.get_instance().register_secrets_batch(
+            {"db_password": "db" + "-pw-value-1", "OTHER": "password"}
+        )
+        masking = SecretMaskingFilter()
+        once = masking.mask_text("login failed: db-pw-value-1")
+        assert (
+            masking.mask_text(once)
+            == once
+            == "login failed: ***REDACTED:db_password***"
+        )
+        for sentinel in SENTINEL_MESSAGES:
+            assert masking.mask_text(sentinel) == sentinel

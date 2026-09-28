@@ -250,6 +250,46 @@ def _compiles(pattern_str: str) -> bool:
         return False
 
 
+def _longest_first(secrets: Dict[str, str]) -> List[Tuple[str, str]]:
+    """(value, name) pairs, longest value first: two registered secrets can
+    overlap, and masking the shorter first strands the longer one's tail."""
+    return sorted(secrets.items(), key=lambda x: len(x[0]), reverse=True)
+
+
+def _compile_masking_pattern(sorted_secrets: List[Tuple[str, str]]) -> re.Pattern:
+    """The masking pattern for these (value, name) pairs, longest first.
+
+    re.escape() ensures secrets with regex metacharacters (e.g. ".*", "a+b",
+    "test|prod") are matched literally. The marker alternative comes first so
+    that already-masked spans are consumed whole and never re-matched -- this
+    is what makes masking idempotent even when a secret value collides with
+    marker text. Only markers bearing a name the filters could have produced
+    are consumed; a wildcard would let marker-shaped delimiters arriving in
+    untrusted text smuggle a secret through unmasked.
+    """
+    names = sorted(
+        {name for _, name in sorted_secrets} | {"UNKNOWN"},
+        key=len,
+        reverse=True,
+    )
+    marker_regex = (
+        re.escape(REDACTED_PREFIX)
+        + "(?:"
+        + "|".join(re.escape(name) for name in names)
+        + ")"
+        + re.escape(REDACTED_SUFFIX)
+    )
+    return re.compile(
+        "|".join(
+            [
+                marker_regex,
+                *(re.escape(message) for message in SENTINEL_MESSAGES),
+                *(re.escape(value) for value, _ in sorted_secrets),
+            ]
+        )
+    )
+
+
 class SecretRegistry:
     """Thread-safe store of secret values to mask.
 
@@ -595,18 +635,19 @@ class SecretRegistry:
                 # shorter first strands the longer one's tail in the output.
                 merged = dict(parent_replacements)
                 merged.update(replacements)
-                sources = sorted(merged, key=len, reverse=True)
+                # Built by the same routine as a single registry's pattern, so
+                # it keeps the marker and sentinel alternatives: executor output
+                # is masked more than once, and without them a second pass
+                # re-matched inside existing markers and sentinels.
+                sorted_merged = _longest_first(merged)
                 try:
-                    self._combined = re.compile("|".join(re.escape(v) for v in sources))
-                except re.error:
+                    self._combined = _compile_masking_pattern(sorted_merged)
+                except Exception as e:
                     # Fail closed the way _rebuild_pattern does. Masking with
                     # this scope's pattern alone would ship the parent's
                     # secrets in the clear; the flag makes suppression_message
                     # withhold the output instead.
-                    self._declare_compile_failed(
-                        "re.error",
-                        sorted(merged.items(), key=lambda x: len(x[0]), reverse=True),
-                    )
+                    self._declare_compile_failed(type(e).__name__, sorted_merged)
                     self._combined = own
                     merged = replacements
                 self._combined_replacements = merged
@@ -620,41 +661,9 @@ class SecretRegistry:
         if not self._secrets or self._compile_failed:
             return
 
-        sorted_secrets = sorted(
-            self._secrets.items(), key=lambda x: len(x[0]), reverse=True
-        )
-
-        # CRITICAL: re.escape() ensures secrets with regex metacharacters
-        # (e.g., ".*", "a+b", "test|prod") are matched literally, not as regex.
-        # The marker alternative comes first so that already-masked spans are
-        # consumed whole and never re-matched - this is what makes masking
-        # idempotent even when a secret value collides with marker text. Only
-        # markers bearing a name the filters could have produced are consumed;
-        # a wildcard would let marker-shaped delimiters arriving in untrusted
-        # text smuggle a secret through unmasked.
-        names = sorted(
-            {name for _, name in sorted_secrets} | {"UNKNOWN"},
-            key=len,
-            reverse=True,
-        )
-        marker_regex = (
-            re.escape(REDACTED_PREFIX)
-            + "(?:"
-            + "|".join(re.escape(name) for name in names)
-            + ")"
-            + re.escape(REDACTED_SUFFIX)
-        )
-        escaped_values = [re.escape(value) for value, _ in sorted_secrets]
-        pattern_str = "|".join(
-            [
-                marker_regex,
-                *(re.escape(message) for message in SENTINEL_MESSAGES),
-                *escaped_values,
-            ]
-        )
-
+        sorted_secrets = _longest_first(self._secrets)
         try:
-            self._pattern = re.compile(pattern_str)
+            self._pattern = _compile_masking_pattern(sorted_secrets)
         except Exception as e:
             self._declare_compile_failed(type(e).__name__, sorted_secrets)
             return
