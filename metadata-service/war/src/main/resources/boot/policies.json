@@ -47,7 +47,8 @@
         "MANAGE_HOME_PAGE_TEMPLATES",
         "GET_METADATA_CHANGE_LOG_EVENTS",
         "MANAGE_DOCUMENTS",
-        "GET_TOPIC_EVENTS"
+        "GET_TOPIC_EVENTS",
+        "VIEW_ALL_QUERIES"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -70,6 +71,7 @@
       "privileges": [
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY_QUERIES",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "VIEW_DATASET_OPERATIONS",
@@ -205,6 +207,8 @@
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY_QUERIES",
+        "VIEW_ALL_QUERIES",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
@@ -290,7 +294,8 @@
         "MANAGE_HOME_PAGE_TEMPLATES",
         "GET_METADATA_CHANGE_LOG_EVENTS",
         "MANAGE_DOCUMENTS",
-        "GET_TOPIC_EVENTS"
+        "GET_TOPIC_EVENTS",
+        "VIEW_ALL_QUERIES"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -314,6 +319,7 @@
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY_QUERIES",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",
@@ -383,7 +389,8 @@
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_FEATURES",
-        "MANAGE_DOCUMENTS"
+        "MANAGE_DOCUMENTS",
+        "VIEW_ALL_QUERIES"
       ],
       "displayName": "Editors - Platform Policy",
       "description": "Editors can manage ingestion and view analytics.",
@@ -407,6 +414,7 @@
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY_QUERIES",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_DOCS",
@@ -510,7 +518,7 @@
           "urn:li:dataHubRole:Reader"
         ]
       },
-      "privileges": [],
+      "privileges": ["VIEW_ALL_QUERIES"],
       "displayName": "Readers - Platform Policy",
       "description": "Readers can view analytics.",
       "state": "ACTIVE",
@@ -533,6 +541,7 @@
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY_QUERIES",
         "VIEW_DATASET_USAGE",
         "VIEW_DATASET_PROFILE",
         "VIEW_DATASET_OPERATIONS",
@@ -563,6 +572,7 @@
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
+        "VIEW_ENTITY_QUERIES",
         "EDIT_ENTITY_TAGS",
         "EDIT_ENTITY_GLOSSARY_TERMS",
         "EDIT_ENTITY_OWNERS",

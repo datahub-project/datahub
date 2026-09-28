@@ -58,7 +58,7 @@ describe('useGetOutputPorts', () => {
 
         const args = (useListDataProductAssetsQuery as unknown as any).mock.calls[0][0];
         expect(args.variables.urn).toBe(urn);
-        expect(args.variables.input.filters).toEqual([{ field: OUTPUT_PORTS_FIELD, value: 'true' }]);
+        expect(args.variables.input.filters).toEqual([{ field: OUTPUT_PORTS_FIELD, values: ['true'] }]);
     });
 
     it('returns total and the first page of entities without refetching', async () => {

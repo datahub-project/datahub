@@ -125,6 +125,20 @@ export const EditorContainer = styled.div<{
             border-color: ${(props) => props.theme.colors.overlayLight};
         }
 
+        /*
+         * The prism syntax theme paints its own code block background — a light
+         * grey in light mode, a neutral dark grey in dark mode — neither of which
+         * matches our surface. Only the token colors come from prism; the frame
+         * comes from our tokens.
+         */
+        pre {
+            background: ${(props) => props.theme.colors.bgSurface};
+            border: 1px solid ${(props) => props.theme.colors.border};
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
+        }
+
         details {
             border: 1px solid ${(props) => props.theme.colors.border};
             border-radius: 12px;
@@ -173,14 +187,10 @@ export const EditorContainer = styled.div<{
                 }
             }
 
-            /* Code blocks inside an expanded details section */
+            /* Code blocks inside an expanded details section need to be inset
+               from the section's own padding; the rest of the frame is shared. */
             pre {
-                background: ${(props) => props.theme.colors.bgSurface} !important;
-                border: 1px solid ${(props) => props.theme.colors.border} !important;
-                border-radius: 8px !important;
-                margin: 12px 16px 16px !important;
-                padding: 12px !important;
-                overflow-x: auto;
+                margin: 12px 16px 16px;
             }
         }
 
