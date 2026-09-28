@@ -5,7 +5,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from pydantic import field_validator
 from pydantic.fields import Field
-from sqlalchemy import exc, text
+from sqlalchemy import text, types, util
+from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import HiddenFromDocs
@@ -26,7 +27,7 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 
-# pyhive is SQLAlchemy-1.4-era; _pyhive_compat applies the SA 2.0 shim then re-exports.
+# pyhive is SQLAlchemy-1.4-era; importing via _pyhive_compat applies its SA 2.0 patches.
 from datahub.ingestion.source.sql._pyhive_compat import (
     HiveDate,
     HiveDecimal,
@@ -68,10 +69,8 @@ register_custom_type(HiveDecimal, NumberTypeClass)
 try:
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
     from pyhive.sqlalchemy_hive import _type_map
-    from sqlalchemy import types, util
-    from sqlalchemy.engine import reflection
 
-    @reflection.cache  # type: ignore
+    @reflection.cache
     def dbapi_get_columns_patched(self, connection, table_name, schema=None, **kw):
         """Patches the get_columns method from dbapi (databricks_dbapi.sqlalchemy_dialects.base) to pass the native type through"""
         rows = self._get_table_columns(connection, table_name, schema)
@@ -88,7 +87,7 @@ try:
             # e.g. 'map<int,int>' -> 'map'
             #      'decimal(10,1)' -> decimal
             orig_col_type = col_type  # keep a copy
-            col_type = re.search(r"^\w+", col_type).group(0)  # type: ignore
+            col_type = re.search(r"^\w+", col_type).group(0)  # type: ignore[union-attr]
             try:
                 coltype = _type_map[col_type]
             except KeyError:
@@ -97,7 +96,7 @@ try:
                         col_type, col_name
                     )
                 )
-                coltype = types.NullType  # type: ignore
+                coltype = types.NullType
             result.append(
                 {
                     "name": col_name,
@@ -117,7 +116,7 @@ except Exception as exp:
     logger.warning(f"Failed to patch method due to {exp}")
 
 
-@reflection.cache  # type: ignore
+@reflection.cache
 def get_view_names_patched(self, connection, schema=None, **kw):
     query = "SHOW VIEWS"
     if schema:
@@ -125,7 +124,7 @@ def get_view_names_patched(self, connection, schema=None, **kw):
     return [row[0] for row in connection.execute(text(query))]
 
 
-@reflection.cache  # type: ignore
+@reflection.cache
 def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
     full_table = self.identifier_preparer.quote_identifier(view_name)
     if schema:
@@ -142,56 +141,8 @@ def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
     return "\n".join(parts)
 
 
-# pyhive's HiveDialect reflection methods below run raw-string SHOW/DESCRIBE queries
-# through connection.execute(), which SQLAlchemy 2.0 rejects (text() is now required).
-# Re-implement them with text() until acryl-pyhive ships a SA-2.0-compatible release.
-@reflection.cache  # type: ignore
-def get_schema_names_patched(self, connection, **kw):
-    # Equivalent to SHOW DATABASES
-    return [row[0] for row in connection.execute(text("SHOW SCHEMAS"))]
-
-
-@reflection.cache  # type: ignore
-def get_table_names_patched(self, connection, schema=None, **kw):
-    query = "SHOW TABLES"
-    if schema:
-        query += " IN " + self.identifier_preparer.quote_identifier(schema)
-    return [row[0] for row in connection.execute(text(query))]
-
-
-def _get_table_columns_patched(self, connection, table_name, schema, extended=False):
-    full_table = self.identifier_preparer.quote_identifier(table_name)
-    if schema:
-        full_table = "{}.{}".format(
-            self.identifier_preparer.quote_identifier(schema),
-            self.identifier_preparer.quote_identifier(table_name),
-        )
-    # TODO using TGetColumnsReq hangs after sending TFetchResultsReq.
-    # Using DESCRIBE works but is uglier.
-    try:
-        formatted = " FORMATTED" if extended else ""
-        rows = connection.execute(text(f"DESCRIBE{formatted} {full_table}")).fetchall()
-    except exc.OperationalError as e:
-        # Does the table exist?
-        regex_fmt = r"TExecuteStatementResp.*SemanticException.*Table not found {}"
-        regex = regex_fmt.format(re.escape(full_table))
-        if re.search(regex, e.args[0]):
-            raise exc.NoSuchTableError(full_table) from e
-        else:
-            raise
-    else:
-        # Hive returns a single row for DESCRIBE of a non-existent table.
-        regex = r"Table .* does not exist"
-        if len(rows) == 1 and re.match(regex, rows[0].col_name):
-            raise exc.NoSuchTableError(full_table)
-        return rows
-
-
 HiveDialect.get_view_names = get_view_names_patched
 HiveDialect.get_view_definition = get_view_definition_patched
-HiveDialect.get_schema_names = get_schema_names_patched
-HiveDialect.get_table_names = get_table_names_patched
-HiveDialect._get_table_columns = _get_table_columns_patched
 
 
 class HiveConfig(TwoTierSQLAlchemyConfig, HiveStorageLineageConfigMixin):

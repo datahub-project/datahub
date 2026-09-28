@@ -905,6 +905,39 @@ class TestFlattenPath:
         assert combiner.report.flat_group_cte_recoveries == 1
         assert all(c.exc is None and c.result.scalar() == 3 for c in caps)
 
+
+class TestRollbackFailure:
+    def test_failed_rollback_is_counted_and_warned_once(
+        self, engine, test_table, caplog
+    ):
+        # A failed rollback means the retried queries likely run in an aborted
+        # transaction; it must be visible without one warning per query.
+        good = sa.select(sa.func.count().label("rowcount")).select_from(test_table)
+        bad = sa.select(sa.func.count().label("bad")).select_from(
+            sa.table("does_not_exist")
+        )
+        combiner = _make_combiner()
+        with (
+            engine.connect() as conn,
+            combiner.activate() as qc,
+            patch.object(
+                type(conn),
+                "rollback",
+                autospec=True,
+                side_effect=sa.exc.OperationalError("ROLLBACK", {}, Exception("x")),
+            ),
+            caplog.at_level(logging.WARNING, logger=query_combiner_module.__name__),
+        ):
+            cap_good = _schedule(qc, conn, good)
+            _schedule(qc, conn, bad)
+            qc.flush()
+
+        # The retry still runs: SQLite does not abort the transaction.
+        assert cap_good.result is not None and cap_good.result.scalar() == 3
+        assert combiner.report.rollback_failures == 2
+        rollback_warnings = [r for r in caplog.records if "Rollback" in r.getMessage()]
+        assert len(rollback_warnings) == 1
+
     def test_same_name_different_object_tables_not_grouped(self, engine):
         # Two Table objects named "t" must not group, or the flat SELECT
         # becomes `FROM t, t`. SQLite shares one physical table across

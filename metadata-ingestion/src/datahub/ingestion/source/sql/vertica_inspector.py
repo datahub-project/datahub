@@ -29,8 +29,11 @@ from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import sqlalchemy
+from sqla_vertica_python.vertica_python import VerticaDialect
+from sqlalchemy.dialects import registry
 from sqlalchemy.dialects.postgresql import BYTEA, DOUBLE_PRECISION, INTERVAL
-from sqlalchemy.engine import Connection
+from sqlalchemy.engine import Connection, reflection
+from sqlalchemy.engine.default import DefaultDialect
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.sqltypes import String
@@ -137,6 +140,79 @@ ischema_names: Dict[str, Any] = {
 }
 
 
+class DataHubVerticaDialect(VerticaDialect):
+    """``sqlalchemy-vertica-python``'s dialect with its PostgreSQL leaks plugged.
+
+    ``VerticaDialect`` subclasses ``PGDialect`` but only overrides the singular
+    reflection methods, so it inherits PostgreSQL's batched ``get_multi_*``
+    methods and a few name/definition lookups, all of which query ``pg_catalog``
+    tables that do not exist on Vertica. ``Table(..., autoload_with=...)`` (used
+    by the profiler) goes through ``get_multi_*``, so route those back to
+    ``DefaultDialect``'s generic implementations, which call the Vertica-aware
+    singular methods once per table.
+    """
+
+    get_multi_columns = DefaultDialect.get_multi_columns
+    get_multi_pk_constraint = DefaultDialect.get_multi_pk_constraint
+    get_multi_foreign_keys = DefaultDialect.get_multi_foreign_keys
+    get_multi_indexes = DefaultDialect.get_multi_indexes
+    get_multi_unique_constraints = DefaultDialect.get_multi_unique_constraints
+    get_multi_check_constraints = DefaultDialect.get_multi_check_constraints
+    get_multi_table_comment = DefaultDialect.get_multi_table_comment
+    get_multi_table_options = DefaultDialect.get_multi_table_options
+
+    @reflection.cache
+    def get_view_definition(
+        self,
+        connection: Connection,
+        view_name: str,
+        schema: Optional[str] = None,
+        **kw: Any,
+    ) -> Optional[str]:
+        if schema is None:
+            schema = self.default_schema_name
+        return connection.execute(
+            sqlalchemy.text(
+                "SELECT view_definition FROM v_catalog.views "
+                "WHERE lower(table_schema) = :schema "
+                "AND lower(table_name) = :view"
+            ),
+            {"schema": (schema or "").lower(), "view": view_name.lower()},
+        ).scalar()
+
+    @reflection.cache
+    def get_temp_table_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Any
+    ) -> List[str]:
+        return [
+            row[0]
+            for row in connection.execute(
+                sqlalchemy.text(
+                    "SELECT table_name FROM v_catalog.tables "
+                    "WHERE is_temp_table ORDER BY table_schema, table_name"
+                )
+            )
+        ]
+
+    # Vertica has neither global temporary views nor materialized views.
+    @reflection.cache
+    def get_temp_view_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Any
+    ) -> List[str]:
+        return []
+
+    @reflection.cache
+    def get_materialized_view_names(
+        self, connection: Connection, schema: Optional[str] = None, **kw: Any
+    ) -> List[str]:
+        return []
+
+
+# Take over the ``vertica+vertica_python`` URL scheme (the source's default) from
+# the package's entry point; explicitly registered dialects win over entry points.
+registry.register("vertica.vertica_python", __name__, DataHubVerticaDialect.__name__)
+
+
 class VerticaInspector(Inspector):
     """SQLAlchemy 2.0 compatible replacement for the dialect's VerticaInspector.
 
@@ -151,6 +227,9 @@ class VerticaInspector(Inspector):
 
     def __init__(self, inspector: Inspector) -> None:
         self.__dict__.update(inspector.__dict__)
+        self._schema_rows_cache: Dict[
+            Tuple[str, Optional[str]], List[Dict[str, Any]]
+        ] = {}
 
     @contextmanager
     def _reflection_connection(self) -> Iterator[Connection]:
@@ -169,6 +248,30 @@ class VerticaInspector(Inspector):
         else:
             with self.engine.connect() as conn:
                 yield conn
+
+    def _fetch_schema_rows(
+        self, query: str, schema: Optional[str]
+    ) -> List[Dict[str, Any]]:
+        """Run a schema-wide catalog query once per ``(query, schema)``.
+
+        Owners, projection columns/properties and lineage are fetched for a whole
+        schema and then filtered per entity, so without memoization every table,
+        view or projection would re-run the same schema-wide query. The cache is
+        scoped to this inspector (one database connection) so nothing leaks
+        across databases or ingestion runs.
+        """
+        key = (query, schema)
+        rows = self._schema_rows_cache.get(key)
+        if rows is None:
+            with self._reflection_connection() as conn:
+                rows = [
+                    dict(row)
+                    for row in conn.execute(
+                        sqlalchemy.text(query), {"schema": schema}
+                    ).mappings()
+                ]
+            self._schema_rows_cache[key] = rows
+        return rows
 
     # ------------------------------------------------------------------
     # Column type reconstruction (ported from the dialect's _get_column_info)
@@ -351,33 +454,27 @@ class VerticaInspector(Inspector):
     def get_table_owner(
         self, table: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self._reflection_connection() as conn:
-            rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT table_name, owner_name FROM v_catalog.tables "
-                    "where lower(table_schema) = :schema"
-                ),
-                {"schema": schema.lower() if schema else schema},
-            ).mappings()
-            for row in rows:
-                if row["table_name"].lower() == table.lower():
-                    return row["owner_name"]
+        rows = self._fetch_schema_rows(
+            "SELECT table_name, owner_name FROM v_catalog.tables "
+            "where lower(table_schema) = :schema",
+            schema.lower() if schema else schema,
+        )
+        for row in rows:
+            if row["table_name"].lower() == table.lower():
+                return row["owner_name"]
         return None
 
     def get_view_owner(
         self, view: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self._reflection_connection() as conn:
-            rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT table_name, owner_name FROM v_catalog.views "
-                    "where lower(table_schema) = :schema"
-                ),
-                {"schema": schema.lower() if schema else schema},
-            ).mappings()
-            for row in rows:
-                if row["table_name"].lower() == view.lower():
-                    return row["owner_name"]
+        rows = self._fetch_schema_rows(
+            "SELECT table_name, owner_name FROM v_catalog.views "
+            "where lower(table_schema) = :schema",
+            schema.lower() if schema else schema,
+        )
+        for row in rows:
+            if row["table_name"].lower() == view.lower():
+                return row["owner_name"]
         return None
 
     # ------------------------------------------------------------------
@@ -403,50 +500,44 @@ class VerticaInspector(Inspector):
     def get_projection_columns(
         self, projection: str, schema: Optional[str] = None, **kw: Any
     ) -> List[Dict[str, Any]]:
-        with self._reflection_connection() as conn:
-            rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT projection_column_name, data_type, "
-                    "'' as column_default, true as is_nullable, "
-                    "lower(projection_name) as projection_name "
-                    "FROM PROJECTION_COLUMNS "
-                    "where lower(table_schema) = :schema"
-                ),
-                {"schema": schema.lower() if schema else schema},
-            ).mappings()
+        rows = self._fetch_schema_rows(
+            "SELECT projection_column_name, data_type, "
+            "'' as column_default, true as is_nullable, "
+            "lower(projection_name) as projection_name "
+            "FROM PROJECTION_COLUMNS "
+            "where lower(table_schema) = :schema",
+            schema.lower() if schema else schema,
+        )
 
-            columns: List[Dict[str, Any]] = []
-            for row in rows:
-                table_name = row["projection_name"].lower()
-                if table_name != projection.lower():
-                    continue
-                columns.append(
-                    self._get_column_info(
-                        row["projection_column_name"],
-                        row["data_type"].lower(),
-                        row["column_default"],
-                        row["is_nullable"],
-                        table_name,
-                        schema,
-                    )
+        columns: List[Dict[str, Any]] = []
+        for row in rows:
+            table_name = row["projection_name"].lower()
+            if table_name != projection.lower():
+                continue
+            columns.append(
+                self._get_column_info(
+                    row["projection_column_name"],
+                    row["data_type"].lower(),
+                    row["column_default"],
+                    row["is_nullable"],
+                    table_name,
+                    schema,
                 )
-            return columns
+            )
+        return columns
 
     def get_projection_owner(
         self, projection: str, schema: Optional[str] = None, **kw: Any
     ) -> Optional[str]:
-        with self._reflection_connection() as conn:
-            rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT projection_name as table_name, owner_name "
-                    "FROM v_catalog.projections "
-                    "WHERE lower(projection_schema) = :schema"
-                ),
-                {"schema": schema.lower() if schema else schema},
-            ).mappings()
-            for row in rows:
-                if row["table_name"].lower() == projection.lower():
-                    return row["owner_name"]
+        rows = self._fetch_schema_rows(
+            "SELECT projection_name as table_name, owner_name "
+            "FROM v_catalog.projections "
+            "WHERE lower(projection_schema) = :schema",
+            schema.lower() if schema else schema,
+        )
+        for row in rows:
+            if row["table_name"].lower() == projection.lower():
+                return row["owner_name"]
         return None
 
     def get_projection_comment(
@@ -512,125 +603,111 @@ class VerticaInspector(Inspector):
         """Build the property bag for a single projection.
 
         Ported from the dialect's ``fetch_projection_comments`` (which built the
-        bag for every projection in the schema and then filtered). Here we filter
-        per-projection in Python after fetching the schema-wide rows, matching the
-        original behaviour exactly.
+        bag for every projection in the schema and then filtered). The
+        schema-wide rows are memoized, so the queries run once per schema and are
+        filtered per projection here, matching the original behaviour.
         """
         target = projection.lower()
-        with self._reflection_connection() as conn:
-            comment: Dict[str, Any] = {"projection_name": target}
+        lowered_schema = schema.lower() if schema else schema
+        comment: Dict[str, Any] = {"projection_name": target}
 
-            ros_rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT ros_count, LOWER(projection_name) as projection_name "
-                    "FROM v_monitor.projection_storage "
-                    "WHERE projection_schema = :schema"
-                ),
-                {"schema": schema},
-            ).mappings()
-            for row in ros_rows:
-                if row["projection_name"] == target:
-                    comment["ROS_Count"] = row["ros_count"]
+        ros_rows = self._fetch_schema_rows(
+            "SELECT ros_count, LOWER(projection_name) as projection_name "
+            "FROM v_monitor.projection_storage "
+            "WHERE projection_schema = :schema",
+            schema,
+        )
+        for row in ros_rows:
+            if row["projection_name"] == target:
+                comment["ROS_Count"] = row["ros_count"]
 
-            type_flags = [
-                "is_super_projection",
-                "is_key_constraint_projection",
-                "is_aggregate_projection",
-                "has_expressions",
-            ]
-            ptype_rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT DISTINCT is_super_projection, "
-                    "is_key_constraint_projection, is_aggregate_projection, "
-                    "has_expressions, LOWER(projection_name) as projection_name "
-                    "FROM v_catalog.projections "
-                    "WHERE projection_schema = :schema"
-                ),
-                {"schema": schema},
-            ).mappings()
-            for ptype in ptype_rows:
-                if ptype["projection_name"] != target:
-                    continue
-                for flag in type_flags:
-                    if ptype[flag] is True:
-                        if "Projection_Type" in comment:
-                            comment["Projection_Type"] = (
-                                comment["Projection_Type"] + ", " + str(flag)
-                            )
-                        else:
-                            comment["Projection_Type"] = str(flag)
+        type_flags = [
+            "is_super_projection",
+            "is_key_constraint_projection",
+            "is_aggregate_projection",
+            "has_expressions",
+        ]
+        ptype_rows = self._fetch_schema_rows(
+            "SELECT DISTINCT is_super_projection, "
+            "is_key_constraint_projection, is_aggregate_projection, "
+            "has_expressions, LOWER(projection_name) as projection_name "
+            "FROM v_catalog.projections "
+            "WHERE projection_schema = :schema",
+            schema,
+        )
+        for ptype in ptype_rows:
+            if ptype["projection_name"] != target:
+                continue
+            for flag in type_flags:
+                if ptype[flag] is True:
+                    if "Projection_Type" in comment:
+                        comment["Projection_Type"] = (
+                            comment["Projection_Type"] + ", " + str(flag)
+                        )
+                    else:
+                        comment["Projection_Type"] = str(flag)
 
-            segmented_rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT is_segmented, segment_expression, "
-                    "LOWER(projection_name) as projection_name "
-                    "FROM v_catalog.projections "
-                    "WHERE projection_schema = :schema"
-                ),
-                {"schema": schema},
-            ).mappings()
-            for row in segmented_rows:
-                if row["projection_name"] == target:
-                    comment["is_segmented"] = str(row["is_segmented"])
-                    comment["Segmentation_key"] = str(row["segment_expression"])
+        segmented_rows = self._fetch_schema_rows(
+            "SELECT is_segmented, segment_expression, "
+            "LOWER(projection_name) as projection_name "
+            "FROM v_catalog.projections "
+            "WHERE projection_schema = :schema",
+            schema,
+        )
+        for row in segmented_rows:
+            if row["projection_name"] == target:
+                comment["is_segmented"] = str(row["is_segmented"])
+                comment["Segmentation_key"] = str(row["segment_expression"])
 
-            partition_rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT DISTINCT LOWER(projection_name) as projection_name, "
-                    "partition_key FROM v_monitor.partitions "
-                    "WHERE table_schema = :schema"
-                ),
-                {"schema": schema},
-            ).mappings()
-            for row in partition_rows:
-                if row["projection_name"] == target:
-                    comment["Partition_Key"] = str(row["partition_key"])
+        partition_rows = self._fetch_schema_rows(
+            "SELECT DISTINCT LOWER(projection_name) as projection_name, "
+            "partition_key FROM v_monitor.partitions "
+            "WHERE table_schema = :schema",
+            schema,
+        )
+        for row in partition_rows:
+            if row["projection_name"] == target:
+                comment["Partition_Key"] = str(row["partition_key"])
 
-            size_rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT used_bytes, LOWER(projection_name) as projection_name "
-                    "from v_monitor.projection_storage "
-                    "WHERE projection_schema = :schema"
-                ),
-                {"schema": schema},
-            ).mappings()
-            projection_size = 0.0
-            matched_size = False
-            for row in size_rows:
-                if row["projection_name"] == target:
-                    matched_size = True
-                    projection_size += row["used_bytes"] / 1024
-            comment["projection_size"] = (
-                str(int(projection_size)) + " KB" if matched_size else "0 KB"
-            )
+        size_rows = self._fetch_schema_rows(
+            "SELECT used_bytes, LOWER(projection_name) as projection_name "
+            "from v_monitor.projection_storage "
+            "WHERE projection_schema = :schema",
+            schema,
+        )
+        projection_size = 0.0
+        matched_size = False
+        for row in size_rows:
+            if row["projection_name"] == target:
+                matched_size = True
+                projection_size += row["used_bytes"] / 1024
+        comment["projection_size"] = (
+            str(int(projection_size)) + " KB" if matched_size else "0 KB"
+        )
 
-            num_partition_rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT LOWER(projection_name) as projection_name, "
-                    "count(partition_key) as Partition_Size "
-                    "FROM v_monitor.partitions "
-                    "WHERE lower(table_schema) = :schema group by 1"
-                ),
-                {"schema": schema.lower() if schema else schema},
-            ).mappings()
-            for row in num_partition_rows:
-                if row["projection_name"] == target:
-                    comment["Partition_Size"] = str(row["Partition_Size"])
+        num_partition_rows = self._fetch_schema_rows(
+            "SELECT LOWER(projection_name) as projection_name, "
+            "count(partition_key) as Partition_Size "
+            "FROM v_monitor.partitions "
+            "WHERE lower(table_schema) = :schema group by 1",
+            lowered_schema,
+        )
+        for row in num_partition_rows:
+            if row["projection_name"] == target:
+                comment["Partition_Size"] = str(row["Partition_Size"])
 
-            cache_rows = conn.execute(
-                sqlalchemy.text(
-                    "SELECT COUNT(*) as cnt, object_name FROM DEPOT_PIN_POLICIES "
-                    "WHERE schema_name = :schema GROUP BY object_name"
-                ),
-                {"schema": schema},
-            ).mappings()
-            for row in cache_rows:
-                # The original dialect set this flag for ANY cached object in the
-                # schema (its loop did not match object_name to the projection);
-                # preserve that behaviour.
-                comment["Projection_Cached"] = row["cnt"] > 0
+        cache_rows = self._fetch_schema_rows(
+            "SELECT COUNT(*) as cnt, object_name FROM DEPOT_PIN_POLICIES "
+            "WHERE schema_name = :schema GROUP BY object_name",
+            schema,
+        )
+        for row in cache_rows:
+            # The original dialect set this flag for ANY cached object in the
+            # schema (its loop did not match object_name to the projection);
+            # preserve that behaviour.
+            comment["Projection_Cached"] = row["cnt"] > 0
 
-            return comment
+        return comment
 
     # ------------------------------------------------------------------
     # ML Models
@@ -727,23 +804,25 @@ class VerticaInspector(Inspector):
     def _populate_view_lineage(
         self, view: str, schema: str, **kw: Any
     ) -> Dict[str, List[Tuple[str, str, str]]]:
+        # Keys and upstreams are database-qualified (db.schema.name) to match the
+        # dataset identifiers VerticaSource.get_identifier builds, as the original
+        # dialect did.
         view_lineage_map: Dict[str, List[Tuple[str, str, str]]] = defaultdict(list)
-        with self._reflection_connection() as conn:
-            rows = conn.execute(
-                sqlalchemy.text(
-                    "select table_name, table_schema, reference_table_name, "
-                    "reference_table_schema from v_catalog.view_tables "
-                    "where table_schema = :schema"
-                ),
-                {"schema": schema},
-            ).mappings()
-            for lineage in rows:
-                downstream = f"{lineage['table_schema']}.{lineage['table_name']}"
-                upstream = (
-                    f"{lineage['reference_table_schema']}."
-                    f"{lineage['reference_table_name']}"
-                )
-                view_lineage_map[downstream].append((upstream, "[]", "[]"))
+        rows = self._fetch_schema_rows(
+            "select (select database_name from v_catalog.databases) database_name, "
+            "table_name, table_schema, reference_table_name, "
+            "reference_table_schema from v_catalog.view_tables "
+            "where table_schema = :schema",
+            schema,
+        )
+        for lineage in rows:
+            database = lineage["database_name"]
+            downstream = f"{database}.{lineage['table_schema']}.{lineage['table_name']}"
+            upstream = (
+                f"{database}.{lineage['reference_table_schema']}."
+                f"{lineage['reference_table_name']}"
+            )
+            view_lineage_map[downstream].append((upstream, "[]", "[]"))
         return view_lineage_map
 
     def _populate_projection_lineage(
@@ -752,16 +831,13 @@ class VerticaInspector(Inspector):
         projection_lineage_map: Dict[str, List[Tuple[str, str, str]]] = defaultdict(
             list
         )
-        with self._reflection_connection() as conn:
-            rows = conn.execute(
-                sqlalchemy.text(
-                    "select basename, schemaname, name from vs_projections "
-                    "where schemaname = :schema"
-                ),
-                {"schema": schema},
-            ).mappings()
-            for lineage in rows:
-                downstream = f"{lineage['schemaname']}.{lineage['name']}"
-                upstream = f"{lineage['schemaname']}.{lineage['basename']}"
-                projection_lineage_map[downstream].append((upstream, "[]", "[]"))
+        rows = self._fetch_schema_rows(
+            "select basename, schemaname, name from vs_projections "
+            "where schemaname = :schema",
+            schema,
+        )
+        for lineage in rows:
+            downstream = f"{lineage['schemaname']}.{lineage['name']}"
+            upstream = f"{lineage['schemaname']}.{lineage['basename']}"
+            projection_lineage_map[downstream].append((upstream, "[]", "[]"))
         return projection_lineage_map

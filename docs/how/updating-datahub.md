@@ -444,6 +444,16 @@ Requirements:
 
   - **Vertica driver changed.** The `vertica` source now uses the maintained `sqlalchemy-vertica-python` dialect (the previous dialect pinned `SQLAlchemy<=1.4.44`). **Action:** reinstall the `vertica` extra (`pip install 'acryl-datahub[vertica]'`) so the new driver is present.
 
+  - **Postgres-family connections use `AUTOCOMMIT` by default.** The Postgres, TimescaleDB and CockroachDB sources now open their reflection, lineage, sampling and profiling connections with `isolation_level: AUTOCOMMIT`. Without it, SQLAlchemy 2.0 keeps a transaction open, so one failed statement (for example a permission error on one table) made every later query in the run fail with "current transaction is aborted". This also stops long runs from holding connections idle-in-transaction. To keep the previous behaviour, set `options: {isolation_level: "READ COMMITTED"}` in the recipe; an explicit `profiling.profiling_isolation_level` still applies to profiling.
+
+  - **Postgres materialized views are ingested again.** SQLAlchemy 2.0 no longer includes materialized views in the regular view listing, so the Postgres-family sources now list them separately. They are emitted as views, as before.
+
+  - **Great Expectations plugin.** `acryl-datahub-gx-plugin` now allows SQLAlchemy 2.0 (`sqlalchemy>=1.4.39,<3`), so it can be installed alongside the SQL source extras. If you use Great Expectations 0.x dialect extras that still require `sqlalchemy<2` (for example GX's Snowflake, BigQuery or Redshift extras), install those in a separate environment from DataHub's SQL sources.
+
+  - **DB2 native type labels.** The upgraded `ibm-db-sa` driver reports integer columns as `INT` instead of `INTEGER`, so the `nativeDataType` shown for those columns changes on the next run. The DataHub column type (`NumberType`), field paths and URNs are unchanged. No action is required, but the change may appear in schema history.
+
+  - **ClickHouse column metadata.** With the upgraded `clickhouse-sqlalchemy` driver, timezone-aware `DateTime` columns are now typed as time columns (previously unknown), and primary-key columns are now marked as part of the key. Expect these to appear as schema changes on the next run.
+
   - **Unity Catalog / Databricks profiling** now requires the `databricks-sqlalchemy` dialect, which is pulled in automatically by the `databricks`/`unity-catalog` extras. No recipe change is required; just reinstall the extra.
 
 ### Known Issues

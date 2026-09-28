@@ -1,11 +1,11 @@
 import functools
 from textwrap import dedent
-from typing import Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic.fields import Field
 from sqlalchemy import exc, sql
 from sqlalchemy.engine import reflection
-from sqlalchemy.engine.base import Engine
+from sqlalchemy.engine.base import Connection, Engine
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.ingestion.api.common import PipelineContext
@@ -18,7 +18,7 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 
-# pyhive is SQLAlchemy-1.4-era; _pyhive_compat applies the SA 2.0 shim then re-exports.
+# pyhive is SQLAlchemy-1.4-era; importing via _pyhive_compat applies its SA 2.0 patches.
 from datahub.ingestion.source.sql._pyhive_compat import PrestoDialect
 from datahub.ingestion.source.sql.trino import (
     TrinoConfig,
@@ -30,8 +30,10 @@ from datahub.ingestion.source.sql.trino import (
 
 
 # On Presto the information_schema.views does not return views but the tables table returns
-@reflection.cache  # type: ignore
-def get_view_names(self, connection, schema: str = None, **kw):  # type: ignore
+@reflection.cache
+def get_view_names(
+    self: Any, connection: Connection, schema: Optional[str] = None, **kw: Any
+) -> List[str]:
     schema = schema or self._get_default_schema_name(connection)
     if schema is None:
         raise exc.NoSuchTableError("schema is required")
@@ -47,7 +49,7 @@ def get_view_names(self, connection, schema: str = None, **kw):  # type: ignore
 
 
 # The pyhive presto driver doesn't return view definitions, so we have to query it
-@reflection.cache  # type: ignore
+@reflection.cache
 def get_view_definition(self, connection, view_name, schema=None, **kw):
     schema = schema or self._get_default_schema_name(connection)
     if schema is None:
@@ -65,8 +67,8 @@ def get_view_definition(self, connection, view_name, schema=None, **kw):
     return next(res)[0]
 
 
-def _get_full_table(  # type: ignore
-    self, table_name: str, schema: Optional[str] = None, quote: bool = True
+def _get_full_table(
+    self: Any, table_name: str, schema: Optional[str] = None, quote: bool = True
 ) -> str:
     table_part = (
         self.identifier_preparer.quote_identifier(table_name) if quote else table_name
@@ -80,18 +82,6 @@ def _get_full_table(  # type: ignore
     return table_part
 
 
-# pyhive's PrestoDialect.get_schema_names runs a raw-string `SHOW SCHEMAS` through
-# connection.execute(), which SQLAlchemy 2.0 rejects (text() is now required). Unlike
-# the other reflection methods, PrestoDialect does not inherit this from HiveDialect
-# (both extend DefaultDialect), so hive_source.py's patch does not reach it — Presto
-# needs its own. Indexing row[0] also drops pyhive's reliance on the "Schema" column
-# label.
-@reflection.cache  # type: ignore
-def get_schema_names(self, connection, **kw):  # type: ignore
-    return [row[0] for row in connection.execute(sql.text("SHOW SCHEMAS"))]
-
-
-PrestoDialect.get_schema_names = get_schema_names
 PrestoDialect.get_table_names = get_table_names
 PrestoDialect.get_view_names = get_view_names
 PrestoDialect.get_view_definition = get_view_definition

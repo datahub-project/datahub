@@ -3,6 +3,7 @@ from typing import Optional
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+import sqlalchemy as sa
 from sqlalchemy.exc import ProgrammingError
 
 from datahub.configuration.common import ConfigurationWarning
@@ -543,3 +544,20 @@ def test_use_odbc_removed_field_warning(mock_pipeline_context):
 
     # is_odbc is determined by source type, stored on instance
     assert source._is_odbc is True
+
+
+def test_get_columns_does_not_mutate_inspector_cache(mssql_source):
+    mssql_source.column_descriptions = {"test_db.main.t.a": "extended description"}
+    engine = sa.create_engine("sqlite://")
+    with engine.connect() as conn:
+        conn.execute(sa.text("CREATE TABLE t (a INTEGER)"))
+        inspector = sa.inspect(conn)
+        with patch.object(mssql_source, "get_db_name", return_value="test_db"):
+            columns = mssql_source._get_columns(
+                "test_db.main.t", inspector, "main", "t"
+            )
+
+        assert columns[0]["comment"] == "extended description"
+        # Inspector.get_columns hands back its cached dicts, so a second reflection
+        # must not see the description attached above.
+        assert "comment" not in inspector.get_columns("t", "main")[0]

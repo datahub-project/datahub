@@ -190,8 +190,8 @@ class _RowProxyFake(collections.OrderedDict):
 
 
 class _ResultProxyFake:
-    # This imitates the interface provided by sqlalchemy.engine.result.ResultProxy (sqlalchemy 1.3.x)
-    # or sqlalchemy.engine.Result (1.4.x).
+    # This imitates the subset of sqlalchemy.engine.CursorResult that the
+    # profiler reads from combined-query results.
     # Adapted from https://github.com/rajivsarvepalli/mock-alchemy/blob/2eba95588e7693aab973a6d60441d2bc3c4ea35d/src/mock_alchemy/mocking.py#L213
 
     def __init__(self, result: List[_RowProxyFake]) -> None:
@@ -309,6 +309,10 @@ class SQLAlchemyQueryCombinerReport(Report):
     flat_group_serial_fallbacks: int = 0
 
     query_exceptions: int = 0
+
+    # Rollbacks before a retry that raised. Non-zero means the retried queries
+    # likely ran in an aborted transaction, so their failures are collateral.
+    rollback_failures: int = 0
 
 
 @dataclasses.dataclass
@@ -815,8 +819,7 @@ class SQLAlchemyQueryCombiner:
         # N queued aggregates collapsed into one scan over the same table.
         self.report.scans_avoided += len(members) - 1
 
-    @staticmethod
-    def _rollback_quietly(conn: Connection) -> None:
+    def _rollback_quietly(self, conn: Connection) -> None:
         # SA 2.0 has no autocommit, so after a failed statement e.g. Postgres/
         # Redshift return 25P02 ("current transaction is aborted") for every
         # later statement until a rollback. Everything the combiner runs is a
@@ -825,7 +828,19 @@ class SQLAlchemyQueryCombiner:
         try:
             conn.rollback()
         except Exception as rollback_err:
-            logger.debug(f"Rollback before retrying queries failed: {rollback_err}")
+            self.report.rollback_failures += 1
+            # Warn once per combiner: this runs before every fallback query, so
+            # a dead connection would otherwise emit one warning per query. The
+            # counter carries the total.
+            if self.report.rollback_failures == 1:
+                logger.warning(
+                    f"Rollback before retrying queries failed "
+                    f"({type(rollback_err).__name__}: {rollback_err}); retried "
+                    f"queries may fail on an aborted transaction. Further "
+                    f"rollback failures are counted in rollback_failures."
+                )
+            else:
+                logger.debug(f"Rollback before retrying queries failed: {rollback_err}")
 
     def _execute_futures_serially(self, futures: List["_QueryFuture"]) -> None:
         # Scoped to specific futures, so a failed flat group resolves only its

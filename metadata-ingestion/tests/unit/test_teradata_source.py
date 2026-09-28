@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+import sqlalchemy as sa
 from pydantic import ValidationError
 from sqlalchemy.exc import (
     DatabaseError,
@@ -6484,3 +6485,152 @@ class TestGenerateProfileCandidates:
             "myschema.any_table", "myschema", inspector, None
         )
         assert "myschema" not in source.report.profiling_skipped_size_limit
+
+
+def _real_rows(rows: List[Dict[str, Any]]) -> List[Any]:
+    """Materialise dicts as genuine SQLAlchemy ``Row``s (what the dbc and HELP
+    queries hand back) by round-tripping them through in-memory SQLite."""
+    engine = sa.create_engine("sqlite://")
+    mappings = []
+    with engine.connect() as conn:
+        for row in rows:
+            select_list = ", ".join(f':p{i} AS "{k}"' for i, k in enumerate(row))
+            params = {f"p{i}": v for i, v in enumerate(row.values())}
+            mappings.append(
+                conn.execute(sa.text(f"SELECT {select_list}"), params).fetchone()
+            )
+    return mappings
+
+
+class TestOptimizedGetColumnsRealDialect:
+    """Drive optimized_get_columns through teradatasqlalchemy's real
+    _get_column_info / _update_column_help_info, so a change to those private
+    signatures surfaces as missing columns here instead of in production."""
+
+    @staticmethod
+    def _dbc_row(name: str, column_type: str, **overrides: Any) -> Dict[str, Any]:
+        row: Dict[str, Any] = {
+            "DatabaseName": "mydb",
+            "TableName": "my_table",
+            "ColumnName": name,
+            "ColumnType": column_type,
+            "ColumnLength": 4,
+            "CharType": 0,
+            "DecimalTotalDigits": None,
+            "DecimalFractionalDigits": None,
+            "ColumnFormat": "-(10)9",
+            "Nullable": "Y",
+            "DefaultValue": None,
+            "IdColType": None,
+            "CommentString": None,
+            "ColumnUDTName": None,
+            "ArrayColElementType": None,
+            "ArrayColNumberOfDimensions": None,
+            "ArrayColScope": None,
+        }
+        row.update(overrides)
+        return row
+
+    @staticmethod
+    def _table(object_type: str) -> TeradataTable:
+        return TeradataTable(
+            database="mydb",
+            name="my_table",
+            description=None,
+            object_type=object_type,
+            create_timestamp=datetime.now(),
+            last_alter_name=None,
+            last_alter_timestamp=None,
+        )
+
+    def test_table_columns_resolve_types_from_dbc_columns(self) -> None:
+        dialect = TeradataDialect()
+        report = TeradataReport()
+        rows = _real_rows(
+            [
+                self._dbc_row("id", "I ", Nullable="N", IdColType="GA"),
+                self._dbc_row(
+                    "name",
+                    "CV",
+                    ColumnLength=200,
+                    CharType=2,
+                    ColumnFormat="X(100)",
+                    CommentString="Display name ",
+                ),
+                self._dbc_row(
+                    "amount",
+                    "D ",
+                    ColumnLength=8,
+                    DecimalTotalDigits=18,
+                    DecimalFractionalDigits=2,
+                ),
+            ]
+        )
+
+        with (
+            patch.object(
+                dialect,
+                "get_schema_columns",
+                return_value={"my_table": [r._mapping for r in rows]},
+                create=True,
+            ),
+            patch.object(dialect, "report", report, create=True),
+        ):
+            cols = optimized_get_columns(
+                dialect,
+                MagicMock(),
+                "my_table",
+                "mydb",
+                tables_cache={"mydb": [self._table("Table")]},
+            )
+
+        assert report.num_column_extraction_failures == 0
+        assert [c["name"] for c in cols] == ["id", "name", "amount"]
+        assert type(cols[0]["type"]).__name__ == "INTEGER"
+        assert cols[0]["nullable"] is False
+        assert cols[0]["autoincrement"] is True
+        assert type(cols[1]["type"]).__name__ == "VARCHAR"
+        assert cols[1]["type"].length == 100
+        assert cols[1]["comment"] == "Display name"
+        assert type(cols[2]["type"]).__name__ == "DECIMAL"
+        assert (cols[2]["type"].precision, cols[2]["type"].scale) == (18, 2)
+        assert cols[0]["info"]["is_view"] is False
+
+    def test_view_columns_resolve_types_from_help(self) -> None:
+        dialect = TeradataDialect()
+        report = TeradataReport()
+        help_rows = _real_rows(
+            [
+                {
+                    "Column Dictionary Name": "view_col",
+                    "Type": "CV",
+                    "Max Length": 60,
+                    "Char Type": 1,
+                    "Decimal Total Digits": None,
+                    "Decimal Fractional Digits": None,
+                    "Format": "X(60)",
+                    "Nullable": "Y",
+                    "IdCol Type": None,
+                    "UDT Dictionary Name": None,
+                }
+            ]
+        )
+
+        with (
+            patch.object(dialect, "_get_column_help", return_value=help_rows),
+            patch.object(dialect, "report", report, create=True),
+        ):
+            cols = optimized_get_columns(
+                dialect,
+                MagicMock(),
+                "my_table",
+                "mydb",
+                tables_cache={"mydb": [self._table("View")]},
+            )
+
+        assert report.num_column_extraction_failures == 0
+        assert len(cols) == 1
+        assert cols[0]["name"] == "view_col"
+        assert type(cols[0]["type"]).__name__ == "VARCHAR"
+        assert cols[0]["type"].length == 60
+        assert cols[0]["info"]["is_view"] is True

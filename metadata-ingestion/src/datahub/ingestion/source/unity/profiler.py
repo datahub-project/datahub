@@ -68,7 +68,7 @@ class UnityCatalogProfiler(GenericProfiler):
         }
 
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         config.options.setdefault("max_overflow", profiling_config.max_workers)
 
         super().__init__(config, report, "databricks")

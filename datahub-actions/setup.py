@@ -103,7 +103,8 @@ plugins: Dict[str, Set[str]] = {
 mypy_stubs = {
     "types-pytz",
     "types-dataclasses",
-    "sqlalchemy-stubs",
+    # No sqlalchemy-stubs: they describe the 1.3 API and shadow SQLAlchemy 2.0's
+    # inline (PEP 561) types.
     "types-setuptools",
     "types-six",
     "types-python-dateutil",

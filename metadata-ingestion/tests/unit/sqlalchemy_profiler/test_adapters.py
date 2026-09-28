@@ -1466,6 +1466,91 @@ class TestDatabricksAdapter:
         # Known types still go through the vendor parser, which keeps precision.
         assert (columns[3]["type"].precision, columns[3]["type"].scale) == (10, 2)
 
+    def test_vendor_get_columns_calls_our_parser(self, mock_databricks_engine):
+        # The patch replaces a private vendor module global. If databricks-
+        # sqlalchemy renames it or stops resolving through it, the patch is a
+        # silent no-op; this fails instead. patch.object also raises if the
+        # attribute is gone.
+        import databricks.sqlalchemy.base as databricks_dialect_base
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            _tolerant_parse_column_info,
+        )
+
+        parser_attr = "parse_column_info_from_tgetcolumnsresponse"
+        assert getattr(databricks_dialect_base, parser_attr) is (
+            _tolerant_parse_column_info
+        )
+
+        dialect = mock_databricks_engine.dialect
+        dialect.catalog = "my_catalog"
+        dialect.schema = "my_schema"
+        row = Mock(
+            COLUMN_NAME="payload",
+            TYPE_NAME="variant",
+            NULLABLE=1,
+            COLUMN_DEF=None,
+            REMARKS=None,
+        )
+        cursor = MagicMock()
+        cursor.__enter__.return_value = cursor
+        cursor.columns.return_value.fetchall.return_value = [row]
+        dialect.get_connection_cursor = lambda connection: cursor
+
+        with patch.object(
+            databricks_dialect_base, parser_attr, wraps=_tolerant_parse_column_info
+        ) as spy:
+            dialect.get_columns(None, "events")
+        spy.assert_called_once_with(row)
+
+    def test_unmapped_type_reported_once_per_type(self, adapter, report):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            _tolerant_parse_column_info,
+        )
+
+        def _table(name: str) -> sa.Table:
+            # Mirrors what reflection builds: SQLAlchemy copies the parsed
+            # column's "info" onto Column.info.
+            parsed = [
+                _tolerant_parse_column_info(
+                    Mock(
+                        COLUMN_NAME=col,
+                        TYPE_NAME=type_name,
+                        NULLABLE=1,
+                        COLUMN_DEF=None,
+                        REMARKS=None,
+                    )
+                )
+                for col, type_name in [
+                    ("geo", "geography"),
+                    ("payload", "variant"),
+                    ("ts", "timestamp_ltz"),
+                ]
+            ]
+            return sa.Table(
+                name,
+                sa.MetaData(),
+                *[
+                    sa.Column(p["name"], p["type"], info=p.get("info", {}))
+                    for p in parsed
+                ],
+            )
+
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.base_adapter."
+            "PlatformAdapter._create_sqlalchemy_table",
+            side_effect=[_table("t1"), _table("t2")],
+        ):
+            adapter._create_sqlalchemy_table("s", "t1")
+            adapter._create_sqlalchemy_table("s", "t2")
+
+        # VARIANT is deliberately NULL and TIMESTAMP_LTZ is mapped, so only the
+        # genuinely unknown type is reported -- once, despite two tables.
+        warnings = list(report.warnings)
+        assert len(warnings) == 1
+        assert len(warnings[0].context) == 1
+        assert "geography" in warnings[0].context[0]
+
 
 class TestTrinoAdapter:
     """Test cases for TrinoAdapter."""

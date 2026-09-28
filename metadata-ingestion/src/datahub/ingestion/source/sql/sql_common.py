@@ -24,7 +24,7 @@ import sqlalchemy.dialects.postgresql.base
 from sqlalchemy import create_engine, inspect, log as sqlalchemy_log
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.engine.row import Row
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy.exc import NoSuchTableError, ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
@@ -212,7 +212,7 @@ def get_column_type(
     sql_report: SQLSourceReport, dataset_name: str, column_type: Any
 ) -> SchemaFieldDataTypeClass:
     """
-    Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
+    Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/20/core/type_basics.html) to corresponding schema types
     """
 
     TypeClass: Optional[Type] = None
@@ -371,7 +371,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
         """Add default SQLAlchemy options. Can be overridden by subclasses to add additional defaults."""
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         if sql_config.is_profiling_enabled():
             sql_config.options.setdefault(
                 "max_overflow", sql_config.profiling.max_workers
@@ -1141,7 +1141,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         sql_config: SQLCommonConfig,
     ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
         try:
-            for view in inspector.get_view_names(schema):
+            for view in self._get_view_names(inspector, schema):
                 dataset_name = self.get_identifier(
                     schema=schema, entity=view, inspector=inspector
                 )
@@ -1174,12 +1174,27 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
 
+    def _get_view_names(self, inspector: Inspector, schema: str) -> List[str]:
+        """Names of the views loop_views ingests. Override to add view-like
+        objects the dialect lists separately (e.g. materialized views)."""
+        return inspector.get_view_names(schema)
+
     def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
         try:
             view_definition = inspector.get_view_definition(view, schema)
             # Some dialects return a TextClause instead of a raw string, so we need to convert them to a string.
             return str(view_definition) if view_definition else ""
         except NotImplementedError:
+            return ""
+        except NoSuchTableError:
+            # SA 2.0 dialects (e.g. Oracle, Postgres) raise this when the
+            # catalog has no view text, where 1.4 returned None. The view was
+            # already enumerated and its columns reflected, so keep 1.4's
+            # behaviour of emitting it without a definition instead of letting
+            # loop_views drop it as "Error processing view".
+            logger.debug(
+                f"No view definition available for {schema}.{view}", exc_info=True
+            )
             return ""
 
     def get_view_default_db_schema(

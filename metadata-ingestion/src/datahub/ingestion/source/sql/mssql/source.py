@@ -13,7 +13,6 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
-    cast,
 )
 
 import sqlalchemy.dialects.mssql
@@ -635,13 +634,12 @@ class SQLServerSource(SQLAlchemySource):
     def _get_columns(
         self, dataset_name: str, inspector: Inspector, schema: str, table: str
     ) -> List[Dict]:
-        # The base method returns Sequence[Mapping[str, Any]] (SA-2.0 reflected
-        # TypedDicts), but the reflected columns are concrete mutable dicts at
-        # runtime and we mutate them below to attach extended descriptions.
-        columns: List[Dict] = cast(
-            List[Dict],
-            super()._get_columns(dataset_name, inspector, schema, table),
-        )
+        # Copy each column: the reflected dicts are the Inspector's cached
+        # objects, so attaching descriptions in place would leak into the cache.
+        columns: List[Dict] = [
+            dict(column)
+            for column in super()._get_columns(dataset_name, inspector, schema, table)
+        ]
         db_name: str = self.get_db_name(inspector)
         for column in columns:
             description: Optional[str] = self.column_descriptions.get(

@@ -1516,9 +1516,9 @@ class SQLAlchemyProfiler:
                         # Must be the first operation on this connection — the
                         # isolation level cannot be changed once a transaction is in
                         # progress. Re-applied on every checkout because SQLAlchemy
-                        # reverts it on pool return. The rebind is required: on the
-                        # pinned SQLAlchemy 1.4 (<2), execution_options returns a
-                        # branched copy, not self.
+                        # reverts it on pool return. SA 2.0's
+                        # Connection.execution_options mutates and returns self;
+                        # the rebind is kept so the code does not depend on that.
                         try:
                             conn = conn.execution_options(
                                 isolation_level=isolation_level
