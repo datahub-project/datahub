@@ -3213,6 +3213,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         Degrades safely: when `pipeline_name` is unset both sides are None and
         indistinguishable, so this returns False and behaviour matches a run
         without the check - never a false positive that suppresses real evidence.
+
+        Known limitation: only this pipeline's writes are recognised. Where two
+        dbt projects run as separate pipelines and both reference a table the
+        warehouse does not ingest, each reads the other's container as warehouse
+        evidence. Telling those apart would mean knowing which pipelines are dbt,
+        which nothing in the aspect records.
         """
         if system_metadata is None:
             return False
@@ -3352,9 +3358,9 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         """The container of an ingested neighbour in the same database and schema.
 
         Only an exact match counts; nothing is derived and nothing is invented.
-        Falling back to a neighbouring schema's database container was tried and
-        removed - see the PR history - because it wrote a container shallower
-        than the key it was learned under.
+        Falling back to a neighbouring schema's database container is deliberately
+        not done: that writes a container shallower than the key it is learned
+        under, so the next run reads it back as this schema's container.
         """
         return sibling_containers.get(self._sibling_container_key(node))
 

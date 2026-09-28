@@ -66,10 +66,8 @@ def make_graph(
             return ContainerClass(container=parent) if parent else None
         return None
 
-    def _system_metadata(written_here: bool) -> Optional[SystemMetadataClass]:
+    def _system_metadata(written_here: bool) -> SystemMetadataClass:
         """Provenance as the prefetch sees it: our pipeline name, or someone else's."""
-        if written_here is None:
-            return None
         return SystemMetadataClass(
             pipelineName=PIPELINE_NAME if written_here else "warehouse-pipeline"
         )
