@@ -1,4 +1,6 @@
 import time
+from array import array
+from datetime import datetime, timezone
 from functools import partial
 from typing import (
     Any,
@@ -11,6 +13,7 @@ from typing import (
     Optional,
     Protocol,
     Sequence,
+    Set,
     Tuple,
     TypeVar,
 )
@@ -25,6 +28,7 @@ from datahub.ingestion.source.external_dq.contract import (
     LogicalType,
     ResultRow,
     RuleRow,
+    datetime_to_millis,
     parse_result_row,
     parse_rule_row,
 )
@@ -32,6 +36,7 @@ from datahub.ingestion.source.external_dq.mapper import ExternalDQMapper
 from datahub.ingestion.source.external_dq.report import ExternalDQReport
 from datahub.ingestion.source.external_dq.state import (
     ExternalDQStateHandler,
+    LoadedState,
     advance,
     plan_window,
     run_key,
@@ -51,6 +56,7 @@ class ExternalDQReader(Protocol):
     Returned rows are keyed by lower-cased column name. TIMESTAMP values are epoch
     millis (preferred) or datetimes. read_results returns rows with
     executed_at >= since_millis, ordered by (executed_at, run_id) ascending.
+    count_results_before counts rows with executed_at < before_millis.
     """
 
     def describe(self, table: str) -> List[PhysicalColumn]: ...
@@ -62,6 +68,8 @@ class ExternalDQReader(Protocol):
     def read_results(
         self, table: str, columns: Sequence[SelectColumn], since_millis: int
     ) -> Iterable[Mapping[str, Any]]: ...
+
+    def count_results_before(self, table: str, before_millis: int) -> int: ...
 
 
 def _wall_clock_millis() -> int:
@@ -97,8 +105,10 @@ class ExternalDQExtractor:
         # Load (and carry forward) the checkpoint before any table validation or
         # read, so a failure below still commits the previous watermark instead
         # of losing it to a rewritten, checkpoint-less file.
-        last_watermark, last_recent = (
-            self.state.load(results_table) if self.state else (None, {})
+        loaded = (
+            self.state.load(results_table)
+            if self.state
+            else LoadedState(None, {}, None)
         )
         rule_columns = self._validated_columns(rules_table, RULES_COLUMNS)
         result_columns = self._validated_columns(results_table, RESULTS_COLUMNS)
@@ -130,17 +140,15 @@ class ExternalDQExtractor:
         for mcp in self.mapper.map_rules(rules):
             yield mcp.as_workunit()
 
-        yield from self._result_workunits(
-            results_table, result_columns, last_watermark, last_recent
-        )
+        yield from self._result_workunits(results_table, result_columns, loaded)
 
     def _result_workunits(
         self,
         table: str,
         columns: Sequence[SelectColumn],
-        last_watermark: Optional[int],
-        last_recent: Mapping[str, int],
+        loaded: LoadedState,
     ) -> Iterable[MetadataWorkUnit]:
+        last_watermark, last_recent = loaded.watermark, loaded.recent
         overlap_ms = self.config.late_arrival_minutes * 60_000
         now = self.now_millis()
         window = plan_window(
@@ -150,12 +158,29 @@ class ExternalDQExtractor:
             initial_lookback_ms=self.config.initial_lookback_days * 86_400_000,
             overlap_ms=overlap_ms,
         )
+        below = (
+            self._check_late_results(table, window.start_millis, loaded)
+            if self.state is not None
+            else None
+        )
+        # ponytail: holds one int64 per row read, so memory is O(rows read per run).
+        read_timestamps = array("q")
+        unknown_rules: Set[str] = set()
         observed: Dict[str, int] = {}
         for raw in self._read(
             partial(self.reader.read_results, table, columns, window.start_millis),
             table,
         ):
             self.report.results_read += 1
+            if below is not None:
+                try:
+                    executed_at = coerce_value(
+                        raw.get("executed_at"), LogicalType.TIMESTAMP
+                    )
+                    if executed_at is not None:
+                        read_timestamps.append(datetime_to_millis(executed_at))
+                except (ValueError, TypeError, OverflowError):
+                    pass  # invalid rows are reported by _parse below
             result = self._parse(raw, RESULTS_COLUMNS, parse_result_row, table)
             if result is None:
                 self.report.results_skipped_invalid += 1
@@ -176,7 +201,21 @@ class ExternalDQExtractor:
                 continue
             mcp = self.mapper.map_result(result)
             if mcp is None:
-                # Unknown rule: not recorded, so it is retried while inside the window.
+                if self.mapper.is_known_rule(result.rule_id):
+                    # Retired rule: record it so it is not re-processed, emit nothing.
+                    observed[key] = result.executed_at_millis
+                elif result.rule_id not in unknown_rules:
+                    # Unknown rule: not recorded, so it is retried while inside
+                    # the window.
+                    unknown_rules.add(result.rule_id)
+                    self.source_report.warning(
+                        title="External DQ results reference a rule that was not published",
+                        message="These results are retried while inside "
+                        "late_arrival_minutes and then dropped. Check the rule row "
+                        "(invalid rows and rules on non-ingested datasets are "
+                        "reported separately).",
+                        context=f"{table}: rule_id={result.rule_id}",
+                    )
                 continue
             observed[key] = result.executed_at_millis
             yield mcp.as_workunit()
@@ -192,8 +231,59 @@ class ExternalDQExtractor:
             observed=observed,
             overlap_ms=overlap_ms,
         )
-        if watermark is not None:
-            self.state.save(table, watermark, recent)
+        if watermark is None:
+            return
+        baseline: Optional[List[int]] = None
+        if below is not None:
+            next_start = watermark - overlap_ms
+            baseline = [
+                next_start,
+                below + sum(1 for ts in read_timestamps if ts < next_start),
+            ]
+        self.state.save(table, watermark, recent, baseline)
+
+    def _check_late_results(
+        self, table: str, start_millis: int, loaded: LoadedState
+    ) -> Optional[int]:
+        """Counts rows below the read window (the table is append-only) and
+        reports any that appeared since the last run's expectation for this same
+        boundary: they landed too late to ever be read."""
+        try:
+            below = self.reader.count_results_before(table, start_millis)
+        except Exception as e:
+            self.source_report.warning(
+                title="Could not check for late external DQ results",
+                message="Counting results older than the read window failed; late "
+                "arrivals are not detected this run, but results are still ingested.",
+                context=table,
+                exc=e,
+            )
+            return None
+        baseline = loaded.late_baseline
+        if loaded.watermark is None:
+            if below > 0:
+                self.source_report.info(
+                    title="External DQ results older than the initial lookback were not read",
+                    message="Only results inside initial_lookback_days are read on "
+                    "the first run.",
+                    context=f"{table}: {below} older result(s)",
+                )
+        elif baseline is not None and baseline[0] == start_millis:
+            missed = below - baseline[1]
+            if missed > 0:
+                self.report.results_missed_late += missed
+                boundary = datetime.fromtimestamp(
+                    start_millis / 1000, tz=timezone.utc
+                ).isoformat()
+                self.source_report.warning(
+                    title="External DQ results arrived too late to be read",
+                    message="Results were written with an executed_at older than "
+                    "the read window, so they were never published. Write "
+                    "executed_at as the completion time, or increase "
+                    "late_arrival_minutes.",
+                    context=f"{table}: {missed} result(s) older than {boundary}",
+                )
+        return below
 
     def _validated_columns(
         self, table: str, contract: Sequence[ContractColumn]

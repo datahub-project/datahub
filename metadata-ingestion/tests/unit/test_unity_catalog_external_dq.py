@@ -32,6 +32,7 @@ class _Row(dict):
 class FakeProxy:
     def __init__(self) -> None:
         self.queries: List[Tuple[str, Sequence[Any]]] = []
+        self.rows = [_Row(rule_id="r1", updated_at=1)]
 
     def describe_table_columns(
         self, catalog: str, schema: str, table: str
@@ -40,7 +41,7 @@ class FakeProxy:
 
     def iter_sql_rows(self, query: str, params: Sequence[Any] = ()) -> Iterator[_Row]:
         self.queries.append((query, params))
-        yield _Row(rule_id="r1", updated_at=1)
+        yield from self.rows
 
 
 def test_quote_escapes_backticks() -> None:
@@ -72,6 +73,19 @@ def test_reader_filters_and_orders_results() -> None:
     query, params = proxy.queries[0]
     assert "WHERE `executed_at` >= timestamp_millis(%s)" in query
     assert query.rstrip().endswith("ORDER BY `executed_at`, `run_id`")
+    assert list(params) == [42]
+
+
+def test_reader_counts_results_before_boundary() -> None:
+    proxy = FakeProxy()
+    proxy.rows = [_Row(n=7)]
+    reader = UnityExternalDQReader(proxy)  # type: ignore[arg-type]
+    assert reader.count_results_before("main.gov.dq_results", 42) == 7
+    query, params = proxy.queries[0]
+    assert query == (
+        "SELECT count(*) AS n FROM `main`.`gov`.`dq_results` "
+        "WHERE `executed_at` < timestamp_millis(%s)"
+    )
     assert list(params) == [42]
 
 
@@ -159,6 +173,9 @@ class ContractProxy:
         return [(c.name, _DBX[c.logical_type], i + 1) for i, c in enumerate(contract)]
 
     def iter_sql_rows(self, query: str, params: Sequence[Any] = ()) -> Iterator[_Row]:
+        if "count(*)" in query:
+            yield _Row(n=0)
+            return
         row = rule_raw() if "dq_rules" in query else result_raw()
         yield _Row(row)
 

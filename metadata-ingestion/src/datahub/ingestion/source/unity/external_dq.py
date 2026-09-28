@@ -80,6 +80,15 @@ class UnityExternalDQReader:
         for row in self.proxy.iter_sql_rows(query, [since_millis]):
             yield row.asDict()
 
+    def count_results_before(self, table: str, before_millis: int) -> int:
+        query = (
+            f"SELECT count(*) AS n FROM {_fqn(table)} "
+            "WHERE `executed_at` < timestamp_millis(%s)"
+        )
+        for row in self.proxy.iter_sql_rows(query, [before_millis]):
+            return int(row.asDict()["n"])
+        raise ValueError(f"count query returned no rows for {table}")
+
 
 class UnityDatasetLocator:
     """Resolves contract paths to datasets this connector run actually ingested,

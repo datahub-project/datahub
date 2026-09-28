@@ -105,6 +105,10 @@ def test_error_uses_structured_result_error() -> None:
         "error_type": "timeout",
         "error_message": "query timed out",
     }
+    assert event.result.nativeResults == {
+        "error_type": "timeout",
+        "error_message": "query timed out",
+    }
 
 
 def test_status_retires_and_reactivates() -> None:

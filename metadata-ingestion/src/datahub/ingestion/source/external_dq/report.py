@@ -14,5 +14,7 @@ class ExternalDQReport(Report):
     results_skipped_invalid: int = 0
     results_skipped_future: int = 0
     results_unknown_rule: int = 0
+    results_skipped_retired: int = 0
+    results_missed_late: int = 0
     results_already_emitted: int = 0
     run_events_emitted: int = 0

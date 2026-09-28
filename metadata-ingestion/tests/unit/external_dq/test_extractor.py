@@ -19,7 +19,7 @@ from datahub.ingestion.source.external_dq.extractor import (
 )
 from datahub.ingestion.source.external_dq.mapper import ExternalDQMapper
 from datahub.ingestion.source.external_dq.report import ExternalDQReport
-from datahub.ingestion.source.external_dq.state import ExternalDQStateHandler
+from datahub.ingestion.source.external_dq.state import ExternalDQStateHandler, run_key
 from datahub.ingestion.source.external_dq.types import DATABRICKS_TYPE_PROFILE
 from datahub.ingestion.source.external_dq.validate import PhysicalColumn
 from datahub.ingestion.source.state.stateful_ingestion_base import StateProviderWrapper
@@ -56,6 +56,7 @@ class FakeReader:
         self.results = results
         self.fail_after = fail_after
         self.reads = 0
+        self.count_error: Optional[Exception] = None
 
     def describe(self, table: str) -> List[PhysicalColumn]:
         return self.tables[table]
@@ -78,6 +79,11 @@ class FakeReader:
             if self.fail_after is not None and i == self.fail_after:
                 raise ConnectionError("warehouse connection dropped")
             yield row
+
+    def count_results_before(self, table: str, before_millis: int) -> int:
+        if self.count_error is not None:
+            raise self.count_error
+        return sum(1 for r in self.results if r["executed_at"] < before_millis)
 
 
 class Locator:
@@ -235,3 +241,76 @@ def test_rules_read_failure_carries_forward_watermark() -> None:
     assert source_report.failures
     assert second.current is not None
     assert second.current.state.watermarks == {RESULTS: T0}  # type: ignore[attr-defined]
+
+
+OVERLAP_MS = ExternalDQConfig(enabled=False).late_arrival_minutes * 60_000
+
+
+def _state(provider: FakeStateProvider) -> Any:
+    assert provider.current is not None
+    return provider.current.state
+
+
+def test_retired_rule_results_are_recorded_but_not_published() -> None:
+    first = FakeStateProvider()
+    reader = FakeReader([result_raw()])
+    reader.rules = [rule_raw(is_active=False)]
+    _, run_events, _, report = run(reader, _handler(first))
+    assert run_events == [] and report.results_skipped_retired == 1
+    assert run_key("r1", "run-1") in _state(first).recent_keys[RESULTS]
+
+    second = FakeStateProvider(last=first.current)
+    reader = FakeReader([result_raw()])
+    reader.rules = [rule_raw(is_active=False)]
+    _, run_events, _, report = run(reader, _handler(second))
+    assert run_events == [] and report.results_skipped_retired == 0
+
+
+def test_unknown_rule_is_warned_once_per_rule() -> None:
+    reader = FakeReader(
+        [result_raw(rule_id="gone"), result_raw(rule_id="gone", run_id="run-2")]
+    )
+    _, run_events, source_report, _ = run(reader)
+    assert run_events == []
+    titles = [w.title for w in source_report.warnings]
+    assert (
+        titles.count("External DQ results reference a rule that was not published") == 1
+    )
+
+
+_LATE_TITLE = "External DQ results arrived too late to be read"
+
+
+def test_late_result_is_detected_and_not_emitted() -> None:
+    first = FakeStateProvider()
+    run(FakeReader([result_raw()]), _handler(first))
+    second = FakeStateProvider(last=first.current)
+    late = result_raw(run_id="late", executed_at=T0 - OVERLAP_MS - 1)
+    _, run_events, source_report, report = run(
+        FakeReader([result_raw(), late]), _handler(second)
+    )
+    assert run_events == []
+    assert report.results_missed_late == 1
+    assert [w.title for w in source_report.warnings].count(_LATE_TITLE) == 1
+
+
+def test_no_late_results_reports_nothing() -> None:
+    first = FakeStateProvider()
+    run(FakeReader([result_raw()]), _handler(first))
+    second = FakeStateProvider(last=first.current)
+    rows = [result_raw(), result_raw(run_id="run-2", executed_at=T0 + 5)]
+    _, run_events, source_report, report = run(FakeReader(rows), _handler(second))
+    assert len(run_events) == 1
+    assert report.results_missed_late == 0
+    assert _LATE_TITLE not in [w.title for w in source_report.warnings]
+
+
+def test_late_count_failure_warns_and_still_ingests() -> None:
+    reader = FakeReader([result_raw()])
+    reader.count_error = ConnectionError("warehouse connection dropped")
+    _, run_events, source_report, _ = run(reader, _handler(FakeStateProvider()))
+    assert len(run_events) == 1
+    assert not source_report.failures
+    assert "Could not check for late external DQ results" in [
+        w.title for w in source_report.warnings
+    ]

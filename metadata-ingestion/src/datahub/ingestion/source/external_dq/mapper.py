@@ -32,6 +32,7 @@ class _BoundRule:
     assertion_urn: str
     dataset_urn: str
     severity: Optional[str]
+    active: bool
 
 
 class ExternalDQMapper:
@@ -112,6 +113,7 @@ class ExternalDQMapper:
                 assertion_urn=assertion_urn,
                 dataset_urn=dataset_urn,
                 severity=rule.severity,
+                active=rule.is_active,
             )
             properties = {
                 key: value
@@ -144,10 +146,18 @@ class ExternalDQMapper:
             yield build_status(assertion_urn, active=rule.is_active)
             self.report.assertions_emitted += 1
 
+    def is_known_rule(self, rule_id: str) -> bool:
+        return rule_id in self._rules
+
     def map_result(self, result: ResultRow) -> Optional[MetadataChangeProposalWrapper]:
         bound = self._rules.get(result.rule_id)
         if bound is None:
             self.report.results_unknown_rule += 1
+            return None
+        if not bound.active:
+            # A run event re-adds the assertion to the dataset's health summary
+            # regardless of status.removed, which would un-retire the rule.
+            self.report.results_skipped_retired += 1
             return None
         native = {
             key: str(value)

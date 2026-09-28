@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, FrozenSet, Mapping, Optional, Tuple
+from typing import Dict, FrozenSet, List, Mapping, Optional, Sequence, Tuple
 
 import pydantic
 
@@ -23,10 +23,20 @@ def run_key(rule_id: str, run_id: str) -> str:
 class ExternalDQCheckpointState(CheckpointStateBase):
     """Per results table: the highest executed_at emitted (epoch millis) and the
     run keys emitted inside the late-arrival overlap window, so re-reading that
-    window never re-emits a run event (each re-emit re-fires notifications)."""
+    window never re-emits a run event (each re-emit re-fires notifications), and
+    [next window start, expected row count below it] to detect rows that landed
+    too late to ever be read."""
 
     watermarks: Dict[str, int] = pydantic.Field(default_factory=dict)
     recent_keys: Dict[str, Dict[str, int]] = pydantic.Field(default_factory=dict)
+    late_baselines: Dict[str, List[int]] = pydantic.Field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class LoadedState:
+    watermark: Optional[int]
+    recent: Dict[str, int]
+    late_baseline: Optional[List[int]]
 
 
 @dataclass(frozen=True)
@@ -108,23 +118,32 @@ class ExternalDQStateHandler(
             state=ExternalDQCheckpointState(),
         )
 
-    def load(self, table: str) -> Tuple[Optional[int], Dict[str, int]]:
+    def load(self, table: str) -> LoadedState:
         last = self.state_provider.get_last_checkpoint(
             self.job_id, ExternalDQCheckpointState
         )
         if not last or not last.state:
-            return None, {}
+            return LoadedState(None, {}, None)
         assert isinstance(last.state, ExternalDQCheckpointState)
         state = last.state
-        watermark = state.watermarks.get(table)
-        recent = dict(state.recent_keys.get(table, {}))
-        if watermark is not None:
+        loaded = LoadedState(
+            watermark=state.watermarks.get(table),
+            recent=dict(state.recent_keys.get(table, {})),
+            late_baseline=state.late_baselines.get(table),
+        )
+        if loaded.watermark is not None:
             # Carry forward now, so a run that fails before save() keeps the
             # previous watermark instead of re-reading the initial lookback.
-            self.save(table, watermark, recent)
-        return watermark, recent
+            self.save(table, loaded.watermark, loaded.recent, loaded.late_baseline)
+        return loaded
 
-    def save(self, table: str, watermark: int, recent: Mapping[str, int]) -> None:
+    def save(
+        self,
+        table: str,
+        watermark: int,
+        recent: Mapping[str, int],
+        late_baseline: Optional[Sequence[int]],
+    ) -> None:
         current = self.state_provider.get_current_checkpoint(self.job_id)
         if current is None:
             return
@@ -132,3 +151,7 @@ class ExternalDQStateHandler(
         state = current.state
         state.watermarks[table] = watermark
         state.recent_keys[table] = dict(recent)
+        # None keeps the carried-forward baseline: it stays valid while the
+        # window start is unchanged, since the table is append-only.
+        if late_baseline is not None:
+            state.late_baselines[table] = list(late_baseline)

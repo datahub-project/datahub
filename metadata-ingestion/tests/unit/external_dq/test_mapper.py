@@ -91,12 +91,14 @@ def test_result_inherits_rule_severity_and_snapshots() -> None:
     }
 
 
-def test_inactive_rule_still_records_history() -> None:
+def test_inactive_rule_results_are_not_published() -> None:
     mapper = make_mapper()
     mcps = list(mapper.map_rules([rule(is_active=False)]))
     status = mcps[1].aspect
     assert isinstance(status, StatusClass) and status.removed is True
-    assert mapper.map_result(result()) is not None
+    assert mapper.map_result(result()) is None
+    assert mapper.report.results_skipped_retired == 1
+    assert mapper.is_known_rule("r1") and not mapper.is_known_rule("r2")
 
 
 def test_unresolved_duplicate_and_unknown_rules_are_counted() -> None:

@@ -122,6 +122,9 @@ def build_assertion_run_event(
             for k, v in (("error_type", error_type), ("error_message", error_message))
             if v is not None
         }
+        # OSS GraphQL does not map result.error, so mirror the reason into
+        # nativeResults to keep it visible there; DataHub Cloud reads result.error.
+        native.update(properties)
         error = AssertionResultErrorClass(
             type=AssertionResultErrorTypeClass.UNKNOWN_ERROR,
             properties=properties or None,

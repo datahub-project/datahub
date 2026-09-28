@@ -3,6 +3,7 @@ from typing import Any, cast
 from datahub.ingestion.source.external_dq.state import (
     ExternalDQCheckpointState,
     ExternalDQStateHandler,
+    LoadedState,
     advance,
     plan_window,
     run_key,
@@ -62,19 +63,21 @@ def test_run_key_does_not_collide_on_separator_characters() -> None:
 
 def test_save_then_load_round_trips() -> None:
     first = FakeStateProvider()
-    handler_for(first).save("t", 5, {"k": 5})
+    handler_for(first).save("t", 5, {"k": 5}, [4, 2])
     second = FakeStateProvider(last=first.current)
-    assert handler_for(second).load("t") == (5, {"k": 5})
+    assert handler_for(second).load("t") == LoadedState(5, {"k": 5}, [4, 2])
 
 
 def test_load_carries_forward() -> None:
     first = FakeStateProvider()
-    handler_for(first).save("t", 5, {"k": 5})
+    handler_for(first).save("t", 5, {"k": 5}, [4, 2])
     second = FakeStateProvider(last=first.current)
     handler_for(second).load("t")  # run fails before save()
     assert second.current is not None
     state = cast(ExternalDQCheckpointState, second.current.state)
     assert state.watermarks == {"t": 5}
+    assert state.recent_keys == {"t": {"k": 5}}
+    assert state.late_baselines == {"t": [4, 2]}
 
 
 def test_ignore_new_state_creates_no_checkpoint() -> None:
