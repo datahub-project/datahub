@@ -1,12 +1,23 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import EntityHoverCard from '@app/sharedV2/hoverCard/EntityHoverCard';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-import { CorpUser, Dataset, Entity, EntityType, HealthStatus, HealthStatusType, OwnershipType, Tag } from '@types';
+import {
+    CorpGroup,
+    CorpUser,
+    Dataset,
+    Entity,
+    EntityType,
+    GlossaryTerm,
+    HealthStatus,
+    HealthStatusType,
+    OwnershipType,
+    Tag,
+} from '@types';
 
 const owner = {
     urn: 'urn:li:corpuser:jdoe',
@@ -73,6 +84,68 @@ describe('EntityHoverCard', () => {
         expect(screen.getByText('Jane Doe')).toBeInTheDocument();
         expect(screen.getByText('Director of Data Engineering')).toBeInTheDocument();
         expect(screen.queryByText('User')).not.toBeInTheDocument();
+    });
+
+    it('shows the ownership role when the hover is opened from an owner', () => {
+        render(
+            <MockedProvider mocks={[]}>
+                <TestPageContainer>
+                    <EntityHoverCard
+                        entity={owner}
+                        ownershipRole={{
+                            name: 'Technical Owner',
+                            description: 'Responsible for the technical aspects',
+                        }}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        expect(screen.getByText('Technical Owner')).toBeInTheDocument();
+        expect(screen.getByText('Responsible for the technical aspects')).toBeInTheDocument();
+    });
+
+    it('links a glossary term to its related assets', () => {
+        renderCard({
+            urn: 'urn:li:glossaryTerm:customer-id',
+            type: EntityType.GlossaryTerm,
+            name: 'Customer ID',
+            hierarchicalName: 'Customer ID',
+        } as GlossaryTerm);
+
+        expect(screen.getByRole('link', { name: /View Related Assets/ })).toHaveAttribute(
+            'href',
+            expect.stringContaining('Related%20Assets'),
+        );
+    });
+
+    it('shows a group member count when the query selected one', () => {
+        renderCard({
+            urn: 'urn:li:corpGroup:data-platform',
+            type: EntityType.CorpGroup,
+            name: 'data-platform',
+            memberCount: { total: 12 },
+        } as unknown as CorpGroup);
+
+        expect(screen.getByText('12 members')).toBeInTheDocument();
+    });
+
+    it('keeps clicks inside the card from reaching the row it was opened from', () => {
+        const onRowClick = vi.fn();
+        render(
+            <MockedProvider mocks={[]}>
+                <TestPageContainer>
+                    {/* eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */}
+                    <div onClick={onRowClick}>
+                        <EntityHoverCard entity={dataset} />
+                    </div>
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        fireEvent.click(screen.getByText('Owners'));
+
+        expect(onRowClick).not.toHaveBeenCalled();
     });
 
     it('prefers the edited description over the ingested one', () => {

@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router';
 import styled from 'styled-components';
 
 import buildEntityRegistryV2 from '@app/buildEntityRegistryV2';
-import EntityHoverCard from '@app/sharedV2/hoverCard/EntityHoverCard';
+import EntityHoverCard, { HoverCardOwnershipRole } from '@app/sharedV2/hoverCard/EntityHoverCard';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { EntityRegistryContext } from '@src/entityRegistryContext';
 
@@ -69,9 +69,10 @@ const dataPlatformTeam = {
     urn: 'urn:li:corpGroup:data-platform',
     type: EntityType.CorpGroup,
     name: 'data-platform',
-    info: { displayName: 'Data Platform' },
-    properties: { displayName: 'Data Platform' },
-} as CorpGroup;
+    properties: { displayName: 'Data Platform', description: 'Owns the shared warehouse, pipelines, and metrics.' },
+    info: { displayName: 'Data Platform', description: 'Owns the shared warehouse, pipelines, and metrics.' },
+    memberCount: { total: 12 },
+} as unknown as CorpGroup;
 
 const tagPii = {
     __typename: 'Tag',
@@ -199,6 +200,7 @@ const ordersMinimal = {
         name: 'orders',
         qualifiedName: 'analytics_db.public.orders',
         description: 'One row per customer order. Refreshed hourly from the order service.',
+        externalUrl: 'https://example.com/snowflake/orders',
     },
     parentContainers: { count: 2, containers: [publicSchema, analyticsDb] },
     subTypes: { typeNames: ['Table'] },
@@ -209,7 +211,7 @@ const ordersFull = {
     ...ordersMinimal,
     editableProperties: {
         description:
-            'One row per customer order, including cancelled and refunded orders. Refreshed hourly from the order service. Join to `customers` on `customer_id`; amounts are in the order currency, see `currency_code`.',
+            'One row per **customer order**, including cancelled and refunded orders. Refreshed hourly from the order service. Join to `customers` on `customer_id`.',
     },
     ownership: {
         owners: [
@@ -275,6 +277,21 @@ const ordersFull = {
     lastOperation: [{ lastUpdatedTimestamp: NOW - 2 * 60 * 60 * 1000 }],
     upstream: { total: 4, filtered: 0, relationships: [] },
     downstream: { total: 11, filtered: 0, relationships: [] },
+    // A second platform, so the icon stacks both logos the way a dbt + Snowflake sibling does.
+    siblings: { isPrimary: true },
+    siblingsSearch: {
+        total: 1,
+        searchResults: [
+            {
+                entity: {
+                    urn: 'urn:li:dataset:(urn:li:dataPlatform:looker,analytics_db.public.orders,PROD)',
+                    type: EntityType.Dataset,
+                    exists: true,
+                    platform: looker,
+                },
+            },
+        ],
+    },
 } as unknown as Dataset;
 
 /**
@@ -439,12 +456,13 @@ function Labelled({ label, note, children }: { label: string; note?: string; chi
 type CardArgs = {
     entity: Entity;
     propagationDetails?: AttributionDetails;
+    ownershipRole?: HoverCardOwnershipRole;
 };
 
-function CardOnSurface({ entity, propagationDetails }: CardArgs) {
+function CardOnSurface({ entity, propagationDetails, ownershipRole }: CardArgs) {
     return (
         <PopoverSurface>
-            <EntityHoverCard entity={entity} propagationDetails={propagationDetails} />
+            <EntityHoverCard entity={entity} propagationDetails={propagationDetails} ownershipRole={ownershipRole} />
         </PopoverSurface>
     );
 }
@@ -522,7 +540,7 @@ export const Overview: Story = {
                         </Labelled>
                         <Labelled
                             label="After — full result fragment"
-                            note="Added in this PR: Owners, Tags, Terms, Domain, Data Product sections. Restored from the old card: header badges (health, tier, version) and the usage footer (queries, lineage, freshness)."
+                            note="Owners, tags, terms, domain, data product, badges, usage footer, stacked sibling logos, markdown in the description, and a View in Snowflake link section after the others."
                         >
                             <EntityHoverCard entity={ordersFull} />
                         </Labelled>
@@ -561,16 +579,28 @@ export const Overview: Story = {
                         <Labelled label="Tag with description and owners">
                             <EntityHoverCard entity={tagPii} />
                         </Labelled>
-                        <Labelled label="Glossary term" note="Path shows the parent node.">
+                        <Labelled
+                            label="Glossary term"
+                            note="Path shows the parent node. View Related Assets is the last section, same as the platform links."
+                        >
                             <EntityHoverCard entity={termCustomerId} />
                         </Labelled>
                         <Labelled label="Domain" note="Path shows the parent domain.">
                             <EntityHoverCard entity={salesDomain} />
                         </Labelled>
-                        <Labelled label="User (owner pill)">
-                            <EntityHoverCard entity={janeDoe} />
+                        <Labelled
+                            label="User, hovered as an owner"
+                            note="Job title under the name, plus the role this person holds on the asset."
+                        >
+                            <EntityHoverCard
+                                entity={janeDoe}
+                                ownershipRole={{
+                                    name: 'Technical Owner',
+                                    description: 'Responsible for the technical aspects of the asset.',
+                                }}
+                            />
                         </Labelled>
-                        <Labelled label="Group">
+                        <Labelled label="Group" note="Member count, when the query fetched it.">
                             <EntityHoverCard entity={dataPlatformTeam} />
                         </Labelled>
                         <Labelled
@@ -636,20 +666,33 @@ export const DomainCard: Story = {
 };
 
 export const User: Story = {
-    args: { entity: janeDoe },
+    name: 'User — hovered as an owner',
+    args: {
+        entity: janeDoe,
+        ownershipRole: {
+            name: 'Technical Owner',
+            description: 'Responsible for the technical aspects of the asset.',
+        },
+    },
 };
 
 /** The real popover, pinned open, so the chrome and offset are the genuine ones. */
 export const InPopover: Story = {
     name: 'In the real Popover',
     args: { entity: ordersFull },
-    render: ({ entity, propagationDetails }) => (
+    render: ({ entity, propagationDetails, ownershipRole }) => (
         <div style={{ padding: '8px 0 480px' }}>
             <Popover
                 open
                 placement="bottomLeft"
                 zIndex={1100}
-                content={<EntityHoverCard entity={entity} propagationDetails={propagationDetails} />}
+                content={
+                    <EntityHoverCard
+                        entity={entity}
+                        propagationDetails={propagationDetails}
+                        ownershipRole={ownershipRole}
+                    />
+                }
             >
                 <Trigger>hover target</Trigger>
             </Popover>

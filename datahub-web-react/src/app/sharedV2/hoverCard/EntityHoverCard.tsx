@@ -5,6 +5,10 @@ import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
+import { getRelatedEntitiesUrl as getBusinessAttributeRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
+import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
@@ -13,6 +17,7 @@ import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import HoverCardEntityRow from '@app/sharedV2/hoverCard/HoverCardEntityRow';
 import HoverCardFooter from '@app/sharedV2/hoverCard/HoverCardFooter';
 import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
+import HoverCardLinks, { HoverCardLink } from '@app/sharedV2/hoverCard/HoverCardLinks';
 import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
 import HoverCardStatusBadges from '@app/sharedV2/hoverCard/HoverCardStatusBadges';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
@@ -20,7 +25,8 @@ import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
 import TagPill from '@app/sharedV2/tags/TagPill';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { CorpUser, Entity, EntityType } from '@src/types.generated';
+import { CorpGroup, CorpUser, Entity, EntityType } from '@src/types.generated';
+import { resolveRuntimePath } from '@src/utils/runtimeBasePath';
 
 /** Keeps long documentation from turning the card into a wall of text. */
 const DESCRIPTION_MAX_LINES = 5;
@@ -48,10 +54,6 @@ const Sections = styled.div`
 `;
 
 const Description = styled.div`
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: ${DESCRIPTION_MAX_LINES};
-    overflow: hidden;
     overflow-wrap: anywhere;
 `;
 
@@ -67,13 +69,29 @@ const AttributionTime = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
+/** The ownership role this person or group holds on the asset the hover was opened from. */
+export type HoverCardOwnershipRole = {
+    name: string;
+    description?: string | null;
+};
+
 type Props = {
     entity: Entity;
     propagationDetails?: AttributionDetails;
+    ownershipRole?: HoverCardOwnershipRole;
 };
 
-export default function EntityHoverCard({ entity, propagationDetails }: Props) {
+/** Member total, only when a query actually selected it. A missing field is not "0 members". */
+function getGroupMemberCount(entity: Entity): number | undefined {
+    if (entity.type !== EntityType.CorpGroup) return undefined;
+    const group = entity as CorpGroup & { memberCount?: { total?: number | null } | null };
+    const total = group.memberCount?.total ?? group.relationships?.total;
+    return total == null ? undefined : total;
+}
+
+export default function EntityHoverCard({ entity, propagationDetails, ownershipRole }: Props) {
     const { t } = useTranslation('common.labels');
+    const { t: tTypes } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistryV2();
     const generateGlossaryColor = useGenerateGlossaryColorFromPalette();
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
@@ -99,6 +117,24 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
               (entity as CorpUser).info?.title ||
               undefined
             : undefined;
+
+    const memberCount = getGroupMemberCount(entity);
+    const subtitle =
+        jobTitle || (memberCount != null ? tTypes('shared.membersCount', { count: memberCount }) : undefined);
+
+    // Same links the old glossary-term and business-attribute hover cards put in the footer.
+    const relatedLinks: HoverCardLink[] = [];
+    if (entity.type === EntityType.GlossaryTerm) {
+        relatedLinks.push({
+            href: resolveRuntimePath(getRelatedAssetsUrl(entityRegistry, entity.urn)),
+            label: tTypes('glossaryTerm.viewRelatedAssets'),
+        });
+    } else if (entity.type === EntityType.BusinessAttribute) {
+        relatedLinks.push({
+            href: resolveRuntimePath(getBusinessAttributeRelatedEntitiesUrl(entityRegistry, entity.urn)),
+            label: tTypes('businessAttribute.viewRelatedEntities'),
+        });
+    }
 
     const owners = properties?.ownership?.owners ?? [];
     const tags = properties?.globalTags?.tags ?? [];
@@ -129,7 +165,8 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
         !!domain ||
         !!dataProduct ||
         !!attributionActor ||
-        hasPropagationDetails(propagationDetails);
+        hasPropagationDetails(propagationDetails) ||
+        !!ownershipRole;
 
     const crumbs = [
         ...(properties?.parentNodes?.nodes ?? []).map((node) => entityRegistry.getDisplayName(node.type, node)),
@@ -142,12 +179,15 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
     ].reverse();
 
     return (
-        <Card $hasSections={hasSections}>
+        // The card renders in a portal, but React still bubbles its clicks to the trigger's ancestors.
+        // Triggers often sit inside a row-wide router link, which would swallow clicks on the card's own
+        // links (e.g. "View in Snowflake") and navigate to the entity page instead.
+        <Card $hasSections={hasSections} onClick={(event) => event.stopPropagation()}>
             <HoverCardHeader
                 title={entityRegistry.getDisplayName(entity.type, entity)}
                 icon={<EntityIcon entity={entity} size={32} />}
-                typeName={entityRegistry.getEntityName(entity.type)}
-                subtitle={jobTitle}
+                typeName={getDisplayedEntityType(properties, entityRegistry, entity.type)}
+                subtitle={subtitle}
                 crumbs={crumbs}
                 badge={
                     <HoverCardStatusBadges
@@ -162,8 +202,18 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
                     {description && (
                         <HoverCardSection title={t('documentation')}>
                             <Description>
-                                <Text size="md">{description}</Text>
+                                <CompactMarkdownViewer
+                                    content={description}
+                                    lineLimit={DESCRIPTION_MAX_LINES}
+                                    scrollableY={false}
+                                    hideShowMore
+                                />
                             </Description>
+                        </HoverCardSection>
+                    )}
+                    {ownershipRole && (
+                        <HoverCardSection title={ownershipRole.name}>
+                            {ownershipRole.description && <Text size="md">{ownershipRole.description}</Text>}
                         </HoverCardSection>
                     )}
                     {owners.length > 0 && (
@@ -256,6 +306,7 @@ export default function EntityHoverCard({ entity, propagationDetails }: Props) {
                     {propagationDetails && <HoverCardAttributionDetails propagationDetails={propagationDetails} />}
                 </Sections>
             )}
+            <HoverCardLinks entity={entity} properties={properties} extraLinks={relatedLinks} />
             <HoverCardFooter entity={entity} properties={properties} />
         </Card>
     );
