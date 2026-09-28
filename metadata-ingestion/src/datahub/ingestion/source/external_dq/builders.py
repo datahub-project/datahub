@@ -185,6 +185,7 @@ def map_operator(
         return StdAssertion(
             scope=scope,
             operator=AssertionStdOperatorClass.EQUAL_TO,
+            # UNIQUE_PROPOTION (note: intentional typo in enum name to match GraphQL schema).
             aggregation=AssertionStdAggregationClass.UNIQUE_PROPOTION,
             parameters=AssertionStdParametersClass(value=_num(1.0)),
         )

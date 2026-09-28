@@ -37,9 +37,9 @@ def _run_event(**kwargs: object) -> AssertionRunEventClass:
 
 
 def test_urn_is_deterministic_and_key_order_independent() -> None:
-    assert make_external_assertion_urn({"a": "1", "b": "2"}) == make_external_assertion_urn(
-        {"b": "2", "a": "1"}
-    )
+    assert make_external_assertion_urn(
+        {"a": "1", "b": "2"}
+    ) == make_external_assertion_urn({"b": "2", "a": "1"})
     assert ASSERTION.startswith("urn:li:assertion:")
 
 
@@ -93,7 +93,9 @@ def test_severity_applies_on_failure() -> None:
 
 
 def test_error_uses_structured_result_error() -> None:
-    event = _run_event(status="ERROR", error_type="timeout", error_message="query timed out")
+    event = _run_event(
+        status="ERROR", error_type="timeout", error_message="query timed out"
+    )
     assert event.result is not None
     assert event.result.type == AssertionResultTypeClass.ERROR
     assert event.result.error is not None
@@ -124,3 +126,17 @@ def test_map_operator_structured_and_native_fallback() -> None:
     assert map_operator("regex_match", None, None, None, scope=scope).operator == (
         AssertionStdOperatorClass._NATIVE_
     )
+
+
+def test_map_operator_unique_and_not_null() -> None:
+    from datahub.metadata.schema_classes import AssertionStdAggregationClass
+
+    scope = DatasetAssertionScopeClass.DATASET_COLUMN
+    unique = map_operator("unique", None, None, None, scope=scope)
+    assert unique.operator == AssertionStdOperatorClass.EQUAL_TO
+    assert unique.aggregation == AssertionStdAggregationClass.UNIQUE_PROPOTION
+    assert unique.parameters is not None and unique.parameters.value is not None
+    assert unique.parameters.value.value == "1.0"
+    not_null = map_operator("NOT_NULL", None, None, None, scope=scope)
+    assert not_null.operator == AssertionStdOperatorClass.NOT_NULL
+    assert not_null.aggregation == AssertionStdAggregationClass.IDENTITY
