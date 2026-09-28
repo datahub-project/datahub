@@ -5,6 +5,8 @@ import com.typesafe.config.Config;
 import filters.InFlightRequestsFilter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -21,8 +23,10 @@ import org.apache.pekko.dispatch.ExecutorServiceDelegate;
 import org.apache.pekko.dispatch.MessageDispatcher;
 
 /**
- * Micrometer gauges for the Play/Pekko HTTP server pool, scraped with the rest of the frontend
- * registry. Names mirror GMS Jetty pool gauges under {@code play.http.*}.
+ * Micrometer gauges for the Play/Pekko HTTP server pool. Registered on the Prometheus registry only
+ * and scraped at {@code /actuator/prometheus}. Names mirror GMS Jetty pool gauges under {@code
+ * play.http.*}. {@code baseUnit} is omitted: the Prometheus naming convention appends it, which
+ * would export {@code play.http.threads.busy} as {@code play_http_threads_busy_threads}.
  *
  * <p>Pekko HTTP does not expose a live connection count, so connection gauges are the configured
  * limits. Thread gauges read the actor-system default dispatcher, which runs HTTP requests and
@@ -57,20 +61,40 @@ public class PlayHttpServerMetrics {
       Config config,
       MetricUtils metricUtils,
       InFlightRequestsFilter inFlightRequestsFilter) {
-    MeterRegistry registry = metricUtils.getRegistry();
-    if (registry == null) {
-      log.warn("Meter registry is unset; Play HTTP pool metrics will not be exported");
+    PrometheusMeterRegistry prometheus = prometheusRegistry(metricUtils.getRegistry());
+    if (prometheus == null) {
+      log.warn("Prometheus meter registry is unset; Play HTTP pool metrics will not be exported");
       return;
     }
     register(
-        registry,
+        prometheus,
         resolveDispatcherExecutor(actorSystem),
         config,
         inFlightRequestsFilter.inFlightCount());
   }
 
+  /**
+   * The Prometheus registry these gauges are exported on. Composite registries are unwrapped; JMX
+   * and other registries are ignored.
+   */
+  @Nullable
+  static PrometheusMeterRegistry prometheusRegistry(@Nullable MeterRegistry registry) {
+    if (registry instanceof PrometheusMeterRegistry) {
+      return (PrometheusMeterRegistry) registry;
+    }
+    if (registry instanceof CompositeMeterRegistry) {
+      for (MeterRegistry child : ((CompositeMeterRegistry) registry).getRegistries()) {
+        PrometheusMeterRegistry prometheus = prometheusRegistry(child);
+        if (prometheus != null) {
+          return prometheus;
+        }
+      }
+    }
+    return null;
+  }
+
   static void register(
-      MeterRegistry registry,
+      PrometheusMeterRegistry registry,
       @Nullable ExecutorService executor,
       Config config,
       AtomicInteger inFlight) {
@@ -90,35 +114,30 @@ public class PlayHttpServerMetrics {
         config,
         THREADS_CONFIG_MIN,
         PARALLELISM_MIN_PATH,
-        "threads",
         "Configured Pekko fork-join parallelism-min");
     registerConfigGauge(
         registry,
         config,
         THREADS_CONFIG_MAX,
         PARALLELISM_MAX_PATH,
-        "threads",
         "Configured Pekko fork-join parallelism-max");
     registerConfigGauge(
         registry,
         config,
         CONNECTIONS_MAX,
         MAX_CONNECTIONS_PATH,
-        "connections",
         "Configured Pekko HTTP max-connections");
     registerConfigGauge(
         registry,
         config,
         CONNECTIONS_BACKLOG,
         BACKLOG_PATH,
-        "connections",
         "Configured Pekko HTTP accept backlog");
     gauge(
         registry,
         REQUESTS_INFLIGHT,
         inFlight,
         count -> count.get(),
-        "requests",
         "HTTP requests currently inside the Play filter chain");
   }
 
@@ -144,105 +163,93 @@ public class PlayHttpServerMetrics {
     }
   }
 
-  private static void registerForkJoin(MeterRegistry registry, ForkJoinPool pool) {
+  private static void registerForkJoin(PrometheusMeterRegistry registry, ForkJoinPool pool) {
     gauge(
         registry,
         THREADS_BUSY,
         pool,
         ForkJoinPool::getActiveThreadCount,
-        "threads",
         "Threads actively executing on the Play HTTP dispatcher");
     gauge(
         registry,
         THREADS_CURRENT,
         pool,
         ForkJoinPool::getPoolSize,
-        "threads",
         "Current threads in the Play HTTP dispatcher");
     gauge(
         registry,
         THREADS_IDLE,
         pool,
         p -> Math.max(0, p.getPoolSize() - p.getActiveThreadCount()),
-        "threads",
         "Idle threads in the Play HTTP dispatcher");
     gauge(
         registry,
         THREADS_JOBS,
         pool,
         ForkJoinPool::getQueuedSubmissionCount,
-        "tasks",
         "Tasks queued on the Play HTTP dispatcher");
     gauge(
         registry,
         THREADS_PARALLELISM,
         pool,
         ForkJoinPool::getParallelism,
-        "threads",
         "Live parallelism of the Play HTTP dispatcher");
   }
 
-  private static void registerThreadPool(MeterRegistry registry, ThreadPoolExecutor pool) {
+  private static void registerThreadPool(
+      PrometheusMeterRegistry registry, ThreadPoolExecutor pool) {
     gauge(
         registry,
         THREADS_BUSY,
         pool,
         ThreadPoolExecutor::getActiveCount,
-        "threads",
         "Threads actively executing on the Play HTTP dispatcher");
     gauge(
         registry,
         THREADS_CURRENT,
         pool,
         ThreadPoolExecutor::getPoolSize,
-        "threads",
         "Current threads in the Play HTTP dispatcher");
     gauge(
         registry,
         THREADS_IDLE,
         pool,
         p -> Math.max(0, p.getPoolSize() - p.getActiveCount()),
-        "threads",
         "Idle threads in the Play HTTP dispatcher");
     gauge(
         registry,
         THREADS_JOBS,
         pool,
         p -> p.getQueue().size(),
-        "tasks",
         "Tasks queued on the Play HTTP dispatcher");
     gauge(
         registry,
         THREADS_PARALLELISM,
         pool,
         ThreadPoolExecutor::getMaximumPoolSize,
-        "threads",
         "Maximum threads the Play HTTP dispatcher will run");
   }
 
   private static void registerConfigGauge(
-      MeterRegistry registry,
+      PrometheusMeterRegistry registry,
       Config config,
       String name,
       String path,
-      String baseUnit,
       String description) {
     if (!config.hasPath(path)) {
       log.warn("Play HTTP metric {} not registered; config path {} is unset", name, path);
       return;
     }
-    gauge(registry, name, config, c -> c.getDouble(path), baseUnit, description);
+    gauge(registry, name, config, c -> c.getDouble(path), description);
   }
 
   private static <T> void gauge(
-      MeterRegistry registry,
+      PrometheusMeterRegistry registry,
       String name,
       T state,
       ToDoubleFunction<T> value,
-      String baseUnit,
       String description) {
     Gauge.builder(name, state, value)
-        .baseUnit(baseUnit)
         .description(description)
         .strongReference(true)
         .register(registry);
