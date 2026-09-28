@@ -315,6 +315,19 @@ public class AspectsBatchImpl implements AspectsBatch {
     private AspectsBatchImpl build() {
       return null;
     }
+
+    /**
+     * Constructor to be used in lieu of {@link #build()} to skip build-time validations. Used to
+     * avoid redundant validations on items that are known to have been already validated or if
+     * caller handles validations.
+     */
+    public AspectsBatchImpl buildWithoutValidation() {
+      if (this.items == null) {
+        this.items = Collections.emptyList();
+      }
+      this.nonRepeatedItems = filterRepeats(this.items);
+      return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);
+    }
   }
 
   @Override

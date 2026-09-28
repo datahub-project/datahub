@@ -35,7 +35,7 @@
     "freshness.popoverContent": "{{updateType}} {{lastUpdatedAgo}}",
     "health.assertionsPassing": "Minden Assertion teljesül",
     "health.noActiveIncidents": "Nincsenek aktív incidensek",
-    "health.testsPassing": "Minden teszt sikeres",
+    "health.noFailingGovernanceTests": "Nincsenek sikertelen Governance-tesztek",
     "lineage.downstreamCount_one": "{{count}} céloldali",
     "lineage.downstreamCount_other": "{{count}} céloldali",
     "lineage.upstreamCount_one": "{{count}} forrásoldali",

@@ -1820,6 +1820,11 @@ query getEntitySearchResultsAutoCompleteFields(
         searchResults {
             entity {
                 ...autoCompleteFields
+                ... on OwnershipTypeEntity {
+                    info {
+                        name
+                    }
+                }
             }
         }
     }

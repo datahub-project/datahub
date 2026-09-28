@@ -81,6 +81,7 @@ public interface EntityRegistry {
   default Set<String> getSearchGroups() {
     return getEntitySpecs().values().stream()
         .map(EntitySpec::getSearchGroup)
+        .filter(group -> group != null && !group.isBlank())
         .collect(Collectors.toSet());
   }
 

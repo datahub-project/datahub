@@ -31,6 +31,9 @@ from datahub.configuration.time_window_config import (
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -293,6 +296,23 @@ class ClickHouseConfig(
             )
 
         return values
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # ClickHouse has information_schema, and its idiomatic catalog is the
+        # `system` database. Not allowed wholesale: system.query_log holds executed
+        # SQL -- our own usage extraction reads it -- and the *_log family generally
+        # carries statement text.
+        return CatalogScope(
+            relations=frozenset(
+                {
+                    "system.tables",
+                    "system.columns",
+                    "system.databases",
+                    "system.dictionaries",
+                }
+            ),
+        )
 
 
 PROPERTIES_COLUMNS = (
@@ -795,11 +815,11 @@ ORDER BY event_time ASC
                 session_id=row.get("query_id"),
                 timestamp=event_time,
                 user=CorpUserUrn(user) if user else None,
-                # Don't pass current_database as default_db. ClickHouse uses 2-level
-                # naming (database.table), but sqlglot expects 3-level (database.schema.table).
-                # Passing current_database causes sqlglot to prepend it to already-qualified
-                # names, creating incorrect URNs like "default.analytics_marts.table".
+                # ClickHouse is 2-level: the database goes in the schema slot (as in
+                # TwoTierSQLAlchemySource.get_db_schema); default_db would fill the
+                # unused catalog slot, over-qualifying to "default.my_db.table".
                 default_db=None,
+                default_schema=row.get("current_database") or None,
                 query_hash=str(row.get("normalized_query_hash", "")),
             )
         except Exception as e:

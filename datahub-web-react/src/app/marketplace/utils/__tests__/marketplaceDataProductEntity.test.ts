@@ -77,4 +77,14 @@ describe('scrollMergeUtils', () => {
             }).map((e) => e.urn),
         ).toEqual(['a', 'b']);
     });
+
+    it('keeps later-page lists unique when a page repeats a URN', () => {
+        expect(
+            mergeScrollPageResults({
+                current: [{ urn: 'a' }],
+                fresh: [{ urn: 'b' }, { urn: 'b' }],
+                scrollId: 'page-2',
+            }).map((e) => e.urn),
+        ).toEqual(['a', 'b']);
+    });
 });

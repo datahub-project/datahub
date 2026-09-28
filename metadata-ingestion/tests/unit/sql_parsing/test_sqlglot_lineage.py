@@ -306,6 +306,23 @@ def test_block_with_multiple_statements() -> None:
     assert "Use parse_statements_and_pick" in str(result.debug_info.table_error)
 
 
+def test_identifier_dynamic_arg_skips_only_that_table() -> None:
+    """A non-literal IDENTIFIER(...) can't be resolved, but it must not drop lineage for the
+    real tables in the same query."""
+    result = sqlglot_lineage(
+        "SELECT r.x FROM db.schema.real_table r "
+        "JOIN IDENTIFIER('prefix_' || r.col) d ON r.id = d.id",
+        schema_resolver=SchemaResolver(
+            platform="snowflake",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is None
+    assert len(result.in_tables) == 1
+    assert any("real_table" in urn for urn in result.in_tables)
+
+
 def test_snowflake_create_table_as_select_with_tag() -> None:
     assert_sql_result(
         """

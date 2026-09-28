@@ -27,7 +27,7 @@ from ._shared import read_token_passthrough
 from .base import Phase, PhaseResult
 from .upgrade_blocking import parse_indices_state
 from ..config import ZDUTestConfig
-from ..constants import REPO_ROOT
+from ..constants import REPO_ROOT, ZDU_NEW_REVISION
 from ..context import (
     IOObservation,
     IOWriteResult,
@@ -53,16 +53,6 @@ from ..mysql_client import MySQLClient
 
 log = logging.getLogger(__name__)
 
-# NEW-side revision marker. The incremental-reindex upgrade id is
-# "BuildIndicesIncremental_<gitVersion>-<revision>" (see BuildIndices.java and
-# SystemUpdateConfig's DATAHUB_REVISION binding, which defaults to "0"). This
-# harness builds OLD and NEW from near-identical commits, so they share a
-# gitVersion and would share that id — the NEW upgrade would then inherit the
-# OLD boot's COMPLETED state and skip the reindex, even though a real mapping
-# diff was detected. Production never collides, because OLD and NEW are
-# different releases. Bumping the revision on the NEW-side jobs reproduces that
-# separation without touching the rollout stage.
-ZDU_NEW_REVISION = "1"
 
 _SWEEP_START_TIMEOUT = 120  # seconds to wait for STARTED event
 _BATCH_POLL_INTERVAL = 1  # seconds between queue drain cycles

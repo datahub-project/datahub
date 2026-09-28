@@ -55,7 +55,9 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
   @BeforeClass
   public void setup() {
-    operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    operationContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoSearchAuthorization(), getSearchClient());
     _client = buildService();
     _client.reindexAll(operationContext, Collections.emptySet());
   }

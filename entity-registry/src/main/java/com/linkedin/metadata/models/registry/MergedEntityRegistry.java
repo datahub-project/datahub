@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -180,10 +181,8 @@ public class MergedEntityRegistry implements EntityRegistry {
   }
 
   /**
-   * Validates that searchGroup values are compatible between existing and new entity specs. Rules:
-   * 1. If only one registry defines searchGroup (not default), it's compatible 2. If both define
-   * the same searchGroup, it's compatible 3. If both define different non-default searchGroups,
-   * it's incompatible
+   * Validates that searchGroup values are compatible between existing and new entity specs. Unset
+   * groups are overridable. Two explicit different groups are incompatible.
    */
   private void validateSearchGroupCompatibility(
       EntitySpec existingEntitySpec, EntitySpec newEntitySpec, ValidationResult validationResult) {
@@ -191,18 +190,17 @@ public class MergedEntityRegistry implements EntityRegistry {
     String existingSearchGroup = existingEntitySpec.getSearchGroup();
     String newSearchGroup = newEntitySpec.getSearchGroup();
 
-    // If both have the same searchGroup, it's compatible
-    if (existingSearchGroup.equals(newSearchGroup)) {
+    if (Objects.equals(existingSearchGroup, newSearchGroup)) {
       return;
     }
 
-    // If one has default and the other doesn't, it's compatible
-    if (EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(existingSearchGroup)
-        || EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(newSearchGroup)) {
+    // Unset (entity-named) is compatible with an explicit group from the other registry.
+    if (EntityAnnotation.isSearchGroupUnset(existingSearchGroup)
+        || EntityAnnotation.isSearchGroupUnset(newSearchGroup)) {
       return;
     }
 
-    // If both have non-default different searchGroups, it's incompatible
+    // If both have explicit different searchGroups, it's incompatible
     validationResult.setValid(false);
     validationResult
         .getValidationFailures()
@@ -252,34 +250,25 @@ public class MergedEntityRegistry implements EntityRegistry {
   }
 
   /**
-   * Determines the searchGroup to use when merging two entity specs. Rules: 1. If only one registry
-   * defines searchGroup (not default), use that one 2. If both define the same searchGroup, use
-   * that one 3. If both define different searchGroups, this is an error (should be caught in
-   * validation) 4. If neither defines searchGroup, use default
+   * Determines the searchGroup to use when merging two entity specs. Unset is overridable by an
+   * explicit group. Two explicit different groups are an error (caught in validation).
    */
   private String determineSearchGroup(EntitySpec existingEntitySpec, EntitySpec newEntitySpec) {
     String existingSearchGroup = existingEntitySpec.getSearchGroup();
     String newSearchGroup = newEntitySpec.getSearchGroup();
 
-    // If both have the same searchGroup, use it
-    if (existingSearchGroup.equals(newSearchGroup)) {
+    if (Objects.equals(existingSearchGroup, newSearchGroup)) {
       return existingSearchGroup;
     }
 
-    // If one has default and the other doesn't, use the non-default one
-    if (EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(existingSearchGroup)
-        && !EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(newSearchGroup)) {
+    if (EntityAnnotation.isSearchGroupUnset(existingSearchGroup)) {
       return newSearchGroup;
     }
 
-    if (!EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(existingSearchGroup)
-        && EntityAnnotation.DEFAULT_SEARCH_GROUP.equals(newSearchGroup)) {
+    if (EntityAnnotation.isSearchGroupUnset(newSearchGroup)) {
       return existingSearchGroup;
     }
 
-    // If both have non-default different searchGroups, this is an error
-    // This should be caught in validation, but if we get here, use the existing one
-    // and log a warning
     log.warn(
         "Conflicting searchGroups for entity {}: existing='{}', new='{}'. Using existing searchGroup.",
         existingEntitySpec.getName(),

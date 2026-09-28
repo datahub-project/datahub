@@ -4,11 +4,13 @@ import logging
 from typing import Any, Optional
 
 import sqlalchemy as sa
-from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.elements import ColumnElement
 
-from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import PlatformAdapter
+from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
+    PlatformAdapter,
+    ProfilingConnection,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +75,7 @@ class MySQLAdapter(PlatformAdapter):
         return True
 
     def get_estimated_row_count(
-        self, table: sa.Table, conn: Connection
+        self, table: sa.Table, conn: ProfilingConnection
     ) -> Optional[int]:
         """
         Get fast row count estimate using information_schema.tables.table_rows.
@@ -107,7 +109,9 @@ class MySQLAdapter(PlatformAdapter):
                 .where(info_schema_tables.c.table_name == table_name)
             )
 
-            result = conn.execute(query).scalar()
+            # Deliberately not single-row: filtered on schema+table, so a table
+            # absent from information_schema yields zero rows.
+            result = conn.execute_rows(query).scalar()
             return int(result) if result is not None else None
 
         except SQLAlchemyError as e:

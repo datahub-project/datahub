@@ -2,10 +2,57 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
+from geoalchemy2 import Geography, Geometry, Raster
 from pydantic import ValidationError
+from sqlalchemy.dialects.postgresql import (
+    CIDR,
+    DATERANGE,
+    INT4RANGE,
+    INT8RANGE,
+    NUMRANGE,
+    TSRANGE,
+    TSTZRANGE,
+    base as pg_base,
+)
+from sqlalchemy.dialects.postgresql.base import PGDialect
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
+
+# Importing the placeholder types directly (rather than relying on the
+# module-level registration side effects of importing the source) makes the
+# dependency on postgres/source.py explicit and enforced.
+from datahub.ingestion.source.sql.postgres.source import (
+    BOX,
+    CIRCLE,
+    CITEXT,
+    DATEMULTIRANGE,
+    HALFVEC,
+    INT4MULTIRANGE,
+    INT8MULTIRANGE,
+    LINE,
+    LSEG,
+    LTREE,
+    NUMMULTIRANGE,
+    PATH,
+    POINT,
+    POLYGON,
+    SPARSEVEC,
+    TSMULTIRANGE,
+    TSTZMULTIRANGE,
+    VECTOR,
+    XML,
+)
+from datahub.ingestion.source.sql.sql_common import get_column_type
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BytesTypeClass,
+    StringTypeClass,
+)
+from datahub.utilities.sqlalchemy_type_converter import (
+    get_native_data_type_for_sqlalchemy_type,
+)
 
 
 def _base_config():
@@ -339,3 +386,116 @@ def test_get_procedures_for_schema(create_engine_mock):
     assert "INSERT INTO processed_orders" in proc.procedure_definition
     # prosrc returns body only — no CREATE PROCEDURE wrapper that would break lineage
     assert not proc.procedure_definition.strip().upper().startswith("CREATE")
+
+
+def test_postgres_special_types_map_to_datahub_types():
+    """
+    PostGIS, pgvector, built-in geometric, xml, ltree, citext, cidr, range and
+    multirange columns must map to real DataHub types instead of NullType
+    (#18575).
+    """
+    # Reflection resolves these through ischema_names; the placeholders (or a
+    # real implementation such as pgvector's) must be registered there.
+    for ischema_key in (
+        "vector",
+        "halfvec",
+        "sparsevec",
+        "point",
+        "line",
+        "lseg",
+        "box",
+        "path",
+        "polygon",
+        "circle",
+        "xml",
+        "ltree",
+        "citext",
+        "int4multirange",
+        "int8multirange",
+        "nummultirange",
+        "datemultirange",
+        "tsmultirange",
+        "tstzmultirange",
+    ):
+        assert ischema_key in pg_base.ischema_names
+
+    cases = [
+        (Geometry(), BytesTypeClass),
+        (Geography(), BytesTypeClass),
+        (Raster(), BytesTypeClass),
+        (VECTOR(), ArrayTypeClass),
+        (HALFVEC(), ArrayTypeClass),
+        (SPARSEVEC(), ArrayTypeClass),
+        (POINT(), BytesTypeClass),
+        (LINE(), BytesTypeClass),
+        (LSEG(), BytesTypeClass),
+        (BOX(), BytesTypeClass),
+        (PATH(), BytesTypeClass),
+        (POLYGON(), BytesTypeClass),
+        (CIRCLE(), BytesTypeClass),
+        (XML(), StringTypeClass),
+        (LTREE(), StringTypeClass),
+        (CITEXT(), StringTypeClass),
+        (CIDR(), StringTypeClass),
+        (INT4RANGE(), StringTypeClass),
+        (INT8RANGE(), StringTypeClass),
+        (NUMRANGE(), StringTypeClass),
+        (DATERANGE(), StringTypeClass),
+        (TSRANGE(), StringTypeClass),
+        (TSTZRANGE(), StringTypeClass),
+        (INT4MULTIRANGE(), StringTypeClass),
+        (INT8MULTIRANGE(), StringTypeClass),
+        (NUMMULTIRANGE(), StringTypeClass),
+        (DATEMULTIRANGE(), StringTypeClass),
+        (TSMULTIRANGE(), StringTypeClass),
+        (TSTZMULTIRANGE(), StringTypeClass),
+    ]
+
+    report = SQLSourceReport()
+    for column_type, expected_class in cases:
+        actual = get_column_type(report, "test_dataset", column_type)
+        assert isinstance(actual.type, expected_class), (
+            f"{column_type!r} mapped to {actual.type}, expected {expected_class.__name__}"
+        )
+
+    # None of these should have hit the "Unable to map" fallback.
+    assert not report.infos
+
+
+def test_postgres_special_types_preserve_native_names():
+    """nativeDataType must carry the real type name, not 'null' (#18575)."""
+    inspector = mock.MagicMock()
+    inspector.dialect = PGDialect()
+
+    expected_native = {
+        VECTOR: "VECTOR",
+        POINT: "POINT",
+        LINE: "LINE",
+        LSEG: "LSEG",
+        BOX: "BOX",
+        PATH: "PATH",
+        POLYGON: "POLYGON",
+        CIRCLE: "CIRCLE",
+        XML: "XML",
+        LTREE: "LTREE",
+        CITEXT: "CITEXT",
+        INT4MULTIRANGE: "INT4MULTIRANGE",
+        INT8MULTIRANGE: "INT8MULTIRANGE",
+        NUMMULTIRANGE: "NUMMULTIRANGE",
+        DATEMULTIRANGE: "DATEMULTIRANGE",
+        TSMULTIRANGE: "TSMULTIRANGE",
+        TSTZMULTIRANGE: "TSTZMULTIRANGE",
+    }
+    for column_type_cls, native in expected_native.items():
+        assert (
+            get_native_data_type_for_sqlalchemy_type(column_type_cls(), inspector)
+            == native
+        )
+
+    assert get_native_data_type_for_sqlalchemy_type(CIDR(), inspector) == "CIDR"
+    assert (
+        get_native_data_type_for_sqlalchemy_type(INT4RANGE(), inspector) == "INT4RANGE"
+    )
+
+    # Reflection passes type modifiers through, e.g. a vector(4) column.
+    assert get_native_data_type_for_sqlalchemy_type(VECTOR(4), inspector) == "VECTOR(4)"

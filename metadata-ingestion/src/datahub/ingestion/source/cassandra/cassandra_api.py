@@ -1,3 +1,4 @@
+import base64
 import ssl
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
@@ -14,6 +15,29 @@ from cassandra.cluster import (
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
+
+
+def _decode_extensions(
+    mapping: Dict[str, Any], report: SourceReport, context: str
+) -> Dict[str, Any]:
+    # The `extensions` column is map<text, blob>, so the driver returns bytes
+    # values that aren't JSON-serializable when emitted as custom properties.
+    # Decode UTF-8 values directly; base64-encode non-UTF-8 ones so binary
+    # values (e.g. scylla_encryption_options) survive losslessly.
+    decoded: Dict[str, Any] = {}
+    for key, value in mapping.items():
+        if not isinstance(value, bytes):
+            decoded[key] = value
+            continue
+        try:
+            decoded[key] = value.decode("utf-8")
+        except UnicodeDecodeError:
+            decoded[key] = f"base64:{base64.b64encode(value).decode('ascii')}"
+            report.warning(
+                message="Extension value is not valid UTF-8; base64-encoding it",
+                context=f"{context}: {key}",
+            )
+    return decoded
 
 
 @dataclass
@@ -245,7 +269,11 @@ class CassandraAPI:
                     crc_check_chance=row.crc_check_chance,
                     dclocal_read_repair_chance=row.dclocal_read_repair_chance,
                     default_time_to_live=row.default_time_to_live,
-                    extensions=dict(row.extensions),
+                    extensions=_decode_extensions(
+                        dict(row.extensions),
+                        self.report,
+                        f"{row.keyspace_name}.{row.table_name}",
+                    ),
                     gc_grace_seconds=row.gc_grace_seconds,
                     max_index_interval=row.max_index_interval,
                     memtable_flush_period_in_ms=row.memtable_flush_period_in_ms,
@@ -320,7 +348,11 @@ class CassandraAPI:
                     crc_check_chance=row.crc_check_chance,
                     dclocal_read_repair_chance=row.dclocal_read_repair_chance,
                     default_time_to_live=row.default_time_to_live,
-                    extensions=dict(row.extensions),
+                    extensions=_decode_extensions(
+                        dict(row.extensions),
+                        self.report,
+                        f"{row.keyspace_name}.{row.view_name}",
+                    ),
                     gc_grace_seconds=row.gc_grace_seconds,
                     include_all_columns=row.include_all_columns,
                     max_index_interval=row.max_index_interval,

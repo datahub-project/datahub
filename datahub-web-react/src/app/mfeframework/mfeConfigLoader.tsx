@@ -6,7 +6,7 @@ import { DEFAULT_LOAD_TIMEOUT_MS, MFEBaseConfigurablePage } from '@app/mfeframew
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-export interface MFEFlags {
+interface MFEFlags {
     enabled: boolean;
     showInNav: boolean;
 }

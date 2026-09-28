@@ -2,10 +2,7 @@ import type { Icon } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { hexToRgb } from '@app/sharedV2/colors/colorUtils';
-import { getLighterRGBColor } from '@app/sharedV2/icons/colorUtils';
-
-const Container = styled.div<{ $bg: string; $size: number; $radius: number }>`
+const Container = styled.div<{ $color: string; $size: number; $radius: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
@@ -13,7 +10,8 @@ const Container = styled.div<{ $bg: string; $size: number; $radius: number }>`
     height: ${(props) => props.$size}px;
     width: ${(props) => props.$size}px;
     min-width: ${(props) => props.$size}px;
-    background-color: ${(props) => props.$bg};
+    color: ${(props) => `color-mix(in srgb, ${props.$color} 75%, ${props.theme.colors.text})`};
+    background-color: ${(props) => `color-mix(in srgb, ${props.$color} 12%, ${props.theme.colors.bg})`};
     flex-shrink: 0;
 `;
 
@@ -35,14 +33,12 @@ export default function GlossaryColoredIcon({
     radius,
     className,
 }: Props) {
-    const [r, g, b] = hexToRgb(color);
-    const bg = `rgb(${getLighterRGBColor(r, g, b).join(', ')})`;
     const resolvedIconSize = iconSize ?? Math.round(size * 0.6);
     const resolvedRadius = radius ?? size / 4;
 
     return (
-        <Container $bg={bg} $size={size} $radius={resolvedRadius} className={className}>
-            <IconComponent size={resolvedIconSize} color={color} weight="regular" />
+        <Container $color={color} $size={size} $radius={resolvedRadius} className={className}>
+            <IconComponent size={resolvedIconSize} color="currentColor" weight="bold" />
         </Container>
     );
 }

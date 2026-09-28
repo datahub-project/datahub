@@ -13,6 +13,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.util.Pair;
@@ -121,8 +122,13 @@ public class SemanticIndexConventionTest {
     // Setup delegate mock returns
     when(mockDelegateConvention.getPrefix(OperationFingerprint.EMPTY))
         .thenReturn(Optional.of("test"));
+    when(mockDelegateConvention.getPrefix(OperationFingerprint.EMPTY, SearchComponent.SEMANTIC))
+        .thenReturn(Optional.of("semantic"));
     when(mockDelegateConvention.getIndexName(OperationFingerprint.EMPTY, "baseIndex"))
         .thenReturn("test_baseindex_v2");
+    when(mockDelegateConvention.getIndexName(
+            OperationFingerprint.EMPTY, SearchComponent.GRAPH, "graph"))
+        .thenReturn("test_graph");
     when(mockDelegateConvention.getIdHashAlgo()).thenReturn("MD5");
     when(mockDelegateConvention.getAllEntityIndicesPatterns(OperationFingerprint.EMPTY))
         .thenReturn(Arrays.asList("*entity*"));
@@ -136,11 +142,20 @@ public class SemanticIndexConventionTest {
         semanticIndexConvention.getPrefix(OperationFingerprint.EMPTY),
         Optional.of("test"),
         "Should delegate getPrefix() to underlying convention");
+    assertEquals(
+        semanticIndexConvention.getPrefix(OperationFingerprint.EMPTY, SearchComponent.SEMANTIC),
+        Optional.of("semantic"),
+        "Should delegate component-specific getPrefix() to underlying convention");
 
     assertEquals(
         semanticIndexConvention.getIndexName(OperationFingerprint.EMPTY, "baseIndex"),
         "test_baseindex_v2",
         "Should delegate getIndexName() to underlying convention");
+    assertEquals(
+        semanticIndexConvention.getIndexName(
+            OperationFingerprint.EMPTY, SearchComponent.GRAPH, "graph"),
+        "test_graph",
+        "Should delegate component-specific getIndexName() to underlying convention");
 
     assertEquals(
         semanticIndexConvention.getIdHashAlgo(),
@@ -164,7 +179,10 @@ public class SemanticIndexConventionTest {
 
     // Verify delegate methods were called
     verify(mockDelegateConvention).getPrefix(OperationFingerprint.EMPTY);
+    verify(mockDelegateConvention).getPrefix(OperationFingerprint.EMPTY, SearchComponent.SEMANTIC);
     verify(mockDelegateConvention).getIndexName(OperationFingerprint.EMPTY, "baseIndex");
+    verify(mockDelegateConvention)
+        .getIndexName(OperationFingerprint.EMPTY, SearchComponent.GRAPH, "graph");
     verify(mockDelegateConvention).getIdHashAlgo();
     verify(mockDelegateConvention).getAllEntityIndicesPatterns(OperationFingerprint.EMPTY);
     verify(mockDelegateConvention).getV3EntityIndexPatterns(OperationFingerprint.EMPTY);

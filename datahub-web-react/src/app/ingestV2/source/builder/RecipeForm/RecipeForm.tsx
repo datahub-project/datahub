@@ -2,7 +2,7 @@ import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } 
 import { Button, Tooltip } from '@components';
 import { Collapse, Form, Typography, message } from 'antd';
 import i18next from 'i18next';
-import { get } from 'lodash';
+import get from 'lodash/get';
 import React, { Fragment, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';

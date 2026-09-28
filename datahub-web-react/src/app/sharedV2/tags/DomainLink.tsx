@@ -68,7 +68,7 @@ interface DomainContentProps {
     iconFontSize?: number;
 }
 
-function DomainContent({
+export function DomainContent({
     domain,
     name,
     closable,

@@ -1,12 +1,15 @@
 import itertools
 import json
 import logging
+import re
 import time
 from collections import defaultdict
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import sqlglot
 import sqlglot.expressions
+from sqlglot.errors import TokenError
+from sqlglot.tokens import TokenType
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import (
@@ -149,6 +152,122 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 
 logger = logging.getLogger(__name__)
 
+# CUSTOM_INCREMENTAL dynamic tables hide their MERGE inside a REFRESH USING (...) clause that
+# sqlglot's parser can't handle within CREATE DYNAMIC TABLE (it degrades the statement to a Command),
+# but its tokenizer lexes it fine, which is all the extraction below needs.
+_REFRESH_USING_RE = re.compile(r"\brefresh\s+using\s*\(", re.IGNORECASE)
+_MERGE_INTO_RE = re.compile(r"\bmerge\s+into\b", re.IGNORECASE)
+# Token types whose text is data rather than code (strings and quoted identifiers); their spans get
+# blanked so a stray keyword or paren inside them isn't read as SQL.
+_DATA_TOKENS = {
+    TokenType.STRING,
+    TokenType.RAW_STRING,
+    TokenType.IDENTIFIER,
+    TokenType.HEREDOC_STRING,
+    TokenType.BYTE_STRING,
+    TokenType.HEX_STRING,
+    TokenType.NATIONAL_STRING,
+    TokenType.UNICODE_STRING,
+}
+
+
+def _blank_sql_noise(sql: str) -> Optional[str]:
+    """Return ``sql`` with string literals and quoted identifiers overwritten by spaces (comments drop
+    out too, since sqlglot attaches them to tokens rather than emitting their own), preserving length
+    so offsets still map back to the original text. This keeps a stray ``refresh using (``, a
+    ``merge into``, or a parenthesis living inside a literal, quoted identifier or comment from being
+    read as code. Returns None on malformed SQL (a ``TokenError``, e.g. an unterminated string); the
+    caller then falls back to the full definition.
+
+    Ceiling: tokenization is whole-document, so a complete MERGE followed by unrelated malformed
+    trailing text yields None where a character scan would still recover it. Rare, since Snowflake
+    validates the DDL before storing DYNAMIC_TABLES.text. TODO: once sqlglot's Snowflake dialect learns
+    the REFRESH USING property, extraction becomes AST navigation and this helper goes away."""
+    try:
+        tokens = sqlglot.tokenize(sql, dialect="snowflake")
+    except TokenError:
+        return None
+    out = [" "] * len(sql)
+    for token in tokens:
+        if token.token_type not in _DATA_TOKENS:
+            out[token.start : token.end + 1] = sql[token.start : token.end + 1]
+    return "".join(out)
+
+
+def _extract_custom_incremental_merge(definition: str) -> Optional[str]:
+    """Return the inner MERGE from a dynamic table's ``REFRESH USING (...)`` clause so it can be
+    parsed for upstream and column lineage, or None when the clause is absent, its parentheses are
+    unbalanced, or its body is not a MERGE. The scan runs on a comment-and-string-blanked copy so a
+    stray ``refresh using (`` or parenthesis inside a comment or string can't hijack or truncate
+    extraction; the body is then sliced from the original text (offsets align) to keep its literals
+    intact for parsing."""
+    scan = _blank_sql_noise(definition)
+    if scan is None:
+        return None
+    match = _REFRESH_USING_RE.search(scan)
+    if not match:
+        return None
+    depth = 0
+    for i in range(match.end() - 1, len(scan)):
+        char = scan[i]
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+            if depth == 0:
+                if not _MERGE_INTO_RE.search(scan[match.end() : i]):
+                    return None
+                body = definition[match.end() : i].strip()
+                return body or None
+    return None
+
+
+def _normalize_self_reference(merge_body: str, dt_identifier: str) -> str:
+    """Rewrite Snowflake's ``self`` pseudo-reference (the dynamic table referring to itself) to the
+    table's real qualified name, so the aggregator's self-reference guards -- which compare against the
+    DT's own urn -- recognize and drop it. A ``self`` on the MERGE *source* side otherwise resolves to
+    a phantom ``<db>.<schema>.self`` upstream whenever the schema resolver can't override it (e.g. a
+    lineage-only run with no graph). Done as an AST edit so the name is emitted quoted where Snowflake
+    needs it: a db/schema/table name with a hyphen, space or dot no longer breaks the parse. A quoted
+    ``"self"`` identifier is a distinct token and is left untouched. Returns the body unchanged if it
+    cannot be parsed or rewritten, so the caller falls back to the table-level INPUTS upstreams."""
+    try:
+        tree = sqlglot.parse_one(merge_body, dialect="snowflake")
+        dt_table = sqlglot.expressions.to_table(dt_identifier, dialect="snowflake")
+        changed = False
+        for table in tree.find_all(sqlglot.expressions.Table):
+            # `.name` strips quoting, so guard on `.this.quoted`: a double-quoted "self" is a user
+            # table, not the keyword, and must be left alone.
+            if (
+                table.name.lower() == "self"
+                and not table.this.quoted
+                and not table.db
+                and not table.catalog
+            ):
+                replacement = dt_table.copy()
+                alias = table.args.get("alias")
+                if alias is not None:
+                    replacement.set("alias", alias.copy())
+                table.replace(replacement)
+                changed = True
+        # Columns qualified by a bare `self` (rare -- the target is normally aliased), e.g. `self.a`.
+        for column in tree.find_all(sqlglot.expressions.Column):
+            table_id = column.args.get("table")
+            if (
+                table_id is not None
+                and table_id.name.lower() == "self"
+                and not table_id.quoted
+            ):
+                column.set("table", dt_table.this.copy())
+                if dt_table.args.get("db"):
+                    column.set("db", dt_table.args["db"].copy())
+                if dt_table.args.get("catalog"):
+                    column.set("catalog", dt_table.args["catalog"].copy())
+                changed = True
+        return tree.sql(dialect="snowflake") if changed else merge_body
+    except Exception:
+        return merge_body
+
 
 class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     platform = "snowflake"
@@ -212,6 +331,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
+        # Dynamic-table identifiers, handed to the queries extractor to suppress their query-log rows.
+        self.dynamic_table_identifiers: Set[str] = set()
 
         self.aggregator = aggregator
 
@@ -573,15 +694,78 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     @staticmethod
     def _resolve_input_kind(kind: str) -> SnowflakeObjectDomain:
-        # DYNAMIC_TABLE_GRAPH_HISTORY INPUTS.kind is underscored uppercase
-        # (e.g. "MATERIALIZED_VIEW"); SnowflakeObjectDomain values are
-        # space-separated lowercase. Unknown kinds fall back to TABLE so we
-        # still emit lineage.
+        # INPUTS.kind is underscored-uppercase (e.g. "MATERIALIZED_VIEW"); SnowflakeObjectDomain values
+        # are space-separated lowercase. Unknown kinds fall back to TABLE so lineage is still emitted.
         normalized = kind.lower().replace("_", " ")
         try:
             return SnowflakeObjectDomain(normalized)
         except ValueError:
             return SnowflakeObjectDomain.TABLE
+
+    def _dynamic_table_input_urns(self, table: SnowflakeDynamicTable) -> List[str]:
+        """URNs of a dynamic table's INPUTS (from DYNAMIC_TABLE_GRAPH_HISTORY), filtered by the
+        configured dataset pattern."""
+        urns: List[str] = []
+        for upstream_input in table.upstream_tables:
+            upstream_domain = self._resolve_input_kind(upstream_input.kind)
+            upstream_identifier = (
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    upstream_input.name
+                )
+            )
+            if not self.filters.is_dataset_pattern_allowed(
+                upstream_identifier, upstream_domain
+            ):
+                logger.debug(
+                    f"Skipping dynamic table upstream {upstream_input.name}: "
+                    f"filtered by database/schema/table pattern"
+                )
+                continue
+            urns.append(self.identifiers.gen_dataset_urn(upstream_identifier))
+        return urns
+
+    def _register_dynamic_table_upstreams(
+        self, table: SnowflakeDynamicTable, db_name: str, schema_name: str
+    ) -> None:
+        assert self.aggregator is not None  # caller (_process_tables) guards on this
+        dt_identifier = self.identifiers.get_dataset_identifier(
+            table.name, schema_name, db_name
+        )
+        downstream_urn = self.identifiers.gen_dataset_urn(dt_identifier)
+        # INPUTS feeds two paths: a table-level fallback when the DDL is present but unparseable, and
+        # direct known lineage when the DDL is unavailable.
+        input_urns = self._dynamic_table_input_urns(table)
+        # A dynamic table must never be its own upstream: a MERGE INTO SELF definition can list the
+        # table itself in INPUTS, which would produce a self-loop.
+        input_urns = [urn for urn in input_urns if urn != downstream_urn]
+        if table.definition:
+            merge_body = _extract_custom_incremental_merge(table.definition)
+            if merge_body:
+                merge_body = _normalize_self_reference(merge_body, dt_identifier)
+            self.aggregator.add_view_definition(
+                view_urn=downstream_urn,
+                view_definition=merge_body or table.definition,
+                default_db=db_name,
+                default_schema=schema_name,
+                table_level_fallback_upstreams=input_urns,
+            )
+        else:
+            self.report.num_dynamic_tables_missing_definition += 1
+            self.structured_reporter.info(
+                title="Dynamic table definition unavailable: column-level lineage skipped",
+                message=(
+                    "The DDL for this dynamic table could not be retrieved; "
+                    "table-level lineage will be produced from INPUTS but "
+                    "column-level lineage requires the MONITOR privilege on the dynamic table."
+                ),
+                context=f"{db_name}.{schema_name}.{table.name}",
+            )
+            for upstream_urn in input_urns:
+                self.aggregator.add_known_lineage_mapping(
+                    upstream_urn=upstream_urn,
+                    downstream_urn=downstream_urn,
+                    lineage_type=DatasetLineageTypeClass.VIEW,
+                )
 
     def _process_tables(
         self,
@@ -590,61 +774,33 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         db_name: str,
         schema_name: str,
     ) -> Iterable[MetadataWorkUnit]:
+        dynamic_tables = [t for t in tables if isinstance(t, SnowflakeDynamicTable)]
+        # Identifiers feed the queries extractor's refresh-row suppression, in every config.
+        for dynamic_table in dynamic_tables:
+            self.dynamic_table_identifiers.add(
+                self.identifiers.get_dataset_identifier(
+                    dynamic_table.name, schema_name, db_name
+                )
+            )
+        # Register lineage outside the include_technical_schema gate (like view definitions) so a
+        # lineage-only run still gets dynamic-table upstreams. Guard per table: an unhandled error
+        # would abort the whole schema scan (this runs in a ThreadedIteratorExecutor worker).
+        if self.aggregator:
+            for dynamic_table in dynamic_tables:
+                try:
+                    self._register_dynamic_table_upstreams(
+                        dynamic_table, db_name, schema_name
+                    )
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Failed to register dynamic table lineage",
+                        f"{db_name}.{schema_name}.{dynamic_table.name}",
+                        exc=e,
+                    )
+
         if self.config.include_technical_schema:
             data_reader = self.make_data_reader()
             for table in tables:
-                if isinstance(table, SnowflakeDynamicTable) and self.aggregator:
-                    table_identifier = self.identifiers.get_dataset_identifier(
-                        table.name, schema_name, db_name
-                    )
-                    downstream_urn = self.identifiers.gen_dataset_urn(table_identifier)
-
-                    if table.definition:
-                        self.aggregator.add_view_definition(
-                            view_urn=downstream_urn,
-                            view_definition=table.definition,
-                            default_db=db_name,
-                            default_schema=schema_name,
-                        )
-                    else:
-                        self.report.num_dynamic_tables_missing_definition += 1
-                        self.structured_reporter.info(
-                            title="Dynamic table definition unavailable — column-level lineage skipped",
-                            message=(
-                                "The DDL for this dynamic table could not be retrieved; "
-                                "table-level lineage will be produced from INPUTS but "
-                                "column-level lineage requires the MONITOR privilege on the dynamic table."
-                            ),
-                            context=f"{db_name}.{schema_name}.{table.name}",
-                        )
-                        # Fall back to table-level lineage from DYNAMIC_TABLE_GRAPH_HISTORY().INPUTS
-                        # when DDL is unavailable. Skipped when DDL is present because SQL parsing
-                        # produces accurate column-level lineage; identity CLL from INPUTS would be
-                        # wrong for aliased/aggregated columns (e.g. SUM(amount) AS total).
-                        for upstream_input in table.upstream_tables:
-                            upstream_qualified_name = upstream_input.name
-                            upstream_domain = self._resolve_input_kind(
-                                upstream_input.kind
-                            )
-                            upstream_identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
-                                upstream_qualified_name
-                            )
-                            if not self.filters.is_dataset_pattern_allowed(
-                                upstream_identifier, upstream_domain
-                            ):
-                                logger.debug(
-                                    f"Skipping dynamic table upstream {upstream_qualified_name}: "
-                                    f"filtered by database/schema/table pattern"
-                                )
-                                continue
-                            self.aggregator.add_known_lineage_mapping(
-                                upstream_urn=self.identifiers.gen_dataset_urn(
-                                    upstream_identifier
-                                ),
-                                downstream_urn=downstream_urn,
-                                lineage_type=DatasetLineageTypeClass.VIEW,
-                            )
-
                 table_wu_generator = self._process_table(
                     table, snowflake_schema, db_name
                 )

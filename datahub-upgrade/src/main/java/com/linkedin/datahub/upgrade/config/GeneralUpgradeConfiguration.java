@@ -13,6 +13,7 @@ import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.gms.factory.kafka.trace.KafkaTraceReaderFactory;
 import com.linkedin.gms.factory.messaging.KafkaConsumerLagPort;
 import com.linkedin.gms.factory.messaging.PgQueueConsumerLagPort;
+import com.linkedin.gms.factory.systemmetadata.EntityCountMetricsFactory;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.gms.factory.trace.TraceServiceFactory;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -41,6 +42,9 @@ import org.springframework.context.annotation.FilterType;
           type = FilterType.ASSIGNABLE_TYPE,
           classes = {
             ScheduledAnalyticsFactory.class,
+            // Upgrade jobs create indices; entity-count metrics query them and fail/spam logs
+            // when system_metadata_service_v1 does not exist yet.
+            EntityCountMetricsFactory.class,
             AuthorizerChainFactory.class,
             DataHubAuthorizerFactory.class,
             SimpleKafkaConsumerFactory.class,

@@ -10,6 +10,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -54,15 +55,14 @@ class ClickHouseAdapter(PlatformAdapter):
         return sa.func.avg(sa.column(column))
 
     def get_column_stdev(
-        self, table: sa.Table, column: str, conn: Connection
+        self, table: sa.Table, column: str, conn: ProfilingConnection
     ) -> Optional[Any]:
         # ClickHouse's `stddev` is an alias for `stddevPop` (population), so we
         # call `stddevSamp` explicitly to match sample-stddev semantics.
         try:
-            query = sa.select([sa.func.stddevSamp(sa.column(column))]).select_from(
-                table
-            )
-            result = conn.execute(query).scalar()
+            result = conn.execute_aggregate(
+                table, sa.func.stddevSamp(sa.column(column))
+            ).scalar()
         except SQLAlchemyError as e:
             self.report.warning(
                 title="Profiling: failed to compute stdev",
@@ -93,7 +93,7 @@ class ClickHouseAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """Batched quantiles() with per-quantile fallback. Returns list of len(quantiles)."""
@@ -124,7 +124,7 @@ class ClickHouseAdapter(PlatformAdapter):
                 "quantiles"
             )
             query = sa.select([expr]).select_from(table)
-            raw = conn.execute(query).scalar()
+            raw = conn.execute_rows(query).scalar()
         except SQLAlchemyError as e:
             batched_failed = True
             self.report.warning(
@@ -164,7 +164,7 @@ class ClickHouseAdapter(PlatformAdapter):
                     "quantile"
                 )
                 query = sa.select([expr]).select_from(table)
-                result = conn.execute(query).scalar()
+                result = conn.execute_rows(query).scalar()
             except SQLAlchemyError as e:
                 if first_exc is None:
                     first_exc = e

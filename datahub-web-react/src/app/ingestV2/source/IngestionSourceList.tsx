@@ -87,6 +87,7 @@ const SearchContainer = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+    margin-top: 8px;
 `;
 
 const FilterButtonsContainer = styled.div`
@@ -352,7 +353,7 @@ export const IngestionSourceList = ({
             })
                 .then(() => {
                     setSourcesToRefetch((prev) => new Set(prev).add(urn));
-                    analytics.event({ type: EventType.ExecuteIngestionSourceEvent });
+                    analytics.event({ type: EventType.ExecuteIngestionSourceEvent, sourceUrn: urn });
                     message.success({
                         content: t('source.executeSuccess'),
                         duration: 3,

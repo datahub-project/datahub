@@ -264,3 +264,24 @@ def test_fine_grained_lineages(
 
     assert actual_downstream == expected_simplified_downstream
     assert actual_upstream == expected_simplified_upstream
+
+
+def test_loop_profiler_requests_propagates_candidate_generation_errors():
+    # Regression guard: a non-NotImplementedError raised by generate_profile_candidates
+    # must propagate out of loop_profiler_requests, not be caught. A blanket
+    # except Exception around that call once silently made Oracle's guardrail fail
+    # open (ORA-00942 on DBA_TABLES became "profile every table"); this test pins
+    # that only NotImplementedError is swallowed.
+    source = _TestSQLAlchemySource.create(
+        config_dict={"profiling": {"profile_table_row_limit": 1_000_000}},
+        ctx=PipelineContext(run_id="test_ctx"),
+    )
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("candidate query failed")
+
+    source.generate_profile_candidates = boom  # type: ignore[method-assign]
+    inspector = mock.MagicMock()
+
+    with pytest.raises(RuntimeError, match="candidate query failed"):
+        list(source.loop_profiler_requests(inspector, "my_schema", source.config))

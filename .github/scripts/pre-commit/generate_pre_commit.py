@@ -177,16 +177,12 @@ class HookGenerator:
                 print(f"Warning: Unsupported project type {project.type} for {project.path}")
 
         # Collapse all per-module ruff hooks into two repo-wide hooks (one check,
-        # one format) using the official ruff Docker image (pinned to the latest
-        # version pinned across modules — metadata-ingestion pins 0.15.18, the
-        # rest 0.11.7). Using the Docker image (language: docker_image) avoids
-        # needing any system/venv ruff install and gives a reproducible version
-        # across all machines. ruff does per-file config discovery, so each
-        # module's own [tool.ruff] in its pyproject.toml still applies (the repo
-        # is mounted into the container at the same path). ruff never imports
-        # the code or its deps, so no module venv is required. The `files` regex
-        # is a union of the module dirs so non-module .py (which has no ruff
-        # config) is not newly linted.
+        # one format). Uses a wrapper script (run_ruff.sh) that prefers a local
+        # ruff install and falls back to the Docker image when ruff is not on
+        # PATH. This removes Docker as a hard requirement for everyday commits
+        # while keeping the containerised fallback for machines without a local
+        # ruff. ruff does per-file config discovery, so each module's own
+        # [tool.ruff] in its pyproject.toml still applies.
         if ruff_module_dirs:
             dirs_alt = "|".join(d.replace(".", r"\.") for d in ruff_module_dirs)
             # Match .py plus pyproject.toml/ruff.toml in these modules: ruff config
@@ -196,15 +192,15 @@ class HookGenerator:
                 f"^({dirs_alt})/(?:.*\\.py$|(?:.*/)?(?:pyproject|ruff)\\.toml$)"
             )
             exclude_re = r"(^|/)(venv|build|dist|node_modules|\.git)/"
-            ruff_image = "ghcr.io/astral-sh/ruff:0.15.22"
+            ruff_wrapper = "bash .github/scripts/pre-commit/run_ruff.sh"
             ruff_hooks = [
                 {
                     "id": "ruff-check",
                     "name": "Ruff Check (all Python modules)",
                     # ruff check --fix applies safe lint fixes (can change code);
                     # keep it at pre-commit so issues are caught before commit.
-                    "entry": f"{ruff_image} check --fix",
-                    "language": "docker_image",
+                    "entry": f"{ruff_wrapper} check --fix",
+                    "language": "system",
                     "files": files_regex,
                     "exclude": exclude_re,
                     "pass_filenames": True,
@@ -214,8 +210,8 @@ class HookGenerator:
                     "id": "ruff-format",
                     "name": "Ruff Format (all Python modules)",
                     # ruff format is a pure formatter (no meaning change); pre-push.
-                    "entry": f"{ruff_image} format",
-                    "language": "docker_image",
+                    "entry": f"{ruff_wrapper} format",
+                    "language": "system",
                     "files": files_regex,
                     "exclude": exclude_re,
                     "pass_filenames": True,

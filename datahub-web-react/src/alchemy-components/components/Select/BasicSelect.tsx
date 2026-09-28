@@ -1,5 +1,5 @@
 import { Dropdown, Text } from '@components';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
@@ -30,7 +30,7 @@ import { SelectOption, SelectProps } from '@components/components/Select/types';
 import { getFooterButtonSize } from '@components/components/Select/utils';
 
 // Updated main component
-export const selectDefaults: SelectProps = {
+const selectDefaults: SelectProps = {
     options: [],
     label: '',
     size: 'md',
@@ -63,6 +63,8 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
+    optionDataTestId,
+    updateLabel,
     icon,
     renderCustomOptionText,
     selectLabelProps,
@@ -234,6 +236,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
+                                        data-testid={optionDataTestId?.(option) ?? `option-${option.value}`}
                                         onClick={() => !isMultiSelect && handleOptionChange(option)}
                                         isSelected={tempValues.includes(option.value)}
                                         isMultiSelect={isMultiSelect}
@@ -285,6 +288,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                 onCancel={handleCancelClick}
                                 onUpdate={handleUpdateClick}
                                 size={getFooterButtonSize(size)}
+                                updateLabel={updateLabel}
                             />
                         </DropdownContainer>
                     )}
@@ -327,5 +331,3 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
         </Container>
     );
 };
-
-export default BasicSelect;

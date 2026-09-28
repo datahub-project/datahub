@@ -5602,6 +5602,20 @@
     classnames "^2.3.1"
     prop-types "^15.6.2"
 
+"@visx/grid@^3.5.0":
+  version "3.12.0"
+  resolved "https://registry.yarnpkg.com/@visx/grid/-/grid-3.12.0.tgz#fca39fa246f273ea31c80e4a66762a037bacca99"
+  integrity sha512-L4ex2ooSYhwNIxJ3XFIKRhoSvEGjPc2Y3YCrtNB4TV5Ofdj4q0UMOsxfrH23Pr8HSHuQhb6VGMgYoK0LuWqDmQ==
+  dependencies:
+    "@types/react" "*"
+    "@visx/curve" "3.12.0"
+    "@visx/group" "3.12.0"
+    "@visx/point" "3.12.0"
+    "@visx/scale" "3.12.0"
+    "@visx/shape" "3.12.0"
+    classnames "^2.3.1"
+    prop-types "^15.6.2"
+
 "@visx/group@3.0.0", "@visx/group@^3.0.0":
   version "3.0.0"
   resolved "https://registry.npmjs.org/@visx/group/-/group-3.0.0.tgz"
@@ -5658,6 +5672,11 @@
   version "3.0.1"
   resolved "https://registry.npmjs.org/@visx/point/-/point-3.0.1.tgz"
   integrity sha512-S5WOBMgEP2xHcgs3A2BFB2vwzrk0tMmn3PGZAbQJ+lu4HlnalDP72klUnxLTH8xclNNvpUHtHM5eLIJXyHx6Pw==
+
+"@visx/point@3.12.0":
+  version "3.12.0"
+  resolved "https://registry.yarnpkg.com/@visx/point/-/point-3.12.0.tgz#d3eedcbb37acef5ec86550cbacb013a61e7e7eee"
+  integrity sha512-I6UrHoJAEVbx3RORQNupgTiX5EzjuZpiwLPxn8L2mI5nfERotPKi1Yus12Cq2WtXqEBR/WgqTnoImlqOXBykcA==
 
 "@visx/react-spring@3.2.0":
   version "3.2.0"
@@ -7787,10 +7806,10 @@ domino@^2.1.6:
   resolved "https://registry.npmjs.org/domino/-/domino-2.1.6.tgz"
   integrity sha512-3VdM/SXBZX2omc9JF9nOPCtDaYQ67BGp5CoLpIQlO2KCAPETs8TcDHacF26jXadGbvUteZzRTeos2fhID5+ucQ==
 
-dompurify@^3.2.4:
-  version "3.2.4"
-  resolved "https://registry.npmjs.org/dompurify/-/dompurify-3.2.4.tgz"
-  integrity sha512-ysFSFEDVduQpyhzAob/kkuJjf5zWkZD8/A9ywSp1byueyuCfHamrCBa14/Oc2iiB0e51B+NpxSl5gmzn+Ms/mg==
+dompurify@^3.4.0:
+  version "3.4.0"
+  resolved "https://registry.yarnpkg.com/dompurify/-/dompurify-3.4.0.tgz#b1fc33ebdadb373241621e0a30e4ad81573dfd0b"
+  integrity sha512-nolgK9JcaUXMSmW+j1yaSvaEaoXYHwWyGJlkoCTghc97KgGDDSnpoU/PlEnw63Ah+TGKFOyY+X5LnxaWbCSfXg==
   optionalDependencies:
     "@types/trusted-types" "^2.0.7"
 
@@ -10027,7 +10046,7 @@ lodash.merge@^4.6.2:
   resolved "https://registry.npmjs.org/lodash.merge/-/lodash.merge-4.6.2.tgz"
   integrity sha512-0KpjqXRVvrYyCsX1swR/XTK0va6VQkQM6MNo7PqW77ByjAhoARA8EfrP1N4+KlKj8YS0ZUCtRT/YUuhyYDujIQ==
 
-lodash@^4.0.1, lodash@^4.17.11, lodash@^4.17.15, lodash@^4.17.20, lodash@^4.17.21, lodash@~4.17.0:
+lodash@^4.0.1, lodash@^4.17.11, lodash@^4.17.15, lodash@^4.17.20, lodash@^4.17.21, lodash@^4.17.23, lodash@~4.17.0:
   version "4.17.23"
   resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.23.tgz#f113b0378386103be4f6893388c73d0bde7f2c5a"
   integrity sha512-LgVTMpQtIopCi79SJeDiP0TfWi5CNEc/L/aRdTh3yIvmZXTnheWpKjSZhnvMl8iXbC1tFg9gdHHDMLoV7CnG+w==
@@ -10212,6 +10231,11 @@ map-or-similar@^1.5.0:
   version "1.5.0"
   resolved "https://registry.npmjs.org/map-or-similar/-/map-or-similar-1.5.0.tgz"
   integrity sha512-0aF7ZmVon1igznGI4VS30yugpduQW3y3GkcgGJOp7d8x8QrizhigUxjI/m2UojsXXto+jLAH3KSz+xOJTiORjg==
+
+marked@^16.3.0:
+  version "16.4.2"
+  resolved "https://registry.yarnpkg.com/marked/-/marked-16.4.2.tgz#4959a64be6c486f0db7467ead7ce288de54290a3"
+  integrity sha512-TI3V8YYWvkVf3KJe1dRkpnjs68JUPyEa5vjKrp1XEEJUAOaQc+Qj+L1qWbPd0SJuAdQkFU0h73sXXqwDYxsiDA==
 
 marked@^4.0.12:
   version "4.2.3"

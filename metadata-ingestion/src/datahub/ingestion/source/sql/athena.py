@@ -38,7 +38,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     SourceCapabilityModifier,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.athena_properties_extractor import (
     AthenaPropertiesExtractor,
 )
@@ -98,7 +98,7 @@ register_custom_type(STRUCT, RecordTypeClass)
 register_custom_type(MapType, MapTypeClass)
 
 
-class AthenaProfilingConfig(GEProfilingConfig):
+class AthenaProfilingConfig(ProfilingConfig):
     # Overriding default value for partition_profiling
     partition_profiling_enabled: bool = pydantic.Field(
         default=False,
@@ -329,8 +329,8 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             precision, scale = type_meta_information.split(",")
             args = [int(precision), int(scale)]
         elif type_name.endswith("dtype"):
-            # Pandas nullable dtypes (e.g. Int64Dtype, UInt32Dtype) leak through the profiling
-            # pipeline when great_expectations reflects column types from Athena result sets.
+            # Pandas nullable dtypes (e.g. Int64Dtype, UInt32Dtype) can leak through the
+            # profiling pipeline when column types are reflected from Athena result sets.
             base = type_name[:-5]
             if base in ("int8", "int16", "int32", "uint8", "uint16", "uint32"):
                 detected_col_type = types.INTEGER
@@ -347,6 +347,35 @@ class CustomAthenaRestDialect(AthenaRestDialect):
         else:
             return super()._get_column_type(type_name)
         return detected_col_type(*args)
+
+
+class AthenaProbeReadFailed(Exception):
+    """The dialect could not read something and would have returned it as empty.
+
+    Not a ValueError: nothing is wrong with the caller's arguments, the source
+    could not be read, which is the exit code that says so.
+    """
+
+
+class _ProbeReportRaisesInsteadOfWarning:
+    """The report substitute the probe hands CustomAthenaRestDialect.
+
+    Signature matches the SQLSourceReport.warning call the dialect makes. An
+    ingestion run records the warning and emits what it could; a probe has
+    nowhere to record it and no partial answer worth giving, so it raises.
+    """
+
+    def warning(
+        self,
+        message: str,
+        context: Optional[str] = None,
+        title: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+        log_category: Optional[object] = None,
+    ) -> None:
+        detail = f"{message} ({context})" if context else message
+        raise AthenaProbeReadFailed(detail) from exc
 
 
 class AthenaConfig(SQLCommonConfig):
@@ -464,6 +493,25 @@ class AthenaConfig(SQLCommonConfig):
                 "duration_seconds": str(self.aws_role_assumption_duration),
             },
         )
+
+    def probe_prepare_engine(self, engine: Any) -> None:
+        # Same substitution get_inspectors() makes, and for the same reason: the
+        # stock PyAthena dialect omits ICEBERG from get_table_names (so S3 Tables
+        # go missing) and does not unpack the complex types Athena reports as DDL
+        # strings. A probe on the stock dialect would answer differently from the
+        # ingestion it exists to predict.
+        dialect = CustomAthenaRestDialect()
+        # A report has to be wired, and it has to be one that raises. Leaving it
+        # None looks harmless because every use is guarded -- but the guarded use
+        # is the S3 Tables fallback's failure path, which logs, warns and returns
+        # an empty list. Its own comment says why that matters: missing IAM
+        # permissions and expired credentials then look identical to an empty
+        # schema. Reporting "no tables" when the truth is "could not read" is the
+        # single confusion this interface exists to prevent, and a probe has no
+        # ingestion report to carry the gap into, so here the warning is the
+        # failure.
+        dialect._report = _ProbeReportRaisesInsteadOfWarning()  # type: ignore[assignment]
+        engine.dialect = dialect
 
 
 @dataclass

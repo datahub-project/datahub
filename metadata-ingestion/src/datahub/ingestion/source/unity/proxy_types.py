@@ -177,6 +177,27 @@ class ServicePrincipal:
     active: Optional[bool]
 
 
+def escape_unity_name(value: str) -> str:
+    """A metastore, catalog or schema name as it appears in the ids that
+    catalog_pattern and schema_pattern are matched against.
+
+    Shared by UnityCatalogApiProxy, which builds those ids, and by the recipe
+    probe's UnityCatalogSourceConfig.probe_container_match_target, so both
+    sides filter on the same string.
+    """
+    return value.replace(" ", "_")
+
+
+def qualified_table_name(catalog: str, schema: str, table: str) -> str:
+    """The identifier table_pattern/view_pattern is matched against.
+
+    Shared by TableReference.qualified_table_name below and by the recipe
+    probe's UnityCatalogSourceConfig.probe_filter_target override (see
+    unity/config.py), so both sides filter on the same string.
+    """
+    return f"{catalog}.{schema}.{table}"
+
+
 @dataclass(frozen=True, order=True)
 class TableReference:
     metastore: Optional[str]
@@ -222,7 +243,7 @@ class TableReference:
 
     @property
     def qualified_table_name(self) -> str:
-        return f"{self.catalog}.{self.schema}.{self.table}"
+        return qualified_table_name(self.catalog, self.schema, self.table)
 
     @property
     def external_path(self) -> str:
@@ -302,6 +323,21 @@ class Table(CommonProperty):
         )
 
 
+# Databricks masks statement_text / query_text as this placeholder for principals
+# that are not account admins and not in databricks_pii_access. The casing is
+# not contractually guaranteed (public docs show "<Redacted>", live workspaces
+# return "<REDACTED>"), so compare case-insensitively. Detection assumes the
+# whole field is the placeholder; inline redaction or a trailing separator would
+# not be caught and would fall back to junk SQL parsing.
+DATABRICKS_REDACTED_QUERY_TEXT = "<REDACTED>"
+
+
+def is_databricks_query_text_redacted(query_text: Optional[str]) -> bool:
+    if not query_text:
+        return False
+    return query_text.strip().upper() == DATABRICKS_REDACTED_QUERY_TEXT
+
+
 @dataclass
 class Query:
     query_id: Optional[str]
@@ -322,6 +358,10 @@ class Query:
     @property
     def has_system_table_lineage(self) -> bool:
         return bool(self.source_table_full_names or self.target_table_full_names)
+
+    @property
+    def is_query_text_redacted(self) -> bool:
+        return is_databricks_query_text_redacted(self.query_text)
 
 
 @dataclass

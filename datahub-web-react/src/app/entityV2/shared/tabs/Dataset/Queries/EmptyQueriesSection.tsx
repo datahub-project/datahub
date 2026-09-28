@@ -65,6 +65,7 @@ const StyledInfoOutlined = styled(InfoCircleOutlined)`
 
 interface Props {
     sectionName?: string;
+    emptyText?: string;
     showButton: boolean;
     buttonLabel?: string;
     isButtonDisabled?: boolean;
@@ -75,6 +76,7 @@ interface Props {
 
 export default function EmptyQueriesSection({
     sectionName,
+    emptyText,
     showButton = false,
     buttonLabel,
     isButtonDisabled,
@@ -83,6 +85,8 @@ export default function EmptyQueriesSection({
     tooltipPosition,
 }: Props) {
     const { t } = useTranslation('entity.profile.queries');
+    const description = emptyText || t('emptyQueries.noHighlightedQueries');
+
     return (
         <SectionWrapper>
             <div>
@@ -95,10 +99,7 @@ export default function EmptyQueriesSection({
             </div>
             <ContentContainer>
                 <LeftContainer>
-                    <StyledEmpty
-                        description={<Description>{t('emptyQueries.noHighlightedQueries')}</Description>}
-                        image={NoDocs}
-                    />
+                    <StyledEmpty description={<Description>{description}</Description>} image={NoDocs} />
                 </LeftContainer>
                 <RightContainer>
                     {showButton && (

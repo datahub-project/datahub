@@ -18,7 +18,7 @@ const StyledSearchBar = styled(SearchBar)<{ $isShowNavBarRedesign?: boolean }>`
         !props.$isShowNavBarRedesign &&
         `
         background: ${props.theme.colors.bgSurfaceDarker};
-        border-color: ${props.theme.colors.bgSurfaceDarker};
+        border-color: transparent;
 
         &:hover,
         &:focus,

@@ -16,9 +16,11 @@ import {
 } from '@components/components/Select/components';
 
 import EntitySearchInputResultV2 from '@app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import { getEntityDisplayName as getEntityDisplayNameUtil } from '@app/entityV2/shared/EntitySearchSelect/utils';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
+import { useListIngestionSourcesQuery } from '@graphql/ingestion.generated';
 import { useGetEntitySearchResultsAutoCompleteFieldsLazyQuery } from '@graphql/search.generated';
 import { AndFilterInput, Entity, EntityType } from '@types';
 
@@ -94,68 +96,137 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
 }) => {
     const { t } = useTranslation('entity.shared.selectors');
     const resolvedPlaceholder = placeholder ?? t('entitySearch.placeholder');
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const [searchQuery, setSearchQuery] = useState('');
     const prevOpenRef = useRef<boolean>(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Keep search params in refs so the debounce only fires on searchQuery changes,
+    // not on unstable array/object prop references from parent re-renders.
+    const searchParamsRef = useRef({ entityTypes, defaultFilters, viewUrn });
+    searchParamsRef.current = { entityTypes, defaultFilters, viewUrn };
+
+    // Check if INGESTION_SOURCE is in entity types
+    const hasIngestionSource = entityTypes.includes(EntityType.IngestionSource);
 
     // Search functionality
     const [searchResources, { data: resourcesSearchData, loading: searchLoading }] =
         useGetEntitySearchResultsAutoCompleteFieldsLazyQuery();
 
-    // Issue a default search when dropdown opens
-    useEffect(() => {
-        if (open && !prevOpenRef.current) {
-            searchResources({
-                variables: {
-                    input: {
-                        types: entityTypes,
-                        query: '*',
-                        start: 0,
-                        count: 10,
-                        orFilters: defaultFilters,
-                        viewUrn: viewUrn || undefined,
-                    },
-                },
-            });
-            setSearchQuery('');
-        }
-        prevOpenRef.current = open;
-    }, [open, entityTypes, searchResources, defaultFilters, viewUrn]);
+    // Debounced copy of searchQuery for the ingestion-sources query — it refetches on
+    // every variables change, so feeding it the raw per-keystroke value would fire a
+    // request per character (the main search above already debounces via useDebounce).
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    useDebounce(() => setDebouncedSearchQuery(searchQuery), DEBOUNCE_SEARCH_MS, [searchQuery]);
 
-    useDebounce(
-        () => {
-            if (open) {
+    // Fetch ingestion sources when needed
+    const { data: ingestionSourcesData, loading: ingestionSourcesLoading } = useListIngestionSourcesQuery({
+        variables: {
+            input: {
+                start: 0,
+                count: 10,
+                query: debouncedSearchQuery || undefined,
+                filters: [
+                    {
+                        field: 'sourceType',
+                        values: ['SYSTEM'],
+                        negated: true,
+                    },
+                ],
+            },
+        },
+        skip: !hasIngestionSource,
+    });
+
+    const doSearch = useCallback(
+        (query: string) => {
+            const { entityTypes: types, defaultFilters: filters, viewUrn: view } = searchParamsRef.current;
+            // Only search non-INGESTION_SOURCE types through the main search
+            const typesToSearch = types.filter((type) => type !== EntityType.IngestionSource);
+
+            // Call searchResources if:
+            // 1. Original types array is empty (search all types), OR
+            // 2. There are non-ingestion-source types to search (skip if only ingestion source)
+            if (types.length === 0 || typesToSearch.length > 0) {
                 searchResources({
                     variables: {
                         input: {
-                            types: entityTypes,
-                            query: searchQuery || '*',
+                            types: typesToSearch,
+                            query,
                             start: 0,
                             count: 10,
-                            orFilters: defaultFilters,
-                            viewUrn: viewUrn || undefined,
+                            orFilters: filters,
+                            viewUrn: view || undefined,
                         },
                     },
                 });
             }
         },
+        [searchResources],
+    );
+
+    // Initialize search when dropdown opens
+    useEffect(() => {
+        if (open && !prevOpenRef.current) {
+            doSearch('*');
+            setSearchQuery('');
+        }
+        prevOpenRef.current = open;
+    }, [open, doSearch]);
+
+    // Debounce the search to avoid too many requests when user types
+    useDebounce(
+        () => {
+            if (open) {
+                doSearch(searchQuery || '*');
+            }
+        },
         DEBOUNCE_SEARCH_MS,
-        [searchQuery, entityTypes, defaultFilters, viewUrn, open],
+        [searchQuery, doSearch],
     );
 
     const handleSearchChange = useCallback((value: string) => {
         setSearchQuery(value);
     }, []);
 
+    const getEntityDisplayName = useCallback(
+        (entity: Entity) => getEntityDisplayNameUtil(entity, entityRegistry),
+        [entityRegistry],
+    );
+
     const entityOptions = useMemo(() => {
-        const results = resourcesSearchData?.searchAcrossEntities?.searchResults || [];
-        return results.map((result) => ({
-            label: entityRegistry.getDisplayName(result.entity.type, result.entity),
-            value: result.entity.urn,
-            entity: result.entity as Entity,
-        }));
-    }, [resourcesSearchData, entityRegistry]);
+        // Only include regular search results if we're actually searching for non-ingestion-source types
+        const typesToSearch = entityTypes.filter((type) => type !== EntityType.IngestionSource);
+        const shouldIncludeSearchResults = entityTypes.length === 0 || typesToSearch.length > 0;
+
+        let entityResults: Array<{ label: string; value: string; entity: Entity }> = [];
+        if (shouldIncludeSearchResults) {
+            const results = resourcesSearchData?.searchAcrossEntities?.searchResults || [];
+            entityResults = results.map((result) => ({
+                label: getEntityDisplayName(result.entity as Entity),
+                value: result.entity.urn,
+                entity: result.entity as Entity,
+            }));
+        }
+
+        // Add ingestion sources if available
+        const ingestionSources = ingestionSourcesData?.listIngestionSources?.ingestionSources || [];
+        const ingestionSourceResults = ingestionSources.map((source) => {
+            const displayName = source.name || source.urn;
+            return {
+                label: displayName,
+                value: source.urn,
+                entity: {
+                    ...source,
+                    urn: source.urn,
+                    type: EntityType.IngestionSource,
+                    name: displayName,
+                } as Entity,
+            };
+        });
+
+        return [...entityResults, ...ingestionSourceResults];
+    }, [resourcesSearchData, ingestionSourcesData, getEntityDisplayName, entityTypes]);
 
     const handleOptionClick = useCallback(
         (option: { value: string; entity: Entity }) => {
@@ -184,19 +255,20 @@ export const EntitySearchDropdown: React.FC<EntitySearchDropdownProps> = ({
                     setValue={handleSearchChange}
                     placeholder={resolvedPlaceholder}
                     icon={{ icon: MagnifyingGlass }}
-                    data-testid="entity-search-select-input"
+                    inputTestId="entity-search-select-input"
                 />
             </SearchInputContainer>
             <OptionList>
-                {searchLoading && (
+                {(searchLoading || ingestionSourcesLoading) && (
                     <LoadingState>
                         <Loader size="sm" />
                     </LoadingState>
                 )}
-                {!searchLoading && entityOptions.length === 0 && (
+                {!searchLoading && !ingestionSourcesLoading && entityOptions.length === 0 && (
                     <EmptyState>{t('entitySearch.noEntitiesFound')}</EmptyState>
                 )}
                 {!searchLoading &&
+                    !ingestionSourcesLoading &&
                     entityOptions.map((option) => (
                         <OptionLabel
                             key={option.value}

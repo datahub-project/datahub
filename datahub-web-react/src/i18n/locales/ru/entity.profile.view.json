@@ -1,0 +1,12 @@
+{
+    "viewDefinitionTab.detailsHeading": "Детали",
+    "viewDefinitionTab.formatCompiled": "Скомпилировано",
+    "viewDefinitionTab.formatFormatted": "Отформатировано",
+    "viewDefinitionTab.formatRaw": "Исходный вид",
+    "viewDefinitionTab.formatSource": "Источник",
+    "viewDefinitionTab.languageLabel": "Язык",
+    "viewDefinitionTab.logicHeading": "Логика",
+    "viewDefinitionTab.materializedFalse": "Нет",
+    "viewDefinitionTab.materializedLabel": "Материализовано",
+    "viewDefinitionTab.materializedTrue": "Да"
+}

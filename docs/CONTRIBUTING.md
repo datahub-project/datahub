@@ -35,6 +35,18 @@ Before you submit your Pull Request (PR), consider the following guidelines:
 - If there are any breaking changes, potential downtime, deprecations, or big features, please add an update in [Updating DataHub under Next](how/updating-datahub.md).
 - That's it! Thank you for your contribution!
 
+### Product-update CTA merge check
+
+The Cloud/Core "What's New" toast CTA is a live URL republished from
+`product-update.json` / `product-update-saas.json`. Lint job
+`product_update_release_sync` GET-probes those links when a PR hits the
+product-update-sync path filter (the JSON files, release notes, or related
+cigate). Unrelated PRs skip that job. The Gradle release-sync tests stay
+hermetic; the probe is a following step so a 404 does not fail unit tests.
+
+After the URL returns 2xx, re-run `product_update_release_sync`. Do not rerun
+the full CI suite. There is no scheduled retry.
+
 ### PR Title Format
 
 ```

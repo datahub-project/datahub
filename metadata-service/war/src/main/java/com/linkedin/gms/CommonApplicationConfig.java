@@ -37,6 +37,7 @@ import org.springframework.core.env.Environment;
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.system_telemetry.context",
       "com.linkedin.gms.factory.entityregistry",
+      "com.linkedin.gms.factory.aws",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.usage",
       "com.linkedin.gms.factory.entity",

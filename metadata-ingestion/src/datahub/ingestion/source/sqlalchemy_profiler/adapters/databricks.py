@@ -11,7 +11,6 @@ from databricks.sqlalchemy.dialect import (
     DatabricksDecimal,
     DatabricksTimestamp,
 )
-from sqlalchemy.engine import Connection
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.type_api import TypeEngine
@@ -19,6 +18,7 @@ from sqlalchemy.sql.type_api import TypeEngine
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,6 @@ class DatabricksAdapter(PlatformAdapter):
         """
         Databricks uses approx_count_distinct for fast unique counts.
 
-        This matches GE profiler behavior (ge_data_profiler.py:233-239).
         Note: Databricks uses lowercase function name.
 
         Args:
@@ -145,7 +144,6 @@ class DatabricksAdapter(PlatformAdapter):
         """
         Databricks uses approx_percentile for median.
 
-        This matches GE profiler behavior (ge_data_profiler.py:684-693).
         approx_percentile(column, 0.5) computes the approximate median.
 
         Args:
@@ -160,7 +158,7 @@ class DatabricksAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -187,7 +185,7 @@ class DatabricksAdapter(PlatformAdapter):
             f"approx_percentile({quoted_column}, {array_str})"
         ).label("quantiles")
         query = sa.select([databricks_expr]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_rows(query).scalar()
         logger.debug(
             f"Databricks quantiles for {column}: result type={type(result)}, "
             f"value={result}, expected_length={len(quantiles)}"

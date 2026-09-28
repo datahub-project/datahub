@@ -117,26 +117,67 @@ public class RestoreStorageStep implements UpgradeStep {
                 + clazz.getSimpleName()
                 + ", need to implement proper constructor.");
       }
-      EbeanAspectBackupIterator<? extends ReaderWrapper> iterator =
-          backupReader.getBackupIterator(context);
-      ReaderWrapper reader;
+      EbeanAspectBackupIterator<? extends ReaderWrapper> iterator = null;
       List<Future<?>> futureList = new ArrayList<>();
-      while ((reader = iterator.getNextReader()) != null) {
-        final ReaderWrapper readerRef = reader;
-        futureList.add(_fileReaderThreadPool.submit(() -> readerExecutable(readerRef, context)));
-      }
-      for (Future<?> future : futureList) {
-        try {
-          future.get();
-        } catch (InterruptedException | ExecutionException e) {
-          context.report().addLine("Reading interrupted, not able to finish processing.");
-          throw new RuntimeException(e);
+      try {
+        iterator = backupReader.getBackupIterator(context);
+        ReaderWrapper reader;
+        while ((reader = iterator.getNextReader()) != null) {
+          final ReaderWrapper readerRef = reader;
+          futureList.add(_fileReaderThreadPool.submit(() -> readerExecutable(readerRef, context)));
+        }
+        for (Future<?> future : futureList) {
+          try {
+            future.get();
+          } catch (InterruptedException | ExecutionException e) {
+            context.report().addLine("Reading interrupted, not able to finish processing.");
+            throw new RuntimeException(e);
+          }
+        }
+
+        context.report().addLine(String.format("Added %d rows to the aspect v2 table", numRows));
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } finally {
+        drainUninterruptibly(futureList);
+        if (iterator != null) {
+          try {
+            iterator.close();
+          } catch (Exception e) {
+            context.report().addLine("Failed to close backup iterator: " + e.getMessage());
+          }
+        }
+        if (backupReader instanceof AutoCloseable closeable) {
+          try {
+            closeable.close();
+          } catch (Exception e) {
+            context.report().addLine("Failed to close BackupReader: " + e.getMessage());
+          }
         }
       }
-
-      context.report().addLine(String.format("Added %d rows to the aspect v2 table", numRows));
-      return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
+  }
+
+  /**
+   * Wait for every submitted reader so {@code iterator.close()} cannot race remaining {@code
+   * next()} calls. Preserve interrupt status after waiting.
+   */
+  private static void drainUninterruptibly(List<Future<?>> futures) {
+    boolean interrupted = false;
+    for (Future<?> future : futures) {
+      while (true) {
+        try {
+          future.get();
+          break;
+        } catch (InterruptedException e) {
+          interrupted = true;
+        } catch (Exception ignored) {
+          break;
+        }
+      }
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   private void readerExecutable(ReaderWrapper reader, UpgradeContext context) {

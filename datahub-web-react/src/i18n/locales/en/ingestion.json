@@ -17,6 +17,7 @@
     "executions.cancelError": "Failed to cancel execution!: \n {{errorMessage}}",
     "executions.cancelSuccess": "Successfully submitted cancellation request!",
     "executions.cliExecution": "CLI Execution",
+    "executions.cliExecutionBy": "CLI Execution by <user></user>",
     "executions.colDuration": "Duration",
     "executions.colExecutedBy": "Executed By",
     "executions.colStartedAt": "Started At",

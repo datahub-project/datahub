@@ -17,6 +17,7 @@
     "executions.cancelError": "実行のキャンセルに失敗しました: \n {{errorMessage}}",
     "executions.cancelSuccess": "キャンセルリクエストを送信しました。",
     "executions.cliExecution": "CLI実行",
+    "executions.cliExecutionBy": "<user></user>によるCLI実行",
     "executions.colDuration": "期間",
     "executions.colExecutedBy": "実行者",
     "executions.colStartedAt": "開始日時",

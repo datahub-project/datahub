@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.GetSecretValuesInput;
 import com.linkedin.datahub.graphql.generated.SecretValue;
@@ -29,6 +30,22 @@ public class GetSecretValuesResolverTest {
 
   private static final GetSecretValuesInput TEST_INPUT =
       new GetSecretValuesInput(ImmutableList.of(getTestSecretValue().getName()));
+
+  private static final Urn TEST_BAD_SECRET_URN =
+      Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, "TEST_BAD_SECRET");
+
+  private static final GetSecretValuesInput TEST_BATCH_INPUT =
+      new GetSecretValuesInput(
+          ImmutableList.of(getTestSecretValue().getName(), getTestBadSecretValue().getName()));
+
+  /** A secret whose stored value cannot be decrypted, e.g. after an encryption key rotation. */
+  private static DataHubSecretValue getTestBadSecretValue() {
+    DataHubSecretValue value = new DataHubSecretValue();
+    value.setValue("undecryptablevalue");
+    value.setName(TEST_BAD_SECRET_URN.getId());
+    value.setDescription("none");
+    return value;
+  }
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -76,6 +93,109 @@ public class GetSecretValuesResolverTest {
     assertEquals(values.size(), 1);
     assertEquals(values.get(0).getName(), TEST_INPUT.getSecrets().get(0));
     assertEquals(values.get(0).getValue(), decryptedSecretValue);
+  }
+
+  @Test
+  public void testGetUndecryptableSecretIsOmitted() throws Exception {
+
+    final String decryptedSecretValue = "mysecretvalue";
+
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    Mockito.when(
+            mockSecretService.decrypt(Mockito.any(), Mockito.eq(getTestSecretValue().getValue())))
+        .thenReturn(decryptedSecretValue);
+    Mockito.doThrow(new RuntimeException("Failed to decrypt value"))
+        .when(mockSecretService)
+        .decrypt(Mockito.any(), Mockito.eq(getTestBadSecretValue().getValue()));
+
+    // The undecryptable secret is returned first, so that a failure on the first entry would
+    // abort the whole batch if the error handling were not scoped per secret.
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.SECRETS_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_SECRET_URN, TEST_BAD_SECRET_URN))),
+                Mockito.eq(ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_BAD_SECRET_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(TEST_BAD_SECRET_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.SECRET_VALUE_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(getTestBadSecretValue().data()))))),
+                TEST_SECRET_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(TEST_SECRET_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.SECRET_VALUE_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(getTestSecretValue().data())))))));
+
+    GetSecretValuesResolver resolver = new GetSecretValuesResolver(mockClient, mockSecretService);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_BATCH_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // Data Assertions: the undecryptable secret is omitted, the healthy one still resolves.
+    List<SecretValue> values = resolver.get(mockEnv).get();
+    assertEquals(values.size(), 1);
+    assertEquals(values.get(0).getName(), getTestSecretValue().getName());
+    assertEquals(values.get(0).getValue(), decryptedSecretValue);
+  }
+
+  @Test
+  public void testGetSecurityExceptionFailsRequest() throws Exception {
+
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    Mockito.doThrow(new SecurityException("Caller is not permitted to decrypt secrets"))
+        .when(mockSecretService)
+        .decrypt(Mockito.any(), Mockito.eq(getTestSecretValue().getValue()));
+
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.SECRETS_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_SECRET_URN))),
+                Mockito.eq(ImmutableSet.of(Constants.SECRET_VALUE_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_SECRET_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.SECRETS_ENTITY_NAME)
+                    .setUrn(TEST_SECRET_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.SECRET_VALUE_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(new Aspect(getTestSecretValue().data())))))));
+
+    GetSecretValuesResolver resolver = new GetSecretValuesResolver(mockClient, mockSecretService);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    // An authorization denial from the secret service must fail the request, never turn into
+    // a successful response with the secret omitted.
+    assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
   }
 
   @Test

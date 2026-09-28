@@ -65,7 +65,7 @@ const RecentProductsModule = styled(ModuleContainer)`
 const MarketplaceModuleHeader = styled(ModuleHeader)`
     &:hover {
         background: transparent;
-        border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
+        border-bottom: ${borders['1px']} transparent;
     }
 `;
 

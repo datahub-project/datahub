@@ -24,6 +24,7 @@ import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
@@ -73,7 +74,8 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
         .thenReturn(
             StructuredPropertiesConfiguration.builder()
                 .dropMissingPropertyValuesWithWarning(true)
-                .keywordMaxLength(32766)
+                .dropOversizedKeywordValuesFromIndex(false)
+                .keywordMaxLength(ESUtils.KEYWORD_MAXLENGTH)
                 .build());
   }
 

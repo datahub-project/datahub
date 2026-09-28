@@ -9,6 +9,7 @@
     "empty.title": "Glossaire vide",
     "list.error": "Échec du chargement du glossaire! Une erreur inattendue s'est produite.",
     "list.loading": "Chargement du glossaire...",
+    "page.contactAdmin": "Contactez votre administrateur DataHub pour configurer le Glossaire.",
     "page.createGlossary": "Créer un glossaire",
     "page.subtitle": "Classer vos assets de données et vos colonnes à l'aide de dictionnaires de données",
     "page.title": "Glossaire",

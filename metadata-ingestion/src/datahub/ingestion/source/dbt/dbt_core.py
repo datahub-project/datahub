@@ -551,6 +551,11 @@ def extract_semantic_models(
         tags = sm_node.get("tags", [])
         tags = [tag_prefix + tag for tag in tags]
 
+        # In dbt, SemanticModel stores meta under config.meta (not top-level).
+        # Fall back to top-level meta for forward-compatibility.
+        meta = sm_node.get("config", {}).get("meta") or sm_node.get("meta") or {}
+        owner = meta.get("owner")
+
         upstream_nodes = (
             depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
         )
@@ -573,10 +578,10 @@ def extract_semantic_models(
                 materialization=None,
                 catalog_type=None,
                 missing_from_catalog=False,
-                meta=sm_node.get("meta", {}),
+                meta=meta,
                 query_tag={},
                 tags=tags,
-                owner=None,
+                owner=owner,
                 language="yaml",
                 columns=columns,
                 compiled_code=None,

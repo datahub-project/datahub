@@ -74,11 +74,30 @@ public class AwsClientFactoryObjectStorageTest {
   }
 
   @Test
+  public void regionWithoutCredentialsDoesNotBuildDefaultChainClient() {
+    System.setProperty("aws.region", "us-east-1");
+
+    S3Client client = awsClientFactory.objectStorageS3Client(null);
+    assertNull(client);
+  }
+
+  @Test
   public void createsS3ClientFromEndpointOnly() {
     System.setProperty("AWS_ENDPOINT_URL", "http://localhost:9999");
 
     S3Client client = awsClientFactory.objectStorageS3Client(null);
     assertNotNull(client);
+  }
+
+  @Test
+  public void presignerRequiresExplicitCredentialsCopiedFromS3Client() {
+    System.setProperty("aws.region", "us-east-1");
+    AwsCredentialsProvider credentials =
+        StaticCredentialsProvider.create(AwsBasicCredentials.create("test-key", "test-secret"));
+
+    S3Client client = awsClientFactory.objectStorageS3Client(credentials);
+    assertNotNull(client);
+    assertNotNull(awsClientFactory.objectStorageS3Presigner(client));
   }
 
   @Test

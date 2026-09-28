@@ -1,4 +1,3 @@
-import { Button } from '@components';
 import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
@@ -22,7 +21,7 @@ const sharedTransition = `${transition.property.colors} ${transition.easing['eas
  * Base Select component styling
  */
 export const SelectBase = styled.div<SelectStyleProps>(
-    ({ isDisabled, isReadOnly, fontSize, isOpen, width, position, theme }) => ({
+    ({ isDisabled, isReadOnly, fontSize, isOpen, width, maxWidth, position, theme }) => ({
         ...getSelectStyle({ isDisabled, isReadOnly, fontSize, isOpen, theme }),
         display: 'flex',
         flexDirection: 'row' as const,
@@ -35,6 +34,7 @@ export const SelectBase = styled.div<SelectStyleProps>(
         overflow: 'auto',
         textWrapMode: 'nowrap',
         width: width === 'full' ? '100%' : 'max-content',
+        maxWidth: maxWidth ? `${maxWidth}px` : undefined,
     }),
 );
 
@@ -42,9 +42,13 @@ export const SelectLabelContainer = styled.div({
     display: 'flex',
     flexDirection: 'row' as const,
     gap: spacing.xsm,
-    lineHeight: typography.lineHeights.none,
+    // `none` (1) clips descenders under overflow:hidden on SelectValue (e.g. "g" in Engineering).
+    lineHeight: typography.lineHeights.sm,
     alignItems: 'center',
     maxWidth: 'calc(100% - 10px)',
+    // Lets this shrink below its content's natural width so a capped SelectBase
+    // (via the `maxWidth` prop) can actually truncate the label instead of overflowing.
+    minWidth: 0,
 });
 
 /**
@@ -125,6 +129,12 @@ export const DropdownContainer = styled.div<{ ignoreMaxHeight?: boolean }>(({ ig
 export const SelectValue = styled.span(({ theme }) => ({
     ...inputValueTextStyles(),
     color: theme?.colors?.text,
+    minWidth: 0,
+    // Match SelectLabelContainer — line-height 1 + overflow hidden clips glyph descenders.
+    lineHeight: typography.lineHeights.sm,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
 }));
 
 export const Placeholder = styled.span(({ theme }) => ({
@@ -137,6 +147,7 @@ export const ActionButtonsContainer = styled.div({
     gap: '6px',
     flexDirection: 'row',
     alignItems: 'center',
+    minWidth: 0,
 });
 
 /**
@@ -180,6 +191,7 @@ export const LabelsWrapper = styled.div<{ shouldShowGap?: boolean }>(({ shouldSh
     gap: shouldShowGap ? spacing.xxsm : '0px',
     maxHeight: '150px',
     maxWidth: '100%',
+    minWidth: 0,
 }));
 
 export const OptionLabel = styled.label<{
@@ -203,37 +215,8 @@ export const StyledIcon = styled(Icon)(({ theme }) => ({
     color: theme?.colors?.text,
 }));
 
-export const ClearIcon = styled.span({
-    cursor: 'pointer',
-    marginLeft: '8px',
-});
-
-export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen, theme }) => ({
-    marginLeft: 'auto',
-    border: `solid ${theme?.colors?.text}`,
-    borderWidth: '0 1px 1px 0',
-    display: 'inline-block',
-    padding: '3px',
-    transform: isOpen ? 'rotate(-135deg)' : 'rotate(45deg)',
-}));
-
 export { Checkbox as StyledCheckbox } from '@components/components/Checkbox';
-
-export const HighlightedLabel = styled.span`
-    background-color: ${(props) => props.theme?.colors?.bgSelected};
-    padding: 4px 6px;
-    border-radius: ${radius.md};
-    font-size: ${typography.fontSizes.sm};
-    color: ${(props) => props.theme?.colors?.textSecondary};
-`;
 
 export const Required = styled.span(({ theme }) => ({
     color: theme.colors.textError,
-}));
-
-export const StyledBubbleButton = styled(Button)(({ theme }) => ({
-    backgroundColor: theme?.colors?.bgHover,
-    border: `1px solid ${theme?.colors?.bgHover}`,
-    color: theme?.colors?.text,
-    padding: '1px',
 }));

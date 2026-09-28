@@ -21,6 +21,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -37,7 +38,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -455,10 +455,12 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       }
     }
 
-    String finalDocument =
+    ObjectNode finalDocumentNode =
         SearchDocumentTransformer.handleRemoveFields(
-                searchDocument.get(), previousSearchDocument.orElse(null))
-            .toString();
+            searchDocument.get(), previousSearchDocument.orElse(null));
+    // Serialized before any semantic-only augmentation below, so the base V2 index never sees
+    // semantic-only fields such as resolvedTextSha256.
+    String finalDocument = finalDocumentNode.toString();
 
     // Write to V2 index
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
@@ -477,7 +479,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
 
     // Dual-write to semantic index if enabled for this entity
     if (shouldWrite) {
-      writeToSemanticIndex(opContext, entityName, finalDocument, docId);
+      writeToSemanticIndex(
+          opContext, urn, entityName, aspectSpec.getName(), finalDocumentNode, docId);
     }
 
     // Append runId to search document so rollback/list runs can find touched URNs (MAE path)
@@ -516,12 +519,11 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    Optional<String> searchDocument;
+    Optional<ObjectNode> searchDocument;
     try {
       searchDocument =
-          searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, true, auditStamp)
-              .map(Objects::toString);
+          searchDocumentTransformer.transformAspect(
+              opContext, urn, aspect, aspectSpec, true, auditStamp);
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
@@ -532,7 +534,21 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
+    // Serialized before any semantic-only augmentation below, mirroring the upsert path, so the
+    // base V2 index never sees semantic-only fields such as resolvedTextSha256.
+    elasticSearchService.upsertDocument(
+        opContext, entityName, searchDocument.get().toString(), docId);
+
+    // Mirror the upsert path's semantic dual-write for non-key aspect deletes. Without this,
+    // deleting the semanticText override leaves the old override text and resolvedTextSha256 in
+    // the semantic index, and deleting semanticContent leaves vectors and skip fields behind.
+    // writeToSemanticIndex re-stamps resolvedTextSha256 from the surviving aspects (a deleted
+    // override falls back to the document body), and the delete-shaped document nulls the
+    // removed aspect's fields via doc_as_upsert.
+    if (shouldWriteToSemanticIndex(opContext, entityName)) {
+      writeToSemanticIndex(
+          opContext, urn, entityName, aspectSpec.getName(), searchDocument.get(), docId);
+    }
   }
 
   void updateTimeseriesFieldsForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
@@ -623,7 +639,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
                           newDefinition,
                           reindexState.name());
                       elasticSearchService
-                          .getIndexBuilder()
+                          .getIndexBuilder(reindexState.name())
                           .applyMappings(opContext, reindexState, false);
                     } catch (Exception e) {
                       log.error(
@@ -755,9 +771,13 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    */
   private void writeToSemanticIndex(
       @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
       @Nonnull String entityName,
-      @Nonnull String document,
+      @Nonnull String aspectName,
+      @Nonnull ObjectNode documentNode,
       @Nonnull String docId) {
+    withResolvedTextSha256(opContext, urn, entityName, aspectName, documentNode);
+    String document = documentNode.toString();
     String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     log.info(
         "Semantic dual-write: UPSERT to '{}' for entity '{}', docId='{}', docSize={}",
@@ -766,6 +786,41 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         docId,
         document.length());
     elasticSearchService.upsertDocumentByIndexName(opContext, semanticIndexName, document, docId);
+  }
+
+  /**
+   * Stamps {@code resolvedTextSha256} -- the SHA-256 hex digest (UTF-8 bytes) of the entity's
+   * resolved embed text, with the {@code semanticText} override winning over the document body --
+   * onto the semantic-index document. The embedding pipeline records the same digest of the text it
+   * embedded ({@code embeddings.<model>.sourceTextSha256}), so consumers such as coverage reporting
+   * can detect genuinely stale embeddings by comparing the two hashes instead of relying on
+   * modification timestamps that move on non-content writes.
+   *
+   * <p>The resolved embed text spans two aspects ({@code semanticText} override and {@code
+   * documentInfo} body) that project on separate MCLs, so the side not carried by the current
+   * document is fetched via the aspect retriever rather than derived from the partial document --
+   * deriving per-aspect would permanently mis-stamp documents whose override is written once and
+   * never re-projected. {@code semanticContent} projections also stamp (fetching both sides), so
+   * re-embedding refreshes pre-existing index documents. Other aspects (neither field present) are
+   * left untouched: {@code doc_as_upsert} merging preserves the existing stamp. On a retrieval
+   * failure the field is set to an explicit null, overwriting any previous stamp -- a stale stamp
+   * could misreport a changed document as current, while null reads as unknown.
+   */
+  @VisibleForTesting
+  void withResolvedTextSha256(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull ObjectNode document) {
+    SemanticDocumentProvenance.stampResolvedTextSha256(
+        opContext, urn, entityName, aspectName, document);
+  }
+
+  @Nonnull
+  @VisibleForTesting
+  static String sha256Hex(@Nonnull String text) {
+    return SemanticDocumentProvenance.sha256Hex(text);
   }
 
   /**

@@ -1,23 +1,31 @@
 package com.linkedin.metadata.utils.elasticsearch;
 
+import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
+import static com.linkedin.metadata.Constants.GRAPH_SERVICE_INDEX;
 import static com.linkedin.metadata.Constants.SCHEMA_FIELD_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.SYSTEM_METADATA_SERVICE_INDEX;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchClusterSettings;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.util.Pair;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Value;
@@ -56,19 +64,74 @@ public class IndexConventionImpl implements IndexConvention {
   private static final String ENTITY_INDEX_VERSION_V3 = "v3";
   private static final String ENTITY_INDEX_SUFFIX = "index";
   private static final String SEMANTIC_INDEX_SUFFIX = "semantic";
-  private static final String TIMESERIES_INDEX_VERSION = "v1";
-  private static final String TIMESERIES_ENTITY_INDEX_SUFFIX = "aspect";
+
+  private final Map<SearchComponent, String> componentPrefixOverlays;
 
   public IndexConventionImpl(
       IndexConventionConfig indexConventionConfig,
       @Nonnull IndexPrefixResolver prefixResolver,
       @Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+    this(indexConventionConfig, prefixResolver, entityIndexConfiguration, Map.of());
+  }
+
+  public IndexConventionImpl(
+      IndexConventionConfig indexConventionConfig,
+      @Nonnull IndexPrefixResolver prefixResolver,
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
+      @Nullable Map<SearchComponent, String> componentPrefixOverlays) {
     this.indexConventionConfig = indexConventionConfig;
     this.prefixResolver = prefixResolver;
     this.entityIndexConfiguration = entityIndexConfiguration;
+    this.componentPrefixOverlays = copyOverlays(componentPrefixOverlays);
   }
 
-  /** The prefix for {@code operation}, empty string meaning "no prefix". */
+  /**
+   * Explicit per-component index prefixes from {@code elasticsearch.clusters.*.index.prefix}. Blank
+   * overlays inherit {@link IndexPrefixResolver} (deploy-wide {@code INDEX_PREFIX} or a Cloud
+   * per-operation resolver).
+   */
+  @Nonnull
+  public static Map<SearchComponent, String> explicitComponentPrefixOverlays(
+      @Nullable ElasticSearchConfiguration esConfig) {
+    if (esConfig == null) {
+      return Map.of();
+    }
+    Map<String, SearchClusterSettings> clusters = esConfig.getClusters();
+    if (clusters == null || clusters.isEmpty()) {
+      return Map.of();
+    }
+    EnumMap<SearchComponent, String> overlays = new EnumMap<>(SearchComponent.class);
+    for (SearchComponent component : SearchComponent.values()) {
+      SearchClusterSettings cluster =
+          clusters.get(esConfig.getComponentCluster().clusterFor(component));
+      if (cluster == null || cluster.getIndex() == null) {
+        continue;
+      }
+      String overlay = SearchClusterSettings.blankToNull(cluster.getIndex().getPrefix());
+      if (overlay != null) {
+        overlays.put(component, overlay);
+      }
+    }
+    return overlays.isEmpty() ? Map.of() : Map.copyOf(overlays);
+  }
+
+  @Nonnull
+  private static Map<SearchComponent, String> copyOverlays(
+      @Nullable Map<SearchComponent, String> overlays) {
+    if (overlays == null || overlays.isEmpty()) {
+      return Map.of();
+    }
+    EnumMap<SearchComponent, String> copy = new EnumMap<>(SearchComponent.class);
+    for (Map.Entry<SearchComponent, String> entry : overlays.entrySet()) {
+      String value = SearchClusterSettings.blankToNull(entry.getValue());
+      if (value != null) {
+        copy.put(entry.getKey(), value);
+      }
+    }
+    return copy.isEmpty() ? Map.of() : Map.copyOf(copy);
+  }
+
+  /** The resolver prefix for {@code operation}, empty string meaning "no prefix". */
   private String prefix(@Nonnull OperationFingerprint operation) {
     String resolved = prefixResolver.resolvePrefix(operation);
     // Canonicalize to lower case (Locale.ROOT) so index names, cleanup/search patterns, and inverse
@@ -79,10 +142,58 @@ public class IndexConventionImpl implements IndexConvention {
     return StringUtils.isEmpty(resolved) ? "" : resolved.toLowerCase(Locale.ROOT);
   }
 
+  /**
+   * Prefix for this family: a non-blank cluster overlay replaces {@code INDEX_PREFIX}; otherwise
+   * the operation's {@link IndexPrefixResolver} value.
+   */
+  private String prefix(
+      @Nonnull OperationFingerprint operation, @Nullable SearchComponent component) {
+    if (component != null) {
+      String overlay = componentPrefixOverlays.get(component);
+      if (overlay != null) {
+        return overlay.toLowerCase(Locale.ROOT);
+      }
+    }
+    return prefix(operation);
+  }
+
   /** The prefix token spliced ahead of a base name, e.g. {@code "prod_"} or {@code ""}. */
-  private String prefixToken(@Nonnull OperationFingerprint operation) {
-    String prefix = prefix(operation);
+  private String prefixToken(
+      @Nonnull OperationFingerprint operation, @Nullable SearchComponent component) {
+    String prefix = prefix(operation, component);
     return prefix.isEmpty() ? "" : prefix + "_";
+  }
+
+  @Nullable
+  private SearchComponent componentForIndexName(
+      @Nonnull OperationFingerprint operation, @Nonnull String indexOrBase) {
+    if (IndexConvention.matchesSemanticEntityIndexFamily(indexOrBase)) {
+      return SearchComponent.SEMANTIC;
+    }
+    if (IndexConvention.matchesV3EntityIndexFamily(indexOrBase)) {
+      return SearchComponent.SEARCH_V3;
+    }
+    if (IndexConvention.matchesV2EntityIndexFamily(indexOrBase)) {
+      return SearchComponent.SEARCH_V2;
+    }
+    if (IndexConvention.matchesTimeseriesAspectIndexFamily(indexOrBase)) {
+      return SearchComponent.TIMESERIES;
+    }
+    String lower = indexOrBase.toLowerCase(Locale.ROOT);
+    if (lower.equals(DATAHUB_USAGE_EVENT_INDEX)
+        || lower.equals(
+            getIndexNameForComponent(
+                operation, DATAHUB_USAGE_EVENT_INDEX, SearchComponent.USAGE))) {
+      return SearchComponent.USAGE;
+    }
+    if (lower.equals(GRAPH_SERVICE_INDEX) || lower.endsWith("_" + GRAPH_SERVICE_INDEX)) {
+      return SearchComponent.GRAPH;
+    }
+    if (lower.equals(SYSTEM_METADATA_SERVICE_INDEX)
+        || lower.endsWith("_" + SYSTEM_METADATA_SERVICE_INDEX)) {
+      return SearchComponent.SYSTEM_METADATA;
+    }
+    return null;
   }
 
   private List<String> buildEntityIndicesPatterns(@Nonnull OperationFingerprint operation) {
@@ -100,11 +211,19 @@ public class IndexConventionImpl implements IndexConvention {
   }
 
   private String buildV2Pattern(@Nonnull OperationFingerprint operation) {
-    return (prefixToken(operation) + "*" + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
+    return (prefixToken(operation, SearchComponent.SEARCH_V2)
+        + "*"
+        + ENTITY_INDEX_SUFFIX
+        + "_"
+        + ENTITY_INDEX_VERSION);
   }
 
   private String buildV3Pattern(@Nonnull OperationFingerprint operation) {
-    return (prefixToken(operation) + "*" + ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION_V3);
+    return (prefixToken(operation, SearchComponent.SEARCH_V3)
+        + "*"
+        + ENTITY_INDEX_SUFFIX
+        + "_"
+        + ENTITY_INDEX_VERSION_V3);
   }
 
   @Nonnull
@@ -114,8 +233,11 @@ public class IndexConventionImpl implements IndexConvention {
   }
 
   private Optional<String> extractIndexBase(
-      @Nonnull OperationFingerprint operation, String indexName, String indexSuffix) {
-    String prefixString = prefixToken(operation);
+      @Nonnull OperationFingerprint operation,
+      String indexName,
+      String indexSuffix,
+      @Nullable SearchComponent component) {
+    String prefixString = prefixToken(operation, component);
     if (!indexName.startsWith(prefixString)) {
       return Optional.empty();
     }
@@ -129,7 +251,11 @@ public class IndexConventionImpl implements IndexConvention {
 
   private Optional<String> extractEntityName(
       @Nonnull OperationFingerprint operation, String indexName) {
-    return extractIndexBase(operation, indexName, ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION);
+    return extractIndexBase(
+        operation,
+        indexName,
+        ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION,
+        SearchComponent.SEARCH_V2);
   }
 
   private Optional<String> extractEntityNameSemantic(
@@ -137,12 +263,20 @@ public class IndexConventionImpl implements IndexConvention {
     return extractIndexBase(
         operation,
         semanticIndexName,
-        ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION + "_" + SEMANTIC_INDEX_SUFFIX);
+        ENTITY_INDEX_SUFFIX + "_" + ENTITY_INDEX_VERSION + "_" + SEMANTIC_INDEX_SUFFIX,
+        SearchComponent.SEMANTIC);
   }
 
   @Override
   public Optional<String> getPrefix(@Nonnull OperationFingerprint operation) {
     String prefix = prefix(operation);
+    return prefix.isEmpty() ? Optional.empty() : Optional.of(prefix);
+  }
+
+  @Override
+  public Optional<String> getPrefix(
+      @Nonnull OperationFingerprint operation, @Nonnull SearchComponent component) {
+    String prefix = prefix(operation, component);
     return prefix.isEmpty() ? Optional.empty() : Optional.of(prefix);
   }
 
@@ -162,11 +296,29 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getIndexName(@Nonnull OperationFingerprint operation, String baseIndexName) {
+    return getIndexNameForComponent(
+        operation, baseIndexName, componentForIndexName(operation, baseIndexName));
+  }
+
+  @Nonnull
+  @Override
+  public String getIndexName(
+      @Nonnull OperationFingerprint operation,
+      @Nonnull SearchComponent component,
+      @Nonnull String baseIndexName) {
+    return getIndexNameForComponent(operation, baseIndexName, component);
+  }
+
+  @Nonnull
+  private String getIndexNameForComponent(
+      @Nonnull OperationFingerprint operation,
+      @Nonnull String baseIndexName,
+      @Nullable SearchComponent component) {
     // Resolve the prefix ONCE, then derive both the cache key and the cached value from the same
     // token — otherwise a pluggable resolver observing a routing refresh between the two calls
     // could
     // cache a value under a mismatched key and target the wrong index until LRU eviction.
-    final String prefixToken = prefixToken(operation);
+    final String prefixToken = prefixToken(operation, component);
     final String key = prefixToken + baseIndexName;
     // Lock-free hit fast-path: hits never evict.
     final String cached = indexNameMapping.get(key);
@@ -215,10 +367,8 @@ public class IndexConventionImpl implements IndexConvention {
   @Override
   public String getTimeseriesAspectIndexName(
       @Nonnull OperationFingerprint operation, String entityName, String aspectName) {
-    return (this.getIndexName(operation, entityName + "_" + aspectName)
-        + TIMESERIES_ENTITY_INDEX_SUFFIX
-        + "_"
-        + TIMESERIES_INDEX_VERSION);
+    return this.getIndexName(operation, SearchComponent.TIMESERIES, entityName + "_" + aspectName)
+        + TIMESERIES_INDEX_MARKER;
   }
 
   @Nonnull
@@ -236,11 +386,13 @@ public class IndexConventionImpl implements IndexConvention {
   @Nonnull
   @Override
   public String getAllTimeseriesAspectIndicesPattern(@Nonnull OperationFingerprint operation) {
-    return prefixToken(operation)
-        + "*"
-        + TIMESERIES_ENTITY_INDEX_SUFFIX
-        + "_"
-        + TIMESERIES_INDEX_VERSION;
+    return prefixToken(operation, SearchComponent.TIMESERIES) + "*" + TIMESERIES_INDEX_MARKER;
+  }
+
+  @Nonnull
+  @Override
+  public String getAllSemanticEntityIndicesPattern(@Nonnull OperationFingerprint operation) {
+    return prefixToken(operation, SearchComponent.SEMANTIC) + "*index_v2_semantic";
   }
 
   @Nonnull
@@ -281,7 +433,8 @@ public class IndexConventionImpl implements IndexConvention {
         extractIndexBase(
             operation,
             timeseriesAspectIndexName,
-            TIMESERIES_ENTITY_INDEX_SUFFIX + "_" + TIMESERIES_INDEX_VERSION);
+            TIMESERIES_INDEX_MARKER,
+            SearchComponent.TIMESERIES);
     if (entityAndAspect.isPresent()) {
       String[] entityAndAspectTokens = entityAndAspect.get().split("_");
       if (entityAndAspectTokens.length == 2) {
@@ -349,7 +502,8 @@ public class IndexConventionImpl implements IndexConvention {
     }
 
     // If we have a prefix configured for this operation, check that the index name starts with it
-    String prefix = prefix(operation);
+    SearchComponent component = componentForIndexName(operation, indexName);
+    String prefix = prefix(operation, component);
     if (!prefix.isEmpty()) {
       return indexName.startsWith(prefix + "_");
     }

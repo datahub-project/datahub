@@ -1,4 +1,6 @@
-import { AppConfig, FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
+import { AppConfigWithoutPolicyPrivileges } from '@src/appConfigContext';
+
+import { FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
 
 /**
  * The scenario in which filter rendering is required.
@@ -25,6 +27,6 @@ export interface FilterRenderProps {
     scenario: FilterScenarioType;
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
-    config?: AppConfig;
+    config?: AppConfigWithoutPolicyPrivileges;
     onChangeFilters: (newFilters: FacetFilter[]) => void;
 }
