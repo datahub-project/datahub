@@ -7,7 +7,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Adding Custom Relationships
 
-<FeatureAvailability saasOnly stage="private-beta" />
+<FeatureAvailability saasOnly stage="private-beta"/>
+
+:::caution Private Beta
+Ontology is currently in Private Beta. Features, UI, and configuration options are subject to change.
+:::
 
 The built-in vocabulary — _Inherits_, _Contains_, _Synonym_, _Antonym_, _Translates to_, _Valid
 value_, _Related to_ — covers general-purpose glossary modelling, but not vocabulary specific to your

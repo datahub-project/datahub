@@ -88,8 +88,18 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
         }
 
+        // Only a pill with its own click action is exposed as a focusable button. Pills that are
+        // `clickable` solely so an inner PillIconButton can receive clicks must stay non-focusable,
+        // otherwise they become an extra tab stop that does nothing and wraps the real button.
+        const isPillInteractive = clickable && Boolean(onPillClick);
+
         const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-            if (!clickable || !onPillClick || (event.key !== 'Enter' && event.key !== ' ')) {
+            // Keydown bubbling from a nested icon button must keep the button's native Enter/Space
+            // activation instead of being re-routed to the pill's onClick.
+            if (!isPillInteractive || event.target !== event.currentTarget) {
+                return;
+            }
+            if (event.key !== 'Enter' && event.key !== ' ') {
                 return;
             }
             event.preventDefault();
@@ -144,8 +154,8 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
                 data-testid={dataTestId ?? 'pill-container'}
                 onClick={onPillClick}
                 onKeyDown={handleKeyDown}
-                role={clickable ? 'button' : undefined}
-                tabIndex={clickable ? 0 : undefined}
+                role={isPillInteractive ? 'button' : undefined}
+                tabIndex={isPillInteractive ? 0 : undefined}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
                 onFocus={onFocus}

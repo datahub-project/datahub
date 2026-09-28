@@ -831,7 +831,7 @@ When a FULL build exceeds `maxVertices`, the cache key enters **`OVER_LIMIT`** (
 
 `ENTITY_GRAPH_CACHE_ENABLED=true` on **GMS** requires a reachable Hazelcast cluster (`searchService.cache.hazelcast.serviceName`, default `hazelcast-service`). Set `ENTITY_GRAPH_CACHE_ENABLED=false` when Hazelcast is unavailable, or on MAE/MCE/upgrade pods where the graph cache is not loaded (see [GMS Entity Graph Cache](./gms-entity-graph-cache.md)).
 
-**Smoke tests:** `pytest tests/entity_graph_cache` against a running GMS exercises bundled domain/glossary hierarchy reads and sync invalidation — see [Verification (smoke tests)](./gms-entity-graph-cache.md#verification-smoke-tests).
+**Smoke tests:** `pytest tests/e2e/entity_graph_cache` against a running GMS exercises bundled domain/glossary hierarchy reads and sync invalidation — see [Verification (smoke tests)](./gms-entity-graph-cache.md#verification-smoke-tests).
 
 Pod-level eviction (`entityGraphCache.eviction.local`, `memoryPressure`, and `hazelcast` in `application.yaml`) has **no dedicated environment variables** — edit `application.yaml` or mount a customized GMS config. Defaults below match bundled `metadata-service/configuration/src/main/resources/application.yaml`.
 
@@ -938,7 +938,6 @@ Reference Links:
 | `BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS` | `5000`                | Initial back off for system updates  | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS`           | `50`                  | Maximum back offs for system updates | System Update |
 | `BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR`         | `2`                   | Multiplicative factor for back off   | System Update |
-| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE`  | `true`                | Wait for system update to complete   | System Update |
 | `SYSTEM_UPDATE_BOOTSTRAP_MCP_CONFIG`              | `bootstrap_mcps.yaml` | Bootstrap MCP configuration          | System Update |
 
 ### Data Job Node CLL Configuration
@@ -1421,6 +1420,7 @@ DataHub supports CDC mode for MetadataChangeLog generation, which guarantees ord
 | -------------------------------------- | ------- | --------------------------------- | ---------- |
 | `DATAHUB_AKKA_MAX_HEADER_COUNT`        | `64`    | Maximum number of headers allowed | Frontend   |
 | `DATAHUB_AKKA_MAX_HEADER_VALUE_LENGTH` | `32k`   | Maximum header value length       | Frontend   |
+| `DATAHUB_FRONTEND_PROXY_MAX_IN_FLIGHT` | `1024`  | Max concurrent upstream waits     | Frontend   |
 
 ### Session Configuration
 
