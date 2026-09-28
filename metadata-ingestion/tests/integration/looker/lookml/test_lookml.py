@@ -144,14 +144,10 @@ def test_lookml_shared_view_same_connection(pytestconfig, tmp_path, mock_time):
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=False)
 
-    report = pipeline.source.get_report()
-    assert isinstance(report, LookMLSourceReport)
-
-    # The shared view must be discovered twice: once per model
-    assert report.views_discovered == 2, (
-        f"Expected 2 views (one per model), got {report.views_discovered}. "
-        "The shared view file should be ingested for each model when "
-        "view_naming_pattern includes {{model}}."
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=test_resources_dir / "shared_view_same_connection_golden.json",
     )
 
 
