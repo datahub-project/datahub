@@ -281,4 +281,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.FORMS,
         ]);
     };
+
+    getPlatformProperties = (data: DataFlow) => {
+        return data?.platform;
+    };
 }

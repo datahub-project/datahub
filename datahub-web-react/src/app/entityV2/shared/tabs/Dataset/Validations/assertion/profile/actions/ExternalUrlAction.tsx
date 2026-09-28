@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+import { ActionItem } from '@app/shared/actions/ActionItem';
 
 import { Assertion, AssertionRunStatus, EntityType } from '@types';
 

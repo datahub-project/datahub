@@ -246,7 +246,8 @@ looker_common = {
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<4.0.0",
-    "google-cloud-bigquery<4.0.0",
+    # >=3.14.0 for QueryJobConfig.job_timeout_ms (partition-fetch probe timeout).
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
@@ -330,7 +331,8 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     # >= 4.7.1 for CVE-2026-15925: the connector accepted a certificate signed by any
     # trusted CA for any domain without matching the requested host. 4.7.0 was yanked.
-    "snowflake-connector-python>=4.7.1,<5.0.0",
+    # Floor is 4.7.3: 4.7.1/4.7.2 reject valid certificates for account locators with underscores.
+    "snowflake-connector-python>=4.7.3,<5.0.0",
     "pandas<3.0.0",
     # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
     # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
@@ -584,11 +586,17 @@ plugins: Dict[str, Set[str]] = {
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
+    # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
+    # in its own extra below.
     "datahub-lite": {
-        "duckdb>=1.0.0,<2.0.0",
         "fastapi<0.129.0",
         "uvicorn<0.41.0",
     },
+    # Alternative DataHub Lite storage engine, selected with `lite.type: duckdb`.
+    # The extra is named after the lite implementation key so that the plugin
+    # registry's "pip install acryl-datahub[duckdb]" hint is accurate.
+    "duckdb": {"duckdb>=1.0.0,<2.0.0"},
     # Integrations.
     "airbyte": {"requests"},
     "airflow": {
@@ -898,8 +906,10 @@ plugins: Dict[str, Set[str]] = {
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
-        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
-        "vcrpy>=8.0.0,<9.0",
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError);
+        # 8.2.0+ required for aiohttp 3.14, which removed streams.AsyncStreamReaderMixin
+        # that older vcrpy aiohttp stubs subclass.
+        "vcrpy>=8.2.0,<9.0",
         # responses library for HTTP replay - better compatibility with custom SDK transports
         # (e.g., Looker SDK) that break with VCR's urllib3 patching
         "responses>=0.25.0,<1.0",
@@ -926,9 +936,12 @@ all_exclude_plugins: Set[str] = {
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
-    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
-    # simply exclude it.
+    # DataHub Lite is an opt-in local tool, and its `serve` command pulls in a
+    # whole web stack, so we keep it out of the default "all" installation.
     "datahub-lite",
+    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
+    # simply exclude it. DataHub Lite works without it, on sqlite.
+    "duckdb",
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
@@ -1073,6 +1086,7 @@ base_dev_requirements = {
             "kinesis",
             "datahub-rest",
             "datahub-lite",
+            "duckdb",
             "presto",
             "rdf",
             "redash",

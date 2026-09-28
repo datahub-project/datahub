@@ -71,6 +71,7 @@
     "loadedVideo.unsupportedFallback": "Your browser doesn't support HTML5 video. Here's a <anchor>link to the video</anchor> instead.",
     "noData": "No Data",
     "pagination.nextPage": "Next page",
+    "pagination.pageSize": "{{size}} / page",
     "pagination.previousPage": "Previous page",
     "radio.label": "Label",
     "resizablePills.moreHiddenCount_one": "{{count}} more item hidden",
