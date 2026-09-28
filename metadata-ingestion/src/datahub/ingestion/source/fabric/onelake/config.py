@@ -101,6 +101,20 @@ class FabricUsageConfig(BaseUsageConfig):
         ),
     )
 
+    skip_ingestion_identity_queries: bool = Field(
+        default=True,
+        description=(
+            "When True, queryinsights rows whose `login_name` is the identity "
+            "this connector connects as (`SUSER_SNAME()` on each SQL Analytics "
+            "Endpoint) are skipped. These are the connector's own metadata reads "
+            "(INFORMATION_SCHEMA, queryinsights) and the catalog procedures the "
+            "ODBC driver runs for them, not user activity. Set to False if the "
+            "ingestion identity also runs workloads whose usage and lineage you "
+            "want captured (e.g. a shared service principal, or a personal "
+            "account used with `authentication_method: cli`)."
+        ),
+    )
+
     include_queries: bool = Field(
         default=True,
         description=(

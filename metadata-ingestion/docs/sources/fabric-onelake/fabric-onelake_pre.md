@@ -75,7 +75,7 @@ The service principal or user must have the following Microsoft Entra API permis
 **Token Audiences:**
 The connector uses two different token audiences depending on the operation:
 
-- **Fabric REST API** (`https://api.fabric.microsoft.com`): Uses Power BI API scope (`https://analysis.windows.net/powerbi/api/.default`) for listing workspaces, lakehouses, warehouses, and basic table metadata
+- **Fabric REST API** (`https://api.fabric.microsoft.com`): Uses Power BI API scope (`https://analysis.windows.net/powerbi/api/.default`) for listing workspaces, lakehouses, warehouses, and Lakehouse table metadata (Warehouse tables are discovered through the SQL Analytics Endpoint; see [SQL Analytics Endpoint Setup](#sql-analytics-endpoint-setup))
 - **OneLake Delta Table APIs** (`https://onelake.table.fabric.microsoft.com`): Uses Storage audience (`https://storage.azure.com/.default`) for accessing schemas and tables in **schemas-enabled lakehouses**
 
 The connector automatically handles both token audiences. For schemas-enabled lakehouses, it will use OneLake Delta Table APIs with Storage audience tokens. For schemas-disabled lakehouses, it uses the standard Fabric REST API.

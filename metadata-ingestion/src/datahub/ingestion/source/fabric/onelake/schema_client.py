@@ -27,9 +27,11 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
+from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SYSTEM_SCHEMAS
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricQueryInsightsRow,
+    FabricTable,
     FabricView,
 )
 from datahub.ingestion.source.fabric.onelake.schema_report import (
@@ -48,17 +50,6 @@ SQL_COPT_SS_ACCESS_TOKEN = 1256
 # Pattern to match Fabric SQL Analytics Endpoint hostname in connection strings
 _FABRIC_ENDPOINT_HOST_PATTERN = re.compile(
     r"[a-zA-Z0-9_-]+\.datawarehouse\.fabric\.microsoft\.com"
-)
-
-# Schemas excluded from table and view discovery:
-# - INFORMATION_SCHEMA, sys: standard SQL Server system schemas.
-# - queryinsights: Fabric Warehouse's Microsoft-managed Query Insights views
-#   (exec_requests_history, long_running_queries, etc.) — not user metadata.
-#   See https://learn.microsoft.com/fabric/data-warehouse/query-insights
-_FABRIC_SYSTEM_SCHEMAS: Tuple[str, ...] = (
-    "INFORMATION_SCHEMA",
-    "sys",
-    "queryinsights",
 )
 
 
@@ -97,6 +88,34 @@ class SchemaExtractionClient(Protocol):
 
         Returns:
             Dictionary mapping (schema_name, table_name) to list of FabricColumn objects
+        """
+        ...
+
+    def get_all_tables(
+        self,
+        workspace_id: str,
+        item_id: str,
+    ) -> List[FabricTable]:
+        """Discover all user tables via INFORMATION_SCHEMA.TABLES.
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            List of FabricTable objects (base tables only, system schemas excluded)
+        """
+        ...
+
+    def get_current_login(self, workspace_id: str, item_id: str) -> Optional[str]:
+        """Login name of the identity this client connects as (``SUSER_SNAME()``).
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            The login name, or None if the server returned none
         """
         ...
 
@@ -451,7 +470,7 @@ class SqlAnalyticsEndpointClient:
 
             with engine.connect() as connection:
                 result = connection.execute(
-                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                    query, {"system_schemas": list(FABRIC_SYSTEM_SCHEMAS)}
                 )
                 columns_by_table: Dict[Tuple[str, str], List[FabricColumn]] = {}
                 for row in result:
@@ -485,6 +504,82 @@ class SqlAnalyticsEndpointClient:
                 exc_info=True,
             )
             raise
+
+    def get_all_tables(
+        self,
+        workspace_id: str,
+        item_id: str,
+    ) -> List[FabricTable]:
+        """Discover all user tables via INFORMATION_SCHEMA.TABLES.
+
+        This is the only documented way to enumerate Warehouse tables: the
+        Fabric REST Tables API exists for Lakehouses only
+        (https://learn.microsoft.com/en-us/rest/api/fabric/lakehouse/tables/list-tables);
+        the Warehouse REST API has no tables operation
+        (https://learn.microsoft.com/en-us/rest/api/fabric/warehouse/items).
+
+        Only ``BASE TABLE`` rows are returned (views come from
+        ``get_all_views``), and system schemas are excluded.
+
+        References:
+        - https://learn.microsoft.com/en-us/sql/relational-databases/system-information-schema-views/tables-transact-sql
+
+        Args:
+            workspace_id: Workspace GUID
+            item_id: Lakehouse or Warehouse GUID
+
+        Returns:
+            List of FabricTable objects
+        """
+        try:
+            engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+
+            query = text(
+                """
+                SELECT
+                    TABLE_SCHEMA,
+                    TABLE_NAME
+                FROM INFORMATION_SCHEMA.TABLES
+                WHERE TABLE_TYPE = 'BASE TABLE'
+                  AND TABLE_SCHEMA NOT IN :system_schemas
+                ORDER BY TABLE_SCHEMA, TABLE_NAME
+                """
+            ).bindparams(bindparam("system_schemas", expanding=True))
+
+            with engine.connect() as connection:
+                result = connection.execute(
+                    query, {"system_schemas": list(FABRIC_SYSTEM_SCHEMAS)}
+                )
+                return [
+                    FabricTable(
+                        name=row.TABLE_NAME,
+                        schema_name=row.TABLE_SCHEMA,
+                        item_id=item_id,
+                        workspace_id=workspace_id,
+                    )
+                    for row in result
+                ]
+        except SQLAlchemyError as e:
+            logger.warning(
+                f"Failed to discover tables "
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
+            )
+            raise
+
+    def get_current_login(self, workspace_id: str, item_id: str) -> Optional[str]:
+        """Login name of the identity this client connects as.
+
+        ``SUSER_SNAME()`` returns the login of the current session, which is the
+        value ``queryinsights.exec_requests_history.login_name`` records for the
+        queries this connector (and the ODBC driver on its behalf) issues.
+
+        Reference: https://learn.microsoft.com/en-us/sql/t-sql/functions/suser-sname-transact-sql
+        """
+        engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+        with engine.connect() as connection:
+            login = connection.execute(text("SELECT SUSER_SNAME()")).scalar()
+        return str(login) if login else None
 
     def get_all_views(
         self,
@@ -522,7 +617,7 @@ class SqlAnalyticsEndpointClient:
 
             with engine.connect() as connection:
                 result = connection.execute(
-                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                    query, {"system_schemas": list(FABRIC_SYSTEM_SCHEMAS)}
                 )
                 views: List[FabricView] = []
                 for row in result:

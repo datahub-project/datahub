@@ -54,9 +54,38 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
     filtered_views: LossyList[str] = field(default_factory=LossyList)
 
+    # Warehouse tables are discovered via INFORMATION_SCHEMA.TABLES on the SQL
+    # Analytics Endpoint (the Fabric REST Tables API is Lakehouse-only).
+    num_warehouse_tables_discovered_via_sql_endpoint: int = 0
+    # Warehouses whose tables could not be discovered because the SQL Analytics
+    # Endpoint was unavailable and the REST fallback returned 404.
+    num_warehouses_without_table_discovery: int = 0
+
     # Views whose definition was unavailable (e.g. caller lacks
     # `VIEW DEFINITION` permission); their lineage cannot be parsed.
     views_missing_definition: LossyList[str] = field(default_factory=LossyList)
+
+    # Cross-item (`item.schema.table`) SQL references in views and queries,
+    # counted once per distinct reference per workspace. Unresolved includes
+    # 4+-part names, which Fabric does not support.
+    num_items_indexed_for_name_resolution: int = 0
+    num_cross_item_references_resolved: int = 0
+    num_cross_item_references_unresolved: int = 0
+    # Upstream edges stripped from lineage aspects because they point at an
+    # unresolved reference, and lineage aspects dropped entirely because every
+    # upstream was unresolved.
+    num_lineage_upstreams_dropped_unresolved: int = 0
+    num_lineage_aspects_dropped_unresolved: int = 0
+
+    # SQL references to system objects (sys / INFORMATION_SCHEMA /
+    # queryinsights schemas) in views and observed queries. They are never
+    # emitted as datasets, lineage, usage, or operations. Counted once per
+    # distinct object; upstream edges / lineage aspects removed because of them
+    # are counted separately.
+    num_system_object_references_filtered: int = 0
+    filtered_system_objects: LossyList[str] = field(default_factory=LossyList)
+    num_lineage_upstreams_dropped_system_objects: int = 0
+    num_lineage_aspects_dropped_system_objects: int = 0
 
     # API metrics (can be populated from FabricClientReport)
     api_calls_total_count: int = 0
@@ -85,6 +114,11 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
         self.num_usage_queries_skipped[reason] = (
             self.num_usage_queries_skipped.get(reason, 0) + 1
         )
+
+    def report_system_object_reference(self, name: str) -> None:
+        """Record a distinct system object referenced by a view or query."""
+        self.num_system_object_references_filtered += 1
+        self.filtered_system_objects.append(name)
 
     def report_workspace_scanned(self) -> None:
         """Increment workspaces scanned counter."""

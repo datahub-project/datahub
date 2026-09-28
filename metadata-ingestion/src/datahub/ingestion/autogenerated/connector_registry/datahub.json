@@ -1453,7 +1453,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+          "description": "Extracted via SQL parsing of view definitions (when `extract_views` is enabled) and of queryinsights queries (when `usage.include_usage_statistics` is enabled)",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1484,6 +1484,12 @@
         {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Extracted via SQL parsing of view definitions (when `extract_views` is enabled) and of queryinsights queries (when `usage.include_usage_statistics` is enabled). Cross-item (`item.schema.table`) references resolve to the Lakehouses / Warehouses of the same workspace.",
           "subtype_modifier": null,
           "supported": true
         }
