@@ -10,6 +10,7 @@ import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -113,12 +114,14 @@ public class KafkaController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCPOffsets", List.of()),
+                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCPOffsets", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(
               ErrorResponse.builder()
@@ -186,12 +189,14 @@ public class KafkaController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of()),
+                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(
               ErrorResponse.builder()
@@ -261,12 +266,14 @@ public class KafkaController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of()),
+                .buildOpenapi(actorUrnStr, httpServletRequest, "getMCLOffsets", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             authorizerChain,
             authentication,
             true);
 
-    if (!AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+    if (!AuthUtil.isAPIOperationsAuthorized(
+        opContext, PoliciesConfig.VIEW_SYSTEM_STATUS_PRIVILEGE)) {
       return ResponseEntity.status(HttpStatus.FORBIDDEN)
           .body(
               ErrorResponse.builder()

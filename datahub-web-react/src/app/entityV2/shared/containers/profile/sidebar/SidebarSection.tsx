@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { CountStyle } from '@app/entityV2/shared/SidebarStyledComponents';
+import InfoPopover from '@app/sharedV2/icons/InfoPopover';
 
 // eslint-disable-next-line i18next/no-literal-string -- numeric overflow indicator, not translatable UI text
 const OVERFLOW_COUNT_DISPLAY = '10+';
@@ -63,6 +64,15 @@ const ContentBody = styled.div`
     padding: 4px 20px 0 20px;
 `;
 
+const StyledInfoPopover = styled(InfoPopover)`
+    display: flex;
+    align-items: center;
+`;
+
+const InfoPopoverContent = styled.div`
+    max-width: 300px;
+`;
+
 type Props = {
     title: string;
     content: React.ReactNode;
@@ -72,6 +82,7 @@ type Props = {
     collapsible?: boolean;
     expandedByDefault?: boolean;
     showFullCount?: boolean;
+    infoPopover?: string;
 };
 
 export const SidebarSection = ({
@@ -83,6 +94,7 @@ export const SidebarSection = ({
     collapsible = true,
     expandedByDefault = true,
     showFullCount,
+    infoPopover,
 }: Props) => {
     const [isExpanded, setIsExpanded] = useState(expandedByDefault);
 
@@ -95,6 +107,9 @@ export const SidebarSection = ({
             <Header $collapsible={collapsible} onClick={toggle}>
                 <HeaderLeft>
                     <Title>{title}</Title>
+                    {infoPopover && (
+                        <StyledInfoPopover content={<InfoPopoverContent>{infoPopover}</InfoPopoverContent>} />
+                    )}
                     {count > 0 && (
                         <CountStyle>
                             {showFullCount ? <>{count}</> : <>{count > 10 ? OVERFLOW_COUNT_DISPLAY : count}</>}

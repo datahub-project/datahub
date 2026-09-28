@@ -1,4 +1,3 @@
-# Inlined from metadata-ingestion/examples/library/publish_document.py
 """Example: Publishing and unpublishing documents using the DataHub SDK.
 
 This example demonstrates how to control document visibility by

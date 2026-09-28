@@ -43,6 +43,8 @@ export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
         arrayProperty: 'tags',
     });
 
+    const existingTagUrns = tags?.tags?.map((t: { tag?: { urn?: string } }) => t.tag?.urn).filter(Boolean) || [];
+
     const canEditTags = !!entityData?.privileges?.canEditTags;
 
     return (
@@ -89,6 +91,7 @@ export const SidebarTagsSection = ({ readOnly, properties }: Props) => {
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                existingUrns={existingTagUrns}
             />
         </div>
     );

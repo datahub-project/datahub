@@ -10,6 +10,7 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
+    Union,
 )
 
 import pydantic
@@ -48,6 +49,19 @@ ResourceType = TypeVar("ResourceType")
 DEFAULT_QUERIES_CHARACTER_LIMIT = 24000
 
 
+def validate_top_n_queries_character_budget(
+    top_n_queries: int, queries_character_limit: int
+) -> None:
+    """Shared by BaseUsageConfig and BigQueryQueriesExtractorConfig, which both
+    accept these two fields but don't share a common base class."""
+    minimum_query_size = 20
+    max_queries = int(queries_character_limit / minimum_query_size)
+    if top_n_queries > max_queries:
+        raise ValueError(
+            f"top_n_queries is set to {top_n_queries} but it can be maximum {max_queries}"
+        )
+
+
 def default_user_urn_builder(email: str) -> str:
     return builder.make_user_urn(email.split("@")[0])
 
@@ -64,6 +78,28 @@ def extract_user_email(user: str) -> Optional[str]:
     if user.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
         user = user.split(":")[-1]
     return user if "@" in user else None
+
+
+def normalize_timestamp_to_utc(
+    ts: Union[datetime, str, None],
+) -> Optional[datetime]:
+    """Coerce a query timestamp to timezone-aware UTC.
+
+    Naive datetimes are treated as UTC (Redshift system tables, Databricks
+    system tables, pyodbc ``datetime2``, etc.). Timezone-aware values are
+    converted to UTC.
+
+    ``SqlParsingAggregator`` compares query timestamps against UTC-aware
+    bucket boundaries from the ingestion config; naive bucket keys never
+    match and query usage stats are dropped as outside the window.
+    """
+    if ts is None:
+        return None
+    if isinstance(ts, str):
+        ts = datetime.fromisoformat(ts)
+    if ts.tzinfo is None:
+        return ts.replace(tzinfo=timezone.utc)
+    return ts.astimezone(timezone.utc)
 
 
 def make_usage_workunit(
@@ -235,13 +271,10 @@ class BaseUsageConfig(BaseTimeWindowConfig):
     @field_validator("top_n_queries", mode="after")
     @classmethod
     def ensure_top_n_queries_is_not_too_big(cls, v: int, info: ValidationInfo) -> int:
-        minimum_query_size = 20
-        values = info.data
-        max_queries = int(values["queries_character_limit"] / minimum_query_size)
-        if v > max_queries:
-            raise ValueError(
-                f"top_n_queries is set to {v} but it can be maximum {max_queries}"
-            )
+        validate_top_n_queries_character_budget(
+            top_n_queries=v,
+            queries_character_limit=info.data["queries_character_limit"],
+        )
         return v
 
 

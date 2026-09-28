@@ -37,6 +37,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MySqlDatabaseOperations implements DatabaseOperations {
 
+  /**
+   * Byte-exact collation required for metadata_aspect_v2 key columns. Matches the DDL in {@link
+   * #createTableSqlStatements} and docker/mysql-setup; a case-insensitive collation breaks
+   * getNextVersions URN matching.
+   */
+  private static final String ASPECT_TABLE_COLLATION = "utf8mb4_bin";
+
   @Override
   public String createIamUserSql(String username, String iamRole) {
     // The iamRole parameter is not used for MySQL (unlike PostgreSQL)
@@ -167,6 +174,39 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
                     + " "
                     + indexColumnListWithParens);
           }
+        }
+      }
+    }
+  }
+
+  @Override
+  public void ensureAspectTableCollation(Connection connection) throws SQLException {
+    // Detect whether the urn/aspect key columns use a case-insensitive collation. Those are
+    // the columns read back by getNextVersions, so a mismatch on either drops MCP batches.
+    // CREATE TABLE IF NOT EXISTS cannot fix an already-existing table, so align it here
+    // (mirrors ensureAspectIndexes).
+    String checkSql =
+        "SELECT COUNT(*) FROM information_schema.columns "
+            + "WHERE table_schema = DATABASE() AND table_name = 'metadata_aspect_v2' "
+            + "AND column_name IN ('urn', 'aspect') "
+            + "AND collation_name IS NOT NULL AND collation_name <> ?";
+    try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
+      stmt.setString(1, ASPECT_TABLE_COLLATION);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next() && rs.getInt(1) > 0) {
+          log.warn(
+              "metadata_aspect_v2 key columns are not {}; converting table charset/collation to "
+                  + "prevent URN case-collision drops in getNextVersions. This may rebuild the "
+                  + "table and can be slow on large datasets.",
+              ASPECT_TABLE_COLLATION);
+          try (Statement alterStmt = connection.createStatement()) {
+            alterStmt.execute(
+                "ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE "
+                    + ASPECT_TABLE_COLLATION);
+          }
+          log.info("Converted metadata_aspect_v2 to utf8mb4 / {}", ASPECT_TABLE_COLLATION);
+        } else {
+          log.info("metadata_aspect_v2 key columns already use {}", ASPECT_TABLE_COLLATION);
         }
       }
     }

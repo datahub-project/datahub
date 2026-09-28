@@ -74,7 +74,7 @@ class GrafanaAPIClient:
                 folders.extend(Folder.model_validate(folder) for folder in batch)
                 page += 1
             except requests.exceptions.RequestException as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Folder Fetch Error",
                     message="Failed to fetch folders on page",
                     context=str(page),
@@ -134,7 +134,7 @@ class GrafanaAPIClient:
                         dashboards.append(dashboard)
                 page += 1
             except requests.exceptions.RequestException as e:
-                self.report.report_failure(
+                self.report.failure(
                     title="Dashboard Search Error",
                     message="Failed to fetch dashboards on page",
                     context=str(page),

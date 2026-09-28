@@ -74,6 +74,7 @@ public class DocumentChangeHistoryResolver
             // Get timeline from TimelineService
             List<ChangeTransaction> transactions =
                 _timelineService.getTimeline(
+                    context.getOperationContext(),
                     documentUrn,
                     categories,
                     startTime,

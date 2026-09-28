@@ -98,6 +98,16 @@ public class ListRecommendationsResolver
     com.linkedin.metadata.recommendation.RecommendationRequestContext mappedRequestContext =
         new com.linkedin.metadata.recommendation.RecommendationRequestContext()
             .setScenario(mappedScenarioType);
+    if (requestContext.getModules() != null) {
+      mappedRequestContext.setModules(
+          new com.linkedin.metadata.recommendation.RecommendationModuleIDArray(
+              requestContext.getModules().stream()
+                  .map(
+                      moduleId ->
+                          com.linkedin.metadata.recommendation.RecommendationModuleID.valueOf(
+                              moduleId.toString()))
+                  .collect(Collectors.toList())));
+    }
     if (requestContext.getSearchRequestContext() != null) {
       SearchRequestContext searchRequestContext =
           new SearchRequestContext().setQuery(requestContext.getSearchRequestContext().getQuery());

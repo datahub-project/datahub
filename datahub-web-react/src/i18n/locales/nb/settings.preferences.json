@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Administrer utseendeinnstillingene dine.",
+    "appearance.title": "Utseende",
+    "language.description": "Velg foretrukket visningsspråk",
+    "language.title": "Språk for brukergrensesnittet",
+    "noSettings": "Fant ingen utseendeinnstillinger.",
+    "showApplications.description": "Applikasjoner er en annen måte å organisere dataene dine på, i likhet med domener. De er skjult som standard.",
+    "showApplications.successMessage": "Innstilling oppdatert!",
+    "showApplications.title": "Vis applikasjoner"
+}

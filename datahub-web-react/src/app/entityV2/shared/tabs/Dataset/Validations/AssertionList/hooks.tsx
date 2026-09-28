@@ -1,11 +1,12 @@
-import { Typography } from 'antd';
-import { ColumnsType } from 'antd/es/table';
+import { Column } from '@components';
+import { Tooltip, Typography } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import { ActionsColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionsTableColumns';
+import { AcrylAssertionOwnerColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionOwnerColumn';
 import { AssertionName } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AssertionName';
 import { AcrylAssertionTagColumn } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Tags/AcrylAssertionTagColumn';
 import {
@@ -14,13 +15,13 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
 import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
-import { AssertionResultType, AssertionType } from '@src/types.generated';
+import { AssertionResultType, AssertionType, DataContract } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 const CategoryType = styled.div`
     font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.text};
     display: flex;
     align-items: center;
     white-space: nowrap;
@@ -32,19 +33,27 @@ const CategoryType = styled.div`
 
 const LastRun = styled(Typography.Text)`
     font-family: Mulish;
-    color: ${REDESIGN_COLORS.BODY_TEXT};
+    color: ${(props) => props.theme.colors.text};
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
-    max-width: 80px;
+    max-width: 120px;
     display: inline-block;
+    font-size: 14px;
 `;
+const DEFAULT_DATETIME_FORMAT = 'l @ LT (z)';
 
-export const useAssertionsTableColumns = ({ contract, refetch }) => {
+export const useAssertionsTableColumns = ({
+    contract,
+    refetch,
+}: {
+    contract: DataContract | undefined;
+    refetch: () => void;
+}) => {
     const { t } = useTranslation('entity.profile.validations');
     const { t: tl } = useTranslation('common.labels');
     const renderAssertionName = useCallback(
-        (_, record) => (
+        (record: AssertionListTableRow) => (
             <AssertionName
                 key={record.urn}
                 assertion={record.assertion}
@@ -58,57 +67,58 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
     );
 
     const renderCategory = useCallback(
-        (_, record) =>
+        (record: AssertionListTableRow) =>
             !record.groupName &&
             record?.type && <CategoryType key={record.urn}>{getAssertionGroupName(record.type)}</CategoryType>,
         [],
     );
 
     const renderLastRun = useCallback(
-        (_, record) =>
-            !record.groupName && <LastRun key={record.urn}>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>,
+        (record: AssertionListTableRow) =>
+            !record.groupName && (
+                <Tooltip placement="topLeft" title={dayjs(record.lastEvaluationTimeMs).format(DEFAULT_DATETIME_FORMAT)}>
+                    <LastRun key={record.urn}>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>
+                </Tooltip>
+            ),
         [],
     );
 
+    const renderOwners = useCallback(
+        (record: AssertionListTableRow) =>
+            !record.groupName && <AcrylAssertionOwnerColumn key={record.urn} record={record} refetch={refetch} />,
+        [refetch],
+    );
+
     const renderTags = useCallback(
-        (_, record) =>
+        (record: AssertionListTableRow) =>
             !record.groupName && <AcrylAssertionTagColumn key={record.urn} record={record} refetch={refetch} />,
         [refetch],
     );
 
     const renderActions = useCallback(
-        (_, record) => {
-            return (
-                !record.groupName && (
-                    <ActionsColumn
-                        key={record.urn}
-                        assertion={record.assertion}
-                        contract={contract}
-                        canEditContract
-                        refetch={refetch}
-                        shouldRightAlign
-                        options={{ removeRightPadding: true }}
-                    />
-                )
-            );
-        },
+        (record: AssertionListTableRow) =>
+            !record.groupName && (
+                <ActionsColumn
+                    key={record.urn}
+                    assertion={record.assertion}
+                    contract={contract}
+                    canEditContract
+                    refetch={refetch}
+                    shouldRightAlign
+                    options={{ removeRightPadding: true }}
+                />
+            ),
         [contract, refetch],
     );
 
     return useMemo(() => {
-        const columns: ColumnsType<AssertionListTableRow> = [
+        const columns: Column<AssertionListTableRow>[] = [
             {
                 title: tl('name'),
                 dataIndex: 'name',
                 key: 'name',
                 render: renderAssertionName,
-                width: '45%',
-                sorter: (a, b) => {
-                    return a.description.localeCompare(b.description);
-                },
-                ellipsis: {
-                    showTitle: false,
-                },
+                width: '40%',
             },
             {
                 title: tl('category'),
@@ -116,15 +126,7 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
                 key: 'type',
                 render: renderCategory,
                 width: '12%',
-                sorter: (a, b) => {
-                    if (a.type && b.type) {
-                        return getAssertionGroupName(a.type).localeCompare(getAssertionGroupName(b.type));
-                    }
-                    return 0;
-                },
-                ellipsis: {
-                    showTitle: false,
-                },
+                sorter: true,
             },
             {
                 title: t('column.lastRun'),
@@ -132,26 +134,21 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
                 key: 'lastEvaluation',
                 render: renderLastRun,
                 width: '15%',
-                sorter: (sourceA, sourceB) => {
-                    if (!sourceA.lastEvaluationTimeMs || !sourceB.lastEvaluationTimeMs) {
-                        return 0;
-                    }
-                    return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
-                },
-                defaultSortOrder: 'descend',
-                ellipsis: {
-                    showTitle: false,
-                },
+                sorter: true,
+            },
+            {
+                title: tl('owners'),
+                dataIndex: 'ownership',
+                key: 'owners',
+                width: '10%',
+                render: renderOwners,
             },
             {
                 title: tl('tags'),
                 dataIndex: 'tags',
                 key: 'tags',
-                width: '18%',
+                width: '13%',
                 render: renderTags,
-                ellipsis: {
-                    showTitle: false,
-                },
             },
             {
                 title: '',
@@ -159,12 +156,12 @@ export const useAssertionsTableColumns = ({ contract, refetch }) => {
                 key: 'actions',
                 width: '10%',
                 render: renderActions,
-                fixed: 'right',
+                alignment: 'right',
             },
         ];
 
         return columns;
-    }, [t, tl, renderAssertionName, renderCategory, renderLastRun, renderTags, renderActions]);
+    }, [t, tl, renderAssertionName, renderCategory, renderLastRun, renderOwners, renderTags, renderActions]);
 };
 
 /** set filter as per the params we are getting from URL set assertion type and status as per the url */

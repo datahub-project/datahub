@@ -15,9 +15,12 @@ import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.PoliciesConfig.Privilege;
+import com.linkedin.metadata.graph.cache.client.BoundHierarchyAccess;
+import com.linkedin.metadata.graph.cache.client.HierarchyBindings;
 import com.linkedin.r2.RemoteInvocationException;
 import java.net.URISyntaxException;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -78,17 +81,27 @@ public class GlossaryUtils {
     // Check for the MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE privilege up the parent chain (bounded
     // to avoid cycles or excessive depth).
     Set<String> visited = new HashSet<>();
-    Urn currentParentNodeUrn = parentNodeUrn;
-    int depth = 0;
-    while (currentParentNodeUrn != null
-        && depth < context.getMaxParentDepth()
-        && visited.add(currentParentNodeUrn.toString())) {
+    visited.add(parentNodeUrn.toString());
+    if (hasManagePrivilege(
+        context, parentNodeUrn, PoliciesConfig.MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE)) {
+      return true;
+    }
+
+    int remainingDepth = Math.max(0, context.getMaxParentDepth() - 1);
+    List<Urn> ancestors =
+        BoundHierarchyAccess.orderedParents(
+            context.getOperationContext(),
+            HierarchyBindings.glossarySpec(context.getOperationContext()),
+            parentNodeUrn,
+            remainingDepth);
+    for (Urn ancestor : ancestors) {
+      if (!visited.add(ancestor.toString())) {
+        break;
+      }
       if (hasManagePrivilege(
-          context, currentParentNodeUrn, PoliciesConfig.MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE)) {
+          context, ancestor, PoliciesConfig.MANAGE_ALL_GLOSSARY_CHILDREN_PRIVILEGE)) {
         return true;
       }
-      currentParentNodeUrn = getParentUrn(currentParentNodeUrn, context, entityClient);
-      depth++;
     }
 
     return false;

@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import { Image, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
@@ -27,7 +28,7 @@ const MessageSection = styled.div`
     margin-bottom: 20px;
 `;
 
-const DetailParagraph = styled(Typography.Paragraph)`
+const DetailParagraph = styled(Text)`
     font-size: 14px;
 `;
 
@@ -75,10 +76,10 @@ export const ErrorSection = (): JSX.Element => {
                 </TitleSection>
                 <MessageSection>
                     <Typography.Title level={2}>{t('section.title')}</Typography.Title>
-                    <DetailParagraph type="secondary">{t('section.description')}</DetailParagraph>
+                    <DetailParagraph color="textSecondary">{t('section.description')}</DetailParagraph>
                 </MessageSection>
                 <div>
-                    <DetailParagraph type="secondary">
+                    <DetailParagraph color="textSecondary">
                         <Trans t={t} i18nKey="section.needSupport" components={{ bold: <b /> }} />
                     </DetailParagraph>
                     <ResourceList>

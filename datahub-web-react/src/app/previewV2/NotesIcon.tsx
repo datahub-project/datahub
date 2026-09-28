@@ -1,5 +1,5 @@
 import { Popover } from '@components';
-import { CampaignOutlined } from '@mui/icons-material';
+import { Megaphone } from '@phosphor-icons/react/dist/csr/Megaphone';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -29,7 +29,7 @@ export default function NotesIcon({ notes, className }: Props) {
     return (
         <Popover content={() => <div>{t('notesCount', { count: notes.length })}</div>} placement="bottom">
             <IconWrapper count={notes.length} className={className}>
-                <CampaignOutlined fontSize="inherit" />
+                <Megaphone size="1em" />
                 <Count>{notes.length}</Count>
             </IconWrapper>
         </Popover>

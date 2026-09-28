@@ -16,6 +16,9 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionLogger;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
@@ -24,10 +27,31 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 
-/** Creates an on-demand ingestion execution request. */
+/**
+ * Creates an on-demand "test connection" ingestion execution request.
+ *
+ * <p>Version resolution priority (top wins):
+ *
+ * <ol>
+ *   <li>{@code input.version} — explicit per-request override (existing behavior)
+ *   <li>{@code matrix[serverVersion][source.type]} — connector-specific version pin from {@link
+ *       IngestionCliVersionMatrixService} when enabled
+ *   <li>{@code matrix[serverVersion][source.type]._default}
+ *   <li>{@link IngestionConfiguration#getDefaultCliVersion()} — application-wide fallback
+ * </ol>
+ *
+ * <p>Prior to this change the test-connection path silently omitted {@code version} when the input
+ * did not provide one, causing the executor to fall back to whatever bundled default it shipped
+ * with — different from the path that real (non-test) executions take. The {@code
+ * defaultCliVersion} fallback below closes that gap; the matrix lookup brings test connections onto
+ * the same per-connector-pin behavior real executions get.
+ */
+@Slf4j
 public class CreateTestConnectionRequestResolver implements DataFetcher<CompletableFuture<String>> {
 
   private static final String TEST_CONNECTION_TASK_NAME = "TEST_CONNECTION";
@@ -38,11 +62,16 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
+  private final IngestionCliVersionMatrixService _versionMatrixService;
 
   public CreateTestConnectionRequestResolver(
-      final EntityClient entityClient, final IngestionConfiguration ingestionConfiguration) {
+      final EntityClient entityClient,
+      final IngestionConfiguration ingestionConfiguration,
+      final IngestionCliVersionMatrixService versionMatrixService) {
     _entityClient = entityClient;
     _ingestionConfiguration = ingestionConfiguration;
+    // Always a wired Spring bean (NoOp-backed when no matrix backend is configured), never null.
+    _versionMatrixService = Objects.requireNonNull(versionMatrixService);
   }
 
   @Override
@@ -80,18 +109,32 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                 RECIPE_ARG_NAME,
                 IngestionUtils.injectPipelineName(
                     input.getRecipe(), executionRequestUrn.toString()));
-            // Mirror the manual-ingestion path (CreateIngestionExecutionRequestResolver) which
-            // routes the same call through IngestionUtils.resolveIngestionCliVersion. Without
-            // this, a test-connection request with no input.version (or a blank one) silently
-            // omits args.version, causing the executor to fall back to its bundled CLI version
-            // rather than the configured defaultCliVersion. That divergence makes test
-            // connections run on a different CLI than the actual ingestion will use — hiding
-            // compatibility issues that surface in production.
-            arguments.put(
-                VERSION_ARG_NAME,
-                IngestionUtils.resolveIngestionCliVersion(
-                    input.getVersion(), _ingestionConfiguration.getDefaultCliVersion()));
+            // input.getVersion() may be null, empty, or whitespace-only (UI forms can submit any
+            // of these — an unfilled "version" field commonly renders as a 3-space string). The
+            // helper normalizes all three to "unset" so resolution falls through to the matrix /
+            // application default; without that normalization the blank would forward verbatim to
+            // the executor and silently pin to its bundled CLI.
+            final String connectorType =
+                IngestionUtils.extractSourceType(
+                    context.getOperationContext().getObjectMapper(), input.getRecipe());
+            final IngestionCliVersionResolutionHelper.Result resolution =
+                IngestionCliVersionResolutionHelper.resolve(
+                    input.getVersion(),
+                    connectorType,
+                    _versionMatrixService,
+                    _ingestionConfiguration.getDefaultCliVersion());
+            if (resolution.getVersion() != null && !resolution.getVersion().isEmpty()) {
+              arguments.put(VERSION_ARG_NAME, resolution.getVersion());
+            }
             execInput.setArgs(new StringMap(arguments));
+            execInput.setCliVersionAudit(resolution.getStamp());
+            IngestionCliVersionResolutionLogger.log(
+                log,
+                IngestionCliVersionResolutionLogger.TRIGGER_TEST_CONNECTION,
+                resolution,
+                connectorType,
+                IngestionCliVersionResolutionLogger.IDENTIFIER_EXECUTION_REQUEST,
+                executionRequestUrn.toString());
 
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithKey(

@@ -17,6 +17,7 @@
     "executions.cancelError": "Failed to cancel execution!: \n {{errorMessage}}",
     "executions.cancelSuccess": "Successfully submitted cancellation request!",
     "executions.cliExecution": "CLI Execution",
+    "executions.cliExecutionBy": "CLI Execution by <user></user>",
     "executions.colDuration": "Duration",
     "executions.colExecutedBy": "Executed By",
     "executions.colStartedAt": "Started At",
@@ -58,6 +59,7 @@
     "filters.allStatuses": "All Statuses",
     "filters.cli": "CLI",
     "filters.resultStatus": "Result Status",
+    "filters.sourceType": "Source Type",
     "filters.ui": "UI",
     "page.noPermissionTooltip": "You don't have permission to perform this action. Please contact your DataHub admin for more info.",
     "page.subtitle": "Configure and schedule syncs to import data from your data sources",
@@ -123,6 +125,8 @@
     "source.emptySearchSubtitle": "Try another search query with at least 3 characters...",
     "source.emptySearchTitle": "No search results!",
     "source.emptyTitle": "No {{sourceType}} yet!",
+    "source.entityTypeNameCount_one": "{{type}}",
+    "source.entityTypeNameCount_other": "{{type}}s",
     "source.execute": "Execute",
     "source.executeConfirmText": "Click 'Execute' to run this ingestion source.",
     "source.executeConfirmTitle": "Confirm Source Execution",
@@ -154,6 +158,8 @@
     "status.rolledBack": "Rolled Back",
     "status.rollingBack": "Rolling Back",
     "status.running": "Running",
+    "status.succeeded": "Succeeded",
+    "status.succeededWithWarnings": "Succeeded With Warnings",
     "status.success": "Success",
     "status.upForRetry": "Up for Retry"
 }

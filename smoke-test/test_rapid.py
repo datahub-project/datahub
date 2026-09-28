@@ -1,6 +1,11 @@
 from typing import Any, Dict
 
+import pytest
+
+from tests.utilities.domains import Domain
 from tests.utils import execute_graphql, ingest_file_via_rest, with_test_retry
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 bootstrap_small = "test_resources/bootstrap_single.json"
 bootstrap_small_2 = "test_resources/bootstrap_single2.json"

@@ -13,6 +13,7 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
+    LineageQuery,
     TeradataConfig,
     TeradataSource,
     TeradataTable,
@@ -237,7 +238,9 @@ class TestMemoryOptimizations:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             with patch.object(
-                source, "_make_lineage_queries", return_value=["SELECT 1"]
+                source,
+                "_make_lineage_queries",
+                return_value=[LineageQuery(sql="SELECT 1", label="current_only")],
             ):
                 # Create mock result that returns batches
                 mock_result = MagicMock()
@@ -319,7 +322,6 @@ class TestPerformanceReporting:
                 create_timestamp=datetime.now(),
                 last_alter_name=None,
                 last_alter_timestamp=None,
-                request_text="SELECT * FROM test_table",
             )
             source._tables_cache["test_schema"] = [test_view]
 
@@ -609,7 +611,6 @@ class TestQueryOptimizations:
             create_timestamp=datetime.now(),
             last_alter_name=None,
             last_alter_timestamp=None,
-            request_text=None,
         )
 
         tables_cache = {"test_schema": [test_table]}

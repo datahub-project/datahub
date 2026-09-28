@@ -121,7 +121,7 @@ export const NavSidebar = () => {
                 ) : (
                     <>
                         <Link to="/">
-                            <Icon>{appConfig.loaded ? logoComponent : undefined}</Icon>
+                            <Icon data-testid="datahub-logo-svg">{appConfig.loaded ? logoComponent : undefined}</Icon>
                         </Link>
                         <NavLinks />
                         <Spacer />

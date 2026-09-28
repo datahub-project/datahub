@@ -33,7 +33,8 @@ public class DataHubStartupStep implements UpgradeStep {
       try {
         DataHubUpgradeHistoryEvent dataHubUpgradeHistoryEvent =
             new DataHubUpgradeHistoryEvent().setVersion(_version);
-        _kafkaEventProducer.produceDataHubUpgradeHistoryEvent(dataHubUpgradeHistoryEvent);
+        _kafkaEventProducer.produceDataHubUpgradeHistoryEvent(
+            context.opContext(), dataHubUpgradeHistoryEvent);
         log.info("System Update finished for version: {}", _version);
       } catch (Exception e) {
         log.error("DataHubStartupStep failed.", e);

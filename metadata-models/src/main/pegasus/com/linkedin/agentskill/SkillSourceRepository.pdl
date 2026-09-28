@@ -1,0 +1,28 @@
+namespace com.linkedin.agentskill
+
+import com.linkedin.common.Urn
+
+/**
+ * Pointer to the git location where a skill is defined. Skills follow a
+ * "git as source of truth" pattern (e.g. the agentskills.io standard):
+ * the repository owns the skill definition, DataHub catalogs it.
+ */
+record SkillSourceRepository {
+  /**
+   * URN of the Repository entity in DataHub that owns this skill definition.
+   * Preferred over url when the repository is already cataloged in DataHub.
+   */
+  repositoryUrn: optional Urn
+
+  /**
+   * External URL of the git repository, for repositories not cataloged as
+   * DataHub Repository entities.
+   */
+  url: optional string
+
+  /**
+   * Path within the repository to the skill definition file (e.g.
+   * "customer-service/SKILL.md").
+   */
+  path: optional string
+}

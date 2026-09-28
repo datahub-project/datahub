@@ -14,8 +14,14 @@ const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
     border-radius: 4px;
     padding: ${(props) => (props.$isEntityPageHeader ? '6px' : '4px 6px')};
 
-    background: ${(props) => props.theme.colors.bgSurfaceBrand};
+    background: ${(props) => props.theme.colors.bgSelectedSubtle};
     color: ${(props) => props.theme.colors.textBrand};
+
+    &:hover,
+    &:focus {
+        background: ${(props) => props.theme.colors.bgSelected};
+        color: ${(props) => props.theme.colors.textBrand};
+    }
 
     max-width: 215px;
     width: fit-content;

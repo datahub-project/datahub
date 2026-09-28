@@ -21,7 +21,7 @@ export const getUserStatusText = (userStatus: CorpUserStatus | undefined | null,
     }
 
     // If no status, default to Inactive
-    return i18next.t('users.statusInactive', { ns: 'entity.identity' });
+    return i18next.t('entity.identity:users.statusInactive');
 };
 
 type StatusFilterOption = {
@@ -31,9 +31,24 @@ type StatusFilterOption = {
 };
 
 export const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
-    { label: 'Status', value: 'all' },
-    { label: 'Active', value: 'active' },
-    { label: 'Suspended', value: 'suspended' },
+    {
+        get label() {
+            return i18next.t('entity.identity:users.statusFilter.placeholder');
+        },
+        value: 'all',
+    },
+    {
+        get label() {
+            return i18next.t('entity.identity:users.statusFilter.active');
+        },
+        value: 'active',
+    },
+    {
+        get label() {
+            return i18next.t('entity.identity:users.statusFilter.suspended');
+        },
+        value: 'suspended',
+    },
 ];
 
 /**
@@ -77,4 +92,4 @@ export function extractUserRole(
 
 // Role assignment constants
 export const NO_ROLE_URN = '';
-export const NO_ROLE_TEXT = 'No Role';
+export const getNoRoleText = (): string => i18next.t('entity.identity:users.noRole');

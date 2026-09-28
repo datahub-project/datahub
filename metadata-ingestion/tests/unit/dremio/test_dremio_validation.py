@@ -139,7 +139,6 @@ class TestQueryLineageValidation:
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-123"
         query.query = "SELECT * FROM myspace.folder.table1"
-        query.affected_dataset = "myspace.folder.result"
         query.queried_datasets = ["myspace.folder.table1"]
         query.username = "test-user"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
@@ -157,7 +156,6 @@ class TestQueryLineageValidation:
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-456"
         query.query = "SELECT * FROM s3_source.bucket.table"
-        query.affected_dataset = "myspace.result"
         query.queried_datasets = ["s3://my-bucket/path/to/data"]
         query.username = "test-user"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
@@ -184,7 +182,6 @@ class TestQueryLineageValidation:
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-789"
         query.query = "SELECT * FROM hdfs_source.table"
-        query.affected_dataset = "myspace.result"
         query.queried_datasets = ["hdfs://namenode:9000/user/data"]
         query.username = "test-user"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
@@ -210,7 +207,6 @@ class TestQueryLineageValidation:
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-101"
         query.query = "SELECT * FROM nas.table"
-        query.affected_dataset = "myspace.result"
         query.queried_datasets = ["/mnt/data/warehouse/table"]
         query.username = "test-user"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
@@ -236,7 +232,6 @@ class TestQueryLineageValidation:
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-102"
         query.query = "SELECT * FROM source.table@branch"
-        query.affected_dataset = "myspace.result"
         query.queried_datasets = ["source.table@branch"]
         query.username = "test-user"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
@@ -262,7 +257,6 @@ class TestQueryLineageValidation:
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-103"
         query.query = "SELECT * FROM otherspace.table"
-        query.affected_dataset = "myspace.result"
         query.queried_datasets = ["otherspace.unknown.table"]
         query.username = "test-user"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
@@ -277,7 +271,6 @@ class TestQueryLineageValidation:
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-104"
         query.query = "SELECT * FROM table1 JOIN external"
-        query.affected_dataset = "myspace.result"
         query.queried_datasets = [
             "myspace.folder.table1",  # In catalog
             "s3://external-bucket/data",  # Suspicious
@@ -299,7 +292,6 @@ class TestQueryLineageValidation:
         query = Mock(spec=DremioQuery)
         query.job_id = "test-job-105"
         query.query = "SELECT * FROM MYSPACE.FOLDER.TABLE1"
-        query.affected_dataset = "myspace.result"
         query.queried_datasets = ["MYSPACE.FOLDER.TABLE1"]  # Uppercase
         query.username = "test-user"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)

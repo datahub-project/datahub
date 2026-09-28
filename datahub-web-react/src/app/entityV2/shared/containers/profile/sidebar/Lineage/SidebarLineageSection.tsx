@@ -8,15 +8,20 @@ import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
+import { useSearchSummaryLineage } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageSection.hooks';
 import {
+    LineageDirectionSummary,
     getDirectDownstreamSummary,
     getDirectUpstreamSummary,
     getRelatedEntitySummary,
 } from '@app/entityV2/shared/containers/profile/sidebar/Lineage/utils';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { TabContextType } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
+import { formatNumber } from '@app/shared/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 import CompactContext from '@src/app/shared/CompactContext';
@@ -65,9 +70,14 @@ const DirectionHeader = styled.div`
     margin-right: 6px;
 `;
 
-const SidebarLineageSection = () => {
+type Props = {
+    contexType?: TabContextType;
+};
+
+const SidebarLineageSection = ({ contexType }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
     const { urn, entityData, entityType } = useEntityData();
+    const { isInFormContext } = useEntityFormContext();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const isCompact = useContext(CompactContext);
@@ -75,23 +85,59 @@ const SidebarLineageSection = () => {
 
     const separateSiblings = useIsSeparateSiblingsMode();
     const onCombinedSiblingPage = !separateSiblings && (entityData?.siblingsSearch?.total || 0) > 0;
-    const { data, loading } = useGetSearchAcrossLineageCountsQuery({
-        variables: { urn, startTimeMillis },
-        fetchPolicy: 'cache-first',
+    const isSearchSummary = contexType === TabContextType.SEARCH_SIDEBAR;
+    const {
+        directUpstreamCount: searchUpstreamCount,
+        directDownstreamCount: searchDownstreamCount,
+        upstreamTypeSummary,
+        downstreamTypeSummary,
+        loading: searchLoading,
+    } = useSearchSummaryLineage({
+        enabled: isSearchSummary,
+        urn,
+        entityData,
+        separateSiblings,
+        startTimeMillis,
         skip: onCombinedSiblingPage,
     });
+    const { data: profileData, loading: profileLoading } = useGetSearchAcrossLineageCountsQuery({
+        variables: { urn, startTimeMillis },
+        fetchPolicy: 'cache-first',
+        skip: isSearchSummary || onCombinedSiblingPage,
+    });
 
-    const directUpstreamSummary = data?.upstreams && getDirectUpstreamSummary(data.upstreams as any);
-    const directDownstreamSummary = data?.downstreams && getDirectDownstreamSummary(data.downstreams as any);
+    const directUpstreamSummary = isSearchSummary
+        ? upstreamTypeSummary
+        : profileData?.upstreams && getDirectUpstreamSummary(profileData.upstreams as any);
+    const directDownstreamSummary = isSearchSummary
+        ? downstreamTypeSummary
+        : profileData?.downstreams && getDirectDownstreamSummary(profileData.downstreams as any);
 
-    const directUpstreamCount = directUpstreamSummary?.total || 0;
-    const directDownstreamCount = directDownstreamSummary?.total || 0;
+    const directUpstreamCount = isSearchSummary ? searchUpstreamCount : directUpstreamSummary?.total || 0;
+    const directDownstreamCount = isSearchSummary ? searchDownstreamCount : directDownstreamSummary?.total || 0;
+    const loading = isSearchSummary ? searchLoading : profileLoading;
 
     const hasLineage = directUpstreamCount > 0 || directDownstreamCount > 0;
 
     if (!hasLineage) {
         return null;
     }
+
+    const renderSummary = (i18nKey: string, count: number, summary?: LineageDirectionSummary | null) => (
+        <Trans
+            t={t}
+            i18nKey={i18nKey}
+            components={{
+                summary: summary ? (
+                    (getRelatedEntitySummary(summary, entityRegistry) as React.ReactElement)
+                ) : (
+                    <>{t('entityCount.asset', { count, formattedCount: formatNumber(count) })}</>
+                ),
+            }}
+        />
+    );
+    const upstreamSummary = renderSummary('sidebar.lineage.dependsOn', directUpstreamCount, directUpstreamSummary);
+    const downstreamSummary = renderSummary('sidebar.lineage.usedBy', directDownstreamCount, directDownstreamSummary);
 
     return (
         <SidebarSection
@@ -100,7 +146,7 @@ const SidebarLineageSection = () => {
             content={
                 <>
                     {loading && <SidebarLineageLoadingSection />}
-                    {!loading && <UpstreamHealth />}
+                    {!loading && !isSearchSummary && <UpstreamHealth />}
                     {!loading && directUpstreamCount > 0 && (
                         <Section key="upstream">
                             <Tooltip title={t('sidebar.lineage.upstreamTooltip')} placement="left" showArrow={false}>
@@ -111,18 +157,7 @@ const SidebarLineageSection = () => {
                                     <DirectionText>{t('sidebar.lineage.upstreamLabel')}</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
-                            <SummaryText>
-                                <Trans
-                                    t={t}
-                                    i18nKey="sidebar.lineage.dependsOn"
-                                    components={{
-                                        summary: getRelatedEntitySummary(
-                                            directUpstreamSummary as any,
-                                            entityRegistry,
-                                        ) as React.ReactElement,
-                                    }}
-                                />
-                            </SummaryText>
+                            <SummaryText>{upstreamSummary}</SummaryText>
                         </Section>
                     )}
                     {!loading && directDownstreamCount > 0 && (
@@ -135,40 +170,33 @@ const SidebarLineageSection = () => {
                                     <DirectionText>{t('sidebar.lineage.downstreamLabel')}</DirectionText>
                                 </DirectionHeader>
                             </Tooltip>
-                            <SummaryText>
-                                <Trans
-                                    t={t}
-                                    i18nKey="sidebar.lineage.usedBy"
-                                    components={{
-                                        summary: getRelatedEntitySummary(
-                                            directDownstreamSummary as any,
-                                            entityRegistry,
-                                        ) as React.ReactElement,
-                                    }}
-                                />
-                            </SummaryText>
+                            <SummaryText>{downstreamSummary}</SummaryText>
                         </Section>
                     )}
                 </>
             }
             extra={
-                <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
-                    <Button
-                        variant="text"
-                        color="violet"
-                        size="md"
-                        icon={{ icon: TreeStructure }}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
-                            if (isCompact) {
-                                window.open(lineagePath, '_blank');
-                            } else {
-                                history.push(lineagePath);
-                            }
-                        }}
-                    />
-                </Tooltip>
+                <>
+                    {!isInFormContext && (
+                        <Tooltip title={t('sidebar.lineage.exploreGraphTooltip')} placement="left" showArrow={false}>
+                            <Button
+                                variant="text"
+                                color="primary"
+                                size="md"
+                                icon={{ icon: TreeStructure }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const lineagePath = `${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`;
+                                    if (isCompact) {
+                                        window.open(lineagePath, '_blank');
+                                    } else {
+                                        history.push(lineagePath);
+                                    }
+                                }}
+                            />
+                        </Tooltip>
+                    )}
+                </>
             }
         />
     );

@@ -30,8 +30,7 @@ public class PgQueueMessagingProcessorConditionsTest {
   @Test
   public void mcpCondition_matchesWhenPgQueueAndMcpConsumerEnabled() {
     when(env.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
-    when(env.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
-        .thenReturn("false");
+    when(env.getProperty("metadataChangeProposal.consumer.batch.enabled")).thenReturn("false");
 
     assertTrue(
         new PgQueueMessagingAndMetadataChangeProposalProcessorCondition()
@@ -41,8 +40,7 @@ public class PgQueueMessagingProcessorConditionsTest {
   @Test
   public void mcpCondition_noMatchWhenBatchMcpEnabled() {
     when(env.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
-    when(env.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
-        .thenReturn("true");
+    when(env.getProperty("metadataChangeProposal.consumer.batch.enabled")).thenReturn("true");
 
     assertFalse(
         new PgQueueMessagingAndMetadataChangeProposalProcessorCondition()
@@ -52,8 +50,7 @@ public class PgQueueMessagingProcessorConditionsTest {
   @Test
   public void batchMcpCondition_matchesWhenPgQueueAndBatchEnabled() {
     when(env.getProperty("MCE_CONSUMER_ENABLED")).thenReturn("true");
-    when(env.getProperty("metadataChangeProposal.consumer.batch.enabled", "false"))
-        .thenReturn("true");
+    when(env.getProperty("metadataChangeProposal.consumer.batch.enabled")).thenReturn("true");
 
     assertTrue(
         new PgQueueMessagingAndBatchMetadataChangeProposalProcessorCondition()

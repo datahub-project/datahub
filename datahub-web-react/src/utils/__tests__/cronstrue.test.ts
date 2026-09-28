@@ -38,6 +38,15 @@ describe('cronToString', () => {
         });
     });
 
+    it('maps pt-BR onto the locale id cronstrue ships it under', () => {
+        (i18next as any).language = 'pt-BR';
+        vi.mocked(cronstrue.toString).mockReturnValue('Às 09:00');
+
+        cronToString('0 9 * * *');
+
+        expect(cronstrue.toString).toHaveBeenCalledWith('0 9 * * *', { locale: 'pt_BR' });
+    });
+
     it('returns the value from cronstrue', () => {
         vi.mocked(cronstrue.toString).mockReturnValue('At 9:00 AM');
 
@@ -63,9 +72,16 @@ describe('removeTimePrefix', () => {
         expect(removeTimePrefix('Um 9:00 Uhr')).toBe('9:00 Uhr');
     });
 
-    it('returns the string unchanged for an unsupported language', () => {
-        (i18next as any).language = 'fr';
-        expect(removeTimePrefix('À 9:00')).toBe('À 9:00');
+    it('removes the "Kl" prefix in Swedish, with or without the period', () => {
+        (i18next as any).language = 'sv';
+        expect(removeTimePrefix('Kl 09:00')).toBe('09:00');
+        expect(removeTimePrefix('Kl. 09:00')).toBe('09:00');
+    });
+
+    it('returns the string unchanged for a language with no registered prefix', () => {
+        // Japanese cronstrue wraps the time in a phrase rather than prefixing it.
+        (i18next as any).language = 'ja';
+        expect(removeTimePrefix('次において実施09:00')).toBe('次において実施09:00');
     });
 
     it('returns the string unchanged when the prefix is absent', () => {

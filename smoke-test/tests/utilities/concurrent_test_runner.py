@@ -5,6 +5,9 @@ import concurrent.futures
 import logging
 from typing import Any, Callable, Dict, List
 
+import pytest
+from _pytest.outcomes import Skipped
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,6 +28,7 @@ def run_concurrent_tests(
 
     Raises:
         AssertionError: If any test case fails, raises with details of all failures
+        pytest.skip.Exception: If every case skipped and none passed/failed
 
     Example:
         >>> def test_entity(entity_type):
@@ -35,6 +39,8 @@ def run_concurrent_tests(
         >>> run_concurrent_tests(entity_types, test_entity, test_name="test_search")
     """
     failures: Dict[Any, Exception] = {}
+    skipped: Dict[Any, str] = {}
+    passed = 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Submit all test cases
@@ -47,10 +53,24 @@ def run_concurrent_tests(
             test_case = future_to_case[future]
             try:
                 future.result()
+                passed += 1
                 logger.info(f"{test_name}[{test_case}] passed")
+            except Skipped as e:
+                # pytest.skip() in a worker — not a failure; track separately so
+                # mixed pass+skip stays green and all-skip is not a false pass.
+                skipped[test_case] = str(e)
+                logger.warning(f"{test_name}[{test_case}] skipped: {e}")
             except Exception as e:
                 logger.error(f"{test_name}[{test_case}] failed: {e}")
                 failures[test_case] = e
+
+    if skipped:
+        skip_summary = "\n".join(
+            f"  - {test_case}: {msg}" for test_case, msg in skipped.items()
+        )
+        logger.info(
+            f"{test_name}: skipped {len(skipped)}/{len(test_cases)} cases:\n{skip_summary}"
+        )
 
     # Report all failures at once
     if failures:
@@ -60,6 +80,13 @@ def run_concurrent_tests(
         raise AssertionError(
             f"{test_name} failed for {len(failures)}/{len(test_cases)} test cases:\n{failure_summary}"
         )
+
+    # All workers skipped (e.g. ES lag) — yellow skip, not vacuous green
+    if passed == 0 and skipped:
+        skip_summary = "\n".join(
+            f"  - {test_case}: {msg}" for test_case, msg in skipped.items()
+        )
+        pytest.skip(f"{test_name}: all {len(skipped)} cases skipped:\n{skip_summary}")
 
 
 def run_concurrent_tests_with_args(
@@ -79,6 +106,7 @@ def run_concurrent_tests_with_args(
 
     Raises:
         AssertionError: If any test case fails, raises with details of all failures
+        pytest.skip.Exception: If every case skipped and none passed/failed
 
     Example:
         >>> def test_entity(entity_type, api_name):
@@ -89,6 +117,8 @@ def run_concurrent_tests_with_args(
         >>> run_concurrent_tests_with_args(test_cases, test_entity, test_name="test_search")
     """
     failures: Dict[tuple, Exception] = {}
+    skipped: Dict[tuple, str] = {}
+    passed = 0
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Submit all test cases
@@ -101,10 +131,22 @@ def run_concurrent_tests_with_args(
             test_case = future_to_case[future]
             try:
                 future.result()
+                passed += 1
                 logger.info(f"{test_name}{test_case} passed")
+            except Skipped as e:
+                skipped[test_case] = str(e)
+                logger.warning(f"{test_name}{test_case} skipped: {e}")
             except Exception as e:
                 logger.error(f"{test_name}{test_case} failed: {e}")
                 failures[test_case] = e
+
+    if skipped:
+        skip_summary = "\n".join(
+            f"  - {test_case}: {msg}" for test_case, msg in skipped.items()
+        )
+        logger.info(
+            f"{test_name}: skipped {len(skipped)}/{len(test_cases)} cases:\n{skip_summary}"
+        )
 
     # Report all failures at once
     if failures:
@@ -114,3 +156,9 @@ def run_concurrent_tests_with_args(
         raise AssertionError(
             f"{test_name} failed for {len(failures)}/{len(test_cases)} test cases:\n{failure_summary}"
         )
+
+    if passed == 0 and skipped:
+        skip_summary = "\n".join(
+            f"  - {test_case}: {msg}" for test_case, msg in skipped.items()
+        )
+        pytest.skip(f"{test_name}: all {len(skipped)} cases skipped:\n{skip_summary}")

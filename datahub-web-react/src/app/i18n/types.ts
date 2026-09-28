@@ -1,6 +1,8 @@
 import { Locale } from 'antd/lib/locale-provider';
 
-export type SupportedLanguage = 'en' | 'de';
+import type { SupportedLanguage } from '@src/i18n/supportedLanguages';
+
+export type { SupportedLanguage };
 
 export type LocaleConfig = {
     lang: SupportedLanguage;

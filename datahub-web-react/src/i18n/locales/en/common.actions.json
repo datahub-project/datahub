@@ -21,6 +21,7 @@
     "deactivate": "Deactivate",
     "delete": "Delete",
     "disable": "Disable",
+    "discard": "Discard",
     "disconnect": "Disconnect",
     "dismiss": "Dismiss",
     "done": "Done",
@@ -67,6 +68,7 @@
     "share": "Share",
     "showAll": "Show all",
     "showCountMore": "show {{count}} more",
+    "showCountMoreCapitalized": "Show {{count}} more",
     "showLess": "Show less",
     "showMore": "show more",
     "showMoreCapitalized": "Show more",
@@ -80,5 +82,12 @@
     "view": "View",
     "viewAll": "View all",
     "viewAllCount": "View all ({{count}})",
-    "yes": "Yes"
+    "viewLess": "View less",
+    "viewMore": "View more",
+    "yes": "Yes",
+    "documentationAdded": "Documentation added",
+    "documentationRemoved": "Documentation removed",
+    "documentationUpdated": "Documentation updated",
+    "showDiff": "show diff",
+    "hideDiff": "hide diff"
 }

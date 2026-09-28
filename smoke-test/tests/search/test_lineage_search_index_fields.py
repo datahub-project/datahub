@@ -7,9 +7,12 @@ from typing import Any, Dict, List, Optional
 import pytest
 import tenacity
 
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns_from_file, ingest_file_via_rest
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 # Test constants
 UPSTREAM_DATASET_URN = "urn:li:dataset:(urn:li:dataPlatform:hive,upstream_table,PROD)"

@@ -30,7 +30,7 @@ By default the connector uses Teradata `HELP` statements for every view to ensur
 
 **Profiling at scale**
 
-Profiling all tables in a large installation is impractical. Use `profiling.limit` (part of the standard `GEProfilingConfig`) to cap how many tables are profiled per run. You can also combine it with `profile_pattern` to restrict profiling to specific schemas or tables.
+Profiling all tables in a large installation is impractical. Use `profiling.limit` (part of the standard `ProfilingConfig`) to cap how many tables are profiled per run. You can also combine it with `profile_pattern` to restrict profiling to specific schemas or tables.
 
 ```yaml
 profiling:
@@ -44,6 +44,18 @@ profile_pattern:
 **Lineage query scope**
 
 When `databases` is not set the connector automatically scopes `DBC.QryLogV` queries to the databases discovered during metadata extraction, filtered by `database_pattern`. This avoids scanning the entire audit log. You can further restrict the scope with an explicit `databases` list.
+
+**Slow lineage query detection**
+
+Large `DBC.QryLogV` tables can cause individual lineage queries to run for several minutes without producing an obvious error. Set `lineage_slow_query_log_seconds` to emit a `WARNING`-level log line whenever the total database time for a single lineage query (execute call plus all `fetchmany` calls — downstream sqlglot processing time is excluded) exceeds the threshold. The warning includes the query label and elapsed DB time. The log line additionally includes the first 500 characters of the SQL text — check `WARNING`-level logs to see the SQL snippet.
+
+```yaml
+lineage_slow_query_log_seconds: 120 # warn if any lineage query takes longer than 2 minutes (DB time)
+```
+
+The default is `60` seconds. Set to `0` to disable slow-query warnings entirely. Each slow query is also counted in `report.lineage_slow_queries_detected`, and per-query DB timings are available in `report.lineage_query_timings` for post-run analysis.
+
+> **Note:** if the driver retries a failed fetchmany call, the retry backoff sleep time is included in the DB time measurement — set the threshold well above the expected base query time.
 
 **SQL parse cache size**
 

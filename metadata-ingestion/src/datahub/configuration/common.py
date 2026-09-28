@@ -38,6 +38,9 @@ REDACT_KEYS = {
     "secret",
     "options",
     "sqlalchemy_uri",
+    # A connection string embeds credentials (e.g. an Azure ``AccountKey=...`` /
+    # storage account master key) but matches none of the suffixes below.
+    "connection_string",
 }
 REDACT_SUFFIXES = {
     "_password",
@@ -50,6 +53,8 @@ REDACT_SUFFIXES = {
     "-key",
     "_key_id",
     "-key-id",
+    "_connection_string",
+    "-connection-string",
 }
 
 
@@ -400,7 +405,13 @@ class ConfigurationMechanism(ABC):
 
 
 class AllowDenyPattern(ConfigModel):
-    """A class to store allow deny regexes"""
+    """A class to store allow deny regexes.
+
+    Patterns are matched against the start of the string only, not the entire
+    string - a pattern does not need to match to the end to be considered a match.
+    For example, the pattern "prod" matches "prod", "prod_east", and "production".
+    To require an exact match, anchor your pattern explicitly, e.g. "^prod$".
+    """
 
     # This regex is used to check if a given rule is a regex expression or a literal.
     # Note that this is not a perfect check. For example, the '.' character should
@@ -410,11 +421,15 @@ class AllowDenyPattern(ConfigModel):
 
     allow: List[str] = Field(
         default=[".*"],
-        description="List of regex patterns to include in ingestion",
+        description="List of regex patterns to include in ingestion. Patterns match "
+        "from the start of the string only, not the entire string - anchor with "
+        "'^...$' for an exact match, e.g. '^prod$'.",
     )
     deny: List[str] = Field(
         default=[],
-        description="List of regex patterns to exclude from ingestion.",
+        description="List of regex patterns to exclude from ingestion. Patterns match "
+        "from the start of the string only, not the entire string - anchor with "
+        "'^...$' for an exact match, e.g. '^prod$'.",
     )
     ignoreCase: Optional[bool] = Field(
         default=True,
@@ -475,9 +490,18 @@ class KeyValuePattern(ConfigModel):
     """
     The key-value pattern is used to map a regex pattern to a set of values.
     For example, you can use it to map a table name to a list of tags to apply to it.
+
+    Rule keys are matched against the start of the string only, not the entire
+    string - a key does not need to match to the end to be considered a match.
+    To require an exact match, anchor your pattern explicitly, e.g. "^prod$".
     """
 
-    rules: Dict[str, List[str]] = {".*": []}
+    rules: Dict[str, List[str]] = Field(
+        default={".*": []},
+        description="Maps a regex pattern to the list of values to apply when it "
+        "matches. Patterns match from the start of the string only, not the entire "
+        "string - anchor with '^...$' for an exact match, e.g. '^prod$'.",
+    )
     first_match_only: bool = Field(
         default=True,
         description="Whether to stop after the first match. If false, all matching rules will be applied.",

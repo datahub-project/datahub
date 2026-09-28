@@ -54,6 +54,7 @@ describe('viewBuilderProperties', () => {
     it('should include domains property with correct display name', () => {
         const domainsProp = viewBuilderProperties.find((p) => p.id === 'domains');
         expect(domainsProp?.displayName).toBe('Domain');
+        expect(domainsProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
         expect(domainsProp?.valueOptions?.entityTypes).toContain(EntityType.Domain);
     });
 
@@ -78,7 +79,25 @@ describe('viewBuilderProperties', () => {
         const containerProp = viewBuilderProperties.find((p) => p.id === 'container');
         expect(containerProp?.displayName).toBe('Container');
         expect(containerProp?.description).toBe('The parent container of the asset.');
+        expect(containerProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
         expect(containerProp?.valueOptions?.entityTypes).toContain(EntityType.Container);
+    });
+
+    it('should include parentDocument property with hierarchical URN operators', () => {
+        const parentDocumentProp = viewBuilderProperties.find((p) => p.id === 'parentDocument');
+        expect(parentDocumentProp?.displayName).toBe('Parent Document');
+        expect(parentDocumentProp?.description).toBe('The parent document of a document.');
+        expect(parentDocumentProp?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
+        expect(parentDocumentProp?.valueOptions?.entityTypes).toContain(EntityType.Document);
+        expect(parentDocumentProp?.valueOptions?.mode).toBe(SelectInputMode.MULTIPLE);
+    });
+
+    it('exposes Within as the first operator for hierarchical properties', () => {
+        const hierarchicalIds = ['domains', 'container', 'parentDocument'];
+        hierarchicalIds.forEach((id) => {
+            const prop = viewBuilderProperties.find((p) => p.id === id);
+            expect(prop?.valueType).toBe(ValueTypeId.URN_HIERARCHY);
+        });
     });
 
     it('should include column field properties with correct display names', () => {
@@ -102,11 +121,8 @@ describe('viewBuilderProperties', () => {
         expect(viewBuilderProperties.find((p) => p.id === 'hasActiveIncidents')?.displayName).toBe(
             'Has Active Incidents',
         );
-        expect(viewBuilderProperties.find((p) => p.id === 'hasFailingAssertions')?.displayName).toBe(
-            'Has Failing Assertions',
-        );
 
-        const booleanIds = ['hasDescription', 'removed', 'hasActiveIncidents', 'hasFailingAssertions'];
+        const booleanIds = ['hasDescription', 'removed', 'hasActiveIncidents'];
         booleanIds.forEach((id) => {
             expect(viewBuilderProperties.find((p) => p.id === id)?.valueType).toBe(ValueTypeId.BOOLEAN);
         });

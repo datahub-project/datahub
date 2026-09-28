@@ -1,4 +1,5 @@
 import { FolderFilled } from '@ant-design/icons';
+import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { IconStyleType } from '@app/entity/Entity';
@@ -10,6 +11,7 @@ import {
     deduplicateAggregations,
     filterEmptyAggregations,
     filterOptionsWithSearch,
+    getDynamicFilterField,
     getFilterDisplayName,
     getFilterEntity,
     getFilterIconAndLabel,
@@ -20,13 +22,20 @@ import {
     getStructuredPropFilterDisplayName,
     isAnyOptionSelected,
     isFilterOptionSelected,
+    useFilterDisplayName,
 } from '@app/searchV2/filters/utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { ENTITY_SUB_TYPE_FILTER_NAME, STRUCTURED_PROPERTIES_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '@src/Mocks';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import {
+    DATE_TYPE_URN,
+    NUMBER_TYPE_URN,
+    RICH_TEXT_TYPE_URN,
+    STRING_TYPE_URN,
+    URN_TYPE_URN,
+} from '@src/app/shared/constants';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
-import { AggregationMetadata, EntityType } from '@types';
+import { AggregationMetadata, EntityType, FilterOperator } from '@types';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -79,6 +88,39 @@ describe('filter utils - getNewFilters', () => {
         expect(newFilters).toMatchObject([
             { field: 'entity', values: ['test'] },
             { field: 'platform', values: ['two'] },
+        ]);
+    });
+
+    it('should default domains filters to DescendantsIncl (Within)', () => {
+        const newFilters = getNewFilters('domains', [], ['urn:li:domain:marketing']);
+        expect(newFilters).toMatchObject([
+            {
+                field: 'domains',
+                values: ['urn:li:domain:marketing'],
+                condition: 'DESCENDANTS_INCL',
+            },
+        ]);
+    });
+
+    it('should default container filters to DescendantsIncl (Within)', () => {
+        const newFilters = getNewFilters('container', [], ['urn:li:container:abc']);
+        expect(newFilters).toMatchObject([
+            {
+                field: 'container',
+                values: ['urn:li:container:abc'],
+                condition: 'DESCENDANTS_INCL',
+            },
+        ]);
+    });
+
+    it('should default parentDocument filters to DescendantsIncl (Within)', () => {
+        const newFilters = getNewFilters('parentDocument', [], ['urn:li:document:parent']);
+        expect(newFilters).toMatchObject([
+            {
+                field: 'parentDocument',
+                values: ['urn:li:document:parent'],
+                condition: 'DESCENDANTS_INCL',
+            },
         ]);
     });
 });
@@ -534,8 +576,15 @@ describe('filter utils - getStructuredPropFilterDisplayName', () => {
         ).toBe('10/01/2024');
     });
 
-    it('should return a properly formatted number if it is a number type', () => {
-        expect(getStructuredPropFilterDisplayName('structuredProperties.retentionTime', '90.0')).toBe('90');
+    it('should return a properly formatted number when entity has NUMBER valueType', () => {
+        const entity = { definition: { valueType: { urn: NUMBER_TYPE_URN } } } as any;
+        expect(getStructuredPropFilterDisplayName('structuredProperties.retentionTime', '90.0', entity)).toBe('90');
+    });
+
+    it('should return the raw string when no entity is provided (avoids parseFloat corrupting UUIDs)', () => {
+        // Without entity type info we cannot safely call parseFloat — a value like "02d22a5f-..."
+        // would be silently truncated to "2". Fall through to raw rendering instead.
+        expect(getStructuredPropFilterDisplayName('structuredProperties.retentionTime', '90.0')).toBe('90.0');
     });
 
     it('should strip rich text formatting to be displayed', () => {
@@ -565,5 +614,200 @@ describe('filter utils - getFilterDisplayName', () => {
         const option = { value: 'testValue' };
         const field: FilterField = { type: FieldType.ENUM, field: 'test', displayName: 'test' };
         expect(getFilterDisplayName(option, field)).toBe(undefined);
+    });
+});
+
+describe('filter utils - getStructuredPropFilterDisplayName NUMBER type', () => {
+    it('should format a number value correctly when entity has NUMBER valueType', () => {
+        const entity = { definition: { valueType: { urn: NUMBER_TYPE_URN } } } as any;
+        expect(getStructuredPropFilterDisplayName('structuredProperties.count', '42.0', entity)).toBe('42');
+        expect(getStructuredPropFilterDisplayName('structuredProperties.count', '1000.0', entity)).toBe('1000');
+    });
+
+    it('should NOT corrupt a UUID-shaped value when no entity/type info is provided', () => {
+        // parseFloat('550e8400-e29b-41d4-a716-446655440000') === Infinity before the fix
+        const result = getStructuredPropFilterDisplayName(
+            'structuredProperties.uuidProp',
+            '550e8400-e29b-41d4-a716-446655440000',
+        );
+        expect(result).toBe('550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    it('should NOT corrupt a UUID-shaped value even when entity has STRING valueType', () => {
+        const entity = { definition: { valueType: { urn: STRING_TYPE_URN } } } as any;
+        const result = getStructuredPropFilterDisplayName(
+            'structuredProperties.uuidProp',
+            '550e8400-e29b-41d4-a716-446655440000',
+            entity,
+        );
+        expect(result).toBe('550e8400-e29b-41d4-a716-446655440000');
+    });
+
+    it('should return undefined for URN values regardless of entity type', () => {
+        const entity = { definition: { valueType: { urn: URN_TYPE_URN } } } as any;
+        expect(
+            getStructuredPropFilterDisplayName('structuredProperties.steward', 'urn:li:corpuser:admin', entity),
+        ).toBe(undefined);
+    });
+});
+
+describe('filter utils - getNewFilters with availableFilters (TEXT condition)', () => {
+    const makeStringPropFilter = (hasAllowedValues: boolean) => ({
+        field: `${STRUCTURED_PROPERTIES_FILTER_NAME}.uuidProp`,
+        aggregations: [],
+        entity: {
+            __typename: 'StructuredPropertyEntity',
+            definition: {
+                valueType: { urn: STRING_TYPE_URN },
+                allowedValues: hasAllowedValues ? [{ value: { __typename: 'StringValue', stringValue: 'a' } }] : [],
+            },
+        } as any,
+    });
+
+    it('should set condition=CONTAIN for a free-form STRING structured property', () => {
+        const availableFilters = [makeStringPropFilter(false)];
+        const result = getNewFilters(
+            `${STRUCTURED_PROPERTIES_FILTER_NAME}.uuidProp`,
+            [],
+            ['550e8400-e29b-41d4-a716-446655440000'],
+            availableFilters,
+        );
+        expect(result[0].condition).toBe(FilterOperator.Contain);
+    });
+
+    it('should NOT set condition=CONTAIN for a STRING structured property with allowedValues (ENUM)', () => {
+        const availableFilters = [makeStringPropFilter(true)];
+        const result = getNewFilters(
+            `${STRUCTURED_PROPERTIES_FILTER_NAME}.uuidProp`,
+            [],
+            ['someValue'],
+            availableFilters,
+        );
+        expect(result[0].condition).toBeUndefined();
+    });
+
+    it('should set condition=CONTAIN for a free-form RICH_TEXT structured property', () => {
+        const richTextFilter = {
+            field: `${STRUCTURED_PROPERTIES_FILTER_NAME}.notes`,
+            aggregations: [],
+            entity: {
+                __typename: 'StructuredPropertyEntity',
+                definition: {
+                    valueType: { urn: RICH_TEXT_TYPE_URN },
+                    allowedValues: [],
+                },
+            } as any,
+        };
+        const result = getNewFilters(
+            `${STRUCTURED_PROPERTIES_FILTER_NAME}.notes`,
+            [],
+            ['hello world'],
+            [richTextFilter],
+        );
+        expect(result[0].condition).toBe(FilterOperator.Contain);
+    });
+
+    it('should NOT set condition for a NUMBER structured property', () => {
+        const numberFilter = {
+            field: `${STRUCTURED_PROPERTIES_FILTER_NAME}.count`,
+            aggregations: [],
+            entity: {
+                __typename: 'StructuredPropertyEntity',
+                definition: { valueType: { urn: NUMBER_TYPE_URN }, allowedValues: [] },
+            } as any,
+        };
+        const result = getNewFilters(`${STRUCTURED_PROPERTIES_FILTER_NAME}.count`, [], ['42'], [numberFilter]);
+        expect(result[0].condition).toBeUndefined();
+    });
+
+    it('should default to no condition when availableFilters is omitted', () => {
+        const result = getNewFilters('platform', [], ['snowflake']);
+        expect(result[0].condition).toBeUndefined();
+    });
+});
+
+describe('filter utils - getDynamicFilterField structured-property type routing', () => {
+    const makeSpFacet = (
+        fieldSuffix: string,
+        valueTypeUrn: string,
+        allowedValues: any[] = [],
+        typeQualifier?: any,
+    ) => ({
+        field: `${STRUCTURED_PROPERTIES_FILTER_NAME}.${fieldSuffix}`,
+        aggregations: [],
+        entity: {
+            __typename: 'StructuredPropertyEntity',
+            definition: {
+                valueType: { urn: valueTypeUrn },
+                allowedValues,
+                ...(typeQualifier ? { typeQualifier } : {}),
+            },
+        } as any,
+    });
+
+    it('returns FieldType.TEXT for a free-form STRING structured property', () => {
+        const field = `${STRUCTURED_PROPERTIES_FILTER_NAME}.uuidProp`;
+        const result = getDynamicFilterField(field, [makeSpFacet('uuidProp', STRING_TYPE_URN)]);
+        expect(result.type).toBe(FieldType.TEXT);
+    });
+
+    it('returns FieldType.TEXT for a free-form RICH_TEXT structured property', () => {
+        const field = `${STRUCTURED_PROPERTIES_FILTER_NAME}.notes`;
+        const result = getDynamicFilterField(field, [makeSpFacet('notes', RICH_TEXT_TYPE_URN)]);
+        expect(result.type).toBe(FieldType.TEXT);
+    });
+
+    it('returns FieldType.ENUM for a STRING structured property with allowedValues', () => {
+        const field = `${STRUCTURED_PROPERTIES_FILTER_NAME}.status`;
+        const result = getDynamicFilterField(field, [
+            makeSpFacet('status', STRING_TYPE_URN, [{ value: { __typename: 'StringValue', stringValue: 'open' } }]),
+        ]);
+        expect(result.type).toBe(FieldType.ENUM);
+    });
+
+    it('returns FieldType.ENTITY for a URN structured property', () => {
+        const field = `${STRUCTURED_PROPERTIES_FILTER_NAME}.steward`;
+        const result = getDynamicFilterField(field, [makeSpFacet('steward', URN_TYPE_URN)]);
+        expect(result.type).toBe(FieldType.ENTITY);
+    });
+
+    it('uses typeQualifier.allowedTypes for URN structured property entityTypes', () => {
+        const field = `${STRUCTURED_PROPERTIES_FILTER_NAME}.steward`;
+        const result = getDynamicFilterField(field, [
+            makeSpFacet('steward', URN_TYPE_URN, [], {
+                allowedTypes: [{ type: EntityType.CorpUser }, { type: EntityType.CorpGroup }],
+            }),
+        ]);
+        expect(result.type).toBe(FieldType.ENTITY);
+        expect(result.type === FieldType.ENTITY && result.entityTypes).toEqual([
+            EntityType.CorpUser,
+            EntityType.CorpGroup,
+        ]);
+    });
+});
+
+describe('filter utils - localized filter labels', () => {
+    const facet = (field: string, displayName: string) => ({ field, displayName, aggregations: [] }) as any;
+
+    it('prefers the localized label over the backend displayName when building a filter field', () => {
+        expect(getDynamicFilterField('applications', [facet('applications', 'Backend Override')]).displayName).toBe(
+            'Application',
+        );
+    });
+
+    it('falls back to the backend displayName for a field with no localized label', () => {
+        expect(getDynamicFilterField('someCustomField', [facet('someCustomField', 'Custom Label')]).displayName).toBe(
+            'Custom Label',
+        );
+    });
+
+    it('localizes a raw facet passed straight to useFilterDisplayName', () => {
+        const { result } = renderHook(() => useFilterDisplayName(facet('topUsersLast30Days', 'Backend Override')));
+        expect(result.current).toBe('Top users last 30 days');
+    });
+
+    it('keeps the backend displayName for a raw facet with no localized label', () => {
+        const { result } = renderHook(() => useFilterDisplayName(facet('someCustomField', 'Custom Label')));
+        expect(result.current).toBe('Custom Label');
     });
 });

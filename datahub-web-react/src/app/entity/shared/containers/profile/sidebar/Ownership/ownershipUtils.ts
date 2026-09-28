@@ -1,41 +1,50 @@
+import i18next from 'i18next';
+
 import { OwnershipType } from '@types';
 
 /**
- * A mapping from OwnershipType to it's display name & description. In the future,
- * we intend to make this configurable.
+ * Builds a mapping from OwnershipType to its translated display-name & description.
+ * Called at use time (not import time) so i18n is already initialized.
  */
-const OWNERSHIP_DISPLAY_TYPES = [
-    {
-        type: OwnershipType.TechnicalOwner,
-        name: 'Technical Owner',
-        description: 'Involved in the production, maintenance, or distribution of the asset(s).',
-    },
-    {
-        type: OwnershipType.BusinessOwner,
-        name: 'Business Owner',
-        description: 'Principal stakeholders or domain experts associated with the asset(s).',
-    },
-    {
-        type: OwnershipType.DataSteward,
-        name: 'Data Steward',
-        description: 'Involved in governance of the asset(s).',
-    },
-    {
-        type: OwnershipType.None,
-        name: 'None',
-        description: 'No ownership type specified.',
-    },
-];
-
-const ownershipTypeToDetails = new Map();
-OWNERSHIP_DISPLAY_TYPES.forEach((ownershipDetails) => {
-    ownershipTypeToDetails.set(ownershipDetails.type, ownershipDetails);
-});
+const getOwnershipTypeDetails = (): Map<OwnershipType, { name: string; description: string }> =>
+    new Map([
+        [
+            OwnershipType.TechnicalOwner,
+            {
+                name: i18next.t('entity.shared.containers:sidebar.ownership.type.technicalOwnerName'),
+                description: i18next.t('entity.shared.containers:sidebar.ownership.type.technicalOwnerDescription'),
+            },
+        ],
+        [
+            OwnershipType.BusinessOwner,
+            {
+                name: i18next.t('entity.shared.containers:sidebar.ownership.type.businessOwnerName'),
+                description: i18next.t('entity.shared.containers:sidebar.ownership.type.businessOwnerDescription'),
+            },
+        ],
+        [
+            OwnershipType.DataSteward,
+            {
+                name: i18next.t('entity.shared.containers:sidebar.ownership.type.dataStewardName'),
+                description: i18next.t('entity.shared.containers:sidebar.ownership.type.dataStewardDescription'),
+            },
+        ],
+        [
+            OwnershipType.None,
+            {
+                name: i18next.t('common.labels:none'),
+                description: i18next.t('entity.shared.containers:sidebar.ownership.type.noneDescription'),
+            },
+        ],
+    ]);
 
 export const getNameFromType = (type: OwnershipType) => {
-    return ownershipTypeToDetails.get(type)?.name || type;
+    return getOwnershipTypeDetails().get(type)?.name || type;
 };
 
 export const getDescriptionFromType = (type: OwnershipType) => {
-    return ownershipTypeToDetails.get(type)?.description || 'No description';
+    return (
+        getOwnershipTypeDetails().get(type)?.description ||
+        i18next.t('entity.shared.containers:ownershipType.noDescription')
+    );
 };

@@ -1,7 +1,8 @@
 import { FilterOutlined } from '@ant-design/icons';
 import { Button, Typography, message } from 'antd';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
@@ -12,6 +13,7 @@ import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/S
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
@@ -32,7 +34,7 @@ const SearchBarContainer = styled.div`
     justify-content: space-between;
     align-items: center;
     padding: 12px;
-    border-bottom: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SEARCH_BAR_STYLE = {
@@ -67,6 +69,7 @@ export const SearchSelect = ({
     setSelectedEntities,
     limit,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -89,27 +92,27 @@ export const SearchSelect = ({
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
-    const finalEntityTypes = [...entityFilters, ...(fixedEntityTypes || [])];
 
-    const finalEntityFilter = finalEntityTypes.length
+    const selectedEntityTypes = entityFilters?.length ? [...entityFilters] : [];
+    const entityFilter = selectedEntityTypes.length
         ? {
               field: ENTITY_FILTER_NAME,
               condition: FilterOperator.Equal,
-              values: finalEntityTypes,
+              values: selectedEntityTypes,
               negated: false,
           }
         : undefined;
-    const finalFilters = finalEntityFilter ? [...filtersWithoutEntities, finalEntityFilter] : filtersWithoutEntities;
+    const finalFilters = entityFilter ? [...filtersWithoutEntities, entityFilter] : filtersWithoutEntities;
 
     // Execute search
     const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
-                types: finalEntityTypes.length ? finalEntityTypes : undefined,
+                types: fixedEntityTypes ?? [],
                 query: searchQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: finalFilters,
+                orFilters: generateOrFilters(UnionType.AND, finalFilters),
                 sortInput,
             },
         },
@@ -164,15 +167,15 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && message.error(`Failed to complete search: ${error && error.message}`)}
+            {error && message.error(t('embeddedSearch.searchError', { message: error?.message }))}
             <SearchBarContainer>
                 <Button type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
                     <FilterOutlined />
-                    <Typography.Text>Filters</Typography.Text>
+                    <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
                 </Button>
                 <SearchBar
                     initialQuery=""
-                    placeholderText={placeholderText || 'Search entities...'}
+                    placeholderText={placeholderText || t('embeddedSearch.searchEntitiesPlaceholder')}
                     suggestions={[]}
                     style={SEARCH_BAR_STYLE}
                     inputStyle={SEARCH_INPUT_STYLE}

@@ -51,7 +51,7 @@ export default function MetricWithProportionLineChart({
 
         return (
             <>
-                {t('statsV2Charts.rowLabel', { count: datum.y })}{' '}
+                {t('statsV2Charts.rowLabel', { count: datum.y, formattedCount: datum.y })}{' '}
                 {proportionPercent !== null && (
                     <>
                         {PIPE_SEPARATOR} {proportionPercent}

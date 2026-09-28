@@ -1,13 +1,13 @@
 {
     "addContext": "Add context",
     "addDocumentation": "Add Documentation",
-    "addedByUser": "Added {{date}} by <link>{{name}}</link>",
+    "addedByUser": "Added {{date}} by <actorLink>{{name}}</actorLink>",
     "addLink": "Add link",
     "addRelatedLinkTooltip": "Add related link or context",
     "descriptionUpdated": "Description Updated",
     "discardChanges.description": "Your changes will be lost.",
     "discardChanges.title": "Discard unsaved changes?",
-    "editedByUser": "Edited {{date}} by <link>{{name}}</link>",
+    "editedByUser": "Edited {{date}} by <actorLink>{{name}}</actorLink>",
     "editorPlaceholder": "Describe this asset to make it more discoverable. Tag @user or reference @asset to make your docs come to life!",
     "emptyState": "No documentation added yet.",
     "exitViewEditor.description": "Are you sure you want to exit View Editor? All changes will be lost.",
@@ -18,7 +18,12 @@
     "newDocument": "New document",
     "noRelatedLinks": "No related links or context yet",
     "platformDocumentationTitle": "{{platform}} Documentation:",
+    "removeDocumentConfirmText": "This document will no longer appear in this entity's Resources. The document itself will not be deleted.",
+    "removeDocumentConfirmTitle": "Remove document from Resources?",
+    "removeDocumentError": "Failed to remove document from Resources",
+    "removeDocumentSuccess": "Document removed from Resources",
     "resources": "Resources",
+    "resourcesUpdated": "Resources updated",
     "sourceDocumentationTitle": "Source Documentation:",
     "untitledDocument": "Untitled Document"
 }

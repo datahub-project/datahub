@@ -2,6 +2,7 @@ package com.linkedin.metadata.datahubusage;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.datahubusage.event.EventSource;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;
@@ -44,8 +45,9 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
   }
 
   @Override
-  public String getUsageIndexName() {
-    return indexConvention.getIndexName(DATAHUB_USAGE_EVENT_INDEX);
+  public String getUsageIndexName(@Nonnull OperationContext opContext) {
+    return indexConvention.getIndexName(
+        opContext, SearchComponent.USAGE, DATAHUB_USAGE_EVENT_INDEX);
   }
 
   /** Searches the DataHub Usage index for backend tracing events */
@@ -72,7 +74,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     }
     filterQuery.filter(getBackendOnlyEvents());
 
-    SearchRequest searchRequest = new SearchRequest(getUsageIndexName());
+    SearchRequest searchRequest = new SearchRequest(getUsageIndexName(opContext));
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.size(externalAuditEventsSearchRequest.getSize());
     searchSourceBuilder.query(filterQuery);
@@ -92,7 +94,7 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     }
 
     searchRequest.source(searchSourceBuilder);
-    SearchResponse response = executeAndExtractDocuments(searchRequest);
+    SearchResponse response = executeAndExtractDocuments(opContext, searchRequest);
     return mapExternalAuditEventsSearchResponse(
         opContext, response, externalAuditEventsSearchRequest);
   }
@@ -175,9 +177,10 @@ public class DataHubUsageServiceImpl implements DataHubUsageService {
     return opContext.getObjectMapper().convertValue(usageEventResult, UsageEventResult.class);
   }
 
-  private SearchResponse executeAndExtractDocuments(SearchRequest searchRequest) {
+  private SearchResponse executeAndExtractDocuments(
+      OperationContext opContext, SearchRequest searchRequest) {
     try {
-      return elasticClient.search(searchRequest, RequestOptions.DEFAULT);
+      return elasticClient.search(opContext, searchRequest, RequestOptions.DEFAULT);
     } catch (Exception e) {
       log.error(String.format("Search query failed: %s", e.getMessage()));
       throw new RuntimeException("Search query failed:", e);

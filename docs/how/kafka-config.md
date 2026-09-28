@@ -68,6 +68,7 @@ By default, DataHub relies on the a set of Kafka topics to operate. By default, 
 11. **PlatformEvent_v1**:
 12. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
     Note this topic requires special configuration: **Infinite retention**. Also, 1 partition is enough for the occasional traffic.
+    If the topic was auto-created by the broker before being declared, see `KAFKA_SETUP_RECONCILE_EXISTING_TOPIC_CONFIGS` under [Topic Setup](#topic-setup) to align it to the declared settings.
 
 How Metadata Events relate to these topics is discussed at more length in [Metadata Events](../what/mxe.md).
 
@@ -92,6 +93,7 @@ the System Update container for topic setup:
 
 - `DATAHUB_PRECREATE_TOPICS`: Defaults to true, set this to false if you intend to create and configure the topics yourself and not have DataHub create them.
 - `DATAHUB_AUTO_INCREASE_PARTITIONS`: Defaults to false, controls whether DataHub automatically increases partition counts for existing topics when configured partition count exceeds current count. Only applies when `DATAHUB_PRECREATE_TOPICS` is enabled. Note that Kafka does not support decreasing partition counts and attempting to do so is treated as an error when this setting is enabled.
+- `KAFKA_SETUP_RECONCILE_EXISTING_TOPIC_CONFIGS`: Defaults to false. When enabled, the topic setup step aligns the declared `configProperties` of pre-existing topics with `application.yaml` on every run, using Kafka's `incrementalAlterConfigs` with `SET` (additive — keys you have not declared are left untouched). Useful when topics were auto-created by the broker or pre-existed before being declared, and therefore inherited broker defaults (notably `retention.ms` on `DataHubUpgradeHistory_v1`, which must be `-1` so the upgrade-completion marker is not aged out). Only applies when `DATAHUB_PRECREATE_TOPICS` is enabled, and requires the DataHub Kafka principal to have `ALTER_CONFIGS` on the affected topics.
 
 ### MCE Consumer (datahub-mce-consumer)
 

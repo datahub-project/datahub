@@ -1,4 +1,4 @@
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 
 import {
     INPUT_MAX_HEIGHT,
@@ -27,29 +27,41 @@ export const InputWrapper = styled.div({
     width: '100%',
 });
 
+export const inputContainerStyles = css<{
+    isSuccess?: boolean;
+    warning?: string;
+    isDisabled?: boolean;
+    isInvalid?: boolean;
+}>`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    flex: 1;
+    max-height: ${INPUT_MAX_HEIGHT};
+    padding-right: ${spacing.md};
+    overflow: hidden;
+    border-radius: ${radius.md};
+    border: ${({ isSuccess, warning, isInvalid, theme }) =>
+        `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid, theme.colors)}`};
+    background-color: ${({ isDisabled, theme }) => (isDisabled ? theme.colors.bgInputDisabled : theme.colors.bg)};
+    color: ${({ theme }) => theme.colors.icon};
+    box-shadow: ${({ theme }) => theme.colors.shadowXs};
+
+    &:focus-within {
+        border-color: ${({ theme }) => theme.colors.borderBrandFocused};
+        outline: ${({ theme }) => `${borders['1px']} ${theme.colors.borderBrandFocused}`};
+    }
+`;
+
 export const InputContainer = styled.div<{
     isSuccess?: boolean;
     warning?: string;
     isDisabled?: boolean;
     isInvalid?: boolean;
-}>(({ isSuccess, warning, isDisabled, isInvalid, theme }) => ({
-    border: `${borders['1px']} ${getStatusColors(isSuccess, warning, isInvalid, theme.colors)}`,
-    backgroundColor: isDisabled ? theme.colors.bgInputDisabled : theme.colors.bg,
-    paddingRight: spacing.md,
-    ...defaultFlexStyles,
-    width: '100%',
-    maxHeight: INPUT_MAX_HEIGHT,
-    overflow: 'hidden' as const,
-    borderRadius: radius.md,
-    flex: 1,
-    color: theme.colors.icon,
-    boxShadow: theme.colors.shadowXs,
-
-    '&:focus-within': {
-        borderColor: theme.colors.borderBrandFocused,
-        outline: `${borders['1px']} ${theme.colors.borderBrandFocused}`,
-    },
-}));
+}>`
+    ${inputContainerStyles}
+`;
 
 export const InputField = styled.input(({ theme }) => ({
     padding: `${spacing.sm} ${spacing.md}`,
@@ -84,7 +96,7 @@ export const Required = styled.span(({ theme }) => ({
 export const Label = styled.div(({ theme }) => ({
     ...formLabelTextStyles,
     color: theme.colors.text,
-    marginBottom: spacing.xsm,
+    marginBottom: spacing.xxsm,
     textAlign: 'left',
 }));
 

@@ -24,9 +24,10 @@ import {
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
 } from '@app/search/utils/constants';
-import EditTagTermsModal from '@app/shared/tags/AddTagsTermsModal';
+import AddTagsModal from '@app/shared/tags/AddTagsModal';
+import AddTermsModal from '@app/shared/tags/AddTermsModal';
 
-import { EntityType, FacetMetadata } from '@types';
+import { FacetMetadata } from '@types';
 
 type Props = {
     facet?: FacetMetadata | null;
@@ -189,9 +190,8 @@ export const AdvancedFilterSelectValueModal = ({
 
     if (filterField === TAGS_FILTER_NAME || filterField === FIELD_TAGS_FILTER_NAME) {
         return (
-            <EditTagTermsModal
+            <AddTagsModal
                 resources={[]}
-                type={EntityType.Tag}
                 open
                 onCloseModal={onCloseModal}
                 onOkOverride={(urns) => {
@@ -213,9 +213,8 @@ export const AdvancedFilterSelectValueModal = ({
 
     if (filterField === GLOSSARY_TERMS_FILTER_NAME || filterField === FIELD_GLOSSARY_TERMS_FILTER_NAME) {
         return (
-            <EditTagTermsModal
+            <AddTermsModal
                 resources={[]}
-                type={EntityType.GlossaryTerm}
                 open
                 onCloseModal={onCloseModal}
                 onOkOverride={(urns) => {

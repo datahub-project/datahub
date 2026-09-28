@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.ReadItem;
@@ -21,6 +22,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -33,6 +35,7 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     List<BatchItem> typeSafeItems = new ArrayList<>(mcpItems);
@@ -64,21 +67,37 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
                       .map(
                           validationEntry -> {
                             UrnValidationAnnotation annotation = validationEntry.getAnnotation();
+                            String urnStr = validationEntry.getUrn();
+                            String fieldPath = validationEntry.getFieldPath();
+
+                            final Urn urn;
+                            try {
+                              urn = UrnUtils.requireUrn(urnStr);
+                            } catch (IllegalArgumentException ex) {
+                              return Map.entry(
+                                  itemEntry.getKey(),
+                                  AspectValidationException.forItem(
+                                      itemEntry.getKey(),
+                                      formatInvalidUrnMessage(
+                                          fieldPath, urnStr, annotation.getEntityTypes())));
+                            }
 
                             if (annotation.isStrict()) {
                               try {
                                 UrnValidationUtil.validateUrn(
                                     retrieverContext.getAspectRetriever().getEntityRegistry(),
-                                    UrnUtils.getUrn(validationEntry.getUrn()),
+                                    urn,
                                     true);
                               } catch (RuntimeException ex) {
                                 return Map.entry(
                                     itemEntry.getKey(),
                                     AspectValidationException.forItem(
-                                        itemEntry.getKey(), ex.getMessage()));
+                                        itemEntry.getKey(),
+                                        String.format(
+                                            "Invalid URN at path %s: %s",
+                                            fieldPath, ex.getMessage())));
                               }
                             }
-                            Urn urn = UrnUtils.getUrn(validationEntry.getUrn());
                             if (annotation.getEntityTypes() != null
                                 && !annotation.getEntityTypes().isEmpty()) {
                               if (annotation.getEntityTypes().stream()
@@ -88,11 +107,8 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
                                     itemEntry.getKey(),
                                     AspectValidationException.forItem(
                                         itemEntry.getKey(),
-                                        String.format(
-                                            "Invalid entity type urn validation failure (Required: %s). Path: %s Urn: %s",
-                                            validationEntry.getAnnotation().getEntityTypes(),
-                                            validationEntry.getFieldPath(),
-                                            urn)));
+                                        formatEntityTypeMismatchMessage(
+                                            fieldPath, urn, annotation.getEntityTypes())));
                               }
                             }
                             return null;
@@ -110,10 +126,14 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
             .filter(itemEntry -> !nonExistenceFailures.containsKey(itemEntry.getKey()))
             .flatMap(itemEntry -> itemEntry.getValue().stream())
             .filter(validationEntry -> validationEntry.getAnnotation().isExist())
-            .map(entry -> UrnUtils.getUrn(entry.getUrn()))
+            .map(entry -> UrnUtils.requireUrn(entry.getUrn()))
             .collect(Collectors.toSet());
     Map<Urn, Boolean> missingUrns =
-        retrieverContext.getAspectRetriever().entityExists(checkUrns).entrySet().stream()
+        retrieverContext
+            .getAspectRetriever()
+            .entityExists(operationContext, checkUrns)
+            .entrySet()
+            .stream()
             .filter(urnExistsEntry -> Boolean.FALSE.equals(urnExistsEntry.getValue()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     Set<AspectValidationException> existenceFailures =
@@ -126,7 +146,7 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
                         .map(
                             validationEntry -> {
                               if (missingUrns.containsKey(
-                                  UrnUtils.getUrn(validationEntry.getUrn()))) {
+                                  UrnUtils.requireUrn(validationEntry.getUrn()))) {
                                 return AspectValidationException.forItem(
                                     itemEntry.getKey(),
                                     String.format(
@@ -144,7 +164,41 @@ public class UrnAnnotationValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
+  }
+
+  @Nonnull
+  static String formatEntityTypeMismatchMessage(
+      @Nonnull String fieldPath, @Nonnull Urn urn, @Nonnull List<String> expectedEntityTypes) {
+    return String.format(
+        "Invalid URN entity type at path %s: expected one of %s, got %s (%s)",
+        fieldPath, expectedEntityTypes, urn.getEntityType(), urn);
+  }
+
+  @Nonnull
+  static String formatInvalidUrnMessage(
+      @Nonnull String fieldPath,
+      @Nullable String urnStr,
+      @Nullable List<String> expectedEntityTypes) {
+    String expected =
+        (expectedEntityTypes == null || expectedEntityTypes.isEmpty())
+            ? "a valid URN"
+            : formatExpectedUrnDescription(expectedEntityTypes);
+    return String.format(
+        "Invalid URN at path %s: expected %s, got \"%s\"", fieldPath, expected, urnStr);
+  }
+
+  @Nonnull
+  private static String formatExpectedUrnDescription(@Nonnull List<String> expectedEntityTypes) {
+    if (expectedEntityTypes.size() == 1 && "schemaField".equals(expectedEntityTypes.get(0))) {
+      return "a schemaField URN (urn:li:schemaField:(<dataset>,<column>))";
+    }
+    if (expectedEntityTypes.size() == 1) {
+      return "a " + expectedEntityTypes.get(0) + " URN";
+    }
+    return "a valid URN of type(s) " + expectedEntityTypes;
   }
 }

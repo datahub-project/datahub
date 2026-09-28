@@ -31,13 +31,13 @@ test.describe.skip('dataset deprecation', () => {
     await page.locator('.ProseMirror-focused').type('test deprecation');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal footer button position selector; no data-testid on this button
     await page.locator('.ant-modal-footer > button:nth-child(2)').click();
-    await expect(page.getByText('Deprecation Updated')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Marked as deprecated')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DEPRECATED')).toBeVisible();
 
     // Un-deprecate via the three-dot menu
     await page.getByTestId('entity-header-dropdown').click();
     await page.getByText('Mark as un-deprecated').click();
-    await expect(page.getByText('Deprecation Updated')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Marked as un-deprecated')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DEPRECATED')).not.toBeVisible({ timeout: 10000 });
 
     // Mark as deprecated again
@@ -48,16 +48,16 @@ test.describe.skip('dataset deprecation', () => {
     await page.locator('.ProseMirror-focused').type('test deprecation');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal footer button position selector; no data-testid on this button
     await page.locator('.ant-modal-footer > button:nth-child(2)').click();
-    await expect(page.getByText('Deprecation Updated')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Marked as deprecated')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DEPRECATED')).toBeVisible();
 
     // Hover over the DEPRECATED badge and un-deprecate via the tooltip action
     await page.getByText('DEPRECATED').hover({ force: true });
-    await expect(page.getByText('Deprecation note')).toBeVisible();
+    await expect(page.getByText('Reason:')).toBeVisible();
     await page.getByRole('tooltip').getByText('Mark as un-deprecated').click();
     await expect(page.getByText('Confirm Mark as un-deprecated')).toBeVisible();
     await page.getByRole('button', { name: 'Yes' }).click();
-    await expect(page.getByText('Marked assets as un-deprecated!')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Marked as un-deprecated')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DEPRECATED')).not.toBeVisible({ timeout: 10000 });
   });
 });

@@ -73,7 +73,6 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   private final SystemEntityClient systemEntityClient;
   private final EntitySearchService entitySearchService;
   private final boolean isEnabled;
-  private OperationContext systemOperationContext;
   @Getter private final String consumerGroupSuffix;
 
   @Autowired
@@ -106,7 +105,6 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   @Override
   public SiblingAssociationHook init(@Nonnull OperationContext systemOperationContext) {
-    this.systemOperationContext = systemOperationContext;
     return this;
   }
 
@@ -116,7 +114,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
   }
 
   @Override
-  public void invoke(@Nonnull MetadataChangeLog event) {
+  public void invoke(@Nonnull OperationContext operationContext, @Nonnull MetadataChangeLog event)
+      throws Exception {
     if (enabled && isEligibleForProcessing(event)) {
 
       log.debug(
@@ -124,7 +123,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
           event.getEntityUrn(),
           event.getAspectName());
 
-      final Urn urn = getUrnFromEvent(event);
+      final Urn urn = getUrnFromEvent(operationContext, event);
 
       DatasetUrn datasetUrn = null;
       try {
@@ -137,20 +136,20 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
       // if we are seeing the key, this means the entity may have been deleted and re-ingested
       // in this case we want to re-create its siblings aspects
       if (event.getAspectName().equals(DATASET_KEY_ASPECT_NAME)) {
-        handleEntityKeyEvent(datasetUrn);
+        handleEntityKeyEvent(operationContext, datasetUrn);
       } else if (datasetUrn.getPlatformEntity().getPlatformNameEntity().equals(DBT_PLATFORM_NAME)) {
-        handleDbtDatasetEvent(event, datasetUrn);
+        handleDbtDatasetEvent(operationContext, event, datasetUrn);
       } else {
-        handleSourceDatasetEvent(event, datasetUrn);
+        handleSourceDatasetEvent(operationContext, event, datasetUrn);
       }
     }
   }
 
-  private void handleEntityKeyEvent(DatasetUrn datasetUrn) {
+  private void handleEntityKeyEvent(OperationContext operationContext, DatasetUrn datasetUrn) {
     Filter entitiesWithYouAsSiblingFilter = createFilterForEntitiesWithYouAsSibling(datasetUrn);
     final SearchResult searchResult =
         entitySearchService.search(
-            systemOperationContext.withSearchFlags(
+            operationContext.withSearchFlags(
                 flags ->
                     flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
             List.of(DATASET_ENTITY_NAME),
@@ -171,10 +170,10 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
                     .getPlatformNameEntity()
                     .equals(DBT_PLATFORM_NAME)) {
                   setSiblingsAndSoftDeleteSibling(
-                      datasetUrn, searchResult.getEntities().get(0).getEntity());
+                      operationContext, datasetUrn, searchResult.getEntities().get(0).getEntity());
                 } else {
                   setSiblingsAndSoftDeleteSibling(
-                      searchResult.getEntities().get(0).getEntity(), datasetUrn);
+                      operationContext, searchResult.getEntities().get(0).getEntity(), datasetUrn);
                 }
               }
             });
@@ -182,19 +181,20 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
 
   // If the upstream is a single source system node & subtype is source, then associate the upstream
   // as your sibling
-  private void handleDbtDatasetEvent(MetadataChangeLog event, DatasetUrn datasetUrn) {
+  private void handleDbtDatasetEvent(
+      OperationContext operationContext, MetadataChangeLog event, DatasetUrn datasetUrn) {
     // we need both UpstreamLineage & Subtypes to determine whether to associate
     UpstreamLineage upstreamLineage = null;
     SubTypes subTypesAspectOfEntity = null;
 
     if (event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
-      upstreamLineage = getUpstreamLineageFromEvent(event);
-      subTypesAspectOfEntity = getSubtypesFromEntityClient(datasetUrn);
+      upstreamLineage = getUpstreamLineageFromEvent(operationContext, event);
+      subTypesAspectOfEntity = getSubtypesFromEntityClient(operationContext, datasetUrn);
     }
 
     if (event.getAspectName().equals(SUB_TYPES_ASPECT_NAME)) {
-      subTypesAspectOfEntity = getSubtypesFromEvent(event);
-      upstreamLineage = getUpstreamLineageFromEntityClient(datasetUrn);
+      subTypesAspectOfEntity = getSubtypesFromEvent(operationContext, event);
+      upstreamLineage = getUpstreamLineageFromEntityClient(operationContext, datasetUrn);
     }
 
     if (upstreamLineage != null
@@ -215,8 +215,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         Urn sourceTableUrn = upstreams.get(0).getDataset();
 
         // Skip if siblings already exist to avoid conflicts with dbt patch-based management
-        Siblings dbtSiblings = getSiblingsFromEntityClient(datasetUrn);
-        Siblings sourceSiblings = getSiblingsFromEntityClient(sourceTableUrn);
+        Siblings dbtSiblings = getSiblingsFromEntityClient(operationContext, datasetUrn);
+        Siblings sourceSiblings = getSiblingsFromEntityClient(operationContext, sourceTableUrn);
 
         if (dbtSiblings != null || sourceSiblings != null) {
           log.debug(
@@ -227,16 +227,18 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         }
 
         // Only create siblings if neither entity has any existing relationships
-        setSiblingsAndSoftDeleteSibling(datasetUrn, sourceTableUrn, true); // true = isDbtSource
+        setSiblingsAndSoftDeleteSibling(
+            operationContext, datasetUrn, sourceTableUrn, true); // true = isDbtSource
       }
     }
   }
 
   // if the dataset is not dbt--- it may be produced by a dbt dataset. If so, associate them as
   // siblings
-  private void handleSourceDatasetEvent(MetadataChangeLog event, DatasetUrn sourceUrn) {
+  private void handleSourceDatasetEvent(
+      OperationContext operationContext, MetadataChangeLog event, DatasetUrn sourceUrn) {
     if (event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
-      UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(event);
+      UpstreamLineage upstreamLineage = getUpstreamLineageFromEvent(operationContext, event);
       if (upstreamLineage != null && upstreamLineage.hasUpstreams()) {
         UpstreamArray upstreams = upstreamLineage.getUpstreams();
 
@@ -256,7 +258,10 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
         // model
         if (dbtUpstreams.size() == 1) {
           setSiblingsAndSoftDeleteSibling(
-              dbtUpstreams.get(0).getDataset(), sourceUrn, false); // false = isDbtModel
+              operationContext,
+              dbtUpstreams.get(0).getDataset(),
+              sourceUrn,
+              false); // false = isDbtModel
         } else if (dbtUpstreams.size() > 1) {
           log.error(
               "{} has an unexpected number of dbt upstreams: {}. Not adding any as siblings.",
@@ -267,13 +272,16 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
   }
 
-  private void setSiblingsAndSoftDeleteSibling(Urn dbtUrn, Urn sourceUrn) {
-    setSiblingsAndSoftDeleteSibling(dbtUrn, sourceUrn, false); // default: assume dbt model
+  private void setSiblingsAndSoftDeleteSibling(
+      OperationContext operationContext, Urn dbtUrn, Urn sourceUrn) {
+    setSiblingsAndSoftDeleteSibling(
+        operationContext, dbtUrn, sourceUrn, false); // default: assume dbt model
   }
 
-  private void setSiblingsAndSoftDeleteSibling(Urn dbtUrn, Urn sourceUrn, boolean isDbtSource) {
-    Siblings existingDbtSiblingAspect = getSiblingsFromEntityClient(dbtUrn);
-    Siblings existingSourceSiblingAspect = getSiblingsFromEntityClient(sourceUrn);
+  private void setSiblingsAndSoftDeleteSibling(
+      OperationContext operationContext, Urn dbtUrn, Urn sourceUrn, boolean isDbtSource) {
+    Siblings existingDbtSiblingAspect = getSiblingsFromEntityClient(operationContext, dbtUrn);
+    Siblings existingSourceSiblingAspect = getSiblingsFromEntityClient(operationContext, sourceUrn);
 
     if (existingDbtSiblingAspect != null
         && existingSourceSiblingAspect != null
@@ -314,7 +322,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     dbtSiblingProposal.setEntityUrn(dbtUrn);
 
     try {
-      systemEntityClient.ingestProposal(systemOperationContext, dbtSiblingProposal, true);
+      systemEntityClient.ingestProposal(operationContext, dbtSiblingProposal, true);
     } catch (RemoteInvocationException e) {
       log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
       throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
@@ -339,7 +347,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
             .filter(
                 urn -> {
                   try {
-                    return systemEntityClient.exists(systemOperationContext, urn);
+                    return systemEntityClient.exists(operationContext, urn);
                   } catch (RemoteInvocationException e) {
                     log.error("Error while checking existence of {}: {}", urn, e.toString());
                     throw new RuntimeException("Error checking existence. Skipping processing.", e);
@@ -361,7 +369,7 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     sourceSiblingProposal.setEntityUrn(sourceUrn);
 
     try {
-      systemEntityClient.ingestProposal(systemOperationContext, sourceSiblingProposal, true);
+      systemEntityClient.ingestProposal(operationContext, sourceSiblingProposal, true);
     } catch (RemoteInvocationException e) {
       log.error("Error while associating {} with {}: {}", dbtUrn, sourceUrn, e.toString());
       throw new RuntimeException("Error ingesting sibling proposal. Skipping processing.", e);
@@ -384,10 +392,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
    * Extracts and returns an {@link Urn} from a {@link MetadataChangeLog}. Extracts from either an
    * entityUrn or entityKey field, depending on which is present.
    */
-  private Urn getUrnFromEvent(final MetadataChangeLog event) {
+  private Urn getUrnFromEvent(
+      final OperationContext operationContext, final MetadataChangeLog event) {
     EntitySpec entitySpec;
     try {
-      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
+      entitySpec = operationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -401,14 +410,15 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
    * Deserializes and returns an instance of {@link UpstreamLineage} extracted from a {@link
    * MetadataChangeLog} event.
    */
-  private UpstreamLineage getUpstreamLineageFromEvent(final MetadataChangeLog event) {
+  private UpstreamLineage getUpstreamLineageFromEvent(
+      final OperationContext operationContext, final MetadataChangeLog event) {
     EntitySpec entitySpec;
     if (!event.getAspectName().equals(UPSTREAM_LINEAGE_ASPECT_NAME)) {
       return null;
     }
 
     try {
-      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
+      entitySpec = operationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -425,14 +435,15 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
    * Deserializes and returns an instance of {@link SubTypes} extracted from a {@link
    * MetadataChangeLog} event.
    */
-  private SubTypes getSubtypesFromEvent(final MetadataChangeLog event) {
+  private SubTypes getSubtypesFromEvent(
+      final OperationContext operationContext, final MetadataChangeLog event) {
     EntitySpec entitySpec;
     if (!event.getAspectName().equals(SUB_TYPES_ASPECT_NAME)) {
       return null;
     }
 
     try {
-      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
+      entitySpec = operationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -472,11 +483,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     return filter;
   }
 
-  private SubTypes getSubtypesFromEntityClient(final Urn urn) {
+  private SubTypes getSubtypesFromEntityClient(
+      final OperationContext operationContext, final Urn urn) {
     try {
       EntityResponse entityResponse =
-          systemEntityClient.getV2(
-              systemOperationContext, urn, ImmutableSet.of(SUB_TYPES_ASPECT_NAME));
+          systemEntityClient.getV2(operationContext, urn, ImmutableSet.of(SUB_TYPES_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.hasAspects()
@@ -491,11 +502,12 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
   }
 
-  private UpstreamLineage getUpstreamLineageFromEntityClient(final Urn urn) {
+  private UpstreamLineage getUpstreamLineageFromEntityClient(
+      final OperationContext operationContext, final Urn urn) {
     try {
       EntityResponse entityResponse =
           systemEntityClient.getV2(
-              systemOperationContext, urn, ImmutableSet.of(UPSTREAM_LINEAGE_ASPECT_NAME));
+              operationContext, urn, ImmutableSet.of(UPSTREAM_LINEAGE_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.hasAspects()
@@ -514,11 +526,11 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     }
   }
 
-  private Siblings getSiblingsFromEntityClient(final Urn urn) {
+  private Siblings getSiblingsFromEntityClient(
+      final OperationContext operationContext, final Urn urn) {
     try {
       EntityResponse entityResponse =
-          systemEntityClient.getV2(
-              systemOperationContext, urn, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
+          systemEntityClient.getV2(operationContext, urn, ImmutableSet.of(SIBLINGS_ASPECT_NAME));
 
       if (entityResponse != null
           && entityResponse.hasAspects()

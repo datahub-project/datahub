@@ -47,7 +47,7 @@ const StyledQueryCard = styled.div`
     margin-right: 10px;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
 `;
 
 const QuerySubtitleContainer = styled.div`
@@ -123,12 +123,14 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
     const schemaFieldUrn = generateSchemaFieldUrn(fieldPath, urn) || '';
     const siblingSchemaFieldUrn =
         !isSeparateSiblings && siblingUrn ? generateSchemaFieldUrn(fieldPath, siblingUrn) || '' : '';
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
 
     const { popularQueries, loading, total, selectedColumnsFilter, setSelectedColumnsFilter } = usePopularQueries({
         entityUrn: urn,
         siblingUrn,
         filterText: '',
         defaultSelectedColumns: [schemaFieldUrn || '', siblingSchemaFieldUrn],
+        canViewQueries,
     });
 
     useEffect(() => {

@@ -12,6 +12,11 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 
 
 @pytest.fixture
@@ -191,3 +196,42 @@ def test_create_column_lineage(lineage_extractor, mock_graph):
     assert isinstance(lineage, MetadataChangeProposalWrapper)
     assert isinstance(lineage.aspect, UpstreamLineageClass)
     assert lineage.aspect.fineGrainedLineages is not None
+
+
+def test_create_column_lineage_skips_unresolved_columns(lineage_extractor, mock_graph):
+    upstream_table_urn = "urn:li:dataset:(postgres,test_db.public.source,PROD)"
+    mock_parsed_sql = MagicMock()
+    mock_parsed_sql.in_tables = [
+        "urn:li:dataset:(postgres,test_db.public.test_table,PROD)"
+    ]
+    mock_parsed_sql.column_lineage = [
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(column="test_col"),
+            upstreams=[
+                ColumnRef(table=upstream_table_urn, column=""),
+                ColumnRef(table=upstream_table_urn, column="source_col"),
+            ],
+        ),
+        ColumnLineageInfo(
+            downstream=DownstreamColumnRef(column=""),
+            upstreams=[ColumnRef(table=upstream_table_urn, column="other_col")],
+        ),
+    ]
+
+    ds_urn = make_dataset_urn_with_platform_instance(
+        platform="grafana",
+        name="test_dataset",
+        platform_instance="test-instance",
+        env="PROD",
+    )
+
+    lineage = lineage_extractor._create_column_lineage(ds_urn, mock_parsed_sql)
+    assert lineage.aspect.fineGrainedLineages is not None
+    fgl_with_unresolved_upstream, fgl_with_empty_downstream = (
+        lineage.aspect.fineGrainedLineages
+    )
+
+    assert len(fgl_with_unresolved_upstream.upstreams) == 1
+    assert "source_col" in fgl_with_unresolved_upstream.upstreams[0]
+
+    assert fgl_with_empty_downstream.downstreams == []

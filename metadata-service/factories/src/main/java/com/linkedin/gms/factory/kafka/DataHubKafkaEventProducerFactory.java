@@ -5,6 +5,7 @@ import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.TopicConvention;
 import org.apache.avro.generic.IndexedRecord;
@@ -25,13 +26,20 @@ public class DataHubKafkaEventProducerFactory {
 
   @Autowired private KafkaHealthChecker kafkaHealthChecker;
 
+  @Autowired private OutboundContextResolver outboundContextResolver;
+
   @Bean(name = "kafkaEventProducer")
   protected KafkaEventProducer createInstance(
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
       @Qualifier("kafkaProducer") Producer<String, ? extends IndexedRecord> kafkaProducer) {
     KafkaEventProducer kafkaEventProducer =
-        new KafkaEventProducer(kafkaProducer, topicConvention, kafkaHealthChecker, metricUtils);
+        new KafkaEventProducer(
+            kafkaProducer,
+            topicConvention,
+            kafkaHealthChecker,
+            metricUtils,
+            outboundContextResolver);
     if (configurationProvider.getDatahub().isReadOnly()) {
       kafkaEventProducer.setWritable(false);
     }

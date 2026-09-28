@@ -4,15 +4,18 @@ import { CircleDashed } from '@phosphor-icons/react/dist/csr/CircleDashed';
 import { CircleHalf } from '@phosphor-icons/react/dist/csr/CircleHalf';
 import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
-import { IncidentStageLabel } from '@components/components/IncidentStagePill/constant';
+import { getIncidentStageLabel } from '@components/components/IncidentStagePill/constant';
 import { Pill } from '@components/components/Pills';
 
 import { IncidentStage } from '@src/types.generated';
 
 export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string; showLabel?: boolean }) => {
     const theme = useTheme();
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.labels');
 
     const stageConfig = useMemo(
         () => ({
@@ -45,7 +48,7 @@ export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string;
         [theme],
     );
 
-    if (!stage) return <Pill label="None" size="md" />;
+    if (!stage) return <Pill label={tc('none')} size="md" />;
 
     const { icon, color, bgColor } = stageConfig[stage] || {};
 
@@ -53,10 +56,13 @@ export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string;
         return icon;
     }
 
+    const stageLabels = getIncidentStageLabel(t);
+    const stageLabel = stageLabels[stage] ?? tc('none');
+
     return (
-        <div title={IncidentStageLabel[stage] || 'None'}>
+        <div title={stageLabel}>
             <Pill
-                label={IncidentStageLabel[stage] || 'None'}
+                label={stageLabel}
                 size="md"
                 customIconRenderer={iconRenderer}
                 customStyle={{

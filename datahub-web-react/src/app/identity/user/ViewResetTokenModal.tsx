@@ -103,7 +103,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                             t={t}
                             i18nKey="resetToken.shareLink.description"
                             values={{ username }}
-                            components={{ b: <b /> }}
+                            components={{ bold: <b /> }}
                         />
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
@@ -119,7 +119,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
             <ModalSection>
                 <ModalSectionHeader strong>{t('resetToken.generateLink.header')}</ModalSectionHeader>
                 <ModalSectionParagraph>
-                    <Trans t={t} i18nKey="resetToken.generateLink.description" components={{ b: <b /> }} />
+                    <Trans t={t} i18nKey="resetToken.generateLink.description" components={{ bold: <b /> }} />
                 </ModalSectionParagraph>
                 <CreateResetTokenButton
                     onClick={createNativeUserResetToken}

@@ -19,6 +19,10 @@ inputs:
     description: "Whether the PR has the 'depot' label (allows Community PRs to opt-in to Depot runners)"
     required: false
     default: "false"
+  default_runner_size:
+    description: "Depot size for default-runner / default-depot-runner / depot-label-runner: small, regular, or large"
+    required: false
+    default: "regular"
 
 outputs:
   depot-config-set:
@@ -32,19 +36,16 @@ outputs:
     value: ubuntu-24.04
   default-depot-runner:
     description: "The runner to use for most regular jobs to be run on Depot Runners. Use when you always want to run a job on Depot runners"
-    value: "depot-ubuntu-24.04"
+    value: ${{ steps.depot-runner-for-size.outputs.value }}
   small-runner:
     description: "Appropriately set small runner based on Depot availability"
     value: ${{ steps.small-runner.outputs.value }}
-  depot-runner-medium:
-    description: "depot-ubuntu-24.04-2 Runner. Use for medium jobs"
-    value: "depot-ubuntu-24.04-2"
   depot-runner-large:
     description: "depot-ubuntu-24.04-4 Runner. Use for heavy jobs"
     value: "depot-ubuntu-24.04-4"
   depot-label-runner:
     description: "Set to depot-runner if depot label is added to Community PR"
-    value: ${{ steps.depot-label-small-runner.outputs.value }}
+    value: ${{ steps.depot-label-runner.outputs.value }}
   depot-label-small-runner:
     description: "Set to depot-runner if depot label is added to Community PR"
     value: ${{ steps.depot-label-small-runner.outputs.value }}
@@ -62,16 +63,39 @@ runs:
           echo "value=false" >> "$GITHUB_OUTPUT"
         fi
 
+    - name: Resolve depot runner for default_runner_size
+      id: depot-runner-for-size
+      shell: bash
+      env:
+        DEFAULT_RUNNER_SIZE: ${{ inputs.default_runner_size }}
+      run: |
+        case "$DEFAULT_RUNNER_SIZE" in
+          small)
+            echo "value=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
+            ;;
+          regular|"")
+            echo "value=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+            ;;
+          large)
+            echo "value=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            echo "::error::Invalid default_runner_size='$DEFAULT_RUNNER_SIZE' (expected small, regular, or large)"
+            exit 1
+            ;;
+        esac
+
     - name: Set default-runner
       id: default-runner
       shell: bash
       env:
         IS_COMMUNITY_PR: ${{ inputs.is-community-pr }}
         DEPOT_CONFIG_SET: ${{ steps.depot-config-set.outputs.value }}
+        DEPOT_RUNNER: ${{ steps.depot-runner-for-size.outputs.value }}
       # Use depot for internal branches and push/schedule events; fall back to GitHub-hosted for fork PRs.
       run: |
         if [[ "$IS_COMMUNITY_PR" == "false" && "$DEPOT_CONFIG_SET" == "true" ]]; then
-          echo "value=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+          echo "value=$DEPOT_RUNNER" >> "$GITHUB_OUTPUT"
         else
           echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
         fi
@@ -107,10 +131,12 @@ runs:
       shell: bash
       env:
         HAS_DEPOT_LABEL: ${{ inputs.has-depot-label }}
+        DEPOT_RUNNER: ${{ steps.depot-runner-for-size.outputs.value }}
       # Community (fork) PRs can opt-in to Depot runners by adding the 'depot' label.
+      # Uses the same size as default_runner_size so labeled community PRs match internal sizing.
       run: |
         if [[ "$HAS_DEPOT_LABEL" == "true" ]]; then
-          echo "value=depot-ubuntu-24.04" >> "$GITHUB_OUTPUT"
+          echo "value=$DEPOT_RUNNER" >> "$GITHUB_OUTPUT"
         else
           echo "value=ubuntu-24.04" >> "$GITHUB_OUTPUT"
         fi

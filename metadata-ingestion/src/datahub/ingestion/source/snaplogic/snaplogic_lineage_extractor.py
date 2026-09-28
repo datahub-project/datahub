@@ -79,7 +79,7 @@ class SnaplogicLineageExtractor:
             )
 
         except Exception as e:
-            self.report.report_failure(
+            self.report.failure(
                 message="Error fetching lineage data",
                 exc=e,
                 title="Lineage Fetch Error",

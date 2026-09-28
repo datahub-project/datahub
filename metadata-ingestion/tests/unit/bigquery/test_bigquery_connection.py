@@ -124,6 +124,14 @@ class TestBigQueryWIFCredentialSetup:
             config.make_gcp_logging_client()
             assert mock_log_client.call_args.kwargs["credentials"] is fake_creds
 
+        # Imported lazily inside get_sharing_client, so patch it at its source module
+        # rather than on bigquery_connection.
+        with patch(
+            "google.cloud.bigquery_analyticshub_v1.AnalyticsHubServiceClient"
+        ) as mock_sharing_client:
+            config.get_sharing_client()
+            assert mock_sharing_client.call_args.kwargs["credentials"] is fake_creds
+
         with patch(
             "datahub.ingestion.source.bigquery_v2.bigquery_connection.GCPLoggingClient"
         ) as mock_log_client:

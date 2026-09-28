@@ -54,11 +54,12 @@ class MySourceReport(StatefulIngestionReport):
 ### 3. Modify the source
 
 1. The source must inherit from `StatefulIngestionSourceBase` instead of `Source`.
-2. The source should contain a custom `get_workunit_processors` method.
+2. No `get_workunit_processors()` override is needed — the base class automatically
+   wires up stale entity removal when the source report inherits from
+   `StaleEntityRemovalSourceReport` and the config has `stateful_ingestion` enabled.
 
 ```python
 from datahub.ingestion.source.state.stateful_ingestion_base import StatefulIngestionSourceBase
-from datahub.ingestion.source.state.stale_entity_removal_handler import StaleEntityRemovalHandler
 
 class MySource(StatefulIngestionSourceBase):
     def __init__(self, config: MySourceConfig, ctx: PipelineContext):
@@ -69,15 +70,43 @@ class MySource(StatefulIngestionSourceBase):
 
         # other initialization code here
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
+    # other methods here — no get_workunit_processors() needed
+```
 
-    # other methods here
+#### Advanced: Excluding processors
+
+If your source is architecturally incompatible with certain processors (e.g. due to
+parallel processing), override `get_excluded_workunit_processors()`:
+
+```python
+from datahub.ingestion.workunit_processors.auto_status_aspect import AutoStatusAspectProcessor
+from datahub.ingestion.workunit_processors.auto_browse_path_v2 import AutoBrowsePathV2Processor
+
+def get_excluded_workunit_processors(self) -> List[str]:
+    # These processors are incompatible with parallel scraping
+    return [AutoStatusAspectProcessor.NAME, AutoBrowsePathV2Processor.NAME]
+```
+
+#### Advanced: Restricting to a specific processor set
+
+Utility or cleanup sources that should use only a small set of processors override
+`get_allowed_workunit_processors()`:
+
+```python
+from datahub.ingestion.workunit_processors.auto_workunits_reporter import AutoWorkunitsReporterProcessor
+from datahub.ingestion.workunit_processors.stale_entity_removal import StaleEntityRemovalProcessor
+
+def get_allowed_workunit_processors(self) -> List[str]:
+    return [AutoWorkunitsReporterProcessor.NAME, StaleEntityRemovalProcessor.NAME]
+```
+
+#### Advanced: Custom checkpoint state type
+
+If your source uses a custom checkpoint state class, override `get_stale_entity_state_type()`:
+
+```python
+def get_stale_entity_state_type(self):
+    return MyCustomCheckpointState
 ```
 
 ## Adding Redundant Run Elimination to a Source

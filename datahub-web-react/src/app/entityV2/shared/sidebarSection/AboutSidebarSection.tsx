@@ -2,6 +2,7 @@ import { Button, TextArea } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AboutSection, AboutSectionText, EmptyValue } from '@app/entityV2/shared/SidebarStyledComponents';
@@ -29,6 +30,8 @@ type Props = {
 };
 
 export const AboutSidebarSection = ({ aboutText, isProfileOwner, onSaveAboutMe }: Props) => {
+    const { t } = useTranslation('entity.shared.profile');
+    const { t: tc } = useTranslation('common.actions');
     const [about, setAbout] = useState(aboutText);
     const [isAboutEditable, setIsAboutEditable] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -55,7 +58,7 @@ export const AboutSidebarSection = ({ aboutText, isProfileOwner, onSaveAboutMe }
 
     return (
         <SidebarSection
-            title="About"
+            title={t('sidebar.aboutTitle')}
             content={
                 <AboutSection>
                     <AboutSectionText>
@@ -83,7 +86,7 @@ export const AboutSidebarSection = ({ aboutText, isProfileOwner, onSaveAboutMe }
                                         size="sm"
                                         onClick={() => setIsExpanded((prev) => !prev)}
                                     >
-                                        {isExpanded ? 'Show less' : 'Read more'}
+                                        {isExpanded ? tc('showLess') : tc('readMore')}
                                     </Button>
                                 )}
                             </>

@@ -5,6 +5,24 @@ import type { Dayjs, ManipulateType } from '@utils/dayjs';
 
 import { DateInterval } from '@types';
 
+// Intl.supportedValuesOf omits a few common moment-timezone aliases. Keep this list focused on
+// customer-facing UTC/GMT variants and common business aliases that Java ZoneId accepts.
+const COMMON_TIMEZONE_ALIASES_SUPPORTED_BY_JAVA = [
+    'Asia/Kolkata',
+    'CET',
+    'Etc/GMT',
+    'Etc/UTC',
+    'GMT',
+    'US/Alaska',
+    'US/Arizona',
+    'US/Central',
+    'US/Eastern',
+    'US/Hawaii',
+    'US/Mountain',
+    'US/Pacific',
+    'UTC',
+];
+
 const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
     [DateInterval.Minute]: 60,
@@ -15,7 +33,7 @@ const INTERVAL_TO_SECONDS = {
     [DateInterval.Year]: 31536000,
 };
 
-const INTERVAL_TO_MS = {
+export const INTERVAL_TO_MS = {
     [DateInterval.Second]: 1000,
     [DateInterval.Minute]: 60000,
     [DateInterval.Hour]: 3600000,
@@ -42,7 +60,7 @@ export type TimeWindowSize = {
 
 type TimeWindowSizeMs = number;
 
-type TimeWindow = {
+export type TimeWindow = {
     startTime: number;
     endTime: number;
 };
@@ -96,6 +114,15 @@ export const toLocalDateString = (timeMs: number) => {
     return date.toLocaleDateString();
 };
 
+// decommissionTime on the deprecation aspect has been persisted in both seconds and milliseconds
+// across DataHub versions. Values below this threshold are too small to be a plausible epoch-millis
+// timestamp, so we treat them as already being in seconds; larger values are treated as milliseconds.
+const DECOMMISSION_TIME_MILLIS_THRESHOLD = 943920000000;
+
+export const decommissionTimeToSeconds = (decommissionTime: number): number => {
+    return decommissionTime < DECOMMISSION_TIME_MILLIS_THRESHOLD ? decommissionTime : decommissionTime / 1000;
+};
+
 export const toLocalTimeString = (timeMs: number) => {
     const date = new Date(timeMs);
     return date.toLocaleTimeString();
@@ -117,8 +144,15 @@ export const getLocaleTimezone = () => {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
 };
 
+export const getSupportedTimezones = () => {
+    const intlWithSupportedValues = Intl as unknown as { supportedValuesOf?: (input: string) => string[] };
+    const timezones = intlWithSupportedValues.supportedValuesOf?.('timeZone') || [];
+
+    return Array.from(new Set([...timezones, ...COMMON_TIMEZONE_ALIASES_SUPPORTED_BY_JAVA])).sort();
+};
+
 export const toRelativeTimeString = (timeMs: number | undefined) => {
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const rtf = new Intl.RelativeTimeFormat(i18next.language || 'en', { numeric: 'auto' });
 
     if (!timeMs) return null;
     const diffInMs = timeMs - new Date().getTime();
@@ -162,6 +196,47 @@ export const toRelativeTimeString = (timeMs: number | undefined) => {
     return rtf.format(diffInYears, 'year');
 };
 
+/** Compact relative time for stat cards — e.g. "20m ago" instead of "20 minutes ago". */
+export const toCompactRelativeTimeString = (timeMs: number | undefined | null): string | null => {
+    if (!timeMs) return null;
+
+    const diffMs = new Date().getTime() - timeMs;
+    const seconds = Math.floor(diffMs / INTERVAL_TO_MS[DateInterval.Second]);
+
+    if (seconds < 60) {
+        return i18next.t('shared.time:compactJustNow');
+    }
+
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) {
+        return i18next.t('shared.time:compactMinutesAgo', { count: minutes });
+    }
+
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+        return i18next.t('shared.time:compactHoursAgo', { count: hours });
+    }
+
+    const days = Math.floor(hours / 24);
+    if (days < 7) {
+        return i18next.t('shared.time:compactDaysAgo', { count: days });
+    }
+
+    const weeks = Math.floor(days / 7);
+    if (weeks < 5) {
+        return i18next.t('shared.time:compactWeeksAgo', { count: weeks });
+    }
+
+    // Compare against 365 days (not months < 12) — days 360–364 yield months === 12 and years === 0.
+    if (days < 365) {
+        const months = Math.max(1, Math.floor(days / 30));
+        return i18next.t('shared.time:compactMonthsAgo', { count: months });
+    }
+
+    const years = Math.floor(days / 365);
+    return i18next.t('shared.time:compactYearsAgo', { count: years });
+};
+
 export function getTimeFromNow(timestampMillis) {
     if (!timestampMillis) {
         return '';
@@ -183,6 +258,10 @@ export function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs 
     }
 
     if (startDate && !endDate) {
+        const dayDiff = dayjs().diff(startDate, 'days');
+        if (dayDiff <= 30) {
+            return i18next.t('shared.time:lastDaysCount', { count: dayDiff });
+        }
         return i18next.t('shared.time:fromDate', { date: startDate.format('ll') });
     }
 

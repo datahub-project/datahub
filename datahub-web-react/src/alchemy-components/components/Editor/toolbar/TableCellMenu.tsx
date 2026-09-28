@@ -2,6 +2,7 @@ import { DeleteOutlined, DownOutlined, PlusOutlined } from '@ant-design/icons';
 import { useActive, useCommands } from '@remirror/react';
 import { Dropdown, Menu } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const StyledDropdownButton = styled(Dropdown.Button)`
@@ -21,6 +22,7 @@ const StyledDropdownButton = styled(Dropdown.Button)`
 `;
 
 export const TableCellMenu = () => {
+    const { t } = useTranslation('alchemy');
     const active = useActive();
     const commands = useCommands();
 
@@ -31,16 +33,16 @@ export const TableCellMenu = () => {
                 disabled={active.tableHeaderCell()}
                 onClick={() => commands.addTableRowBefore()}
             >
-                Insert row above
+                {t('editor.table.insertRowAbove')}
             </Menu.Item>
             <Menu.Item icon={<PlusOutlined />} onClick={() => commands.addTableRowAfter()}>
-                Insert row below
+                {t('editor.table.insertRowBelow')}
             </Menu.Item>
             <Menu.Item icon={<PlusOutlined />} onClick={() => commands.addTableColumnBefore()}>
-                Insert column left
+                {t('editor.table.insertColumnLeft')}
             </Menu.Item>
             <Menu.Item icon={<PlusOutlined />} onClick={() => commands.addTableColumnAfter()}>
-                Insert column right
+                {t('editor.table.insertColumnRight')}
             </Menu.Item>
             <Menu.Divider />
             <Menu.Item
@@ -48,13 +50,13 @@ export const TableCellMenu = () => {
                 disabled={active.tableHeaderCell()}
                 onClick={() => commands.deleteTableRow()}
             >
-                Delete row
+                {t('editor.table.deleteRow')}
             </Menu.Item>
             <Menu.Item icon={<DeleteOutlined />} onClick={() => commands.deleteTableColumn()}>
-                Delete column
+                {t('editor.table.deleteColumn')}
             </Menu.Item>
             <Menu.Item icon={<DeleteOutlined />} onClick={() => commands.deleteTable()}>
-                Delete table
+                {t('editor.table.deleteTable')}
             </Menu.Item>
         </Menu>
     );

@@ -54,7 +54,7 @@ export class DocumentEntity implements Entity<Document> {
 
     isSearchEnabled = () => true;
 
-    isBrowseEnabled = () => false;
+    isBrowseEnabled = () => true;
 
     isLineageEnabled = () => false;
 

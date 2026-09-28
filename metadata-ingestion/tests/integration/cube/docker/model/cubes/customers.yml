@@ -1,0 +1,29 @@
+cubes:
+  - name: customers
+    sql: "SELECT * FROM public.customers"
+    description: Registered customers
+
+    measures:
+      - name: count
+        type: count
+
+    dimensions:
+      - name: id
+        sql: id
+        type: number
+        primary_key: true
+      - name: name
+        sql: name
+        type: string
+      - name: city
+        sql: city
+        type: string
+      - name: signed_up
+        sql: signed_up
+        type: time
+
+    hierarchies:
+      - name: location
+        levels:
+          - city
+          - name

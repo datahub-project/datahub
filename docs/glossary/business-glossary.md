@@ -1,5 +1,5 @@
 ---
-title: Business Glossary Guide
+title: Business Glossary
 description: "Build a Business Glossary in DataHub to define a shared vocabulary of business terms and link them to physical data assets."
 ---
 
@@ -25,6 +25,8 @@ A Business Glossary is comprised of two important primitives: Terms and Term Gro
 Both Terms and Term Groups allow you to add documentation and unique owners.
 
 For Glossary Terms, you are also able to establish relationships between different Terms in the **Related Terms** tab. Here you can create Contains and Inherits relationships. Finally, you can view all of the entities that have been tagged with a Term in the **Related Entities** tab.
+
+Relationships between Terms are what turn a Business Glossary into a **business ontology** — a connected, machine-readable model of your business that can be visualized, traversed, and queried. See [What is an Ontology?](../features/feature-guides/ontology/overview.md).
 
 ## Getting to your Glossary
 

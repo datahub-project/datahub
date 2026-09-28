@@ -1,9 +1,9 @@
 import { useApolloClient } from '@apollo/client';
 import { Text } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useHistory } from 'react-router';
+import { useHistory, useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
 import { useIngestionContext } from '@app/ingestV2/IngestionContext';
@@ -11,6 +11,7 @@ import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
+import type { IngestionSourceCreatePageLocationState } from '@app/ingestV2/source/multiStepBuilder/ingestionCreatePage.types';
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
 import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
@@ -35,6 +36,7 @@ const PLACEHOLDER_URN = 'placeholder-urn';
 export function IngestionSourceCreatePage() {
     const { t } = useTranslation('ingestion.sourceBuilder');
     const history = useHistory();
+    const location = useLocation<IngestionSourceCreatePageLocationState>();
     const client = useApolloClient();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();
@@ -43,7 +45,27 @@ export function IngestionSourceCreatePage() {
 
     const { defaultOwnershipType } = useOwnershipTypes();
 
-    const initialState = {};
+    const initialState = useMemo(
+        () => location.state?.initialBuilderState ?? {},
+        [location.state?.initialBuilderState],
+    );
+    const initialStepIndex = location.state?.initialStepIndex ?? 0;
+
+    const analyticsRef = useRef(false);
+
+    useEffect(() => {
+        if (analyticsRef.current) return;
+
+        // Direct page load
+        if (history.action === 'POP') {
+            analyticsRef.current = true;
+            analytics.event({
+                type: EventType.EnterIngestionFlowEvent,
+                entryPoint: 'direct_url',
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const STEPS: IngestionSourceFormStep[] = useMemo(
         () => [
@@ -151,7 +173,7 @@ export function IngestionSourceCreatePage() {
         <DiscardUnsavedChangesConfirmationProvider
             enableRedirectHandling={!isSubmitting}
             confirmationModalTitle={t('multiStep.builder.discard.title')}
-            confirmationModalContent={
+            confirmModalContent={
                 <Text color="gray" colorLevel={1700}>
                     {t('multiStep.builder.discard.description')}
                 </Text>
@@ -159,7 +181,13 @@ export function IngestionSourceCreatePage() {
             confirmButtonText={t('multiStep.builder.discard.confirm')}
             closeButtonText={t('multiStep.builder.discard.close')}
         >
-            <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />
+            <IngestionSourceBuilder
+                steps={STEPS}
+                onSubmit={onSubmit}
+                onCancel={onCancel}
+                initialState={initialState}
+                initialStepIndex={initialStepIndex}
+            />
         </DiscardUnsavedChangesConfirmationProvider>
     );
 }

@@ -1,0 +1,49 @@
+{
+  "realm": "datahub",
+  "enabled": true,
+  "accessTokenLifespan": 300,
+  "clients": [
+    {
+      "clientId": "datahub-executor",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "datahub-executor-secret",
+      "protocolMappers": [
+        {
+          "name": "datahub-gms-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "datahub-gms",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "datahub-wrong-aud",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "datahub-wrong-aud-secret",
+      "protocolMappers": [
+        {
+          "name": "wrong-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "not-datahub",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ]
+}

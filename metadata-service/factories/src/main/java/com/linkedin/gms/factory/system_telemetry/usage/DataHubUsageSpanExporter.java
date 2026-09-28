@@ -10,8 +10,9 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.config.UsageExportConfiguration;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
-import com.linkedin.metadata.event.UsageEventPublisher;
+import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants;
+import io.datahubproject.metadata.context.kafka.SpanProducerRecordResolver;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.data.EventData;
@@ -22,21 +23,28 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.kafka.clients.producer.ProducerRecord;
 
 @Slf4j
 public class DataHubUsageSpanExporter implements SpanExporter {
 
-  private final UsageEventPublisher publisher;
+  private final GenericProducer<String> producer;
+  private final SpanProducerRecordResolver spanProducerRecordResolver;
   private final String topic;
   private final Set<String> eventTypes;
   private final Set<String> aspectTypes;
   private final Set<String> userFilters;
 
   public DataHubUsageSpanExporter(
-      UsageEventPublisher publisher, String topic, UsageExportConfiguration config) {
-    this.publisher = publisher;
+      @Nonnull GenericProducer<String> producer,
+      String topic,
+      UsageExportConfiguration config,
+      @Nonnull SpanProducerRecordResolver spanProducerRecordResolver) {
+    this.producer = producer;
+    this.spanProducerRecordResolver = spanProducerRecordResolver;
     this.topic = topic;
     if (StringUtils.isNotBlank(config.getUsageEventTypes())) {
       this.eventTypes = Set.of(config.getUsageEventTypes().split(","));
@@ -91,10 +99,11 @@ public class DataHubUsageSpanExporter implements SpanExporter {
 
   @Override
   public CompletableResultCode export(Collection<SpanData> spans) {
-    spans.stream()
-        .flatMap(span -> span.getEvents().stream())
-        .filter(this::eventMatches)
-        .forEach(this::recordEvent);
+    spans.forEach(
+        span ->
+            span.getEvents().stream()
+                .filter(this::eventMatches)
+                .forEach(event -> recordEvent(span, event)));
 
     return CompletableResultCode.ofSuccess();
   }
@@ -114,7 +123,7 @@ public class DataHubUsageSpanExporter implements SpanExporter {
             .noneMatch(user -> user.equals(eventData.getAttributes().get(USER_ID_KEY)));
   }
 
-  private void recordEvent(EventData event) {
+  private void recordEvent(SpanData parentSpan, EventData event) {
     // Publish usage event to Usage Kafka Topic
 
     String actor = event.getAttributes().get(USER_ID_KEY);
@@ -164,18 +173,21 @@ public class DataHubUsageSpanExporter implements SpanExporter {
     usageEvent.put(USAGE_SOURCE, BACKEND_SOURCE);
     log.debug(
         String.format("Emitting product analytics event. actor: %s, event: %s", actor, usageEvent));
-    publisher.publish(topic, actor, usageEvent.toString());
+    ProducerRecord<String, String> record =
+        new ProducerRecord<>(topic, actor, usageEvent.toString());
+    spanProducerRecordResolver.apply(record, parentSpan);
+    producer.send(record, null);
   }
 
   @Override
   public CompletableResultCode flush() {
-    publisher.flush();
+    producer.flush();
     return CompletableResultCode.ofSuccess();
   }
 
   @Override
   public CompletableResultCode shutdown() {
-    publisher.flush();
+    producer.flush();
     return CompletableResultCode.ofSuccess();
   }
 }

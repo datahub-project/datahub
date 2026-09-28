@@ -63,6 +63,14 @@ record SearchFlags {
    customHighlightingFields:optional array[string]
 
   /**
+   * Elasticsearch _source include names copied onto SearchEntity.extraFields (Java / Rest.li
+   * only — not a GraphQL SearchFlags input). Nested paths and wildcards are passed through to
+   * fetch_source; extraFields copies exact top-level _source keys. Empty or absent fetches no
+   * extra document fields — only the default urn include.
+   */
+   fetchExtraFields:optional array[string]
+
+  /**
    * invoke query rewrite chain for filters based on configured rewriters
    */
    rewriteQuery: optional boolean = true
@@ -93,4 +101,15 @@ record SearchFlags {
     id: int
     max: int
   }
+
+  /**
+   * Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring
+   * below this floor are dropped, letting an agent abstain instead of returning weak matches. When
+   * null/unset, no floor is applied. Currently honored only by the semantic search path.
+   *
+   * The value is compared against the engine's raw kNN relevance score (cosine-derived), which is
+   * not a normalized 0..1 value; its scale depends on the embedding model and search engine, so a
+   * suitable floor must be calibrated per deployment rather than assumed.
+   */
+  minScore: optional float
 }

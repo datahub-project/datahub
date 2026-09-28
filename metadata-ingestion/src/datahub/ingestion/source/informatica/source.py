@@ -31,7 +31,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
-    MetadataWorkUnitProcessor,
     TestableSource,
     TestConnectionReport,
 )
@@ -56,9 +55,6 @@ from datahub.ingestion.source.informatica.models import (
     TaskflowStep,
     V2Id,
     V3Guid,
-)
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -137,7 +133,7 @@ class InformaticaFolderKey(InformaticaProjectKey):
 
 @platform_name("Informatica")
 @config_class(InformaticaSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Projects and folders as containers")
 @capability(SourceCapability.LINEAGE_COARSE, "Table-level lineage via v3 Export API")
@@ -236,14 +232,6 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         self.client.close()
         super().close()
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(
         self,
     ) -> Iterable[Union[MetadataWorkUnit, Entity]]:
@@ -278,12 +266,11 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         self.report.warning(
             title="Taskflow step DAG missing for some Taskflows",
             message=(
-                f"Resolved {with_steps}/{total} Taskflow step DAGs; "
-                f"{missing} Taskflow(s) emitted as DataFlow-only. "
+                "Some Taskflows emitted as DataFlow-only. "
                 "Common cause: service account lacks 'Asset - export' "
                 "privilege. Grant it to enable MT chaining via inputDatajobs."
             ),
-            context=f"taskflows_scanned={total}, taskflows_with_steps={with_steps}",
+            context=f"taskflows_scanned={total}, taskflows_with_steps={with_steps}, missing={missing}",
         )
 
     def _extract_containers(self) -> Iterable[Entity]:
@@ -633,8 +620,8 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> List[BrowsePathEntryClass]:
         """Wire a DataFlow to its parent Container + BrowsePathsV2.
 
-        Returns the entries so callers that build deeper paths (e.g. MT
-        DataJob appends the MT name) can extend them.
+        Returns the entries for callers that want to inspect them; the flow's
+        DataJobs inherit this path automatically via the SDK.
         """
         parent_key = self._container_parent_key(path)
         if parent_key is not None:
@@ -913,10 +900,10 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             subtype="Mapping Task",
             tags=task_tags,
         )
-        browse_entries = self._attach_container_and_browse_path(flow, mt.path)
+        self._attach_container_and_browse_path(flow, mt.path)
         yield flow
         yield self._make_mt_transform_datajob(
-            mt, flow, custom_props, task_tags, browse_entries, mapping_v3_guid
+            mt, flow, custom_props, task_tags, mapping_v3_guid
         )
 
     def _make_mt_transform_datajob(
@@ -925,7 +912,6 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
         flow: DataFlow,
         custom_props: Dict[str, str],
         task_tags: Optional[List[TagUrn]],
-        browse_entries: List[BrowsePathEntryClass],
         mapping_v3_guid: V3Guid,
     ) -> DataJob:
         """Build the MT's inner ``transform`` DataJob and register its
@@ -941,14 +927,8 @@ class InformaticaSource(StatefulIngestionSourceBase, TestableSource):
             owners=self._owner_list(mt.created_by, mt.updated_by),
             tags=task_tags,
         )
-        job._set_aspect(
-            BrowsePathsV2Class(
-                path=[
-                    *browse_entries,
-                    BrowsePathEntryClass(id=mt.name, urn=str(flow.urn)),
-                ]
-            )
-        )
+        # Browse path (project/folder ancestors + the flow entry keyed by the
+        # flow urn) is derived from the flow by the SDK; don't re-key it here.
         job_urn = str(job.urn)
         if mapping_v3_guid:
             self._mapping_v3_to_mt_job_urns.setdefault(mapping_v3_guid, []).append(

@@ -31,6 +31,7 @@ from datahub.emitter.serialization_helper import post_json_transform
 
 # DataHub imports.
 from datahub.metadata.schema_classes import GenericPayloadClass, MetadataChangeLogClass
+from datahub_actions.event.event import PlaceholderEvent
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
     ENTITY_CHANGE_EVENT_V1_TYPE,
@@ -402,15 +403,16 @@ class KafkaEventSource(EventSource):
                 continue
 
             self._observe_message(msg)
-            if msg.error():
-                if msg.error().code() == KafkaError._PARTITION_EOF:
+            error = msg.error()
+            if error:
+                if error.code() == KafkaError._PARTITION_EOF:
                     # End of partition event
                     logger.debug(
-                        "%% %s [%d] reached end at offset %d\n"
+                        "%% %s [%s] reached end at offset %s\n"
                         % (msg.topic(), msg.partition(), msg.offset())
                     )
-                elif msg.error():
-                    raise KafkaException(msg.error())
+                else:
+                    raise KafkaException(error)
             else:
                 if "mcl" in topic_routes and msg.topic() == topic_routes["mcl"]:
                     yield from self.handle_mcl(msg)
@@ -438,6 +440,7 @@ class KafkaEventSource(EventSource):
             MCL_EARLY_FILTER_METRIC.labels(
                 pipeline_name=self._pipeline_name, result="entirely_rejected"
             ).inc()
+            self._ack_filtered_message(msg)
             return
 
         if self._early_mcl_criteria_list:
@@ -464,6 +467,7 @@ class KafkaEventSource(EventSource):
                 MCL_EARLY_FILTER_METRIC.labels(
                     pipeline_name=self._pipeline_name, result="rejected"
                 ).inc()
+                self._ack_filtered_message(msg)
                 return
 
             # At least one criteria matched - pass through (conservative: might match after full eval)
@@ -476,6 +480,25 @@ class KafkaEventSource(EventSource):
         yield EventEnvelope(
             METADATA_CHANGE_LOG_EVENT_V1_TYPE, metadata_change_log_event, kafka_meta
         )
+
+    def _ack_filtered_message(self, msg: Any) -> None:
+        """Commit the offset of a message dropped by the pre-deserialization filter."""
+
+        try:
+            self.ack(
+                EventEnvelope(
+                    METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+                    PlaceholderEvent(),
+                    build_kafka_meta(msg),
+                ),
+                processed=True,
+            )
+        except Exception:
+            logger.debug(
+                "Failed to advance offset for pre-filtered message "
+                f"{msg.topic()}[{msg.partition()}]@{msg.offset()}",
+                exc_info=True,
+            )
 
     @staticmethod
     def handle_pe(msg: Any) -> Iterable[EventEnvelope]:

@@ -7,11 +7,15 @@ import threading
 import uuid
 from datetime import timedelta
 from enum import auto
-from typing import List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 import pydantic
+import requests
 from pydantic import field_validator
+from requests.sessions import SessionRedirectMixin
 
+from datahub.cli.cli_utils import fixup_gms_url
+from datahub.cli.config_utils import get_url_from_env
 from datahub.configuration.common import (
     ConfigEnum,
     ConfigurationError,
@@ -31,6 +35,7 @@ from datahub.emitter.rest_emitter import (
     EmitMode,
     RestSinkEndpoint,
 )
+from datahub.emitter.token_provider import TokenProviderAuth
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -39,6 +44,8 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.auth.env import build_auth_config_from_env
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -50,6 +57,9 @@ from datahub.utilities.partition_executor import (
 )
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.server_config_util import set_gms_config
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -163,9 +173,12 @@ def _resolve_gms_emit_mode(
 
 class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
     _emitter_thread_local: threading.local
+    _resolved_auth: Optional[requests.auth.AuthBase]
     treat_errors_as_warnings: bool = False
 
     def __post_init__(self) -> None:
+        # Must be resolved before the first `self.emitter` access below.
+        self._resolved_auth = DatahubRestSink._resolve_auth(self.config)
         self._emitter_thread_local = threading.local()
         self._gms_emit_mode = _resolve_gms_emit_mode(
             self.config.mode, _DEFAULT_EMIT_MODE
@@ -211,10 +224,78 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             )
 
     @classmethod
-    def _make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
+    def make_emitter(cls, config: DatahubRestSinkConfig) -> DataHubRestEmitter:
+        """Build a REST emitter from sink config.
+
+        Public so other sinks (e.g. the Kafka sink's REST fallback) can reuse the
+        exact emitter construction.
+        """
+        return cls._make_emitter(config, auth=cls._resolve_auth(config))
+
+    @classmethod
+    def _resolve_auth(
+        cls, config: DatahubRestSinkConfig
+    ) -> Optional[requests.auth.AuthBase]:
+        # Resolved ONCE per sink and shared across the worker-thread emitters:
+        # TokenProviderAuth is thread-safe (per-request state is thread-local,
+        # the provider cache is lock-guarded), while a provider per thread would
+        # each hit the IdP independently — max_threads token requests at startup
+        # and per refresh window, multiplied across concurrent pipelines.
+        auth_config = config.auth
+        if auth_config is None and not config.token:
+            # A recipe sink block that carries no credentials inherits env-based
+            # OAuth (DATAHUB_AUTH_TYPE) — without this, an explicit
+            # `sink: datahub-rest` block silently bypasses env auth and emits
+            # unauthenticated. Explicit credentials in the sink block always win
+            # over the environment.
+            env_auth = build_auth_config_from_env()
+            if env_auth is not None:
+                # Env OAuth applies only to the env-configured server: merging it
+                # into a sink pointing at a different origin would mint fresh
+                # bearer tokens and send them to that other host (audience
+                # scoping limits use, not disclosure). Delegates to requests'
+                # should_strip_auth — the same rule the 401-retry guard uses —
+                # so same-origin (and the benign http->https upgrade) inherit
+                # env auth, while any other origin change skips it, loudly.
+                env_url = get_url_from_env()
+                if env_url is not None and not SessionRedirectMixin().should_strip_auth(
+                    fixup_gms_url(env_url), fixup_gms_url(config.server)
+                ):
+                    auth_config = env_auth
+                    logger.info(
+                        "datahub-rest sink has no credentials configured; using "
+                        "OAuth auth from DATAHUB_AUTH_TYPE for %s.",
+                        config.server,
+                    )
+                elif env_url is None:
+                    logger.warning(
+                        "DATAHUB_AUTH_TYPE is set but DATAHUB_GMS_URL is not; "
+                        "not applying env OAuth to the explicit datahub-rest "
+                        "sink. Set DATAHUB_GMS_URL to the sink's server to "
+                        "inherit env auth."
+                    )
+                else:
+                    logger.warning(
+                        "Not applying env OAuth (DATAHUB_AUTH_TYPE) to the "
+                        "datahub-rest sink pointing at %s — it does not match "
+                        "the env-configured server %s.",
+                        config.server,
+                        env_url,
+                    )
+        if auth_config is None:
+            return None
+        return TokenProviderAuth(build_token_provider(auth_config))
+
+    @classmethod
+    def _make_emitter(
+        cls,
+        config: DatahubRestSinkConfig,
+        auth: Optional[requests.auth.AuthBase] = None,
+    ) -> DataHubRestEmitter:
         return DataHubRestEmitter(
             config.server,
             config.token,
+            auth=auth,
             connect_timeout_sec=config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=config.timeout_sec,
             retry_status_codes=config.retry_status_codes,
@@ -224,8 +305,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             extra_headers=config.extra_headers,
             ca_certificate_path=config.ca_certificate_path,
             client_certificate_path=config.client_certificate_path,
+            client_key_path=config.client_key_path,
             disable_ssl_verification=config.disable_ssl_verification,
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
+            # Marker-aware sync routing only ever upgrades a batch to sync, never
+            # downgrades it, so it is a no-op in SYNC mode (already synchronous)
+            # and safe to pass through unconditionally.
+            respect_mcp_sync_marker=config.respect_mcp_sync_marker,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             tcp_keepalive=config.tcp_keepalive,
@@ -240,8 +326,13 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         thread_local = self._emitter_thread_local
         if not hasattr(thread_local, "emitter"):
             self.config.client_mode = ClientMode.INGESTION
-            thread_local.emitter = DatahubRestSink._make_emitter(self.config)
+            thread_local.emitter = DatahubRestSink._make_emitter(
+                self.config, auth=self._resolved_auth
+            )
         return thread_local.emitter
+
+    def to_graph(self) -> Optional["DataHubGraph"]:
+        return self.emitter.to_graph()
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
         if isinstance(workunit, MetadataWorkUnit):

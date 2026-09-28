@@ -1,0 +1,69 @@
+name: Vercel Preview Cleanup
+
+# Deletes the Vercel preview deployments tied to a PR's head branch when the PR
+# is closed or merged, so stale previews (and their aliases/DNS) don't linger.
+
+on:
+  pull_request:
+    types: [closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  cleanup:
+    name: Delete Vercel previews for branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Fork PRs are not given repo secrets and Vercel does not build previews for
+    # them, so there is nothing to clean up.
+    if: ${{ github.event.pull_request.head.repo.fork == false }}
+    steps:
+      - name: Delete preview deployments
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_DOCS }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${VERCEL_TOKEN}" ] || [ -z "${VERCEL_PROJECT_ID}" ]; then
+            echo "VERCEL_TOKEN / VERCEL_PROJECT_ID not configured; skipping cleanup."
+            exit 0
+          fi
+
+          list_args=(
+            --data-urlencode "projectId=${VERCEL_PROJECT_ID}"
+            --data-urlencode "branch=${BRANCH}"
+            --data-urlencode "limit=100"
+          )
+          team_qs=""
+          if [ -n "${VERCEL_ORG_ID}" ]; then
+            list_args+=(--data-urlencode "teamId=${VERCEL_ORG_ID}")
+            team_qs="?teamId=${VERCEL_ORG_ID}"
+          fi
+
+          echo "Listing preview deployments for branch: ${BRANCH}"
+          # Guard against ever touching production even though a PR branch filter
+          # already excludes it (production == default branch only).
+          ids="$(curl -fsS -G "https://api.vercel.com/v6/deployments" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            "${list_args[@]}" \
+            | jq -r '.deployments[] | select(.target != "production") | .uid')"
+
+          if [ -z "${ids}" ]; then
+            echo "No preview deployments found for ${BRANCH}."
+            exit 0
+          fi
+
+          for id in ${ids}; do
+            echo "Deleting deployment ${id}"
+            # No -f: a 404 (already deleted) is our desired end state, not a failure.
+            curl -sS -X DELETE "https://api.vercel.com/v13/deployments/${id}${team_qs}" \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" | jq -c '.'
+          done
+          echo "Cleanup complete."

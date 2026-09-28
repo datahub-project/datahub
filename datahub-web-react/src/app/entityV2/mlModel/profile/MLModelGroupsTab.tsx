@@ -37,9 +37,11 @@ export default function MLModelGroupsTab() {
             dataIndex: 'name',
             render: (name, record) => {
                 return (
-                    <Link to={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>
-                        {record.properties?.name || name}
-                    </Link>
+                    <div data-testid={`model-group-name-${record.properties?.name || name}`}>
+                        <Link to={entityRegistry.getEntityUrl(EntityType.MlmodelGroup, record.urn)}>
+                            {record.properties?.name || name}
+                        </Link>
+                    </div>
                 );
             },
         },
@@ -85,6 +87,7 @@ export default function MLModelGroupsTab() {
             <Space direction="vertical" style={{ width: '100%' }} size="large">
                 <Typography.Title level={3}>{t('group.namePlural')}</Typography.Title>
                 <Table
+                    data-testid="mlmodel-groups-table"
                     pagination={false}
                     columns={propertyTableColumns}
                     dataSource={model?.properties?.groups as MlModelGroup[]}

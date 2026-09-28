@@ -83,6 +83,18 @@ public final class PgQueueBatchAccumulator {
     return !buffer.isEmpty() && (clock.millis() - oldestMessageTimeMs) >= maxAgeMs;
   }
 
+  /**
+   * Milliseconds until {@link #isExpired()} becomes true, or {@link Long#MAX_VALUE} when the buffer
+   * is empty.
+   */
+  public long millisUntilExpire() {
+    if (buffer.isEmpty()) {
+      return Long.MAX_VALUE;
+    }
+    long remaining = maxAgeMs - (clock.millis() - oldestMessageTimeMs);
+    return Math.max(0L, remaining);
+  }
+
   /** Drains the buffer and resets all counters. */
   @Nonnull
   public List<QueueReceivedMessage> drain() {

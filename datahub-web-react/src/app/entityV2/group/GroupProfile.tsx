@@ -109,7 +109,7 @@ export default function GroupProfile({ urn }: Props) {
     const getTabs = () => {
         return [
             {
-                name: TabType.Assets,
+                name: t('group.tab.assets'),
                 path: TabType.Assets.toLocaleLowerCase(),
                 content: <GroupAssets urn={urn} />,
                 display: {
@@ -117,7 +117,7 @@ export default function GroupProfile({ urn }: Props) {
                 },
             },
             {
-                name: TabType.Members,
+                name: t('group.tab.members'),
                 path: TabType.Members.toLocaleLowerCase(), // do not remove toLocaleLowerCase as we link to this tab elsewhere
                 content: (
                     <GroupMembers
@@ -134,7 +134,7 @@ export default function GroupProfile({ urn }: Props) {
                     enabled: () => true,
                 },
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ].filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';

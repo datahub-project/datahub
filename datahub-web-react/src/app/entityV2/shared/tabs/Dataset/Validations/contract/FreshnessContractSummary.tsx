@@ -60,8 +60,6 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
     // TODO: Support multiple per-asset contracts.
     const firstContract = (contracts.length && contracts[0]) || undefined;
     const assertionDefinition = firstContract?.assertion?.info?.freshnessAssertion?.schedule;
-    const evaluationSchedule = (firstContract?.assertion as any)?.monitor?.relationships[0]?.entity?.info
-        ?.assertionMonitor?.assertions[0]?.schedule;
 
     return (
         <Container>
@@ -73,14 +71,7 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
                 </Header>
                 <Body>
                     {!assertionDefinition && <>{t('freshnessContract.noContractFound')}</>}
-                    <b>
-                        {assertionDefinition && (
-                            <FreshnessScheduleSummary
-                                definition={assertionDefinition}
-                                evaluationSchedule={evaluationSchedule}
-                            />
-                        )}
-                    </b>
+                    <b>{assertionDefinition && <FreshnessScheduleSummary definition={assertionDefinition} />}</b>
                 </Body>
                 <ThinDivider />
                 <Footer>

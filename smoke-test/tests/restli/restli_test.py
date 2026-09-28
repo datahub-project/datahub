@@ -19,7 +19,10 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
 )
 from datahub.utilities.urns.urn import guess_entity_type
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns
+
+pytestmark = pytest.mark.domain(Domain.PLATFORM)
 
 generated_urns: List[str] = []
 

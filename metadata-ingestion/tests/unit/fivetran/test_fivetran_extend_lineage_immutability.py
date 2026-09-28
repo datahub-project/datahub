@@ -1,18 +1,17 @@
-"""Regression tests for `_extend_lineage` config-mutation safety.
+"""Regression tests for source-detail resolution config-mutation safety.
 
 The user-supplied `sources_to_platform_instance` and
 `destination_to_platform_instance` mappings on `FivetranSourceConfig` are
-shared across connectors within an ingest. A previous bug at
-`fivetran.py:187/199` mutated `PlatformDetail.platform` in place after
-`dict.get(...)` returned the *configured* instance for hits, poisoning
-the user's config object. The fix uses `model_copy(update=...)`. This
-test pins the immutability invariant: a regression that reverts to
-`source_details.platform = ...` would silently re-introduce the bug,
-because each integration test runs one pipeline against a fresh config
-dict and would not surface cross-connector contamination.
+shared across connectors within an ingest. A previous bug mutated
+`PlatformDetail.platform` in place after `dict.get(...)` returned the
+*configured* instance for hits, poisoning the user's config object. The fix
+uses `model_copy(update=...)`. These tests pin the immutability invariant:
+a regression that reverts to `source_details.platform = ...` would silently
+re-introduce the bug, because each integration test runs one pipeline against
+a fresh config dict and would not surface cross-connector contamination.
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -83,28 +82,27 @@ def _make_connector(connector_id: str, connector_type: str = "postgres") -> Conn
     )
 
 
-def test_extend_lineage_does_not_mutate_user_source_platform_detail(
+def test_resolve_source_details_does_not_mutate_user_source_platform_detail(
     source_with_postgres_override,
 ):
     """The user supplied `PlatformDetail(database="user_db")` with no
-    platform pinned. After `_extend_lineage` runs, the *configured* object
-    must still have `platform=None` — auto-detection must go through
+    platform pinned. After `_resolve_source_details` runs, the *configured*
+    object must still have `platform=None` — auto-detection must go through
     `model_copy`, not in-place assignment, so subsequent ingests / config
     inspections see the user's original input untouched.
     """
     source = source_with_postgres_override
-    datajob = Mock()
 
     # Snapshot before.
     pinned_detail = source.config.sources_to_platform_instance["c1"]
     assert pinned_detail.platform is None
     assert pinned_detail.database == "user_db"
 
-    source._extend_lineage(_make_connector("c1"), datajob)
+    source._resolve_source_details(_make_connector("c1"))
 
     # The configured object must be byte-for-byte identical after the call.
     assert pinned_detail.platform is None, (
-        "C1 regression: `_extend_lineage` mutated the user's "
+        "C1 regression: `_resolve_source_details` mutated the user's "
         "sources_to_platform_instance entry. Auto-detection of platform "
         "must use `model_copy(update=...)`, not in-place assignment."
     )
@@ -113,50 +111,42 @@ def test_extend_lineage_does_not_mutate_user_source_platform_detail(
     assert source.config.sources_to_platform_instance["c1"] is pinned_detail
 
 
-def test_extend_lineage_uses_user_database_with_resolved_platform(
+def test_source_urn_uses_user_database_with_resolved_platform(
     source_with_postgres_override,
 ):
     """The mutation fix must also preserve the user's `database` field
-    while filling in the auto-detected `platform`. Walk through one
-    connector's lineage edge to confirm both halves of the merged
-    `PlatformDetail` reach the URN-construction site.
+    while filling in the auto-detected `platform`. Build one input dataset
+    URN to confirm both halves of the merged `PlatformDetail` reach the
+    URN-construction site.
     """
     source = source_with_postgres_override
 
-    # Lineage list with one row so _extend_lineage has something to iterate.
     from datahub.ingestion.source.fivetran.data_classes import (
         ColumnLineage,
         TableLineage,
     )
 
     connector = _make_connector("c1")
-    connector.lineage = [
-        TableLineage(
-            source_table="public.employee",
-            destination_table="schema.employee",
-            column_lineage=[
-                ColumnLineage(source_column="id", destination_column="id"),
-            ],
-        )
-    ]
+    lineage = TableLineage(
+        source_table="public.employee",
+        destination_table="schema.employee",
+        column_lineage=[
+            ColumnLineage(source_column="id", destination_column="id"),
+        ],
+    )
 
-    datajob = Mock()
+    source_details = source._resolve_source_details(connector)
+    input_urn = source._build_input_dataset_urn(connector, lineage, source_details)
 
-    source._extend_lineage(connector, datajob)
-
-    # `_extend_lineage` calls `datajob.set_inlets(...)` with the input URN
-    # list. The source URN should reflect both: platform="postgres"
-    # (auto-detected from connector_type) AND database="user_db" (from
-    # the user's override).
-    datajob.set_inlets.assert_called_once()
-    inlet_urns = datajob.set_inlets.call_args.args[0]
-    assert len(inlet_urns) == 1, "Expected exactly one input dataset URN"
-    urn_str = str(inlet_urns[0])
+    # The source URN should reflect both: platform="postgres" (auto-detected
+    # from connector_type) AND database="user_db" (from the user's override).
+    assert input_urn is not None
+    urn_str = str(input_urn)
     assert "postgres" in urn_str
     assert "user_db" in urn_str
 
 
-def test_extend_lineage_two_connectors_share_pinned_detail(
+def test_resolve_source_details_two_connectors_share_pinned_detail(
     source_with_postgres_override,
 ):
     """Cross-connector contamination check: two connectors that both look
@@ -166,9 +156,8 @@ def test_extend_lineage_two_connectors_share_pinned_detail(
     one (it would see the platform left over from the first call).
     """
     source = source_with_postgres_override
-    datajob = Mock()
 
-    source._extend_lineage(_make_connector("c1", connector_type="postgres"), datajob)
+    source._resolve_source_details(_make_connector("c1", connector_type="postgres"))
     # Pin still untouched after first run.
     assert source.config.sources_to_platform_instance["c1"].platform is None
 
@@ -176,5 +165,5 @@ def test_extend_lineage_two_connectors_share_pinned_detail(
     # the previous call had mutated the pinned detail, this run would see
     # `platform="postgres"` already set and skip auto-detection — wrong
     # behavior. With the fix, each call goes through model_copy fresh.
-    source._extend_lineage(_make_connector("c1", connector_type="snowflake"), datajob)
+    source._resolve_source_details(_make_connector("c1", connector_type="snowflake"))
     assert source.config.sources_to_platform_instance["c1"].platform is None

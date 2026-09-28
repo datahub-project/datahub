@@ -2,7 +2,9 @@ import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { Tooltip, Typography } from 'antd';
+import i18next from 'i18next';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { colors } from '@src/alchemy-components/theme';
@@ -53,25 +55,26 @@ const getSummaryIcon = (summary: TestsSummary) => {
 
 const getSummaryMessage = (summary: TestsSummary) => {
     if (summary.total === 0) {
-        return 'No tests have run';
+        return i18next.t('entity.profile.tests:summary.noTestsRun');
     }
     if (summary.passing === summary.total) {
-        return 'All tests are passing';
+        return i18next.t('entity.profile.tests:summary.allPassing');
     }
     if (summary.failing === summary.total) {
-        return 'All tests are failing';
+        return i18next.t('entity.profile.tests:summary.allFailing');
     }
-    return 'Some tests are failing';
+    return i18next.t('entity.profile.tests:summary.someFailing');
 };
 
 export const TestResultsSummary = ({ summary }: Props) => {
+    const { t } = useTranslation('entity.profile.tests');
     const summaryIcon = getSummaryIcon(summary);
     const summaryMessage = getSummaryMessage(summary);
-    const subtitleMessage = `${summary.passing} passing tests, ${summary.failing} failing tests`;
+    const subtitleMessage = t('summary.countsSubtitle', { passing: summary.passing, failing: summary.failing });
     return (
         <SummaryHeader>
             <SummaryContainer>
-                <Tooltip title="This status is based on the most recent run of each test.">
+                <Tooltip title={t('summary.statusTooltip')}>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         {summaryIcon}
                         <SummaryMessage>

@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.types.container.mappers;
 
+import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Access;
@@ -18,6 +19,7 @@ import com.linkedin.container.ContainerProperties;
 import com.linkedin.container.EditableContainerProperties;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -181,6 +183,9 @@ public class ContainerMapper {
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
+    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+      return AuthorizationUtils.restrictEntity(result, Container.class);
+    }
     return result;
   }
 

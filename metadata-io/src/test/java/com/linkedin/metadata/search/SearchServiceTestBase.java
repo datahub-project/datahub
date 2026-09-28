@@ -33,7 +33,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -45,9 +46,11 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -95,10 +98,8 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
   public void setup() throws RemoteInvocationException, URISyntaxException {
     IndexConvention indexConvention =
         new IndexConventionImpl(
-            IndexConventionImpl.IndexConventionConfig.builder()
-                .prefix("search_service_test")
-                .hashIdAlgo("MD5")
-                .build(),
+            IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+            new ConfiguredIndexPrefixResolver("search_service_test"),
             SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
 
     OperationContext testOpContext =
@@ -116,6 +117,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
                     testOpContext.getEntityRegistry(), mappingsBuilder))
             .searchableFieldPaths(
                 ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .searchClusterAccess(SearchClusterAccess.fixed(getSearchClient()))
             .build();
 
     operationContext =
@@ -127,7 +129,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention mockIndexConvention = mock(IndexConvention.class);
-    when(mockIndexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    when(mockIndexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     settingsBuilder = new V2LegacySettingsBuilder(indexConfiguration, mockIndexConvention);
     elasticSearchService = buildEntitySearchService(getSearchConfiguration());
     elasticSearchService.reindexAll(operationContext, Collections.emptySet());
@@ -180,20 +182,19 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
         TEST_OS_SEARCH_CONFIG.toBuilder().search(searchConfiguration).build();
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            getSearchClient(),
+        new ESBrowseDAO(esConfig, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(
             esConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
+            getSearchClient(),
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
@@ -201,7 +202,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             TEST_ES_SEARCH_CONFIG,
             new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,
@@ -217,27 +218,26 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
 
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
             esConfig.getSearch().isPointInTimeCreationEnabled(),
             esConfig,
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            getSearchClient(),
+        new ESBrowseDAO(esConfig, null, QueryFilterRewriteChain.EMPTY, TEST_SEARCH_SERVICE_CONFIG);
+    ESWriteDAO writeDAO =
+        new ESWriteDAO(
             esConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    ESWriteDAO writeDAO = new ESWriteDAO(esConfig, getSearchClient(), getBulkProcessor());
+            getSearchClient(),
+            getBulkProcessor(),
+            SearchWriteAccess.fixed(getBulkProcessor()));
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),
             TEST_SEARCH_SERVICE_CONFIG,
             esConfig,
             new V2MappingsBuilder(
-                esConfig.getEntityIndex(), OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG),
+                esConfig.getEntityIndex(), OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
             settingsBuilder,
             searchDAO,
             browseDAO,

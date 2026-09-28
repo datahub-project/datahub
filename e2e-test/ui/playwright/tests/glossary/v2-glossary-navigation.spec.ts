@@ -23,8 +23,10 @@ test.describe('glossary sidebar navigation', () => {
   });
 
   test('can move a term into its parent term group', async ({ cleanup }) => {
-    // expectEntityInContentsTab retries for up to 90 s; allow 90 s overhead on top.
-    test.setTimeout(180000);
+    // moveCurrentEntityTo polls autocomplete for up to 90 s (ES indexing latency on the
+    // freshly-created target group), expectEntityInContentsTab retries for up to 90 s, plus
+    // create/navigate overhead.
+    test.setTimeout(240000);
     const termGroup = withRandomSuffix('NavGroup');
     const term = withRandomSuffix('NavTerm');
 
@@ -56,8 +58,10 @@ test.describe('glossary sidebar navigation', () => {
   });
 
   test('can move a term group under a parent node', async ({ cleanup }) => {
-    // expectEntityInContentsTab retries for up to 90 s; allow 90 s overhead on top.
-    test.setTimeout(180000);
+    // moveCurrentEntityTo polls autocomplete for up to 90 s (ES indexing latency on the
+    // freshly-created target group), expectEntityInContentsTab retries for up to 90 s, plus
+    // create/navigate overhead.
+    test.setTimeout(240000);
     const parentNode = withRandomSuffix('NavParent');
     const termGroup = withRandomSuffix('NavGroup');
 

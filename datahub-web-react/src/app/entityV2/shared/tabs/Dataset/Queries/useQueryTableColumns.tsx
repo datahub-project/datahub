@@ -71,6 +71,9 @@ export default function useQueryTableColumns({
         title: t('queryCard.columnDescription'),
         dataIndex: 'description',
         key: 'description',
+        // Give the cell a min-width so the auto-layout table can't squeeze it to min-content, which
+        // would wrap the markdown one word (or character) per line when the side panel is open.
+        className: 'description',
         render: (description: string) => <QueryDescription description={description} />,
     };
 
@@ -106,6 +109,7 @@ export default function useQueryTableColumns({
         title: t('queryCard.columnCreatedBy'),
         dataIndex: 'createdBy',
         key: 'createdBy',
+        width: 85,
         sorter: shouldRelyOnBackendSorting
             ? false // we don't support sorting by createdBy on backend since it is a text field
             : (queryA, queryB) => {

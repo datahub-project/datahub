@@ -59,7 +59,7 @@ export default function ColumnPathsText({ paths, resultEntityUrn, openModal }: P
                     { count: displayedColumns.length },
                 )}
             </DescriptionWrapper>
-            <ResultText onClick={openModal}>
+            <ResultText data-testid="column-path-modal-trigger" onClick={openModal}>
                 <Tooltip
                     title={
                         <Trans

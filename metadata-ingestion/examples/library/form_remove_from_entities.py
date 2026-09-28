@@ -1,12 +1,7 @@
-import logging
-
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import FormsClass
 from datahub.metadata.urns import DatasetUrn, FormUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Form to remove
 form_urn = FormUrn("metadata_initiative_2024")
@@ -36,6 +31,6 @@ for dataset_urn in dataset_urns:
         aspect=forms_aspect,
     )
     rest_emitter.emit(event)
-    log.info(f"Removed forms from entity {dataset_urn}")
+    print(f"Removed forms from entity {dataset_urn}")
 
-log.info(f"Successfully removed forms from {len(dataset_urns)} entities")
+print(f"Successfully removed forms from {len(dataset_urns)} entities")

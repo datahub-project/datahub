@@ -27,7 +27,10 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workspace,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
-from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
+from datahub.ingestion.source.sigma.sigma_api import (
+    _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD,
+    SigmaAPI,
+)
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     OwnershipClass,
@@ -565,7 +568,7 @@ class TestGetElementUpstreamSources:
         # ``DatasetUpstream.name`` is ``Optional[str]`` so a null-name node
         # no longer trips ValidationError at parse time. Both nodes land
         # in the upstream map; the chart-input path in ``sigma.py`` is
-        # responsible for skipping the edge and bumping
+        # responsible for the SQL-correlated edge and bumping
         # ``chart_dataset_upstream_name_missing``.
         api = _create_sigma_api()
         element = _make_element()
@@ -2876,3 +2879,425 @@ class TestGetWorkbookLineageHttp:
             result = api.get_workbook_lineage("wb-1")
         assert result is None
         assert api.report.warnings
+
+
+def _response(status_code: int, json_body: Any = None) -> MagicMock:
+    response = MagicMock()
+    response.status_code = status_code
+    response.json.return_value = json_body
+    return response
+
+
+class TestGetDatasetSources:
+    """/datasets/{id}/sources: a bare list, on a deprecated endpoint."""
+
+    def test_returns_entries_on_200(self) -> None:
+        api = _create_sigma_api()
+        entries = [{"type": "table", "inodeId": "inode-1"}]
+        with patch.object(api, "_get_api_call", return_value=_response(200, entries)):
+            assert api.get_dataset_sources("ds-1") == entries
+
+    def test_non_list_body_is_a_failure(self) -> None:
+        # The envelope every other Sigma endpoint uses. Coercing it would
+        # silently resolve zero sources instead of surfacing the change.
+        # Individual entries are validated by the caller, not here.
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", return_value=_response(200, {"entries": []})
+        ):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_lookup_failed == 1
+
+    def test_non_200_counts_as_failure(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(500)):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_lookup_failed == 1
+
+    def test_429_counted_separately(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(429)):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_lookup_rate_limited == 1
+        # Sub-bucket: the aggregate counts it too, matching the convention the
+        # other Sigma rate-limit counters follow.
+        assert api.report.dataset_sources_lookup_failed == 1
+
+    def test_exception_is_contained(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", side_effect=requests.RequestException):
+            assert api.get_dataset_sources("ds-1") is None
+        assert api.report.dataset_sources_lookup_failed == 1
+
+    # --- not-found handling ------------------------------------------------
+    # Routed by URL rather than by call order: the sequence depends on whether a
+    # known-good reference exists, so an ordered mock hides mix-ups between "the
+    # dataset that failed" and "the dataset that worked".
+
+    @staticmethod
+    def _router(
+        sources: Dict[str, int], datasets: Optional[Dict[str, int]] = None
+    ) -> Any:
+        """Serve /sources and /datasets/{id} from per-dataset status maps.
+
+        Any id absent from a map defaults to 200.
+        """
+        # `is None`, not `or {}`: an empty dict passed in is falsy, and
+        # rebinding it would detach the closure from a caller that mutates the
+        # map mid-test to simulate a dataset being archived.
+        if datasets is None:
+            datasets = {}
+
+        def route(url: str) -> MagicMock:
+            if url.endswith("/sources"):
+                ds = url.rsplit("/", 2)[-2]
+                code = sources.get(ds, 200)
+                return _response(code, [] if code == 200 else None)
+            ds = url.rsplit("/", 1)[-1]
+            code = datasets.get(ds, 200)
+            return _response(code, {} if code == 200 else None)
+
+        return route
+
+    def test_410_latches_immediately(self) -> None:
+        # Unambiguous: no probe, and later datasets are skipped outright.
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", side_effect=self._router({"a": 410})
+        ) as mocked:
+            assert api.get_dataset_sources("a") is None
+            assert api.get_dataset_sources("b") is None
+            assert mocked.call_count == 1
+        assert api.report.dataset_sources_endpoint_removed == 1
+        assert api.report.dataset_sources_skipped_endpoint_gone == 1
+
+    @pytest.mark.parametrize("status", [404, 409])
+    def test_not_found_with_the_dataset_api_alive_is_one_dataset(
+        self, status: int
+    ) -> None:
+        # Nothing has succeeded, so the fallback asks whether the API path is
+        # there. It is, so only this dataset is missing. 409 counts because
+        # Sigma answers 409 inode_archived, not 404 (verified live).
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", side_effect=self._router({"a": status})
+        ):
+            assert api.get_dataset_sources("a") is None
+            assert api.get_dataset_sources("b") == []
+        assert api.report.dataset_sources_endpoint_removed == 0
+        assert api.report.dataset_sources_not_found == 1
+        assert api.report.dataset_sources_lookup_failed == 1
+
+    def test_not_found_with_the_api_path_gone_latches(self) -> None:
+        # Nothing has succeeded and /datasets/{id} is 404 too: path-level.
+        api = _create_sigma_api()
+        with patch.object(
+            api,
+            "_get_api_call",
+            side_effect=self._router({"a": 404}, datasets={"a": 404}),
+        ):
+            assert api.get_dataset_sources("a") is None
+        assert api.report.dataset_sources_endpoint_removed == 1
+
+    def test_reference_dataset_still_there_means_the_endpoint_went(self) -> None:
+        # "a" resolved, so it is the reference. Later everything 404s including
+        # the reference, while the reference dataset itself still exists.
+        api = _create_sigma_api()
+        sources: Dict[str, int] = {}
+        with patch.object(api, "_get_api_call", side_effect=self._router(sources)):
+            assert api.get_dataset_sources("a") == []
+            sources.update({"a": 404, "b": 404})
+            assert api.get_dataset_sources("b") is None
+            assert api.get_dataset_sources("c") is None  # skipped
+        assert api.report.dataset_sources_endpoint_removed == 1
+        assert api.report.dataset_sources_skipped_endpoint_gone == 1
+
+    def test_archived_reference_dataset_does_not_latch(self) -> None:
+        # The reference is archived mid-run, which operators do while migrating.
+        # That must drop the reference, not disable the route: every later
+        # dataset would otherwise be skipped without a request.
+        api = _create_sigma_api()
+        sources: Dict[str, int] = {}
+        datasets: Dict[str, int] = {}
+        with patch.object(
+            api, "_get_api_call", side_effect=self._router(sources, datasets)
+        ):
+            assert api.get_dataset_sources("a") == []
+            sources.update({"a": 409, "b": 409})
+            datasets["a"] = 409  # the reference itself is gone
+            assert api.get_dataset_sources("b") is None
+            assert api.get_dataset_sources("c") == []  # route still on
+        assert api.report.dataset_sources_endpoint_removed == 0
+        assert api._known_good_dataset_id != "a"
+
+    def test_reference_still_resolving_means_one_dataset(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", side_effect=self._router({"b": 404})):
+            assert api.get_dataset_sources("a") == []
+            assert api.get_dataset_sources("b") is None
+            assert api.get_dataset_sources("c") == []
+        assert api.report.dataset_sources_endpoint_removed == 0
+        assert api.report.dataset_sources_not_found == 1
+
+    def test_410_on_the_reference_reprobe_counts_as_removal(self) -> None:
+        # 410 is the strongest removal signal, so it must count on the re-probe
+        # too rather than being read as "this dataset is fine".
+        api = _create_sigma_api()
+        sources: Dict[str, int] = {}
+        with patch.object(api, "_get_api_call", side_effect=self._router(sources)):
+            assert api.get_dataset_sources("a") == []
+            sources.update({"a": 410, "b": 404})
+            assert api.get_dataset_sources("b") is None
+        assert api.report.dataset_sources_endpoint_removed == 1
+
+    def test_reprobe_exception_is_reported_not_just_logged(self) -> None:
+        # The probe could not answer, so the route stays on. That must be
+        # visible, or missing lineage has no accompanying signal.
+        api = _create_sigma_api()
+        state = {"raise": False}
+
+        def route(url: str) -> MagicMock:
+            if url.endswith("/a/sources"):
+                if state["raise"]:
+                    raise requests.RequestException("boom")
+                return _response(200, [])
+            return _response(404)
+
+        with patch.object(api, "_get_api_call", side_effect=route):
+            assert api.get_dataset_sources("a") == []
+            state["raise"] = True
+            assert api.get_dataset_sources("b") is None
+        assert api.report.dataset_sources_endpoint_removed == 0
+        assert any(
+            "re-probe failed" in (w.title or "")
+            for w in api.report.warnings  # type: ignore[attr-defined]
+        )
+
+    def test_every_dataset_not_found_escalates_to_a_warning(self) -> None:
+        # Nothing ever succeeds and the API keeps answering, so there is no
+        # reference to re-probe. Identical infos collapse into one entry, so
+        # without escalation the run looks clean while losing all lineage.
+        api = _create_sigma_api()
+        with patch.object(
+            api,
+            "_get_api_call",
+            side_effect=lambda url: (
+                _response(409) if url.endswith("/sources") else _response(200, {})
+            ),
+        ):
+            for i in range(_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD):
+                assert api.get_dataset_sources(f"ds-{i}") is None
+        assert api.report.dataset_sources_not_found == (
+            _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
+        )
+        assert len(api.report.warnings) == 1
+
+
+class TestGetConnectionPath:
+    """/connections/paths/{inodeId}: the connectionId + split path."""
+
+    def test_returns_connection_and_path(self) -> None:
+        api = _create_sigma_api()
+        body = {"connectionId": "conn-1", "path": ["DB", "SCHEMA", "TABLE"]}
+        with patch.object(api, "_get_api_call", return_value=_response(200, body)):
+            result = api.get_connection_path("inode-1")
+        assert result is not None
+        assert result.connection_id == "conn-1"
+        assert result.path == ["DB", "SCHEMA", "TABLE"]
+
+    @pytest.mark.parametrize(
+        "body",
+        [
+            {"path": ["DB", "SCHEMA", "TABLE"]},  # no connectionId
+            {"connectionId": "", "path": ["DB", "SCHEMA", "TABLE"]},
+            {"connectionId": "conn-1", "path": "DB/SCHEMA/TABLE"},  # not a list
+            {"connectionId": "conn-1", "path": ["DB", ""]},  # empty segment
+        ],
+    )
+    def test_unusable_body_is_a_failure(self, body: Dict[str, Any]) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(200, body)):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_failed == 1
+
+    def test_non_200_counts_as_failure(self) -> None:
+        # 403 is the documented production failure: the credential may lack
+        # permission to read /v2/connections/paths/{inodeId}.
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(403)):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_failed == 1
+        assert api.report.connection_path_lookup_rate_limited == 0
+
+    def test_429_counted_separately(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(429)):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_rate_limited == 1
+        assert api.report.connection_path_lookup_failed == 1
+
+    def test_exception_is_contained(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", side_effect=requests.RequestException):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_failed == 1
+
+
+class TestConnectionPathBodyShape:
+    def test_non_object_body_is_reported_as_a_shape_problem(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=_response(200, ["x"])):
+            assert api.get_connection_path("inode-1") is None
+        assert api.report.connection_path_lookup_failed == 1
+        assert any(
+            "unexpected body" in (w.title or "")
+            for w in api.report.warnings  # type: ignore[attr-defined]
+        )
+
+
+class TestNotFoundDecisionMatrix:
+    """Every path through the not-found decision, in one table.
+
+    This exists because the logic has two similarly-named questions about
+    different subjects — "is /sources failing for this dataset" versus "is the
+    dataset API path gone" — and conflating them inverted the branch more than
+    once during review. The table states the intended outcome for each
+    combination so a future change cannot quietly redefine one of them.
+    """
+
+    @staticmethod
+    def _run(
+        *,
+        target_src: int,
+        ref_src: int = 200,
+        ref_exists: int = 200,
+        target_ds: int = 200,
+        with_ref: bool = False,
+    ) -> Dict[str, bool]:
+        api = _create_sigma_api()
+        warm = {"on": with_ref}
+
+        def route(url: str) -> MagicMock:
+            if url.endswith("/sources"):
+                ds = url.rsplit("/", 2)[-2]
+                if ds == "ref":
+                    return _response(200, []) if warm["on"] else _response(ref_src)
+                return _response(target_src)
+            ds = url.rsplit("/", 1)[-1]
+            return _response(ref_exists if ds == "ref" else target_ds, {})
+
+        with patch.object(api, "_get_api_call", side_effect=route):
+            if with_ref:
+                api.get_dataset_sources("ref")  # establishes the reference
+                warm["on"] = False
+            api.get_dataset_sources("tgt")
+        return {
+            "latched": api.report.dataset_sources_endpoint_removed == 1,
+            "ref_kept": api._known_good_dataset_id == "ref",
+        }
+
+    @pytest.mark.parametrize(
+        ("desc", "kwargs", "latched", "ref_kept"),
+        [
+            # 410 is unambiguous, with or without a reference.
+            ("410, no reference", {"target_src": 410}, True, False),
+            (
+                "410 beats a live reference",
+                {"target_src": 410, "with_ref": True},
+                True,
+                True,
+            ),
+            # Nothing has succeeded: fall back to asking about the API path.
+            (
+                "404, API path alive",
+                {"target_src": 404, "target_ds": 200},
+                False,
+                False,
+            ),
+            (
+                "409, API path alive",
+                {"target_src": 409, "target_ds": 200},
+                False,
+                False,
+            ),
+            ("404, API path gone", {"target_src": 404, "target_ds": 404}, True, False),
+            # A reference exists: it decides.
+            (
+                "reference still resolves -> one dataset",
+                {"target_src": 404, "with_ref": True, "ref_src": 200},
+                False,
+                True,
+            ),
+            (
+                "reference dead but present -> endpoint gone",
+                {
+                    "target_src": 404,
+                    "with_ref": True,
+                    "ref_src": 404,
+                    "ref_exists": 200,
+                },
+                True,
+                True,
+            ),
+            (
+                "reference dead and archived -> drop it, keep going",
+                {
+                    "target_src": 409,
+                    "with_ref": True,
+                    "ref_src": 409,
+                    "ref_exists": 409,
+                },
+                False,
+                False,
+            ),
+            (
+                "reference dead, dataset API path gone (404) -> latch now",
+                {
+                    "target_src": 404,
+                    "with_ref": True,
+                    "ref_src": 404,
+                    "ref_exists": 404,
+                },
+                True,
+                True,
+            ),
+            (
+                "reference dead, dataset API path gone (410) -> latch now",
+                {
+                    "target_src": 404,
+                    "with_ref": True,
+                    "ref_src": 404,
+                    "ref_exists": 410,
+                },
+                True,
+                True,
+            ),
+            (
+                "reference probe inconclusive (500) -> rotate, do not latch",
+                {
+                    "target_src": 409,
+                    "with_ref": True,
+                    "ref_src": 409,
+                    "ref_exists": 500,
+                },
+                False,
+                False,
+            ),
+            (
+                "410 on the reference re-probe -> endpoint gone",
+                {
+                    "target_src": 404,
+                    "with_ref": True,
+                    "ref_src": 410,
+                    "ref_exists": 200,
+                },
+                True,
+                True,
+            ),
+        ],
+    )
+    def test_matrix(
+        self, desc: str, kwargs: Dict[str, Any], latched: bool, ref_kept: bool
+    ) -> None:
+        got = self._run(**kwargs)
+        assert got == {"latched": latched, "ref_kept": ref_kept}, desc

@@ -10,7 +10,7 @@ import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { StructuredProperties } from '@src/types.generated';
 
-const MAX_PROP_BADGE_WIDTH = 150;
+export const MAX_PROP_BADGE_WIDTH = 150;
 
 const StyledTooltip = styled(Tooltip)`
     .ant-tooltip-inner {
@@ -36,11 +36,14 @@ const BadgeContainer = styled.div`
 
 interface Props {
     structuredProperties?: StructuredProperties | null;
+    platformUrn?: string | null;
 }
 
-const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
+const StructuredPropertyBadge = ({ structuredProperties, platformUrn }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
-    const badgeStructuredProperty = structuredProperties?.properties?.find(filterForAssetBadge);
+    const badgeStructuredProperty = structuredProperties?.properties?.find((prop) =>
+        filterForAssetBadge(prop, platformUrn),
+    );
 
     const propRow = badgeStructuredProperty ? mapStructuredPropertyToPropertyRow(badgeStructuredProperty) : undefined;
 

@@ -10,6 +10,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Post;
 import com.linkedin.datahub.graphql.types.EntityType;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -50,6 +51,10 @@ public class PostType implements EntityType<Post, String> {
     try {
       final List<Urn> postUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, Constants.POST_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> postMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
@@ -57,7 +62,7 @@ public class PostType implements EntityType<Post, String> {
               postUrns.stream()
                   .filter(urn -> canView(context.getOperationContext(), urn))
                   .collect(Collectors.toSet()),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>(urns.size());
       for (Urn urn : postUrns) {

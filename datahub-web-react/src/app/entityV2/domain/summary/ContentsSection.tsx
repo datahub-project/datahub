@@ -17,7 +17,6 @@ import {
     SummaryTabHeaderWrapper,
 } from '@app/entityV2/shared/summary/HeaderComponents';
 import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
-import { pluralize } from '@app/shared/textUtil';
 import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
 import { Carousel } from '@app/sharedV2/carousel/Carousel';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -98,7 +97,7 @@ export const ContentsSection = () => {
                                 name={typeName}
                                 count={summary.count}
                                 icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
-                                tooltipDescriptor={pluralize(count, typeName)}
+                                tooltipDescriptor={t('shared.assetTypeNameCount', { count, type: typeName })}
                                 link={link}
                             />
                         );

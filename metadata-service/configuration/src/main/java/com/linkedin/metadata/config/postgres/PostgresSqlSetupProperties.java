@@ -497,6 +497,51 @@ public class PostgresSqlSetupProperties {
     return s.toLowerCase();
   }
 
+  /**
+   * Maps intervalSeconds to a pg_cron schedule (minute/hour/day granularity).
+   *
+   * <p>Only intervals that map to a constant cadence are accepted: minute values that divide 60,
+   * hour values that divide 24, or exactly 1 day (86400 seconds). Step cron fields wrap at field
+   * boundaries, so a 5-hour or 7-minute step is not an even interval. Multi-day day-of-month
+   * schedules skip or bunch at month boundaries, so they are rejected. Values below 60 are treated
+   * as 60 seconds ({@code every minute}).
+   */
+  @NonNull
+  public static String toPgCronSchedule(int intervalSeconds) {
+    int sec = Math.max(60, intervalSeconds);
+    if (sec % 86400 == 0) {
+      int days = sec / 86400;
+      if (days == 1) {
+        return "0 0 * * *";
+      }
+      throw new IllegalArgumentException(
+          "intervalSeconds="
+              + intervalSeconds
+              + " multi-day cadences cannot be represented as a pg_cron day-of-month schedule");
+    }
+    if (sec % 3600 == 0) {
+      int hours = sec / 3600;
+      if (hours < 1 || hours > 12 || 24 % hours != 0) {
+        throw new IllegalArgumentException(
+            "intervalSeconds="
+                + intervalSeconds
+                + " hour cadence must divide 24 (1, 2, 3, 4, 6, 8, or 12 hours)");
+      }
+      return "0 */" + hours + " * * *";
+    }
+    if (sec % 60 == 0) {
+      int minutes = sec / 60;
+      if (minutes >= 1 && minutes <= 30 && 60 % minutes == 0) {
+        return "*/" + minutes + " * * * *";
+      }
+    }
+    throw new IllegalArgumentException(
+        "intervalSeconds="
+            + intervalSeconds
+            + " cannot be represented as a pg_cron schedule; use a minute interval that divides 60"
+            + " (1–30 min), an hour interval that divides 24 (1–12 h), or 86400 (1 day)");
+  }
+
   private void validatePgQueueConfig() {
     normalizedPgQueueSchema();
     normalizedPgQueueTablePrefix();
@@ -558,6 +603,15 @@ public class PostgresSqlSetupProperties {
       if (m.getIntervalSeconds() < 60 || m.getIntervalSeconds() > 86400 * 30) {
         throw new IllegalStateException(
             "postgres.pgQueue.maintenance.intervalSeconds must be between 60 and 2592000 inclusive when cron is enabled.");
+      }
+      try {
+        toPgCronSchedule(m.getIntervalSeconds());
+      } catch (IllegalArgumentException e) {
+        throw new IllegalStateException(
+            "postgres.pgQueue.maintenance.intervalSeconds cannot be expressed as a pg_cron"
+                + " schedule: "
+                + e.getMessage(),
+            e);
       }
     }
     if (m.getBatchDeleteLimit() < 1 || m.getBatchDeleteLimit() > 100_000) {
@@ -705,13 +759,11 @@ public class PostgresSqlSetupProperties {
     @Getter
     @Setter
     public static class ConsumerPoll {
-      /** Sleep when a poll returns no messages (most pipelines). */
-      private Long emptyPollSleepMillis;
-
       /**
-       * Shorter empty-poll sleep for MCL hook pollers; falls back to {@link #emptyPollSleepMillis}.
+       * Floor for empty-poll exponential backoff. Per-consumer {@code *EmptyPollSleepMillis} values
+       * are the ceiling.
        */
-      private Long mclEmptyPollSleepMillis;
+      private Long emptyPollSleepMinMillis;
 
       /** Sleep when the logical topic is not registered in pgQueue. */
       private Long missingTopicSleepMillis;

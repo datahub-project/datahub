@@ -1,18 +1,15 @@
-import { LaunchOutlined } from '@mui/icons-material';
+import { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+import { ActionItem } from '@app/shared/actions/ActionItem';
 
 import { Assertion, AssertionRunStatus, EntityType } from '@types';
 
-const StyledLaunchOutlined = styled(LaunchOutlined)`
-    && {
-        display: flex;
-        font-size: 16px;
-    }
+const StyledArrowUpRight = styled(ArrowUpRight)`
+    display: flex;
 `;
 
 type Props = {
@@ -52,7 +49,7 @@ export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) 
             key="external-url"
             tip={t('action.viewInPlatform', { platformName })}
             onClick={handleRedirect}
-            icon={<StyledLaunchOutlined />}
+            icon={<StyledArrowUpRight size={16} />}
             isExpandedView={isExpandedView}
             actionName={t('action.viewExternalPlatform')}
         />

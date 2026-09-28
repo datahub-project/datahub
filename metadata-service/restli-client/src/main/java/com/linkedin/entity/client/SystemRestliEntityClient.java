@@ -2,6 +2,7 @@ package com.linkedin.entity.client;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
@@ -22,12 +23,25 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
   private final EntityClientCache entityClientCache;
   private final Cache<String, OperationContext> operationContextMap;
 
+  /**
+   * Legacy no-resolver constructor — pass-through outbound decoration. Production wiring should
+   * prefer the overload that accepts a {@link RestliRequestContextResolver}.
+   */
   public SystemRestliEntityClient(
       @Nonnull final Client restliClient,
       @Nonnull EntityClientConfig clientConfig,
       EntityClientCacheConfig cacheConfig,
       MetricUtils metricUtils) {
-    super(restliClient, clientConfig, metricUtils);
+    this(restliClient, clientConfig, cacheConfig, metricUtils, null);
+  }
+
+  public SystemRestliEntityClient(
+      @Nonnull final Client restliClient,
+      @Nonnull EntityClientConfig clientConfig,
+      EntityClientCacheConfig cacheConfig,
+      MetricUtils metricUtils,
+      @Nullable final RestliRequestContextResolver restliRequestContextResolver) {
+    super(restliClient, clientConfig, metricUtils, restliRequestContextResolver);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
     this.entityClientCache =
         buildEntityClientCache(metricUtils, SystemRestliEntityClient.class, cacheConfig);

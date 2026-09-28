@@ -2,6 +2,7 @@ package com.linkedin.metadata.structuredproperties.hooks;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -37,7 +38,9 @@ public class StructuredPropertiesAssignmentMutator extends MutationHook {
 
   @Override
   protected Stream<Pair<ReadItem, Boolean>> readMutation(
-      @Nonnull Collection<ReadItem> items, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ReadItem> items,
+      @Nonnull RetrieverContext retrieverContext) {
     Map<Urn, StructuredProperties> entityStructuredPropertiesMap =
         items.stream()
             .filter(i -> i.getRecordTemplate() != null)
@@ -46,7 +49,7 @@ public class StructuredPropertiesAssignmentMutator extends MutationHook {
 
     Map<Urn, Boolean> mutatedEntityStructuredPropertiesMap =
         StructuredPropertyUtils.filterSoftDelete(
-            entityStructuredPropertiesMap, retrieverContext.getAspectRetriever());
+            operationContext, entityStructuredPropertiesMap, retrieverContext.getAspectRetriever());
 
     return items.stream()
         .map(i -> Pair.of(i, mutatedEntityStructuredPropertiesMap.getOrDefault(i.getUrn(), false)));
@@ -54,17 +57,25 @@ public class StructuredPropertiesAssignmentMutator extends MutationHook {
 
   @Override
   protected Stream<Pair<ChangeMCP, Boolean>> writeMutation(
-      @Nonnull Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
     if (!dropMissingPropertyValuesWithWarning) {
       return changeMCPS.stream().map(i -> Pair.of(i, false));
     }
 
     return changeMCPS.stream()
-        .map(item -> Pair.of(item, dropMissingPropertyAssignments(item, retrieverContext)));
+        .map(
+            item ->
+                Pair.of(
+                    item,
+                    dropMissingPropertyAssignments(operationContext, item, retrieverContext)));
   }
 
   private boolean dropMissingPropertyAssignments(
-      @Nonnull ChangeMCP item, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      @Nonnull ChangeMCP item,
+      @Nonnull RetrieverContext retrieverContext) {
     if (!STRUCTURED_PROPERTIES_ASPECT_NAME.equals(item.getAspectName())
         || item.getRecordTemplate() == null) {
       return false;
@@ -79,7 +90,7 @@ public class StructuredPropertiesAssignmentMutator extends MutationHook {
 
     final Pair<StructuredProperties, Set<Urn>> filtered =
         StructuredPropertyUtils.filterMissingPropertyDefinitions(
-            proposed, retrieverContext.getAspectRetriever());
+            operationContext, proposed, retrieverContext.getAspectRetriever());
 
     if (filtered.getSecond().isEmpty()) {
       return false;

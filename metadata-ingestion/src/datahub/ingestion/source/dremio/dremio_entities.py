@@ -1,10 +1,7 @@
 import logging
-import re
 import uuid
 from datetime import datetime
 from typing import Any, ClassVar, Dict, Iterator, List, Optional
-
-from sqlglot import parse_one
 
 from datahub.emitter.mce_builder import make_term_urn
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
@@ -20,69 +17,8 @@ from datahub.ingestion.source.dremio.dremio_models import (
     DremioDatasetType,
     DremioEntityContainerType,
 )
-from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
-
-
-class DremioQueryType(StrEnum):
-    """Query classification returned by DremioQuery._get_query_type()."""
-
-    SELECT = "SELECT"
-    DML = "DML"
-    DDL = "DDL"
-
-
-# Internal lookup table mapping query type categories to their leading SQL operators.
-_QUERY_OPERATORS: Dict[str, List[str]] = {
-    DremioQueryType.DML: ["CREATE", "DELETE", "INSERT", "MERGE", "UPDATE"],
-    DremioQueryType.DDL: [
-        "ALTER BRANCH",
-        "ALTER PIPE",
-        "ALTER SOURCE",
-        "ALTER TABLE",
-        "ALTER TAG",
-        "ALTER VIEW",
-        "ANALYZE TABLE",
-        "COPY INTO",
-        "CREATE BRANCH",
-        "CREATE FOLDER",
-        "CREATE PIPE",
-        "CREATE ROLE",
-        "CREATE TABLE",
-        "CREATE TAG",
-        "CREATE USER",
-        "CREATE VIEW",
-        "DESCRIBE PIPE",
-        "DESCRIBE TABLE",
-        "DROP BRANCH",
-        "DROP FOLDER",
-        "DROP PIPE",
-        "DROP ROLE",
-        "DROP TABLE",
-        "DROP TAG",
-        "DROP USER",
-        "DROP VIEW",
-        "GRANT ROLE",
-        "GRANT TO ROLE",
-        "GRANT TO USER",
-        "MERGE BRANCH",
-        "REVOKE FROM ROLE",
-        "REVOKE FROM USER",
-        "REVOKE ROLE",
-        "SHOW BRANCHES",
-        "SHOW CREATE TABLE",
-        "SHOW CREATE VIEW",
-        "SHOW LOGS",
-        "SHOW TABLES",
-        "SHOW TAGS",
-        "SHOW VIEWS",
-        "USE",
-        "VACUUM CATALOG",
-        "VACUUM TABLE",
-    ],
-    DremioQueryType.SELECT: ["SELECT", "WITH"],
-}
 
 
 class DremioGlossaryTerm:
@@ -102,11 +38,6 @@ class DremioGlossaryTerm:
 
 
 class DremioQuery:
-    query_without_comments: str
-    query_type: DremioQueryType
-    query_subtype: str
-    affected_dataset: str
-
     def __init__(
         self,
         job_id: str,
@@ -114,73 +45,24 @@ class DremioQuery:
         submitted_ts: str,
         query: str,
         queried_datasets: str,
-        affected_datasets: Optional[str] = None,
     ):
         self.job_id = job_id
         self.username = username
         self.submitted_ts = self._get_submitted_ts(submitted_ts)
         self.query = self._get_query(query)
-        self.query_without_comments = self.get_raw_query(query)
-        self.query_type = self._get_query_type()
-        self.query_subtype = self._get_query_subtype()
         self.queried_datasets = self._get_queried_datasets(queried_datasets)
-        if affected_datasets:
-            self.affected_dataset = affected_datasets
-        else:
-            self.affected_dataset = self._get_affected_tables()
-
-    def get(self, attr):
-        return getattr(self, attr, None)
 
     def _get_submitted_ts(self, timestamp: str) -> datetime:
         return datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
 
     def _get_query(self, query: str) -> str:
-        return str(query).replace("'", "'")
-
-    def _get_query_type(self) -> DremioQueryType:
-        query_operator = re.split(
-            pattern=r"\s+",
-            string=self.query_without_comments.strip(),
-            maxsplit=1,
-        )[0]
-
-        if query_operator in _QUERY_OPERATORS[DremioQueryType.SELECT]:
-            return DremioQueryType.SELECT
-        if query_operator in _QUERY_OPERATORS[DremioQueryType.DML]:
-            return DremioQueryType.DML
-        return DremioQueryType.DDL
-
-    def _get_query_subtype(self) -> str:
-        for query_operator in (
-            _QUERY_OPERATORS[DremioQueryType.SELECT]
-            + _QUERY_OPERATORS[DremioQueryType.DML]
-            + _QUERY_OPERATORS[DremioQueryType.DDL]
-        ):
-            if self.query_without_comments.upper().startswith(query_operator):
-                return query_operator
-        return "UNDEFINED"
+        # Normalize smart single quotes so downstream sqlglot parsing doesn't fail.
+        return str(query).replace("\u2018", "'").replace("\u2019", "'")
 
     def _get_queried_datasets(self, queried_datasets: str) -> List[str]:
         return list(
             {dataset.strip() for dataset in queried_datasets.strip("[]").split(",")}
         )
-
-    def _get_affected_tables(self) -> str:
-        # TO DO
-        # for manipulation_operator in _data_manipulation_queries:
-        #     if self.query_without_comments.upper().startswith(manipulation_operator):
-
-        return ""
-
-    def get_raw_query(self, sql_query: str) -> str:
-        """Remove comments from SQL query using sqlglot parser."""
-        try:
-            parsed = parse_one(sql_query)
-            return parsed.sql(comments=False)
-        except Exception as e:
-            logger.warning(e)
-            return sql_query
 
 
 class DremioDataset:

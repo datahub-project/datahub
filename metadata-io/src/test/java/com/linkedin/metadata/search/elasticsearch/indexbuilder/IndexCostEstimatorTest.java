@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.List;
 import org.mockito.Mock;
@@ -17,24 +19,28 @@ public class IndexCostEstimatorTest {
   @Mock private ESIndexBuilder mockIndexBuilder;
 
   private IndexCostEstimator estimator;
+  private OperationContext opContext;
 
   @BeforeMethod
   public void setUp() {
     MockitoAnnotations.openMocks(this);
     // Constructor takes threshold as parameter
     estimator = new IndexCostEstimator(mockIndexBuilder, 1_000_000);
+    opContext = TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Test
   public void testEstimateIndexCosts_CalculatesCorrectly() throws IOException {
     // Cost = (documentCount * primaryShards) / dataNodes
     // Cost = (1000 * 5) / 1 = 5000
-    when(mockIndexBuilder.getCountWithoutRefresh("test_index")).thenReturn(1000L);
-    when(mockIndexBuilder.getPrimaryShardCount("test_index")).thenReturn(5);
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(1);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("test_index")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("test_index")))
+        .thenReturn(5);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("test_index"));
+        estimator.estimateIndexCosts(opContext, List.of("test_index"));
 
     assertEquals(costs.size(), 1);
     IndexCostEstimator.IndexCostInfo cost = costs.get(0);
@@ -47,12 +53,14 @@ public class IndexCostEstimatorTest {
   @Test
   public void testEstimateIndexCosts_WithMultipleDataNodes() throws IOException {
     // Cost = (10000 * 10) / 10 = 10000
-    when(mockIndexBuilder.getCountWithoutRefresh("large_index")).thenReturn(10000L);
-    when(mockIndexBuilder.getPrimaryShardCount("large_index")).thenReturn(10);
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(10);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("large_index")))
+        .thenReturn(10000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("large_index")))
+        .thenReturn(10);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(10);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("large_index"));
+        estimator.estimateIndexCosts(opContext, List.of("large_index"));
 
     assertEquals(costs.size(), 1);
     assertEquals(costs.get(0).getCostScore(), 10000L, "Cost should be (10000 * 10) / 10 = 10000");
@@ -60,12 +68,14 @@ public class IndexCostEstimatorTest {
 
   @Test
   public void testEstimateIndexCosts_HandlesZeroDocuments() throws IOException {
-    when(mockIndexBuilder.getCountWithoutRefresh("empty_index")).thenReturn(0L);
-    when(mockIndexBuilder.getPrimaryShardCount("empty_index")).thenReturn(5);
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(1);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("empty_index")))
+        .thenReturn(0L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("empty_index")))
+        .thenReturn(5);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("empty_index"));
+        estimator.estimateIndexCosts(opContext, List.of("empty_index"));
 
     assertEquals(costs.size(), 1);
     assertEquals(costs.get(0).getCostScore(), 0L, "Cost should be 0 for empty index");
@@ -76,14 +86,16 @@ public class IndexCostEstimatorTest {
   @Test
   public void testEstimateIndexCosts_HandlesException_ContinuesProcessing() throws IOException {
     // First call fails, second succeeds
-    when(mockIndexBuilder.getCountWithoutRefresh("bad_index"))
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("bad_index")))
         .thenThrow(new IOException("API error"));
-    when(mockIndexBuilder.getCountWithoutRefresh("good_index")).thenReturn(1000L);
-    when(mockIndexBuilder.getPrimaryShardCount("good_index")).thenReturn(5);
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(1);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("good_index")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("good_index")))
+        .thenReturn(5);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("bad_index", "good_index"));
+        estimator.estimateIndexCosts(opContext, List.of("bad_index", "good_index"));
 
     // Should only include good_index (bad_index is skipped on error)
     assertEquals(costs.size(), 2);
@@ -93,12 +105,14 @@ public class IndexCostEstimatorTest {
   @Test
   public void testTierClassification_NormalTier() throws IOException {
     // Cost just below threshold
-    when(mockIndexBuilder.getCountWithoutRefresh("normal_index")).thenReturn(50000L);
-    when(mockIndexBuilder.getPrimaryShardCount("normal_index")).thenReturn(10);
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(1);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("normal_index")))
+        .thenReturn(50000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("normal_index")))
+        .thenReturn(10);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("normal_index"));
+        estimator.estimateIndexCosts(opContext, List.of("normal_index"));
 
     assertEquals(costs.size(), 1);
     assertEquals(costs.get(0).getTier(), IndexCostEstimator.CostTier.NORMAL);
@@ -107,12 +121,14 @@ public class IndexCostEstimatorTest {
   @Test
   public void testTierClassification_LargeTier() throws IOException {
     // Cost at or above threshold
-    when(mockIndexBuilder.getCountWithoutRefresh("large_index")).thenReturn(1000000L);
-    when(mockIndexBuilder.getPrimaryShardCount("large_index")).thenReturn(10);
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(1);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("large_index")))
+        .thenReturn(1000000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("large_index")))
+        .thenReturn(10);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("large_index"));
+        estimator.estimateIndexCosts(opContext, List.of("large_index"));
 
     assertEquals(costs.size(), 1);
     assertEquals(costs.get(0).getTier(), IndexCostEstimator.CostTier.LARGE);
@@ -121,19 +137,25 @@ public class IndexCostEstimatorTest {
   @Test
   public void testEstimateIndexCosts_SortsByCostAscending() throws IOException {
     // Setup three indices with different costs
-    when(mockIndexBuilder.getCountWithoutRefresh("expensive")).thenReturn(50000L);
-    when(mockIndexBuilder.getPrimaryShardCount("expensive")).thenReturn(10);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("expensive")))
+        .thenReturn(50000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("expensive")))
+        .thenReturn(10);
 
-    when(mockIndexBuilder.getCountWithoutRefresh("cheap")).thenReturn(1000L);
-    when(mockIndexBuilder.getPrimaryShardCount("cheap")).thenReturn(5);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("cheap")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("cheap")))
+        .thenReturn(5);
 
-    when(mockIndexBuilder.getCountWithoutRefresh("medium")).thenReturn(10000L);
-    when(mockIndexBuilder.getPrimaryShardCount("medium")).thenReturn(5);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("medium")))
+        .thenReturn(10000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("medium")))
+        .thenReturn(5);
 
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(1);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("expensive", "cheap", "medium"));
+        estimator.estimateIndexCosts(opContext, List.of("expensive", "cheap", "medium"));
 
     assertEquals(costs.size(), 3);
     // Should be sorted: cheap (5000) < medium (50000) < expensive (500000)
@@ -145,13 +167,16 @@ public class IndexCostEstimatorTest {
   @Test
   public void testDefaultShardCountOnMissingIndexSetting() throws IOException {
     // When index setting is null or empty, should default to 1 (ES 7.0+ standard)
-    when(mockIndexBuilder.getCountWithoutRefresh("default_shards_index")).thenReturn(10000L);
-    when(mockIndexBuilder.getPrimaryShardCount("default_shards_index"))
+    when(mockIndexBuilder.getCountWithoutRefresh(
+            any(OperationContext.class), eq("default_shards_index")))
+        .thenReturn(10000L);
+    when(mockIndexBuilder.getPrimaryShardCount(
+            any(OperationContext.class), eq("default_shards_index")))
         .thenThrow(new IOException("Index settings not found"));
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(1);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("default_shards_index"));
+        estimator.estimateIndexCosts(opContext, List.of("default_shards_index"));
 
     assertEquals(costs.size(), 1);
     // Should use default of 1 shard (ES 7.0+ standard): (10000 * 1) / 1 = 10000
@@ -162,12 +187,14 @@ public class IndexCostEstimatorTest {
   @Test
   public void testDataNodeCountAffectsCostCalculation() throws IOException {
     // Same index with different data node counts
-    when(mockIndexBuilder.getCountWithoutRefresh("test_index")).thenReturn(100000L);
-    when(mockIndexBuilder.getPrimaryShardCount("test_index")).thenReturn(10);
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(10);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("test_index")))
+        .thenReturn(100000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("test_index")))
+        .thenReturn(10);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(10);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("test_index"));
+        estimator.estimateIndexCosts(opContext, List.of("test_index"));
 
     assertEquals(costs.size(), 1);
     // Cost = (100000 * 10) / 10 = 100000
@@ -176,7 +203,8 @@ public class IndexCostEstimatorTest {
 
   @Test
   public void testEmptyIndexList() throws IOException {
-    List<IndexCostEstimator.IndexCostInfo> costs = estimator.estimateIndexCosts(List.of());
+    List<IndexCostEstimator.IndexCostInfo> costs =
+        estimator.estimateIndexCosts(opContext, List.of());
 
     assertEquals(costs.size(), 0);
   }
@@ -184,20 +212,23 @@ public class IndexCostEstimatorTest {
   @Test
   public void testMultipleIndicesWithMixedErrors() throws IOException {
     // Setup: some succeed, some fail, some have unusual settings
-    when(mockIndexBuilder.getCountWithoutRefresh("index1")).thenReturn(1000L);
-    when(mockIndexBuilder.getPrimaryShardCount("index1")).thenReturn(5);
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("index1")))
+        .thenReturn(1000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("index1")))
+        .thenReturn(5);
 
-    when(mockIndexBuilder.getCountWithoutRefresh("index2"))
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("index2")))
         .thenThrow(new IOException("Connection error"));
 
-    when(mockIndexBuilder.getCountWithoutRefresh("index3")).thenReturn(5000L);
-    when(mockIndexBuilder.getPrimaryShardCount("index3"))
+    when(mockIndexBuilder.getCountWithoutRefresh(any(OperationContext.class), eq("index3")))
+        .thenReturn(5000L);
+    when(mockIndexBuilder.getPrimaryShardCount(any(OperationContext.class), eq("index3")))
         .thenThrow(new IOException("Invalid shard count"));
 
-    when(mockIndexBuilder.getDataNodeCount()).thenReturn(1);
+    when(mockIndexBuilder.getDataNodeCount(any(OperationContext.class))).thenReturn(1);
 
     List<IndexCostEstimator.IndexCostInfo> costs =
-        estimator.estimateIndexCosts(List.of("index1", "index2", "index3"));
+        estimator.estimateIndexCosts(opContext, List.of("index1", "index2", "index3"));
 
     assertEquals(costs.size(), 3);
     assertEquals(costs.get(0).getIndexName(), "index1");

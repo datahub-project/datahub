@@ -1,0 +1,13 @@
+{
+    "resultText.failing": "Fehlgeschlagen",
+    "resultText.passing": "Erfolgreich",
+    "summary.allFailing": "Alle Tests sind fehlgeschlagen",
+    "summary.allPassing": "Alle Tests sind erfolgreich",
+    "summary.countsSubtitle": "{{passing}} erfolgreiche Tests, {{failing}} fehlgeschlagene Tests",
+    "summary.noTestsRun": "Keine Tests ausgeführt",
+    "summary.someFailing": "Einige Tests sind fehlgeschlagen",
+    "summary.statusTooltip": "Dieser Status basiert auf dem letzten Lauf jedes Tests.",
+    "testResults.empty": "Keine Tests gefunden :(",
+    "testResults.noEvaluations": "Keine Auswertungen",
+    "testResults.title": "Governance-Testergebnisse"
+}

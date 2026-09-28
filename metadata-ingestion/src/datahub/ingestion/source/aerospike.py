@@ -33,7 +33,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.schema_inference.object import (
@@ -41,7 +40,6 @@ from datahub.ingestion.source.schema_inference.object import (
     construct_schema,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulIngestionConfigBase,
     StatefulStaleMetadataRemovalConfig,
@@ -289,21 +287,24 @@ def construct_schema_aerospike(
     if sample_size:
         query.max_records = sample_size
     query.records_per_second = records_per_second
+
+    policy: Dict[str, Any] = {"max_retries": 0}
     if socket_timeout_ms is not None:
-        query.socket_timeout = socket_timeout_ms  # type: ignore[attr-defined]
+        policy["socket_timeout"] = socket_timeout_ms
+        policy["total_timeout"] = socket_timeout_ms
 
     try:
-        res = query.results()
+        res = query.results(policy)
         records = [{**record[2], "PK": record[0][2]} for record in res]
-    except Exception as e:
-        logger.error(f"Error querying Aerospike set: {e}")
-        records = []
+    except Exception:
+        logger.exception("Error querying Aerospike set %s.%s", as_set.ns, as_set.set)
+        raise
     return construct_schema(records, delimiter)
 
 
 @platform_name("Aerospike")
 @config_class(AerospikeConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
@@ -367,14 +368,6 @@ class AerospikeSource(StatefulIngestionSourceBase):
         config = AerospikeConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_aerospike_type_string(
         self, field_type: Union[Type, str], set_name: str
     ) -> str:
@@ -390,9 +383,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
         """
         type_string = PYTHON_TYPE_TO_AEROSPIKE_TYPE.get(field_type)
         if type_string is None:
-            self.report.report_warning(
+            self.report.warning(
                 message="unable to map type to metadata schema",
                 context=f"{set_name}: {field_type}",
+                log=False,
             )
             type_string = "unknown"
 
@@ -414,9 +408,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
         TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
 
         if TypeClass is None:
-            self.report.report_warning(
+            self.report.warning(
                 message="unable to map type to metadata schema",
                 context=f"{set_name}: {field_type}",
+                log=False,
             )
             TypeClass = NullTypeClass
 
@@ -559,7 +554,9 @@ class AerospikeSource(StatefulIngestionSourceBase):
             )
         )
 
-        set_schema = self._limit_schema_size(set_full_schema, custom_properties)
+        set_schema = self._limit_schema_size(
+            set_full_schema, custom_properties, dataset_name
+        )
 
         set_fields: Union[List[SchemaDescription], ValuesView[SchemaDescription]] = (
             set_schema.values()
@@ -593,6 +590,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
         self,
         schema: Dict[Tuple[str, ...], SchemaDescription],
         custom_properties: Dict[str, str],
+        dataset_name: str,
     ) -> Dict[Tuple[str, ...], SchemaDescription]:
         """
         Limits the size of the schema to the max_schema_size and infer_schema_depth.
@@ -607,13 +605,14 @@ class AerospikeSource(StatefulIngestionSourceBase):
             }
             if len(truncated_schema) < len(schema):
                 logger.debug(
-                    f"Truncated schema from {len(schema)} to {len(truncated_schema)}"
+                    f"Truncated schema for {dataset_name} from {len(schema)} to {len(truncated_schema)}"
                 )
                 schema_depth = max([len(k) for k in schema])
-                self.report.report_warning(
+                self.report.warning(
                     title="Schema depth limit reached",
                     message="Truncating the collection schema because it has too many nested levels.",
                     context=f"Schema Depth: {len(schema)}, Configured threshold: {self.config.infer_schema_depth}",
+                    log=False,
                 )
                 custom_properties["schema.truncated"] = "True"
                 custom_properties["schema.totalDepth"] = f"{schema_depth}"
@@ -622,10 +621,11 @@ class AerospikeSource(StatefulIngestionSourceBase):
         schema_size = len(schema)
         max_schema_size = self.config.max_schema_size
         if max_schema_size is not None and schema_size > max_schema_size:
-            self.report.report_warning(
+            self.report.warning(
                 title="Too many schema fields",
                 message="Downsampling the collection schema because it has too many schema fields.",
                 context=f"Schema Size: {schema_size}, Configured threshold: {max_schema_size}",
+                log=False,
             )
             custom_properties["schema.downsampled"] = "True"
             custom_properties["schema.totalFields"] = f"{schema_size}"
@@ -650,6 +650,9 @@ class AerospikeSource(StatefulIngestionSourceBase):
                 .split(",")
             )
         except Exception as e:
+            logger.exception(
+                "XDR cluster-wide query failed for namespace %s", namespace
+            )
             self.report.warning(
                 message="Failed to retrieve XDR config from Aerospike",
                 context=namespace,
@@ -669,6 +672,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
                     .split("\n")[0]
                 )
             except Exception as e:
+                logger.exception("XDR per-DC query failed for %s/%s", namespace, dc)
                 self.report.warning(
                     message="Failed to retrieve XDR config for DC",
                     context=f"{namespace}/{dc}",

@@ -15,7 +15,7 @@ import { findDataHubEntityColor } from '@app/analyticsDashboardV2/utils/chartCol
 /**
  * Describes the strategy used to assign a color
  */
-export interface ColorStrategy {
+interface ColorStrategy {
     type: 'semantic' | 'qualitative' | 'generated';
     source: string;
 }

@@ -718,6 +718,7 @@ def test_get_urns() -> None:
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
                 "skipCache": False,
+                "sortInput": None,
                 "includeSoftDeleted": None,
             },
         )
@@ -770,9 +771,38 @@ def test_get_urns_with_skip_cache() -> None:
                 "batchSize": unittest.mock.ANY,
                 "scrollId": None,
                 "skipCache": True,
+                "sortInput": None,
                 "includeSoftDeleted": None,
             },
         )
+
+
+def test_get_urns_by_filter_with_sort() -> None:
+    graph = MockDataHubGraph()
+
+    with unittest.mock.patch.object(graph, "execute_graphql") as mock_execute_graphql:
+        result_urns = ["urn:li:query:1"]
+        mock_execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": urn}} for urn in result_urns],
+            }
+        }
+
+        urns = list(
+            graph.get_urns_by_filter(
+                entity_types=["query"],
+                sort_by="lastModifiedAt",
+                sort_order="DESCENDING",
+            )
+        )
+        assert urns == result_urns
+
+        assert mock_execute_graphql.call_count == 1
+        _, kwargs = mock_execute_graphql.call_args
+        assert kwargs["variables"]["sortInput"] == {
+            "sortCriteria": [{"field": "lastModifiedAt", "sortOrder": "DESCENDING"}]
+        }
 
 
 def test_get_document_urns() -> None:

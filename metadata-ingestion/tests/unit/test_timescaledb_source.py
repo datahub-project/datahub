@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
@@ -7,7 +7,7 @@ from sqlalchemy.exc import DatabaseError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresSource
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.ingestion.source.sql.timescaledb import (
     ContinuousAggregate,
     Hypertable,
@@ -528,8 +528,10 @@ class TestTimescaleDBJobProcessing:
         mock_executions = [
             JobExecution(
                 job_id=1001,
-                last_run_started_at=datetime(2023, 1, 1, 12, 0, 0),
-                last_successful_finish=datetime(2023, 1, 1, 12, 1, 0),
+                last_run_started_at=datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                last_successful_finish=datetime(
+                    2023, 1, 1, 12, 1, 0, tzinfo=timezone.utc
+                ),
                 last_run_status="success",
                 total_runs=100,
                 total_successes=98,

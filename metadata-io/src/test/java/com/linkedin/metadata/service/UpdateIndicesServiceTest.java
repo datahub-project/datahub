@@ -76,8 +76,6 @@ public class UpdateIndicesServiceTest {
             entitySearchService,
             searchDocumentTransformer,
             timeseriesAspectService,
-            "MD5",
-            true, // v2Enabled = true (both strategies active)
             null);
 
     Collection<UpdateIndicesStrategy> strategies = Arrays.asList(v2Strategy, v3Strategy);
@@ -112,7 +110,8 @@ public class UpdateIndicesServiceTest {
     updateIndicesService.handleChangeEvent(operationContext, event);
 
     // Verify
-    verify(systemMetadataService).deleteAspect(urn.toString(), CONTAINER_ASPECT_NAME);
+    verify(systemMetadataService)
+        .deleteAspect(any(OperationContext.class), eq(urn.toString()), eq(CONTAINER_ASPECT_NAME));
     verify(searchDocumentTransformer, times(2))
         .transformAspect(
             eq(operationContext),

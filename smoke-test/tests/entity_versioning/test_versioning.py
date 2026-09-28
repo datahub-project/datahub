@@ -9,6 +9,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, VersionSetUrn
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
+
+pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 VERSION_SET_URN = VersionSetUrn("12345678910", DatasetUrn.ENTITY_TYPE).urn()
 ENTITY_URN_OBJS = [DatasetUrn("snowflake", f"versioning_{i}") for i in range(3)]
@@ -33,7 +36,7 @@ def ingest_cleanup_data(graph_client: DataHubGraph):
     finally:
         for i in [2, 1, 0, 0, 1, 2]:
             graph_client.unlink_asset_from_version_set(ENTITY_URNS[i])
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(mae_only=True)
 
 
 @pytest.mark.skip("Flaky: remove after unlink fixed")
@@ -44,7 +47,7 @@ def test_link_unlink_version(graph_client: DataHubGraph):
     )
     assert version_set_urn == VERSION_SET_URN
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     unlinked_version_set = graph_client.unlink_asset_from_version_set(ENTITY_URNS[0])
     assert unlinked_version_set == VERSION_SET_URN
     assert graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass) is None
@@ -59,7 +62,7 @@ def test_link_unlink_three_versions(graph_client):
         )
         assert version_set_urn == VERSION_SET_URN
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     assert (
         graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass).latest
         == ENTITY_URNS[2]
@@ -86,7 +89,7 @@ def test_link_unlink_three_versions_unlink_all(graph_client):
         assert version_set_urn == VERSION_SET_URN
 
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     assert (
         graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass).latest
         == ENTITY_URNS[2]
@@ -95,7 +98,7 @@ def test_link_unlink_three_versions_unlink_all(graph_client):
 
     unlinked_version_set = graph_client.unlink_asset_from_version_set(ENTITY_URNS[2])
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     assert unlinked_version_set == VERSION_SET_URN
 
     assert (
@@ -106,7 +109,7 @@ def test_link_unlink_three_versions_unlink_all(graph_client):
 
     unlinked_version_set = graph_client.unlink_asset_from_version_set(ENTITY_URNS[1])
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     assert unlinked_version_set == VERSION_SET_URN
 
@@ -132,7 +135,7 @@ def test_link_unlink_three_versions_unlink_middle_and_latest(graph_client):
         )
         assert version_set_urn == VERSION_SET_URN
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     assert (
         graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass).latest
         == ENTITY_URNS[2]
@@ -141,7 +144,7 @@ def test_link_unlink_three_versions_unlink_middle_and_latest(graph_client):
 
     unlinked_version_set = graph_client.unlink_asset_from_version_set(ENTITY_URNS[1])
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     assert unlinked_version_set == VERSION_SET_URN
 
     assert (
@@ -170,7 +173,7 @@ def test_link_unlink_three_versions_unlink_and_relink(graph_client):
         )
         assert version_set_urn == VERSION_SET_URN
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     assert (
         graph_client.get_aspect(VERSION_SET_URN, VersionSetPropertiesClass).latest
         == ENTITY_URNS[2]
@@ -179,7 +182,7 @@ def test_link_unlink_three_versions_unlink_and_relink(graph_client):
 
     unlinked_version_set = graph_client.unlink_asset_from_version_set(ENTITY_URNS[2])
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
     assert unlinked_version_set == VERSION_SET_URN
 
     assert (
@@ -190,7 +193,7 @@ def test_link_unlink_three_versions_unlink_and_relink(graph_client):
 
     unlinked_version_set = graph_client.unlink_asset_from_version_set(ENTITY_URNS[1])
     # We should not need to wait here, but we do
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(mae_only=True)
 
     assert unlinked_version_set == VERSION_SET_URN
 

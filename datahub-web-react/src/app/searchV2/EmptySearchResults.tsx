@@ -23,20 +23,36 @@ const Section = styled.div`
     margin-bottom: 16px;
 `;
 
-function getRefineSearchText(filters: FacetFilterInput[], viewUrn?: string | null) {
-    let text = '';
-    if (filters.length && viewUrn) {
-        /* untranslated-text -- sentence fragment assembled dynamically; full sentence refactor required */
-        text = 'clearing all filters and selected view';
-    } else if (filters.length) {
-        /* untranslated-text -- sentence fragment assembled dynamically; full sentence refactor required */
-        text = 'clearing all filters';
-    } else if (viewUrn) {
-        /* untranslated-text -- sentence fragment assembled dynamically; full sentence refactor required */
-        text = 'clearing the selected view';
-    }
+type RefineTarget = 'filtersAndView' | 'filters' | 'view';
 
-    return text;
+// Literal union (not `string`) so the keys stay validated against the `search` namespace once
+// typed i18n resources are re-enabled — a typo or a key missing from search.json fails at compile time.
+type RefineMessageKey =
+    | 'emptyResults.tryRefine.filters'
+    | 'emptyResults.tryRefine.filtersAndView'
+    | 'emptyResults.tryRefine.view'
+    | 'emptyResults.trySuggestion.filters'
+    | 'emptyResults.trySuggestion.filtersAndView'
+    | 'emptyResults.trySuggestion.view';
+
+function getRefineTarget(filters: FacetFilterInput[], viewUrn?: string | null): RefineTarget | null {
+    if (filters.length && viewUrn) return 'filtersAndView';
+    if (filters.length) return 'filters';
+    if (viewUrn) return 'view';
+    return null;
+}
+
+// The refine action is part of a full sentence whose word order varies by language, so each
+// variant maps to a complete translation key rather than interpolating an English fragment.
+function getRefineMessageKey(target: RefineTarget, hasSuggestion: boolean): RefineMessageKey {
+    if (hasSuggestion) {
+        if (target === 'filtersAndView') return 'emptyResults.trySuggestion.filtersAndView';
+        if (target === 'filters') return 'emptyResults.trySuggestion.filters';
+        return 'emptyResults.trySuggestion.view';
+    }
+    if (target === 'filtersAndView') return 'emptyResults.tryRefine.filtersAndView';
+    if (target === 'filters') return 'emptyResults.tryRefine.filters';
+    return 'emptyResults.tryRefine.view';
 }
 
 interface Props {
@@ -49,7 +65,7 @@ export default function EmptySearchResults({ suggestions }: Props) {
     const history = useHistory();
     const userContext = useUserContext();
     const suggestText = suggestions.length > 0 ? suggestions[0].text : '';
-    const refineSearchText = getRefineSearchText(filters, viewUrn);
+    const refineTarget = getRefineTarget(filters, viewUrn);
 
     const onClickExploreAll = useCallback(() => {
         analytics.event({ type: EventType.SearchResultsExploreAllClickEvent });
@@ -71,18 +87,18 @@ export default function EmptySearchResults({ suggestions }: Props) {
     return (
         <NoDataContainer>
             <Section>{t('emptyResults.noResultsFound', { query })}</Section>
-            {refineSearchText && (
+            {refineTarget && (
                 <Trans
                     t={t}
-                    i18nKey="emptyResults.trySuggestion"
-                    values={{ refineText: refineSearchText, suggestText }}
+                    i18nKey={getRefineMessageKey(refineTarget, !!suggestText)}
+                    values={{ suggestText }}
                     components={{
                         refineLink: <SuggestedText onClick={clearFiltersAndView} />,
                         suggestLink: <SuggestedText onClick={searchForSuggestion} />,
                     }}
                 />
             )}
-            {!refineSearchText && suggestText && (
+            {!refineTarget && suggestText && (
                 <Trans
                     t={t}
                     i18nKey="emptyResults.didYouMean"
@@ -90,7 +106,7 @@ export default function EmptySearchResults({ suggestions }: Props) {
                     components={{ suggestion: <SuggestedText onClick={searchForSuggestion} /> }}
                 />
             )}
-            {!refineSearchText && !suggestText && (
+            {!refineTarget && !suggestText && (
                 <Button onClick={onClickExploreAll}>
                     <RocketOutlined /> {t('emptyResults.exploreAll')}
                 </Button>

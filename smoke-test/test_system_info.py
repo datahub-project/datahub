@@ -4,11 +4,14 @@ import pytest
 import requests
 
 from tests.privileges.utils import create_user, remove_user
+from tests.tokens.token_utils import assert_graphql_mutation_succeeded
+from tests.utilities.domains import Domain
 from tests.utils import get_admin_credentials, get_frontend_url, get_gms_url, login_as
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.no_cypress_suite1
+pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
+
 
 # ==============================================
 # SYSTEM INFO API TESTS
@@ -28,6 +31,7 @@ pytestmark = pytest.mark.no_cypress_suite1
 # ==============================================
 
 
+@pytest.mark.p0
 def test_system_info_main_endpoint(auth_session):
     """Test that main system info endpoint returns expected structure with authentication."""
     response = auth_session.get(f"{auth_session.gms_url()}/openapi/v1/system-info")
@@ -126,6 +130,7 @@ def test_system_info_properties_endpoint(auth_session):
     logger.info("Detailed properties endpoint test passed")
 
 
+@pytest.mark.p0
 def test_system_info_simple_properties_endpoint(auth_session):
     """Test simple properties endpoint returns flat key-value map."""
     response = auth_session.get(
@@ -260,10 +265,13 @@ def extract_api_token_from_session(session):
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json_payload)
     response.raise_for_status()
 
-    token_data = response.json()["data"]["createAccessToken"]
+    res_data = response.json()
+    assert_graphql_mutation_succeeded(res_data)
+    token_data = res_data["data"]["createAccessToken"]
     return token_data["accessToken"], token_data["metadata"]["id"]
 
 
+@pytest.mark.p0
 def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     """Test that system info endpoints return HTTP 403 for authenticated users without MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.
 
@@ -278,10 +286,11 @@ def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     limited_test_email = "limited.test.user@smoke.datahub.test"
     test_user_urn = f"urn:li:corpuser:{limited_test_email}"
     token_id = None
+    limited_user_session = None
 
     try:
         # Create a limited-privilege user (no special privileges by default)
-        create_user(admin_session, limited_test_email, "testpass123")
+        admin_session = create_user(admin_session, limited_test_email, "testpass123")
 
         # Login as the limited user
         limited_user_session = login_as(limited_test_email, "testpass123")
@@ -325,7 +334,7 @@ def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     finally:
         # Clean up: revoke the API token and remove the test user
         try:
-            if token_id:
+            if token_id and limited_user_session is not None:
                 # Revoke the API token
                 revoke_json = {
                     "query": """mutation revokeAccessToken($tokenId: String!) {
@@ -349,6 +358,7 @@ def test_system_info_authenticated_non_admin_user_returns_403(auth_session):
     )
 
 
+@pytest.mark.p0
 def test_system_info_unauthorized_access_returns_403():
     """Test that system info endpoints return 401/403 for unauthenticated users."""
     # Make unauthenticated requests (no session) to verify 401/403 responses

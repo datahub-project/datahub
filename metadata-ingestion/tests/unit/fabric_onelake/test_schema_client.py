@@ -395,12 +395,13 @@ class TestGetSqlAnalyticsEndpointUrl:
     def test_returns_url_from_sql_endpoint_properties(
         self, item_type: Literal["Lakehouse", "Warehouse"], endpoint_path: str
     ) -> None:
-        """When sqlEndpointProperties.connectionString is a bare hostname, return it."""
+        """When sqlEndpointProperties has provisioningStatus=Success, return connectionString."""
         mock_response = Mock()
         mock_response.json.return_value = {
             "properties": {
                 "sqlEndpointProperties": {
                     "connectionString": "bare-host.datawarehouse.fabric.microsoft.com",
+                    "provisioningStatus": "Success",
                 },
             },
         }
@@ -416,6 +417,71 @@ class TestGetSqlAnalyticsEndpointUrl:
 
         assert url == "bare-host.datawarehouse.fabric.microsoft.com"
         mock_client.get.assert_called_once_with(endpoint_path)
+
+    @pytest.mark.parametrize(
+        "item_type,endpoint_path",
+        [
+            ("Lakehouse", "workspaces/ws-1/lakehouses/item-1"),
+            ("Warehouse", "workspaces/ws-1/warehouses/item-1"),
+        ],
+    )
+    def test_returns_url_with_nonstandard_hostname(
+        self, item_type: Literal["Lakehouse", "Warehouse"], endpoint_path: str
+    ) -> None:
+        """When connectionString has a non-standard hostname prefix, return it if provisioned."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "properties": {
+                "sqlEndpointProperties": {
+                    "connectionString": "bare-host.env-datawarehouse.fabric.microsoft.com",
+                    "provisioningStatus": "Success",
+                },
+            },
+        }
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+
+        url = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            mock_client,
+            workspace_id="ws-1",
+            item_id="item-1",
+            item_type=item_type,
+        )
+
+        assert url == "bare-host.env-datawarehouse.fabric.microsoft.com"
+        mock_client.get.assert_called_once_with(endpoint_path)
+
+    @pytest.mark.parametrize(
+        "item_type,endpoint_path",
+        [
+            ("Lakehouse", "workspaces/ws-1/lakehouses/item-1"),
+            ("Warehouse", "workspaces/ws-1/warehouses/item-1"),
+        ],
+    )
+    def test_returns_none_when_provisioning_not_success(
+        self, item_type: Literal["Lakehouse", "Warehouse"], endpoint_path: str
+    ) -> None:
+        """When provisioningStatus is not Success, fall through to other extraction methods."""
+        mock_response = Mock()
+        mock_response.json.return_value = {
+            "properties": {
+                "sqlEndpointProperties": {
+                    "connectionString": "bare-host.datawarehouse.fabric.microsoft.com",
+                    "provisioningStatus": "InProgress",
+                },
+            },
+        }
+        mock_client = Mock()
+        mock_client.get.return_value = mock_response
+
+        url = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            mock_client,
+            workspace_id="ws-1",
+            item_id="item-1",
+            item_type=item_type,
+        )
+
+        assert url is None
 
     @pytest.mark.parametrize(
         "item_type,endpoint_path",

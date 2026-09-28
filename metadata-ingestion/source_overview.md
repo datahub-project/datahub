@@ -33,8 +33,8 @@ See the full **[list of integrations](https://docs.datahub.com/integrations)** a
 
 We apply a Support Status to each Metadata Source to help you understand the integration reliability at a glance.
 
-![Certified](https://img.shields.io/badge/support%20status-certified-brightgreen): Certified Sources are well-tested & widely-adopted by the DataHub Community. We expect the integration to be stable with few user-facing issues.
+![GA](https://img.shields.io/badge/support%20status-GA-brightgreen): GA (Generally Available) Sources are maintained by the DataHub Ingestion team and are widely adopted in production. We expect the integration to be stable with few user-facing issues.
 
-![Incubating](https://img.shields.io/badge/support%20status-incubating-blue): Incubating Sources are ready for DataHub Community adoption but have not been tested for a wide variety of edge-cases. We eagerly solicit feedback from the Community to streghten the connector; minor version changes may arise in future releases.
+![Beta](https://img.shields.io/badge/support%20status-Beta-blue): Beta Sources are maintained by the DataHub Ingestion team but have limited production adoption so far. They are ready to use, but have not been exercised against a wide variety of edge-cases; we eagerly solicit feedback to strengthen them.
 
-![Testing](https://img.shields.io/badge/support%20status-testing-lightgrey): Testing Sources are available for experiementation by DataHub Community members, but may change without notice.
+![Alpha](https://img.shields.io/badge/support%20status-Alpha-lightgrey): Alpha Sources are early-stage integrations with limited production adoption, and are typically maintained by the community, the field team, or a team outside of Ingestion. They are available for experimentation and may change without notice.

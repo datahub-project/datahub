@@ -2,8 +2,57 @@ import {
     DataContractBuilderState,
     DataContractCategoryType,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import { getDataContractCategoryFromAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
 
-import { DataContract } from '@types';
+import { Assertion, DataContract } from '@types';
+
+export const createBuilderState = (contract?: DataContract | null): DataContractBuilderState | undefined => {
+    if (!contract) {
+        return undefined;
+    }
+    return {
+        schema:
+            (contract.properties?.schema?.length && {
+                assertionUrn: contract.properties.schema[0].assertion.urn,
+            }) ||
+            undefined,
+        freshness:
+            (contract.properties?.freshness?.length && {
+                assertionUrn: contract.properties.freshness[0].assertion.urn,
+            }) ||
+            undefined,
+        dataQuality:
+            contract.properties?.dataQuality?.map((item) => ({ assertionUrn: item.assertion.urn })) || undefined,
+    };
+};
+
+export const partitionAssertionsByContractCategory = (assertions: Assertion[]) => {
+    const freshnessAssertions: Assertion[] = [];
+    const schemaAssertions: Assertion[] = [];
+    const dataQualityAssertions: Assertion[] = [];
+
+    assertions.forEach((assertion) => {
+        switch (getDataContractCategoryFromAssertion(assertion)) {
+            case DataContractCategoryType.FRESHNESS:
+                freshnessAssertions.push(assertion);
+                break;
+            case DataContractCategoryType.SCHEMA:
+                schemaAssertions.push(assertion);
+                break;
+            case DataContractCategoryType.DATA_QUALITY:
+                dataQualityAssertions.push(assertion);
+                break;
+            default:
+                break;
+        }
+    });
+
+    return {
+        freshnessAssertions,
+        schemaAssertions,
+        dataQualityAssertions,
+    };
+};
 
 /**
  * Constructs the input variables required for upserting a data contract using graphql
@@ -25,7 +74,7 @@ export const buildUpsertDataContractMutationVariables = (entityUrn: string, stat
 export const buildRemoveAssertionFromContractMutationVariables = (
     entityUrn: string,
     assertionUrn: string,
-    contract?: DataContract,
+    contract?: DataContract | null,
 ) => {
     return {
         input: {
@@ -56,7 +105,7 @@ export const buildAddAssertionToContractMutationVariables = (
     category: DataContractCategoryType,
     entityUrn: string,
     assertionUrn: string,
-    contract?: DataContract,
+    contract?: DataContract | null,
 ) => {
     const baseInput = {
         entityUrn,

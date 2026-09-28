@@ -69,6 +69,39 @@ def test_is_discovered_table(mssql_source):
     assert mssql_source.is_discovered_table("invalid_table_name") is False
 
 
+def test_is_discovered_table_two_part_name_matches_discovered(mssql_source):
+    """A 2-part `schema.table` resolves against a fully-qualified discovered
+    entry, so procedure-body references aren't dropped as temp."""
+    assert mssql_source.is_discovered_table("dbo.regular_table") is True
+
+
+def test_is_discovered_table_two_part_name_no_match(mssql_source):
+    """A 2-part name with no matching discovered entry stays undiscovered."""
+    assert mssql_source.is_discovered_table("dbo.unknown_table") is False
+
+
+def test_is_discovered_table_two_part_name_cross_database(mssql_source):
+    """2-part matching ignores the database (first-match-wins)."""
+    mssql_source.discovered_datasets = {
+        "db_a.dbo.regular_table",
+        "db_b.dbo.regular_table",
+    }
+    assert mssql_source.is_discovered_table("dbo.regular_table") is True
+
+
+def test_is_discovered_table_two_part_name_temp_precedence(mssql_source):
+    """Temp filters run before 2-part resolution: temp refs stay undiscovered
+    even when a same-named discovered entry exists (guards against reorder)."""
+    mssql_source.discovered_datasets = {
+        "test_db.dbo.temp_regular",
+        "test_db.dbo.#regular_table",
+    }
+    mssql_source.config.temporary_tables_pattern = [r".*\.temp_.*"]
+
+    assert mssql_source.is_discovered_table("dbo.temp_regular") is False
+    assert mssql_source.is_discovered_table("dbo.#regular_table") is False
+
+
 def test_detect_rds_environment_on_premises(mssql_source):
     """Test environment detection for on-premises SQL Server"""
     mock_conn = MagicMock()

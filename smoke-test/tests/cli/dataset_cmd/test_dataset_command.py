@@ -12,9 +12,12 @@ from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.consistency_utils import wait_for_writes_to_sync
+from tests.utilities.domains import Domain
 from tests.utils import delete_urns, run_datahub_cmd
 
 logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION, Domain.CATALOG)
 
 # Generate random dataset IDs to avoid test interference
 start_index = randint(10, 10000)
@@ -88,6 +91,7 @@ def run_cli_command(cmd, auth_session):
     return result
 
 
+@pytest.mark.p0
 def test_dataset_sync_to_datahub(
     setup_teardown_dataset, graph_client: DataHubGraph, auth_session
 ):
@@ -106,7 +110,7 @@ def test_dataset_sync_to_datahub(
             assert f"Update succeeded for urn {dataset_urn}" in result.stdout
 
             # Wait for changes to propagate
-            wait_for_writes_to_sync()
+            wait_for_writes_to_sync(mcp_only=True)
 
             # Verify the dataset exists in DataHub
             assert graph_client.exists(dataset_urn)
@@ -147,7 +151,7 @@ def test_dataset_sync_from_datahub(
             for mcp in dataset.generate_mcp():
                 graph_client.emit(mcp)
 
-            wait_for_writes_to_sync()
+            wait_for_writes_to_sync(mcp_only=True)
 
             # Create a minimal dataset YAML as a starting point
             create_dataset_yaml(
@@ -191,14 +195,14 @@ def test_dataset_sync_bidirectional(
             run_cli_command(
                 f"dataset sync -f {temp_file_path} --to-datahub", auth_session
             )
-            wait_for_writes_to_sync()
+            wait_for_writes_to_sync(mcp_only=True)
 
             # 3. Modify directly in DataHub
             dataset_patcher = Dataset.get_patch_builder(dataset_urn)
             dataset_patcher.set_description("Modified directly in DataHub")
             for mcp in dataset_patcher.build():
                 graph_client.emit(mcp)
-            wait_for_writes_to_sync()
+            wait_for_writes_to_sync(mcp_only=True)
 
             # 4. Sync from DataHub to update YAML
             run_cli_command(
@@ -221,7 +225,7 @@ def test_dataset_sync_bidirectional(
             run_cli_command(
                 f"dataset sync -f {temp_file_path} --to-datahub", auth_session
             )
-            wait_for_writes_to_sync()
+            wait_for_writes_to_sync(mcp_only=True)
 
             # 7. Verify both modifications are present in DataHub
             final_dataset = Dataset.from_datahub(graph=graph_client, urn=dataset_urn)

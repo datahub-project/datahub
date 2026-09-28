@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.plugins.spring.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -40,6 +41,7 @@ public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      @Nonnull OperationFingerprint operationFingerprint,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
 
@@ -57,7 +59,9 @@ public class CustomDataQualityRulesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationFingerprint,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return changeMCPs.stream()
         .flatMap(
             changeMCP -> {

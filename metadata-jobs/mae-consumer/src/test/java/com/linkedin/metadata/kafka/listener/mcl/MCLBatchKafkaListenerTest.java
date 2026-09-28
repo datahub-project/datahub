@@ -7,6 +7,8 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.kafka.context.inbound.DefaultInboundBatchAffinityResolver;
+import com.linkedin.metadata.kafka.context.inbound.InboundContextResolver;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -74,7 +76,9 @@ public class MCLBatchKafkaListenerTest {
         TEST_CONSUMER_GROUP,
         Arrays.asList(mockHook1, mockHook2),
         false,
-        aspectsToDrop);
+        aspectsToDrop,
+        new InboundContextResolver(Collections.emptyList()),
+        new DefaultInboundBatchAffinityResolver());
   }
 
   @Test
@@ -90,8 +94,10 @@ public class MCLBatchKafkaListenerTest {
 
       listener.consumeBatch(records);
 
-      verify(mockHook1).invokeBatch(argThat(events -> events.size() == 2));
-      verify(mockHook2).invokeBatch(argThat(events -> events.size() == 2));
+      verify(mockHook1)
+          .invokeBatch(any(OperationContext.class), argThat(events -> events.size() == 2));
+      verify(mockHook2)
+          .invokeBatch(any(OperationContext.class), argThat(events -> events.size() == 2));
     }
   }
 
@@ -113,6 +119,7 @@ public class MCLBatchKafkaListenerTest {
 
       verify(mockHook1)
           .invokeBatch(
+              any(OperationContext.class),
               argThat(
                   events -> {
                     List<MetadataChangeLog> list = new ArrayList<>(events);
@@ -139,7 +146,8 @@ public class MCLBatchKafkaListenerTest {
 
       listener.consumeBatch(records);
 
-      verify(mockHook1).invokeBatch(argThat(events -> events.size() == 1));
+      verify(mockHook1)
+          .invokeBatch(any(OperationContext.class), argThat(events -> events.size() == 1));
     }
   }
 
@@ -158,7 +166,8 @@ public class MCLBatchKafkaListenerTest {
 
       listener.consumeBatch(records);
 
-      verify(mockHook1).invokeBatch(argThat(events -> events.size() == 1));
+      verify(mockHook1)
+          .invokeBatch(any(OperationContext.class), argThat(events -> events.size() == 1));
     }
   }
 
@@ -174,8 +183,8 @@ public class MCLBatchKafkaListenerTest {
 
       listener.consumeBatch(records);
 
-      verify(mockHook1, never()).invokeBatch(any());
-      verify(mockHook2, never()).invokeBatch(any());
+      verify(mockHook1, never()).invokeBatch(any(OperationContext.class), any());
+      verify(mockHook2, never()).invokeBatch(any(OperationContext.class), any());
     }
   }
 
@@ -183,8 +192,8 @@ public class MCLBatchKafkaListenerTest {
   public void testConsumeBatchEmptyListSkipsHooks() throws Exception {
     listener.consumeBatch(Collections.emptyList());
 
-    verify(mockHook1, never()).invokeBatch(any());
-    verify(mockHook2, never()).invokeBatch(any());
+    verify(mockHook1, never()).invokeBatch(any(OperationContext.class), any());
+    verify(mockHook2, never()).invokeBatch(any(OperationContext.class), any());
   }
 
   @Test
@@ -193,15 +202,17 @@ public class MCLBatchKafkaListenerTest {
 
     List<ConsumerRecord<String, GenericRecord>> records = List.of(createMockConsumerRecord(0));
 
-    doThrow(new RuntimeException("hook1 failed")).when(mockHook1).invokeBatch(any());
+    doThrow(new RuntimeException("hook1 failed"))
+        .when(mockHook1)
+        .invokeBatch(any(OperationContext.class), any());
 
     try (MockedStatic<EventUtils> eventUtils = mockStatic(EventUtils.class)) {
       eventUtils.when(() -> EventUtils.avroToPegasusMCL(any())).thenReturn(mcl);
 
       listener.consumeBatch(records);
 
-      verify(mockHook1).invokeBatch(any());
-      verify(mockHook2).invokeBatch(any());
+      verify(mockHook1).invokeBatch(any(OperationContext.class), any());
+      verify(mockHook2).invokeBatch(any(OperationContext.class), any());
     }
   }
 
@@ -221,8 +232,8 @@ public class MCLBatchKafkaListenerTest {
 
       listener.consumeBatch(records);
 
-      verify(mockHook1, never()).invokeBatch(any());
-      verify(mockHook2, never()).invokeBatch(any());
+      verify(mockHook1, never()).invokeBatch(any(OperationContext.class), any());
+      verify(mockHook2, never()).invokeBatch(any(OperationContext.class), any());
     }
   }
 
@@ -269,6 +280,8 @@ public class MCLBatchKafkaListenerTest {
     }
 
     @Override
-    public void invoke(@Nonnull MetadataChangeLog event) {}
+    public void invoke(
+        @Nonnull io.datahubproject.metadata.context.OperationContext operationContext,
+        @Nonnull MetadataChangeLog event) {}
   }
 }

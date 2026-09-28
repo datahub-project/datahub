@@ -1,338 +1,486 @@
 import logging
 import re
-from enum import Enum
-from typing import Iterator, List, Tuple
+from typing import Final, Iterator, List, Optional, Tuple
+
+from sqlglot import Dialect
+from sqlglot.dialects.tsql import TSQL
+from sqlglot.tokens import Token, TokenType
 
 logger = logging.getLogger(__name__)
-SELECT_KEYWORD = "SELECT"
-CASE_KEYWORD = "CASE"
-END_KEYWORD = "END"
 
-_WORD_BOUNDARY_PATTERN = re.compile(r"\w\W|\W\w")
-_FOR_CLAUSE_PATTERN = re.compile(r"\bFOR\s*$")
+# GO is a client batch separator (sqlcmd/SSMS), not a SQL statement: it appears alone on a
+# line. We split on it before tokenizing because sqlglot's tsql tokenizer can otherwise
+# swallow `GO\n<rest>` into a single STRING token. GO lines carry no lineage and are dropped.
+_GO_BATCH_SEPARATOR = re.compile(r"(?im)^[ \t]*GO[ \t]*;?[ \t]*\r?$")
 
-CONTROL_FLOW_KEYWORDS = [
-    # MSSQL/T-SQL control flow
-    "GO",
-    r"BEGIN\s+TRY",
-    r"BEGIN\s+CATCH",
-    "BEGIN",
-    r"END\s+TRY",
-    r"END\s+CATCH",
-    # This isn't strictly correct, but we assume that IF | (condition) | (block) should all be split up
-    # This mainly ensures that IF statements don't get tacked onto the previous statement incorrectly
+# Opening delimiter of a Postgres dollar-quoted string: $$ or $tag$. The matching close is the
+# identical delimiter. Used to mask a GO line that appears inside a function body.
+_DOLLAR_QUOTE_OPEN = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)?\$")
+
+
+_OPEN: Final = {TokenType.L_PAREN, TokenType.L_BRACKET}
+_CLOSE: Final = {TokenType.R_PAREN, TokenType.R_BRACKET}
+
+_DML_STARTERS: Final = {
+    TokenType.CREATE,
+    TokenType.INSERT,
+    TokenType.UPDATE,
+    TokenType.DELETE,
+    TokenType.MERGE,
+    TokenType.DROP,
+    TokenType.TRUNCATE,
+    TokenType.ALTER,
+}
+_QUERY_STARTERS: Final = {TokenType.SELECT, TokenType.WITH}
+_SET_OPS: Final = {TokenType.UNION, TokenType.EXCEPT, TokenType.INTERSECT}
+_AS = TokenType.ALIAS  # sqlglot tokenizes `AS` as ALIAS
+_CONTROL_FLOW_TEXT: Final = {
+    "TRY",
+    "CATCH",
     "IF",
-    # For things like CASE, END does not mean the end of a statement.
-    # We have special handling for this.
-    END_KEYWORD,
-    # "ELSE",  # else is also valid in CASE, so we we can't use it here.
-    # Oracle PL/SQL control flow
     "WHILE",
     "LOOP",
-    r"END\s+LOOP",
-    r"END\s+IF",
+    "GO",
     "ELSIF",
     "EXCEPTION",
-    r"WHEN\s+OTHERS",  # Exception handler (specific to avoid matching CASE/MERGE)
-    "EXIT",  # Exit loop
-    "CONTINUE",  # Continue to next iteration
-    "GOTO",  # Transfer control to label
-    "RETURN",  # Safe - only used in functions/procedures
-    # Note: FOR and DECLARE are intentionally excluded as they conflict with standard SQL
-    # (FOR UPDATE/SHARE, DECLARE variables are handled separately)
-]
+}
+_VARIABLE_STATEMENT_TEXT: Final = {"SET", "DECLARE"}
 
-# There's an exception to this rule, which is when the statement
-# is preceded by a CTE. For those, we have to check if the character
-# before this is a ")".
-NEW_STATEMENT_KEYWORDS = [
-    # SELECT is used inside queries as well, so we can't include it here.
-    "CREATE",
-    "INSERT",
-    "UPDATE",
-    "DELETE",
-    "MERGE",
-]
-STRICT_NEW_STATEMENT_KEYWORDS = [
-    # For these keywords, a SELECT following it does indicate a new statement.
-    "DROP",
-    "TRUNCATE",
-]
+# A keyword immediately after one of these is a continuation (identifier / function / clause
+# operand), NOT a statement boundary. Deliberately a blocklist: tokens NOT listed still permit
+# a boundary, so we never miss a real statement start. PARAMETER/PLACEHOLDER are intentionally
+# EXCLUDED (a statement can end with `@v` or `?`).
+_CONTINUATION_TOKENS: Final = {
+    TokenType.SELECT,
+    TokenType.WITH,  # WITH is followed by a CTE name (identifier), never a new statement
+    TokenType.UPDATE,  # UPDATE is followed by its target table (identifier)
+    TokenType.FROM,
+    TokenType.WHERE,
+    TokenType.JOIN,
+    # NOTE: ON and VALUES are intentionally NOT here -- a statement can end with them
+    # (`SET NOCOUNT ON`, `INSERT ... DEFAULT VALUES`), so treating them as continuations
+    # would merge a following real statement (lineage loss).
+    TokenType.USING,
+    TokenType.HAVING,
+    TokenType.INTO,
+    TokenType.SET,
+    TokenType.QUALIFY,
+    TokenType.LIMIT,
+    TokenType.OFFSET,
+    TokenType.OVER,
+    TokenType.PARTITION,
+    TokenType.ALIAS,
+    # NOTE: ALL/DISTINCT are intentionally NOT here. `UNION ALL`/`UNION DISTINCT` continuation
+    # is handled by set-op run tracking; and an identifier the tokenizer reports as the ALL/
+    # DISTINCT keyword (e.g. a temp table `#1All` -> HASH+NUMBER+ALL) must still allow the next
+    # statement to start, or it would merge (under-split / lineage loss).
+    TokenType.UNION,
+    TokenType.EXCEPT,
+    TokenType.INTERSECT,
+    TokenType.COMMA,
+    TokenType.DOT,
+    TokenType.EQ,
+    TokenType.NEQ,
+    TokenType.GT,
+    TokenType.GTE,
+    TokenType.LT,
+    TokenType.LTE,
+    TokenType.PLUS,
+    TokenType.DASH,
+    TokenType.STAR,
+    TokenType.SLASH,
+    TokenType.MOD,
+    TokenType.AMP,
+    TokenType.PIPE,
+    TokenType.CARET,
+    TokenType.AND,
+    TokenType.OR,
+    TokenType.NOT,
+    TokenType.IN,
+    TokenType.LIKE,
+    TokenType.ILIKE,
+    TokenType.BETWEEN,
+    TokenType.IS,
+    TokenType.WHEN,
+    TokenType.THEN,
+    TokenType.ELSE,
+    TokenType.COLON,
+    TokenType.DCOLON,
+    TokenType.LR_ARROW,
+    TokenType.HASH_ARROW,
+    # Compound clause tokens (sqlglot emits these as single tokens in some dialects).
+    TokenType.GROUP_BY,
+    TokenType.ORDER_BY,
+    TokenType.PARTITION_BY,
+    TokenType.CLUSTER_BY,
+    TokenType.GROUPING_SETS,
+}
+# Continuation keywords that don't have dedicated token types (tokenize as VAR/keyword text).
+# TABLE/VIEW: a DDL object name follows (e.g. `DROP TABLE merge`), so it's an identifier.
+_CONTINUATION_TEXT: Final = {
+    "BY",
+    "GROUP",
+    "ORDER",
+    "DO",
+    "KEY",
+    "FOR",
+    "GRANT",
+    "REVOKE",
+    "TABLE",
+    "VIEW",
+}
 
 
-class _AlreadyIncremented(Exception):
-    # Using exceptions for control flow isn't great - but the code is clearer so it's fine.
-    pass
-
-
-class ParserState(Enum):
-    NORMAL = 1
-    STRING = 2
-    COMMENT = 3
-    MULTILINE_COMMENT = 4
-    BRACKETED_IDENTIFIER = 5
-
-
-class _StatementSplitter:
-    def __init__(self, sql: str):
-        self.sql = sql
-
-        # Main parser state.
-        self.i = 0
-        self.state = ParserState.NORMAL
-        self.current_statement: List[str] = []
-
-        # Additional parser state.
-
-        # If we see a SELECT, should we start a new statement?
-        # If we previously saw a drop/truncate/etc, a SELECT does mean a new statement.
-        # But if we're in a select/create/etc, a select could just be a subquery.
-        self.does_select_mean_new_statement = False
-
-        # The END keyword terminates CASE and BEGIN blocks.
-        # We need to match the CASE statements with END blocks to determine
-        # what a given END is closing.
-        self.current_case_statements = 0
-
-    def _is_keyword_at_position(self, pos: int, keyword: str) -> Tuple[bool, str]:
-        """
-        Check if a keyword exists at the given position using regex word boundaries.
-        """
-        sql = self.sql
-
-        keyword_length = len(keyword.replace(r"\s+", " "))
-
-        if pos + keyword_length > len(sql):
-            return False, ""
-
-        # If we're not at a word boundary, we can't generate a keyword.
-        if pos > 0 and not _WORD_BOUNDARY_PATTERN.match(sql[pos - 1 : pos + 1]):
-            return False, ""
-
-        pattern = rf"^{keyword}\b"
-        match = re.match(pattern, sql[pos:], re.IGNORECASE)
-        is_match = bool(match)
-        actual_match = (
-            sql[pos:][match.start() : match.end()] if match is not None else ""
-        )
-        return is_match, actual_match
-
-    def _look_ahead_for_keywords(self, keywords: List[str]) -> Tuple[bool, str, int]:
-        """
-        Look ahead for SQL keywords at the current position.
-        """
-
-        for keyword in keywords:
-            is_match, keyword = self._is_keyword_at_position(self.i, keyword)
-            if is_match:
-                return True, keyword, len(keyword)
-        return False, "", 0
-
-    def _yield_if_complete(self) -> Iterator[str]:
-        statement = "".join(self.current_statement).strip()
-        if statement:
-            # Subtle - to avoid losing full whitespace, they get merged into the next statement.
-            yield statement
-            self.current_statement.clear()
-
-        # Reset current_statement-specific state.
-        self.does_select_mean_new_statement = False
-        if self.current_case_statements != 0:
-            logger.warning(
-                f"Unexpected END keyword. Current case statements: {self.current_case_statements}"
-            )
-        self.current_case_statements = 0
-
-    def process(self) -> Iterator[str]:
-        if not self.sql or not self.sql.strip():
-            yield from ()
-
-        prev_real_char = "\0"  # the most recent non-whitespace, non-comment character
-        while self.i < len(self.sql):
-            c = self.sql[self.i]
-            next_char = self.sql[self.i + 1] if self.i < len(self.sql) - 1 else "\0"
-
-            if self.state == ParserState.NORMAL:
-                if c == "'":
-                    self.state = ParserState.STRING
-                    self.current_statement.append(c)
-                    prev_real_char = c
-                elif c == "[":
-                    self.state = ParserState.BRACKETED_IDENTIFIER
-                    self.current_statement.append(c)
-                    prev_real_char = c
-                elif c == "-" and next_char == "-":
-                    self.state = ParserState.COMMENT
-                    self.current_statement.append(c)
-                    self.current_statement.append(next_char)
-                    self.i += 1
-                elif c == "/" and next_char == "*":
-                    self.state = ParserState.MULTILINE_COMMENT
-                    self.current_statement.append(c)
-                    self.current_statement.append(next_char)
-                    self.i += 1
-                else:
-                    most_recent_real_char = prev_real_char
-                    if not c.isspace():
-                        prev_real_char = c
-
-                    try:
-                        yield from self._process_normal(
-                            most_recent_real_char=most_recent_real_char
-                        )
-                    except _AlreadyIncremented:
-                        # Skip the normal i += 1 step.
+def _masked_spans(sql: str) -> List[Tuple[int, int]]:
+    """Inclusive (start, end) offsets of single-quoted strings, -- line comments,
+    /* */ block comments, and Postgres $tag$ dollar-quoted bodies. Used to ignore GO lines
+    that appear inside comments or string/quoted bodies."""
+    spans: List[Tuple[int, int]] = []
+    i, n = 0, len(sql)
+    while i < n:
+        ch = sql[i]
+        if ch == "$":
+            # Dollar-quoted string (Postgres): $$ ... $$ or $tag$ ... $tag$.
+            m = _DOLLAR_QUOTE_OPEN.match(sql, i)
+            if m:
+                delim = m.group(0)
+                close = sql.find(delim, m.end())
+                end = n - 1 if close == -1 else close + len(delim) - 1
+                spans.append((i, end))
+                i = end + 1
+                continue
+            i += 1
+        elif ch == "'":
+            # Single-quoted string: scan until closing quote, honoring '' escape.
+            start = i
+            i += 1
+            while i < n:
+                if sql[i] == "'":
+                    if i + 1 < n and sql[i + 1] == "'":
+                        i += 2  # escaped quote
                         continue
-
-            elif self.state == ParserState.STRING:
-                self.current_statement.append(c)
-                if c == "'" and next_char == "'":
-                    self.current_statement.append(next_char)
-                    self.i += 1
-                elif c == "'":
-                    self.state = ParserState.NORMAL
-
-            elif self.state == ParserState.BRACKETED_IDENTIFIER:
-                self.current_statement.append(c)
-                if c == "]" and next_char == "]":
-                    self.current_statement.append(next_char)
-                    self.i += 1
-                elif c == "]":
-                    self.state = ParserState.NORMAL
-
-            elif self.state == ParserState.COMMENT:
-                self.current_statement.append(c)
-                if c == "\n":
-                    self.state = ParserState.NORMAL
-
-            elif self.state == ParserState.MULTILINE_COMMENT:
-                self.current_statement.append(c)
-                if c == "*" and next_char == "/":
-                    self.current_statement.append(next_char)
-                    self.i += 1
-                    self.state = ParserState.NORMAL
-
-            self.i += 1
-
-        # Handle the last statement
-        yield from self._yield_if_complete()
-
-    def _process_normal(self, most_recent_real_char: str) -> Iterator[str]:
-        c = self.sql[self.i]
-
-        if self._is_keyword_at_position(self.i, CASE_KEYWORD)[0]:
-            self.current_case_statements += 1
-
-        is_control_keyword, keyword, keyword_len = self._look_ahead_for_keywords(
-            keywords=CONTROL_FLOW_KEYWORDS
-        )
-        if (
-            is_control_keyword
-            and keyword.upper() == END_KEYWORD
-            and self.current_case_statements > 0
-        ):
-            # If we're closing a CASE statement with END, we can just decrement the counter and continue.
-            self.current_case_statements -= 1
-        elif is_control_keyword:
-            if keyword.upper() == "IF" and re.match(
-                r"IF\s+(NOT\s+)?EXISTS\b", self.sql[self.i :], re.IGNORECASE
-            ):
-                pass  # IF EXISTS / IF NOT EXISTS is DDL syntax, not control flow
+                    else:
+                        spans.append((start, i))
+                        i += 1
+                        break
+                i += 1
             else:
-                # Yield current statement if any
-                yield from self._yield_if_complete()
-                # Yield keyword as its own statement
-                yield keyword
-                self.i += keyword_len
-                self.does_select_mean_new_statement = True
-                raise _AlreadyIncremented()
-
-        (
-            is_strict_new_statement_keyword,
-            keyword,
-            keyword_len,
-        ) = self._look_ahead_for_keywords(keywords=STRICT_NEW_STATEMENT_KEYWORDS)
-        if is_strict_new_statement_keyword:
-            yield from self._yield_if_complete()
-            self.current_statement.append(keyword)
-            self.i += keyword_len
-            self.does_select_mean_new_statement = True
-            raise _AlreadyIncremented()
-
-        (
-            is_force_new_statement_keyword,
-            keyword,
-            keyword_len,
-        ) = self._look_ahead_for_keywords(
-            keywords=(
-                NEW_STATEMENT_KEYWORDS
-                + ([SELECT_KEYWORD] if self.does_select_mean_new_statement else [])
-            ),
-        )
-        if (
-            is_force_new_statement_keyword
-            and not self._has_preceding_cte(most_recent_real_char)
-            and not self._is_part_of_merge_query()
-            and not (
-                keyword.upper() in ("UPDATE", "SHARE")
-                and self._is_for_update_or_share()
-            )
-        ):
-            # Force termination of current statement
-            yield from self._yield_if_complete()
-
-            self.current_statement.append(keyword)
-            self.i += keyword_len
-            raise _AlreadyIncremented()
-
-        if c == ";":
-            yield from self._yield_if_complete()
+                spans.append((start, n - 1))
+        elif ch == "-" and i + 1 < n and sql[i + 1] == "-":
+            # Line comment: -- to end of line.
+            start = i
+            end = sql.find("\n", i + 2)
+            if end == -1:
+                end = n - 1
+            spans.append((start, end))
+            i = end + 1
+        elif ch == "/" and i + 1 < n and sql[i + 1] == "*":
+            # Block comment: /* ... */
+            start = i
+            end = sql.find("*/", i + 2)
+            if end == -1:
+                end = n - 1
+            else:
+                end += 1  # include the '/'
+            spans.append((start, end))
+            i = end + 1
         else:
-            self.current_statement.append(c)
+            i += 1
+    return spans
 
-    def _has_preceding_cte(self, most_recent_real_char: str) -> bool:
-        # A CTE (Common Table Expression) has the pattern: WITH name AS (...) SELECT
-        # The closing paren before SELECT indicates a CTE.
-        # However, closing parens can also appear in WHERE clauses of DML statements,
-        # or at the end of function calls like GETDATE().
-        #
-        # We check both:
-        # 1. The preceding char must be ")" - if not, definitely not a CTE
-        # 2. The statement must start with "WITH" - CTEs always start with WITH keyword
-        #
-        # This prevents both:
-        # - INSERT/UPDATE/DELETE with closing parens in WHERE being treated as CTEs
-        # - SELECT ending with function calls like GETDATE() being treated as CTEs
 
-        if most_recent_real_char != ")":
+def _split_go_batches(sql: str) -> List[str]:
+    """Split on `GO` batch-separator lines, ignoring `GO` inside strings or comments."""
+    spans = _masked_spans(sql)
+
+    def in_masked(pos: int) -> bool:
+        return any(a <= pos <= b for a, b in spans)
+
+    batches: List[str] = []
+    prev = 0
+    for m in _GO_BATCH_SEPARATOR.finditer(sql):
+        if in_masked(m.start()):
+            continue
+        batches.append(sql[prev : m.start()])
+        prev = m.end()
+    batches.append(sql[prev:])
+    return batches
+
+
+def _uses_go_batches(dialect: Optional[str]) -> bool:
+    """`GO` is a client batch separator (sqlcmd/SSMS/isql) only in T-SQL/Sybase, not a SQL
+    statement. Other dialects use `GO` as an ordinary identifier, so splitting on a bare `GO`
+    line there would be a T-SQL bias. Gate the pre-split to T-SQL dialects only.
+
+    Detected via the resolved dialect class so every alias that maps to T-SQL is covered
+    (DataHub's `mssql` and `fabric-onelake` both resolve to sqlglot ``tsql``). Sybase has no
+    sqlglot dialect (tokenizing it already fails and falls back), so it is intentionally not
+    handled here."""
+    try:
+        return isinstance(Dialect.get_or_raise(dialect), TSQL)
+    except Exception:
+        return False
+
+
+def _tokenize(sql: str, dialect: Optional[str]) -> List[Token]:
+    """Lenient tokenize. Raises only if sqlglot itself raises (caller handles)."""
+    return Dialect.get_or_raise(dialect).tokenizer_class().tokenize(sql)
+
+
+class _TokenSplitter:
+    """Finds top-level statement boundaries on a sqlglot token stream and yields
+    statements as slices of the ORIGINAL source (verbatim text, comments preserved)."""
+
+    def __init__(self, sql: str, tokens: List[Token]):
+        self.sql = sql
+        self.tokens = tokens
+        self.depth = 0
+        self.seg_start = 0  # start offset of the current (in-progress) statement
+        self.last_end = -1  # .end offset of the last meaningful (depth-0) token seen
+        self.stmt_first: Optional[TokenType] = (
+            None  # first meaningful token type of current stmt
+        )
+        self.insert_active = (
+            False  # inside INSERT/MERGE, source SELECT not yet consumed
+        )
+        self.setop_run = (
+            False  # just saw a set operator (UNION/EXCEPT/INTERSECT [ALL|DISTINCT])
+        )
+        self.create_active = False  # inside a CREATE (for CREATE ... AS SELECT)
+        self.just_as = False  # previous meaningful token was AS within a CREATE
+        self.prev_type: Optional[TokenType] = (
+            None  # previous meaningful depth-0 token type
+        )
+        self.prev_text: Optional[str] = (
+            None  # previous meaningful depth-0 token text (upper)
+        )
+        self.after_then = (
+            False  # previous meaningful depth-0 token was THEN (MERGE branch body)
+        )
+        self.case_depth = (
+            0  # depth of open CASE expressions (their END is not a boundary)
+        )
+
+    def _prev_is_continuation(self) -> bool:
+        return (
+            self.prev_type in _CONTINUATION_TOKENS
+            or self.prev_text in _CONTINUATION_TEXT
+        )
+
+    def _emit(self, end_exclusive: int, results: List[str]) -> None:
+        # A segment is a statement only if it contained at least one token. The tokenizer
+        # emits no tokens for comments/whitespace (any dialect: --, /* */, #), so
+        # `last_end < seg_start` means nothing but comments/whitespace occurred here and the
+        # slice is not emitted. This delegates comment detection to the tokenizer.
+        if self.last_end >= self.seg_start:
+            chunk = self.sql[self.seg_start : end_exclusive].strip()
+            if chunk:
+                results.append(chunk)
+
+    def _start_new_statement(self, tok: Token, results: List[str]) -> None:
+        # Close the previous statement at the end of its last meaningful token, so any
+        # comments/whitespace between it and `tok` attach to the NEW statement (leading).
+        if self.last_end >= 0:
+            self._emit(self.last_end + 1, results)
+            self.seg_start = self.last_end + 1
+        self.stmt_first = tok.token_type
+        self.insert_active = tok.token_type == TokenType.INSERT
+        self.create_active = tok.token_type == TokenType.CREATE
+
+    def _try_consume_structural(
+        self,
+        tt: TokenType,
+        text_upper: str,
+        i: int,
+        tok: Token,
+        results: List[str],
+    ) -> bool:
+        """Handle depth tracking, CASE/END depth, control-flow peeling, and SEMICOLON.
+
+        Returns True if the token was fully consumed (caller should ``continue``).
+        """
+        # --- bracket depth ---
+        if tt in _OPEN:
+            self.depth += 1
+            self.last_end = tok.end
+            return True
+        if tt in _CLOSE:
+            self.depth = max(0, self.depth - 1)
+            self.last_end = tok.end
+            if self.depth == 0:
+                # Record that we just closed a top-level paren/bracket; the CTE
+                # continuation guard uses this to detect WITH ... (...) SELECT.
+                self.prev_type = tt
+            return True
+
+        # --- depth != 0 short-circuit ---
+        if self.depth != 0:
+            if tt in _SET_OPS:
+                self.setop_run = True
+            self.last_end = tok.end
+            return True
+
+        # --- CASE/END depth ---
+        if tt == TokenType.CASE:
+            self.case_depth += 1
+            self.stmt_first = self.stmt_first or tt
+            self.prev_type = tt
+            self.last_end = tok.end
+            return True
+        if tt == TokenType.END and self.case_depth > 0:
+            self.case_depth -= 1
+            self.prev_type = tt
+            self.last_end = tok.end
+            return True
+
+        # --- control-flow peeling ---
+        is_control_flow = (
+            tt in (TokenType.BEGIN, TokenType.END) or text_upper in _CONTROL_FLOW_TEXT
+        )
+        if text_upper == "IF":
+            nxt = self.tokens[i + 1].text.upper() if i + 1 < len(self.tokens) else ""
+            nxt2 = self.tokens[i + 2].text.upper() if i + 2 < len(self.tokens) else ""
+            if nxt == "EXISTS" or (nxt == "NOT" and nxt2 == "EXISTS"):
+                is_control_flow = False  # DDL: IF [NOT] EXISTS
+        # A control-flow keyword after a continuation token is an identifier, not a boundary.
+        if is_control_flow and self._prev_is_continuation():
+            is_control_flow = False
+        if is_control_flow:
+            if tok.start > self.seg_start:
+                self._start_new_statement(tok, results)
+            else:
+                self.stmt_first = self.stmt_first or tt
+            self.setop_run = False
+            self.just_as = False
+            self.after_then = False
+            self.prev_type = tt
+            self.last_end = tok.end
+            return True
+
+        # --- SEMICOLON ---
+        if tt == TokenType.SEMICOLON:
+            self._emit(tok.start, results)
+            self.seg_start = tok.end + 1
+            self.last_end = tok.end
+            # Reset all per-statement flags symmetrically.
+            # case_depth is intentionally NOT reset: a ';' cannot appear inside a CASE
+            # expression at depth 0, so it is always 0 here; but structural depth
+            # counters are owned by the tokenizer, not the statement boundary.
+            self.stmt_first = None
+            self.insert_active = self.create_active = False
+            self.setop_run = self.just_as = False
+            self.after_then = False
+            self.prev_type = None
+            self.prev_text = None
+            return True
+
+        return False
+
+    def _classify_new_statement(
+        self,
+        tt: TokenType,
+        text_upper: str,
+        i: int,
+        cte_main: bool,
+    ) -> bool:
+        """Return True if this token starts a new statement; update continuation flags."""
+        # A keyword immediately after a continuation token is an identifier/operand, not a
+        # new statement (e.g. a column named `end`, a table named `merge`, AS alias names,
+        # GRANT/REVOKE privilege lists, FOR UPDATE locking clauses, etc.).
+        if self._prev_is_continuation():
             return False
+        if tt in _DML_STARTERS:
+            return not self.after_then and not cte_main
+        if (
+            text_upper in _VARIABLE_STATEMENT_TEXT
+            and i + 1 < len(self.tokens)
+            and self.tokens[i + 1].token_type == TokenType.PARAMETER
+        ):
+            return True
+        if tt in _QUERY_STARTERS:
+            is_continuation = (
+                self.setop_run or self.insert_active or self.just_as or cte_main
+            )
+            if is_continuation:
+                self.insert_active = (
+                    False  # the INSERT/MERGE source SELECT is now consumed
+                )
+                self.just_as = False
+                return False
+            return True
+        return False
 
-        current = "".join(self.current_statement).strip().lower()
-        return current.startswith("with ")
+    def split(self) -> List[str]:
+        results: List[str] = []
+        for i, tok in enumerate(self.tokens):
+            tt = tok.token_type
+            text_upper = (tok.text or "").upper()
 
-    def _is_part_of_merge_query(self) -> bool:
-        # In merge statement we'd have `when matched then` or `when not matched then"
-        return "".join(self.current_statement).strip().lower().endswith("then")
+            if self._try_consume_structural(tt, text_upper, i, tok, results):
+                continue
 
-    def _is_for_update_or_share(self) -> bool:
-        """
-        Check if UPDATE/SHARE is part of a FOR UPDATE/FOR SHARE clause.
-        These are locking hints in SELECT statements, not new statements.
-        """
-        # Look backwards in current statement for FOR keyword
-        current_text = "".join(self.current_statement).strip().upper()
-        # Check if the current statement ends with "FOR" (possibly with whitespace)
-        return bool(_FOR_CLAUSE_PATTERN.search(current_text))
+            cte_main = self.prev_type in _CLOSE and self.stmt_first == TokenType.WITH
+            new_stmt = self._classify_new_statement(tt, text_upper, i, cte_main)
+
+            if new_stmt and tok.start > self.seg_start:
+                self._start_new_statement(tok, results)
+            else:
+                if self.stmt_first is None:
+                    self.stmt_first = tt
+                if tt == TokenType.INSERT:
+                    self.insert_active = True
+                if tt == TokenType.CREATE:
+                    self.create_active = True
+
+            # A VALUES clause means the INSERT has no source SELECT, so a later top-level
+            # SELECT is a new statement, not the insert's source.
+            if text_upper == "VALUES":
+                self.insert_active = False
+
+            if tt in _SET_OPS:
+                self.setop_run = True
+            elif text_upper not in ("ALL", "DISTINCT"):
+                self.setop_run = False
+            self.just_as = tt == _AS and self.create_active
+            self.after_then = text_upper == "THEN"
+            self.prev_type = tt
+            self.prev_text = text_upper
+            self.last_end = tok.end
+
+        self._emit(len(self.sql), results)
+        return results
 
 
-def split_statements(sql: str) -> Iterator[str]:
+def split_statements(sql: str, dialect: Optional[str] = None) -> Iterator[str]:
+    """Split SQL into individual statements for per-statement lineage parsing.
+
+    Boundary detection runs on a sqlglot token stream (dialect-aware lexing); each
+    statement is returned as a verbatim slice of the original source. Used for stored
+    procedures (MSSQL/Oracle/Postgres/MySQL/DB2) and Tableau Initial SQL, including
+    semicolon-less T-SQL/PL-SQL batches.
+
+    The `GO` batch-separator pre-split is applied only for T-SQL dialects (where `GO` is a
+    client batch separator); for every other dialect `GO` is treated as an ordinary token.
+
+    On tokenizer failure, yields the whole input unchanged (never raises, never loses SQL).
     """
-    Split SQL code into individual statements, handling various SQL constructs.
-
-    Used for stored procedure lineage extraction across multiple platforms (MSSQL, Oracle,
-    Postgres, MySQL, DB2). Handles MSSQL/T-SQL (which doesn't require semicolons) and
-    Oracle PL/SQL control flow keywords.
-    """
-
-    splitter = _StatementSplitter(sql)
-    yield from splitter.process()
+    if not sql or not sql.strip():
+        return
+    batches = _split_go_batches(sql) if _uses_go_batches(dialect) else [sql]
+    for batch in batches:
+        if not batch or not batch.strip():
+            continue
+        try:
+            tokens = _tokenize(batch, dialect)
+            statements = _TokenSplitter(batch, tokens).split()
+        except Exception as e:
+            # Warn (not debug): the whole batch is yielded as one blob, which
+            # parse_statement() will likely fail to parse, silently losing the
+            # entire procedure/batch's lineage. Operators need a visible signal.
+            logger.warning(
+                f"split_statements failed for dialect={dialect!r} ({e!r}); "
+                f"yielding whole batch as one statement. batch_prefix={batch[:120]!r}"
+            )
+            yield batch
+            continue
+        yield from statements

@@ -15,7 +15,6 @@ import {
 import { SummaryTabHeaderTitle, SummaryTabHeaderWrapper } from '@app/entityV2/shared/summary/HeaderComponents';
 import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
-import { pluralize } from '@app/shared/textUtil';
 import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -44,7 +43,8 @@ export const AssetsSection = () => {
                 types: [],
                 query: '',
                 orFilters: [{ and: [{ field: 'applications', values: [urn] }] }],
-                count: 1000,
+                // Facets/total only — do not fetch result cards (avoids per-result lineage/health/stats fan-out).
+                count: 0,
             },
         },
         fetchPolicy: 'cache-first',
@@ -94,8 +94,7 @@ export const AssetsSection = () => {
                                 name={typeName}
                                 count={summary.count}
                                 icon={getContentTypeIcon(entityRegistry, summary.entityType, summary.type)}
-                                /* untranslated-text -- entity-type name resolved at runtime, pluralized client-side */
-                                tooltipDescriptor={pluralize(count, typeName)}
+                                tooltipDescriptor={t('shared.assetTypeNameCount', { count, type: typeName })}
                                 link={link}
                             />
                         );

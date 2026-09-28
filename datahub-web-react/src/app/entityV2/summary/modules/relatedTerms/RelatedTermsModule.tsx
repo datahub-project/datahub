@@ -5,7 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
+import {
+    RelatedTermTypes,
+    getRelatedTermTypeLabel,
+} from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
@@ -15,6 +18,32 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetRelatedTermsQuery } from '@graphql/glossary.generated';
 import { DataHubPageModuleType } from '@types';
+
+// Maps each RelatedTermTypes enum key to the query alias(es) that back it.
+// These are the four aliases `getRelatedTerms` requests and the four members
+// RelatedTermTypes declares; the list is deliberately not wider than either.
+const RELATIONSHIP_ALIASES: Record<string, string[]> = {
+    isRelatedTerms: ['isRelatedTerms'],
+    hasRelatedTerms: ['hasRelatedTerms'],
+    isAChildren: ['isAChildren'],
+    containedBy: ['containedBy'],
+};
+
+function getRelationshipsForType(
+    glossaryTerm: Record<string, any> | undefined | null,
+    typeKey: string,
+): Array<{ entity: any }> {
+    const aliases = RELATIONSHIP_ALIASES[typeKey] || [];
+    const seen = new Set<string>();
+    return aliases
+        .flatMap((alias) => (glossaryTerm?.[alias]?.relationships || []) as Array<{ entity: any }>)
+        .filter((rel) => {
+            const urn = rel?.entity?.urn;
+            if (!urn || seen.has(urn)) return false;
+            seen.add(urn);
+            return true;
+        });
+}
 
 export default function RelatedTermsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
@@ -33,12 +62,18 @@ export default function RelatedTermsModule(props: ModuleProps) {
         history.push(`${entityRegistry.getEntityUrl(entityType, urn)}/Related Terms`);
     };
 
-    let hasData = false;
-    Object.keys(RelatedTermTypes).forEach((relationshipType) => {
-        if (data?.glossaryTerm?.[relationshipType]?.relationships?.length) {
-            hasData = true;
-        }
+    const glossaryTerm = data?.glossaryTerm as Record<string, any> | undefined | null;
+
+    // Collect all non-empty relationship entries with their display label
+    const allEntries: Array<{ entity: any; typeLabel: string }> = [];
+    Object.keys(RelatedTermTypes).forEach((typeKey) => {
+        const rels = getRelationshipsForType(glossaryTerm, typeKey);
+        rels.filter((r) => !!r.entity).forEach((r) => {
+            allEntries.push({ entity: r.entity, typeLabel: RelatedTermTypes[typeKey] });
+        });
     });
+
+    const hasData = allEntries.length > 0;
 
     return (
         <LargeModule
@@ -56,27 +91,15 @@ export default function RelatedTermsModule(props: ModuleProps) {
                     onLinkClick={navigateToRelatedTermsTab}
                 />
             )}
-            {hasData && (
-                <>
-                    {Object.keys(RelatedTermTypes).map((relationshipType) => {
-                        const relatedTerms = data?.glossaryTerm?.[relationshipType]?.relationships || [];
-                        return relatedTerms
-                            .filter((relationship) => !!relationship.entity)
-                            .map((relationship) => (
-                                <EntityItem
-                                    entity={relationship.entity}
-                                    key={relationship.entity?.urn}
-                                    moduleType={DataHubPageModuleType.RelatedTerms}
-                                    customDetailsRenderer={() => (
-                                        <Text size="sm" color="gray">
-                                            {RelatedTermTypes[relationshipType]}
-                                        </Text>
-                                    )}
-                                />
-                            ));
-                    })}
-                </>
-            )}
+            {hasData &&
+                allEntries.map(({ entity, typeLabel }) => (
+                    <EntityItem
+                        entity={entity}
+                        key={`${typeLabel}-${entity.urn}`}
+                        moduleType={DataHubPageModuleType.RelatedTerms}
+                        customDetailsRenderer={() => <Text size="sm">{getRelatedTermTypeLabel(typeLabel)}</Text>}
+                    />
+                ))}
         </LargeModule>
     );
 }

@@ -95,7 +95,7 @@ class StarRocksConfig(StarRocksConnectionConfig, BasicSQLAlchemyConfig):
 
 @platform_name("StarRocks")
 @config_class(StarRocksConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

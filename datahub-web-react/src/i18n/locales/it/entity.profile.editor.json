@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "Testo alternativo",
+    "addImage.imageUrl": "URL immagine",
+    "addImage.title": "Aggiungi immagine",
+    "heading.heading1": "Titolo 1",
+    "heading.heading2": "Titolo 2",
+    "heading.heading3": "Titolo 3",
+    "heading.heading4": "Titolo 4",
+    "heading.heading5": "Titolo 5",
+    "heading.normal": "Normale",
+    "link.linkUrl": "URL link",
+    "link.text": "Testo",
+    "link.title": "Aggiungi link",
+    "mentions.failedToFindEntity": "Entità non trovata",
+    "table.deleteColumn": "Elimina colonna",
+    "table.deleteRow": "Elimina riga",
+    "table.deleteTable": "Elimina tabella",
+    "table.insertColumnLeft": "Inserisci colonna a sinistra",
+    "table.insertColumnRight": "Inserisci colonna a destra",
+    "table.insertRowAbove": "Inserisci riga sopra",
+    "table.insertRowBelow": "Inserisci riga sotto"
+}

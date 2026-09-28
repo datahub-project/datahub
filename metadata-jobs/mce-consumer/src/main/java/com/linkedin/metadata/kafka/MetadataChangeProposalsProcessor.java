@@ -21,8 +21,12 @@ import org.springframework.stereotype.Component;
 
 /**
  * Kafka transport entrypoint for single MCP processing via {@link MetadataChangeProposalConsumer}.
- * Follow-up: align remaining split-path processors on {@link InboundMetadataEnvelope} (see PE
- * {@code consumeEnvelope} pattern).
+ *
+ * <p>Wraps the Kafka {@link ConsumerRecord} in a transport-neutral {@link InboundMetadataEnvelope}
+ * before handing it to the shared processor.
+ *
+ * <p>Follow-up: align remaining split-path processors on {@link InboundMetadataEnvelope} (see PE
+ * consumer for the pattern).
  */
 @Slf4j
 @Component

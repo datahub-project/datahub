@@ -10,8 +10,12 @@ import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { useEntityType, useMatchedFieldsForList, useSearchResult } from '@app/search/context/SearchResultContext';
 import { GroupedMatch } from '@app/searchV2/matches/GroupedMatch';
-import { getColumnsTabUrlPath, getMatchedFieldLabel } from '@app/searchV2/matches/utils';
-import { pluralize } from '@app/shared/textUtil';
+import {
+    MATCH_CONTEXT_TOOLTIP_KEYS,
+    MatchContext,
+    getColumnsTabUrlPath,
+    getMatchedFieldLabel,
+} from '@app/searchV2/matches/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { MatchedField } from '@types';
@@ -71,10 +75,10 @@ type CustomFieldRenderer = (field: MatchedField) => JSX.Element | null;
 
 type Props = {
     customFieldRenderer?: CustomFieldRenderer;
-    matchSuffix?: string;
+    matchContext?: MatchContext;
 };
 
-export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) => {
+export const MatchedFieldList = ({ customFieldRenderer, matchContext }: Props) => {
     const { t } = useTranslation('search');
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -110,11 +114,10 @@ export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) =>
                 return (
                     <Tooltip
                         title={
-                            matchSuffix
-                                ? t('matches.matchedField.tooltipCount', {
+                            matchContext
+                                ? t(MATCH_CONTEXT_TOOLTIP_KEYS[matchContext], {
                                       count: groupedMatch.matchedFields.length,
                                       label,
-                                      suffix: matchSuffix,
                                   })
                                 : undefined
                         }
@@ -122,7 +125,10 @@ export const MatchedFieldList = ({ customFieldRenderer, matchSuffix }: Props) =>
                         <MatchContainer>
                             <MatchHeader>
                                 <b>{t('matches.matchedField.matchesLabel')}</b>
-                                {pluralize(groupedMatch.matchedFields.length, label)}
+                                {t('matches.matchedField.fieldLabelCount', {
+                                    count: groupedMatch.matchedFields.length,
+                                    label,
+                                })}
                             </MatchHeader>
                             <MatchText key={groupedMatch.fieldName}>
                                 <GroupedMatch

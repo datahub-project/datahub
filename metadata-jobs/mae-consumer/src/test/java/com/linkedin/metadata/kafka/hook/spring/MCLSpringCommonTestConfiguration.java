@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook.spring;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
 
 import com.datahub.authentication.Authentication;
@@ -7,13 +8,16 @@ import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
+import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
@@ -38,7 +42,6 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @Configuration
 @ComponentScan(
@@ -56,14 +59,22 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     })
 public class MCLSpringCommonTestConfiguration {
 
-  // TODO: We cannot move from MockBeans here because we are reliant on their behavior in
-  // configuration classes
-  @MockitoBean public EntityRegistry entityRegistry;
+  @Bean
+  @Primary
+  public EntityRegistry entityRegistry() {
+    return TestOperationContexts.constructNewEntityRegistry();
+  }
 
   @Bean
   @Primary
   public ElasticSearchGraphService graphService() {
     return Mockito.mock(ElasticSearchGraphService.class);
+  }
+
+  @Bean(name = "graphClient")
+  @Primary
+  public GraphClient graphClient() {
+    return Mockito.mock(GraphClient.class);
   }
 
   @Bean
@@ -200,6 +211,19 @@ public class MCLSpringCommonTestConfiguration {
   @Primary
   public ESBulkProcessor elasticSearchBulkProcessor() {
     return Mockito.mock(ESBulkProcessor.class);
+  }
+
+  @Bean(name = "searchClusterRegistry")
+  @Primary
+  public SearchClusterRegistry searchClusterRegistry(
+      ESBulkProcessor elasticSearchBulkProcessor, SearchClientShim<?> searchClientShim) {
+    // This context does not scan factory.config, so there is no ConfigurationProvider to read the
+    // bound elasticsearch settings from.
+    return SearchClusterRegistry.singleCluster(
+        TEST_ES_SEARCH_CONFIG,
+        searchClientShim,
+        elasticSearchBulkProcessor,
+        Mockito.mock(ESIndexBuilder.class));
   }
 
   @Bean(name = "legacyMappingsBuilder")

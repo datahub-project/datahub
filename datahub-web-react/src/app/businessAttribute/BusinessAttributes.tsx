@@ -1,4 +1,5 @@
 import { PlusOutlined } from '@ant-design/icons';
+import { Text } from '@components';
 import { Button, Empty, Pagination, Typography, message } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useMemo, useState } from 'react';
@@ -207,7 +208,7 @@ export const BusinessAttributes = () => {
             <BusinessAttributesContainer>
                 <BusinessAttributeHeaderContainer>
                     <BusinessAttributeTitle level={2}>{t('businessAttribute.pageTitle')}</BusinessAttributeTitle>
-                    <Typography.Paragraph type="secondary">{t('businessAttribute.pageSubtitle')}</Typography.Paragraph>
+                    <Text color="textSecondary">{t('businessAttribute.pageSubtitle')}</Text>
                 </BusinessAttributeHeaderContainer>
             </BusinessAttributesContainer>
             <TabToolbar>

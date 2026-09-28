@@ -27,7 +27,7 @@ export default function SourceRefSection() {
             content={
                 sourceUrl ? (
                     <StyledAnchor href={safeUrl(sourceUrl)} target="_blank" rel="noreferrer">
-                        <Button variant="text" color="violet">
+                        <Button variant="text" color="primary">
                             <Icon icon={Link} size="md" color="inherit" />
                             {sourceRef}
                         </Button>

@@ -1,5 +1,5 @@
 import { UserOutlined } from '@ant-design/icons';
-import { Button, Modal, Tooltip } from '@components';
+import { Button, Modal, Text, Tooltip } from '@components';
 import { Select, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +21,7 @@ const ModalSection = styled.div`
     padding-bottom: 12px;
 `;
 
-const ModalSectionFooter = styled(Typography.Paragraph)`
+const ModalSectionFooter = styled(Text)`
     &&&& {
         padding: 0px;
         margin: 0px;
@@ -200,7 +200,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                         </Tooltip>
                     </ActionsContainer>
                 </InviteLinkDiv>
-                <ModalSectionFooter type="secondary">{t('inviteToken.footerText')}</ModalSectionFooter>
+                <ModalSectionFooter color="textSecondary">{t('inviteToken.footerText')}</ModalSectionFooter>
             </ModalSection>
         </Modal>
     );

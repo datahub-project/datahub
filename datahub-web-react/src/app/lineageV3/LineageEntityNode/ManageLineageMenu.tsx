@@ -15,6 +15,7 @@ import styled, { useTheme } from 'styled-components';
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
 import { LineageEntity, onClickPreventSelect } from '@app/lineageV3/common';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
+import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -101,12 +102,17 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                     search: newSearch,
                 });
 
+                // updateLineage cannot persist Metric-as-downstream (empty upstream types)
+                if (getValidEntityTypes(direction, node.type).length === 0) {
+                    return;
+                }
+
                 // Open the modal with the specified direction
                 setLineageDirection(direction);
                 setIsModalVisible(true);
             }
         }
-    }, [isRootUrn, location, history]);
+    }, [isRootUrn, location, history, node.type]);
 
     function manageLineage(direction: LineageDirection) {
         setLineageDirection(direction);
@@ -128,8 +134,10 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
     const disableUpstream = node.direction === LineageDirection.Downstream;
     const disableDownstream = node.direction === LineageDirection.Upstream;
     const isDashboard = node.type === EntityType.Dashboard;
-    const isDownstreamDisabled = disableDownstream || isDashboard || !canEditLineage;
-    const isUpstreamDisabled = disableUpstream || !canEditLineage;
+    const hasValidUpstreamTypes = getValidEntityTypes(LineageDirection.Upstream, node.type).length > 0;
+    const hasValidDownstreamTypes = getValidEntityTypes(LineageDirection.Downstream, node.type).length > 0;
+    const isDownstreamDisabled = disableDownstream || !hasValidDownstreamTypes || !canEditLineage;
+    const isUpstreamDisabled = disableUpstream || !hasValidUpstreamTypes || !canEditLineage;
     const isManualLineageSupported = ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(node.type);
 
     const items: ItemType[] = [];
@@ -155,9 +163,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                 onClick: () => manageLineage(LineageDirection.Upstream),
                 label: (
                     <Popover
-                        content={
-                            !canEditLineage ? t('manageLineage.unauthorized') : t('manageLineage.upstreamDisabled')
-                        }
+                        content={getUpstreamDisabledPopoverContent(canEditLineage, hasValidUpstreamTypes, t)}
                         overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                     >
                         <MenuItemContent data-testid="edit-upstream-lineage">
@@ -221,6 +227,22 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
             )}
         </Wrapper>
     );
+}
+
+function getUpstreamDisabledPopoverContent(
+    canEditLineage: boolean,
+    hasValidUpstreamTypes: boolean,
+    t: (key: string) => string,
+) {
+    let text = '';
+    if (!canEditLineage) {
+        text = t('manageLineage.unauthorized');
+    } else if (!hasValidUpstreamTypes) {
+        text = t('manageLineage.metricNoUpstream');
+    } else {
+        text = t('manageLineage.upstreamDisabled');
+    }
+    return <PopoverContent>{text}</PopoverContent>;
 }
 
 function getDownstreamDisabledPopoverContent(

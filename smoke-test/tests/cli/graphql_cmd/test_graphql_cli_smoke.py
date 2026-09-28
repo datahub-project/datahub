@@ -17,7 +17,10 @@ from typing import Any, Optional
 import pytest
 import requests
 
+from tests.utilities.domains import Domain
 from tests.utils import run_datahub_cmd, wait_for_healthcheck_util
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
 
 
 class TestGraphQLCLIStandalone:
@@ -147,6 +150,7 @@ class TestGraphQLCLIIntegration:
                 # Human readable format
                 assert len(stdout.strip()) > 0
 
+    @pytest.mark.p0
     def test_graphql_simple_query_execution(self):
         """Test execution of a simple GraphQL query."""
         simple_query = "{ __typename }"

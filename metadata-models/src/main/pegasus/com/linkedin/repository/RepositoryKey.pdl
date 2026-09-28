@@ -1,0 +1,21 @@
+namespace com.linkedin.repository
+
+/**
+ * Key for a Repository entity.
+ *
+ * A Repository represents a source-code repository (GitHub, GitLab, internal SCM, etc.).
+ * The key is platform-agnostic: the platform is carried in the dataPlatformInstance
+ * aspect, not the key. The id is constructed by convention as
+ * "<platform>.<org>/<name>" (e.g. "github.acme/payments"); native or
+ * unknown-platform repos may omit the platform prefix.
+ */
+@Aspect = {
+  "name": "repositoryKey"
+}
+record RepositoryKey {
+  /**
+   * Unique identifier for this repository.
+   * Examples: github.acme/payments, gitlab.acme/data-platform, my-internal-repo
+   */
+  id: string
+}

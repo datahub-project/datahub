@@ -125,11 +125,13 @@ def test_source_init_without_lineage_sets_lineage_members_to_none() -> None:
         enable_stateful_lineage_ingestion=False,
     )
     ctx = Mock()
+    ctx.graph = None
 
     with (
         patch(
             "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.__init__",
-            return_value=None,
+            autospec=True,
+            side_effect=lambda source, _config, _ctx: setattr(source, "ctx", _ctx),
         ),
         patch(
             "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
@@ -174,6 +176,108 @@ def test_test_connection_success() -> None:
     assert report.basic_connectivity.capable
 
 
+def _read_export_config_dict() -> dict:
+    return {
+        "project_ids": ["project-1"],
+        "extraction_method": "read_export",
+        "read_export_config": {
+            "export_paths": {"us": "gs://export-bucket-us/metadata"}
+        },
+    }
+
+
+def test_test_connection_read_export_probes_paths() -> None:
+    with patch(
+        "datahub.ingestion.source.dataplex.dataplex.build_storage_client"
+    ) as build_client:
+        storage_client = build_client.return_value
+        storage_client.list_blobs.return_value = iter([Mock()])
+        report = DataplexSource.test_connection(_read_export_config_dict())
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    storage_client.list_blobs.assert_called_once_with(
+        "export-bucket-us", prefix="metadata/", max_results=1
+    )
+
+
+def test_test_connection_read_export_empty_path_fails() -> None:
+    with patch(
+        "datahub.ingestion.source.dataplex.dataplex.build_storage_client"
+    ) as build_client:
+        storage_client = build_client.return_value
+        storage_client.list_blobs.return_value = iter([])
+        report = DataplexSource.test_connection(_read_export_config_dict())
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is not None
+    assert "No objects found" in report.basic_connectivity.failure_reason
+
+
+def test_test_connection_export_probes_every_location() -> None:
+    config_dict = {
+        "project_ids": ["project-1"],
+        "extraction_method": "export",
+        "entries_locations": ["us", "eu"],
+        "export_config": {
+            "export_job_runner_project": "runner-project",
+            "bucket_base_name": "my-export",
+        },
+    }
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.build_storage_client"
+        ) as build_client,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.build_authed_session"
+        ) as build_session,
+    ):
+        storage_client = build_client.return_value
+        storage_client.bucket.return_value.exists.return_value = True
+        session = build_session.return_value
+        session.get.return_value = Mock(status_code=200)
+
+        report = DataplexSource.test_connection(config_dict)
+
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable
+    assert session.get.call_count == 2
+    probed_buckets = [c.args[0] for c in storage_client.bucket.call_args_list]
+    assert probed_buckets == ["my-export-us", "my-export-eu"]
+
+
+def test_test_connection_export_bucket_failure_stops_probing() -> None:
+    config_dict = {
+        "project_ids": ["project-1"],
+        "extraction_method": "export",
+        "entries_locations": ["us", "eu"],
+        "export_config": {
+            "export_job_runner_project": "runner-project",
+            "bucket_base_name": "my-export",
+        },
+    }
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.build_storage_client"
+        ) as build_client,
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.build_authed_session"
+        ) as build_session,
+    ):
+        storage_client = build_client.return_value
+        storage_client.bucket.return_value.exists.return_value = False
+        session = build_session.return_value
+        session.get.return_value = Mock(status_code=200)
+
+        report = DataplexSource.test_connection(config_dict)
+
+    assert report.basic_connectivity is not None
+    assert not report.basic_connectivity.capable
+    assert report.basic_connectivity.failure_reason is not None
+    assert "my-export-us" in report.basic_connectivity.failure_reason
+    # Probing stops at the first failing location.
+    assert storage_client.bucket.call_count == 1
+
+
 def test_test_connection_handles_google_api_error() -> None:
     with patch(
         "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient",
@@ -205,27 +309,40 @@ def test_get_report_returns_source_report_instance() -> None:
 
 
 def test_get_workunit_processors_includes_stale_entity_processor() -> None:
+    from unittest.mock import MagicMock
+
+    from datahub.ingestion.api.common import PipelineContext
+    from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+        AutoStaleEntityRemovalProcessor,
+    )
+
+    # DataplexSource no longer overrides get_workunit_processors() — stale entity
+    # removal is wired up automatically by the base class when stateful ingestion
+    # is enabled. Verify the base class is what gets called (no override present).
+    assert "get_workunit_processors" not in DataplexSource.__dict__, (
+        "DataplexSource should not override get_workunit_processors(); "
+        "the base class handles stale entity removal automatically."
+    )
+
+    # Verify AutoStaleEntityRemovalProcessor is included when a state_provider is present.
     source = object.__new__(DataplexSource)
-    source.config = Mock()
-    source.ctx = Mock()
+    report = DataplexReport()
+    source.report = report
+    source.config = MagicMock()
+    source.config.stateful_ingestion = None
+    flags = MagicMock()
+    flags.generate_browse_path_v2 = False
+    flags.generate_browse_path_v2_dry_run = False
+    flags.set_system_metadata = False
+    ctx = MagicMock(spec=PipelineContext)
+    ctx.flags = flags
+    ctx.run_id = "test"
+    ctx.pipeline_name = None
+    source.ctx = ctx
+    source.state_provider = MagicMock()  # presence triggers stale entity removal
 
-    stale_processor = Mock()
-    stale_handler = Mock()
-    stale_handler.workunit_processor = stale_processor
-
-    with (
-        patch(
-            "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.get_workunit_processors",
-            return_value=[None],
-        ),
-        patch(
-            "datahub.ingestion.source.dataplex.dataplex.StaleEntityRemovalHandler.create",
-            return_value=stale_handler,
-        ),
-    ):
-        processors = source.get_workunit_processors()
-
-    assert processors == [None, stale_processor]
+    source.get_workunit_processors()
+    assert AutoStaleEntityRemovalProcessor.__name__ in report.workunit_processor_reports
 
 
 def test_get_workunits_internal_iterates_all_projects() -> None:
@@ -655,6 +772,41 @@ def test_get_workunits_internal_with_empty_resolved_projects() -> None:
     source.entries_processor.process_entries.assert_called_once_with(
         project_ids=[], max_workers=source.config.max_workers_entries
     )
+
+
+def test_platform_resource_repository_none_without_graph() -> None:
+    """When the pipeline has no DataHub graph connection (no datahub-rest sink
+    or stateful ingestion), the source must not build a platform resource
+    repository, since there is nowhere to reconcile against."""
+    config = DataplexConfig(
+        project_ids=["project-1"],
+        include_lineage=False,
+        include_glossaries=False,
+        enable_stateful_lineage_ingestion=False,
+    )
+    ctx = Mock()
+    ctx.graph = None  # no DataHub graph connection
+
+    with (
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.StatefulIngestionSourceBase.__init__",
+            autospec=True,
+            side_effect=lambda source, _config, _ctx: setattr(source, "ctx", _ctx),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.dataplex_v1.CatalogServiceClient"
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.default",
+            return_value=(Mock(), "project-1"),
+        ),
+        patch(
+            "datahub.ingestion.source.dataplex.dataplex.google.auth.transport.requests.AuthorizedSession"
+        ),
+    ):
+        source = DataplexSource(ctx, config)
+
+    assert source.platform_resource_repository is None
 
 
 def test_create_uses_model_validate_and_constructs_source() -> None:

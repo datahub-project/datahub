@@ -127,6 +127,25 @@ class ViewDefinition:
     view_definition: str
     default_db: Optional[str] = None
     default_schema: Optional[str] = None
+    override_dialect: Optional[DialectOrStr] = None
+    # Table-level fallback for an unparseable definition; see add_view_definition.
+    table_level_fallback_upstreams: Optional[List[UrnStr]] = None
+
+
+@dataclasses.dataclass
+class QueryComposition:
+    """The raw component statements merged into a composite query during
+    temp-table resolution."""
+
+    # The base statement: the one that writes the real (non-temp) downstream.
+    # Its usage counts represent how often the pipeline ran.
+    base: QueryId
+    # The merged temp-loading statements that feed the base statement.
+    others: List[QueryId]
+
+    @property
+    def all_queries(self) -> List[QueryId]:
+        return [self.base, *self.others]
 
 
 @dataclasses.dataclass
@@ -149,8 +168,30 @@ class QueryMetadata:
 
     used_temp_tables: bool = True
 
+    # Set only on composite queries produced by temp-table resolution: the raw
+    # component statements that were merged into this query. Tracked so their
+    # usage can be attributed to the composite and so they can be suppressed from
+    # being emitted as separate (orphan) Query entities.
+    composed_of: Optional[QueryComposition] = None
+
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
+
+    # When true, this query's lineage/operations are still recorded (so downstream
+    # tables get UpstreamLineage aspects and Operation aspects), but the Query
+    # entity itself is not emitted and per-Query URN references (in
+    # UpstreamClass.query and OperationClass.queries) are suppressed. Used for
+    # queries whose SQL text isn't meaningful (e.g. Databricks masks it to
+    # "<REDACTED>" for non-account-admins) to avoid polluting the catalog with
+    # placeholder Query entities while preserving lineage and operation signals.
+    redacted_query_text: bool = False
+
+    @property
+    def usage_query_id(self) -> QueryId:
+        """Usage counts are keyed by raw statement fingerprint. For a composite
+        query (temp-table resolution) the emitted query_id is the composite hash,
+        so usage must be looked up under the base component fingerprint instead."""
+        return self.composed_of.base if self.composed_of else self.query_id
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
@@ -293,6 +334,14 @@ class PreparsedQuery:
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
+    # When true, feed the usage aggregator so table-level stats (totalSqlQueries,
+    # userCounts, etc.) still land, but skip emitting a Query entity and any
+    # per-Query URN usage counters. Use for sources that know lineage/timestamps
+    # but can't provide meaningful SQL text (e.g. Databricks masks query text to
+    # "<REDACTED>" for non-account-admins outside databricks_pii_access), to
+    # avoid polluting the catalog with placeholder Query entities.
+    redacted_query_text: bool = False
+
 
 @dataclasses.dataclass
 class SqlAggregatorReport(Report):
@@ -311,6 +360,8 @@ class SqlAggregatorReport(Report):
     # Views.
     num_view_definitions: int = 0
     num_views_failed: int = 0
+    num_views_table_level_fallback: int = 0
+    num_views_self_reference_dropped: int = 0
     num_views_column_timeout: int = 0
     num_views_column_failed: int = 0
     views_parse_failures: LossyDict[UrnStr, str] = dataclasses.field(
@@ -353,6 +404,9 @@ class SqlAggregatorReport(Report):
 
     # Lineage-related.
     schema_resolver_count: Optional[int] = None
+    # Set only on a degraded run: as_obj() drops None, so a healthy run stays
+    # silent while a degraded one flags that the schema count went unread.
+    schema_resolver_unavailable: Optional[bool] = None
     num_unique_query_fingerprints: Optional[int] = None
     num_urns_with_lineage: Optional[int] = None
     num_lineage_skipped_due_to_filters: int = 0
@@ -383,7 +437,16 @@ class SqlAggregatorReport(Report):
     def compute_stats(self) -> None:
         if self._aggregator._closed:
             return
-        self.schema_resolver_count = self._aggregator._schema_resolver.schema_count()
+        # The resolver can be borrowed (see the schema_resolver argument), so its
+        # owner may close it while this aggregator is still open, which _closed
+        # does not describe. Clear the count rather than early-return: compute_stats
+        # runs on every render, so a skip would leave a mid-run value in the report.
+        resolver = self._aggregator._schema_resolver
+        if resolver.closed:
+            self.schema_resolver_unavailable = True
+            self.schema_resolver_count = None
+        else:
+            self.schema_resolver_count = resolver.schema_count()
         self.num_unique_query_fingerprints = len(self._aggregator._query_map)
 
         self.num_urns_with_lineage = len(self._aggregator._lineage_map)
@@ -843,6 +906,8 @@ class SqlParsingAggregator(Closeable):
         view_definition: str,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
+        override_dialect: Optional[DialectOrStr] = None,
+        table_level_fallback_upstreams: Optional[List[UrnStr]] = None,
     ) -> None:
         """Add a view definition to the aggregator.
 
@@ -851,6 +916,19 @@ class SqlParsingAggregator(Closeable):
 
         The actual processing of view definitions is deferred until output time,
         since all schemas will be registered at that point.
+
+        ``override_dialect`` parses this view's SQL with a specific dialect instead
+        of the aggregator's platform default — useful for catalogs whose views span
+        multiple dialects (e.g. Glue/Hive catalogs holding both Presto/Trino and
+        Hive views).
+
+        ``table_level_fallback_upstreams`` is emitted as table-level upstreams (no
+        column-level detail) when the definition is present but yields no usable
+        lineage: either it does not parse (``table_error``), or it parses but resolves
+        to nothing (e.g. a partial MERGE-INTO-SELF parse referencing only the view). It
+        is ignored when the definition yields real upstreams. Snowflake CUSTOM_INCREMENTAL
+        dynamic tables are the motivating case: their MERGE-INTO-SELF DDL does not parse,
+        but the base tables are known from the catalog.
         """
 
         self.report.num_view_definitions += 1
@@ -859,6 +937,8 @@ class SqlParsingAggregator(Closeable):
             view_definition=view_definition,
             default_db=default_db,
             default_schema=default_schema,
+            override_dialect=override_dialect,
+            table_level_fallback_upstreams=table_level_fallback_upstreams,
         )
 
     def add_observed_query(
@@ -931,7 +1011,7 @@ class SqlParsingAggregator(Closeable):
                 downstream=downstream_urn,
                 column_lineage=parsed.column_lineage,
                 # TODO: We need a full list of columns referenced, not just the out tables.
-                column_usage=self._compute_upstream_fields(parsed),
+                column_usage=self._compute_upstream_fields(parsed.column_lineage),
                 inferred_schema=infer_output_schema(parsed),
                 confidence_score=parsed.debug_info.confidence,
                 extra_info=observed.extra_info,
@@ -997,7 +1077,17 @@ class SqlParsingAggregator(Closeable):
                     count=parsed.query_count,
                 )
 
-        if self._query_usage_counts is not None and parsed.timestamp is not None:
+        # For redacted_query_text entries, skip per-Query URN usage counters (those
+        # would reference a Query entity we won't emit) but still register the
+        # query in _query_map and _lineage_map below so lineage aspects and
+        # operation MCPs can be generated for the downstream table. Query-entity
+        # emission and dangling Query URN references are suppressed downstream
+        # via QueryMetadata.redacted_query_text.
+        if (
+            not parsed.redacted_query_text
+            and self._query_usage_counts is not None
+            and parsed.timestamp is not None
+        ):
             assert self.usage_config is not None
             bucket = get_time_bucket(
                 parsed.timestamp, self.usage_config.bucket_duration
@@ -1022,6 +1112,7 @@ class SqlParsingAggregator(Closeable):
                 used_temp_tables=session_has_temp_tables,
                 extra_info=parsed.extra_info,
                 origin=parsed.origin,
+                redacted_query_text=parsed.redacted_query_text,
             )
         )
 
@@ -1180,6 +1271,27 @@ class SqlParsingAggregator(Closeable):
 
         return schema_resolver
 
+    @staticmethod
+    def _exclude_self_upstreams(
+        view_urn: UrnStr, upstreams: List[UrnStr]
+    ) -> List[UrnStr]:
+        return [u for u in upstreams if u != view_urn]
+
+    @staticmethod
+    def _exclude_self_column_lineage(
+        view_urn: UrnStr, column_lineage: Optional[List[ColumnLineageInfo]]
+    ) -> List[ColumnLineageInfo]:
+        # Valid only for SQL-parsed views. Unity metric views self-reference and are
+        # excluded from this path (unity/source.py), so don't widen this guard.
+        result: List[ColumnLineageInfo] = []
+        for cl in column_lineage or []:
+            kept = [uc for uc in cl.upstreams if uc.table != view_urn]
+            if len(kept) == len(cl.upstreams):
+                result.append(cl)
+            elif kept:
+                result.append(cl.model_copy(update={"upstreams": kept}))
+        return result
+
     def _process_view_definition(
         self, view_urn: UrnStr, view_definition: ViewDefinition
     ) -> None:
@@ -1193,6 +1305,7 @@ class SqlParsingAggregator(Closeable):
             default_db=view_definition.default_db,
             default_schema=view_definition.default_schema,
             schema_resolver=self._schema_resolver,
+            override_dialect=view_definition.override_dialect,
         )
         if parsed.debug_info.error:
             self.report.views_parse_failures[view_urn] = (
@@ -1200,7 +1313,11 @@ class SqlParsingAggregator(Closeable):
             )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
-            return  # we can't do anything with this query
+            if view_definition.table_level_fallback_upstreams:
+                self._add_table_level_fallback_lineage(
+                    view_urn, view_definition.table_level_fallback_upstreams
+                )
+            return  # table_error: only the table-level fallback (if any) is emitted
         elif isinstance(parsed.debug_info.column_error, CooperativeTimeoutError):
             self.report.num_views_column_timeout += 1
         elif parsed.debug_info.column_error:
@@ -1210,6 +1327,33 @@ class SqlParsingAggregator(Closeable):
         formatted_view_definition = self._maybe_format_query(
             view_definition.view_definition
         )
+
+        # Exact-URN match, so a schema-resolver casing mismatch fails open (a self-loop
+        # slips through) to the pre-guard behavior.
+        upstreams = self._exclude_self_upstreams(view_urn, parsed.in_tables)
+        column_lineage = self._exclude_self_column_lineage(
+            view_urn, parsed.column_lineage
+        )
+        self_ref_in_parse = view_urn in parsed.in_tables or any(
+            uc.table == view_urn
+            for cl in (parsed.column_lineage or [])
+            for uc in cl.upstreams
+        )
+        if self_ref_in_parse:
+            self.report.num_views_self_reference_dropped += 1
+
+        # Fall back only when nothing usable was derived (no upstreams, no real column
+        # edge), so a real column edge is not discarded.
+        derived_nothing = not upstreams and not any(
+            cl.upstreams for cl in column_lineage
+        )
+        if derived_nothing and view_definition.table_level_fallback_upstreams:
+            self._add_table_level_fallback_lineage(
+                view_urn,
+                view_definition.table_level_fallback_upstreams,
+                count_self_drop=not self_ref_in_parse,
+            )
+            return
 
         # Register the query.
         self._add_to_query_map(
@@ -1221,14 +1365,41 @@ class SqlParsingAggregator(Closeable):
                 lineage_type=models.DatasetLineageTypeClass.VIEW,
                 latest_timestamp=None,
                 actor=None,
-                upstreams=parsed.in_tables,
-                column_lineage=parsed.column_lineage or [],
-                column_usage=self._compute_upstream_fields(parsed),
+                upstreams=upstreams,
+                column_lineage=column_lineage,
+                column_usage=self._compute_upstream_fields(column_lineage),
                 confidence_score=parsed.debug_info.confidence,
             )
         )
 
         # Register the query's lineage.
+        self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
+
+    def _add_table_level_fallback_lineage(
+        self, view_urn: UrnStr, upstreams: List[UrnStr], count_self_drop: bool = True
+    ) -> None:
+        self.report.num_views_table_level_fallback += 1
+        # Skip when the parse path already counted this view's self-loop.
+        if count_self_drop and view_urn in upstreams:
+            self.report.num_views_self_reference_dropped += 1
+        upstreams = self._exclude_self_upstreams(view_urn, upstreams)
+        query_fingerprint = self._view_fallback_query_id(view_urn)
+        self._add_to_query_map(
+            QueryMetadata(
+                query_id=query_fingerprint,
+                formatted_query_string="-skip-",
+                session_id=_MISSING_SESSION_ID,
+                query_type=QueryType.CREATE_VIEW,
+                lineage_type=models.DatasetLineageTypeClass.VIEW,
+                latest_timestamp=None,
+                actor=None,
+                upstreams=upstreams,
+                # Table-level only: identity CLL from INPUTS would be wrong for aliased/aggregated columns.
+                column_lineage=[],
+                column_usage={},
+                confidence_score=1.0,
+            )
+        )
         self._lineage_map.for_mutation(view_urn, OrderedSet()).add(query_fingerprint)
 
     def _run_sql_parser(
@@ -1501,11 +1672,7 @@ class SqlParsingAggregator(Closeable):
                 models.UpstreamClass(
                     dataset=upstream_urn,
                     type=queries_map[query_id].lineage_type,
-                    query=(
-                        self._query_urn(query_id)
-                        if self.can_generate_query(query_id)
-                        else None
-                    ),
+                    query=self._query_urn_if_emitted(queries_map[query_id]),
                     created=query.make_created_audit_stamp(),
                     auditStamp=models.AuditStampClass(
                         time=get_sys_time(),
@@ -1541,11 +1708,7 @@ class SqlParsingAggregator(Closeable):
                         downstreams=[
                             SchemaFieldUrn(downstream_urn, downstream_column).urn()
                         ],
-                        query=(
-                            self._query_urn(query_id)
-                            if self.can_generate_query(query_id)
-                            else None
-                        ),
+                        query=self._query_urn_if_emitted(query),
                         confidenceScore=query.confidence_score,
                         transformOperation=(
                             (
@@ -1597,6 +1760,11 @@ class SqlParsingAggregator(Closeable):
             queries_generated.add(query_id)
 
             query = queries_map[query_id]
+            # A composite query subsumes its raw component statements. Mark those
+            # components generated too, so _gen_remaining_queries doesn't re-emit
+            # them as orphan Query entities carrying the same usage.
+            if query.composed_of:
+                queries_generated.update(query.composed_of.all_queries)
             yield from self._gen_query(query, downstream_urn)
 
     @classmethod
@@ -1615,6 +1783,12 @@ class SqlParsingAggregator(Closeable):
     @classmethod
     def _known_lineage_query_id(cls) -> str:
         return f"known_{uuid.uuid4()}"
+
+    @classmethod
+    def _view_fallback_query_id(cls, view_urn: UrnStr) -> str:
+        # "known_" prefix: can_generate_query() skips it, so no placeholder Query entity
+        # is emitted (as add_known_lineage_mapping); hashed on the URN for determinism.
+        return f"known_{generate_hash(view_urn)}"
 
     @classmethod
     def _is_known_lineage_query_id(cls, query_id: QueryId) -> bool:
@@ -1639,11 +1813,55 @@ class SqlParsingAggregator(Closeable):
     def can_generate_query(self, query_id: QueryId) -> bool:
         return self.generate_queries and not self._is_known_lineage_query_id(query_id)
 
+    def _query_urn_if_emitted(self, query: QueryMetadata) -> Optional[str]:
+        """Return the Query URN when a Query entity will be emitted for this
+        query, or ``None`` otherwise.
+
+        This is the single point of truth for the invariant "if we won't
+        emit a Query entity for X, we must not reference X's Query URN
+        anywhere else". A Query entity is suppressed when either:
+
+        - :meth:`can_generate_query` is false — the aggregator has
+          Query-entity generation disabled, or ``query.query_id`` is a
+          known-lineage sentinel; or
+        - ``query.redacted_query_text`` is true — the query is tracked purely for
+          table-level lineage/usage but its SQL text isn't meaningful
+          (e.g. Databricks masks it to ``"<REDACTED>"`` for
+          non-account-admins outside ``databricks_pii_access``), so
+          emitting the entity would only pollute the catalog with a
+          placeholder.
+
+        Every emission path that populates a per-Query URN on another
+        aspect (:attr:`UpstreamClass.query`,
+        :attr:`FineGrainedLineageClass.query`,
+        :attr:`OperationClass.queries`) MUST go through this helper
+        rather than calling :meth:`_query_urn` directly, so a new
+        emission path can't create a dangling URN by remembering only
+        one of the two checks.
+
+        Note: we take a ``QueryMetadata`` (not just a ``QueryId``) because
+        composite queries synthesised in
+        :meth:`_resolve_query_with_temp_tables` don't live in
+        ``self._query_map`` — they exist only in the per-downstream
+        ``queries_map`` local. Passing the metadata explicitly keeps
+        those paths working while still centralising the policy.
+        """
+        if not self.can_generate_query(query.query_id):
+            return None
+        if query.redacted_query_text:
+            return None
+        return self._query_urn(query.query_id)
+
     def _gen_query(
         self, query: QueryMetadata, downstream_urn: Optional[str] = None
     ) -> Iterable[MetadataChangeProposalWrapper]:
         query_id = query.query_id
-        if not self.can_generate_query(query_id):
+        # Single source of truth for "is this query emittable?" — the same
+        # helper that gates per-Query URN references on other aspects. A
+        # count-only query (e.g. Databricks "<REDACTED>") is tracked purely
+        # to bump table-level lineage/usage; no Query entity or per-Query
+        # usage counter is emitted because the SQL text isn't meaningful.
+        if self._query_urn_if_emitted(query) is None:
             return
 
         # If a query doesn't involve any allowed tables, skip it.
@@ -1679,7 +1897,7 @@ class SqlParsingAggregator(Closeable):
             # of users / lastExecutedAt timestamps per bucket.
             user = query.actor
 
-            query_counter = self._query_usage_counts.get(query_id)
+            query_counter = self._query_usage_counts.get(query.usage_query_id)
             if not query_counter:
                 return
 
@@ -1876,6 +2094,16 @@ class SqlParsingAggregator(Closeable):
             deduplicate_list([q.formatted_query_string for q in ordered_queries])
         )
 
+        # Preserve the raw component statements so query usage can be attributed
+        # back to them. The base statement (the real downstream writer) carries the
+        # usage counts that reflect how often the pipeline executed.
+        composed_of = QueryComposition(
+            base=base_query.query_id,
+            others=[
+                q.query_id for q in ordered_queries if q.query_id != base_query.query_id
+            ],
+        )
+
         resolved_query = dataclasses.replace(
             base_query,
             query_id=composite_query_id,
@@ -1883,16 +2111,17 @@ class SqlParsingAggregator(Closeable):
             upstreams=list(resolved_lineage_info.upstreams),
             column_lineage=list(resolved_lineage_info.column_lineage),
             confidence_score=resolved_lineage_info.confidence_score,
+            composed_of=composed_of,
         )
 
         return resolved_query
 
     @staticmethod
     def _compute_upstream_fields(
-        result: SqlParsingResult,
+        column_lineage: Optional[List[ColumnLineageInfo]],
     ) -> Dict[UrnStr, Set[UrnStr]]:
         upstream_fields: Dict[UrnStr, Set[UrnStr]] = defaultdict(set)
-        for cl in result.column_lineage or []:
+        for cl in column_lineage or []:
             for upstream in cl.upstreams:
                 upstream_fields[upstream.table].add(upstream.column)
         return upstream_fields
@@ -1916,18 +2145,26 @@ class SqlParsingAggregator(Closeable):
 
         for downstream_urn, query_ids in self._lineage_map.items():
             for query_id in query_ids:
-                yield from self._gen_operation_for_downstream(downstream_urn, query_id)
+                # Resolve temp tables so operations reference the same (possibly
+                # composite) Query entity that lineage does - otherwise the raw
+                # component id is referenced but never emitted (it's subsumed by
+                # the composite), leaving a dangling query reference.
+                query = self._resolve_query_with_temp_tables(self._query_map[query_id])
+                yield from self._gen_operation_for_downstream(downstream_urn, query)
 
-                # Avoid generating the same query twice.
-                if query_id in queries_generated:
+                # Avoid generating the same query twice. A composite subsumes its
+                # raw component statements, so mark those generated too.
+                gen_id = query.query_id
+                if gen_id in queries_generated:
                     continue
-                queries_generated.add(query_id)
-                yield from self._gen_query(self._query_map[query_id], downstream_urn)
+                queries_generated.add(gen_id)
+                if query.composed_of:
+                    queries_generated.update(query.composed_of.all_queries)
+                yield from self._gen_query(query, downstream_urn)
 
     def _gen_operation_for_downstream(
-        self, downstream_urn: UrnStr, query_id: QueryId
+        self, downstream_urn: UrnStr, query: QueryMetadata
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        query = self._query_map[query_id]
         if query.latest_timestamp is None:
             return
 
@@ -1941,16 +2178,13 @@ class SqlParsingAggregator(Closeable):
             return
 
         self.report.num_operations_generated += 1
+        query_urn = self._query_urn_if_emitted(query)
         aspect = models.OperationClass(
             timestampMillis=make_ts_millis(datetime.now(tz=timezone.utc)),
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
             actor=query.actor.urn() if query.actor else None,
             sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
-            queries=(
-                [self._query_urn(query_id)]
-                if self.can_generate_query(query_id)
-                else None
-            ),
+            queries=[query_urn] if query_urn else None,
         )
         yield MetadataChangeProposalWrapper(entityUrn=downstream_urn, aspect=aspect)

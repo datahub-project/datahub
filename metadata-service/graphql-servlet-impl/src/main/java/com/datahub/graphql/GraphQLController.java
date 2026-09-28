@@ -1,6 +1,5 @@
 package com.datahub.graphql;
 
-import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.ACTOR_URN_ATTR;
 
 import com.codahale.metrics.MetricRegistry;
@@ -8,38 +7,60 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.inject.name.Named;
+import com.linkedin.datahub.graphql.AspectMappingRegistry;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLError;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.ratelimit.ClientClass;
+import com.linkedin.metadata.ratelimit.ClientClassifier;
+import com.linkedin.metadata.ratelimit.GraphqlDocumentAnalyzer;
+import com.linkedin.metadata.ratelimit.GraphqlDocumentMetadata;
+import com.linkedin.metadata.ratelimit.RateLimitEngine;
+import com.linkedin.metadata.ratelimit.RateLimitHeaderWriter;
+import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
+import com.linkedin.metadata.ratelimit.model.RateLimitLease;
+import com.linkedin.metadata.usage.instrumentation.UsageMetricsSessionEnricher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistry;
 import io.opentelemetry.api.trace.Span;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.context.request.async.DeferredResultProcessingInterceptor;
+import org.springframework.web.context.request.async.WebAsyncUtils;
 
 @Slf4j
 @RestController
@@ -54,26 +75,122 @@ public class GraphQLController {
 
   @Inject MetricUtils metricUtils;
 
+  @Inject AspectMappingRegistry aspectMappingRegistry;
+
+  @Inject RateLimitEngine rateLimitEngine;
+
+  @Inject GraphqlUsageClassificationRegistry graphqlUsageClassificationRegistry;
+
+  @Autowired(required = false)
+  UsageMetricsSessionEnricher usageMetricsSessionEnricher;
+
   @Nonnull
   @Inject
   @Named("systemOperationContext")
   private OperationContext systemOperationContext;
 
   private static final int MAX_LOG_WIDTH = 512;
+  static final String RATE_LIMIT_RELEASE_INTERCEPTOR_KEY =
+      GraphQLController.class.getName() + ".rateLimitRelease";
+
+  /** GraphQL response serializer for the buffered path; see GraphQLResponseObjectMapperFactory. */
+  @Autowired
+  @Qualifier("graphQLResponseObjectMapper")
+  ObjectMapper graphQLResponseMapper;
+
+  /**
+   * Part B heavy-resolver gate. When the front gate admitted the request, consumes each configured
+   * heavy top-level resolver's bucket (in query order). On the first denial — or if a resolver
+   * evaluation throws with fail-open disabled — it unwinds everything the request already acquired:
+   * the held front-gate capacity slot, the scoped-chain tokens ({@code actorUrn}/{@code
+   * clientClass}), and any heavy-resolver buckets already charged earlier in this same request. So
+   * a request rejected (or erroring) here neither leaks a capacity slot nor permanently burns the
+   * actor's scoped or per-resolver quota. Otherwise returns the original decision unchanged.
+   * Package-private + static so the wiring is unit-testable without the full request pipeline.
+   */
+  static RateLimitDecision applyHeavyResolverGate(
+      @Nonnull RateLimitEngine rateLimitEngine,
+      @Nonnull RateLimitDecision frontGateDecision,
+      @Nonnull List<String> topLevelFields,
+      boolean systemActor,
+      @Nullable String actorUrn,
+      @Nullable ClientClass clientClass) {
+    if (!frontGateDecision.isAllowed()) {
+      return frontGateDecision;
+    }
+    // Resolvers we've passed so far this request; their buckets are refunded if a later one denies.
+    // refundHeavyResolver is guarded + capacity-capped, so listing non-charged fields is harmless.
+    List<String> chargedResolvers = new ArrayList<>(topLevelFields.size());
+    for (String topLevelField : topLevelFields) {
+      RateLimitDecision heavyDecision;
+      try {
+        heavyDecision = rateLimitEngine.consumeHeavyResolver(topLevelField, systemActor);
+      } catch (RuntimeException e) {
+        // Fail-open disabled and evaluation threw: release the front gate we're still holding
+        // (otherwise the capacity slot leaks) and refund what we consumed, then propagate.
+        unwindHeavyGate(
+            rateLimitEngine,
+            frontGateDecision,
+            actorUrn,
+            clientClass,
+            chargedResolvers,
+            systemActor);
+        throw e;
+      }
+      if (heavyDecision != null && !heavyDecision.isAllowed()) {
+        unwindHeavyGate(
+            rateLimitEngine,
+            frontGateDecision,
+            actorUrn,
+            clientClass,
+            chargedResolvers,
+            systemActor);
+        return heavyDecision;
+      }
+      chargedResolvers.add(topLevelField);
+    }
+    return frontGateDecision;
+  }
+
+  /**
+   * Rolls back the front-gate capacity, the scoped chain, and any charged heavy-resolver buckets.
+   */
+  private static void unwindHeavyGate(
+      RateLimitEngine rateLimitEngine,
+      RateLimitDecision frontGateDecision,
+      @Nullable String actorUrn,
+      @Nullable ClientClass clientClass,
+      List<String> chargedResolvers,
+      boolean systemActor) {
+    rateLimitEngine.releaseCapacity(frontGateDecision, false);
+    rateLimitEngine.refundScopedChain(actorUrn, clientClass);
+    for (String resolver : chargedResolvers) {
+      rateLimitEngine.refundHeavyResolver(resolver, systemActor);
+    }
+  }
+
+  /** 429 response for a rate-limit denial, carrying the decision's throttle headers. */
+  private static CompletableFuture<ResponseEntity<Object>> tooManyRequests(
+      @Nonnull RateLimitDecision decision, @Nonnull ObjectMapper mapper) {
+    HttpHeaders headers = new HttpHeaders();
+    RateLimitHeaderWriter.createHeaders(decision).forEach(headers::add);
+    try {
+      return CompletableFuture.completedFuture(
+          new ResponseEntity<>(
+              mapper.writeValueAsString(Map.of("error", "Rate limit exceeded")),
+              headers,
+              HttpStatus.TOO_MANY_REQUESTS));
+    } catch (JsonProcessingException e) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.TOO_MANY_REQUESTS));
+    }
+  }
 
   @PostMapping(value = "/graphql", produces = "application/json;charset=utf-8")
-  CompletableFuture<ResponseEntity<String>> postGraphQL(
+  CompletableFuture<ResponseEntity<Object>> postGraphQL(
       HttpServletRequest request, HttpEntity<String> httpEntity) {
 
     String jsonStr = httpEntity.getBody();
-    ObjectMapper mapper = new ObjectMapper();
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    mapper
-        .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+    ObjectMapper mapper = systemOperationContext.getObjectMapper();
     JsonNode bodyJson = null;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -103,6 +220,15 @@ public class GraphQLController {
         (operationNameJson != null && !operationNameJson.isNull())
             ? operationNameJson.asText()
             : null;
+    // Single parse of the query for the entire rate-limit path: the query/display name, the
+    // rate-limit identity, and the top-level resolver names all come from this one analyze() call —
+    // no re-parsing the document per consumer.
+    final GraphqlDocumentMetadata documentMetadata =
+        GraphqlDocumentAnalyzer.analyze(
+            operationName,
+            query,
+            name -> graphqlUsageClassificationRegistry.resolveByOperationName(name).isPresent(),
+            _engine::getCachedDocument);
 
     /*
      * Extract "variables" map
@@ -110,14 +236,59 @@ public class GraphQLController {
     JsonNode variablesJson = bodyJson.get("variables");
     final Map<String, Object> variables =
         (variablesJson != null && !variablesJson.isNull())
-            ? new ObjectMapper()
-                .convertValue(variablesJson, new TypeReference<Map<String, Object>>() {})
+            ? mapper.convertValue(variablesJson, new TypeReference<Map<String, Object>>() {})
             : Collections.emptyMap();
 
-    /*
-     * Init QueryContext
-     */
     Authentication authentication = AuthenticationContext.getAuthentication();
+
+    // Per-actor rate limiting keys on the authenticated actor urn, which is available for every
+    // actor type via the authentication — unlike context.getActorUrn(), which throws for non-USER
+    // actors and would (via a catch-all) silently skip the per-actor bucket, handing service/role
+    // principals a free pass. Only the internal system principal is exempt, so its high-volume
+    // internal calls aren't per-actor throttled (mirrors DataHubAuthorizer.isSystemRequest);
+    // everything else, USER or not, gets its own bucket.
+    String rateLimitActorUrn = null;
+    boolean systemActor = false;
+    if (authentication != null && authentication.getActor() != null) {
+      String actorUrn = authentication.getActor().toUrnStr();
+      String systemActorUrn = systemOperationContext.getAuthentication().getActor().toUrnStr();
+      systemActor = actorUrn.equals(systemActorUrn);
+      rateLimitActorUrn = systemActor ? null : actorUrn;
+    }
+
+    // Classify from the frontend-stamped header (advisory; trusted on the frontend-proxied hop, and
+    // only applied when clientClassEnabled=true). Absent → NON_BROWSER.
+    ClientClass clientClass =
+        ClientClassifier.fromRequestSource(
+            request.getHeader(ClientClassifier.REQUEST_SOURCE_HEADER));
+
+    // Front gate: per-pod capacity + the scoped actor/class chain. Identity for unnamed queries is
+    // the top-level field names (from the single analyze() above).
+    RateLimitDecision rateLimitDecision =
+        rateLimitEngine.evaluateAndAcquireGraphQL(
+            request.getRequestURI(),
+            request.getMethod(),
+            documentMetadata.rateLimitIdentity(),
+            rateLimitActorUrn,
+            clientClass);
+    if (!rateLimitDecision.isAllowed()) {
+      return tooManyRequests(rateLimitDecision, mapper);
+    }
+
+    // Heavy-resolver gate (Part B): charge each configured heavy top-level resolver (reusing the
+    // top-level fields from the single parse — no re-parse). On denial it releases the front-gate
+    // lease before we reject.
+    rateLimitDecision =
+        applyHeavyResolverGate(
+            rateLimitEngine,
+            rateLimitDecision,
+            documentMetadata.allRootFields(),
+            systemActor,
+            rateLimitActorUrn,
+            clientClass);
+    if (!rateLimitDecision.isAllowed()) {
+      return tooManyRequests(rateLimitDecision, mapper);
+    }
 
     SpringQueryContext context =
         new SpringQueryContext(
@@ -127,71 +298,154 @@ public class GraphQLController {
             systemOperationContext,
             configurationProvider,
             request,
-            operationName,
-            query,
-            variables);
-    Span.current().setAttribute(ACTOR_URN_ATTR, context.getActorUrn());
+            documentMetadata,
+            variables,
+            graphqlUsageClassificationRegistry);
+    context.setAspectMappingRegistry(aspectMappingRegistry);
+    Span.current()
+        .setAttribute(
+            ACTOR_URN_ATTR,
+            authentication.getActor() != null
+                ? authentication.getActor().toUrnStr()
+                : context.getActorUrn());
 
     final String threadName = Thread.currentThread().getName();
     final String queryName = context.getQueryName();
     log.debug("Query: {}, variables: {}", query, variables);
 
-    return GraphQLConcurrencyUtils.supplyAsync(
-        () -> {
-          log.debug("Executing operation {} for {}", queryName, threadName);
-
-          /*
-           * Execute GraphQL Query
-           */
-          ExecutionResult executionResult =
-              _engine.execute(query, operationName, variables, context);
-
-          if (executionResult.getErrors().size() != 0) {
-            // There were GraphQL errors. Report in error logs.
-            log.error(
-                "Errors while executing query: {}, result: {}, errors: {}",
-                StringUtils.abbreviate(query, MAX_LOG_WIDTH),
-                executionResult.toSpecification(),
-                executionResult.getErrors());
+    final RateLimitLease rateLimitLease = rateLimitEngine.toLease(rateLimitDecision);
+    final HttpHeaders rateLimitHeaders = new HttpHeaders();
+    RateLimitHeaderWriter.createHeaders(rateLimitDecision).forEach(rateLimitHeaders::add);
+    final AtomicBoolean executionSucceeded = new AtomicBoolean(false);
+    final AtomicBoolean rateLimitReleased = new AtomicBoolean(false);
+    final Consumer<Boolean> releaseRateLimitOnce =
+        success -> {
+          if (rateLimitReleased.compareAndSet(false, true)) {
+            rateLimitEngine.release(rateLimitLease, success);
           }
+        };
+    final OperationContext usageSessionContext = context.getOperationContext();
+    final boolean streamResponse = configurationProvider.getGraphQL().getQuery().isStreamResponse();
+    if (streamResponse) {
+      // Converter completion owns the normal release. This request-completion hook is the safety
+      // net when timeout/error handling discards the marker before the converter can run.
+      WebAsyncUtils.getAsyncManager(request)
+          .registerDeferredResultInterceptor(
+              RATE_LIMIT_RELEASE_INTERCEPTOR_KEY,
+              new DeferredResultProcessingInterceptor() {
+                @Override
+                public <T> void afterCompletion(
+                    NativeWebRequest webRequest, DeferredResult<T> deferredResult) {
+                  releaseRateLimitOnce.accept(false);
+                }
+              });
+    }
+    boolean asyncStarted = false;
+    try {
+      CompletableFuture<ResponseEntity<Object>> executionFuture =
+          GraphQLConcurrencyUtils.supplyAsync(
+              () -> {
+                log.debug("Executing operation {} for {}", queryName, threadName);
 
-          /*
-           * Format & Return Response
-           */
-          try {
-            long totalDuration = submitMetrics(executionResult);
-            // Remove tracing from response to reduce bulk, not used by the frontend
-            executionResult.getExtensions().remove("tracing");
-            String responseBodyStr =
-                new ObjectMapper().writeValueAsString(executionResult.toSpecification());
-            if (totalDuration
-                >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
-              log.info(
-                  "Slow operation {} took {} ms (response size: {})",
-                  queryName,
-                  totalDuration,
-                  responseBodyStr.length());
-            } else if (totalDuration > 0) {
-              log.debug(
-                  "Executed operation {} in {} ms (response size: {})",
-                  queryName,
-                  totalDuration,
-                  responseBodyStr.length());
-            } else {
-              log.debug(
-                  "Executed operation {} (response size: {})", queryName, responseBodyStr.length());
+                /*
+                 * Execute GraphQL Query
+                 */
+                ExecutionResult executionResult =
+                    _engine.execute(query, operationName, variables, context);
+
+                executionSucceeded.set(executionResult.getErrors().isEmpty());
+
+                if (!executionSucceeded.get()) {
+                  // There were GraphQL errors. Report in error logs.
+                  log.error(
+                      "Errors while executing query: {}, result: {}, errors: {}",
+                      StringUtils.abbreviate(query, MAX_LOG_WIDTH),
+                      executionResult.toSpecification(),
+                      executionResult.getErrors());
+                }
+
+                /*
+                 * Format & Return Response
+                 */
+                try {
+                  final long totalDuration = submitMetrics(executionResult);
+                  // Remove tracing from response to reduce bulk, not used by the frontend
+                  executionResult.getExtensions().remove("tracing");
+                  final Map<String, Object> responseSpec = executionResult.toSpecification();
+
+                  if (streamResponse) {
+                    // Log duration here, not after the write — else a slow/abandoned read loses
+                    // the slow-query log. Size is unknown until the converter finishes; do not
+                    // log variables (same leak surface as dumping mutation inputs).
+                    logQueryDuration(queryName, totalDuration);
+                    // Stream via the converter; the byte count is known only after the write, so
+                    // the size metric is recorded from its callback then.
+                    final Object body =
+                        new GraphQLResponseBody(
+                            responseSpec,
+                            bytes -> recordResponseBytes(usageSessionContext, bytes),
+                            writeSucceeded ->
+                                releaseRateLimitOnce.accept(
+                                    writeSucceeded && executionSucceeded.get()));
+                    return new ResponseEntity<>(body, rateLimitHeaders, HttpStatus.OK);
+                  }
+
+                  // Buffered fallback (default): byte-for-byte the legacy behavior, including
+                  // the original slow-query log shape (response size, no variables).
+                  final String responseBodyStr =
+                      graphQLResponseMapper.writeValueAsString(responseSpec);
+                  if (totalDuration
+                      >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
+                    log.info(
+                        "Slow operation {} took {} ms (response size: {})",
+                        queryName,
+                        totalDuration,
+                        responseBodyStr.length());
+                  } else if (totalDuration > 0) {
+                    log.debug(
+                        "Executed operation {} in {} ms (response size: {})",
+                        queryName,
+                        totalDuration,
+                        responseBodyStr.length());
+                  } else {
+                    log.debug(
+                        "Executed operation {} (response size: {})",
+                        queryName,
+                        responseBodyStr.length());
+                  }
+                  log.trace("Execution result: {}", responseBodyStr);
+                  // length() counts UTF-16 chars, not UTF-8 bytes, so this undercounts non-ASCII
+                  // responses. Kept to match legacy; unify with the streaming path's true byte
+                  // count when this buffered branch is removed (follow-up).
+                  recordResponseBytes(usageSessionContext, responseBodyStr.length());
+                  return new ResponseEntity<>(responseBodyStr, rateLimitHeaders, HttpStatus.OK);
+                } catch (IllegalArgumentException | JsonProcessingException e) {
+                  log.error(
+                      "Failed to convert execution result {} into a JsonNode",
+                      executionResult.toSpecification());
+                  return new ResponseEntity<>(rateLimitHeaders, HttpStatus.SERVICE_UNAVAILABLE);
+                }
+              },
+              this.getClass().getSimpleName(),
+              "postGraphQL");
+      executionFuture.whenComplete(
+          (response, error) -> {
+            if (response != null && response.getBody() instanceof GraphQLResponseBody) {
+              return;
             }
-            log.trace("Execution result: {}", responseBodyStr);
-            return new ResponseEntity<>(responseBodyStr, HttpStatus.OK);
-          } catch (IllegalArgumentException | JsonProcessingException e) {
-            log.error(
-                "Failed to convert execution result {} into a JsonNode",
-                executionResult.toSpecification());
-            return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-          }
-        },
-        this.getClass().getSimpleName(),
-        "postGraphQL");
+            releaseRateLimitOnce.accept(
+                error == null
+                    && response != null
+                    && response.getStatusCode().is2xxSuccessful()
+                    && executionSucceeded.get());
+          });
+      asyncStarted = true;
+      return executionFuture;
+    } finally {
+      if (!asyncStarted) {
+        releaseRateLimitOnce.accept(false);
+      }
+    }
   }
 
   @GetMapping("/graphql")
@@ -199,6 +453,39 @@ public class GraphQLController {
       throws HttpRequestMethodNotSupportedException {
     log.info("GET on GraphQL API is not supported");
     throw new HttpRequestMethodNotSupportedException("GET");
+  }
+
+  @ExceptionHandler(GraphQLResponseSerializationException.class)
+  ResponseEntity<Map<String, String>> handleResponseSerializationFailure() {
+    return new ResponseEntity<>(
+        Map.of("error", "Failed to serialize GraphQL response"), HttpStatus.SERVICE_UNAVAILABLE);
+  }
+
+  @ExceptionHandler(GraphQLResponseStreamAbortedException.class)
+  void handleStreamAborted() {
+    // Committed (or dead) socket: converter already logged and counted. Do not let
+    // GlobalControllerExceptionHandler log ERROR and attempt a 500/400 body.
+  }
+
+  /**
+   * Streaming-path duration logging at execution time. Does not include variables or response size
+   * (size is only known after the converter write).
+   */
+  private void logQueryDuration(String queryName, long totalDuration) {
+    if (totalDuration >= configurationProvider.getGraphQL().getQuery().getSlowQueryThresholdMs()) {
+      log.info("Slow operation {} took {} ms", queryName, totalDuration);
+    } else if (totalDuration > 0) {
+      log.debug("Executed operation {} in {} ms", queryName, totalDuration);
+    } else {
+      log.debug("Executed operation {}", queryName);
+    }
+  }
+
+  /** Records response size for usage metrics (from the converter callback when streaming). */
+  private void recordResponseBytes(OperationContext usageSessionContext, long bytes) {
+    if (usageMetricsSessionEnricher != null) {
+      usageMetricsSessionEnricher.recordResponseWithBytes(usageSessionContext, bytes);
+    }
   }
 
   private void observeErrors(ExecutionResult executionResult) {

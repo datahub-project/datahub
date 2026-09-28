@@ -1,9 +1,10 @@
 import { Text, typography } from '@components';
 import { Modal } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-export const StyledModal = styled(Modal)`
+const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
@@ -35,6 +36,7 @@ interface Props {
 }
 
 const MoreInfoModal = ({ showModal, handleClose, modalContent }: Props) => {
+    const { t } = useTranslation('alchemy');
     return (
         <StyledModal
             open={showModal}
@@ -43,7 +45,7 @@ const MoreInfoModal = ({ showModal, handleClose, modalContent }: Props) => {
             footer={null}
             title={
                 <Text size="xl" weight="bold">
-                    No Data
+                    {t('noData')}
                 </Text>
             }
         >

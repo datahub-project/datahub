@@ -246,7 +246,6 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
-
                 <Form.Item
                     label={
                         <LabelContainer>
@@ -261,9 +260,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                 <Collapse ghost>
                     <Collapse.Panel
                         header={
-                            <Typography.Text type="secondary" data-testid="advanced-settings-header">
+                            <Text type="span" color="textSecondary" data-testid="advanced-settings-header">
                                 {t('nameStep.advanced')}
-                            </Typography.Text>
+                            </Text>
                         }
                         key="1"
                     >
