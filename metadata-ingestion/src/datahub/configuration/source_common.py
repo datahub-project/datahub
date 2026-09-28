@@ -68,7 +68,10 @@ class DatasetLineageProviderConfigBase(EnvConfigMixin):
 
     platform_instance_map: Optional[Dict[str, str]] = Field(
         default=None,
-        description="A holder for platform -> platform_instance mappings to generate correct dataset urns",
+        description="A holder for platform -> platform_instance mappings to generate "
+        "correct dataset urns for upstream and downstream lineage. Each value must match "
+        "the `platform_instance` (and `env`) used in that platform's own recipe exactly, "
+        "or the lineage will silently not appear.",
     )
 
 

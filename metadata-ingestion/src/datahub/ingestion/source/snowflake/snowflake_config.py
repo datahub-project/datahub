@@ -12,7 +12,7 @@ from pydantic import Field, ValidationInfo, field_validator, model_validator
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.source_common import (
-    EnvConfigMixin,
+    DatasetLineageProviderConfigBase,
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
@@ -26,7 +26,10 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
-from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
+from datahub.ingestion.source.snowflake.constants import (
+    EXTERNAL_STORAGE_PLATFORMS,
+    SnowflakeEdition,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -293,7 +296,9 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
 
 class SnowflakeIdentifierConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+    PlatformInstanceConfigMixin,
+    DatasetLineageProviderConfigBase,
+    LowerCaseDatasetUrnConfigMixin,
 ):
     # Changing default value here.
     convert_urns_to_lowercase: bool = Field(
@@ -328,6 +333,30 @@ class SnowflakeIdentifierConfig(
         month="June",
         year=2025,
     )
+
+    @field_validator("platform_instance_map", mode="after")
+    @classmethod
+    def validate_external_storage_platforms(
+        cls, platform_instance_map: Optional[Dict[str, str]]
+    ) -> Optional[Dict[str, str]]:
+        # `lineage_platform_instance` looks keys up by exact DataHub platform name, so a
+        # key Snowflake never reads (`S3`, `aws`, a typo) would be accepted and then
+        # silently ignored -- emitting zero lineage with no error, the exact failure this
+        # mapping exists to prevent. Fail at startup instead.
+        unknown = sorted(set(platform_instance_map or {}) - EXTERNAL_STORAGE_PLATFORMS)
+        if unknown:
+            raise ValueError(
+                f"platform_instance_map keys {unknown} are not read by the Snowflake "
+                f"source. It emits external storage lineage for "
+                f"{sorted(EXTERNAL_STORAGE_PLATFORMS)} only, and keys are case-sensitive."
+            )
+        return platform_instance_map
+
+    def lineage_platform_instance(self, platform: str) -> Optional[str]:
+        # Snowflake reads these platforms as upstreams, so the instance that matters is
+        # the one the *storage* recipe was ingested with, not this source's
+        # `platform_instance`.
+        return (self.platform_instance_map or {}).get(platform)
 
 
 class SnowflakeUsageConfig(BaseUsageConfig):

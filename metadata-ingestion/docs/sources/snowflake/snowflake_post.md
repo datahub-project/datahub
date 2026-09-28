@@ -294,6 +294,31 @@ DataHub extracts lineage when a query reads from a Snowflake Stream. Coverage de
 
 The Stream entity itself is also extracted as a top-level dataset; the lineage above is in addition to that.
 
+##### External Storage Upstreams and Platform Instances
+
+Snowflake emits S3, GCS, and Azure Blob Storage datasets as upstreams for `COPY INTO` history, external tables, and external stages. If you ingested that same storage under a `platform_instance`, you must tell the Snowflake source which instance to use — otherwise Snowflake generates `s3,my-bucket/path,PROD` while the S3 source generated `s3,my_instance.my-bucket/path,PROD`, the two URNs never join, and the lineage silently does not appear.
+
+Set `platform_instance_map` to the instance used in your storage recipe:
+
+```yaml
+source:
+  type: snowflake
+  config:
+    platform_instance_map:
+      s3: my_instance
+      gcs: my_gcs_instance
+      abs: my_abs_instance
+```
+
+Only the `s3`, `gcs`, and `abs` keys are read; the values are case-sensitive and must match the storage recipe exactly.
+
+Two further requirements for the URNs to join:
+
+- **`env` must also match.** Both recipes must use the same `env` (default `PROD`). A Snowflake source on `PROD` reading a bucket ingested with `env: DEV` will not connect, for the same reason.
+- **Lowercasing must match.** If the storage recipe sets `convert_urns_to_lowercase`, Snowflake does not see that setting, so a mixed-case bucket path will not join. Use the global `DATAHUB_DATASET_URN_TO_LOWER` flag if you need lowercasing on both sides.
+
+This is a per-recipe mapping, so a Snowflake account that loads from buckets ingested under two different S3 platform instances needs one recipe per instance.
+
 #### Metadata Pattern Pushdown
 
 When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.
