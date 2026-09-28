@@ -384,7 +384,13 @@ def test_a_failed_connection_test_does_not_exit_zero(monkeypatch, tmp_path):
     )
     # The report still reaches stdout; only the exit code changes.
     assert res.exit_code == 3, res.output
-    assert "bad credentials" in res.output
+    # As a structured object, not the report's repr: the exit-3 message sends
+    # the caller to basic_connectivity, so that key has to be in the payload.
+    report = json.loads(res.stdout)
+    assert report["basic_connectivity"] == {
+        "capable": False,
+        "failure_reason": "bad credentials",
+    }
 
 
 def test_a_soft_error_exits_on_the_bad_argument_code(monkeypatch, tmp_path):

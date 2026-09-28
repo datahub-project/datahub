@@ -651,7 +651,13 @@ def test_connection(recipe_path: str) -> None:
         # SECURITY: normalize to pure JSON types before redacting, so a raw
         # exception/driver object nested in the report cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).
-        safe_report = json.loads(json.dumps(report, default=_json_default))
+        # as_obj() first: TestConnectionReport is a Report, not a dict, and
+        # json.dumps handed the whole object to _json_default, which
+        # stringified it -- stdout became one string and basic_connectivity,
+        # the key the exit-3 message points at, was not in the payload.
+        as_obj = getattr(report, "as_obj", None)
+        report_obj = as_obj() if callable(as_obj) else report
+        safe_report = json.loads(json.dumps(report_obj, default=_json_default))
         _emit(redact(safe_report, secret_values))
         # The report was emitted but never consulted, so a FAILED connection
         # test exited 0 -- in a CLI whose whole contract is that the caller
