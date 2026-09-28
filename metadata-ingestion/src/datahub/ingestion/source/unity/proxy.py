@@ -9,7 +9,19 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import cachetools
@@ -53,7 +65,10 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import get_sql_connection_params
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
-from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
+from datahub.ingestion.source.unity.identifier_helper import (
+    quote_databricks_identifier,
+    split_databricks_identifier,
+)
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -1773,6 +1788,40 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     if not batch:
                         break
                     yield from batch  # OUTSIDE any try/except — consumer errors propagate cleanly
+
+    def iter_sql_rows(
+        self, query: str, params: Sequence[Any] = (), batch_size: int = 10000
+    ) -> Iterator[Row]:
+        """Stream rows like _execute_sql_query_streaming, but raise on failure.
+
+        Callers that persist progress (the external DQ results checkpoint) must be
+        able to tell an empty result from a failed query.
+        """
+        if not self.warehouse_id:
+            raise RuntimeError("warehouse_id is not configured")
+        sql_connection_params = get_sql_connection_params(self._workspace_client)
+        with closing(connect(**sql_connection_params)) as connection:
+            with closing(connection.cursor()) as cursor:
+                cursor.execute(query, list(params))
+                while True:
+                    batch = cursor.fetchmany(batch_size)
+                    if not batch:
+                        return
+                    yield from batch
+
+    def describe_table_columns(
+        self, catalog: str, schema: str, table: str
+    ) -> List[Tuple[str, str, int]]:
+        query = f"""
+            SELECT column_name, full_data_type, ordinal_position
+            FROM {quote_databricks_identifier(catalog)}.information_schema.columns
+            WHERE lower(table_schema) = lower(%s) AND lower(table_name) = lower(%s)
+            ORDER BY ordinal_position
+        """
+        return [
+            (row["column_name"], row["full_data_type"], int(row["ordinal_position"]))
+            for row in self.iter_sql_rows(query, [schema, table])
+        ]
 
     @cached(cachetools.FIFOCache(maxsize=_MAX_CONCURRENT_CATALOGS))
     def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:

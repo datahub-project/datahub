@@ -32,3 +32,7 @@ def split_databricks_identifier(raw: str) -> Optional[List[str]]:
             p = p[1:-1]
         cleaned.append(p)
     return cleaned
+
+
+def quote_databricks_identifier(part: str) -> str:
+    return "`" + part.replace("`", "``") + "`"
