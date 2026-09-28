@@ -3990,7 +3990,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -4398,7 +4398,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(2000)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -6726,7 +6726,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -7542,7 +7542,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(8)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -7782,7 +7782,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -8022,7 +8022,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10194,7 +10194,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10350,7 +10350,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10362,7 +10362,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10410,7 +10410,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10422,7 +10422,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(17)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10434,7 +10434,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -10602,7 +10602,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10650,7 +10650,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(2000)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -10878,7 +10878,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -11094,7 +11094,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -13758,7 +13758,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -13950,7 +13950,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -13986,7 +13986,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(2000)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -14178,7 +14178,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -14550,7 +14550,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(2000)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -14766,7 +14766,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -14778,7 +14778,7 @@
                                         "com.linkedin.pegasus2avro.schema.BytesType": {}
                                     }
                                 },
-                                "nativeDataType": "RAW",
+                                "nativeDataType": "RAW(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -17662,7 +17662,7 @@
                                         "com.linkedin.pegasus2avro.schema.NullType": {}
                                     }
                                 },
-                                "nativeDataType": "null",
+                                "nativeDataType": "ROWID",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -18427,6 +18427,136 @@
     }
 },
 {
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:44120baf886077986ec41b586cada0ce"
+        }
+    },
+    "aspectName": "container",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "materialized_view_definition": "SELECT\n    COUNT(*) AS total_schemas,\n    'Test Materialized View' AS description\nFROM all_users\nWHERE username LIKE '%SCHEMA%'"
+            },
+            "name": "test_mview",
+            "tags": []
+        }
+    },
+    "aspectName": "datasetProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "created": {
+                "actor": "urn:li:corpuser:unknown",
+                "time": 0
+            },
+            "fields": [],
+            "hash": "",
+            "lastModified": {
+                "actor": "urn:li:corpuser:unknown",
+                "time": 0
+            },
+            "platform": "urn:li:dataPlatform:oracle",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "schemaName": "system.test_mview",
+            "version": 0
+        }
+    },
+    "aspectName": "schemaMetadata",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "aspectName": "subTypes",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "materialized": true,
+            "viewLanguage": "SQL",
+            "viewLogic": "SELECT\n    COUNT(*) AS total_schemas,\n    'Test Materialized View' AS description\nFROM all_users\nWHERE username LIKE '%SCHEMA%'"
+        }
+    },
+    "aspectName": "viewProperties",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3",
+                    "urn": "urn:li:container:9ae6f135ca378cf8219b9a0b86da07a3"
+                },
+                {
+                    "id": "urn:li:container:44120baf886077986ec41b586cada0ce",
+                    "urn": "urn:li:container:44120baf886077986ec41b586cada0ce"
+                }
+            ]
+        }
+    },
+    "aspectName": "browsePathsV2",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,analytics_schema.simple_analytics,PROD)",
     "changeType": "UPSERT",
@@ -19116,6 +19246,110 @@
     }
 },
 {
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "actor": "urn:li:corpuser:_ingestion",
+                        "time": 1643871600000
+                    },
+                    "created": {
+                        "actor": "urn:li:corpuser:_ingestion",
+                        "time": 0
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.all_users,PROD)",
+                    "query": "urn:li:query:view_5b73044b0e9f3ab25dfa8fe1527be1bfcad14a3f3736b6a95ceae4eb805227e2",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "aspectName": "upstreamLineage",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "created": {
+                "actor": "urn:li:corpuser:_ingestion",
+                "time": 0
+            },
+            "customProperties": {},
+            "lastModified": {
+                "actor": "urn:li:corpuser:_ingestion",
+                "time": 1643871600000
+            },
+            "source": "SYSTEM",
+            "statement": {
+                "language": "SQL",
+                "value": "SELECT\n  COUNT(*) AS total_schemas,\n  'Test Materialized View' AS description\nFROM all_users\nWHERE\n  username LIKE '%SCHEMA%'"
+            }
+        }
+    },
+    "aspectName": "queryProperties",
+    "changeType": "UPSERT",
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_5b73044b0e9f3ab25dfa8fe1527be1bfcad14a3f3736b6a95ceae4eb805227e2",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.all_users,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD),total_schemas)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD),description)"
+                }
+            ]
+        }
+    },
+    "aspectName": "querySubjects",
+    "changeType": "UPSERT",
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_5b73044b0e9f3ab25dfa8fe1527be1bfcad14a3f3736b6a95ceae4eb805227e2",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:oracle"
+        }
+    },
+    "aspectName": "dataPlatformInstance",
+    "changeType": "UPSERT",
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_5b73044b0e9f3ab25dfa8fe1527be1bfcad14a3f3736b6a95ceae4eb805227e2",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
     "entityType": "dataFlow",
     "entityUrn": "urn:li:dataFlow:(oracle,xepdb1.analytics_schema.stored_procedures,PROD)",
     "changeType": "UPSERT",
@@ -19257,6 +19491,38 @@
         "lastObserved": 1643871600000,
         "runId": "oracle-usage-lineage-test",
         "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "aspectName": "status",
+    "changeType": "UPSERT",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:oracle,system.test_mview,PROD)",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
+    }
+},
+{
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "aspectName": "status",
+    "changeType": "UPSERT",
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_5b73044b0e9f3ab25dfa8fe1527be1bfcad14a3f3736b6a95ceae4eb805227e2",
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "lastRunId": "no-run-id-provided",
+        "runId": "oracle-usage-lineage-test"
     }
 },
 {
