@@ -11,7 +11,7 @@ from sqlalchemy.dialects import mssql, mysql, postgresql
 from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import SQLAlchemyError
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.athena import AthenaAdapter
@@ -366,8 +366,8 @@ class TestGenericAdapter:
         This prevents:
           - MSSQL integer truncation (`AVG(int_col)` returns int there).
           - MySQL/Doris precision loss (DECIMAL(N,4) for AVG over int columns).
-        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Catches future
-        regressions that drop `* 1.0` from base or re-add an MSSQL-specific override.
+        Catches future regressions that drop `* 1.0` from base or re-add an
+        MSSQL-specific override.
         """
         expr = adapter.get_mean_expr("my_col")
         rendered = compile_expr_to_sql(expr, mock_generic_engine.dialect)
@@ -882,7 +882,7 @@ class TestSnowflakeAdapter:
         assert result.is_sampled
 
     def test_setup_profiling_custom_sql_rejected(self, adapter):
-        """custom_sql is GE-only; the SQLAlchemy adapter rejects it."""
+        """The SQLAlchemy adapter rejects custom_sql."""
         context = ProfilingContext(
             schema="MY_SCHEMA",
             table="MY_TABLE",
@@ -1264,7 +1264,7 @@ class TestBigQueryAdapter:
         mock_raw_conn.close.assert_called_once()
 
     def test_setup_sampling_samples_partition_temp_table(self, adapter, config):
-        """A partition temp table (from step 1) is itself sampled, matching GE."""
+        """A partition temp table (from step 1) is itself sampled."""
         config.use_sampling = True
         config.sample_size = 1000
         adapter.config = config

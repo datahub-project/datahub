@@ -7,7 +7,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine, event
 
-from datahub.ingestion.source.ge_profiling_config import (
+from datahub.ingestion.source.profiling.config import (
     ProfilingConfig,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport

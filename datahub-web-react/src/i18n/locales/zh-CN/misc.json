@@ -169,6 +169,8 @@
     "metrics.filterPlatform": "平台",
     "metrics.homeBlurb": "浏览并探索从你的数据平台导入的指标和语义模型。",
     "metrics.homeEmptyAction": "导入指标",
+    "metrics.homeEmptyLearnMore": "了解更多",
+    "metrics.homeEmptyMigrationHint": "已经在导入 Snowflake Semantic Views？<anchor>了解如何将其迁移</anchor>到新模型。",
     "metrics.homeEmptyDescription": "从你的数据平台导入指标和语义模型后，它们将显示在此处。",
     "metrics.homeEmptyTitle": "尚未导入任何指标",
     "metrics.homeTitle": "指标",

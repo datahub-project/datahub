@@ -22,7 +22,7 @@ const LogoIcon = styled.span`
     margin-right: 8px;
 `;
 
-const PreviewImage = styled(Image)`
+export const PreviewImage = styled(Image)`
     max-height: 17px;
     width: auto;
     object-fit: contain;
@@ -59,7 +59,7 @@ const PlatformDivider = styled.div`
 const PLATFORM_NAME_SEPARATOR = ' & ';
 const ELLIPSIS = '...';
 
-function getParentContainerNames(containers?: Maybe<Container>[] | null) {
+export function getParentContainerNames(containers?: Maybe<Container>[] | null) {
     let parentNames = '';
     if (containers) {
         [...containers].reverse().forEach((container, index) => {

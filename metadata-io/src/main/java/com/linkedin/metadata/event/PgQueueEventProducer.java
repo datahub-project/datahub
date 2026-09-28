@@ -7,6 +7,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.queue.MetadataQueueStore;
 import com.linkedin.metadata.queue.PgQueuePayloadCodec;
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
+import com.linkedin.metadata.queue.QueueMessageHeader;
 import com.linkedin.metadata.queue.QueueTopicDefaults;
 import com.linkedin.metadata.queue.QueueTopicMetadata;
 import com.linkedin.metadata.registry.SchemaRegistryService;
@@ -25,6 +26,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -59,6 +61,7 @@ public class PgQueueEventProducer extends EventProducer {
   private final SchemaRegistryService schemaRegistryService;
   private final QueueTopicDefaults topicDefaultsFallback;
   private final PgQueuePayloadCompression payloadCompression;
+  private final Function<OperationContext, List<QueueMessageHeader>> headerResolver;
 
   public PgQueueEventProducer(
       @Nonnull MetadataQueueStore metadataQueueStore,
@@ -66,11 +69,28 @@ public class PgQueueEventProducer extends EventProducer {
       @Nonnull SchemaRegistryService schemaRegistryService,
       @Nonnull QueueTopicDefaults topicDefaultsFallback,
       @Nonnull PgQueuePayloadCompression payloadCompression) {
+    this(
+        metadataQueueStore,
+        topicConvention,
+        schemaRegistryService,
+        topicDefaultsFallback,
+        payloadCompression,
+        ctx -> List.of());
+  }
+
+  public PgQueueEventProducer(
+      @Nonnull MetadataQueueStore metadataQueueStore,
+      @Nonnull TopicConvention topicConvention,
+      @Nonnull SchemaRegistryService schemaRegistryService,
+      @Nonnull QueueTopicDefaults topicDefaultsFallback,
+      @Nonnull PgQueuePayloadCompression payloadCompression,
+      @Nonnull Function<OperationContext, List<QueueMessageHeader>> headerResolver) {
     this.metadataQueueStore = metadataQueueStore;
     this.topicConvention = topicConvention;
     this.schemaRegistryService = schemaRegistryService;
     this.topicDefaultsFallback = topicDefaultsFallback;
     this.payloadCompression = payloadCompression;
+    this.headerResolver = headerResolver;
   }
 
   @Override
@@ -94,7 +114,7 @@ public class PgQueueEventProducer extends EventProducer {
       final GenericRecord record = EventUtils.pegasusToAvroDUHE(event);
       final byte[] inner = encodeConfluentAvro(record, schemaIdOpt.get());
       final String routingKey = event.getVersion() != null ? event.getVersion() : "";
-      enqueueConfluentPayload(topicName, routingKey, inner);
+      enqueueConfluentPayload(opContext, topicName, routingKey, inner);
       log.info(
           "Enqueued DataHubUpgradeHistory event to pgQueue topic {} (version={})",
           topicName,
@@ -116,7 +136,7 @@ public class PgQueueEventProducer extends EventProducer {
     final String topicName = getMetadataChangeLogTopicName(aspectSpec);
     try {
       GenericRecord record = EventUtils.pegasusToAvroMCL(metadataChangeLog);
-      return enqueueConfluentGenericRecord(topicName, urn.toString(), record, "MCL");
+      return enqueueConfluentGenericRecord(opContext, topicName, urn.toString(), record, "MCL");
     } catch (IOException e) {
       log.error("Failed to convert Pegasus MCL to Avro: urn={}", urn, e);
       return CompletableFuture.failedFuture(
@@ -139,7 +159,7 @@ public class PgQueueEventProducer extends EventProducer {
     final String topicName = topicConvention.getMetadataChangeProposalTopicName();
     try {
       GenericRecord record = EventUtils.pegasusToAvroMCP(metadataChangeProposal);
-      return enqueueConfluentGenericRecord(topicName, urn.toString(), record, "MCP");
+      return enqueueConfluentGenericRecord(opContext, topicName, urn.toString(), record, "MCP");
     } catch (IOException e) {
       log.error("Failed to convert Pegasus MCP to Avro: urn={}", urn, e);
       return CompletableFuture.failedFuture(
@@ -164,7 +184,7 @@ public class PgQueueEventProducer extends EventProducer {
       fmcp.setMetadataChangeProposal(mcp);
       GenericRecord record = EventUtils.pegasusToAvroFailedMCP(fmcp);
       return enqueueConfluentGenericRecord(
-          topicName, mcp.getEntityUrn().toString(), record, "FMCP");
+          opContext, topicName, mcp.getEntityUrn().toString(), record, "FMCP");
     } catch (IOException e) {
       log.error("Failed to convert FailedMetadataChangeProposal to Avro", e);
       return CompletableFuture.failedFuture(
@@ -183,7 +203,8 @@ public class PgQueueEventProducer extends EventProducer {
     final String routingKey = key == null ? name : key;
     try {
       GenericRecord record = EventUtils.pegasusToAvroPE(payload);
-      return enqueueConfluentGenericRecord(topicName, routingKey, record, "platform event");
+      return enqueueConfluentGenericRecord(
+          opContext, topicName, routingKey, record, "platform event");
     } catch (IOException e) {
       log.error("Failed to convert Pegasus Platform Event to Avro: {}", payload, e);
       return CompletableFuture.failedFuture(
@@ -198,7 +219,8 @@ public class PgQueueEventProducer extends EventProducer {
 
   /**
    * Publishes arbitrary Avro (Confluent wire format) to a logical queue topic — used by deprecated
-   * MCE error paths (FMCE) and similar Kafka-parity topics when transport is pgQueue.
+   * MCE error paths (FMCE) and similar Kafka-parity topics when transport is pgQueue. Context-free
+   * overload for legacy code paths that lack an {@link OperationContext}.
    */
   public Future<?> publishRawTopicConfluentAvro(
       @Nonnull String topicName,
@@ -206,15 +228,15 @@ public class PgQueueEventProducer extends EventProducer {
       @Nonnull GenericRecord record,
       @Nonnull String debugLabel) {
     return enqueueConfluentGenericRecord(
-        topicName, routingKey != null ? routingKey : "", record, debugLabel);
+        null, topicName, routingKey != null ? routingKey : "", record, debugLabel);
   }
 
-  /**
-   * Enqueues a Confluent-formatted Avro payload; mirrors Kafka producer behaviour for schema id and
-   * skip-when-unregistered topics.
-   */
   private Future<?> enqueueConfluentGenericRecord(
-      String topicName, String routingKey, GenericRecord record, String debugLabel) {
+      @Nullable OperationContext opContext,
+      String topicName,
+      String routingKey,
+      GenericRecord record,
+      String debugLabel) {
     Optional<Integer> schemaIdOpt = schemaRegistryService.getSchemaIdForTopic(topicName);
     if (schemaIdOpt.isEmpty()) {
       log.warn(
@@ -226,7 +248,7 @@ public class PgQueueEventProducer extends EventProducer {
     }
     try {
       byte[] inner = encodeConfluentAvro(record, schemaIdOpt.get());
-      enqueueConfluentPayload(topicName, routingKey, inner);
+      enqueueConfluentPayload(opContext, topicName, routingKey, inner);
       log.debug("Enqueued {} to pgQueue topic {} (key={})", debugLabel, topicName, routingKey);
       return CompletableFuture.completedFuture(null);
     } catch (IOException e) {
@@ -240,8 +262,13 @@ public class PgQueueEventProducer extends EventProducer {
   }
 
   private void enqueueConfluentPayload(
-      @Nonnull String topicName, @Nonnull String routingKey, @Nonnull byte[] innerConfluentAvro) {
+      @Nullable OperationContext opContext,
+      @Nonnull String topicName,
+      @Nonnull String routingKey,
+      @Nonnull byte[] innerConfluentAvro) {
     byte[] stored = PgQueuePayloadCodec.encode(innerConfluentAvro, payloadCompression);
+    List<QueueMessageHeader> headers =
+        opContext != null ? headerResolver.apply(opContext) : List.of();
     metadataQueueStore.enqueue(
         topicName,
         routingKey,
@@ -249,7 +276,7 @@ public class PgQueueEventProducer extends EventProducer {
         QueueTopicMetadata.DEFAULT_PRIORITY,
         stored,
         Optional.of(CONFLUENT_AVRO_CONTENT_TYPE),
-        List.of(),
+        headers,
         payloadCompression);
   }
 

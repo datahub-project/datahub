@@ -18,7 +18,7 @@ from datahub.ingestion.api.incremental_lineage_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -112,7 +112,7 @@ class SQLCommonConfig(
         description="Whether to use a file backed cache for the view definitions.",
     )
 
-    profiling: GEProfilingConfig = GEProfilingConfig()
+    profiling: ProfilingConfig = ProfilingConfig()
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
@@ -125,10 +125,10 @@ class SQLCommonConfig(
     def ensure_profiling_pattern_is_passed_to_profiling(self):
         profiling = self.profiling
         # Note: isinstance() check is required here as unity-catalog source reuses
-        # SQLCommonConfig with different profiling config than GEProfilingConfig
+        # SQLCommonConfig with different profiling config than ProfilingConfig
         if (
             profiling is not None
-            and isinstance(profiling, GEProfilingConfig)
+            and isinstance(profiling, ProfilingConfig)
             and profiling.enabled
         ):
             profiling._allow_deny_patterns = self.profile_pattern

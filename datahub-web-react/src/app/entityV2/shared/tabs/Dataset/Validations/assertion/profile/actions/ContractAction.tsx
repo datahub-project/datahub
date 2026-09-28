@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
 import { useIsContractsEnabled } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/useIsContractsEnabled';
 import {
     buildAddAssertionToContractMutationVariables,
@@ -15,6 +14,7 @@ import {
     getDataContractCategoryFromAssertion,
     isAssertionPartOfContract,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
+import { ActionItem } from '@app/shared/actions/ActionItem';
 
 import { useUpsertDataContractMutation } from '@graphql/contract.generated';
 import { Assertion, DataContract } from '@types';
@@ -35,7 +35,7 @@ const StyledPlusOutlined = styled(PlusOutlined)`
 
 type Props = {
     assertion: Assertion;
-    contract?: DataContract;
+    contract?: DataContract | null;
     canEdit: boolean;
     // Should be defined if canEdit
     refetch?: () => void;

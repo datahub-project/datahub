@@ -151,7 +151,8 @@ export const TagAppliedToColumn = React.memo(({ tagUrn }: { tagUrn: string }) =>
             input: {
                 query: '*',
                 start: 0,
-                count: 1,
+                // Facets only — result body is unused.
+                count: 0,
                 orFilters: generateOrFilters(UnionType.OR, entityFilters),
             },
         },

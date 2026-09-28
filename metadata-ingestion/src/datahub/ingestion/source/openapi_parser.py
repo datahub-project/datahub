@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Literal, Optional, Tuple
 
 import requests
 import yaml
@@ -76,18 +76,29 @@ def request_call(
     verify_ssl: bool = True,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
+    timeout = _REQUEST_TIMEOUT_SECONDS
     if username is not None and password is not None:
         return requests.get(
             url,
             headers=headers,
             auth=HTTPBasicAuth(username, password),
+            proxies=proxies,
             verify=verify_ssl,
+            timeout=timeout,
         )
     elif token is not None:
         headers["Authorization"] = f"{token}"
-        return requests.get(url, proxies=proxies, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url,
+            proxies=proxies,
+            headers=headers,
+            verify=verify_ssl,
+            timeout=timeout,
+        )
     else:
-        return requests.get(url, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url, headers=headers, proxies=proxies, verify=verify_ssl, timeout=timeout
+        )
 
 
 def get_swag_json(
@@ -99,7 +110,7 @@ def get_swag_json(
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> Dict:
-    tot_url = url + swagger_file
+    tot_url = _join_url(url, swagger_file)
     response = request_call(
         url=tot_url,
         token=token,
@@ -112,10 +123,29 @@ def get_swag_json(
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
     try:
-        dict_data = json.loads(response.content)
-    except json.JSONDecodeError:  # it's not a JSON!
-        dict_data = yaml.safe_load(response.content)
-    return dict_data
+        parsed = json.loads(response.content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # UnicodeDecodeError alongside JSONDecodeError: json.loads on non-UTF-8
+        # bytes raises the former, which isn't a JSONDecodeError subclass, and
+        # would otherwise skip the YAML fallback and this function's own
+        # clear error message in favor of a raw decode error propagating up.
+        try:
+            parsed = yaml.safe_load(response.content)
+        except (yaml.YAMLError, UnicodeDecodeError) as e:
+            raise ValueError(
+                f"Unable to parse OpenAPI spec from {tot_url} as JSON or YAML"
+            ) from e
+    if not isinstance(parsed, dict):
+        # A valid JSON/YAML document (e.g. a bare list, string, or number) is
+        # not a valid OpenAPI/Swagger spec -- every downstream parsing
+        # function this feeds (get_endpoints, get_url_basepath, ...) assumes
+        # a dict, so fail clearly here instead of a confusing TypeError/
+        # KeyError deep in one of them.
+        raise ValueError(
+            f"OpenAPI spec at {tot_url} did not parse to a JSON/YAML object "
+            f"(got {type(parsed).__name__})"
+        )
+    return parsed
 
 
 def get_url_basepath(sw_dict: dict) -> str:
@@ -401,12 +431,27 @@ def extract_fields(
             return [], {}
 
 
+_REQUEST_TIMEOUT_SECONDS = 30
+
+
+def _join_url(base: str, path: str) -> str:
+    # Docs/recipes often omit a trailing slash on url and a leading slash on
+    # swagger_file; naive concatenation would produce a broken host+path join.
+    if not path:
+        return base
+    if base.endswith("/") and path.startswith("/"):
+        return f"{base}{path[1:]}"
+    if not base.endswith("/") and not path.startswith("/"):
+        return f"{base}/{path}"
+    return f"{base}{path}"
+
+
 def get_tok(
     url: str,
     username: str = "",
     password: str = "",
     tok_url: str = "",
-    method: str = "post",
+    method: Literal["get", "post"] = "post",
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> str:
@@ -414,30 +459,74 @@ def get_tok(
     Trying to post username/password to get auth.
     """
     token = ""
-    url4req = url + tok_url
+    url4req = _join_url(url, tok_url)
+    timeout = _REQUEST_TIMEOUT_SECONDS
+    # NOTE: for method="get" the caller substitutes the raw username/password into
+    # url4req before calling get_tok. Any exception raised below must not embed
+    # url4req/response body (e.g. via a raw `requests` exception), since report.failure
+    # renders exception messages verbatim in the ingestion report UI.
     if method == "post":
         # this will make a POST call with username and password
         data = {"username": username, "password": password, "maxDuration": True}
-        # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, proxies=proxies, json=data, verify=verify_ssl)
+        try:
+            response = requests.post(
+                url4req,
+                proxies=proxies,
+                json=data,
+                verify=verify_ssl,
+                timeout=timeout,
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            if "token" in cont:  # other authentication scheme
-                token = cont["token"]
-            else:  # works only for bearer authentication scheme
-                token = f"Bearer {cont['tokens']['access']}"
+            try:
+                cont = json.loads(response.content)
+                if "token" in cont:  # other authentication scheme
+                    token = cont["token"]
+                else:  # works only for bearer authentication scheme
+                    token = f"Bearer {cont['tokens']['access']}"
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape (status {response.status_code})"
+                ) from e
     elif method == "get":
         # this will make a GET call with username and password
-        response = requests.get(url4req, verify=verify_ssl)
+        try:
+            response = requests.get(
+                url4req, proxies=proxies, verify=verify_ssl, timeout=timeout
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            token = cont["token"]
+            try:
+                cont = json.loads(response.content)
+                token = cont["token"]
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape (status {response.status_code})"
+                ) from e
     else:
         raise ValueError(f"Method unrecognised: {method}")
     if token != "":
         return token
     else:
-        raise Exception(f"Unable to get a valid token: {response.text}")
+        raise Exception(
+            f"Unable to get a valid token: received status {response.status_code}"
+        )
 
 
 def set_metadata(
@@ -610,6 +699,8 @@ def merge_allof_schemas(
                 dict.fromkeys(existing_required + new_required)
             )
 
+        _merge_allof_enum(merged_schema, resolved_allof)
+
         # Merge other schema attributes (type, format, description, etc.)
         # Only merge if not already present in merged_schema
         for key in [
@@ -617,7 +708,6 @@ def merge_allof_schemas(
             "format",
             "description",
             "title",
-            "enum",
             "default",
             "example",
         ]:
@@ -666,7 +756,30 @@ def merge_allof_schemas(
             merged_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
 
+    # A disjoint enum intersection collapses to []. Emitting `enum: []` is invalid
+    # per the JSON Schema meta-schema (minItems 1), so json_schema_util's
+    # check_schema rejects the whole schema and drops every field -- not just the
+    # enum. The composition is unsatisfiable; drop the keyword so the field stays
+    # typed by its other keywords instead of voiding the entire schema.
+    if merged_schema.get("enum") == []:
+        del merged_schema["enum"]
+
     return merged_schema
+
+
+def _merge_allof_enum(merged_schema: Dict, resolved_allof: Dict) -> None:
+    # enum under allOf is the intersection of the members' allowed values, not
+    # first-wins: allOf[{enum:[1,2,3]},{enum:[2,3,4]}] permits only [2,3].
+    # Membership test (not a set) so unhashable enum values don't raise.
+    new_enum = resolved_allof.get("enum")
+    if not isinstance(new_enum, list):
+        return
+    existing_enum = merged_schema.get("enum")
+    merged_schema["enum"] = (
+        [v for v in existing_enum if v in new_enum]
+        if isinstance(existing_enum, list)
+        else list(new_enum)
+    )
 
 
 def _resolve_ref_directly(schema: Dict, sw_dict: Dict) -> Dict:
@@ -822,7 +935,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 return resolved_referenced
 
     # Recursively resolve references in properties
-    if "properties" in resolved_schema:
+    if isinstance(resolved_schema.get("properties"), dict):
         for prop_name, prop_schema in resolved_schema["properties"].items():
             resolved_schema["properties"][prop_name] = resolve_schema_references(
                 prop_schema, sw_dict, max_depth=max_depth - 1
@@ -842,15 +955,33 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
             resolved_schema["additionalProperties"], sw_dict, max_depth=max_depth - 1
         )
 
+    # Recursively resolve references under patternProperties (a map whose keys
+    # match a regex) and propertyNames (a schema constraining the key strings).
+    # Master resolved neither, so a $ref'd map value type was left unresolved.
+    if isinstance(resolved_schema.get("patternProperties"), dict):
+        pattern_properties = dict(resolved_schema["patternProperties"])
+        for pattern, prop_schema in pattern_properties.items():
+            pattern_properties[pattern] = resolve_schema_references(
+                prop_schema, sw_dict, max_depth=max_depth - 1
+            )
+        resolved_schema["patternProperties"] = pattern_properties
+    if isinstance(resolved_schema.get("propertyNames"), dict):
+        resolved_schema["propertyNames"] = resolve_schema_references(
+            resolved_schema["propertyNames"], sw_dict, max_depth=max_depth - 1
+        )
+
     # Handle allOf by merging schemas (before treating as union)
     if "allOf" in resolved_schema:
         resolved_schema = merge_allof_schemas(
             resolved_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
 
-    # Handle union types (oneOf, anyOf) - allOf is already handled above
+    # Handle union types (oneOf, anyOf) - allOf is already handled above.
+    # Guard on list-ness: a malformed spec may set oneOf/anyOf to a non-list
+    # (e.g. a single inline schema object), which would otherwise iterate its
+    # keys and raise deep in resolution instead of being left untouched.
     for union_key in ["oneOf", "anyOf"]:
-        if union_key in resolved_schema:
+        if isinstance(resolved_schema.get(union_key), list):
             resolved_schema[union_key] = [
                 resolve_schema_references(
                     union_schema, sw_dict, max_depth=max_depth - 1
@@ -858,7 +989,44 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 for union_schema in resolved_schema[union_key]
             ]
 
-    return resolved_schema
+    # Promote a map-only patternProperties schema to additionalProperties so
+    # json_schema_util extracts the map value type. Done after allOf merge so
+    # named properties contributed by allOf are seen and preserved.
+    return _promote_pattern_properties_to_additional(resolved_schema)
+
+
+def _promote_pattern_properties_to_additional(resolved_schema: Dict) -> Dict:
+    """Promote a map-only ``patternProperties`` schema to ``additionalProperties``.
+
+    ``json_schema_util`` extracts a map's value type from ``additionalProperties``
+    but ignores ``patternProperties``. Only promote when the schema is map-only
+    (no named ``properties`` and no dict ``additionalProperties``); named
+    properties otherwise take precedence and would be dropped by the map path.
+    Returns the same object when nothing is promoted, else a copy (the input may
+    alias a shared ``sw_dict`` component that must not be mutated in place).
+    """
+    pattern_properties = resolved_schema.get("patternProperties")
+    if not isinstance(pattern_properties, dict):
+        return resolved_schema
+    if isinstance(resolved_schema.get("additionalProperties"), dict):
+        return resolved_schema
+    if resolved_schema.get("properties"):
+        return resolved_schema
+    pattern_schemas = [
+        dict(s) if isinstance(s, dict) else s for s in pattern_properties.values()
+    ]
+    if not pattern_schemas:
+        return resolved_schema
+    promoted = dict(resolved_schema)
+    if len(pattern_schemas) == 1:
+        promoted["additionalProperties"] = pattern_schemas[0]
+    else:
+        # Disjoint pattern namespaces collapse to one map value type -- a lossy
+        # approximation of the original per-pattern schemas.
+        promoted["additionalProperties"] = {"anyOf": pattern_schemas}
+    if "type" not in promoted:
+        promoted["type"] = "object"
+    return promoted
 
 
 def extract_schema_from_response_schema(
