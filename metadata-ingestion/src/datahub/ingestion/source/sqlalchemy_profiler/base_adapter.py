@@ -47,9 +47,10 @@ class ProfilingConnection:
     statement itself, can promise there is none.
 
     When in doubt, go down a rung: the cost is a lost optimisation, not a
-    wrong number. get_row_count is the example worth studying -- it uses
-    execute_aggregate normally and execute_single_row when a sample clause has
-    to survive.
+    wrong number. get_column_median is the example worth studying -- its native
+    aggregate goes through execute_aggregate, while the OFFSET/LIMIT window it
+    falls back to uses execute_rows, because that window returns two rows for an
+    even row count and would break a combined batch.
     """
 
     def __init__(self, conn: Connection) -> None:
@@ -307,18 +308,6 @@ class PlatformAdapter(ABC):
         """
         return None
 
-    def get_sample_clause(self, sample_size: int) -> Optional[str]:
-        """
-        Get platform-specific TABLESAMPLE clause.
-
-        Args:
-            sample_size: Number of rows to sample
-
-        Returns:
-            SQL TABLESAMPLE clause string, or None if unsupported
-        """
-        return None
-
     def get_mean_expr(self, column: str) -> ColumnElement[Any]:
         """
         Get platform-specific mean (AVG) expression.
@@ -382,16 +371,14 @@ class PlatformAdapter(ABC):
         self,
         table: sa.Table,
         conn: ProfilingConnection,
-        sample_clause: Optional[str] = None,
         use_estimation: bool = False,
     ) -> int:
         """
-        Get row count with optional sampling or estimation.
+        Get row count, optionally via fast estimation.
 
         Args:
             table: SQLAlchemy table object
             conn: Active database connection
-            sample_clause: Optional SQL suffix for sampling
             use_estimation: Use fast estimation if available
 
         TODO: performance optimization: get from system tables
@@ -415,16 +402,7 @@ class PlatformAdapter(ABC):
             result = self.get_estimated_row_count(table, conn)
             return int(result) if result is not None else 0
 
-        if sample_clause:
-            # The sample clause must survive, so this one cannot be flattened.
-            query = (
-                sa.select([sa.func.count()])
-                .select_from(table)
-                .suffix_with(sample_clause)
-            )
-            count_result: Any = conn.execute_single_row(query).scalar()
-        else:
-            count_result = conn.execute_aggregate(table, sa.func.count()).scalar()
+        count_result: Any = conn.execute_aggregate(table, sa.func.count()).scalar()
         # scalar() can return Any | None, so we need to handle None
         if count_result is None:
             return 0
