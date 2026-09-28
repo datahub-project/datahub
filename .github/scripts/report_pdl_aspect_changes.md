@@ -157,7 +157,7 @@ Then per-bucket sections (each omitted when empty), in fixed order:
 | #   | Section                            | What lands here                                                                       | Bullet style          |
 | --- | ---------------------------------- | ------------------------------------------------------------------------------------- | --------------------- |
 | 1   | `## ⚠️ BREAKING`                   | Hits any of the 5 breaking criteria + structural-change-without-bump.                 | Full per-finding      |
-| 2   | `## Transitively affected aspects` | Aspects pulled in via include / field-type from a changed non-aspect record.          | Full per-finding      |
+| 2   | `## Transitively affected aspects` | Aspects pulled in via include / field-type from a changed record (aspect or not).     | Full per-finding      |
 | 3   | `## Additive`                      | New optional fields, new enum values, new files.                                      | Full per-finding      |
 | 4   | `## Noisy`                         | `required→optional` flips · `renamedFrom` renames · `schemaVersion` bumps w/o change. | Full per-finding      |
 | 5   | `## No logical change`             | File in git diff but no aspect-relevant difference (comment/whitespace).              | Collapsed (path only) |

@@ -324,6 +324,40 @@ def test_fields_ignores_nested_record_fields():
     assert "b" not in fs  # b belongs to Inner, not Outer
 
 
+def test_fields_keeps_inline_record_type():
+    src = """
+    record Outer {
+      tracking: optional record Tracking { enabled: boolean }
+    }
+    """
+    fs = rac.fields(src)
+    assert fs["tracking"]["optional"] is True
+    assert fs["tracking"]["type"].startswith("record Tracking")
+
+
+def test_fields_path_spec_in_annotation_is_not_a_comment():
+    # "/*/destinationUrn" ... "edges/*/created/time" once read as a
+    # /* ... */ block comment, dropping `edges` and forkOf's annotation.
+    src = """
+    record Lineage {
+      @Relationship = { "name": "ForkOf" }
+      forkOf: optional Urn
+
+      @Relationship = {
+        "/*/destinationUrn": {
+          "name": "Consumes",
+          "createdOn": "edges/*/created/time"
+        }
+      }
+      edges: optional array[Edge]
+    }
+    """
+    fs = rac.fields(src)
+    assert set(fs) == {"forkOf", "edges"}
+    assert fs["forkOf"]["annotations"] == {"Relationship": '{ "name": "ForkOf" }'}
+    assert "Relationship" in fs["edges"]["annotations"]
+
+
 def test_fields_captures_whitelisted_annotation():
     src = (
         "record Foo {\n"
@@ -1615,11 +1649,66 @@ def test_includes_change_on_nonaspect_seeds_transitive_bump(monkeypatch):
         },
         reached={inc: {aspect}},
     )
-    # analyze_file doesn't detect includes, so has_structural is False — but the
-    # bumper treats includes changes as breaking, so the report must still seed.
-    assert by["IncludesChange.pdl"].has_structural is False
+    assert by["IncludesChange.pdl"].has_structural is True
     assert sources == [inc]
     assert by["AspectViaIncludes.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_includes_change_on_aspect_is_bump_required(monkeypatch):
+    # Adding `includes CustomProperties` to an aspect adds fields to it; the
+    # bumper treats it as a direct change, so its bump is not spurious.
+    aspect = f"{_D}/AspectIncludes.pdl"
+    by, _ = _seed_window(
+        monkeypatch,
+        changed=[aspect],
+        contents={
+            aspect: (
+                '@Aspect = {"name": "a"}\nrecord A { a: string }',
+                '@Aspect = {"name": "a", "schemaVersion": 2}\n'
+                "record A includes CustomProperties { a: string }",
+            ),
+        },
+        reached={},
+    )
+    assert by["AspectIncludes.pdl"].bump_status == rac.BUMP_DONE
+
+
+def test_new_file_includes_is_not_reported_as_change(monkeypatch):
+    path = f"{_D}/NewAspect.pdl"
+    by, _ = _seed_window(
+        monkeypatch,
+        changed=[path],
+        contents={
+            path: ("", '@Aspect = {"name": "n"}\nrecord N includes Base { n: optional string }'),
+        },
+        reached={},
+    )
+    assert not any("includes changed" in b for b in by["NewAspect.pdl"].breaking)
+
+
+def test_breaking_aspect_change_seeds_dependent_aspect(monkeypatch):
+    # An aspect used as a field type by another aspect (IncidentActivityEvent
+    # -> IncidentInfo) must cascade like a non-aspect record does in the bumper.
+    changed_aspect = f"{_D}/Info.pdl"
+    dependent = f"{_D}/Event.pdl"
+    by, sources = _seed_window(
+        monkeypatch,
+        changed=[changed_aspect, dependent],
+        contents={
+            changed_aspect: (
+                '@Aspect = {"name": "info", "schemaVersion": 2}\nrecord Info { x: string }',
+                '@Aspect = {"name": "info", "schemaVersion": 3}\nrecord Info { x: long }',
+            ),
+            dependent: (
+                '@Aspect = {"name": "event", "schemaVersion": 2}\nrecord Event { info: Info }',
+                '@Aspect = {"name": "event", "schemaVersion": 3}\nrecord Event { info: Info }',
+            ),
+        },
+        reached={changed_aspect: {dependent}},
+    )
+    assert changed_aspect in sources
+    assert by["Info.pdl"].bump_status == rac.BUMP_DONE
+    assert by["Event.pdl"].bump_status == rac.BUMP_DONE
 
 
 def test_deleted_nonaspect_seeds_transitive_bump(monkeypatch):
