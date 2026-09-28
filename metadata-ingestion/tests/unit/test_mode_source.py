@@ -909,3 +909,27 @@ class TestImportedDatasetsResolution:
         ):
             assert source._imported_datasets(report) == []
         assert source.report.warnings
+
+    def test_non_404_on_the_detail_call_warns_instead_of_raising(self):
+        """Raising would abort construct_dashboard after the query workunits
+        were yielded, costing the report's dashboard and charts."""
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        response = requests.Response()
+        response.status_code = 503
+        with patch.object(
+            source,
+            "_get_request_json",
+            side_effect=HTTPError("503", response=response),
+        ):
+            assert source._imported_datasets(report) == []
+        assert source.report.warnings
+
+    def test_unexpected_error_on_the_detail_call_warns_instead_of_raising(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        with patch.object(
+            source, "_get_request_json", side_effect=ValueError("bad json")
+        ):
+            assert source._imported_datasets(report) == []
+        assert source.report.warnings

@@ -302,6 +302,34 @@ class HTTPError504(HTTPError):
 ModeRequestError = (HTTPError, JSONDecodeError)
 
 
+def _describe_response_shape(payload: Any) -> str:
+    """Summarise a Mode API response by field names and item counts only.
+
+    The diagnostic signal for a payload-shape bug is which fields Mode did and
+    did not send. The values are customer SQL (``raw_query``) and asset names,
+    and on cloud deployments debug logs are uploaded and rendered in the UI, so
+    they must not be logged.
+    """
+    if not isinstance(payload, dict):
+        return type(payload).__name__
+
+    parts = []
+    own_fields = sorted(k for k in payload if not k.startswith("_"))
+    if own_fields:
+        parts.append(f"fields={own_fields}")
+    embedded = payload.get("_embedded")
+    if isinstance(embedded, dict):
+        for collection, items in embedded.items():
+            if not isinstance(items, list):
+                continue
+            fields: Set[str] = set()
+            for item in items:
+                if isinstance(item, dict):
+                    fields.update(k for k in item if not k.startswith("_"))
+            parts.append(f"{collection}[{len(items)}]={sorted(fields)}")
+    return " ".join(parts) or "empty"
+
+
 def _is_http_404(error: Exception) -> bool:
     """Check if an exception is an HTTP 404 error with a valid response object."""
     return (
@@ -547,17 +575,29 @@ class ModeSource(StatefulIngestionSourceBase):
             )
             with self.report._lock:
                 self.report.report_detail_get_api_called += 1
-        except HTTPError as http_error:
-            if _is_http_404(http_error):
+        except Exception as e:
+            # Degrade to "no imported datasets" rather than aborting: this runs
+            # from construct_dashboard, after the query workunits have been
+            # yielded, so raising would drop the report's dashboard and charts
+            # and lose its lineage -- a worse outcome than a missing dataset
+            # link. Every other Mode API call here degrades the same way.
+            if _is_http_404(e):
                 self.report.warning(
                     title="Report Not Found",
-                    message="Unable to resolve the reports's imported datasets; "
+                    message="Unable to resolve the report's imported datasets; "
                     "the report may have been recently deleted.",
                     context=f"Report Token: {report_token}",
                     log=False,
                 )
-                return []
-            raise
+            else:
+                self.report.warning(
+                    title="Failed to Resolve Imported Datasets",
+                    message="Unable to resolve the report's imported datasets; "
+                    "its reusable-dataset links will be missing.",
+                    context=f"Report Token: {report_token}",
+                    exc=e,
+                )
+            return []
         return detail.get("imported_datasets") or []
 
     def construct_dashboard(
@@ -1856,9 +1896,14 @@ class ModeSource(StatefulIngestionSourceBase):
                 response.raise_for_status()
                 response_json = response.json()
                 # Payload shape varies by workspace and API version, and a
-                # read of a field Mode omits fails silently, so the response
-                # is worth having. Lazy %s args: rendered only when enabled.
-                logger.debug("Mode API response for %s: %s", url, response_json)
+                # read of a field Mode omits fails silently, so the shape is
+                # worth having. Field names only -- never values.
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "Mode API response for %s: %s",
+                        url,
+                        _describe_response_shape(response_json),
+                    )
                 return response_json
             except HTTPError as http_error:
                 error_response = http_error.response
