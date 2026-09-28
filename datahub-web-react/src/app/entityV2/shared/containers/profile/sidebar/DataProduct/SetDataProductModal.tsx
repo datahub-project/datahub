@@ -1,11 +1,12 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Empty, Select, message } from 'antd';
+import { Empty, Select, Tag, message } from 'antd';
 import debounce from 'lodash/debounce';
 import React, { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import ContextPath from '@app/previewV2/ContextPath';
@@ -19,6 +20,7 @@ import { Modal, Text } from '@src/alchemy-components';
 import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { getModalDomContainer } from '@src/utils/focus';
+import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import { useBatchAddToDataProductsMutation, useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
@@ -54,9 +56,12 @@ export default function SetDataProductModal({
     const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
     const [batchAddToDataProductsMutation] = useBatchAddToDataProductsMutation();
-
-    const [selectedDataProducts, setSelectedDataProducts] = useState<DataProduct[]>(currentDataProducts);
+    const [selectedDataProducts, setSelectedDataProducts] = useState<DataProduct[]>(
+        isMultipleDataProductsEnabled ? [] : currentDataProducts,
+    );
     const inputEl = useRef(null);
+    useAutoFocusInModal(inputEl);
+    const { isInFormContext } = useEntityFormContext();
 
     const [getSearchResults, { data, loading: searchLoading }] = useGetAutoCompleteMultipleResultsLazyQuery();
     const { recommendedData: recommendedDataProducts, loading: recommendationsLoading } = useGetRecommendations([
@@ -108,7 +113,16 @@ export default function SetDataProductModal({
 
     const handleMutationSuccess = (successMessage: string) => {
         message.success({ content: successMessage, duration: 3 });
-        setDataProducts?.(selectedDataProducts);
+        if (isMultipleDataProductsEnabled) {
+            // Combine with current data products to correcly show them together in entity sidebar
+            const existingDataProductUrns = currentDataProducts.map((dp) => dp.urn);
+            setDataProducts?.([
+                ...currentDataProducts,
+                ...selectedDataProducts.filter((dp) => !existingDataProductUrns.includes(dp.urn)),
+            ]);
+        } else {
+            setDataProducts?.(selectedDataProducts);
+        }
         sendAnalytics();
         onModalClose();
         setSelectedDataProducts([]);
@@ -187,7 +201,25 @@ export default function SetDataProductModal({
         querySelectorToExecuteClick: '#setDataProductButton',
     });
 
-    const selectValue = selectedDataProducts.map((dp) => entityRegistry.getDisplayName(EntityType.DataProduct, dp));
+    const tagRender = (tagRendererProps) => {
+        const { closable, onClose, value } = tagRendererProps;
+        const onPreventMouseDown = (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+        };
+        const dataProduct = selectedDataProducts.find((dp) => dp.urn === value);
+        return (
+            <Tag closable={closable} onClose={onClose} onMouseDown={onPreventMouseDown}>
+                {dataProduct ? entityRegistry.getDisplayName(EntityType.DataProduct, dataProduct) : value}
+            </Tag>
+        );
+    };
+
+    // FYI: In multiple mode, value should be urns since tagRender handles display.
+    // In single mode, value should be display names for proper rendering.
+    const selectValue = isMultipleDataProductsEnabled
+        ? selectedDataProducts.map((dp) => dp.urn)
+        : selectedDataProducts.map((dp) => entityRegistry.getDisplayName(EntityType.DataProduct, dp));
 
     const loadingOption = {
         label: (
@@ -226,7 +258,7 @@ export default function SetDataProductModal({
             }
             open
             onCancel={onModalClose}
-            getContainer={getModalDomContainer}
+            getContainer={!isInFormContext ? getModalDomContainer : undefined} // if filling out form in full page modal, don't change container as this modal gets hidden
             buttons={[
                 {
                     text: tc('cancel'),
@@ -256,6 +288,7 @@ export default function SetDataProductModal({
                 style={{ width: '100%' }}
                 ref={inputEl}
                 value={selectValue}
+                tagRender={isMultipleDataProductsEnabled ? tagRender : undefined}
                 options={loading ? [loadingOption] : options}
                 notFoundContent={
                     !loading ? (

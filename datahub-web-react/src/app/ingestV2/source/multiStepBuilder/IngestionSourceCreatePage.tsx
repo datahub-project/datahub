@@ -1,7 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { Text } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 
@@ -50,6 +50,22 @@ export function IngestionSourceCreatePage() {
         [location.state?.initialBuilderState],
     );
     const initialStepIndex = location.state?.initialStepIndex ?? 0;
+
+    const analyticsRef = useRef(false);
+
+    useEffect(() => {
+        if (analyticsRef.current) return;
+
+        // Direct page load
+        if (history.action === 'POP') {
+            analyticsRef.current = true;
+            analytics.event({
+                type: EventType.EnterIngestionFlowEvent,
+                entryPoint: 'direct_url',
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const STEPS: IngestionSourceFormStep[] = useMemo(
         () => [
