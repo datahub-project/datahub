@@ -218,8 +218,7 @@ public class Application extends Controller {
       return CompletableFuture.completedFuture(badRequest("Invalid request path or query string"));
     }
     if (!proxyAdmission.tryAcquire()) {
-      return CompletableFuture.completedFuture(
-          status(SERVICE_UNAVAILABLE, "Proxy overloaded.").withHeader(RETRY_AFTER, "1"));
+      return CompletableFuture.completedFuture(proxyAdmission.overloadedResult());
     }
     HttpRequest.Builder httpRequestBuilder =
         HttpRequest.newBuilder().uri(targetUri).timeout(Duration.ofSeconds(120));

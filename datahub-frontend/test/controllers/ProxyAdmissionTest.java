@@ -8,18 +8,22 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import play.mvc.Http;
+import play.mvc.Result;
+import play.mvc.Results;
 
 public class ProxyAdmissionTest {
 
   @Test
   void hysteresis_notReadyAtHighWater_readyAgainAtLowWater() {
     ProxyAdmission admission = new ProxyAdmission(10, null);
-    assertEquals(8, admission.highWater());
-    assertEquals(5, admission.lowWater());
+    assertEquals(9, admission.highWater());
+    assertEquals(7, admission.lowWater());
     assertTrue(admission.isAcceptingTraffic());
 
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < 8; i++) {
       assertTrue(admission.tryAcquire());
     }
     assertTrue(admission.isAcceptingTraffic());
@@ -28,12 +32,11 @@ public class ProxyAdmissionTest {
     assertFalse(admission.isAcceptingTraffic());
 
     admission.release();
-    assertEquals(7, admission.inFlight());
+    assertEquals(8, admission.inFlight());
     assertFalse(admission.isAcceptingTraffic());
 
     admission.release();
-    admission.release();
-    assertEquals(5, admission.inFlight());
+    assertEquals(7, admission.inFlight());
     assertTrue(admission.isAcceptingTraffic());
   }
 
@@ -50,6 +53,35 @@ public class ProxyAdmissionTest {
     admission.release();
     assertTrue(admission.isAcceptingTraffic());
     assertTrue(admission.tryAcquire());
+  }
+
+  @Test
+  void admit_sharesOneBudgetAndReleasesAfterTheCall() {
+    ProxyAdmission admission = new ProxyAdmission(1, null);
+    AtomicInteger calls = new AtomicInteger();
+    Result ok =
+        ProxyAdmission.admit(
+            admission,
+            () -> {
+              calls.incrementAndGet();
+              return Results.ok("ok");
+            });
+    assertEquals(200, ok.status());
+    assertEquals(1, calls.get());
+    assertEquals(0, admission.inFlight());
+
+    assertTrue(admission.tryAcquire());
+    Result rejected =
+        ProxyAdmission.admit(
+            admission,
+            () -> {
+              calls.incrementAndGet();
+              return Results.ok("should-not-run");
+            });
+    assertEquals(503, rejected.status());
+    assertEquals("1", rejected.headers().get(Http.HeaderNames.RETRY_AFTER));
+    assertEquals(1, calls.get());
+    assertEquals(1, admission.inFlight());
   }
 
   @Test

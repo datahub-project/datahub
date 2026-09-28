@@ -4,6 +4,7 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import health.FrontendProbeState;
 import health.FrontendProbeState.Readiness;
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -11,6 +12,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -23,6 +25,13 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public final class PrometheusScrapeServer {
+
+  /**
+   * In-flight {@code /health/live} and {@code /health/ready} calls on this listener. Play's {@code
+   * play_http_requests_inflight} counts {@code /admin} and {@code /health} on port 9002; these
+   * probes are not in that chain.
+   */
+  static final String HEALTH_INFLIGHT = "frontend_management_health_inflight";
 
   /** Last server started by {@link #startIfConfigured}; cleared when stopped. For tests only. */
   private static volatile HttpServer activeScrapeServer;
@@ -99,6 +108,14 @@ public final class PrometheusScrapeServer {
   private static HttpServer createAndStart(PrometheusMeterRegistry prometheusRegistry, int port)
       throws IOException {
     HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
+    AtomicInteger healthInFlight = new AtomicInteger();
+    if (prometheusRegistry != null) {
+      Gauge.builder(HEALTH_INFLIGHT, healthInFlight, AtomicInteger::get)
+          .description(
+              "In-flight /health/live and /health/ready on the management listener, not the Play filter chain")
+          .strongReference(true)
+          .register(prometheusRegistry);
+    }
     server.createContext(
         "/actuator/prometheus",
         exchange -> {
@@ -116,17 +133,23 @@ public final class PrometheusScrapeServer {
             os.write(body);
           }
         });
-    server.createContext("/health/live", exchange -> sendPlainText(exchange, 200, "LIVE"));
+    server.createContext(
+        "/health/live",
+        exchange -> track(healthInFlight, exchange, ex -> sendPlainText(ex, 200, "LIVE")));
     server.createContext(
         "/health/ready",
-        exchange -> {
-          Readiness readiness = FrontendProbeState.readiness();
-          if (readiness == Readiness.READY) {
-            sendPlainText(exchange, 200, "READY");
-          } else {
-            sendPlainText(exchange, 503, readinessBody(readiness));
-          }
-        });
+        exchange ->
+            track(
+                healthInFlight,
+                exchange,
+                ex -> {
+                  Readiness readiness = FrontendProbeState.readiness();
+                  if (readiness == Readiness.READY) {
+                    sendPlainText(ex, 200, "READY");
+                  } else {
+                    sendPlainText(ex, 503, readinessBody(readiness));
+                  }
+                }));
     // A scrape must not block a probe, so this is not a single thread.
     ExecutorService executor =
         Executors.newFixedThreadPool(
@@ -139,6 +162,21 @@ public final class PrometheusScrapeServer {
     server.setExecutor(executor);
     server.start();
     return server;
+  }
+
+  private static void track(AtomicInteger inFlight, HttpExchange exchange, HealthHandler handler)
+      throws IOException {
+    inFlight.incrementAndGet();
+    try {
+      handler.handle(exchange);
+    } finally {
+      inFlight.decrementAndGet();
+    }
+  }
+
+  @FunctionalInterface
+  private interface HealthHandler {
+    void handle(HttpExchange exchange) throws IOException;
   }
 
   private static String readinessBody(Readiness readiness) {

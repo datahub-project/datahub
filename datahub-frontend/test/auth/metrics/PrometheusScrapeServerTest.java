@@ -70,7 +70,7 @@ class PrometheusScrapeServerTest {
       assertEquals("LIVE", getBody(port, "/health/live"));
       assertEquals(200, getStatus(port, "/health/ready"));
 
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < 9; i++) {
         assertTrue(admission.tryAcquire());
       }
       assertEquals(200, getStatus(port, "/health/live"));
@@ -91,7 +91,10 @@ class PrometheusScrapeServerTest {
       assertEquals("Shutting down", getBody(port, "/health/ready"));
 
       assertEquals(200, getStatus(port, "/actuator/prometheus"));
-      assertTrue(getBody(port, "/actuator/prometheus").contains("test_frontend_scrape"));
+      String scrape = getBody(port, "/actuator/prometheus");
+      assertTrue(scrape.contains("test_frontend_scrape"));
+      assertTrue(scrape.contains(PrometheusScrapeServer.HEALTH_INFLIGHT));
+      assertEquals(0, registry.get(PrometheusScrapeServer.HEALTH_INFLIGHT).gauge().value());
     } finally {
       server.stop(0);
     }
