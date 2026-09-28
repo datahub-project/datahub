@@ -722,10 +722,18 @@ class SecretRegistry:
             return own
         return own + self._parent.get_count()
 
+    def forget_disclosed(self) -> None:
+        """Drop every declared disclosure, for a caller starting a new recipe
+        in the same process -- a disclosure belongs to the recipe that
+        stated the value, not to the next one."""
+        with self._registry_lock:
+            self._disclosed = frozenset()
+
     def clear(self) -> None:
         with self._registry_lock:
             self._secrets = {}
             self._name_history = {}
+            self._disclosed = frozenset()
             self._capacity_exceeded = False
             self._compile_failed = False
             self._version += 1

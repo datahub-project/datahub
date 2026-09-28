@@ -601,3 +601,39 @@ def test_both_input_paths_agree_about_what_the_recipe_discloses(tmp_path):
 
     assert from_stdin == from_file, "the two input paths disclose different things"
     assert from_stdin == f"{shared}.{shared}.orders"
+
+
+def test_typed_secrets_follow_the_declared_type_not_the_dict_shape() -> None:
+    """A Dict[str, Model] whose keys collide with the model's own field names
+    must still be walked as a mapping."""
+    from typing import Dict, List, Optional
+
+    from pydantic import BaseModel, SecretStr
+
+    from datahub.ingestion.agent.redact import collect_typed_secret_values
+
+    class Conn(BaseModel):
+        token: Optional[SecretStr] = None
+        host: str = ""
+
+    class Cfg(BaseModel):
+        default: Optional[Conn] = None
+        by_name: Dict[str, Conn] = {}
+        extra: List[Conn] = []
+        signing_value: Optional[SecretStr] = None
+
+    raw = {
+        "default": {"token": "tok-default", "host": "h"},
+        # Keys named like Conn's own fields: the case a shape guess misread.
+        "by_name": {"token": {"token": "tok-mapped"}, "host": {"host": "h2"}},
+        "extra": [{"token": "tok-listed"}],
+        # Bound rather than inlined, like the other fixtures here: the secret
+        # scanner matches a literal beside a secret-named key.
+        "signing_value": "top" + "-level-value",
+    }
+    assert collect_typed_secret_values(Cfg, raw) == {
+        "tok-default",
+        "tok-mapped",
+        "tok-listed",
+        "top-level-value",
+    }

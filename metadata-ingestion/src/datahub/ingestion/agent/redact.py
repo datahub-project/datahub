@@ -1,4 +1,20 @@
-from typing import Any, Dict, FrozenSet, List, Sequence, Set, Tuple, Type, get_args
+from collections.abc import Mapping
+from types import UnionType
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from pydantic import BaseModel, SecretStr
 
@@ -129,16 +145,43 @@ def collect_secret_values(
     return values
 
 
-def _annotation_types(annotation: object) -> List[object]:
-    """The concrete types an annotation can hold: Optional, Union, List and
-    Dict unwrapped. pydantic has already stripped Annotated metadata."""
-    args = get_args(annotation)
-    if not args:
-        return [annotation]
-    return [t for arg in args for t in _annotation_types(arg)]
+def _secrets_in(annotation: object, value: object) -> Set[str]:
+    """Raw secret values in `value`, read against its declared type.
+
+    Driven by the annotation rather than by the value's shape: a dict is one
+    model or a mapping of names to models depending on what the field
+    declares, and guessing from its keys misread a mapping whose keys happen
+    to match the model's field names.
+    """
+    if annotation is SecretStr:
+        return {value} if isinstance(value, str) and value else set()
+    if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+        return collect_typed_secret_values(annotation, value)
+    origin, args = get_origin(annotation), get_args(annotation)
+    if origin is None or not args:
+        return set()
+    if origin is Annotated:
+        return _secrets_in(args[0], value)
+    if origin is Union or origin is UnionType:
+        return set().union(*(_secrets_in(arg, value) for arg in args))
+    if isinstance(origin, type) and issubclass(origin, Mapping):
+        if not isinstance(value, dict):
+            return set()
+        return set().union(*(_secrets_in(args[-1], v) for v in value.values()))
+    if isinstance(origin, type) and issubclass(origin, (list, tuple, set, frozenset)):
+        if not isinstance(value, (list, tuple)):
+            return set()
+        pairs: Iterable[Tuple[object, object]]
+        if origin is tuple and len(args) > 1 and args[-1] is not Ellipsis:
+            # Not strict: a value shorter than its tuple type is still walked.
+            pairs = zip(args, value, strict=False)
+        else:
+            pairs = ((args[0], item) for item in value)
+        return set().union(*(_secrets_in(arg, item) for arg, item in pairs))
+    return set()
 
 
-def collect_typed_secret_values(model_cls: type, config: object) -> Set[str]:
+def collect_typed_secret_values(model_cls: Type[BaseModel], config: object) -> Set[str]:
     """Raw values sitting in a SecretStr field of `model_cls`, at any depth.
 
     Read against the RAW recipe by walking the model's field types, not by
@@ -147,34 +190,14 @@ def collect_typed_secret_values(model_cls: type, config: object) -> Set[str]:
     azure_config.account_key, git_info.deploy_key -- which the hint sweep and
     the top-level SECRET fields both miss.
     """
+    if not isinstance(config, dict):
+        return set()
     found: Set[str] = set()
-    if not isinstance(config, dict) or not isinstance(model_cls, type):
-        return found
-    if not issubclass(model_cls, BaseModel):
-        return found
     for name, field in model_cls.model_fields.items():
         value = config.get(field.alias or name, config.get(name))
-        if value is None:
-            continue
-        for kind in _annotation_types(field.annotation):
-            if kind is SecretStr and isinstance(value, str) and value:
-                found.add(value)
-            elif isinstance(kind, type) and issubclass(kind, BaseModel):
-                items = value if isinstance(value, list) else [value]
-                if isinstance(value, dict) and not _is_one_instance(kind, value):
-                    items = list(value.values())
-                for item in items:
-                    found |= collect_typed_secret_values(kind, item)
+        if value is not None:
+            found |= _secrets_in(field.annotation, value)
     return found
-
-
-def _is_one_instance(model_cls: Type[BaseModel], value: Dict[str, object]) -> bool:
-    """Whether a dict is one instance of `model_cls` rather than a mapping of
-    names to instances (Dict[str, Model])."""
-    fields = {f.alias or n for n, f in model_cls.model_fields.items()} | set(
-        model_cls.model_fields
-    )
-    return any(key in fields for key in value)
 
 
 def collect_nested_secret_values(

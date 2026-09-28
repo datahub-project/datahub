@@ -64,8 +64,18 @@ class _AgentAwareGroup(click.Group):
             formatter.write(agent_text)
 
 
+def _masked(payload: object) -> object:
+    """`payload` as pure JSON types with every string masked against the
+    registry. Normalized first so no object reaches the masker unconverted."""
+    from datahub.masking.masking_filter import SecretMaskingFilter
+
+    plain = json.loads(json.dumps(payload, default=_json_default))
+    return SecretMaskingFilter().mask_structure(plain)
+
+
 def _emit(payload: object) -> None:
-    click.echo(json.dumps(payload, indent=2, default=str))
+    # The stdout wrapper also masks, but only the serialized text; see _masked.
+    click.echo(json.dumps(_masked(payload), indent=2, default=str))
 
 
 def _json_default(o: object) -> object:
@@ -99,7 +109,7 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
             # open, so a value it cannot serialize used to raise partway
             # through and leave a half-written report that reads as valid
             # output.
-            text = json.dumps(payload, default=_json_default)
+            text = json.dumps(_masked(payload), default=_json_default)
 
             # SECURITY: masked against the registry, the same as stdout.
             #
@@ -115,10 +125,9 @@ def _write_report(report_to: Optional[str], payload: object) -> None:
             # _redacted_payload at all, and the other two redact only what
             # they collected. An earlier version of this comment claimed
             # every caller pre-redacts. It does not.
-            from datahub.masking.masking_filter import SecretMaskingFilter
-
-            text = SecretMaskingFilter().mask_text(text)
-
+            #
+            # Masked as a structure, before serializing: JSON escaping changes
+            # how a secret renders, so masking the serialized text can miss it.
             with open(report_to, "w") as f:
                 f.write(text)
         except OSError as exc:
@@ -534,6 +543,10 @@ def recipe() -> None:
     # and could resolve its own ${REF}s from them.
     _stdin_secrets.clear()
     _disclosed_recipe_values.clear()
+    # The registry's copy too: left in place, a later recipe whose password
+    # equals an earlier recipe's identifier was treated as disclosed and
+    # went out unmasked.
+    SecretRegistry.get_instance().forget_disclosed()
 
 
 def _ping_probe(command: str, source_type: str, **dims: object) -> None:

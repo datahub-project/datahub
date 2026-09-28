@@ -1384,15 +1384,25 @@ def test_probe_errors_map_to_the_documented_exit_codes(raised: str, code: int) -
     [
         (
             "source:\n"
+            "  type: abs\n"
+            "  config:\n"
+            "    path_specs:\n"
+            "      - include: https://acct.blob.core.windows.net/c/*.csv\n"
+            "    azure_config:\n"
+            "      account_name: acct\n"
+            "      container_name: c\n"
+            "      account_key: inline-account-key-value\n",
+            "inline-account-key-value",
+        ),
+        (
+            "source:\n"
             "  type: delta-lake\n"
             "  config:\n"
             "    base_path: abfss://c@acct.dfs.core.windows.net/x\n"
             "    azure:\n"
-            "      azure_config:\n"
-            "        account_name: acct\n"
-            "        container_name: c\n"
-            "        account_key: inline-account-key-value\n",
-            "inline-account-key-value",
+            "      account_name: acct\n"
+            "      account_key: inline-delta-key-value\n",
+            "inline-delta-key-value",
         ),
         (
             "source:\n"
@@ -1421,3 +1431,33 @@ def test_a_nested_inline_secret_no_hint_names_is_not_declared_disclosed(
     assert secret not in rc._disclosed_recipe_values
     SecretRegistry.get_instance().register_secrets_batch({"INLINE": secret})
     assert secret not in SecretMaskingFilter().mask_text(f"leaked {secret}")
+
+
+def test_a_disclosure_does_not_outlive_its_invocation() -> None:
+    """A value one recipe states in the clear is not disclosed for the next
+    recipe run in the same process -- there it may be a password."""
+    from datahub.masking.masking_filter import SecretMaskingFilter
+    from datahub.masking.secret_registry import SecretRegistry
+
+    shared = "shared" + "-identifier-value"
+    SecretRegistry.get_instance().declare_disclosed({shared})
+    assert rc.recipe.callback is not None
+    rc.recipe.callback()  # the group callback every invocation runs first
+
+    SecretRegistry.get_instance().register_secrets_batch({"NEXT_PW": shared})
+    assert shared not in SecretMaskingFilter().mask_text(f"login as {shared}")
+
+
+def test_the_report_file_masks_before_serializing(tmp_path: pathlib.Path) -> None:
+    """JSON escaping changes how a secret renders; masking the serialized
+    text can then miss it."""
+    from datahub.masking.secret_registry import SecretRegistry
+
+    secret = 'quote"and\\back' + "slash-secret"
+    SecretRegistry.get_instance().register_secrets_batch({"PW": secret})
+    out = tmp_path / "report.json"
+    rc._write_report(str(out), {"error": f"driver said {secret}"})
+
+    written = out.read_text()
+    assert secret not in json.loads(written)["error"]
+    assert "slash-secret" not in written
