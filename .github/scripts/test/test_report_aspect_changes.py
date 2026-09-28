@@ -923,7 +923,7 @@ def test_main_cumulative_bucket_follows_per_pr_spurious_slice(monkeypatch, tmp_p
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
     monkeypatch.setattr(rac, "last_author_for_file", lambda *a: "Alice")
     monkeypatch.setattr(rac, "find_transitive_aspects", lambda non_aspect: set())
-    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", lambda srcs: {})
+    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", lambda srcs, **kw: {})
     monkeypatch.setattr(rac, "find_mutators_added_in_window", lambda *a: [])
     monkeypatch.setattr(rac, "discover_mutator_hierarchy", lambda: set())
     # Per-PR audit shows one real-change PR (#9555 = bump_done) and one
@@ -985,7 +985,7 @@ def test_main_cumulative_bucket_clean_when_all_slices_are_done(monkeypatch, tmp_
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
     monkeypatch.setattr(rac, "last_author_for_file", lambda *a: "Alice")
     monkeypatch.setattr(rac, "find_transitive_aspects", lambda non_aspect: set())
-    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", lambda srcs: {})
+    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", lambda srcs, **kw: {})
     monkeypatch.setattr(rac, "find_mutators_added_in_window", lambda *a: [])
     monkeypatch.setattr(rac, "discover_mutator_hierarchy", lambda: set())
     monkeypatch.setattr(
@@ -1034,7 +1034,7 @@ def test_main_cumulative_mode_still_overrides_when_promoting_to_needed_or_spurio
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
     monkeypatch.setattr(rac, "last_author_for_file", lambda *a: "Alice")
     monkeypatch.setattr(rac, "find_transitive_aspects", lambda non_aspect: set())
-    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", lambda srcs: {})
+    monkeypatch.setattr(rac, "find_transitive_aspects_per_source", lambda srcs, **kw: {})
     monkeypatch.setattr(rac, "find_mutators_added_in_window", lambda *a: [])
     monkeypatch.setattr(rac, "discover_mutator_hierarchy", lambda: set())
     # Per-PR audit: only spurious slices. Cumulative bump_not_needed should
@@ -1429,7 +1429,7 @@ def test_main_routes_two_hop_transitive_aspect_to_transitive_section(
     monkeypatch.setattr(
         rac,
         "find_transitive_aspects_per_source",
-        lambda sources: {changed_nested_path: {aspect_path}},
+        lambda sources, **kw: {changed_nested_path: {aspect_path}},
     )
     # Cumulative mode now also runs per_pr_audit; stub it for this test which
     # exercises only the transitive-reclassification + section-routing logic.
@@ -1477,7 +1477,7 @@ def _seed_window(monkeypatch, changed, contents, reached):
             return None
         return pair[0] if ref == "BASE" else pair[1]
 
-    def spy_per_source(sources):
+    def spy_per_source(sources, **kw):
         captured["sources"] = list(sources)
         return {s: set(reached.get(s, set())) for s in sources if s in reached}
 
@@ -1673,6 +1673,65 @@ def test_includes_change_on_aspect_is_bump_required(monkeypatch):
     assert by["AspectIncludes.pdl"].bump_status == rac.BUMP_DONE
 
 
+def test_aspect_annotation_change_is_bump_required(monkeypatch):
+    # bsv treats any @Aspect change other than schemaVersion as bump-worthy.
+    path = f"{_D}/AspectAnn.pdl"
+    by, _ = _seed_window(
+        monkeypatch,
+        changed=[path],
+        contents={
+            path: (
+                '@Aspect = {"name": "a"}\nrecord A { a: string }',
+                '@Aspect = {"name": "a", "type": "timeseries", "schemaVersion": 2}\n'
+                "record A { a: string }",
+            ),
+        },
+        reached={},
+    )
+    f = by["AspectAnn.pdl"]
+    assert f.bump_status == rac.BUMP_DONE
+    assert any("@Aspect annotation changed" in b for b in f.breaking)
+
+
+def test_unparseable_change_fails_closed_like_bumper(monkeypatch):
+    # bsv cannot model typeref, so it requires a bump; the report must agree.
+    path = f"{_D}/WithTyperef.pdl"
+    by, _ = _seed_window(
+        monkeypatch,
+        changed=[path],
+        contents={
+            path: (
+                '@Aspect = {"name": "t"}\nrecord T { t: string }\ntyperef Id = string',
+                '@Aspect = {"name": "t"}\nrecord T { t: string }\ntyperef Id = long',
+            ),
+        },
+        reached={},
+    )
+    assert by["WithTyperef.pdl"].bump_status == rac.BUMP_NEEDED
+
+
+def test_bumper_compatible_verdict_overrides_report_diff(monkeypatch):
+    # When the report's own diff calls something breaking but the bumper
+    # proves it backward-compatible, the bumper wins and nothing stays breaking.
+    path = f"{_D}/Overridden.pdl"
+    monkeypatch.setattr(rac, "_contents_backward_compatible", lambda old, new: True)
+    by, _ = _seed_window(
+        monkeypatch,
+        changed=[path],
+        contents={
+            path: (
+                '@Aspect = {"name": "o"}\nrecord O { a: string }',
+                '@Aspect = {"name": "o"}\nrecord O { a: long }',
+            ),
+        },
+        reached={},
+    )
+    f = by["Overridden.pdl"]
+    assert f.bump_status == rac.BUMP_NOT_NEEDED
+    assert f.breaking == []
+    assert any("backward-compatible per bump_schema_versions" in n for n in f.noisy)
+
+
 def test_new_file_includes_is_not_reported_as_change(monkeypatch):
     path = f"{_D}/NewAspect.pdl"
     by, _ = _seed_window(
@@ -1684,6 +1743,40 @@ def test_new_file_includes_is_not_reported_as_change(monkeypatch):
         reached={},
     )
     assert not any("includes changed" in b for b in by["NewAspect.pdl"].breaking)
+
+
+def test_transitive_graph_is_read_at_ref_not_checkout(tmp_path, monkeypatch):
+    # A record deleted after the audited commit must still cascade at that
+    # commit, as it did when the bumper ran there.
+    root = tmp_path / "metadata-models/src/main/pegasus/com/linkedin/x"
+    root.mkdir(parents=True)
+    (root / "Part.pdl").write_text("namespace com.linkedin.x\nrecord Part { p: string }\n")
+    (root / "Holder.pdl").write_text(
+        'namespace com.linkedin.x\n@Aspect = {"name": "holder"}\n'
+        "record Holder { part: Part }\n"
+    )
+
+    def git(*args):
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+
+    git("init", "-q")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "add", ".")
+    git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "one")
+    old = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, capture_output=True, text=True
+    ).stdout.strip()
+    (root / "Part.pdl").unlink()
+    (root / "Holder.pdl").write_text(
+        'namespace com.linkedin.x\n@Aspect = {"name": "holder"}\n'
+        "record Holder { part: string }\n"
+    )
+
+    monkeypatch.setattr(rac, "REPO_ROOT", tmp_path)
+    monkeypatch.chdir(tmp_path)
+    src = "metadata-models/src/main/pegasus/com/linkedin/x/Part.pdl"
+    holder = "metadata-models/src/main/pegasus/com/linkedin/x/Holder.pdl"
+    assert rac.find_transitive_aspects_per_source([src]) == {src: set()}
+    assert rac.find_transitive_aspects_per_source([src], at_ref=old) == {src: {holder}}
 
 
 def test_breaking_aspect_change_seeds_dependent_aspect(monkeypatch):
@@ -1982,6 +2075,7 @@ def test_catchup_reconciles_no_pr_debt_by_sha():
     # The bump is reclassified as a catch-up that paid the no-PR debt (by sha).
     assert by_sha["bbbb222"]["bump_status"] == rac.BUMP_DONE
     assert "aaaa111" in (by_sha["bbbb222"].get("catch_up_shas") or [])
+    assert "no-PR commit" in rac._describe_per_pr_slice(by_sha["bbbb222"])
 
     # The file aggregate is bump_done — the no-PR debt is reconciled, not leaked
     # as a false bump_needed.
@@ -2363,7 +2457,7 @@ def test_main_reclassifies_aspect_bump_as_done_when_transitively_affected(
         # Simulates the BFS: nested is the changed non-aspect, AspectA depends on it.
         return {aspect_path}
 
-    def fake_find_transitive_per_source(sources):
+    def fake_find_transitive_per_source(sources, **kw):
         # Per-source variant: each source's BFS downstream set.
         return {nested_path: {aspect_path}}
 

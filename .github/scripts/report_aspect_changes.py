@@ -22,13 +22,18 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
+import io
+import os
 import re
 import subprocess
 import sys
+import tarfile
+import tempfile
 from dataclasses import dataclass, field as dc_field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Iterator, Optional
 
 # Sibling import: `.github/scripts/` is on sys.path[0] via Python's
 # script-directory rule when this file is invoked as a script.
@@ -719,6 +724,10 @@ def _describe_per_pr_slice(entry: dict) -> str:
     if catch_up:
         prs_str = ", ".join(f"#{p}" for p in catch_up)
         parts.append(f"catch-up for unbumped change(s) in {prs_str}")
+    elif entry.get("catch_up_shas"):
+        # Debt came only from no-PR commits; without this the row shows a
+        # bare bump with no reason for its bump_done verdict.
+        parts.append("catch-up for unbumped change(s) in a no-PR commit")
 
     if status == BUMP_SPURIOUS and not structural:
         parts.append("no schema change in this slice")
@@ -1088,6 +1097,26 @@ def analyze_file(path: str, base: str, head: str) -> FileFinding:
             f.additive.append(f"enum {ename}: added value {v}")
             # Additive enum values do not require a schemaVersion bump.
 
+    # The bump decision is bump_schema_versions.main's own rule: a changed file
+    # needs a bump unless it is comment-only or provably backward-compatible.
+    # The diff above only describes the change; deferring the verdict keeps
+    # @Aspect annotation edits and fail-closed parse cases in line with the
+    # bumper instead of re-deriving them here.
+    if old:
+        bump_required = not _contents_comment_only(
+            old, new
+        ) and not _contents_backward_compatible(old, new)
+        if bump_required and not has_structural:
+            f.breaking.append(_unmodeled_bump_reason(old, new))
+        elif has_structural and not bump_required:
+            # A difference the diff above calls structural but the bumper
+            # proves backward-compatible: keep it visible, not as breaking.
+            f.noisy.extend(
+                f"{b} (backward-compatible per bump_schema_versions)" for b in f.breaking
+            )
+            f.breaking = []
+        has_structural = bump_required
+
     if is_aspect:
         # Use bump_schema_versions semantics: missing schemaVersion is treated as 1.
         # Keeps this check consistent with _classify_bump below.
@@ -1137,14 +1166,57 @@ def find_transitive_aspects(directly_changed: list[str]) -> set[str]:
     )
 
 
+@contextlib.contextmanager
+def _pdl_tree_at(ref: str) -> Iterator[None]:
+    """Run the enclosed bsv graph/BFS calls against the PDL files as they are
+    at `ref`, not the on-disk checkout.
+
+    bsv resolves its PDL roots relative to the working directory (the bumper
+    always runs inside the commit it checks). Without this, a historical slice
+    uses today's graph: a record deleted since (SemanticField) can no longer
+    cascade, and a reference added since (CreateEvalProposal -> Eval*) cascades
+    into commits where it did not exist yet.
+    """
+    with tempfile.TemporaryDirectory(prefix="pdl-tree-") as tmp:
+        extracted = 0
+        for root in bsv.get_pdl_roots():
+            try:
+                archive = subprocess.check_output(
+                    ["git", "archive", "--format=tar", ref, "--", str(root)],
+                    cwd=REPO_ROOT,
+                    stderr=subprocess.PIPE,
+                )
+            except subprocess.CalledProcessError:
+                continue  # root absent at this ref
+            with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+                # "data" rejects absolute/escaping member paths and is the
+                # 3.14 default; passing it keeps 3.12+ from warning.
+                tar.extractall(tmp, filter="data")
+            extracted += 1
+        if not extracted:
+            # e.g. an absolute PDL_ROOTS entry: an empty graph would silently
+            # drop every cascade, so keep the checkout instead.
+            yield
+            return
+        prev = os.getcwd()
+        os.chdir(tmp)
+        try:
+            yield
+        finally:
+            os.chdir(prev)
+
+
 def find_transitive_aspects_per_source(
     sources: list[str],
+    at_ref: Optional[str] = None,
 ) -> dict[str, set[str]]:
     """For each changed source path, compute its downstream aspect set.
 
     Returns `{source_path: set(aspect_paths)}` — the set of aspect files that
     transitively depend on each individual source. The reverse-include graph
     is built once and reused across all source BFS lookups for efficiency.
+    With `at_ref`, the graph is built from the PDL tree at that ref (as the
+    bumper sees it when run on that commit) instead of the checkout.
 
     Used by `_classify_window` to attribute purely-transitive aspects to the
     SPECIFIC upstream source(s) that pulled them into the transitive set,
@@ -1152,6 +1224,9 @@ def find_transitive_aspects_per_source(
     """
     if not sources:
         return {}
+    if at_ref is not None:
+        with _pdl_tree_at(at_ref):
+            return find_transitive_aspects_per_source(sources)
     all_pdl_files = bsv.find_all_pdl_files()
     reverse_graph = bsv.build_reverse_include_graph(all_pdl_files)
     result: dict[str, set[str]] = {}
@@ -1534,8 +1609,10 @@ def _is_comment_only_change(path: str, base: str, head: str) -> bool:
     comment-only — consistent with the bumper, which never silently drops
     new/removed files.
     """
-    old = file_at(base, path)
-    new = file_at(head, path)
+    return _contents_comment_only(file_at(base, path), file_at(head, path))
+
+
+def _contents_comment_only(old: Optional[str], new: Optional[str]) -> bool:
     if not old or not new:
         return False
     return bsv.normalize_pdl_for_compare(old) == bsv.normalize_pdl_for_compare(new)
@@ -1560,8 +1637,11 @@ def _is_backward_compatible_change(path: str, base: str, head: str) -> bool:
     @Aspect changes beyond schemaVersion, or any parse ambiguity — matching the
     bumper's conservative stance.
     """
-    old = file_at(base, path)
-    new = file_at(head, path)
+    return _contents_backward_compatible(file_at(base, path), file_at(head, path))
+
+
+def _contents_backward_compatible(old: Optional[str], new: Optional[str]) -> bool:
+    # Same checks, in the same order, as bsv.is_backward_compatible_change.
     if not old or not new:
         return False
     if bsv._aspect_annotation_without_version(
@@ -1573,6 +1653,21 @@ def _is_backward_compatible_change(path: str, base: str, head: str) -> bool:
     if old_defs is None or new_defs is None:
         return False
     return bsv._defs_backward_compatible(old_defs, new_defs)
+
+
+def _unmodeled_bump_reason(old: str, new: str) -> str:
+    """Explain a bump the bumper requires but the field/enum diff did not
+    describe, so the finding never reads as a bump with no reason."""
+    old_ann = bsv._aspect_annotation_without_version(old)
+    new_ann = bsv._aspect_annotation_without_version(new)
+    if old_ann != new_ann:
+        return f"@Aspect annotation changed: {old_ann} → {new_ann}"
+    if bsv.parse_top_level_defs(old) is None or bsv.parse_top_level_defs(new) is None:
+        return (
+            "unparseable PDL construct (e.g. typeref); bump_schema_versions "
+            "fails closed and requires a bump"
+        )
+    return "change bump_schema_versions does not treat as backward-compatible"
 
 
 def _classify_window(base: str, head: str) -> list[FileFinding]:
@@ -1613,7 +1708,7 @@ def _classify_window(base: str, head: str) -> list[FileFinding]:
     # Per-source BFS so we can attribute each transitive aspect to the
     # SPECIFIC upstream record(s) that reach it (rather than every changed
     # record, which would over-attribute).
-    aspects_reached_by_source = find_transitive_aspects_per_source(seeds)
+    aspects_reached_by_source = find_transitive_aspects_per_source(seeds, at_ref=head)
     transitive: set[str] = set().union(*aspects_reached_by_source.values())
     # Inverted map: aspect_path → list of upstream sources that reach it
     sources_for_aspect: dict[str, list[str]] = {}
@@ -1635,13 +1730,13 @@ def _classify_window(base: str, head: str) -> list[FileFinding]:
             transitively_affected=True,
         )
         if not f.affected_via:
+            # Same choice as for purely-transitive aspects below: the source
+            # named in this file, else the first source whose BFS reaches it
+            # (an indirect link names nothing in the file itself).
+            reaching = sources_for_aspect.get(f.path, [])
             f.affected_via = next(
-                (
-                    Path(p).stem
-                    for p in sources_for_aspect.get(f.path, seeds)
-                    if Path(p).stem in new_content
-                ),
-                "transitive dependency",
+                (Path(p).stem for p in reaching if Path(p).stem in new_content),
+                Path(reaching[0]).stem if reaching else "transitive dependency",
             )
         f.noisy = [n for n in f.noisy if "bumped with NO structural change" not in n]
         if not any("transitively affected" in n for n in f.noisy):

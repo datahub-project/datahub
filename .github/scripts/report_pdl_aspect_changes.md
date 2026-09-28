@@ -119,13 +119,15 @@ For every changed file the classifier compares base vs. head content and emits f
 |     | **`schemaVersion` bump without bump-required change** (e.g. CorpUserInfo #18278)                                                                                                                                                                          | noisy    | — (spurious)   |
 |     | Changed a **non-whitelisted** field annotation (e.g. `@deprecated`, `@compliance`, `@UrnValidation`)                                                                                                                                                      | _(none)_ | no             |
 
+The table describes how changes are _labelled_. Whether a file's change is bump-required is decided by `bump_schema_versions.py`'s own rule, so the two tools always agree: a changed file needs a bump unless it is comment-only or backward-compatible per `is_backward_compatible_change`. That also covers changes the table does not list — an `includes` change, an `@Aspect` annotation change other than `schemaVersion`, or a construct the parser cannot model (e.g. `typeref`), which fails closed. When the bumper requires a bump the labels above did not explain, the finding states the reason.
+
 ### Step 4 — Walk the dependency graph (transitive impact)
 
-For each changed **non-aspect** record, the tool delegates to `bump_schema_versions.py`'s reverse-include graph + BFS to find every aspect that depends on the record via PDL `includes` OR field-type references. Those aspects are surfaced even if they weren't directly edited.
+For each changed file whose change is bump-required — aspect or not, exactly the files `bump_schema_versions.py` cascades from — the tool delegates to its reverse-include graph + BFS to find every aspect that depends on the file via PDL `includes` OR field-type references. Those aspects are surfaced even if they weren't directly edited. The graph is built from the PDL tree at `head` (via `git archive`), so a historical window sees the dependencies that existed at that commit, as the bumper did when it ran there.
 
 ### Step 5 — Reclassify directly-edited aspects
 
-Aspects that were both directly edited AND reached by the BFS get their `bump_status` re-evaluated with transitive context — so an aspect bumped _because_ a sibling non-aspect changed in the same PR is correctly classified as `bump_done` (legitimate), not `bump_spurious`.
+Aspects that were both directly edited AND reached by the BFS get their `bump_status` re-evaluated with transitive context — so an aspect bumped _because_ a record it depends on changed in the same PR is correctly classified as `bump_done` (legitimate), not `bump_spurious`.
 
 ### Step 6 — Per-aspect bump-status classification
 
@@ -362,8 +364,8 @@ If you want to keep the report alongside release notes, redirect `--output` to a
 
 - **Heuristic regex-based parsing.** The classifier does not use a full PDL grammar. Edge cases that aren't valid PDL (which would fail codegen anyway) are silently skipped — false negatives are not expected on syntactically-valid PDLs, but a future PDL syntax extension may require updates.
 - **PDL root pinned to `metadata-models/src/main/pegasus/`.** Other PDL sources (e.g. plugin modules) aren't scanned. `bump_schema_versions.py` supports `PDL_ROOTS`; if you set it, that override flows through.
-- **Transitive walk reads the working tree.** `find_transitively_affected_aspects` (in `bump_schema_versions.py`) walks files on disk, not at arbitrary git refs. The workflow always checks out the head ref, so the default invocation is safe; if you ever invoke with `--head <some-other-ref>` while the working tree is checked out elsewhere, the transitive closure reflects the checkout rather than `head`.
-- **Single-hop "affected via" labels.** When a transitively-affected aspect's content references the changed non-aspect directly, the trail names that record. For multi-hop chains (Aspect → Intermediate → ChangedRecord), the label falls back to a generic "transitive dependency" — the BFS still surfaces the aspect correctly, but the proximate-hop name isn't displayed.
+- **Field defaults count as changes.** `bump_schema_versions.py` strips a field default only at the very end of the field's type text, which misses the usual multi-line layout, so a default-only edit is treated as bump-required. The report shares that parser, so it reports the same.
+- **Single-hop "affected via" labels.** When a transitively-affected aspect's content references the changed record directly, the trail names that record. For multi-hop chains (Aspect → Intermediate → ChangedRecord), the label names the changed record the BFS started from, not the intermediate hop.
 - **Cumulative-diff classification.** Findings reflect the cumulative `base..head` diff, not per-PR slices. Wide windows can therefore mask per-PR `bump_spurious` cases when legitimate changes from other PRs in the window justify the same version bump. See [Choosing the window](#choosing-the-window-cumulative-diff-trade-offs) above for the full nuance and the recipe for true per-PR analysis.
 - **Read-only.** This script never writes under `metadata-models/`. Compare with `bump_schema_versions.py`, which rewrites `schemaVersion` annotations in place.
-- **Tests.** Coverage is in `.github/scripts/test/test_report_aspect_changes.py` (59 unit + smoke tests).
+- **Tests.** Coverage is in `.github/scripts/test/test_report_aspect_changes.py` (unit + smoke tests).
