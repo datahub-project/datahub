@@ -1,7 +1,9 @@
 import json
+import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from typing import Any
+from typing import Any, Mapping, Tuple
 
 from datahub.ingestion.source.external_dq.contract import EPOCH, LogicalType
 
@@ -59,3 +61,40 @@ def coerce_value(value: Any, logical_type: LogicalType) -> Any:  # noqa: C901
             raise ValueError(f"not an array: {value!r}")
         return [str(item) for item in value if item is not None]
     raise ValueError(f"unsupported logical type {logical_type}")
+
+
+@dataclass(frozen=True)
+class TypeProfile:
+    """Which physical column types a platform may use for each logical type.
+
+    Widening is allowed (e.g. INT for INT64); lossy types are not listed.
+    Patterns are full-matched against the lower-cased type with whitespace removed.
+    """
+
+    name: str
+    accepted: Mapping[LogicalType, Tuple[str, ...]]
+
+    def accepts(self, logical_type: LogicalType, physical_type: str) -> bool:
+        normalized = re.sub(r"\s+", "", physical_type.lower())
+        return any(
+            re.fullmatch(pattern, normalized)
+            for pattern in self.accepted.get(logical_type, ())
+        )
+
+
+_DATABRICKS_INTS: Tuple[str, ...] = ("bigint", "int", "smallint", "tinyint")
+
+DATABRICKS_TYPE_PROFILE = TypeProfile(
+    name="databricks",
+    accepted={
+        LogicalType.STRING: ("string", r"varchar\(\d+\)", r"char\(\d+\)"),
+        LogicalType.BOOLEAN: ("boolean",),
+        LogicalType.INT64: _DATABRICKS_INTS,
+        LogicalType.FLOAT64: ("double", "float", r"decimal(\(\d+,\d+\))?")
+        + _DATABRICKS_INTS,
+        # timestamp_ntz is deliberately absent: without a time zone, executed_at
+        # cannot be compared to a UTC watermark.
+        LogicalType.TIMESTAMP: ("timestamp",),
+        LogicalType.ARRAY_STRING: ("array<string>",),
+    },
+)
