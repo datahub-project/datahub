@@ -174,7 +174,8 @@ export default function computeBoundingBoxGraph(
         revealedGraphStore.adjacencyList,
     );
     const shownFilteredNodes = shownNodes.filter(
-        (node) => node.id === urn || node.type === LINEAGE_FILTER_TYPE || nodesWithLineage.has(node.id),
+        (node) =>
+            node.id === urn || node.type === LINEAGE_FILTER_TYPE || edges.size === 0 || nodesWithLineage.has(node.id), // filter nodes without lineage after edges load
     );
 
     const displayedIds = new Set(shownFilteredNodes.map((node) => node.id));
