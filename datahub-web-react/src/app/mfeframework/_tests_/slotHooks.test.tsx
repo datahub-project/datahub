@@ -19,6 +19,7 @@ import {
 } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import MFEEntityTab from '@app/mfeframework/slots/MFEEntityTab';
+import { buildSlotContext } from '@app/mfeframework/slots/slotContextBuilders';
 import { DEFAULT_SLOT_CONTRACT_VERSION, isMFESlotId } from '@app/mfeframework/slots/slotTypes';
 import { useMFEEntityTabs } from '@app/mfeframework/slots/useMFEEntityTabs';
 import { useResolveSlot } from '@app/mfeframework/slots/useResolveSlot';
@@ -466,5 +467,54 @@ microFrontends:
         });
         expect(mountFn).not.toHaveBeenCalled();
         expect(screen.queryByTestId('mfe-slot-container')).toBeNull();
+    });
+});
+
+describe('slot edge cases', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.spyOn(console, 'log').mockImplementation(() => {});
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+        vi.spyOn(console, 'warn').mockImplementation(() => {});
+        vi.spyOn(navBarHooks, 'useShowNavBarRedesign').mockReturnValue(true);
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    it('rejects a non-boolean showInNav on a slot entry, where the flag is otherwise optional', () => {
+        const yaml = `subNavigationMode: false
+microFrontends:
+  - id: tab
+    label: Tab
+    remoteEntry: http://r/remoteEntry.js
+    module: m/mount
+    flags:
+      enabled: true
+      showInNav: sometimes
+    placement:
+      slot: entity.detail.tab
+      contractVersion: "1.0.0"
+      entityTypes: [dataset]`;
+        expect(loadMFEConfigFromYAML(yaml).microFrontends).toHaveLength(0);
+        expect(loadMFEConfigFromYAML(yaml.replace('      showInNav: sometimes\n', '')).microFrontends).toHaveLength(1);
+    });
+
+    it('builds an entity tab context with empty identifiers when the page has not resolved them', () => {
+        expect(buildSlotContext(TAB, {})).toEqual({
+            slot: 'entity.detail.tab',
+            contractVersion: '1.0.0',
+            entity: { urn: '', type: '' },
+        });
+    });
+
+    it('does not mount a navigation page whose contract version the host cannot build', async () => {
+        const mountFn = vi.fn(() => vi.fn());
+        getRemoteMock.mockResolvedValue({ mount: mountFn });
+        unwrapModuleMock.mockResolvedValue({ mount: mountFn });
+        const unsupported: MFEConfig = { ...NAV, placement: { slot: 'nav.page', contractVersion: '9.9.9' } };
+        await act(async () => {
+            render(withProviders(<MFEBaseConfigurablePage config={unsupported} />));
+        });
+        expect(mountFn).not.toHaveBeenCalled();
+        expect(screen.queryByTestId('mfe-configurable-container')).toBeNull();
     });
 });

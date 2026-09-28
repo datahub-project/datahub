@@ -90,13 +90,20 @@ test.describe('MFE Framework — entity.detail.tab slot', () => {
     mfePage = new MFEFrameworkPage(page);
   });
 
-  test('renders the placed MFE as a tab captioned by its label', async () => {
+  test('renders the placed MFE as the last tab, captioned by its label', async ({ page }) => {
     await mfePage.mockFetchForMFEConfig(TAB_MFE);
     await mfePage.mockRemoteEntry(200, REMOTE_ENTRY_ECHO_CTX);
     await mfePage.gotoDataset(DATASET_URN);
 
     await expect(mfePage.entityTabHeader(TAB_LABEL)).toBeVisible({ timeout: TIMEOUTS.LONG });
     await expect(mfePage.entityTabHeader(TAB_LABEL)).toContainText(TAB_LABEL);
+
+    // Slot tabs are appended after every tab the host renders itself.
+    const tabOrder = await page
+      .getByTestId(/-entity-tab-header$/)
+      .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')));
+    expect(tabOrder.length).toBeGreaterThan(1);
+    expect(tabOrder[tabOrder.length - 1]).toBe(`${TAB_LABEL}-entity-tab-header`);
   });
 
   test('passes a typed EntityDetailTabContext to mount(el, ctx)', async () => {
