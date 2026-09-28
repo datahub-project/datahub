@@ -22,10 +22,10 @@ def _sa_rows(values: List[Tuple[Any, Any, Any]]) -> Sequence[Row[Any]]:
         return conn.execute(sa.text("SELECT * FROM describe_out")).fetchall()
 
 
-def _proxy(rows: Sequence[Row[Any]]) -> HiveMetastoreProxy:
+def _proxy(rows: Sequence[Row[Any]], report: MagicMock) -> HiveMetastoreProxy:
     proxy = HiveMetastoreProxy.__new__(HiveMetastoreProxy)
-    proxy.report = MagicMock()
-    proxy._describe_extended = lambda schema, table: rows  # type: ignore[method-assign]
+    proxy.report = report
+    proxy._describe_extended = lambda schema, table: rows  # type: ignore[method-assign,assignment]
     return proxy
 
 
@@ -40,14 +40,15 @@ def test_table_info_parses_detailed_section_from_sqlalchemy_rows():
         ]
     )
 
-    info = _proxy(rows)._get_table_info("my_schema", "events")
+    info = _proxy(rows, MagicMock())._get_table_info("my_schema", "events")
 
     assert info["Owner"] == "root"
     assert info["Type"] == "MANAGED"
 
 
 def test_table_info_without_detailed_section_is_reported():
-    proxy = _proxy(_sa_rows([("col_a", "int", None)]))
+    report = MagicMock()
+    proxy = _proxy(_sa_rows([("col_a", "int", None)]), report)
 
     assert proxy._get_table_info("my_schema", "events_no_details") == {}
-    proxy.report.warning.assert_called_once()
+    report.warning.assert_called_once()
