@@ -238,6 +238,28 @@ def test_build_from_queried_tables_unparseable_table_name_skipped():
     assert report.skipped_cells[0].reason == "unparseable_table_name"
 
 
+def test_build_from_queried_tables_unmapped_dialect_warn_once_per_run():
+    report = LineageBuilderReport()
+    b = _builder(
+        report=report,
+        connections={"conn-db2": HexConnection(name="D", platform="db2")},
+    )
+    b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-db2", "tableName": "orders"}]
+    )
+    b.set_project_id("p2")
+    b.build_from_queried_tables(
+        [{"dataConnectionId": "conn-db2", "tableName": "customers"}]
+    )
+    unmapped = [
+        w
+        for w in report.warnings
+        if w.title == "Hex queriedTables: unmapped platform dialect"
+    ]
+    assert len(unmapped) == 1
+    assert len(list(unmapped[0].context)) == 1
+
+
 def test_build_from_queried_tables_skip_captures_exception_detail():
     """Unmapped platform → one aggregate warning + per-row skips.
     Malformed tableName → per-row sqlglot exception captured in detail."""

@@ -86,9 +86,7 @@ class MismatchedCell:
     sample_queried_urns: List[str]
 
 
-# Inherits SourceReport so the builder can call ``self._report.warning(...)``
-# directly — see build_validated_column_lineage for the "Column lineage dropped"
-# emission that replaced a Tuple[List[str], bool] return.
+# Inherits SourceReport so the builder can call self._report.warning(...) directly.
 @dataclass
 class LineageBuilderReport(SourceReport):
     sql_cells_attempted: int = 0
@@ -287,8 +285,6 @@ class HexLineageBuilder:
             if self._graph is not None and schema_info is None:
                 # Synthesized URN — casing is a per-platform guess, not the
                 # warehouse's. Track so dangling edges are diagnosable.
-                # Gated on a graph: without datahub-api every probe misses
-                # and this counter would equal the distinct-table count.
                 self._report.queried_tables_unresolved_in_datahub += 1
                 self._report.queried_tables_unresolved_sample.append(urn)
             if urn not in seen:
