@@ -174,8 +174,9 @@ class SnowflakeAdapter(PlatformAdapter):
         )
 
         # The percentages are formatted to 8 decimal places throughout, and that
-        # precision is load-bearing: at 10B rows bernoulli_pc is 1e-4, and coarser
-        # formatting would round the sample down to zero rows.
+        # precision is load-bearing: at 10T rows block_pc is 1e-4 (as is the
+        # BERNOULLI-only retry's bernoulli_pc at 10B rows), and coarser formatting
+        # would round the sample down to zero rows.
         if use_block_presample:
             # The guard above holds sample_pc below 1/BLOCK_OVERGENERATION_FACTOR,
             # so block_pc is always under 100 and needs no clamp.
