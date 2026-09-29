@@ -82,6 +82,8 @@ public class AuthenticationController extends Controller {
 
   @Inject AuthServiceClient authClient;
 
+  @Inject ProxyAdmission proxyAdmission;
+
   @Inject
   public AuthenticationController(@Nonnull Config configs) {
     this.config = configs;
@@ -122,6 +124,10 @@ public class AuthenticationController extends Controller {
    */
   @Nonnull
   public Result authenticate(Http.Request request) {
+    return ProxyAdmission.admit(proxyAdmission, () -> authenticateAdmitted(request));
+  }
+
+  private Result authenticateAdmitted(Http.Request request) {
 
     // TODO: Call getAuthenticatedUser and then generate a session cookie for the UI if the user is
     // authenticated.
@@ -210,6 +216,10 @@ public class AuthenticationController extends Controller {
   /** Redirect to the identity provider for authentication. */
   @Nonnull
   public Result sso(Http.Request request) {
+    return ProxyAdmission.admit(proxyAdmission, () -> ssoAdmitted(request));
+  }
+
+  private Result ssoAdmitted(Http.Request request) {
     if (ssoManager.isSsoEnabled()) {
       return redirectToIdentityProvider(request, "/")
           .orElse(
@@ -230,6 +240,10 @@ public class AuthenticationController extends Controller {
    */
   @Nonnull
   public Result logIn(Http.Request request) {
+    return ProxyAdmission.admit(proxyAdmission, () -> logInAdmitted(request));
+  }
+
+  private Result logInAdmitted(Http.Request request) {
     boolean jaasEnabled = jaasConfigs.isJAASEnabled();
     logger.debug(String.format("Jaas authentication enabled: %b", jaasEnabled));
     boolean nativeAuthenticationEnabled =
@@ -273,6 +287,10 @@ public class AuthenticationController extends Controller {
    */
   @Nonnull
   public Result signUp(Http.Request request) {
+    return ProxyAdmission.admit(proxyAdmission, () -> signUpAdmitted(request));
+  }
+
+  private Result signUpAdmitted(Http.Request request) {
     boolean nativeAuthenticationEnabled =
         nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
     logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));
@@ -334,6 +352,10 @@ public class AuthenticationController extends Controller {
   /** Reset a native user's credentials based on a username, old password, and new password. */
   @Nonnull
   public Result resetNativeUserCredentials(Http.Request request) {
+    return ProxyAdmission.admit(proxyAdmission, () -> resetNativeUserCredentialsAdmitted(request));
+  }
+
+  private Result resetNativeUserCredentialsAdmitted(Http.Request request) {
     boolean nativeAuthenticationEnabled =
         nativeAuthenticationConfigs.isNativeAuthenticationEnabled();
     logger.debug(String.format("Native authentication enabled: %b", nativeAuthenticationEnabled));

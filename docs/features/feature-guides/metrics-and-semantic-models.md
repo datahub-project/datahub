@@ -120,6 +120,10 @@ The `emit_semantic_model_entities` control is tri-state:
 
 Snowflake Semantic Views are a native Snowflake capability. If you also use the Cortex Analyst integration on top of Semantic Views, that integration is gated to Snowflake Enterprise Edition and above — cataloging the Semantic Views into DataHub does not depend on Cortex.
 
+### From Cube and MicroStrategy
+
+The [Cube](../../generated/ingestion/sources/cube.md) and [MicroStrategy](../../generated/ingestion/sources/microstrategy.md) sources can also emit Semantic Models and Metrics. Set `emit_semantic_model_entities: true` in the recipe. Both are in alpha.
+
 ### From the DataHub Python SDK
 
 Emit metrics and semantic models programmatically from any script or connector using the high-level SDK builders (`datahub.sdk.SemanticModel`, `.Metric`, and `.SemanticModelDataset`):

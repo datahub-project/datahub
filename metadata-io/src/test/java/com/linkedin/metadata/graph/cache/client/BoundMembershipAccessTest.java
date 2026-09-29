@@ -35,6 +35,7 @@ import com.linkedin.metadata.graph.cache.ReadMissReason;
 import com.linkedin.metadata.graph.cache.ReadMode;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import io.datahubproject.metadata.context.ActorGroupMembershipService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -553,7 +554,7 @@ public class BoundMembershipAccessTest {
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     when(graphRetriever.scrollRelatedEntities(
             eq(Set.of(CORP_USER_ENTITY_NAME)),
-            isNull(),
+            eq(QueryUtils.EMPTY_FILTER),
             eq(Set.of(CORP_GROUP_ENTITY_NAME)),
             any(),
             eq(spec.getGroupRelationshipTypes()),

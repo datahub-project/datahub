@@ -59,7 +59,6 @@ from confluent_kafka.admin import (
     ConfigResource,
     TopicMetadata,
 )
-from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.kafka_consumer_config import KafkaOAuthCallbackResolver
@@ -285,12 +284,13 @@ class KafkaConnectionTest:
 
     def schema_registry_connectivity(self) -> CapabilityReport:
         try:
-            SchemaRegistryClient(
-                {
-                    "url": self.config.connection.schema_registry_url,
-                    **self.config.connection.schema_registry_config,
-                }
-            ).get_subjects()
+            # Function-scoped: confluent_schema_registry imports from this module,
+            # so a module-level import back here would create a cycle.
+            from datahub.ingestion.source.confluent_schema_registry import (
+                get_kafka_schema_registry_client,
+            )
+
+            get_kafka_schema_registry_client(self.config.connection).get_subjects()
             return CapabilityReport(capable=True)
         except Exception as e:
             return CapabilityReport(capable=False, failure_reason=str(e))

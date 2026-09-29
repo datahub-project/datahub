@@ -170,6 +170,32 @@ public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison 
     default boolean isEngineTypeAutoDetected() {
       return false;
     }
+
+    /** Explicit or JVM-resolved HTTP proxy host. Null means a direct connection. */
+    @Nullable
+    default String getProxyHost() {
+      return null;
+    }
+
+    @Nullable
+    default Integer getProxyPort() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyScheme() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyUsername() {
+      return null;
+    }
+
+    @Nullable
+    default String getProxyPassword() {
+      return null;
+    }
   }
 
   @OperationContextExempt(reason = "Local accessor, no I/O.")
