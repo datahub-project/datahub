@@ -40,6 +40,7 @@ import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import LineageGraph from '@app/lineageV3/LineageGraph';
 import { useUpdateMarketplaceEntityDataOnChange } from '@app/marketplace/useUpdateMarketplaceEntityDataOnChange';
 import { useUpdateMetricsEntityDataOnChange } from '@app/metrics/useUpdateMetricsEntityDataOnChange';
+import { useMFEEntityTabs } from '@app/mfeframework/slots/useMFEEntityTabs';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     LINEAGE_GRAPH_INTRO_ID,
@@ -288,7 +289,10 @@ export const EntityProfile = <T, U>({
             },
         })) || [];
 
-    const visibleTabs = [...tabsWithDefaults, ...autoRenderTabs].filter((tab) =>
+    // Tabs contributed by micro frontends placed in the `entity.detail.tab` slot (see mfeframework/slots).
+    const mfeTabs = useMFEEntityTabs(entityType);
+
+    const visibleTabs = [...tabsWithDefaults, ...autoRenderTabs, ...mfeTabs].filter((tab) =>
         tab.display?.visible(entityData, dataPossiblyCombinedWithSiblings),
     );
 

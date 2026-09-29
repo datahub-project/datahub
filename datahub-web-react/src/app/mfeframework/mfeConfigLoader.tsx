@@ -1,26 +1,38 @@
 import yaml from 'js-yaml';
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { Route, Switch } from 'react-router';
 
+import { MFEConfigContext } from '@app/mfeframework/MFEConfigContext';
 import { MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
+import { MFEPlacement, getPlacement, isNavPageMfe } from '@app/mfeframework/slots/slotPlacement';
+import { isMFESlotId } from '@app/mfeframework/slots/slotTypes';
 import { NoPageFound } from '@app/shared/NoPageFound';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-interface MFEFlags {
+export interface MFEFlags {
     enabled: boolean;
-    showInNav: boolean;
+    /** Nav-only: show a left-navigation item. Not applicable to (and not required for) slot placements. */
+    showInNav?: boolean;
 }
+
+// Placement lives in slots/slotPlacement so the slot modules can read it without importing this file
+// at runtime (this file renders MFEBaseConfigurablePage, which would close an import cycle).
+export type { MFEPlacement };
+export { getPlacement, isNavPageMfe };
 
 // MFEConfig: Type for a valid micro frontend config entry.
 export interface MFEConfig {
     id: string;
     label: string;
-    path: string;
+    /** Route under /mfe. Required for `nav.page` placements only. */
+    path?: string;
     remoteEntry: string;
     // Must look like 'myRemoteModule/mount' which is exposed remote followed by exposed mount function inside it
     module: string;
     flags: MFEFlags;
-    navIcon: string;
+    /** Phosphor icon name. Required for `nav.page` placements only. */
+    navIcon?: string;
+    placement?: MFEPlacement;
 }
 
 // MFESchema: The overall config schema.
@@ -30,7 +42,36 @@ export interface MFESchema {
     microFrontends: MFEConfig[];
 }
 
-const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'path', 'remoteEntry', 'module', 'flags', 'navIcon'];
+const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'remoteEntry', 'module', 'flags'];
+const NAV_PAGE_REQUIRED_FIELDS: (keyof MFEConfig)[] = ['path', 'navIcon'];
+
+function validatePlacement(placement: any, errors: string[]): void {
+    if (placement === undefined) return;
+    if (typeof placement !== 'object' || placement === null) {
+        errors.push('[MFE Loader] placement must be an object');
+        return;
+    }
+    if (!isMFESlotId(placement.slot)) {
+        errors.push(`[MFE Loader] placement.slot must be one of the known slots; got "${placement.slot}"`);
+    }
+    // Gate 1 — the host must know which context shape to build BEFORE it builds one, so an entry that
+    // opts into a slot has to declare the contract it was built against. Fail closed if it does not.
+    if (typeof placement.contractVersion !== 'string' || placement.contractVersion.trim().length === 0) {
+        errors.push('[MFE Loader] placement.contractVersion is required and must be a non-empty string');
+    }
+    if (
+        placement.entityTypes !== undefined &&
+        (!Array.isArray(placement.entityTypes) || placement.entityTypes.some((t: unknown) => typeof t !== 'string'))
+    ) {
+        errors.push('[MFE Loader] placement.entityTypes must be an array of strings');
+    }
+    if (
+        placement.visibleWhen !== undefined &&
+        (!Array.isArray(placement.visibleWhen) || placement.visibleWhen.some((n: unknown) => typeof n !== 'string'))
+    ) {
+        errors.push('[MFE Loader] placement.visibleWhen must be an array of strings');
+    }
+}
 
 /**
  * validateMFEConfig:
@@ -41,14 +82,18 @@ const REQUIRED_FIELDS: (keyof MFEConfig)[] = ['id', 'label', 'path', 'remoteEntr
 function validateMFEConfig(config: any): MFEConfig | null {
     const errors: string[] = [];
 
-    REQUIRED_FIELDS.forEach((field) => {
+    const slot: unknown = config?.placement?.slot;
+    const requiresNavFields = slot === undefined || slot === 'nav.page';
+    const requiredFields = requiresNavFields ? [...REQUIRED_FIELDS, ...NAV_PAGE_REQUIRED_FIELDS] : REQUIRED_FIELDS;
+
+    requiredFields.forEach((field) => {
         if (config[field] === undefined || config[field] === null) {
             errors.push(`[MFE Loader] Missing required field: ${field}`);
         }
     });
     if (typeof config.id !== 'string') errors.push('[MFE Loader] id must be a string');
     if (typeof config.label !== 'string') errors.push('[MFE Loader] label must be a string');
-    if (typeof config.path !== 'string' || !config.path.startsWith('/'))
+    if (requiresNavFields && (typeof config.path !== 'string' || !config.path.startsWith('/')))
         errors.push('[MFE Loader] path must be a string starting with "/"');
     if (typeof config.remoteEntry !== 'string') errors.push('[MFE Loader] remoteEntry must be a string');
     if (typeof config.module !== 'string' || !config.module.includes('/'))
@@ -56,11 +101,17 @@ function validateMFEConfig(config: any): MFEConfig | null {
     if (typeof config.flags !== 'object' || config.flags === null) errors.push('[MFE Loader] flags must be an object');
     if (config.flags) {
         if (typeof config.flags.enabled !== 'boolean') errors.push('[MFE Loader] flags.enabled must be boolean');
-        if (typeof config.flags.showInNav !== 'boolean') errors.push('[MFE Loader] flags.showInNav must be boolean');
+        if (requiresNavFields) {
+            if (typeof config.flags.showInNav !== 'boolean')
+                errors.push('[MFE Loader] flags.showInNav must be boolean');
+        } else if (config.flags.showInNav !== undefined && typeof config.flags.showInNav !== 'boolean') {
+            errors.push('[MFE Loader] flags.showInNav must be boolean when present');
+        }
     }
-    if (typeof config.navIcon !== 'string' || !config.navIcon.length) {
+    if (requiresNavFields && (typeof config.navIcon !== 'string' || !config.navIcon.length)) {
         errors.push('[MFE Loader] navIcon must be a non-empty string');
     }
+    validatePlacement(config.placement, errors);
 
     // If any errors, log them and return null
     if (errors.length > 0) {
@@ -80,9 +131,7 @@ function validateMFEConfig(config: any): MFEConfig | null {
  */
 export function loadMFEConfigFromYAML(yamlString: string): MFESchema {
     try {
-        console.log('[MFE Loader] Raw YAML:', yamlString);
         const parsed = yaml.load(yamlString) as MFESchema;
-        // console.log('[MFE Loader] Parsed YAML config:', parsed);
         if (!parsed || !Array.isArray(parsed.microFrontends)) {
             console.error('[MFE Loader] Invalid YAML: missing microFrontends array:', parsed);
             throw new Error('[MFE Loader] Invalid YAML: missing microFrontends array');
@@ -98,10 +147,20 @@ export function loadMFEConfigFromYAML(yamlString: string): MFESchema {
     }
 }
 
-export function useMFEConfigFromBackend(): MFESchema | null {
+export type MFEConfigFetchState = {
+    config: MFESchema | null;
+    loading: boolean;
+};
+
+/**
+ * Fetches and parses /mfe/config. Pass `skip` when a provider above already did the fetch.
+ */
+export function useMFEConfigFetch(skip = false): MFEConfigFetchState {
     const [config, setConfig] = useState<MFESchema | null>(null);
+    const [loading, setLoading] = useState<boolean>(!skip);
 
     useEffect(() => {
+        if (skip) return;
         async function fetchConfig() {
             try {
                 const response = await fetch(resolveRuntimePath('/mfe/config'));
@@ -116,26 +175,47 @@ export function useMFEConfigFromBackend(): MFESchema | null {
             } catch (e) {
                 console.error('[MFE Loader] Config error:', e);
                 setConfig(null);
+            } finally {
+                setLoading(false);
             }
         }
         fetchConfig();
-    }, []);
+    }, [skip]);
 
-    return config;
+    return { config, loading };
+}
+
+export function useMFEConfigFromBackend(): MFESchema | null {
+    return useMFEConfigFetch().config;
+}
+
+/**
+ * The shared MFE config: from `MFEConfigProvider` when one is mounted, otherwise fetched directly.
+ */
+export function useMFEConfig(): MFEConfigFetchState {
+    const shared = useContext(MFEConfigContext);
+    const standalone = useMFEConfigFetch(shared.provided);
+    return shared.provided ? { config: shared.config, loading: shared.loading } : standalone;
 }
 
 export function useDynamicRoutes(): JSX.Element[] {
-    const mfeConfig = useMFEConfigFromBackend();
+    const { config: mfeConfig } = useMFEConfig();
     if (!mfeConfig) return [];
     // TODO- Reintroduce useMemo() hook here. Make it work with getting yaml from api as a react hook.
-    return mfeConfig.microFrontends.map((mfe) => (
-        <Route key={mfe.path} path={`/mfe${mfe.path}`} exact render={() => <MFEBaseConfigurablePage config={mfe} />} />
-    ));
+    return mfeConfig.microFrontends
+        .filter(isNavPageMfe)
+        .map((mfe) => (
+            <Route
+                key={mfe.path}
+                path={`/mfe${mfe.path}`}
+                exact
+                render={() => <MFEBaseConfigurablePage config={mfe} />}
+            />
+        ));
 }
 
 export const MFERoutes = () => {
     const routes = useDynamicRoutes();
-    console.log('[DynamicRoute] Generated Routes:', routes);
     if (routes.length === 0) {
         return null;
     }

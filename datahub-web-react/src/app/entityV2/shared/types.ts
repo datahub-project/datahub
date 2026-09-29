@@ -52,7 +52,14 @@ export type EntityTabProps = {
 };
 
 export type EntityTab = {
+    /** The user-visible caption. Usually translated, so it is not a stable identifier. */
     name: string;
+    /**
+     * Stable URL segment for this tab. Defaults to `name` when unset, which is how every built-in tab
+     * behaves today. Set it when the caption can change without the tab changing — a translated or
+     * configurable label — so deep links survive that change.
+     */
+    routeKey?: string;
     component: React.FunctionComponent<EntityTabProps>;
     icon?: React.FunctionComponent<any>;
     display?: {

@@ -34,7 +34,7 @@ import {
 } from '@app/homeV2/layout/navBarRedesign/types';
 import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
-import { useMFEConfigFromBackend } from '@app/mfeframework/mfeConfigLoader';
+import { useMFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { getMfeMenuDropdownItems, getMfeMenuItems } from '@app/mfeframework/mfeNavBarMenuUtils';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
@@ -190,7 +190,7 @@ export const NavSidebar = () => {
     })) as NavBarMenuDropdownItemElement[];
 
     // --- MFE YAML CONFIG ---
-    const mfeConfig: any = useMFEConfigFromBackend();
+    const { config: mfeConfig } = useMFEConfig();
 
     // MFE section (dropdown or spread)
     let mfeSection: any[] = [];

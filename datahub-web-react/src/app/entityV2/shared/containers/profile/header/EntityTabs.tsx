@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 import { Tab } from '@components/components/Tabs/Tabs';
 
 import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { getTabRouteKey } from '@app/entityV2/shared/containers/profile/utils';
 import { EntityTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
 import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
@@ -31,12 +32,13 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
 
     useEffect(() => {
         if (!loading && !selectedTab && enabledTabs[0]) {
-            routeToTab({ tabName: enabledTabs[0].name, method: 'replace' });
+            routeToTab({ tabName: getTabRouteKey(enabledTabs[0]), method: 'replace' });
         }
     }, [loading, enabledTabs, selectedTab, routeToTab]);
 
     const finalTabs: Tab[] = tabs.map((t) => ({
-        key: t.name,
+        // `key` is what the tab row reports on change, and it becomes the URL segment.
+        key: getTabRouteKey(t),
         name: t.name,
         component: (
             <TabContent>
@@ -55,7 +57,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
     return (
         <Tabs
             onChange={(t) => routeToTab({ tabName: t })}
-            selectedTab={selectedTab?.name}
+            selectedTab={selectedTab && getTabRouteKey(selectedTab)}
             tabs={finalTabs}
             hideTabsHeader={isTabFullsize}
             addPaddingLeft
