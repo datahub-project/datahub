@@ -1208,6 +1208,7 @@ entry_points = {
         "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
         "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
         "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",
+        "oauth_session = datahub.ingestion.auth.oauth_session:OAuthSessionTokenProvider",
     ],
     "sqlalchemy.dialects": [
         "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
