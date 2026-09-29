@@ -201,7 +201,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private void addCommonPrivileges(
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
     result.setCanEditLineage(canEditEntityLineage(urn, context));
-    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
+    result.setCanEditProperties(
+        AuthorizationUtils.canEditProperties(urn, context, Collections.emptyList()));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
     result.setCanEditAssertionOwners(
