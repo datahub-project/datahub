@@ -3882,9 +3882,7 @@ public class GmsGraphQLEngine {
                   try (Scope ignored = batchContext.makeCurrent()) {
                     try {
                       log.debug(
-                          String.format(
-                              "Batch loading entities of type: %s, keys: %s",
-                              graphType.name(), keys));
+                          "Batch loading entities of type: {}, keys: {}", graphType.name(), keys);
                       // Dispatch-side union: merge key contexts that reached this batch into the
                       // request-scoped accumulator. Resolver-side merge at enqueue remains
                       // necessary when DataLoader caching suppresses duplicate key contexts
