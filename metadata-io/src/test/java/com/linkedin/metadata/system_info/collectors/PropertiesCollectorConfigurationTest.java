@@ -102,7 +102,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.password",
           "elasticsearch.clusters.*.sslContext.keyPassword",
           "elasticsearch.clusters.*.sslContext.trustStorePassword",
-          "elasticsearch.clusters.*.sslContext.keyStorePassword");
+          "elasticsearch.clusters.*.sslContext.keyStorePassword",
+          "elasticsearch.clusters.*.proxy.password");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -194,6 +195,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.sslContext.trustStoreType",
           "elasticsearch.clusters.*.sslContext.keyStoreFile",
           "elasticsearch.clusters.*.sslContext.keyStoreType",
+          "elasticsearch.clusters.*.proxy.host",
+          "elasticsearch.clusters.*.proxy.port",
+          "elasticsearch.clusters.*.proxy.scheme",
+          "elasticsearch.clusters.*.proxy.username",
+          "elasticsearch.clusters.*.proxy.useSystemProxyProperties",
           // Postgres PgQueue configuration (non-credential settings)
           "postgres.pgQueue.topicDefaults.*",
           "postgres.pgQueue.topics.*.*",

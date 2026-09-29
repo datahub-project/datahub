@@ -21,11 +21,11 @@ constraints = [
     { name = "idna", specifier = ">=3.15,<4.0.0" },
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
     { name = "pip", specifier = ">=26.2" },
-    { name = "pyjwt", specifier = ">=2.13.0,<3.0.0" },
+    { name = "pyjwt", specifier = ">=2.15.0,<3.0.0" },
     { name = "pypdf", specifier = ">=6.10.2" },
     { name = "setuptools", specifier = ">=83.0.0" },
     { name = "soupsieve", specifier = ">=2.9.0" },
-    { name = "urllib3", specifier = ">=2.7.0,<3.0.0" },
+    { name = "urllib3", specifier = ">=2.8.0,<3.0.0" },
 ]
 
 [[package]]
@@ -382,6 +382,7 @@ datahub-kafka = [
 ]
 datahub-lite = [
     { name = "fastapi" },
+    { name = "starlette" },
     { name = "uvicorn" },
 ]
 datahub-pg-queue = [
@@ -603,6 +604,7 @@ dev = [
     { name = "sqlalchemy2-stubs" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "starlette" },
     { name = "tableauserverclient" },
     { name = "tableschema" },
     { name = "tabulate" },
@@ -797,6 +799,7 @@ docs = [
     { name = "sqlalchemy2-stubs" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "starlette" },
     { name = "tableauserverclient" },
     { name = "tableschema" },
     { name = "tabulate" },
@@ -908,6 +911,7 @@ feast = [
     { name = "feast" },
     { name = "flask-openid" },
     { name = "numpy" },
+    { name = "starlette" },
 ]
 fivetran = [
     { name = "cachetools" },
@@ -1086,6 +1090,7 @@ integration-tests = [
     { name = "sqlalchemy-pytds" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+    { name = "starlette" },
     { name = "starrocks" },
     { name = "tableschema" },
     { name = "tenacity" },
@@ -1250,6 +1255,9 @@ omni = [
 onnx-embeddings = [
     { name = "onnxruntime" },
     { name = "tokenizers" },
+]
+openapi = [
+    { name = "requests" },
 ]
 oracle = [
     { name = "cachetools" },
@@ -1911,9 +1919,9 @@ requires-dist = [
     { name = "expandvars", marker = "extra == 'docs'", specifier = ">=0.6.5,<2.0.0" },
     { name = "faker", marker = "extra == 'dev'", specifier = ">=18.4.0,<41.0.0" },
     { name = "faker", marker = "extra == 'docs'", specifier = ">=18.4.0,<41.0.0" },
-    { name = "fastapi", marker = "extra == 'datahub-lite'", specifier = "<0.129.0" },
-    { name = "fastapi", marker = "extra == 'dev'", specifier = "<0.129.0" },
-    { name = "fastapi", marker = "extra == 'docs'", specifier = "<0.129.0" },
+    { name = "fastapi", marker = "extra == 'datahub-lite'", specifier = ">=0.133.0,<0.142.0" },
+    { name = "fastapi", marker = "extra == 'dev'", specifier = ">=0.133.0,<0.142.0" },
+    { name = "fastapi", marker = "extra == 'docs'", specifier = ">=0.133.0,<0.142.0" },
     { name = "fastavro", marker = "extra == 'all'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'datahub'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'datahub-kafka'", specifier = ">=1.2.0,<2.0.0" },
@@ -2438,6 +2446,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'mode'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'nifi'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'omni'", specifier = "<3.0.0" },
+    { name = "requests", marker = "extra == 'openapi'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'powerbi-report-server'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'preset'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'pulsar'", specifier = "<3.0.0" },
@@ -2505,14 +2514,14 @@ requires-dist = [
     { name = "snowflake-connector-python", marker = "extra == 'snowflake-queries'", specifier = ">=4.7.3,<5.0.0" },
     { name = "snowflake-connector-python", marker = "extra == 'snowflake-slim'", specifier = ">=4.7.3,<5.0.0" },
     { name = "snowflake-connector-python", marker = "extra == 'snowflake-summary'", specifier = ">=4.7.3,<5.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'all'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'dev'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'docs'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'fivetran'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-queries'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-slim'", specifier = ">=1.8.0,<2.0.0" },
-    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-summary'", specifier = ">=1.8.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'all'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'dev'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'docs'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'fivetran'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-queries'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-slim'", specifier = ">=1.11.0,<2.0.0" },
+    { name = "snowflake-sqlalchemy", marker = "extra == 'snowflake-summary'", specifier = ">=1.11.0,<2.0.0" },
     { name = "sortedcontainers", marker = "extra == 'all'", specifier = ">=2.4.0,<3.0.0" },
     { name = "sortedcontainers", marker = "extra == 'dev'", specifier = ">=2.4.0,<3.0.0" },
     { name = "sortedcontainers", marker = "extra == 'docs'", specifier = ">=2.4.0,<3.0.0" },
@@ -2706,6 +2715,11 @@ requires-dist = [
     { name = "sqlparse", marker = "extra == 'trino'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'unity-catalog'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'vertica'", specifier = ">=0.6.0,<1.0.0" },
+    { name = "starlette", marker = "extra == 'datahub-lite'", specifier = ">=1.3.1,<2.0.0" },
+    { name = "starlette", marker = "extra == 'dev'", specifier = ">=1.3.1,<2.0.0" },
+    { name = "starlette", marker = "extra == 'docs'", specifier = ">=1.3.1,<2.0.0" },
+    { name = "starlette", marker = "extra == 'feast'", specifier = ">=1.3.1,<2.0.0" },
+    { name = "starlette", marker = "extra == 'integration-tests'", specifier = ">=1.3.1,<2.0.0" },
     { name = "starrocks", marker = "extra == 'all'", specifier = ">=1.3.3,<2.0" },
     { name = "starrocks", marker = "extra == 'integration-tests'", specifier = ">=1.3.3,<2.0" },
     { name = "starrocks", marker = "extra == 'starrocks'", specifier = ">=1.3.3,<2.0" },
@@ -2872,7 +2886,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "duckdb", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "onnx-embeddings", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "duckdb", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "grafana", "hana", "hex", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "onnx-embeddings", "openapi", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-cloud"
@@ -5105,7 +5119,7 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.128.8"
+version = "0.141.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -5114,9 +5128,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/01/72/0df5c58c954742f31a7054e2dd1143bae0b408b7f36b59b85f928f9b456c/fastapi-0.128.8.tar.gz", hash = "sha256:3171f9f328c4a218f0a8d2ba8310ac3a55d1ee12c28c949650288aee25966007", size = 375523, upload-time = "2026-02-11T15:19:36.69Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/02/91e3416a8fdd715abb903a952a6bec7cdd8d14eed55d415fc8595524c319/fastapi-0.141.1.tar.gz", hash = "sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1", size = 425799, upload-time = "2026-07-29T17:18:05.568Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/37/37b07e276f8923c69a5df266bfcb5bac4ba8b55dfe4a126720f8c48681d1/fastapi-0.128.8-py3-none-any.whl", hash = "sha256:5618f492d0fe973a778f8fec97723f598aa9deee495040a8d51aaf3cf123ecf1", size = 103630, upload-time = "2026-02-11T15:19:35.209Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/03/10388a42375ee7e4ac9b94eb2c5c569c8b5795e377e701c9ac3ad63de890/fastapi-0.141.1-py3-none-any.whl", hash = "sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3", size = 131954, upload-time = "2026-07-29T17:18:04.364Z" },
 ]
 
 [[package]]
@@ -9313,11 +9327,11 @@ wheels = [
 
 [[package]]
 name = "pyjwt"
-version = "2.13.0"
+version = "2.15.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3b/81/58d0ac84e1ef3a3843791d6954d94c0b33d526c75eeb1efbce9d0a4c4077/pyjwt-2.13.0.tar.gz", hash = "sha256:41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423", size = 107515, upload-time = "2026-05-21T19:54:36.618Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/43/ea/5194e52748b0da83d71e082d75496eaec6e58f419f5e184786ded517e6a9/pyjwt-2.15.1.tar.gz", hash = "sha256:4f259e80cdfb6b3fc18a7de51fd1ef9ec79652f25019bae68975ca2468a34df8", size = 121252, upload-time = "2026-09-28T18:40:42.598Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl", hash = "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728", size = 31274, upload-time = "2026-05-21T19:54:35.362Z" },
+    { url = "https://files.pythonhosted.org/packages/50/ca/44de4e75f8aadc457f0634be3b542815078ded46dca30efb960edeecad6e/pyjwt-2.15.1-py3-none-any.whl", hash = "sha256:42d59d631f7768a1028a64c7ff581a9bf7519804daf91fc5b6c56e30eec5e193", size = 33860, upload-time = "2026-09-28T18:40:41.429Z" },
 ]
 
 [package.optional-dependencies]
@@ -10959,15 +10973,15 @@ wheels = [
 
 [[package]]
 name = "snowflake-sqlalchemy"
-version = "1.9.0"
+version = "1.11.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "snowflake-connector-python" },
     { name = "sqlalchemy" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/6a/fcc5c00c3a253029a7b7b293a3958ba07d5e97623b643de47be0cc9e5530/snowflake_sqlalchemy-1.9.0.tar.gz", hash = "sha256:fb32baf559f7f933ae8fde2ec535bcea5381bb15188777cd8c006b3226efa3b1", size = 141707, upload-time = "2026-03-04T13:48:17.905Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f2/0d/94458e9231da61efe076ff8b9d808da9c8e3be39d99eaff8e6fe85f7295e/snowflake_sqlalchemy-1.11.1.tar.gz", hash = "sha256:942b203de0404b79550c4098ca851aee2b0b22f695426b073e58d71772e38d51", size = 252184, upload-time = "2026-09-04T06:51:26.892Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/88/28/b7ae8df80847e8157b74669ad7e1b0180e82ac0e3daf950612effd232fea/snowflake_sqlalchemy-1.9.0-py3-none-any.whl", hash = "sha256:f0b1528173e93c8c80bd9ca510985054667e0e514dd90b890271ac1cfae261c1", size = 78953, upload-time = "2026-03-04T13:48:16.393Z" },
+    { url = "https://files.pythonhosted.org/packages/c6/a5/542739ade547d5b2384d69c33220419b55ae6ae6114bf196b9caf3dce576/snowflake_sqlalchemy-1.11.1-py3-none-any.whl", hash = "sha256:b64ab947469bf25b3df3f88c5b92f17a938c9d47b5b09035551614f3ff1f44d9", size = 117912, upload-time = "2026-09-04T06:51:25.311Z" },
 ]
 
 [[package]]
@@ -11313,15 +11327,15 @@ wheels = [
 
 [[package]]
 name = "starlette"
-version = "0.52.1"
+version = "1.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
     { name = "typing-extensions", marker = "python_full_version != '3.13.*'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/68/79977123bb7be889ad680d79a40f339082c1978b5cfcf62c2d8d196873ac/starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933", size = 2653702, upload-time = "2026-01-18T13:34:11.062Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7b/2b/3850dc6bf7ef71b088962eba31dafc6cffd2f96e577ebb0bb316df96da3e/starlette-1.7.0.tar.gz", hash = "sha256:c79f74ea63cff761804fbbfb182f1e0b440c2d07b164d24700c5a1bab5d6ff5d", size = 2736246, upload-time = "2026-09-23T07:30:26.35Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/0d/13d1d239a25cbfb19e740db83143e95c772a1fe10202dda4b76792b114dd/starlette-0.52.1-py3-none-any.whl", hash = "sha256:0029d43eb3d273bc4f83a08720b4912ea4b071087a3b48db01b7c839f7954d74", size = 74272, upload-time = "2026-01-18T13:34:09.188Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/d6/1ec1b290f9e0fb067899b61e1d37a30c923068bad260b216dbe37a7d2967/starlette-1.7.0-py3-none-any.whl", hash = "sha256:67f8e99895493dd2911a03f11314af6ceebeae4e704bb9f43dfc6a9db151c93e", size = 78980, upload-time = "2026-09-23T07:30:24.567Z" },
 ]
 
 [[package]]
@@ -12281,11 +12295,11 @@ notion = [
 
 [[package]]
 name = "urllib3"
-version = "2.7.0"
+version = "2.8.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/05/b17359e1cefb4f909b5e40b1b90a496d987258916dbbf88e842c729f510e/urllib3-2.8.0.tar.gz", hash = "sha256:63bf2ead4c879426ebf22ef2a781eeb4aa3b4ae798a0435506f8687fd5bb9b63", size = 458972, upload-time = "2026-09-15T19:29:36.253Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
+    { url = "https://files.pythonhosted.org/packages/92/9d/c4e665119135114480843e7ab388fa94d8480650450e6f8e26b70d323a4c/urllib3-2.8.0-py3-none-any.whl", hash = "sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3", size = 135717, upload-time = "2026-09-15T19:29:34.577Z" },
 ]
 
 [[package]]
