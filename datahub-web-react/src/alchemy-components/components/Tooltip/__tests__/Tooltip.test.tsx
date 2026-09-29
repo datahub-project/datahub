@@ -88,6 +88,33 @@ describe('Tooltip', () => {
         consoleError.mockRestore();
     });
 
+    it('wraps an svg child in a group so the shape stays painted', () => {
+        const Square = React.forwardRef<SVGRectElement, React.SVGProps<SVGRectElement>>((props, _ref) => (
+            <rect data-testid="day-cell" width={10} height={10} {...props} />
+        ));
+
+        render(
+            <ThemeProvider theme={themeV2}>
+                <svg>
+                    <Tooltip title="Sep 1">
+                        <Square />
+                    </Tooltip>
+                </svg>
+            </ThemeProvider>,
+        );
+
+        const cell = screen.getByTestId('day-cell');
+        expect(cell.ownerSVGElement).not.toBeNull();
+        expect(cell.parentElement?.tagName.toLowerCase()).toBe('g');
+
+        vi.useFakeTimers();
+        fireEvent.mouseEnter(cell.parentElement as Element);
+        vi.advanceTimersByTime(100);
+
+        expect(screen.getByRole('tooltip')).toHaveTextContent('Sep 1');
+        vi.useRealTimers();
+    });
+
     it('recovers when a forwardRef child swallows the ref', () => {
         const SwallowsRef = React.forwardRef<HTMLButtonElement, React.ComponentProps<'button'>>((props, _ref) => (
             <button type="button" {...props} />

@@ -137,6 +137,7 @@ function isDisabledControl(element: ReactElement): boolean {
 
 const FORWARD_REF_TYPE = Symbol.for('react.forward_ref');
 const MEMO_TYPE = Symbol.for('react.memo');
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 
 /**
  * Whether cloning `ref` onto this element can reach a DOM node. Plain function components drop
@@ -218,6 +219,9 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         // re-rendered inside an anchor wrapper.
         const directRefAttempted = useRef(false);
         const [childDroppedRef, setChildDroppedRef] = useState(false);
+        // An HTML wrapper inside <svg> is not painted, which hides triggers like calendar day
+        // squares. The wrapper ref sees the SVG namespace and switches the element to <g>.
+        const [anchorInSvg, setAnchorInSvg] = useState(false);
         const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
         const [overlayId] = useState(() => `alchemy-overlay-${Math.random().toString(36).slice(2)}`);
         const isControlled = controlledOpen !== undefined || visible !== undefined;
@@ -351,11 +355,16 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
             },
             [child.ref, forwardedRef, refs],
         );
-        // The wrapper has no box of its own (`display: contents`), so the overlay anchors to the
-        // child's root DOM node inside it. Child refs are called before the parent's, so it exists.
+        // Anchors to the child's root DOM node. Child refs run before the parent's, so it exists.
+        // A non-group element in the SVG namespace is an HTML tag React created inside <svg>;
+        // switch to <g> before measuring, or the child is never painted.
         const anchorWrapperRef = useCallback(
-            (node: HTMLElement | null) => {
-                const anchor = (node?.firstElementChild as HTMLElement | null) ?? node;
+            (node: Element | null) => {
+                if (node && node.namespaceURI === SVG_NAMESPACE && node.localName !== 'g') {
+                    setAnchorInSvg(true);
+                    return;
+                }
+                const anchor = (node?.firstElementChild as HTMLElement | null) ?? (node as HTMLElement | null);
                 refs.setReference(anchor);
                 assignRef(forwardedRef, anchor);
             },
@@ -464,15 +473,21 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
             );
         } else if (needsAnchorWrapper) {
             // React dispatches enter/leave and focus events through the component tree, so the
-            // wrapper still hears them even though it contributes no box to layout. The test id
-            // stays on the child: a box-less element can't be hovered by browser automation.
-            reference = (
+            // wrapper still hears them. HTML uses a box-less span (`display: contents`); SVG uses
+            // a <g>, which is the layout-neutral equivalent and actually paints its children.
+            // The test id stays on the child: a box-less element can't be hovered by automation.
+            const anchorChild = React.cloneElement(child, {
+                ...testIdProps,
+                className: [child.props.className, className].filter(Boolean).join(' ') || undefined,
+                style: { ...child.props.style, ...style },
+            });
+            reference = anchorInSvg ? (
+                <g ref={anchorWrapperRef} {...(triggerProps as unknown as React.SVGProps<SVGGElement>)}>
+                    {anchorChild}
+                </g>
+            ) : (
                 <span ref={anchorWrapperRef} style={{ display: 'contents' }} {...triggerProps}>
-                    {React.cloneElement(child, {
-                        ...testIdProps,
-                        className: [child.props.className, className].filter(Boolean).join(' ') || undefined,
-                        style: { ...child.props.style, ...style },
-                    })}
+                    {anchorChild}
                 </span>
             );
         } else {
