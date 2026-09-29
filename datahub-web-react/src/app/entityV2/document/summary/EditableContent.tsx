@@ -14,10 +14,7 @@ import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
-import {
-    DiscardUnsavedChangesConfirmationProvider,
-    useDiscardUnsavedChangesConfirmationContext,
-} from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import { useDiscardUnsavedChangesConfirmationContext } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 import { useIsDocumentExplicitSaveEnabled } from '@app/useAppConfig';
 
 import { DocumentRelatedAsset, DocumentRelatedDocument, UploadDownloadScenario } from '@types';
@@ -110,16 +107,21 @@ interface EditableContentProps {
     acrylProps?: DocumentEditorAcrylProps;
 }
 
-const DocumentContentEditor: React.FC<EditableContentProps & { explicitSaveEnabled: boolean }> = ({
+/**
+ * With explicit save enabled, unsaved edits are reported to the nearest
+ * DiscardUnsavedChangesConfirmationProvider so the owning surface (document profile page or
+ * DocumentModal) can prompt before navigating away or closing.
+ */
+export const EditableContent: React.FC<EditableContentProps> = ({
     documentUrn,
     initialContent,
     relatedAssets,
     relatedDocuments,
     acrylProps,
-    explicitSaveEnabled,
 }) => {
     const { t } = useTranslation('entity.types');
     const { t: tActions } = useTranslation('common.actions');
+    const explicitSaveEnabled = useIsDocumentExplicitSaveEnabled();
     const { setIsDirty } = useDiscardUnsavedChangesConfirmationContext();
     const [content, setContent] = useState(initialContent || '');
     const [savedContent, setSavedContent] = useState(initialContent || '');
@@ -449,15 +451,4 @@ const DocumentContentEditor: React.FC<EditableContentProps & { explicitSaveEnabl
             )}
         </ContentWrapper>
     );
-};
-
-export const EditableContent: React.FC<EditableContentProps> = (props) => {
-    const explicitSaveEnabled = useIsDocumentExplicitSaveEnabled();
-    const editor = <DocumentContentEditor {...props} explicitSaveEnabled={explicitSaveEnabled} />;
-
-    if (!explicitSaveEnabled) {
-        return editor;
-    }
-
-    return <DiscardUnsavedChangesConfirmationProvider>{editor}</DiscardUnsavedChangesConfirmationProvider>;
 };
