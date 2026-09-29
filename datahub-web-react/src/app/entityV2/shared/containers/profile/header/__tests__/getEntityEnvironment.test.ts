@@ -13,6 +13,14 @@ describe('getEntityEnvironment', () => {
             getEntityEnvironment({ type: EntityType.Container, properties: { origin: FabricType.Dev } } as any),
         ).toBe(FabricType.Dev);
     });
+    it('returns origin for ML models', () => {
+        expect(getEntityEnvironment({ type: EntityType.Mlmodel, origin: FabricType.Qa } as any)).toBe(FabricType.Qa);
+    });
+    it('returns origin for ML model groups', () => {
+        expect(getEntityEnvironment({ type: EntityType.MlmodelGroup, origin: FabricType.Test } as any)).toBe(
+            FabricType.Test,
+        );
+    });
     it('returns null for containers without origin', () => {
         expect(getEntityEnvironment({ type: EntityType.Container, properties: {} } as any)).toBeNull();
     });

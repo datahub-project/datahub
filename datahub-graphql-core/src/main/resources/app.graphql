@@ -1061,7 +1061,7 @@ type GlobalVisualSettings {
   """
   Whether to show the environment (fabric) badge on assets in search and on entity pages
   """
-  showEnvironmentBadge: Boolean!
+  showEnvironmentBadge: Boolean
 }
 
 """
