@@ -11,9 +11,15 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.test.Snapshot;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
@@ -42,6 +48,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
@@ -55,6 +62,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.SearchContext;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.net.URISyntaxException;
@@ -338,6 +346,82 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
             0,
             10);
     assertEquals(searchResult.getNumEntities().intValue(), 0);
+  }
+
+  @Test
+  public void testIncludeExplain() throws Exception {
+    Urn urn = new TestEntityUrn("test", "explained", "VALUE_1");
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.set("urn", JsonNodeFactory.instance.textNode(urn.toString()));
+    document.set("keyPart1", JsonNodeFactory.instance.textNode("explained"));
+    elasticSearchService.upsertDocument(
+        operationContext, ENTITY_NAME, document.toString(), urn.toString());
+    syncAfterWrite(getBulkProcessor());
+
+    Authorizer allowAll =
+        new Authorizer() {
+          @Override
+          public AuthorizationResult authorize(@Nonnull AuthorizationRequest request) {
+            return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "");
+          }
+        };
+    OperationContext explainContext =
+        operationContext
+            .asSession(RequestContext.TEST, allowAll, TestOperationContexts.TEST_USER_AUTH)
+            .withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setSkipCache(true)
+                        .setIncludeExplain(true)
+                        .setSearchType("DFS_QUERY_THEN_FETCH"));
+    SearchResult searchResult =
+        searchService.searchAcrossEntities(
+            explainContext, ImmutableList.of(ENTITY_NAME), "explained", null, null, 0, 10);
+    assertEquals(searchResult.getEntities().get(0).getEntity(), urn);
+    JsonNode explanation =
+        new ObjectMapper()
+            .readTree(
+                searchResult
+                    .getEntities()
+                    .get(0)
+                    .getExtraFields()
+                    .get(SearchRequestHandler.EXPLAIN_EXTRA_FIELD));
+    assertTrue(explanation.get("match").asBoolean());
+
+    // A scroll over a point in time takes both flags too
+    ScrollResult scrollResult =
+        pitSearchService.scrollAcrossEntities(
+            explainContext,
+            ImmutableList.of(ENTITY_NAME),
+            "explained",
+            null,
+            null,
+            null,
+            "2m",
+            10,
+            null);
+    assertEquals(scrollResult.getEntities().get(0).getEntity(), urn);
+    assertTrue(
+        scrollResult
+            .getEntities()
+            .get(0)
+            .getExtraFields()
+            .containsKey(SearchRequestHandler.EXPLAIN_EXTRA_FIELD));
+
+    // The shared session's authorizer grants nothing, so it cannot explain
+    assertThrows(
+        ActorAccessException.class,
+        () ->
+            searchService.searchAcrossEntities(
+                operationContext.withSearchFlags(
+                    flags -> flags.setFulltext(true).setIncludeExplain(true)),
+                ImmutableList.of(ENTITY_NAME),
+                "explained",
+                null,
+                null,
+                0,
+                10));
   }
 
   @Test

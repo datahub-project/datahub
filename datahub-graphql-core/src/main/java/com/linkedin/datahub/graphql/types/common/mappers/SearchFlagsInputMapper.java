@@ -78,6 +78,12 @@ public class SearchFlagsInputMapper
     if (searchFlags.getMinScore() != null) {
       result.setMinScore(searchFlags.getMinScore());
     }
+    if (searchFlags.getIncludeExplain() != null) {
+      result.setIncludeExplain(searchFlags.getIncludeExplain());
+    }
+    if (searchFlags.getSearchType() != null) {
+      result.setSearchType(searchFlags.getSearchType());
+    }
     return result;
   }
 }

@@ -209,6 +209,20 @@ input SearchFlags {
   floor must be calibrated per deployment rather than assumed.
   """
   minScore: Float
+
+  """
+  Include the search engine's scoring explanation for each keyword search hit, as JSON in the
+  hit's extraProperties under the key _explain. Requires the ES_EXPLAIN_QUERY_PRIVILEGE or
+  MANAGE_SYSTEM_OPERATIONS privilege. Adds scoring overhead, so use it to debug relevance.
+  """
+  includeExplain: Boolean
+
+  """
+  Search type for keyword search: QUERY_THEN_FETCH (default) or DFS_QUERY_THEN_FETCH.
+  DFS_QUERY_THEN_FETCH gathers term statistics from all shards before scoring, so scores are
+  comparable across shards, at the cost of an extra round trip per search.
+  """
+  searchType: String
 }
 
 """

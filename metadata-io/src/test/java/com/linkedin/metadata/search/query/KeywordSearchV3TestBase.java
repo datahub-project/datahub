@@ -17,7 +17,12 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertEqualsNoOrder;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
 import com.datahub.context.OperationFingerprint;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
@@ -63,6 +68,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
@@ -90,6 +96,7 @@ import com.linkedin.test.metadata.aspect.MockAspectRetriever;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -611,6 +618,50 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         ORDERS,
         CUSTOMERS,
         ORDERS_CHART);
+  }
+
+  @Test
+  public void testIncludeExplainAndSearchType() throws IOException {
+    Authorizer allowAll =
+        new Authorizer() {
+          @Override
+          public AuthorizationResult authorize(@Nonnull AuthorizationRequest request) {
+            return new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, "");
+          }
+        };
+    OperationContext explained =
+        opContext
+            .asSession(RequestContext.TEST, allowAll, TestOperationContexts.TEST_USER_AUTH)
+            .withSearchFlags(
+                flags ->
+                    flags
+                        .setFulltext(true)
+                        .setIncludeExplain(true)
+                        .setSearchType("DFS_QUERY_THEN_FETCH"));
+    SearchEntityArray searched =
+        searchService
+            .search(explained, List.of(DATASET_ENTITY_NAME), "orders", null, null, 0, 10)
+            .getEntities();
+    assertUrns(searched, ORDERS);
+    assertExplained(searched.get(0));
+
+    SearchEntityArray scrolled =
+        searchService
+            .fullTextScroll(
+                explained, ENTITY_TYPES, "orders", null, null, null, null, 10, List.of())
+            .getEntities();
+    assertUrns(scrolled, ORDERS, ORDERS_CHART);
+    for (SearchEntity entity : scrolled) {
+      assertExplained(entity);
+    }
+  }
+
+  private static void assertExplained(SearchEntity entity) throws IOException {
+    JsonNode explanation =
+        new ObjectMapper()
+            .readTree(entity.getExtraFields().get(SearchRequestHandler.EXPLAIN_EXTRA_FIELD));
+    assertTrue(explanation.get("match").asBoolean());
+    assertTrue(explanation.get("value").floatValue() > 0);
   }
 
   @Test

@@ -6470,6 +6470,18 @@
       "doc" : "Sets slice parameter for elasticsearch query,\nto allow multiple clients to scroll the same query at once.\nOnly supported by the ElasticSearchService",
       "optional" : true
     }, {
+      "name" : "includeExplain",
+      "type" : "boolean",
+      "doc" : "Include the search engine's scoring explanation for each keyword search hit, as JSON under the\n`_explain` key of SearchEntity.extraFields (extraProperties in GraphQL). Requires the\nES_EXPLAIN_QUERY_PRIVILEGE or MANAGE_SYSTEM_OPERATIONS privilege. Adds scoring overhead, so\nuse it to debug relevance, not in production traffic.",
+      "default" : false,
+      "optional" : true
+    }, {
+      "name" : "searchType",
+      "type" : "string",
+      "doc" : "Search type for keyword search: QUERY_THEN_FETCH (default) or DFS_QUERY_THEN_FETCH.\nQUERY_THEN_FETCH scores each hit with the term statistics of its own shard.\nDFS_QUERY_THEN_FETCH first gathers term statistics from all shards, so scores are comparable\nacross shards, at the cost of an extra round trip per search.",
+      "default" : "QUERY_THEN_FETCH",
+      "optional" : true
+    }, {
       "name" : "minScore",
       "type" : "float",
       "doc" : "Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring\nbelow this floor are dropped, letting an agent abstain instead of returning weak matches. When\nnull/unset, no floor is applied. Currently honored only by the semantic search path.\n\nThe value is compared against the engine's raw kNN relevance score (cosine-derived), which is\nnot a normalized 0..1 value; its scale depends on the embedding model and search engine, so a\nsuitable floor must be calibrated per deployment rather than assumed.",

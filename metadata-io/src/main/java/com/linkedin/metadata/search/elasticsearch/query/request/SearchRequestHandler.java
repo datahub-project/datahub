@@ -3,7 +3,11 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 import static com.linkedin.metadata.search.utils.ESUtils.NAME_SUGGESTION;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
 
+import com.datahub.authorization.AuthUtil;
 import com.datahub.util.exception.ESQueryException;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -11,6 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.StringMap;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -45,6 +50,7 @@ import com.linkedin.metadata.search.utils.SearchResultUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,8 +72,10 @@ import lombok.Getter;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.lucene.search.Explanation;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.core.common.text.Text;
@@ -83,6 +91,9 @@ import org.opensearch.search.suggest.term.TermSuggestion;
 
 @Slf4j
 public class SearchRequestHandler extends BaseRequestHandler {
+
+  /** Extra field holding a hit's scoring explanation as JSON, set when includeExplain is on. */
+  public static final String EXPLAIN_EXTRA_FIELD = "_explain";
 
   private static final Map<SearchHandlerKey, SearchRequestHandler> REQUEST_HANDLER_BY_ENTITY_NAME =
       new ConcurrentHashMap<>();
@@ -316,6 +327,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input);
     }
 
+    applyExplainAndSearchType(opContext, searchRequest, searchSourceBuilder, searchFlags);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
     return searchRequest;
@@ -372,6 +384,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       searchSourceBuilder.highlighter(highlightBuilder);
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
+    applyExplainAndSearchType(opContext, searchRequest, searchSourceBuilder, searchFlags);
     searchRequest.source(searchSourceBuilder);
     log.debug("Search request is: " + searchRequest);
     searchRequest.indicesOptions(null);
@@ -456,6 +469,34 @@ public class SearchRequestHandler extends BaseRequestHandler {
                 SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL, searchFlags)
             .toArray(String[]::new);
     searchSourceBuilder.fetchSource(includes, null);
+  }
+
+  /**
+   * Explanations show shard term statistics and the whole query, filters included, so {@code
+   * includeExplain} needs the privileges of the explain endpoint. Unlike that endpoint's check,
+   * this one does not depend on the REST API authorization setting, because GraphQL callers set the
+   * flag too.
+   */
+  private static void applyExplainAndSearchType(
+      @Nonnull OperationContext opContext,
+      @Nonnull SearchRequest searchRequest,
+      @Nonnull SearchSourceBuilder searchSourceBuilder,
+      @Nonnull SearchFlags searchFlags) {
+    if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
+      if (!AuthUtil.isAuthorized(opContext, PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE)
+          && !AuthUtil.isAuthorized(opContext, PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE)) {
+        throw new ActorAccessException(
+            "includeExplain requires the "
+                + PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE.getType()
+                + " or "
+                + PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.getType()
+                + " privilege");
+      }
+      searchSourceBuilder.explain(true);
+    }
+    // fromString takes the REST names (dfs_query_then_fetch) and rejects anything else
+    searchRequest.searchType(
+        SearchType.fromString(searchFlags.getSearchType().toLowerCase(Locale.ROOT)));
   }
 
   @Override
@@ -745,7 +786,29 @@ public class SearchRequestHandler extends BaseRequestHandler {
           SearchResultUtils.toExtraFields(
               opContext.getObjectMapper(), hit.getSourceAsMap(), flags.getFetchExtraFields()));
     }
+    if (hit.getExplanation() != null) {
+      StringMap extraFields = entity.hasExtraFields() ? entity.getExtraFields() : new StringMap();
+      extraFields.put(EXPLAIN_EXTRA_FIELD, explanationToJson(hit.getExplanation()).toString());
+      entity.setExtraFields(extraFields);
+    }
     return entity;
+  }
+
+  @Nonnull
+  private static ObjectNode explanationToJson(@Nonnull Explanation explanation) {
+    ObjectNode node =
+        JsonNodeFactory.instance
+            .objectNode()
+            .put("value", explanation.getValue().floatValue())
+            .put("description", explanation.getDescription())
+            .put("match", explanation.isMatch());
+    if (explanation.getDetails().length > 0) {
+      ArrayNode details = node.putArray("details");
+      for (Explanation detail : explanation.getDetails()) {
+        details.add(explanationToJson(detail));
+      }
+    }
+    return node;
   }
 
   /**
