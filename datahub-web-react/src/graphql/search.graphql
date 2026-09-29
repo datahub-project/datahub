@@ -393,6 +393,7 @@ fragment searchResultCardFields on Entity {
     }
     ... on MLModel {
         name
+        origin
         platform {
             ...platformFields
         }
@@ -405,6 +406,7 @@ fragment searchResultCardFields on Entity {
     }
     ... on MLModelGroup {
         name
+        origin
         platform {
             ...platformFields
         }
