@@ -2185,16 +2185,42 @@ JOIN mysql('host:3306', 'remote_db', 'remote_table', 'user', 'pass') r ON e.id =
     )
 
 
-def test_postgres_table_function_is_not_a_table() -> None:
+def test_postgres_table_function_without_default_schema() -> None:
     assert_sql_result(
         """\
-INSERT INTO target
-SELECT n FROM generate_series(1, 10) AS g(n)
+INSERT INTO s.target
+SELECT a.id, g.n FROM s.a CROSS JOIN generate_series(1, 10) AS g(n)
 """,
         dialect="postgres",
-        default_db="db1",
-        default_schema="public",
         expected_file=RESOURCE_DIR / "test_postgres_table_function.json",
+    )
+
+
+def test_mssql_table_valued_functions_are_not_tables() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO dbo.target
+SELECT o.id, j.value
+FROM dbo.ufn_orders(1) o
+JOIN dbo.customers c ON o.id = c.id
+CROSS APPLY OPENJSON(c.payload) j
+""",
+        dialect="tsql",
+        default_db="db1",
+        default_schema="dbo",
+        expected_file=RESOURCE_DIR / "test_mssql_table_valued_functions.json",
+    )
+
+
+def test_bigquery_table_inside_table_function() -> None:
+    assert_sql_result(
+        """\
+SELECT * FROM ML.PREDICT(MODEL `p.d.model`, TABLE `p.d.features`)
+""",
+        dialect="bigquery",
+        default_db="p",
+        default_schema="d",
+        expected_file=RESOURCE_DIR / "test_bigquery_table_inside_table_function.json",
     )
 
 

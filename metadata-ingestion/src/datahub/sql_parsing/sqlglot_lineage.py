@@ -119,7 +119,7 @@ def _restore_mssql_temp_table_prefix(
         return table.name
 
     identifier = table.this
-    if not hasattr(identifier, "args"):
+    if not hasattr(identifier, "args") or isinstance(identifier, sqlglot.exp.Func):
         return table.name
 
     table_name = identifier.name if hasattr(identifier, "name") else table.name
@@ -477,9 +477,12 @@ def _extract_table_names(
             # One unresolvable table ref must not drop the whole statement's lineage.
             logger.debug(f"Skipping unresolvable table reference: {e}")
             continue
-        # Table functions (mysql(), generate_series()) parse as nameless tables.
+        # e.g. table functions like mysql() or generate_series(). Without a table
+        # name there is no valid dataset URN to build.
         if not name.table:
-            logger.debug(f"Skipping table function: {table.sql(dialect=dialect)}")
+            logger.debug(
+                f"Skipping table reference with no name: {table.sql(dialect=dialect)}"
+            )
             continue
         result.add(name)
     return result

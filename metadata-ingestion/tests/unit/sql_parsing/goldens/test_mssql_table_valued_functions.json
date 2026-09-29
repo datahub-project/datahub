@@ -1,0 +1,49 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "51f282f6ec29f69ee29ec15dcf278129e0518d9c619279f2c41c3ee577e4c5d7",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,db1.dbo.customers,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,db1.dbo.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db1.dbo.target,PROD)",
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "[o].[id] AS [id]"
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db1.dbo.target,PROD)",
+                "column": "value",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:tsql,db1.dbo.customers,PROD)",
+                    "column": "payload"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CROSS APPLY OPENJSON([c].[payload]) AS [j]"
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO dbo.target SELECT o.id, j.value FROM dbo.UFN_ORDERS(?) AS o JOIN dbo.customers AS c ON o.id = c.id CROSS APPLY OPENJSON(c.payload) AS j"
+    }
+}
