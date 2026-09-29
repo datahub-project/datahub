@@ -312,7 +312,8 @@ datahub-kafka = [
 datahub-lineage-file = []
 
 datahub-lite = [
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
+    "starlette>=1.3.1,<2.0.0",
     "uvicorn<0.41.0",
 ]
 
@@ -474,6 +475,7 @@ feast = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "numpy<2",
+    "starlette>=1.3.1,<2.0.0",
 ]
 
 fivetran = [
@@ -789,6 +791,10 @@ omni = [
 onnx-embeddings = [
     "onnxruntime>=1.19.0,<1.24",
     "tokenizers>=0.20.0,<1.0.0",
+]
+
+openapi = [
+    "requests<3.0.0",
 ]
 
 oracle = [
@@ -1331,7 +1337,7 @@ dev = [
     "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
@@ -1440,6 +1446,7 @@ dev = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
@@ -1524,7 +1531,7 @@ docs = [
     "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
@@ -1633,6 +1640,7 @@ docs = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
@@ -1743,6 +1751,7 @@ integration-tests = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
