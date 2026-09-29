@@ -400,8 +400,11 @@ project.ext.externalDependency = [
     'playServer': "org.playframework:play-server_$playScalaVersion",
     'playTest': "org.playframework:play-test_$playScalaVersion",
     'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.4.2',
-    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
+    // CVE-2026-82461..82465 (OIDC access-token substitution, unvalidated Keycloak roles, reversed
+    // CheckProfileTypeAuthorizer, logout open redirect, unsigned SAML LogoutRequest): fixed in 6.5.6+.
+    // 6.5.8 also hardens the logout redirect URL against control characters / spaces.
+    'pac4j': 'org.pac4j:pac4j-oidc:6.5.8',
+    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.3-PLAY3.0",
     // CVE-2026-54291: channel-binding auth downgrade fixed in 42.7.12+
     'postgresql': 'org.postgresql:postgresql:42.7.12',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
