@@ -1,7 +1,15 @@
-import { NodeContext } from '@app/lineageV3/common';
-import { getNodesWithLineage } from '@app/lineageV3/useComputeGraph/lineageGraph.utils';
+import {
+    FetchStatus,
+    LINEAGE_FILTER_TYPE,
+    LineageEntity,
+    LineageFilter,
+    NodeContext,
+    addToAdjacencyList,
+} from '@app/lineageV3/common';
+import { FetchedEntityV2 } from '@app/lineageV3/types';
+import { getNodesWithLineage, hideOrphanedNodes } from '@app/lineageV3/useComputeGraph/lineageGraph.utils';
 
-import { LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 /**
  * Test helper: Creates a minimal adjacency list for testing
@@ -212,6 +220,108 @@ describe('lineageGraph.utils', () => {
             // C and D never in input, so can't be in result
             expect(result).not.toContain(C);
             expect(result).not.toContain(D);
+        });
+    });
+
+    describe('hideOrphanedNodes', () => {
+        const DP = 'urn:li:dataProduct:DP';
+        const A = 'urn:li:dataset:A';
+        const B = 'urn:li:dataset:B';
+        const C = 'urn:li:dataset:C';
+        const FILTER = 'lineage-filter:A';
+
+        function entityNode(urn: string, fetched: boolean): LineageEntity {
+            return {
+                id: urn,
+                urn,
+                type: EntityType.Dataset,
+                entity: fetched ? ({ urn, type: EntityType.Dataset, exists: true } as FetchedEntityV2) : undefined,
+                isExpanded: { [LineageDirection.Upstream]: true, [LineageDirection.Downstream]: true },
+                fetchStatus: {
+                    [LineageDirection.Upstream]: FetchStatus.COMPLETE,
+                    [LineageDirection.Downstream]: FetchStatus.COMPLETE,
+                },
+                filters: {
+                    [LineageDirection.Upstream]: { facetFilters: new Map() },
+                    [LineageDirection.Downstream]: { facetFilters: new Map() },
+                },
+            };
+        }
+
+        const filterNode = {
+            id: FILTER,
+            type: LINEAGE_FILTER_TYPE,
+            direction: LineageDirection.Downstream,
+            parent: A,
+        } as LineageFilter;
+
+        function setUp(fetched: Record<string, boolean>, edges: [string, string][]) {
+            const nodes: NodeContext['nodes'] = new Map(
+                Object.entries(fetched).map(([urn, isFetched]) => [urn, entityNode(urn, isFetched)]),
+            );
+            const adjacencyList = createAdjacencyList(new Map(), new Map());
+            edges.forEach(([upstream, downstream]) =>
+                addToAdjacencyList(adjacencyList, LineageDirection.Downstream, upstream, downstream),
+            );
+            return { nodes, adjacencyList };
+        }
+
+        const ids = (shown: { id: string }[]) => shown.map((node) => node.id);
+        const pick = (nodes: NodeContext['nodes'], urns: string[]): LineageEntity[] =>
+            urns.map((urn) => nodes.get(urn)).filter((node): node is LineageEntity => !!node);
+
+        it('hides fetched members with no lineage and keeps connected ones', () => {
+            const { nodes, adjacencyList } = setUp({ [DP]: true, [A]: true, [B]: true, [C]: true }, [[A, B]]);
+            const shown = pick(nodes, [DP, A, B, C]);
+
+            const result = hideOrphanedNodes(shown, DP, new Set([A, B, C]), nodes, adjacencyList);
+
+            expect(ids(result)).toEqual([DP, A, B]);
+        });
+
+        it('keeps unfetched members, since hiding them would stop their lineage from being fetched', () => {
+            const { nodes, adjacencyList } = setUp({ [DP]: true, [A]: true, [B]: true, [C]: false }, [[A, B]]);
+            const shown = pick(nodes, [DP, A, B, C]);
+
+            const result = hideOrphanedNodes(shown, DP, new Set([A, B, C]), nodes, adjacencyList);
+
+            expect(ids(result)).toEqual([DP, A, B, C]);
+        });
+
+        it('hides nothing while no home member is known to have lineage, e.g. mid-way through loading a page', () => {
+            const { nodes, adjacencyList } = setUp({ [DP]: true, [A]: false, [C]: true }, []);
+            const shown = pick(nodes, [DP, A, C]);
+
+            const result = hideOrphanedNodes(shown, DP, new Set([A, C]), nodes, adjacencyList);
+
+            expect(ids(result)).toEqual([DP, A, C]);
+        });
+
+        it('hides fetched orphans once a home member has lineage, even if that member is not fetched yet', () => {
+            const { nodes, adjacencyList } = setUp({ [DP]: true, [A]: false, [B]: true, [C]: true }, [[B, A]]);
+            const shown = pick(nodes, [DP, A, C]);
+
+            const result = hideOrphanedNodes(shown, DP, new Set([A, C]), nodes, adjacencyList);
+
+            expect(ids(result)).toEqual([DP, A]);
+        });
+
+        it('shows every node when no home member has lineage, so the home box does not disappear', () => {
+            const { nodes, adjacencyList } = setUp({ [DP]: true, [A]: true, [C]: true }, []);
+            const shown = pick(nodes, [DP, A, C]);
+
+            const result = hideOrphanedNodes(shown, DP, new Set([A, C]), nodes, adjacencyList);
+
+            expect(ids(result)).toEqual([DP, A, C]);
+        });
+
+        it('always keeps the root and filter nodes', () => {
+            const { nodes, adjacencyList } = setUp({ [DP]: true, [A]: true, [B]: true }, [[A, B]]);
+            const shown = [...pick(nodes, [DP, A, B]), filterNode];
+
+            const result = hideOrphanedNodes(shown, DP, new Set([A, B]), nodes, adjacencyList);
+
+            expect(ids(result)).toEqual([DP, A, B, FILTER]);
         });
     });
 });

@@ -25,7 +25,7 @@ import positionTopLevelNodes from '@app/lineageV3/useComputeGraph/boundingBoxes/
 import filterToRevealedEdges from '@app/lineageV3/useComputeGraph/boundingBoxes/revealedEdges';
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
 import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
-import { getNodesWithLineage } from '@app/lineageV3/useComputeGraph/lineageGraph.utils';
+import { hideOrphanedNodes } from '@app/lineageV3/useComputeGraph/lineageGraph.utils';
 import { generateCompareNodesFunction } from '@app/lineageV3/useComputeGraph/orderNodes';
 
 import { EntityType, LineageDirection } from '@types';
@@ -168,22 +168,13 @@ export default function computeBoundingBoxGraph(
           })()
         : displayedNodes;
 
-    // Filter out nodes with no lineage connections (except the root node and filter nodes).
-    const nodesWithLineage = getNodesWithLineage(
-        shownNodes.map((n) => n.id),
+    // Hide nodes with no lineage
+    const shownFilteredNodes = hideOrphanedNodes(
+        shownNodes,
+        urn,
+        groups.get(urn)?.memberUrns ?? new Set(),
+        nodes,
         graphStore.adjacencyList,
-    );
-    // Only filter orphans after batches start arriving and all fetchable nodes are loaded.
-    const batchesHaveArrived = edges.size > 0;
-    const fetchableNodes = shownNodes.filter(
-        (node) => node.id !== urn && node.type !== LINEAGE_FILTER_TYPE && nodes.has(node.id),
-    );
-    const allFetchableNodesLoaded =
-        fetchableNodes.length === 0 || fetchableNodes.every((node) => nodes.get(node.id)?.entity);
-    const allNodesLoaded = batchesHaveArrived && allFetchableNodesLoaded;
-    const shownFilteredNodes = shownNodes.filter(
-        (node) =>
-            node.id === urn || node.type === LINEAGE_FILTER_TYPE || !allNodesLoaded || nodesWithLineage.has(node.id),
     );
 
     const displayedIds = new Set(shownFilteredNodes.map((node) => node.id));

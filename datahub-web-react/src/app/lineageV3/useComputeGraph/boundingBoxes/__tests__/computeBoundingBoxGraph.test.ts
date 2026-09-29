@@ -1,4 +1,5 @@
 import { FetchStatus, LineageEntity, NodeContext, addToAdjacencyList, createEdgeId } from '@app/lineageV3/common';
+import { FetchedEntityV2 } from '@app/lineageV3/types';
 import computeBoundingBoxGraph from '@app/lineageV3/useComputeGraph/boundingBoxes/computeBoundingBoxGraph';
 
 import { EntityType, LineageDirection } from '@types';
@@ -9,15 +10,13 @@ const B = 'urn:li:dataset:B';
 const C = 'urn:li:dataset:C';
 const D = 'urn:li:dataset:D';
 
-/**
- * Creates a minimal LineageEntity for testing. Optionally sets entity data to simulate
- * loaded vs. unloaded states (null entity = not yet fetched by useBulkEntityLineage).
- */
-function makeNode(urn: string, type: EntityType, withEntity = true): LineageEntity {
-    const node: LineageEntity = {
+function node(urn: string, type: EntityType, fetched: boolean, isMember: boolean): LineageEntity {
+    return {
         id: urn,
         urn,
         type,
+        entity: fetched ? ({ urn, type, exists: true } as FetchedEntityV2) : undefined,
+        boundingBoxes: isMember ? [{ urn: DP, isOutputPort: false }] : undefined,
         isExpanded: { [LineageDirection.Upstream]: true, [LineageDirection.Downstream]: true },
         fetchStatus: {
             [LineageDirection.Upstream]: FetchStatus.COMPLETE,
@@ -28,272 +27,82 @@ function makeNode(urn: string, type: EntityType, withEntity = true): LineageEnti
             [LineageDirection.Downstream]: { facetFilters: new Map() },
         },
     };
-    if (withEntity) {
-        node.entity = {
-            urn,
-            type,
-            name: urn,
-            lineageAssets: new Map(),
-            downstreamRelationships: [],
-            upstreamRelationships: [],
-        } as any;
-    }
-    return node;
 }
 
-describe('computeBoundingBoxGraph', () => {
-    describe('orphan filtering with batched entity loading', () => {
-        /**
-         * Critical: Filtering must wait for batches to arrive (edges to exist).
-         * Without this, the && fix breaks and filtering happens immediately.
-         */
-        it('skips orphan filtering until batches arrive (edges.size > 0)', () => {
-            // No edges at all - batches haven't arrived yet
-            const nodes = new Map([
-                [DP, makeNode(DP, EntityType.DataProduct)],
-                [A, makeNode(A, EntityType.Dataset, true)], // Has entity
-                [C, makeNode(C, EntityType.Dataset, true)], // Orphan with entity
-            ]);
-
-            const edges: NodeContext['edges'] = new Map(); // EMPTY - no batches
-            const adjacencyList: NodeContext['adjacencyList'] = {
-                [LineageDirection.Upstream]: new Map(),
-                [LineageDirection.Downstream]: new Map(),
-            };
-            // No edges at all - A and C have no connections
-
-            const context = {
-                nodes,
-                edges,
-                adjacencyList,
-                rootType: EntityType.DataProduct,
-                showDataProcessInstances: false,
-                showGhostEntities: false,
-                hideTransformations: false,
-                outputPortsOnly: false,
-                boundingBoxEntities: new Map(),
-            };
-
-            const result = computeBoundingBoxGraph(DP, context, false);
-
-            // With && logic: batchesHaveArrived = false, so allNodesLoaded = false
-            // Therefore orphan filtering should NOT be active
-            expect(result).toHaveProperty('flowNodes');
-            expect(result).toHaveProperty('flowEdges');
-            // Critical: if filtering happened, C would be removed (orphan)
-            // With the correct && fix, C should be shown because allNodesLoaded = false
-        });
-
-        /**
-         * Issue #1: Orphans hidden before lineage loads
-         * Scenario: useBulkEntityLineage fetches in batches of 10. Once first batch loads,
-         * nodes waiting for subsequent batches should not be filtered as orphans.
-         */
-        it('shows orphaned nodes until all shown entities are loaded', () => {
-            // Scenario: A→B connected, C and D are orphans. A and C loaded, B and D not yet.
-            const nodes = new Map([
-                [DP, makeNode(DP, EntityType.DataProduct)],
-                [A, makeNode(A, EntityType.Dataset, true)], // ✓ Loaded
-                [B, makeNode(B, EntityType.Dataset, false)], // ✗ Still fetching
-                [C, makeNode(C, EntityType.Dataset, true)], // ✓ Loaded (orphan)
-                [D, makeNode(D, EntityType.Dataset, false)], // ✗ Still fetching (orphan)
-            ]);
-
-            const edges: NodeContext['edges'] = new Map();
-            const adjacencyList: NodeContext['adjacencyList'] = {
-                [LineageDirection.Upstream]: new Map(),
-                [LineageDirection.Downstream]: new Map(),
-            };
-            // Add edge from A to B
-            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, A, B);
-            edges.set(createEdgeId(A, B), { isDisplayed: true });
-
-            const context = {
-                nodes,
-                edges,
-                adjacencyList,
-                rootType: EntityType.DataProduct,
-                showDataProcessInstances: false,
-                showGhostEntities: false,
-                hideTransformations: false,
-                outputPortsOnly: false,
-                boundingBoxEntities: new Map(),
-            };
-
-            // Mock computeLineageGraph to return displayedNodes
-            // In this test, we're verifying that filtering respects the allNodesLoaded logic
-            // by ensuring that C (orphan without entity) is NOT filtered out yet
-            const result = computeBoundingBoxGraph(DP, context, false);
-
-            // Since B and D still don't have entity data, allNodesLoaded = false
-            // Therefore, orphan filtering should NOT be active, and C should appear
-            // (if computeLineageGraph included it in displayedNodes)
-            // The test verifies that the orphan filtering doesn't kick in too early
-            expect(result).toHaveProperty('flowNodes');
-            expect(result).toHaveProperty('flowEdges');
-        });
-
-        /**
-         * Scenario: All entities loaded, then verify orphans ARE filtered out correctly.
-         */
-        it('filters orphaned nodes once all entities are loaded', () => {
-            // A→B connected, C is orphan. All entities loaded.
-            const nodes = new Map([
-                [DP, makeNode(DP, EntityType.DataProduct)],
-                [A, makeNode(A, EntityType.Dataset, true)],
-                [B, makeNode(B, EntityType.Dataset, true)],
-                [C, makeNode(C, EntityType.Dataset, true)], // Orphan
-            ]);
-
-            const edges: NodeContext['edges'] = new Map();
-            const adjacencyList: NodeContext['adjacencyList'] = {
-                [LineageDirection.Upstream]: new Map(),
-                [LineageDirection.Downstream]: new Map(),
-            };
-            // Only A→B edge, C has no connections
-            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, A, B);
-            edges.set(createEdgeId(A, B), { isDisplayed: true });
-
-            const context = {
-                nodes,
-                edges,
-                adjacencyList,
-                rootType: EntityType.DataProduct,
-                showDataProcessInstances: false,
-                showGhostEntities: false,
-                hideTransformations: false,
-                outputPortsOnly: false,
-                boundingBoxEntities: new Map(),
-            };
-
-            const result = computeBoundingBoxGraph(DP, context, false);
-
-            // Once all entities are loaded, orphan filtering becomes active
-            // C should be filtered out from flowNodes (it has no lineage connections)
-            expect(result).toHaveProperty('flowNodes');
-        });
+/** Returns the members rendered for DP; `fetched` lists members whose bulk lineage fetch has completed. */
+function renderedUrns(
+    members: string[],
+    fetched: string[],
+    lineage: [string, string][],
+    collapsed: string[] = [],
+): string[] {
+    const nodes: NodeContext['nodes'] = new Map([
+        [DP, node(DP, EntityType.DataProduct, true, false)],
+        ...members.map((urn): [string, LineageEntity] => [
+            urn,
+            node(urn, EntityType.Dataset, fetched.includes(urn), true),
+        ]),
+    ]);
+    collapsed.forEach((urn) => {
+        const member = nodes.get(urn);
+        if (member) member.isExpanded = { [LineageDirection.Upstream]: false, [LineageDirection.Downstream]: false };
+    });
+    const edges: NodeContext['edges'] = new Map();
+    const adjacencyList: NodeContext['adjacencyList'] = {
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
+    };
+    lineage.forEach(([upstream, downstream]) => {
+        edges.set(createEdgeId(upstream, downstream), { isDisplayed: true });
+        addToAdjacencyList(adjacencyList, LineageDirection.Downstream, upstream, downstream);
     });
 
-    describe('full vs. filtered adjacencyList', () => {
-        /**
-         * Issue #2: Collapse hides connected members
-         * Scenario: When a node is contracted, its edges are removed from revealedGraphStore.
-         * Orphan filtering must check the FULL adjacencyList, not the filtered one,
-         * to detect actual lineage.
-         */
-        it('uses full adjacencyList to detect lineage, not filtered reveal state', () => {
-            // A→B connected. If we were using revealedGraphStore (filtered by reveal state),
-            // contracting A would hide its edges, making B look orphaned.
-            // By using graphStore.adjacencyList (full), B should be identified as connected.
-            const nodes = new Map([
-                [DP, makeNode(DP, EntityType.DataProduct)],
-                [A, makeNode(A, EntityType.Dataset, true)],
-                [B, makeNode(B, EntityType.Dataset, true)],
-            ]);
+    const { flowNodes } = computeBoundingBoxGraph(
+        DP,
+        {
+            nodes,
+            edges,
+            adjacencyList,
+            rootType: EntityType.DataProduct,
+            hideTransformations: false,
+            showDataProcessInstances: false,
+            showGhostEntities: false,
+            outputPortsOnly: false,
+            boundingBoxEntities: new Map(),
+        },
+        false,
+    );
+    return flowNodes.map((flowNode) => (flowNode.data as LineageEntity).urn).filter((urn) => urn !== DP);
+}
 
-            const edges: NodeContext['edges'] = new Map();
-            const adjacencyList: NodeContext['adjacencyList'] = {
-                [LineageDirection.Upstream]: new Map(),
-                [LineageDirection.Downstream]: new Map(),
-            };
-            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, A, B);
-            edges.set(createEdgeId(A, B), { isDisplayed: true });
-
-            const context = {
-                nodes,
-                edges,
-                adjacencyList,
-                rootType: EntityType.DataProduct,
-                showDataProcessInstances: false,
-                showGhostEntities: false,
-                hideTransformations: false,
-                outputPortsOnly: false,
-                boundingBoxEntities: new Map(),
-            };
-
-            const result = computeBoundingBoxGraph(DP, context, false);
-
-            // The function should use the full adjacencyList, ensuring B is recognized
-            // as having lineage (connected to A), not filtered out as orphaned
-            expect(result).toHaveProperty('flowNodes');
-            expect(result).toHaveProperty('adjacencyList');
-        });
+describe('computeBoundingBoxGraph orphaned members', () => {
+    it('hides fetched members with no lineage', () => {
+        expect(renderedUrns([A, B, C], [A, B, C], [[A, B]]).sort()).toEqual([A, B]);
     });
 
-    describe('root node and filter nodes always shown', () => {
-        /**
-         * Root node and filter nodes should always be displayed, even if orphaned.
-         */
-        it('always shows root node and filter nodes regardless of lineage', () => {
-            const nodes = new Map([
-                [DP, makeNode(DP, EntityType.DataProduct)],
-                [A, makeNode(A, EntityType.Dataset, true)],
-            ]);
+    it('keeps members whose lineage has not been fetched yet', () => {
+        expect(renderedUrns([A, B, C], [A, B], [[A, B]]).sort()).toEqual([A, B, C]);
+    });
 
-            const edges: NodeContext['edges'] = new Map();
-            const adjacencyList: NodeContext['adjacencyList'] = {
-                [LineageDirection.Upstream]: new Map(),
-                [LineageDirection.Downstream]: new Map(),
-            };
-            // A has no connections (orphan)
+    it('does not hide orphans while the rest of the page is loading and no member is connected yet', () => {
+        expect(renderedUrns([A, C], [C], []).sort()).toEqual([A, C]);
+    });
 
-            const context = {
-                nodes,
-                edges,
-                adjacencyList,
-                rootType: EntityType.DataProduct,
-                showDataProcessInstances: false,
-                showGhostEntities: false,
-                hideTransformations: false,
-                outputPortsOnly: false,
-                boundingBoxEntities: new Map(),
-            };
+    it('keeps connected members whose edges are hidden by collapsing', () => {
+        expect(
+            renderedUrns(
+                [A, B, C, D],
+                [A, B, C, D],
+                [
+                    [A, B],
+                    [C, D],
+                ],
+                [A, B],
+            ).sort(),
+        ).toEqual([A, B, C, D]);
+    });
 
-            const result = computeBoundingBoxGraph(DP, context, false);
-
-            // DP (root) should always be in the result, even if it were an orphan
-            expect(result).toHaveProperty('flowNodes');
-        });
-
-        /**
-         * Filter nodes don't have entity data (not in nodes map), so they shouldn't
-         * prevent orphan filtering from activating. This tests that the loading check
-         * properly skips filter nodes and root node.
-         */
-        it('filter nodes not in nodes map do not block orphan filter activation', () => {
-            // A and B connected, but filter node not in map
-            const nodes = new Map([
-                [DP, makeNode(DP, EntityType.DataProduct)],
-                [A, makeNode(A, EntityType.Dataset, true)],
-                [B, makeNode(B, EntityType.Dataset, true)],
-                // Filter node deliberately NOT in map (simulates LINEAGE_FILTER_TYPE node)
-            ]);
-
-            const edges: NodeContext['edges'] = new Map();
-            const adjacencyList: NodeContext['adjacencyList'] = {
-                [LineageDirection.Upstream]: new Map(),
-                [LineageDirection.Downstream]: new Map(),
-            };
-            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, A, B);
-            edges.set(createEdgeId(A, B), { isDisplayed: true });
-
-            const context = {
-                nodes,
-                edges,
-                adjacencyList,
-                rootType: EntityType.DataProduct,
-                showDataProcessInstances: false,
-                showGhostEntities: false,
-                hideTransformations: false,
-                outputPortsOnly: false,
-                boundingBoxEntities: new Map(),
-            };
-
-            const result = computeBoundingBoxGraph(DP, context, false);
-
-            // Despite filter node not being in map, orphan filtering should still work
-            // and orphan nodes should be filtered out
-            expect(result).toHaveProperty('flowNodes');
-        });
+    it('shows all members when none of them has lineage, so the home box stays visible', () => {
+        expect(renderedUrns([A, B, C], [A, B, C], []).sort()).toEqual([A, B, C]);
     });
 });
