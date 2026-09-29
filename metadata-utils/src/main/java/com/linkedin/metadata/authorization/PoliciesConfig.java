@@ -216,6 +216,12 @@ public class PoliciesConfig {
       Privilege.of(
           "MANAGE_FEATURES", "Manage Features", "Umbrella privilege to manage all features.");
 
+  public static final Privilege MANAGE_ORGANIZATION_DISPLAY_PREFERENCES =
+      Privilege.of(
+          "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
+          "Manage Organization Display Preferences",
+          "Create, update, and delete organization display preferences.");
+
   public static final Privilege MANAGE_SYSTEM_OPERATIONS_PRIVILEGE =
       Privilege.of(
           "MANAGE_SYSTEM_OPERATIONS",
@@ -320,6 +326,7 @@ public class PoliciesConfig {
           GET_METADATA_CHANGE_LOG_EVENTS,
           MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE,
           GET_TOPIC_EVENTS_PRIVILEGE,
+          MANAGE_ORGANIZATION_DISPLAY_PREFERENCES,
           VIEW_ALL_QUERIES_PRIVILEGE);
 
   // Resource Privileges //

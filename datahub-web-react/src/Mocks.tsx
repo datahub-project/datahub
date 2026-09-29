@@ -3461,6 +3461,7 @@ export const mocks = [
                         viewStructuredPropertiesPage: true,
                         manageApplications: true,
                         manageFeatures: true,
+                        manageOrganizationDisplayPreferences: true,
                         manageHomePageTemplates: true,
                         manageDocuments: true,
                     },
@@ -3753,6 +3754,7 @@ export const platformPrivileges: PlatformPrivileges = {
     viewStructuredPropertiesPage: true,
     manageApplications: true,
     manageFeatures: true,
+    manageOrganizationDisplayPreferences: true,
     manageHomePageTemplates: true,
 };
 

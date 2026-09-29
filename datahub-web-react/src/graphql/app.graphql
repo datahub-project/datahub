@@ -25,7 +25,6 @@ query appConfig {
             logoUrl
             faviconUrl
             showFullTitleInLineage
-            showEnvironmentBadge
             queriesTab {
                 queriesTabResultSize
             }

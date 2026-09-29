@@ -35,7 +35,6 @@ export const DEFAULT_APP_CONFIG = {
         searchResult: {
             enableNameHighlight: false,
         },
-        showEnvironmentBadge: false,
     },
     authConfig: {
         tokenAuthEnabled: false,

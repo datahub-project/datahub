@@ -13,6 +13,12 @@ extend type Query {
   appConfig: AppConfig
 
   """
+  Global (platform-level) settings for DataHub.
+  Only display preferences are exposed, so any authenticated user may read them.
+  """
+  globalSettings: GlobalSettings
+
+  """
   Fetch the Global Settings related to the Views feature.
   Requires the 'Manage Global Views' Platform Privilege.
   """
@@ -61,7 +67,7 @@ extend type Mutation {
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!
 
   """
-  Update organization display preferences. Requires the Manage Features privilege.
+  Update organization display preferences. Requires the Manage Organization Display Preferences privilege.
   """
   updateOrganizationDisplayPreferences(
     input: UpdateOrganizationDisplayPreferencesInput!
@@ -226,6 +232,11 @@ type PlatformPrivileges {
   Whether the user can manage platform features.
   """
   manageFeatures: Boolean!
+
+  """
+  Whether the user can manage Organization Display Preferences
+  """
+  manageOrganizationDisplayPreferences: Boolean!
 
   """
   Whether the user can manage default home page template.
@@ -456,11 +467,6 @@ type VisualConfig {
   Configuration for the application sidebar section
   """
   application: ApplicationConfig
-
-  """
-  Whether to show the environment (fabric) badge on assets in search and on entity pages
-  """
-  showEnvironmentBadge: Boolean
 }
 
 """
@@ -1036,6 +1042,26 @@ type ThemeConfig {
   The optional custom theme ID to determine which theme config we use in the frontend
   """
   themeId: String
+}
+
+"""
+Global (platform-level) settings.
+"""
+type GlobalSettings {
+  """
+  Global visual Settings
+  """
+  visualSettings: GlobalVisualSettings
+}
+
+"""
+Global settings related to the UI and what's displayed in the app
+"""
+type GlobalVisualSettings {
+  """
+  Whether to show the environment (fabric) badge on assets in search and on entity pages
+  """
+  showEnvironmentBadge: Boolean!
 }
 
 """

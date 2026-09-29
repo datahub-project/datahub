@@ -10,16 +10,13 @@ import { FabricType } from '@types';
 // EntityHeader is entity-agnostic: it renders whatever `environment` it's given, so a single
 // mocked value stands in for both the dataset (origin) and container (properties.origin) sources —
 // getEntityEnvironment itself is covered by getEntityEnvironment.test.ts.
-const mockUseAppConfig = vi.fn();
-vi.mock('@app/useAppConfig', () => ({
-    useAppConfig: () => mockUseAppConfig(),
+const mockUseGlobalSettingsContext = vi.fn();
+vi.mock('@app/context/GlobalSettings/GlobalSettingsContext', () => ({
+    useGlobalSettingsContext: () => mockUseGlobalSettingsContext(),
 }));
 
 function renderHeader(environment: FabricType | null, showEnvironmentBadge: boolean) {
-    mockUseAppConfig.mockReturnValue({
-        config: { visualConfig: { showEnvironmentBadge } },
-        loaded: false,
-    });
+    mockUseGlobalSettingsContext.mockReturnValue({ globalSettings: { visualSettings: { showEnvironmentBadge } } });
     return render(
         <CustomThemeProvider>
             <MemoryRouter>

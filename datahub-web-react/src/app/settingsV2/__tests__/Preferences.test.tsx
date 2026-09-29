@@ -7,10 +7,12 @@ import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 import { THEME_DARK_MODE_FLAG } from '@app/theme/useIsDarkMode';
 import themes from '@conf/theme/themes';
 
-let mockManageFeatures = false;
+let mockManageOrganizationDisplayPreferences = false;
 
 vi.mock('@app/context/useUserContext', () => ({
-    useUserContext: () => ({ platformPrivileges: { manageFeatures: mockManageFeatures } }),
+    useUserContext: () => ({
+        platformPrivileges: { manageOrganizationDisplayPreferences: mockManageOrganizationDisplayPreferences },
+    }),
 }));
 
 vi.mock('@app/i18n/hooks/useIsI18nEnabled', () => ({
@@ -19,6 +21,10 @@ vi.mock('@app/i18n/hooks/useIsI18nEnabled', () => ({
 
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: () => ({ config: { visualConfig: {} }, refreshContext: vi.fn() }),
+}));
+
+vi.mock('@app/context/GlobalSettings/GlobalSettingsContext', () => ({
+    useGlobalSettingsContext: () => ({ globalSettings: undefined, refetch: vi.fn(), loading: false }),
 }));
 
 vi.mock('@app/sharedV2/hooks/useFeatureFlag', () => ({
@@ -38,7 +44,7 @@ vi.mock('@graphql/settings.generated', async (importOriginal) => ({
 describe('Preferences', () => {
     beforeEach(() => {
         localStorage.clear();
-        mockManageFeatures = false;
+        mockManageOrganizationDisplayPreferences = false;
         vi.mocked(useFeatureFlag).mockImplementation((key: string) => key === THEME_DARK_MODE_FLAG);
     });
 
@@ -91,8 +97,8 @@ describe('Preferences', () => {
         expect(screen.getByText('No appearance settings found.')).toBeInTheDocument();
     });
 
-    it('shows the environment badge toggle when the user can manage features', () => {
-        mockManageFeatures = true;
+    it('shows the environment badge toggle when the user can manage organization display preferences', () => {
+        mockManageOrganizationDisplayPreferences = true;
 
         render(
             <ThemeProvider theme={themes.themeV2}>
@@ -103,7 +109,7 @@ describe('Preferences', () => {
         expect(screen.getByText('Show environment badge on assets')).toBeInTheDocument();
     });
 
-    it('hides the environment badge toggle when the user cannot manage features', () => {
+    it('hides the environment badge toggle when the user cannot manage organization display preferences', () => {
         render(
             <ThemeProvider theme={themes.themeV2}>
                 <Preferences />

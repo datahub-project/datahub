@@ -1,6 +1,7 @@
 import React from 'react';
 
 import EntityRegistryProvider from '@app/EntityRegistryProvider';
+import GlobalSettingsContextProvider from '@app/context/GlobalSettings/GlobalSettingsContextProvider';
 import GlobalSettingsProvider from '@app/context/GlobalSettingsProvider';
 import UserContextProvider from '@app/context/UserContextProvider';
 import { DocumentTreeProvider } from '@app/document/DocumentTreeContext';
@@ -21,32 +22,34 @@ interface Props {
 
 export default function AppProviders({ children }: Props) {
     return (
-        <AppConfigProvider>
-            <GlobalSettingsProvider>
-                <UserContextProvider>
-                    <I18nProvider>
-                        <EntityRegistryProvider>
-                            <DocumentTreeProvider>
-                                <BrowserTitleProvider>
-                                    <EducationStepsProvider>
-                                        <OnboardingTourProvider>
-                                            <QuickFiltersProvider>
-                                                <SearchContextProvider>
-                                                    <ReloadableProvider>
-                                                        <HomePageProvider>
-                                                            <NavBarProvider>{children}</NavBarProvider>
-                                                        </HomePageProvider>
-                                                    </ReloadableProvider>
-                                                </SearchContextProvider>
-                                            </QuickFiltersProvider>
-                                        </OnboardingTourProvider>
-                                    </EducationStepsProvider>
-                                </BrowserTitleProvider>
-                            </DocumentTreeProvider>
-                        </EntityRegistryProvider>
-                    </I18nProvider>
-                </UserContextProvider>
-            </GlobalSettingsProvider>
-        </AppConfigProvider>
+        <GlobalSettingsContextProvider>
+            <AppConfigProvider>
+                <GlobalSettingsProvider>
+                    <UserContextProvider>
+                        <I18nProvider>
+                            <EntityRegistryProvider>
+                                <DocumentTreeProvider>
+                                    <BrowserTitleProvider>
+                                        <EducationStepsProvider>
+                                            <OnboardingTourProvider>
+                                                <QuickFiltersProvider>
+                                                    <SearchContextProvider>
+                                                        <ReloadableProvider>
+                                                            <HomePageProvider>
+                                                                <NavBarProvider>{children}</NavBarProvider>
+                                                            </HomePageProvider>
+                                                        </ReloadableProvider>
+                                                    </SearchContextProvider>
+                                                </QuickFiltersProvider>
+                                            </OnboardingTourProvider>
+                                        </EducationStepsProvider>
+                                    </BrowserTitleProvider>
+                                </DocumentTreeProvider>
+                            </EntityRegistryProvider>
+                        </I18nProvider>
+                    </UserContextProvider>
+                </GlobalSettingsProvider>
+            </AppConfigProvider>
+        </GlobalSettingsContextProvider>
     );
 }

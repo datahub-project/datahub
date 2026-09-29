@@ -75,6 +75,7 @@ query getMe {
             viewStructuredPropertiesPage
             manageApplications
             manageFeatures
+            manageOrganizationDisplayPreferences
             manageHomePageTemplates
             manageDocuments
             manageServiceAccounts

@@ -202,10 +202,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         applicationConfig.setShowApplicationInNavigation(false);
         applicationConfig.setShowSidebarSectionWhenEmpty(false);
       }
-      visualConfig.setShowEnvironmentBadge(
-          globalSettings != null
-              && globalSettings.hasVisual()
-              && globalSettings.getVisual().isShowEnvironmentBadge());
       visualConfig.setApplication(applicationConfig);
     }
 

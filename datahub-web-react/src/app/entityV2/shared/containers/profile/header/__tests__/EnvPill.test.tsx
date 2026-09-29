@@ -6,15 +6,15 @@ import CustomThemeProvider from '@src/CustomThemeProvider';
 
 import { FabricType } from '@types';
 
-const mockUseAppConfig = vi.fn();
-vi.mock('@app/useAppConfig', () => ({
-    useAppConfig: () => mockUseAppConfig(),
+const mockUseGlobalSettingsContext = vi.fn();
+vi.mock('@app/context/GlobalSettings/GlobalSettingsContext', () => ({
+    useGlobalSettingsContext: () => mockUseGlobalSettingsContext(),
 }));
 
 // Pill reads the styled-components theme (theme.colors), so it needs the same
 // CustomThemeProvider wrapper other alchemy-component tests use.
 function renderPill(environment: FabricType | null, showEnvironmentBadge: boolean) {
-    mockUseAppConfig.mockReturnValue({ config: { visualConfig: { showEnvironmentBadge } }, loaded: false });
+    mockUseGlobalSettingsContext.mockReturnValue({ globalSettings: { visualSettings: { showEnvironmentBadge } } });
     return render(
         <CustomThemeProvider>
             <EnvPill environment={environment} />

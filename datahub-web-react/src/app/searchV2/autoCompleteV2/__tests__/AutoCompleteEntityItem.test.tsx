@@ -8,9 +8,9 @@ import { EntityRegistryContext } from '@src/entityRegistryContext';
 import { Entity, EntityType, FabricType } from '@src/types.generated';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
-const mockUseAppConfig = vi.fn();
-vi.mock('@app/useAppConfig', () => ({
-    useAppConfig: () => mockUseAppConfig(),
+const mockUseGlobalSettingsContext = vi.fn();
+vi.mock('@app/context/GlobalSettings/GlobalSettingsContext', () => ({
+    useGlobalSettingsContext: () => mockUseGlobalSettingsContext(),
 }));
 
 const PLATFORM = {
@@ -37,10 +37,7 @@ const containerEntity = {
 } as unknown as Entity;
 
 function renderItem(entity: Entity, showEnvironmentBadge: boolean) {
-    mockUseAppConfig.mockReturnValue({
-        config: { visualConfig: { showEnvironmentBadge } },
-        loaded: false,
-    });
+    mockUseGlobalSettingsContext.mockReturnValue({ globalSettings: { visualSettings: { showEnvironmentBadge } } });
     return render(
         <CustomThemeProvider>
             <MemoryRouter>

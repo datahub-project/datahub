@@ -37,7 +37,7 @@ public class UpdateOrganizationDisplayPreferencesResolver
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!AuthorizationUtils.canManageFeatures(context)) {
+          if (!AuthorizationUtils.canManageOrganizationDisplayPreferences(context)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }

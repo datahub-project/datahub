@@ -4,6 +4,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
+import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import { useUserContext } from '@app/context/useUserContext';
 import { LanguageSelect } from '@app/i18n/components/LanguageSelect';
 import { useIsI18nEnabled } from '@app/i18n/hooks/useIsI18nEnabled';
@@ -80,16 +81,19 @@ export const Preferences = () => {
     const theme = useTheme();
     const userContext = useUserContext();
     const appConfig = useAppConfig();
+    const globalSettingsContext = useGlobalSettingsContext();
     const i18nEnabled = useIsI18nEnabled();
     const darkModeEnabled = useFeatureFlag(THEME_DARK_MODE_FLAG);
 
     const applicationsEnabled = appConfig.config?.visualConfig?.application?.showApplicationInNavigation ?? false;
-    const showEnvironmentBadge = appConfig.config?.visualConfig?.showEnvironmentBadge ?? false;
+    const showEnvironmentBadge = globalSettingsContext.globalSettings?.visualSettings?.showEnvironmentBadge ?? false;
 
     const [updateApplicationsSettingsMutation] = useUpdateApplicationsSettingsMutation();
     const [updateOrganizationDisplayPreferencesMutation] = useUpdateOrganizationDisplayPreferencesMutation();
 
     const canManageApplicationAppearance = userContext?.platformPrivileges?.manageFeatures;
+    const canManageOrganizationDisplayPreferences =
+        userContext?.platformPrivileges?.manageOrganizationDisplayPreferences;
 
     return (
         <Page>
@@ -141,7 +145,7 @@ export const Preferences = () => {
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {canManageApplicationAppearance && (
+                {canManageOrganizationDisplayPreferences && (
                     <StyledCard>
                         <UserSettingRow>
                             <TextContainer>
@@ -163,7 +167,7 @@ export const Preferences = () => {
                                         content: t('showEnvironmentBadge.successMessage'),
                                         duration: 2,
                                     });
-                                    appConfig?.refreshContext();
+                                    globalSettingsContext.refetch();
                                 }}
                             />
                         </UserSettingRow>
@@ -180,9 +184,10 @@ export const Preferences = () => {
                         </UserSettingRow>
                     </StyledCard>
                 )}
-                {!canManageApplicationAppearance && !i18nEnabled && !darkModeEnabled && (
-                    <div style={{ color: theme.colors.textSecondary }}>{t('noSettings')}</div>
-                )}
+                {!canManageApplicationAppearance &&
+                    !canManageOrganizationDisplayPreferences &&
+                    !i18nEnabled &&
+                    !darkModeEnabled && <div style={{ color: theme.colors.textSecondary }}>{t('noSettings')}</div>}
             </SourceContainer>
         </Page>
     );

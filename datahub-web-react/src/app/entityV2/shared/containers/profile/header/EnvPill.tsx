@@ -1,14 +1,14 @@
 import { Pill } from '@components';
 import React from 'react';
 
-import { useAppConfig } from '@app/useAppConfig';
+import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 
 import { FabricType } from '@types';
 
 /** True when the instance-wide toggle is on and the entity has a resolved environment. */
 export function useShowEnvPill(environment?: FabricType | null): boolean {
-    const appConfig = useAppConfig();
-    return !!appConfig.config?.visualConfig?.showEnvironmentBadge && !!environment;
+    const { globalSettings } = useGlobalSettingsContext();
+    return !!globalSettings?.visualSettings?.showEnvironmentBadge && !!environment;
 }
 
 interface Props {
