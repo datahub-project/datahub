@@ -854,7 +854,8 @@ def _build_user_filter(
     return result
 
 
-# AGGREGATE is not a keyword token, so it is matched by text.
+# `TEMP` and `TEMPORARY` both tokenize as `TokenType.TEMPORARY`; AGGREGATE is
+# not a keyword token, so it is matched by text.
 _AGGREGATE = "AGGREGATE"
 _TEMP_FUNCTION_HEADS: List[List[Union[TokenType, str]]] = [
     [TokenType.CREATE, TokenType.TEMPORARY, TokenType.FUNCTION],
