@@ -29,7 +29,9 @@ export default function DataFlowGraphInitializer(props: Props) {
  */
 function useInitializeNodes(urn: string, type: EntityType): boolean {
     const context = useContext(LineageNodesContext);
-    useResetLineageGraph(context, urn, type, () => makeInitialNode(urn, type));
+    // useFetchChildDataJobs does not send the lineage time params to its query, so a time-range
+    // change must not reset the graph -- there would be no refetch to restore the wiped edges.
+    useResetLineageGraph(context, urn, type, () => makeInitialNode(urn, type), false);
 
     return useFetchChildDataJobs();
 }

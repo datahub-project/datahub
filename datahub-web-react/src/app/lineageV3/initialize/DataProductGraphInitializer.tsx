@@ -34,7 +34,8 @@ export default function DataProductGraphInitializer({ urn, type }: Props) {
 
 function useInitializeNodes(urn: string, type: EntityType): boolean {
     const context = useContext(LineageNodesContext);
-    useResetLineageGraph(context, urn, type, () => makeRootNode(urn, type));
+    // useFetchDataProductEntities does not send the lineage time params to its query.
+    useResetLineageGraph(context, urn, type, () => makeRootNode(urn, type), false);
 
     return useFetchDataProductEntities();
 }
