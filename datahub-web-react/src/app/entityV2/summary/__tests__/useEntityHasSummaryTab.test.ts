@@ -33,9 +33,15 @@ describe('useEntityHasSummaryTab', () => {
     it('summary-tab entities other than datasets follow assetSummaryPageV1', () => {
         withFlags({ assetSummaryPageV1: true, datasetSummaryPageV1: false });
         expect(renderHook(() => useEntityHasSummaryTab(EntityType.GlossaryTerm)).result.current).toBe(true);
+        expect(renderHook(() => useEntityHasSummaryTab(EntityType.Chart)).result.current).toBe(true);
+        expect(renderHook(() => useEntityHasSummaryTab(EntityType.Dashboard)).result.current).toBe(true);
+        expect(renderHook(() => useEntityHasSummaryTab(EntityType.Container)).result.current).toBe(true);
+        expect(renderHook(() => useEntityHasSummaryTab(EntityType.Application)).result.current).toBe(true);
 
         withFlags({ assetSummaryPageV1: false, datasetSummaryPageV1: true });
         expect(renderHook(() => useEntityHasSummaryTab(EntityType.GlossaryTerm)).result.current).toBe(false);
+        expect(renderHook(() => useEntityHasSummaryTab(EntityType.Chart)).result.current).toBe(false);
+        expect(renderHook(() => useEntityHasSummaryTab(EntityType.Dashboard)).result.current).toBe(false);
     });
 
     it('entity types without a summary tab never have one', () => {
