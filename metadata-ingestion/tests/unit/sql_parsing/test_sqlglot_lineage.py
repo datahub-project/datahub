@@ -2203,6 +2203,8 @@ INSERT INTO dbo.target
 SELECT o.id, j.value
 FROM dbo.ufn_orders(1) o
 JOIN dbo.customers c ON o.id = c.id
+JOIN srv.db1.dbo.ufn_regions(1) r ON c.region_id = r.id
+JOIN dbo.accounts (NOLOCK) ON c.account_id = accounts.id
 CROSS APPLY OPENJSON(c.payload) j
 """,
         dialect="tsql",

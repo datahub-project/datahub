@@ -1,8 +1,9 @@
 {
     "query_type": "INSERT",
     "query_type_props": {},
-    "query_fingerprint": "51f282f6ec29f69ee29ec15dcf278129e0518d9c619279f2c41c3ee577e4c5d7",
+    "query_fingerprint": "357462829d0dc5f8dd801c5c363794ea864158204d0c77ca6aff7c02d01a2517",
     "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:tsql,db1.dbo.accounts,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:tsql,db1.dbo.customers,PROD)"
     ],
     "out_tables": [
@@ -44,6 +45,6 @@
     "joins": [],
     "debug_info": {
         "confidence": 0.2,
-        "generalized_statement": "INSERT INTO dbo.target SELECT o.id, j.value FROM dbo.UFN_ORDERS(?) AS o JOIN dbo.customers AS c ON o.id = c.id CROSS APPLY OPENJSON(c.payload) AS j"
+        "generalized_statement": "INSERT INTO dbo.target SELECT o.id, j.value FROM dbo.UFN_ORDERS(?) AS o JOIN dbo.customers AS c ON o.id = c.id JOIN srv.db1.dbo.ufn_regions(?) AS r ON c.region_id = r.id JOIN dbo.ACCOUNTS(NOLOCK) ON c.account_id = accounts.id CROSS APPLY OPENJSON(c.payload) AS j"
     }
 }

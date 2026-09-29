@@ -86,6 +86,45 @@ assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 
+# https://learn.microsoft.com/en-us/sql/t-sql/queries/hints-transact-sql-table
+_TSQL_TABLE_HINTS = frozenset(
+    {
+        "FORCESCAN",
+        "FORCESEEK",
+        "HOLDLOCK",
+        "IGNORE_CONSTRAINTS",
+        "IGNORE_TRIGGERS",
+        "INDEX",
+        "KEEPDEFAULTS",
+        "KEEPIDENTITY",
+        "NOEXPAND",
+        "NOLOCK",
+        "NOWAIT",
+        "PAGLOCK",
+        "READCOMMITTED",
+        "READCOMMITTEDLOCK",
+        "READPAST",
+        "READUNCOMMITTED",
+        "REPEATABLEREAD",
+        "ROWLOCK",
+        "SERIALIZABLE",
+        "SNAPSHOT",
+        "SPATIAL_WINDOW_MAX_CELLS",
+        "TABLOCK",
+        "TABLOCKX",
+        "UPDLOCK",
+        "XLOCK",
+    }
+)
+
+
+def _is_tsql_table_function(func: sqlglot.exp.Func) -> bool:
+    # sqlglot parses the legacy hint form `dbo.t (NOLOCK)` as a call to `t`, so
+    # a call whose arguments are all table hints is a table, not a function.
+    return not func.expressions or not all(
+        arg.name.upper() in _TSQL_TABLE_HINTS for arg in func.expressions
+    )
+
 
 def _restore_mssql_temp_table_prefix(
     table: sqlglot.exp.Table,
@@ -119,7 +158,9 @@ def _restore_mssql_temp_table_prefix(
         return table.name
 
     identifier = table.this
-    if not hasattr(identifier, "args") or isinstance(identifier, sqlglot.exp.Func):
+    if not hasattr(identifier, "args") or (
+        isinstance(identifier, sqlglot.exp.Func) and _is_tsql_table_function(identifier)
+    ):
         return table.name
 
     table_name = identifier.name if hasattr(identifier, "name") else table.name
@@ -237,8 +278,16 @@ def _table_name_from_sqlglot_table(
             elif is_local_temp and not final_part.startswith("#"):
                 final_part = f"#{final_part}"
 
-        parts = [p.name for p in all_parts_exp[:-1]] + [final_part]
-        table_name = ".".join(parts)
+        if isinstance(final_exp, sqlglot.exp.Func) and (
+            dialect is None
+            or not is_dialect_instance(dialect, ["mssql"])
+            or _is_tsql_table_function(final_exp)
+        ):
+            # e.g. srv.db1.dbo.ufn_orders(1): a function call has no table name.
+            table_name = ""
+        else:
+            parts = [p.name for p in all_parts_exp[:-1]] + [final_part]
+            table_name = ".".join(parts)
     else:
         table_name = _restore_mssql_temp_table_prefix(table, dialect)
 
