@@ -35,16 +35,16 @@ Each entity event is serialized to JSON & follows a common base structure.
 
 **Common Fields**
 
-| Name                 | Type   | Description                                                                                                                                                                                            | Optional  |
-| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| **entityUrn**        | String | The unique identifier for the Entity being changed. For example, a Dataset's urn.                                                                                                                      | False     |
-| **entityType**       | String | The type of the entity being changed. Supported values include `dataset`, `chart`, `dashboard`, `dataFlow (Pipeline)`, `dataJob` (Task), `domain`, `tag`, `glossaryTerm`, `corpGroup`, & `corpUser.`   | False     |
-| **category**         | String | The category of the change, related to the kind of operation that was performed. Examples include `TAG`, `GLOSSARY_TERM`, `DOMAIN`, `LIFECYCLE`, and more.                                             | False     |
-| **operation**        | String | The operation being performed on the entity given the category. For example, `ADD` ,`REMOVE`, `MODIFY`. For the set of valid operations, see the full catalog below.                                   | False     |
-| **modifier**         | String | The modifier that has been applied to the entity. The value depends on the category. An example includes the URN of a tag being applied to a Dataset or Schema Field.                                  | True      |
-| **parameters**       | Dict   | Additional key-value parameters used to provide specific context. The precise contents depends on the category + operation of the event. See the catalog below for a full summary of the combinations. | True      |
-| **auditStamp.actor** | String | The urn of the actor who triggered the change.                                                                                                                                                         | False     |
-| **auditStamp.time**  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                              | False     |
+| Name                 | Type   | Description                                                                                                                                                                                            | Optional |
+| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| **entityUrn**        | String | The unique identifier for the Entity being changed. For example, a Dataset's urn.                                                                                                                      | False    |
+| **entityType**       | String | The type of the entity being changed. Supported values include `dataset`, `chart`, `dashboard`, `dataFlow (Pipeline)`, `dataJob` (Task), `domain`, `tag`, `glossaryTerm`, `corpGroup`, & `corpUser.`   | False    |
+| **category**         | String | The category of the change, related to the kind of operation that was performed. Examples include `TAG`, `GLOSSARY_TERM`, `DOMAIN`, `LIFECYCLE`, and more.                                             | False    |
+| **operation**        | String | The operation being performed on the entity given the category. For example, `ADD` ,`REMOVE`, `MODIFY`. For the set of valid operations, see the full catalog below.                                   | False    |
+| **modifier**         | String | The modifier that has been applied to the entity. The value depends on the category. An example includes the URN of a tag being applied to a Dataset or Schema Field.                                  | True     |
+| **parameters**       | Dict   | Additional key-value parameters used to provide specific context. The precise contents depends on the category + operation of the event. See the catalog below for a full summary of the combinations. | True     |
+| **auditStamp.actor** | String | The urn of the actor who triggered the change.                                                                                                                                                         | False    |
+| **auditStamp.time**  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                              | False    |
 
 For example, an event indicating that a Tag has been added to a particular Dataset would populate each of these fields:
 

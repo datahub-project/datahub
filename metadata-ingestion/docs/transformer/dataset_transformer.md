@@ -119,8 +119,8 @@ transformers:
 
 ### Config Details
 
-| Field     | Required | Type    | Default | Description                                 |
-| --------- | -------- | ------- | ------- | ------------------------------------------- |
+| Field     | Required | Type    | Default | Description                                  |
+| --------- | -------- | ------- | ------- | -------------------------------------------- |
 | `removed` | ✅       | boolean |         | Flag to control visibility of dataset on UI. |
 
 If you would like to stop a dataset from appearing in the UI, then you need to mark the status of the dataset as removed.
