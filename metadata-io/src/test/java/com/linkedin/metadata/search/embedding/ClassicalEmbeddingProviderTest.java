@@ -116,6 +116,13 @@ public class ClassicalEmbeddingProviderTest {
   }
 
   @Test
+  public void embedsInputUnchangedByDefault() {
+    ClassicalEmbeddingProvider provider = new ClassicalEmbeddingProvider("hash-v1-64");
+    String text = "orders placed by customer_id";
+    assertEquals(provider.prepareInput(text, null, EmbeddingTaskType.DOCUMENT), text);
+  }
+
+  @Test
   public void rejectsMalformedModelNames() {
     for (String model :
         new String[] {
