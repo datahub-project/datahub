@@ -20,11 +20,9 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBTSourceReport,
     EmitDirective,
     NullTypeClass,
-    SemanticModelDimension,
-    SemanticModelEntity,
-    SemanticModelMeasure,
     convert_semantic_model_fields_to_columns,
     get_column_type,
+    parse_semantic_model,
     parse_semantic_view_cll,
 )
 from datahub.ingestion.source.dbt.dbt_core import (
@@ -3474,20 +3472,36 @@ def test_extract_catalog_stats_partial_only_row_count() -> None:
 
 def test_convert_semantic_model_fields_to_columns_basic():
     """Test converting semantic model entities, dimensions, and measures to columns."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "order_id", "type": "primary", "description": "Primary order key"},
-        {"name": "customer_id", "type": "foreign", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "order_date", "type": "time", "description": "When order was placed"},
-        {"name": "status", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total_revenue", "agg": "sum", "description": "Sum of order amounts"},
-        {"name": "order_count", "agg": "count", "description": ""},
-    ]
+    definition = parse_semantic_model(
+        {
+            "entities": [
+                {
+                    "name": "order_id",
+                    "type": "primary",
+                    "description": "Primary order key",
+                },
+                {"name": "customer_id", "type": "foreign", "description": ""},
+            ],
+            "dimensions": [
+                {
+                    "name": "order_date",
+                    "type": "time",
+                    "description": "When order was placed",
+                },
+                {"name": "status", "type": "categorical", "description": ""},
+            ],
+            "measures": [
+                {
+                    "name": "total_revenue",
+                    "agg": "sum",
+                    "description": "Sum of order amounts",
+                },
+                {"name": "order_count", "agg": "count", "description": ""},
+            ],
+        }
+    ).definition
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 6
 
@@ -3510,17 +3524,17 @@ def test_convert_semantic_model_fields_to_columns_basic():
 
 def test_convert_semantic_model_fields_empty_descriptions():
     """Test default description generation when descriptions are empty."""
-    entities: list[SemanticModelEntity] = [
-        {"name": "id", "type": "primary", "description": ""},
-    ]
-    dimensions: list[SemanticModelDimension] = [
-        {"name": "category", "type": "categorical", "description": ""},
-    ]
-    measures: list[SemanticModelMeasure] = [
-        {"name": "total", "agg": "sum", "description": ""},
-    ]
+    definition = parse_semantic_model(
+        {
+            "entities": [{"name": "id", "type": "primary", "description": ""}],
+            "dimensions": [
+                {"name": "category", "type": "categorical", "description": ""}
+            ],
+            "measures": [{"name": "total", "agg": "sum", "description": ""}],
+        }
+    ).definition
 
-    columns = convert_semantic_model_fields_to_columns(entities, dimensions, measures)
+    columns = convert_semantic_model_fields_to_columns(definition)
 
     assert len(columns) == 3
 
@@ -4050,6 +4064,12 @@ def test_dbt_cloud_parse_semantic_model_node():
     assert "order_id" in column_names
     assert "order_date" in column_names
     assert "total_revenue" in column_names
+
+    # The typed definition is kept alongside the flattened columns, read from
+    # the Discovery API's camelCase keys.
+    assert node.semantic_model_def is not None
+    assert node.semantic_model_def.entities[0].is_key
+    assert node.semantic_model_def.measures[0].create_metric
 
 
 def test_dbt_cloud_semantic_model_column_types():
