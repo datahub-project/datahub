@@ -22,7 +22,7 @@ class ExternalDQConfig(ConfigModel):
     rule_namespace: str = Field(
         default="default",
         description="Scopes rule_id uniqueness. Assertion identity is "
-        "(platform, platform_instance, rule_namespace, rule_id). Changing it creates "
+        "(platform, platform_instance, env, rule_namespace, rule_id). Changing it creates "
         "new assertions.",
     )
     contract_version: Literal[1] = Field(

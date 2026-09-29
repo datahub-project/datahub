@@ -1299,6 +1299,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         mapper = ExternalDQMapper(
             platform=self.platform,
             platform_instance=self.platform_instance_name,
+            env=self.config.env,
             rule_namespace=self.config.external_dq.rule_namespace,
             locator=UnityDatasetLocator(
                 self.table_refs | self.view_refs,

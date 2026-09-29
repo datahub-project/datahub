@@ -45,10 +45,13 @@ def result(**overrides: Any) -> ResultRow:
     )
 
 
-def make_mapper(platform_instance: Optional[str] = None) -> ExternalDQMapper:
+def make_mapper(
+    platform_instance: Optional[str] = None, env: str = "PROD"
+) -> ExternalDQMapper:
     return ExternalDQMapper(
         platform="databricks",
         platform_instance=platform_instance,
+        env=env,
         rule_namespace="default",
         locator=FakeLocator(),
         report=ExternalDQReport(),
@@ -56,7 +59,7 @@ def make_mapper(platform_instance: Optional[str] = None) -> ExternalDQMapper:
     )
 
 
-def test_identity_ignores_dataset_and_depends_on_instance() -> None:
+def test_identity_ignores_dataset_and_depends_on_instance_and_env() -> None:
     mapper = make_mapper()
     renamed = list(
         mapper.map_rules([rule(dataset_path=["main", "sales", "orders_v2"])])
@@ -64,6 +67,9 @@ def test_identity_ignores_dataset_and_depends_on_instance() -> None:
     original = list(make_mapper().map_rules([rule()]))
     assert renamed[0].entityUrn == original[0].entityUrn
     assert make_mapper("ws2").assertion_urn("r1") != mapper.assertion_urn("r1")
+    # env scopes the connector deployment like platform_instance does, so two
+    # recipes on the same workspace with different env never share an assertion.
+    assert make_mapper(env="DEV").assertion_urn("r1") != mapper.assertion_urn("r1")
 
 
 def test_rule_maps_to_info_and_status() -> None:

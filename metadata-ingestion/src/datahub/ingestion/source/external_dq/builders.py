@@ -151,6 +151,10 @@ def build_assertion_run_event(
         assertionUrn=assertion_urn,
         status=AssertionRunStatusClass.COMPLETE,
         result=result,
+        # Part of the timeseries document id in GMS (with timestamp and urn), so
+        # two results for one rule in the same millisecond stay distinct, while a
+        # re-emitted result overwrites its own document instead of duplicating it.
+        messageId=run_id,
     )
     return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=run_event)
 

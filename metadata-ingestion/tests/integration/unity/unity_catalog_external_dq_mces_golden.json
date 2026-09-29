@@ -387,7 +387,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+    "entityUrn": "urn:li:assertion:e89ee0d49f45b2a49e385150f0dbf1b7",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -430,7 +430,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+    "entityUrn": "urn:li:assertion:e89ee0d49f45b2a49e385150f0dbf1b7",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -447,7 +447,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+    "entityUrn": "urn:li:assertion:0117e40873d4841770765ebd444f59ce",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -495,7 +495,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+    "entityUrn": "urn:li:assertion:0117e40873d4841770765ebd444f59ce",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -512,7 +512,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:cd261fc4e6b6c19b35011d33589ca9ef",
+    "entityUrn": "urn:li:assertion:fdc262a7c2524653ca19a84d5716b0da",
     "changeType": "UPSERT",
     "aspectName": "assertionInfo",
     "aspect": {
@@ -555,7 +555,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:cd261fc4e6b6c19b35011d33589ca9ef",
+    "entityUrn": "urn:li:assertion:fdc262a7c2524653ca19a84d5716b0da",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -572,7 +572,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+    "entityUrn": "urn:li:assertion:e89ee0d49f45b2a49e385150f0dbf1b7",
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -586,11 +586,12 @@
                 "rowCount": 100,
                 "unexpectedCount": 0
             },
-            "assertionUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+            "assertionUrn": "urn:li:assertion:e89ee0d49f45b2a49e385150f0dbf1b7",
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
-            }
+            },
+            "messageId": "run-1"
         }
     },
     "systemMetadata": {
@@ -602,7 +603,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+    "entityUrn": "urn:li:assertion:0117e40873d4841770765ebd444f59ce",
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -617,11 +618,12 @@
                 "unexpectedCount": 2,
                 "actualAggValue": 0.98
             },
-            "assertionUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+            "assertionUrn": "urn:li:assertion:0117e40873d4841770765ebd444f59ce",
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
-            }
+            },
+            "messageId": "run-2"
         }
     },
     "systemMetadata": {
@@ -633,7 +635,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+    "entityUrn": "urn:li:assertion:e89ee0d49f45b2a49e385150f0dbf1b7",
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -656,11 +658,12 @@
                     }
                 }
             },
-            "assertionUrn": "urn:li:assertion:e765c921189e943dd915b8e5e30f6a85",
+            "assertionUrn": "urn:li:assertion:e89ee0d49f45b2a49e385150f0dbf1b7",
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
-            }
+            },
+            "messageId": "run-3"
         }
     },
     "systemMetadata": {
@@ -672,7 +675,7 @@
 },
 {
     "entityType": "assertion",
-    "entityUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+    "entityUrn": "urn:li:assertion:0117e40873d4841770765ebd444f59ce",
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
@@ -687,11 +690,12 @@
                     "warning": "true"
                 }
             },
-            "assertionUrn": "urn:li:assertion:c25748dd5fe481d802a527cd0e56727f",
+            "assertionUrn": "urn:li:assertion:0117e40873d4841770765ebd444f59ce",
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
-            }
+            },
+            "messageId": "run-4"
         }
     },
     "systemMetadata": {

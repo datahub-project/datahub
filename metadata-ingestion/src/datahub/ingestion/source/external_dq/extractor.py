@@ -155,6 +155,7 @@ class ExternalDQExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         last_watermark, last_recent = loaded.watermark, loaded.recent
         overlap_ms = self.config.late_arrival_minutes * 60_000
+        hold_limit_ms = self.config.initial_lookback_days * 86_400_000
         now = self.now_millis()
         window = plan_window(
             last_watermark=last_watermark,
@@ -172,6 +173,8 @@ class ExternalDQExtractor:
         # One int64 per row read; memory is O(rows read per run).
         read_timestamps = array("q")
         unknown_rules: Set[str] = set()
+        expired_rules: Set[str] = set()
+        hold: Optional[int] = None
         observed: Dict[str, int] = {}
         for raw in self._read(
             partial(self.reader.read_results, table, columns, window.start_millis),
@@ -212,22 +215,39 @@ class ExternalDQExtractor:
                 if self.mapper.is_known_rule(result.rule_id):
                     # Retired rule: record it so it is not re-processed, emit nothing.
                     observed[key] = result.executed_at_millis
-                elif result.rule_id not in unknown_rules:
-                    # Unknown rule: not recorded, so it is retried while inside
-                    # the window.
-                    unknown_rules.add(result.rule_id)
-                    self.source_report.warning(
-                        title="External DQ results reference a rule that was not published",
-                        message="These results are retried while inside "
-                        "late_arrival_minutes and then dropped. Check the rule row "
-                        "(invalid rows and rules on non-ingested datasets are "
-                        "reported separately).",
-                        context=f"{table}: rule_id={result.rule_id}",
-                    )
+                elif now - result.executed_at_millis > hold_limit_ms:
+                    # The rule stayed unpublished for the whole hold period.
+                    self.report.results_unresolved_expired += 1
+                    expired_rules.add(result.rule_id)
+                else:
+                    # Unresolved rule: not recorded. The window is held at the
+                    # oldest such result so it is published once the rule resolves
+                    # (e.g. after a transient table-listing failure).
+                    ts = result.executed_at_millis
+                    hold = ts if hold is None else min(hold, ts)
+                    if result.rule_id not in unknown_rules:
+                        unknown_rules.add(result.rule_id)
+                        self.source_report.warning(
+                            title="External DQ results reference a rule that was not published",
+                            message="The read window is held at the oldest such "
+                            "result for up to initial_lookback_days, so these "
+                            "results are published once the rule resolves. Check "
+                            "the rule row (invalid rows and rules on non-ingested "
+                            "datasets are reported separately).",
+                            context=f"{table}: rule_id={result.rule_id}",
+                        )
                 continue
             observed[key] = result.executed_at_millis
             yield mcp.as_workunit()
 
+        for rule_id in sorted(expired_rules):
+            self.source_report.warning(
+                title="Gave up waiting for an unpublished external DQ rule",
+                message="Results referencing this rule are older than "
+                "initial_lookback_days, so they no longer hold the read window and "
+                "are dropped once it moves past them.",
+                context=f"{table}: rule_id={rule_id}",
+            )
         if self.state is None:
             return
         # Advance to whatever was actually processed even after a read failure:
@@ -240,6 +260,7 @@ class ExternalDQExtractor:
             observed=observed,
             overlap_ms=overlap_ms,
             now_millis=now,
+            hold_millis=hold,
         )
         if watermark is None:
             return

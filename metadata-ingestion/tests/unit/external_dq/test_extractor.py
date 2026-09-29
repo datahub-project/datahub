@@ -86,6 +86,7 @@ class Locator:
 def run(
     reader: FakeReader,
     state: Optional[ExternalDQStateHandler] = None,
+    now: int = T0 + 1_000,
     **config_overrides: Any,
 ) -> tuple:
     source_report, report = SourceReport(), ExternalDQReport()
@@ -95,6 +96,7 @@ def run(
     mapper = ExternalDQMapper(
         platform="databricks",
         platform_instance=None,
+        env="PROD",
         rule_namespace="default",
         locator=Locator(),
         report=report,
@@ -108,7 +110,7 @@ def run(
         source_report=source_report,
         report=report,
         state=state,
-        now_millis=lambda: T0 + 1_000,
+        now_millis=lambda: now,
     )
     workunits = list(extractor.get_workunits())
     run_events = [wu for wu in workunits if _is_run_event(wu)]
@@ -329,6 +331,60 @@ def test_unknown_rule_is_warned_once_per_rule() -> None:
         if w.title == "External DQ results reference a rule that was not published"
     ]
     assert list(entry.context) == [f"{RESULTS}: rule_id=gone"]
+
+
+HOUR = 3_600_000
+DAY = 86_400_000
+
+
+def _run_ids(run_events: List[MetadataWorkUnit]) -> List[str]:
+    return [wu.metadata.aspect.runId for wu in run_events]  # type: ignore[union-attr]
+
+
+def test_unresolved_rule_results_hold_the_window_until_the_rule_resolves() -> None:
+    rows = [
+        result_raw(),
+        result_raw(rule_id="gone", run_id="g1", executed_at=T0 - 3 * HOUR),
+    ]
+    first = FakeStateProvider()
+    _, run_events, _, _ = run(FakeReader(rows), _handler(first))
+    assert _run_ids(run_events) == ["run-1"]
+
+    # A later run lists the table again, so the rule resolves: the held result
+    # is published once and the already-published one is not repeated.
+    second = FakeStateProvider(last=first.current)
+    reader = FakeReader(rows)
+    reader.rules = [rule_raw(), rule_raw(rule_id="gone")]
+    _, run_events, _, _ = run(reader, _handler(second))
+    assert _run_ids(run_events) == ["g1"]
+
+
+def test_unresolved_hold_is_released_after_initial_lookback() -> None:
+    rows = [
+        result_raw(),
+        result_raw(rule_id="gone", run_id="g1", executed_at=T0 - 3 * HOUR),
+    ]
+    first = FakeStateProvider()
+    run(FakeReader(rows), _handler(first), initial_lookback_days=1)
+
+    later = T0 + 1_000 + DAY
+    rows.append(result_raw(run_id="run-2", executed_at=later - 1_000))
+    second = FakeStateProvider(last=first.current)
+    _, run_events, source_report, report = run(
+        FakeReader(rows), _handler(second), now=later, initial_lookback_days=1
+    )
+    assert _run_ids(run_events) == ["run-2"]
+    assert report.results_unresolved_expired == 1
+    assert "Gave up waiting for an unpublished external DQ rule" in [
+        w.title for w in source_report.warnings
+    ]
+
+    # The window has moved on, so the expired result is not read again.
+    third = FakeStateProvider(last=second.current)
+    reader = FakeReader(rows)
+    reader.rules = [rule_raw(), rule_raw(rule_id="gone")]
+    _, run_events, _, _ = run(reader, _handler(third), now=later)
+    assert run_events == []
 
 
 _LATE_TITLE = "External DQ results arrived too late to be read"

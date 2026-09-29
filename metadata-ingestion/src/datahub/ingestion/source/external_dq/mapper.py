@@ -44,6 +44,7 @@ class ExternalDQMapper:
         *,
         platform: str,
         platform_instance: Optional[str],
+        env: str,
         rule_namespace: str,
         locator: DatasetLocator,
         report: ExternalDQReport,
@@ -52,6 +53,7 @@ class ExternalDQMapper:
     ) -> None:
         self.platform = platform
         self.platform_instance = platform_instance
+        self.env = env
         self.rule_namespace = rule_namespace
         self.locator = locator
         self.report = report
@@ -61,12 +63,14 @@ class ExternalDQMapper:
 
     def assertion_urn(self, rule_id: str) -> str:
         # The dataset is deliberately not part of the key: a table rename re-points
-        # the assertion instead of forking its run history.
+        # the assertion instead of forking its run history. platform_instance and
+        # env are: they scope the connector deployment, like they do for datasets.
         return make_external_assertion_urn(
             {
                 "source": _IDENTITY_SOURCE,
                 "platform": self.platform,
                 "instance": self.platform_instance or "",
+                "env": self.env,
                 "namespace": self.rule_namespace,
                 "rule_id": rule_id,
             }

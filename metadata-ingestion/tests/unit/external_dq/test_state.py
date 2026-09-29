@@ -90,6 +90,21 @@ def test_advance_caps_the_watermark_at_now() -> None:
     assert recent == {"ahead": 12 * HOUR}
 
 
+def test_advance_holds_the_watermark_for_unresolved_rows() -> None:
+    # The next window starts at watermark - overlap, so holding at the oldest
+    # unresolved row + overlap makes that row the next window start.
+    watermark, recent = advance(
+        last_watermark=8 * HOUR,
+        last_recent={},
+        observed={"new": 12 * HOUR},
+        overlap_ms=HOUR,
+        now_millis=20 * HOUR,
+        hold_millis=9 * HOUR,
+    )
+    assert watermark == 10 * HOUR
+    assert recent == {"new": 12 * HOUR}
+
+
 def test_run_key_does_not_collide_on_separator_characters() -> None:
     assert run_key("a:b", "c") != run_key("a", "b:c")
 

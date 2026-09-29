@@ -37,6 +37,12 @@ def _run_event(**kwargs: object) -> AssertionRunEventClass:
     return event
 
 
+def test_run_event_message_id_is_the_run_id() -> None:
+    # GMS derives the timeseries document id from timestamp + urn + messageId, so
+    # without it two results for one rule in the same millisecond overwrite each other.
+    assert _run_event().messageId == "run-1"
+
+
 def test_urn_is_deterministic_and_key_order_independent() -> None:
     assert make_external_assertion_urn(
         {"a": "1", "b": "2"}

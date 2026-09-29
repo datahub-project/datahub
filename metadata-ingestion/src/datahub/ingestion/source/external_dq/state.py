@@ -76,6 +76,7 @@ def advance(
     observed: Mapping[str, int],
     overlap_ms: int,
     now_millis: int,
+    hold_millis: Optional[int] = None,
 ) -> Tuple[Optional[int], Dict[str, int]]:
     timestamps = list(observed.values())
     if last_watermark is not None:
@@ -85,6 +86,10 @@ def advance(
     # Capped at now: a producer whose clock runs ahead must not shrink the late
     # window for every other result.
     watermark = min(max(timestamps), now_millis)
+    if hold_millis is not None:
+        # The next window starts at watermark - overlap, so this keeps the oldest
+        # unresolved result inside it.
+        watermark = min(watermark, hold_millis + overlap_ms)
     cutoff = watermark - overlap_ms
     merged = {**last_recent, **observed}
     return watermark, {key: ts for key, ts in merged.items() if ts >= cutoff}
