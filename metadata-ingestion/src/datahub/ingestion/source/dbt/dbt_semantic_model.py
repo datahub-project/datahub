@@ -656,7 +656,13 @@ class DbtSemanticModelMapper:
                 context=f"{node.dbt_name} ({kind})",
             )
             return False
-        if name in fields:
+        # Keyed by the field path, not the raw dbt name: the path is what the
+        # schemaField urn and the SDK's join-column check both use, so keying
+        # by anything else would resolve a join to a column that does not
+        # exist. It also makes the duplicate check right when paths are
+        # lowercased -- two names differing only by case are then one column.
+        path = field_input.field_path
+        if path in fields:
             self.report.warning(
                 title="Duplicate dbt semantic model field name",
                 message="Skipping this field; one with the same name was already "
@@ -665,7 +671,7 @@ class DbtSemanticModelMapper:
                 context=f"{node.dbt_name}.{name} ({kind})",
             )
             return False
-        fields[name] = field_input
+        fields[path] = field_input
         return True
 
     @staticmethod
@@ -684,11 +690,22 @@ class DbtSemanticModelMapper:
             return None
         return DialectExpressionInput(expression=expr, dialect=self.dialect)
 
+    def _column_path(self, name: str) -> str:
+        """A field path that matches the column the dbt path already emitted.
+
+        `schemaMetadata.fieldPath` is lowercased when
+        `convert_column_urns_to_lowercase` is on -- forced on for a snowflake
+        target, so this is the common case. Annotating the raw dbt name would
+        address a schemaField urn the dataset does not have, and the semantic
+        metadata would silently attach to nothing.
+        """
+        return name.lower() if self.config.convert_column_urns_to_lowercase else name
+
     def _entity_field(self, entity: DBTSemanticEntity) -> SemanticFieldInput:
         # A MetricFlow entity is a groupable, joinable column, which is what a
         # dimension is; FILTER and OTHER fit nothing dbt produces.
         return SemanticFieldInput(
-            field_path=entity.name,
+            field_path=self._column_path(entity.name),
             type=f"entity:{entity.type}",
             semantic_type=SemanticFieldTypeClass.DIMENSION,
             description=entity.description or None,
@@ -697,7 +714,7 @@ class DbtSemanticModelMapper:
 
     def _dimension_field(self, dimension: DBTSemanticDimension) -> SemanticFieldInput:
         return SemanticFieldInput(
-            field_path=dimension.name,
+            field_path=self._column_path(dimension.name),
             type=f"dimension:{dimension.type}",
             semantic_type=SemanticFieldTypeClass.DIMENSION,
             description=dimension.description or None,
@@ -710,7 +727,7 @@ class DbtSemanticModelMapper:
 
     def _measure_field(self, measure: DBTSemanticMeasure) -> SemanticFieldInput:
         return SemanticFieldInput(
-            field_path=measure.name,
+            field_path=self._column_path(measure.name),
             type=f"measure:{measure.agg}",
             semantic_type=SemanticFieldTypeClass.MEASURE,
             description=measure.description or None,
@@ -1162,6 +1179,10 @@ class DbtSemanticModelMapper:
     def _metric_computation(
         self, metric_definition: DBTMetric, index: _MeasureIndex
     ) -> Optional[_MetricComputation]:
+        # Computed once: it describes the metric, not the branch, and an
+        # early return that forgot it would store a running total as the plain
+        # total it is built on.
+        annotation = _accumulation_note(metric_definition)
         expr = (metric_definition.expr or "").strip()
         # dbt materializes a `create_metric: true` measure into `metrics` itself
         # and sets type_params.expr to the bare measure name. Honouring that
@@ -1172,7 +1193,9 @@ class DbtSemanticModelMapper:
         if expr and not self._expr_is_bare_measure_name(metric_definition, expr):
             # An author's expression is arbitrary SQL, not necessarily an
             # aggregate call, so a FILTER clause cannot be hung off it either.
-            return _MetricComputation(expr, takes_filter_clause=False)
+            return _MetricComputation(
+                expr, takes_filter_clause=False, annotation=annotation
+            )
         numerator = metric_definition.numerator
         denominator = metric_definition.denominator
         if (
@@ -1189,6 +1212,7 @@ class DbtSemanticModelMapper:
                 f"{self._ratio_side(metric_definition, index, numerator)} / "
                 f"{self._ratio_side(metric_definition, index, denominator)}",
                 takes_filter_clause=False,
+                annotation=annotation,
             )
         # A simple metric is just its measure's aggregation, so reuse it rather
         # than leaving the metric with no expression at all.
@@ -1203,7 +1227,7 @@ class DbtSemanticModelMapper:
             return _MetricComputation(
                 located.expression,
                 measure_predicate=measure_input.filter,
-                annotation=_accumulation_note(metric_definition),
+                annotation=annotation,
             )
         return None
 

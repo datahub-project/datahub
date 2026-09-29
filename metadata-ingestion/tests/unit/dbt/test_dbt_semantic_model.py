@@ -1447,3 +1447,86 @@ def test_an_unusable_project_name_override_is_rejected_at_config_time(
         DBTCommonConfig.model_validate(
             {"target_platform": "postgres", "semantic_model_project_name": value}
         )
+
+
+def test_field_paths_follow_the_column_lowercase_rule():
+    """Annotations must address the schemaField the dbt path actually emitted.
+
+    `schemaMetadata.fieldPath` is lowercased when
+    `convert_column_urns_to_lowercase` is on, which a snowflake target forces.
+    Annotating the raw dbt name would address a urn the dataset does not have.
+    """
+    mixed = {
+        "entities": [{"name": "Order_ID", "type": "primary"}],
+        "dimensions": [{"name": "Order_Status", "type": "categorical"}],
+        "measures": [{"name": "Order_Total", "agg": "sum"}],
+    }
+
+    lowered = _emit(
+        _mapper(convert_column_urns_to_lowercase=True), [_sm_node("orders", mixed)]
+    )
+    assert sorted(_annotations(lowered)) == [
+        "order_id",
+        "order_status",
+        "order_total",
+    ]
+
+    # Off, the dbt path keeps the raw casing and so must we.
+    kept = _emit(
+        _mapper(convert_column_urns_to_lowercase=False), [_sm_node("orders", mixed)]
+    )
+    assert sorted(_annotations(kept)) == ["Order_ID", "Order_Status", "Order_Total"]
+
+
+def test_joins_still_resolve_when_field_paths_are_lowercased():
+    """The join column has to be the lowercased path too, or the SDK rejects it."""
+    orders = {
+        "entities": [
+            {"name": "Order_ID", "type": "primary"},
+            {"name": "Customer_ID", "type": "foreign"},
+        ],
+        "measures": [{"name": "Total", "agg": "sum"}],
+    }
+    customers = {
+        "entities": [{"name": "Customer_ID", "type": "primary"}],
+        "measures": [{"name": "Count", "agg": "count"}],
+    }
+    workunits = _emit(
+        _mapper(convert_column_urns_to_lowercase=True),
+        [_sm_node("orders", orders), _sm_node("customers", customers)],
+    )
+
+    info = _one(workunits, SemanticModelInfoClass)
+    relationship = _relationships(info)[0]
+    assert relationship.fromColumns == ["customer_id"]
+    assert relationship.toColumns == ["customer_id"]
+
+
+def test_an_author_written_expr_keeps_the_accumulation_note():
+    """The note describes the metric, not the branch that built its expression."""
+    workunits = _emit(
+        _mapper(),
+        [_sm_node("orders", _ORDERS)],
+        _metrics(
+            {
+                "metric.jaffle_shop.running": {
+                    "name": "running",
+                    "label": "Running",
+                    "description": "",
+                    "type": "cumulative",
+                    "type_params": {
+                        "measure": {"name": "order_count"},
+                        "window": {"count": 7, "granularity": "day"},
+                        "expr": "order_count * 2",
+                    },
+                }
+            }
+        ),
+    )
+
+    info = dict(_aspects(workunits, MetricInfoClass))[
+        f"urn:li:metric:(urn:li:dataPlatform:dbt,{_PROJECT},running)"
+    ]
+    assert _expression_of(info.expression).expression == (
+        "order_count * 2 /* cumulative over 7 day */"
+    )
