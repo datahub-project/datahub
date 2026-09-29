@@ -351,7 +351,9 @@ class UnityCatalogSourceConfig(
         default_factory=ExternalDQConfig,
         description="Ingest data-quality rules and results that an external engine "
         "writes to two Unity Catalog tables following the DataHub external DQ table "
-        "contract, as externally-managed assertions. Requires warehouse_id.",
+        "contract, as externally-managed assertions on the tables ingested in the "
+        "same run. Runs last, after profiling. Requires warehouse_id; see "
+        "'External data quality tables' in the connector docs for the contract.",
     )
 
     _rename_table_ownership = pydantic_renamed_field(

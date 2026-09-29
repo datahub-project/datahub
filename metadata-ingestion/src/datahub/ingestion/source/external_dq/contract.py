@@ -1,3 +1,14 @@
+"""The external DQ table contract (v1).
+
+Two tables written by an external data-quality engine: rules (one row per rule,
+rule_id unique) and append-only results (one row per evaluation, identified by
+(rule_id, run_id), executed_at = completion time). RULES_COLUMNS/RESULTS_COLUMNS
+list the columns every implementation must have; RuleRow/ResultRow define which
+values are valid per row. Platform-specific type rules live in types.py, the
+user-facing contract in the Unity Catalog connector docs ("External data quality
+tables").
+"""
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple

@@ -80,6 +80,19 @@ def _wall_clock_millis() -> int:
 
 
 class ExternalDQExtractor:
+    """validate -> read -> map -> checkpoint, for one rules table and one results table.
+
+    Results are read incrementally when a state handler is given: the window
+    starts late_arrival_minutes before the newest executed_at published so far,
+    keys published inside it are remembered so nothing is emitted twice, the
+    window start never moves backward, the watermark is capped at the host clock,
+    and results whose rule is not published yet hold the window for up to
+    initial_lookback_days. Failures reported here keep the checkpoint at the last
+    published result; an uncaught error elsewhere in the run skips the commit and
+    replays this run. Contract and semantics: Unity Catalog connector docs,
+    "External data quality tables".
+    """
+
     def __init__(
         self,
         *,
