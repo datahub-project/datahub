@@ -104,8 +104,8 @@ describe('Tooltip', () => {
         );
 
         const cell = screen.getByTestId('day-cell');
-        expect(cell.ownerSVGElement).not.toBeNull();
         expect(cell.parentElement?.tagName.toLowerCase()).toBe('g');
+        expect(cell.closest('svg')).not.toBeNull();
 
         vi.useFakeTimers();
         fireEvent.mouseEnter(cell.parentElement as Element);
