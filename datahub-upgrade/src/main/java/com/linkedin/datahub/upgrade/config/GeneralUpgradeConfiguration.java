@@ -36,7 +36,7 @@ import org.springframework.context.annotation.FilterType;
       "com.linkedin.datahub.upgrade.config",
       "com.linkedin.datahub.upgrade.system.cdc",
       "com.linkedin.metadata.dao.producer",
-            "com.linkedin.metadata.aspect.hooks"
+      "com.linkedin.metadata.aspect.hooks"
     },
     excludeFilters = {
       @ComponentScan.Filter(
