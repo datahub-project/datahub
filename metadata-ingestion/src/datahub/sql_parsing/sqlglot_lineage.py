@@ -86,30 +86,24 @@ assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 
+# Hints SQL Server accepts without WITH, e.g. `FROM dbo.t (NOLOCK)`, plus
+# FASTFIRSTROW (removed in SQL Server 2012). Hints inside WITH (...) parse
+# separately and never reach this check.
 # https://learn.microsoft.com/en-us/sql/t-sql/queries/hints-transact-sql-table
 _TSQL_TABLE_HINTS = frozenset(
     {
-        "FORCESCAN",
-        "FORCESEEK",
-        "HOLDLOCK",
-        "IGNORE_CONSTRAINTS",
-        "IGNORE_TRIGGERS",
-        "INDEX",
-        "KEEPDEFAULTS",
-        "KEEPIDENTITY",
+        "FASTFIRSTROW",
         "NOEXPAND",
         "NOLOCK",
         "NOWAIT",
         "PAGLOCK",
         "READCOMMITTED",
-        "READCOMMITTEDLOCK",
         "READPAST",
         "READUNCOMMITTED",
         "REPEATABLEREAD",
         "ROWLOCK",
         "SERIALIZABLE",
         "SNAPSHOT",
-        "SPATIAL_WINDOW_MAX_CELLS",
         "TABLOCK",
         "TABLOCKX",
         "UPDLOCK",
