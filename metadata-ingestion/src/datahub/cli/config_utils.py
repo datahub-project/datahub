@@ -152,11 +152,6 @@ def load_client_config() -> DatahubClientConfig:
     gms_host_env, gms_token_env = _get_config_from_env()
     if gms_host_env:
         if auth_env is not None:
-            if gms_token_env:
-                logger.warning(
-                    f"Both {ENV_AUTH_TYPE} and {ENV_METADATA_TOKEN} are set; "
-                    f"using {ENV_AUTH_TYPE} and ignoring the static token."
-                )
             return DatahubClientConfig(server=gms_host_env, auth=auth_env)
         # TODO We should also load system auth credentials here.
         return DatahubClientConfig(server=gms_host_env, token=gms_token_env)
