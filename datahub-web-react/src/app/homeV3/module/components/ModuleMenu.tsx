@@ -1,9 +1,10 @@
-import { Icon, Text, Tooltip } from '@components';
+import { Button, Menu } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import { Dropdown } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
+
+import { ItemType } from '@components/components/Menu/types';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { DEFAULT_MODULE_URNS } from '@app/homeV3/modules/constants';
@@ -13,25 +14,9 @@ import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 
-const StyledIcon = styled(Icon)`
-    height: 100%;
-    :hover {
-        cursor: pointer;
-    }
-` as typeof Icon;
-
 const DropdownWrapper = styled.div`
-    height: 100%;
-`;
-
-const StyledDropdownContainer = styled.div`
-    .ant-dropdown-menu {
-        border-radius: 12px;
-    }
-`;
-
-const DisabledText = styled(Text)`
-    color: ${(props) => props.theme.colors.textDisabled};
+    display: flex;
+    align-items: center;
 `;
 
 interface Props {
@@ -73,56 +58,40 @@ export default function ModuleMenu({ module, position }: Props) {
         e.stopPropagation();
     }, []);
 
-    const menuItemStyle = { fontSize: '14px', padding: '5px 16px' };
-
-    const menu = {
-        items: [
+    const items: ItemType[] = useMemo(
+        () => [
             {
-                title: tc('edit'),
+                type: 'item',
                 key: 'edit',
-                label: (
-                    <>
-                        {!canEdit ? (
-                            <Tooltip title={t('menu.defaultModulesNotEditable')}>
-                                <DisabledText>{tc('edit')}</DisabledText>
-                            </Tooltip>
-                        ) : (
-                            <Text>{tc('edit')}</Text>
-                        )}
-                    </>
-                ),
-                style: {
-                    ...menuItemStyle,
-                },
-                onClick: handleEditModule,
+                title: tc('edit'),
                 disabled: !canEdit,
-                'data-testid': 'edit-module',
+                tooltip: canEdit ? undefined : t('menu.defaultModulesNotEditable'),
+                onClick: handleEditModule,
+                dataTestId: 'edit-module',
             },
-
             {
-                title: tc('remove'),
-                label: tc('remove'),
+                type: 'item',
                 key: 'remove',
+                title: tc('remove'),
                 danger: true,
-                style: {
-                    ...menuItemStyle,
-                },
                 onClick: () => setShowRemoveModuleConfirmation(true),
-                'data-testid': 'remove-module',
+                dataTestId: 'remove-module',
             },
         ],
-    };
+        [t, tc, canEdit, handleEditModule],
+    );
 
     return (
         <>
-            <DropdownWrapper onClick={handleMenuClick} data-testid="module-options">
-                <Dropdown
-                    trigger={['click']}
-                    dropdownRender={(originNode) => <StyledDropdownContainer>{originNode}</StyledDropdownContainer>}
-                    menu={menu}
-                >
-                    <StyledIcon icon={DotsThreeVertical} size="lg" />
-                </Dropdown>
+            <DropdownWrapper onClick={handleMenuClick}>
+                <Menu items={items} trigger={['click']}>
+                    <Button
+                        variant="text"
+                        icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'icon' }}
+                        isCircle
+                        data-testid="module-options"
+                    />
+                </Menu>
             </DropdownWrapper>
 
             <ConfirmationModal
