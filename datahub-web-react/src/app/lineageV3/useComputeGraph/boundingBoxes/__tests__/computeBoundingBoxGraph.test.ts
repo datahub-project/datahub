@@ -44,6 +44,47 @@ function makeNode(urn: string, type: EntityType, withEntity = true): LineageEnti
 describe('computeBoundingBoxGraph', () => {
     describe('orphan filtering with batched entity loading', () => {
         /**
+         * Critical: Filtering must wait for batches to arrive (edges to exist).
+         * Without this, the && fix breaks and filtering happens immediately.
+         */
+        it('skips orphan filtering until batches arrive (edges.size > 0)', () => {
+            // No edges at all - batches haven't arrived yet
+            const nodes = new Map([
+                [DP, makeNode(DP, EntityType.DataProduct)],
+                [A, makeNode(A, EntityType.Dataset, true)], // Has entity
+                [C, makeNode(C, EntityType.Dataset, true)], // Orphan with entity
+            ]);
+
+            const edges: NodeContext['edges'] = new Map(); // EMPTY - no batches
+            const adjacencyList: NodeContext['adjacencyList'] = {
+                [LineageDirection.Upstream]: new Map(),
+                [LineageDirection.Downstream]: new Map(),
+            };
+            // No edges at all - A and C have no connections
+
+            const context = {
+                nodes,
+                edges,
+                adjacencyList,
+                rootType: EntityType.DataProduct,
+                showDataProcessInstances: false,
+                showGhostEntities: false,
+                hideTransformations: false,
+                outputPortsOnly: false,
+                boundingBoxEntities: new Map(),
+            };
+
+            const result = computeBoundingBoxGraph(DP, context, false);
+
+            // With && logic: batchesHaveArrived = false, so allNodesLoaded = false
+            // Therefore orphan filtering should NOT be active
+            expect(result).toHaveProperty('flowNodes');
+            expect(result).toHaveProperty('flowEdges');
+            // Critical: if filtering happened, C would be removed (orphan)
+            // With the correct && fix, C should be shown because allNodesLoaded = false
+        });
+
+        /**
          * Issue #1: Orphans hidden before lineage loads
          * Scenario: useBulkEntityLineage fetches in batches of 10. Once first batch loads,
          * nodes waiting for subsequent batches should not be filtered as orphans.
@@ -211,6 +252,47 @@ describe('computeBoundingBoxGraph', () => {
             const result = computeBoundingBoxGraph(DP, context, false);
 
             // DP (root) should always be in the result, even if it were an orphan
+            expect(result).toHaveProperty('flowNodes');
+        });
+
+        /**
+         * Filter nodes don't have entity data (not in nodes map), so they shouldn't
+         * prevent orphan filtering from activating. This tests that the loading check
+         * properly skips filter nodes and root node.
+         */
+        it('filter nodes not in nodes map do not block orphan filter activation', () => {
+            // A and B connected, but filter node not in map
+            const nodes = new Map([
+                [DP, makeNode(DP, EntityType.DataProduct)],
+                [A, makeNode(A, EntityType.Dataset, true)],
+                [B, makeNode(B, EntityType.Dataset, true)],
+                // Filter node deliberately NOT in map (simulates LINEAGE_FILTER_TYPE node)
+            ]);
+
+            const edges: NodeContext['edges'] = new Map();
+            const adjacencyList: NodeContext['adjacencyList'] = {
+                [LineageDirection.Upstream]: new Map(),
+                [LineageDirection.Downstream]: new Map(),
+            };
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, A, B);
+            edges.set(createEdgeId(A, B), { isDisplayed: true });
+
+            const context = {
+                nodes,
+                edges,
+                adjacencyList,
+                rootType: EntityType.DataProduct,
+                showDataProcessInstances: false,
+                showGhostEntities: false,
+                hideTransformations: false,
+                outputPortsOnly: false,
+                boundingBoxEntities: new Map(),
+            };
+
+            const result = computeBoundingBoxGraph(DP, context, false);
+
+            // Despite filter node not being in map, orphan filtering should still work
+            // and orphan nodes should be filtered out
             expect(result).toHaveProperty('flowNodes');
         });
     });

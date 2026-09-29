@@ -173,8 +173,14 @@ export default function computeBoundingBoxGraph(
         shownNodes.map((n) => n.id),
         graphStore.adjacencyList,
     );
-    // Only filter orphans once all nodes' entity data loads; edges load in the same batch callback.
-    const allNodesLoaded = shownNodes.every((node) => node.id === urn || nodes.get(node.id)?.entity);
+    // Only filter orphans after batches start arriving and all fetchable nodes are loaded.
+    const batchesHaveArrived = edges.size > 0;
+    const fetchableNodes = shownNodes.filter(
+        (node) => node.id !== urn && node.type !== LINEAGE_FILTER_TYPE && nodes.has(node.id),
+    );
+    const allFetchableNodesLoaded =
+        fetchableNodes.length === 0 || fetchableNodes.every((node) => nodes.get(node.id)?.entity);
+    const allNodesLoaded = batchesHaveArrived && allFetchableNodesLoaded;
     const shownFilteredNodes = shownNodes.filter(
         (node) =>
             node.id === urn || node.type === LINEAGE_FILTER_TYPE || !allNodesLoaded || nodesWithLineage.has(node.id),
