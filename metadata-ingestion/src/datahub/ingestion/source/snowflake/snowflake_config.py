@@ -736,6 +736,10 @@ class SnowflakeV2Config(
         "as external assertions. Requires `include_assertion_results: true`. "
         "When enabled, all DMFs (not just datahub__* prefixed) "
         "will be ingested with their execution results. "
+        "Definitions are read from SNOWFLAKE.ACCOUNT_USAGE.DATA_METRIC_FUNCTION_REFERENCES "
+        "(requires imported privileges on the SNOWFLAKE database or the "
+        "SNOWFLAKE.GOVERNANCE_VIEWER database role), so stateful ingestion can "
+        "soft-delete DMFs removed in Snowflake. "
         "IMPORTANT: External DMFs must return 1 for SUCCESS and 0 for FAILURE. "
         "DataHub interprets VALUE=1 as passed, VALUE=0 as failed. "
         "See [Snowflake DMF Assertions](/docs/assertions/snowflake/snowflake_dmfs) for details.",

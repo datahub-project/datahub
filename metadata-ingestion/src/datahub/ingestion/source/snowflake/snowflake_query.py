@@ -1566,6 +1566,23 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             """
 
     @staticmethod
+    def dmf_references() -> str:
+        # Lists current DMF associations regardless of whether they produced a
+        # result in the ingestion window, so a DMF on a daily schedule is not
+        # mistaken for a removed one. Account-wide; latency up to 3 hours.
+        return """
+            SELECT
+                METRIC_NAME AS "METRIC_NAME",
+                REF_DATABASE_NAME AS "REF_DATABASE_NAME",
+                REF_SCHEMA_NAME AS "REF_SCHEMA_NAME",
+                REF_ENTITY_NAME AS "REF_ENTITY_NAME",
+                REF_ID AS "REF_ID",
+                REF_ARGUMENTS AS "REF_ARGUMENTS"
+            FROM
+                SNOWFLAKE.ACCOUNT_USAGE.DATA_METRIC_FUNCTION_REFERENCES;
+            """
+
+    @staticmethod
     def get_all_users() -> str:
         return """SELECT name as "NAME", email as "EMAIL" FROM SNOWFLAKE.ACCOUNT_USAGE.USERS"""
 
