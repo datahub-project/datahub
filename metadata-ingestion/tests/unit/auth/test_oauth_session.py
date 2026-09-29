@@ -8,10 +8,13 @@ import pytest
 import requests
 import yaml
 
-from datahub.cli.config_utils import load_client_config
+from datahub.cli.config_utils import load_client_config, refresh_oauth_token_if_needed
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.ingestion.auth import oauth_session
 from datahub.ingestion.auth.oauth_session import OAuthSessionTokenProvider
 from datahub.ingestion.auth.registry import build_token_provider
+from datahub.ingestion.graph.client import get_default_graph
 
 
 def _jwt(expires_in: float) -> str:
@@ -112,3 +115,128 @@ def test_load_client_config_keeps_the_session_token_by_default(
     per_request = load_client_config(refresh_per_request=True)
     assert per_request.token is None
     assert per_request.auth is not None
+
+
+def _provider(path: Path) -> OAuthSessionTokenProvider:
+    return OAuthSessionTokenProvider.create({"config_file": str(path)})
+
+
+def test_an_expired_token_that_cannot_be_refreshed_raises(session_file: Path) -> None:
+    _write_session(session_file, _jwt(-60))
+
+    with (
+        patch("requests.post", side_effect=requests.ConnectionError("refused")),
+        pytest.raises(ConfigurationError, match="datahub init --oauth"),
+    ):
+        _provider(session_file).get_token()
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        MagicMock(status_code=400),
+        _token_response(""),
+        MagicMock(status_code=200, json=MagicMock(side_effect=ValueError("not json"))),
+    ],
+)
+def test_a_failed_refresh_keeps_the_valid_token(
+    session_file: Path, response: MagicMock
+) -> None:
+    token = _jwt(30)
+    _write_session(session_file, token)
+    before = session_file.read_text()
+
+    with patch("requests.post", return_value=response):
+        assert _provider(session_file).get_token().token == token
+
+    assert session_file.read_text() == before
+
+
+def test_a_token_without_an_expiry_is_used_as_is(session_file: Path) -> None:
+    _write_session(session_file, "opaque-token")
+
+    with patch("requests.post") as post:
+        result = _provider(session_file).get_token()
+
+    assert (result.token, result.expires_at) == ("opaque-token", None)
+    post.assert_not_called()
+
+
+def test_a_file_without_a_token_raises(session_file: Path) -> None:
+    session_file.write_text(yaml.dump({"gms": {"server": "https://example.io/gms"}}))
+
+    with pytest.raises(ConfigurationError, match="gms.token"):
+        _provider(session_file).get_token()
+
+
+def test_a_failed_write_leaves_the_file_intact(session_file: Path) -> None:
+    _write_session(session_file, _jwt(30))
+    session_file.chmod(0o600)
+    before = session_file.read_text()
+
+    with (
+        patch("requests.post", return_value=_token_response(_jwt(3600))),
+        patch("yaml.dump", side_effect=OSError("disk full")),
+        pytest.raises(OSError),
+    ):
+        _provider(session_file).get_token()
+
+    assert session_file.read_text() == before
+    assert list(session_file.parent.glob(".datahubenv.tmp.*")) == []
+
+
+def test_a_refresh_keeps_the_file_permissions(session_file: Path) -> None:
+    _write_session(session_file, _jwt(30))
+    session_file.chmod(0o600)
+
+    with patch("requests.post", return_value=_token_response(_jwt(3600))):
+        _provider(session_file).get_token()
+
+    assert session_file.stat().st_mode & 0o777 == 0o600
+
+
+def test_refreshes_without_a_file_lock_where_fcntl_is_missing(
+    session_file: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(oauth_session, "fcntl", None)
+    _write_session(session_file, _jwt(30))
+    new_token = _jwt(3600)
+
+    with patch("requests.post", return_value=_token_response(new_token)):
+        assert _provider(session_file).get_token().token == new_token
+
+
+def test_load_client_config_refreshes_an_expiring_session_token(
+    session_file: Path,
+) -> None:
+    _write_session(session_file, _jwt(30))
+    new_token = _jwt(3600)
+
+    with patch("requests.post", return_value=_token_response(new_token)):
+        assert load_client_config().token == new_token
+
+
+def test_refresh_oauth_token_if_needed_is_non_fatal(session_file: Path) -> None:
+    _write_session(session_file, _jwt(30))
+
+    with patch(
+        "datahub.cli.config_utils.read_session_token",
+        side_effect=OSError("unreadable"),
+    ):
+        assert refresh_oauth_token_if_needed() is None
+
+
+def test_the_default_graph_refreshes_per_request(session_file: Path) -> None:
+    _write_session(session_file, _jwt(3600))
+    get_default_graph.cache_clear()
+    try:
+        with (
+            patch("datahub.ingestion.graph.client.DataHubGraph.test_connection"),
+            patch("datahub.ingestion.graph.client.telemetry_instance"),
+        ):
+            graph = get_default_graph()
+        assert graph.config.token is None
+        assert graph.config.auth is not None
+        assert graph.config.auth.type == oauth_session.OAUTH_SESSION_AUTH_TYPE
+    finally:
+        get_default_graph.cache_clear()

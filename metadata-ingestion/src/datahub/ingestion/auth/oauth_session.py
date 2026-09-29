@@ -6,6 +6,8 @@ import base64
 import contextlib
 import json
 import logging
+import os
+import tempfile
 import time
 from typing import Any, Iterator, Optional, Tuple
 
@@ -22,7 +24,7 @@ from datahub.emitter.token_provider import (
 
 try:
     import fcntl
-except ImportError:  # Windows: refreshes are not serialized across processes.
+except ImportError:  # pragma: no cover  # Windows: refreshes are not serialized.
     fcntl = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
@@ -103,6 +105,23 @@ def _refresh(raw: dict) -> bool:
     return True
 
 
+def _write_atomically(config_file: str, raw: dict) -> None:
+    # The server may already have rotated the refresh token, so a truncated file
+    # would lose the session. Write a sibling file and rename it into place;
+    # readers that skip the lock see either the old file or the new one.
+    directory, name = os.path.split(os.path.abspath(config_file))
+    fd, temporary = tempfile.mkstemp(dir=directory, prefix=f".{name}.tmp.")
+    try:
+        with os.fdopen(fd, "w") as stream:
+            yaml.dump(raw, stream, default_flow_style=False)
+        os.chmod(temporary, os.stat(config_file).st_mode & 0o777)
+        os.replace(temporary, config_file)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(temporary)
+        raise
+
+
 def read_session_token(config_file: str) -> Tuple[str, Optional[float]]:
     """The session's access token and expiry, refreshed first if it expires soon.
 
@@ -122,8 +141,7 @@ def read_session_token(config_file: str) -> Tuple[str, Optional[float]]:
             or not _refresh(raw)
         ):
             return token, expires_at
-        with open(config_file, "w") as stream:
-            yaml.dump(raw, stream, default_flow_style=False)
+        _write_atomically(config_file, raw)
         new_token: str = raw["gms"]["token"]
         return new_token, decode_jwt_exp(new_token)
 
