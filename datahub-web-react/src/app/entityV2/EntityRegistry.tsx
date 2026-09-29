@@ -14,7 +14,7 @@ import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
-import { Entity as EntityInterface, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
+import { DataPlatform, Entity as EntityInterface, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>, def: V): V {
     if (map.has(key)) {
@@ -398,6 +398,11 @@ export default class EntityRegistry {
      */
     getFirstSubType(data?: { subTypes?: { typeNames?: string[] | null } | null } | null): string | undefined {
         return data?.subTypes?.typeNames?.[0];
+    }
+
+    getPlatformProperties<T>(type: EntityType, data: T): DataPlatform | null | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
+        return entity.getPlatformProperties?.(data);
     }
 }
 

@@ -45,7 +45,6 @@ public final class EventSchemaConstants {
   public static final Schema MCE_SCHEMA = EventUtils.RENAMED_MCE_AVRO_SCHEMA;
   public static final Schema FMCE_SCHEMA = EventUtils.RENAMED_FAILED_MCE_AVRO_SCHEMA;
   public static final Schema MAE_SCHEMA = EventUtils.RENAMED_MAE_AVRO_SCHEMA;
-  public static final Schema DUHE_SCHEMA = EventUtils.RENAMED_DUHE_AVRO_SCHEMA;
   public static final Schema FMCP_V1_SCHEMA =
       loadSchemaFromResource(
           "v1/avro/com/linkedin/mxe/"
@@ -94,7 +93,6 @@ public final class EventSchemaConstants {
         MAE_V1_SCHEMA); // Same as V1 for backward compatibility
     map.put(SchemaIdOrdinal.METADATA_AUDIT_EVENT, MAE_SCHEMA);
     map.put(SchemaIdOrdinal.PLATFORM_EVENT, PE_SCHEMA);
-    map.put(SchemaIdOrdinal.DATAHUB_UPGRADE_HISTORY_EVENT, DUHE_SCHEMA);
 
     // Validation: Ensure all SchemaIdOrdinal enum values are mapped to schemas
     validateAllOrdinalsMapped(map);

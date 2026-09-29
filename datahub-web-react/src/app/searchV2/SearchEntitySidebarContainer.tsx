@@ -3,7 +3,7 @@ import styled from 'styled-components/macro';
 
 import { EntityAndType } from '@app/entity/shared/types';
 import CompactContext from '@app/shared/CompactContext';
-import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import EntitySidebarContext, { SearchResultLineageCounts } from '@app/sharedV2/EntitySidebarContext';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -19,9 +19,15 @@ interface Props {
     height: string;
     highlightedIndex: number | null;
     selectedEntity?: EntityAndType | null;
+    searchResultLineage?: SearchResultLineageCounts | null;
 }
 
-export const SearchEntitySidebarContainer = ({ height, highlightedIndex, selectedEntity }: Props) => {
+export const SearchEntitySidebarContainer = ({
+    height,
+    highlightedIndex,
+    selectedEntity,
+    searchResultLineage,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const [isClosed, setIsClosed] = useState(false);
     const width = useSidebarWidth();
@@ -31,7 +37,7 @@ export const SearchEntitySidebarContainer = ({ height, highlightedIndex, selecte
     }
 
     return (
-        <EntitySidebarContext.Provider value={{ width, isClosed, setSidebarClosed: setIsClosed }}>
+        <EntitySidebarContext.Provider value={{ width, isClosed, setSidebarClosed: setIsClosed, searchResultLineage }}>
             <SidebarContainer key={selectedEntity?.urn || ''} height={height}>
                 {selectedEntity && (
                     <CompactContext.Provider value>

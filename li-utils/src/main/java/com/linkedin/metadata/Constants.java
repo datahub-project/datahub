@@ -630,6 +630,8 @@ public class Constants {
 
   // Index names
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
+  public static final String GRAPH_SERVICE_INDEX = "graph_service_v1";
+  public static final String SYSTEM_METADATA_SERVICE_INDEX = "system_metadata_service_v1";
 
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";

@@ -7,9 +7,10 @@ import styled from 'styled-components';
 
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
 import { Direction } from '@src/app/lineage/types';
 
-import { EntityType } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;
@@ -71,11 +72,23 @@ export default function ManageLineageMenuForImpactAnalysis({
 
     const isCenterNode = !disableUpstream && !disableDownstream;
     const isDashboard = entityType === EntityType.Dashboard;
-    const isDownstreamDisabled = disableDownstream || isDashboard || !canEditLineage;
-    const isUpstreamDisabled = disableUpstream || !canEditLineage;
+    const hasValidUpstreamTypes = getValidEntityTypes(LineageDirection.Upstream, entityType).length > 0;
+    const hasValidDownstreamTypes = getValidEntityTypes(LineageDirection.Downstream, entityType).length > 0;
+    const isDownstreamDisabled = disableDownstream || !hasValidDownstreamTypes || !canEditLineage;
+    const isUpstreamDisabled = disableUpstream || !hasValidUpstreamTypes || !canEditLineage;
     const isManualLineageSupported = entityType && ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(entityType);
 
     const unauthorizedText = t('manageLineage.unauthorized');
+
+    function getUpstreamDisabledPopoverContent() {
+        if (!canEditLineage) {
+            return unauthorizedText;
+        }
+        if (!hasValidUpstreamTypes) {
+            return t('manageLineage.metricNoUpstream');
+        }
+        return <PopoverContent centerEntity={centerEntity} direction="upstream" />;
+    }
 
     function getDownstreamDisabledPopoverContent() {
         if (!canEditLineage) {
@@ -97,13 +110,7 @@ export default function ManageLineageMenuForImpactAnalysis({
                   label: (
                       <MenuItemStyle onClick={() => manageLineage(Direction.Upstream)} disabled={isUpstreamDisabled}>
                           <Popover
-                              content={
-                                  !canEditLineage ? (
-                                      unauthorizedText
-                                  ) : (
-                                      <PopoverContent centerEntity={centerEntity} direction="upstream" />
-                                  )
-                              }
+                              content={getUpstreamDisabledPopoverContent()}
                               overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
                           >
                               <MenuItemContent data-testid="edit-upstream-lineage">

@@ -30,11 +30,11 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import ClientMode
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
 )
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters import get_adapter
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
@@ -844,7 +844,7 @@ class SQLAlchemyProfiler:
         """
         Generate dataset profiles for a list of requests.
 
-        This is the main entry point, matching DatahubGEProfiler.generate_profiles() signature.
+        This is the main entry point for profiling a batch of requests.
         """
         max_workers = min(max_workers, len(requests)) if requests else max_workers
         if max_workers <= 0:
@@ -1218,12 +1218,9 @@ class SQLAlchemyProfiler:
                 non_null_count = None
 
             # Calculate null_count
-            effective_row_count = row_count
-            if effective_row_count is None:
-                effective_row_count = None
             null_count = (
-                max(0, effective_row_count - non_null_count)
-                if effective_row_count is not None and non_null_count is not None
+                max(0, row_count - non_null_count)
+                if row_count is not None and non_null_count is not None
                 else None
             )
             if self.config.include_field_null_count:
