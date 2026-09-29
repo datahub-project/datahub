@@ -97,3 +97,20 @@ If `scans_avoided` is low, those last four say why. High `flatten_singletons` me
 For very large tables, `profiling.use_sampling` (supported on BigQuery and Snowflake) profiles a sample rather than the full table. This reduces the cost of each scan, where the two options above reduce how many queries and scans are issued — so sampling composes with both, and on a supported platform you can enable all three.
 
 The difference that matters when choosing: sampling changes the numbers you get. Distinct counts in particular are computed over the sample, so `uniqueCount` becomes an estimate. Query combining and flattening only change how the queries are issued — the statistics they produce are identical to running each query on its own.
+
+#### `rowCount` and the column statistics are measured over different things
+
+A profile whose `partitionSpec.type` is not `FULL_TABLE` — which covers both a sampled profile and a partitioned one — carries two kinds of number that do **not** come from the same set of rows:
+
+| field                                                                              | measured over                                   |
+| ---------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `rowCount`                                                                         | the whole dataset, taken from source metadata   |
+| every field profile (`nullCount`, `nullProportion`, `uniqueCount`, min/max/mean/…) | only the sample, or only the profiled partition |
+
+`GenericProfiler.generate_profile_workunits` overwrites the profiler's measured count with the row count the schema crawl already collected, so a billion-row table that was sampled down to 10,000 rows still reports a billion. This is deliberate and dates from the original sampling support (#8902): a row count is a property of the dataset, not of the temp table the profiler happened to scan.
+
+**The consequence is the part that catches people out: `nullCount` is not a fraction of `rowCount`.** It is `sample_rows - non_null_rows`, so on a billion-row table sampled to 10,000 rows a column that is 50% null reports `nullCount: 5000` against `rowCount: 1000000000`. Dividing one by the other is meaningless. `nullProportion` is the figure to use — it is computed over the sample and is therefore a valid estimate of the whole. The same applies to `uniqueCount` (a sample's distinct count, not scaled up — distinct counts do not grow linearly with the sampling rate) and to the min, max, mean, median and stdev.
+
+The sample's own size is not recorded on the profile. `partitionSpec.partition` says `SAMPLE` (or `<partition> SAMPLE`) and nothing more, deliberately: a `BERNOULLI` sample lands on a different number of rows every run, and putting that into the emitted aspect would make an unchanged table produce a different profile each time. If you need the number of rows that was actually scanned, run ingestion with debug logging — the profiler logs it per table as `Row count result for <table>`.
+
+When the source metadata has no row count at all — which happens for views, and whenever `INFORMATION_SCHEMA` is inaccessible — there is nothing to substitute, so `rowCount` stays as the profiler measured it, i.e. the sample's size.

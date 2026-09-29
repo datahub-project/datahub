@@ -109,13 +109,19 @@ class GenericProfiler:
             request = profiler_request
             profile.sizeInBytes = request.table.size_in_bytes
 
-            # If table is partitioned we profile only one partition (if nothing set then the last one)
-            # but for table level we can use the rows_count from the table metadata
-            # This way even though column statistics only reflects one partition data but the rows count
-            # shows the proper count.
+            # A non-FULL_TABLE partition spec means the profiler measured only part
+            # of the dataset -- one partition, or a TABLESAMPLE materialized into a
+            # temp table. Column statistics necessarily describe just that subset,
+            # but rowCount is a property of the dataset, so it comes from the source
+            # metadata instead of the subset that was scanned. Deliberate since
+            # #8902; see docs/dev_guides/sql_profiles.md.
+            #
+            # Only when the metadata actually has a count: overwriting with None
+            # would discard the measured count and emit no row count at all.
             if (
                 profile.partitionSpec
                 and profile.partitionSpec.type != PartitionType.FULL_TABLE
+                and request.table.rows_count is not None
             ):
                 profile.rowCount = request.table.rows_count
 

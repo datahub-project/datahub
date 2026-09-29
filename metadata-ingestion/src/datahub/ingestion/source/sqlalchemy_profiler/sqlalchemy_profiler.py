@@ -985,7 +985,11 @@ class SQLAlchemyProfiler:
             profile.rowCount = None
             row_count = None
 
-        # Update partition spec if sampling was applied by adapter
+        # Update partition spec if sampling was applied by adapter.
+        # Only the fact of sampling is recorded, never the sample's size: a
+        # BERNOULLI sample lands on a different number of rows every run, and
+        # partitionSpec is part of the emitted aspect, so a size here would make
+        # the profile differ run to run for an unchanged table.
         if context.is_sampled:
             if (
                 profile.partitionSpec
@@ -999,9 +1003,6 @@ class SQLAlchemyProfiler:
                 and profile.partitionSpec.type == PartitionTypeClass.PARTITION
             ):
                 profile.partitionSpec.partition += " SAMPLE"
-
-            if profile.partitionSpec and row_count is not None:
-                profile.partitionSpec.partition += f" (sample rows {row_count})"
 
         return row_count
 
