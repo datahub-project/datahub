@@ -241,13 +241,15 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
                     any(), any(), anyCollection()))
         .thenReturn(true);
 
-    validator
-        .validateProposedAspectsWithAuth(
-            OperationFingerprint.EMPTY,
-            Collections.singletonList(item),
-            retrieverContext,
-            mockAuthSession)
-        .forEach(e -> {});
+    Assert.assertFalse(
+        validator
+            .validateProposedAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                Collections.singletonList(item),
+                retrieverContext,
+                mockAuthSession)
+            .findAny()
+            .isPresent());
 
     Set<Urn> expected =
         Set.of(
@@ -280,13 +282,15 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
                     any(), any(), anyCollection()))
         .thenReturn(true);
 
-    validator
-        .validateProposedAspectsWithAuth(
-            OperationFingerprint.EMPTY,
-            Collections.singletonList(patchItem),
-            retrieverContext,
-            mockAuthSession)
-        .forEach(e -> {});
+    Assert.assertFalse(
+        validator
+            .validateProposedAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                Collections.singletonList(patchItem),
+                retrieverContext,
+                mockAuthSession)
+            .findAny()
+            .isPresent());
 
     authUtilMockedStatic.verify(
         () ->
@@ -322,13 +326,15 @@ public class StructuredPropertyPrivilegeConstraintsValidatorTest {
                     any(), any(), anyCollection()))
         .thenReturn(true);
 
-    validator
-        .validateProposedAspectsWithAuth(
-            OperationFingerprint.EMPTY,
-            Collections.singletonList(deleteItem),
-            retrieverContext,
-            mockAuthSession)
-        .forEach(e -> {});
+    Assert.assertFalse(
+        validator
+            .validateProposedAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                Collections.singletonList(deleteItem),
+                retrieverContext,
+                mockAuthSession)
+            .findAny()
+            .isPresent());
 
     authUtilMockedStatic.verify(
         () ->

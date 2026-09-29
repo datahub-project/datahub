@@ -28,7 +28,6 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -184,14 +183,10 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
   }
 
-  public static boolean canEditProperties(@Nonnull Urn targetUrn, @Nonnull QueryContext context) {
-    return canEditProperties(targetUrn, context, Collections.emptyList());
-  }
-
   /**
-   * Same as {@link #canEditProperties(Urn, QueryContext)}, but additionally scopes the check to the
-   * specific structured properties being modified, so per-property privilege constraints (see
-   * {@link #isAuthorizedForStructuredProperties}) are enforced.
+   * Checks EDIT_ENTITY_PROPERTIES on the target, scoped to the structured properties being modified
+   * so per-property privilege constraints are enforced. Callers that are not modifying structured
+   * properties must pass an empty collection explicitly.
    */
   public static boolean canEditProperties(
       @Nonnull Urn targetUrn,
@@ -214,7 +209,7 @@ public class AuthorizationUtils {
         structuredPropertyUrns);
   }
 
-  public static boolean isAuthorizedForStructuredProperties(
+  private static boolean isAuthorizedForStructuredProperties(
       @Nonnull QueryContext context,
       @Nonnull String resourceType,
       @Nonnull String resource,

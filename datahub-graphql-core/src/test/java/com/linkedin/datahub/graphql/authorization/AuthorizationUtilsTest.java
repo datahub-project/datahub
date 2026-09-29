@@ -149,16 +149,12 @@ public class AuthorizationUtilsTest {
   }
 
   @Test
-  public void testCanEditPropertiesWithEmptyStructuredPropertyUrnsMatchesSingleArgOverload() {
+  public void testCanEditPropertiesWithEmptyStructuredPropertyUrns() {
     QueryContext allowContext = getMockAllowContext();
     QueryContext denyContext = getMockDenyContext();
     assertTrue(
         AuthorizationUtils.canEditProperties(
             TEST_DATASET_URN, allowContext, Collections.emptyList()));
-    assertEquals(
-        AuthorizationUtils.canEditProperties(
-            TEST_DATASET_URN, allowContext, Collections.emptyList()),
-        AuthorizationUtils.canEditProperties(TEST_DATASET_URN, allowContext));
     assertFalse(
         AuthorizationUtils.canEditProperties(
             TEST_DATASET_URN, denyContext, Collections.emptyList()));
