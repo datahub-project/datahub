@@ -15,6 +15,7 @@ ext.apiProject = project(':metadata-service:restli-api')
 
 dependencies {
   implementation project(':metadata-service:factories')
+  implementation project(':metadata-service:rate-limit')
   implementation project(':metadata-service:auth-filter')
   implementation project(':metadata-service:servlet')
   implementation project(':metadata-service:auth-servlet-impl')
@@ -38,6 +39,12 @@ dependencies {
 
   implementation(externalDependency.springBootStarterWeb)
   implementation(externalDependency.springBootStarterJetty)
+  // Jackson 2 bridge: keeps com.fasterxml.jackson on classpath until we migrate to Jackson 3
+  implementation(externalDependency.springBootJackson2)
+  // Spring Boot 4.0: Jetty/Cassandra/Elasticsearch auto-configs moved to separate modules
+  implementation externalDependency.springBootJetty
+  implementation externalDependency.springBootCassandra
+  implementation externalDependency.springBootElasticsearch
   implementation(externalDependency.springBootStarterValidation)
 
   implementation externalDependency.jettyJmx
@@ -56,9 +63,13 @@ dependencies {
   runtimeOnly externalDependency.log4jCore
   runtimeOnly externalDependency.log4j2Api
   implementation externalDependency.logbackClassic
+  runtimeOnly externalDependency.janino
+  runtimeOnly externalDependency.lokiLogbackAppender
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
+  // kafka-clients OAUTHBEARER JWT validation is compileOnly upstream (KAFKA-20184)
+  runtimeOnly externalDependency.jose4j
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
 
@@ -88,6 +99,33 @@ bootJar {
   mainClass = 'com.linkedin.gms.GMSApplication'
 }
 
+// ONNX image variant (R3): a second boot archive that re-adds the ONNX/DJL native libs
+// (compileOnlyApi in metadata-io, so absent from the default war) into BOOT-INF/lib. The
+// datahub-gms-onnx image is built from this; the default war.war stays slim.
+configurations {
+  onnxRuntimeVariant {
+    canBeConsumed = false
+    canBeResolved = true
+    // Superset of the default runtimeClasspath (same version management) plus the onnx closure,
+    // so shared transitives (slf4j/gson/jna) stay aligned and don't produce split-version dupes.
+    extendsFrom configurations.implementation, configurations.runtimeOnly
+  }
+}
+dependencies {
+  onnxRuntimeVariant externalDependency.onnxRuntime
+  onnxRuntimeVariant externalDependency.djlApi
+  onnxRuntimeVariant externalDependency.djlHuggingFaceTokenizers
+}
+tasks.register('onnxBootJar', org.springframework.boot.gradle.tasks.bundling.BootJar) {
+  mainClass = 'com.linkedin.gms.GMSApplication'
+  archiveFileName = 'war-onnx.war'
+  classpath = sourceSets.main.output + configurations.onnxRuntimeVariant
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+  // The Spring Boot plugin only auto-populates this on the primary bootJar; a second BootJar
+  // must set it or the task fails with "property 'targetJavaVersion' has no value available".
+  targetJavaVersion = java.targetCompatibility
+}
+
 bootRun {
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
   environment "KAFKA_SCHEMAREGISTRY_URL", "http://localhost:8080/schema-registry/api"
@@ -109,6 +147,7 @@ docker {
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
+    include 'docker/snippets/*'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
@@ -118,15 +157,12 @@ docker {
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
-  if (project.hasProperty('alpineApkRepositoryUrl')) {
-    dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+  if (project.hasProperty('dockerBaseImage')) {
+    dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
   }
-  if (project.hasProperty('githubMirrorUrl')) {
-    dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
-  }
-  if (project.hasProperty('mavenCentralRepositoryUrl')) {
-    dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
-  }
+  dockerBuildArgs.APK_REPOSITORY_URL = gradle.ext['datahub.dependencies.apkrepo.url']
+  dockerBuildArgs.GITHUB_REPO_URL = gradle.ext['datahub.dependencies.github.baseURL']
+  dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = gradle.ext['datahub.dependencies.maven.central']
 
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)

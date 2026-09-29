@@ -1,5 +1,6 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
@@ -27,6 +28,7 @@ interface Props {
 }
 
 export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityType, entityData } = useEntityData();
     const refetch = useRefetch();
     const mutationUrn = useMutationUrn();
@@ -41,12 +43,15 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
         arrayProperty: 'terms',
     });
 
+    const existingTermUrns =
+        glossaryTerms?.terms?.map((term: { term?: { urn?: string } }) => term.term?.urn).filter(Boolean) || [];
+
     const canEditTerms = !!entityData?.privileges?.canEditGlossaryTerms;
 
     return (
-        <div id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
+        <div id={ENTITY_PROFILE_GLOSSARY_TERMS_ID} data-testid="glossary-terms-section">
             <SidebarSection
-                title="Terms"
+                title={t('sidebar.glossaryTerms.sectionTitle')}
                 content={
                     <Content>
                         {!areTermsEmpty ? (
@@ -86,6 +91,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                existingUrns={existingTermUrns}
             />
         </div>
     );

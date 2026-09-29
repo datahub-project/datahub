@@ -1,3 +1,8 @@
+---
+title: Datasets API Tutorial
+description: "Step-by-step tutorial for creating, updating, and querying Dataset entities in DataHub using the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

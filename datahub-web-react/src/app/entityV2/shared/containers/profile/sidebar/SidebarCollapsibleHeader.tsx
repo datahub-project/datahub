@@ -44,6 +44,7 @@ const Top = styled.div`
     display: flex;
     justify-content: space-between;
     width: 100%;
+    align-items: center;
 `;
 
 const RightActions = styled.div`

@@ -129,6 +129,14 @@ public class CheckContext {
   }
 
   /**
+   * Clear accumulated orphan URNs for one entity type before the next batch so orphan checks do not
+   * re-run on URNs from prior batches. Entity/aspect caches are preserved.
+   */
+  public void clearOrphanUrns(@Nonnull String entityType) {
+    orphanUrnsByType.remove(entityType);
+  }
+
+  /**
    * Add orphan URNs for a specific entity type.
    *
    * @param entityType the entity type

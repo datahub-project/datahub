@@ -27,12 +27,25 @@ def mock_msal_cca(*args, **kwargs):
     return MsalClient()
 
 
+def scan_init_response(request, context):
+    # Request mock is passing POST input in the form of workspaces=<workspace_id>
+    workspace_id = request.text.split("=")[1]
+
+    w_id_vs_response: dict[str, Any] = {
+        "64ED5CAD-7C10-4684-8180-826122881108": {
+            "id": "4674efd1-603c-4129-8d82-03cf2be05aff"
+        }
+    }
+
+    return w_id_vs_response[workspace_id]
+
+
 def register_mock_api_state1(request_mock):
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/admin/workspaces/getInfo": {
             "method": "POST",
-            "status_code": 403,
-            "json": {},
+            "status_code": 200,
+            "json": scan_init_response,
         },
         "https://api.powerbi.com/v1.0/myorg/groups?%24skip=0&%24top=1000": {
             "method": "GET",
@@ -56,46 +69,48 @@ def register_mock_api_state1(request_mock):
                 "value": [],
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards": {
+        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanStatus/4674efd1-603c-4129-8d82-03cf2be05aff": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "value": [
-                    {
-                        "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
-                        "isReadOnly": True,
-                        "displayName": "marketing",
-                        "embedUrl": "https://localhost/dashboards/embed/1",
-                        "webUrl": "https://localhost/dashboards/web/1",
-                    },
-                ]
+                "status": "SUCCEEDED",
             },
         },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/tiles": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {"value": []},
-        },
-        "https://api.powerbi.com/v1.0/myorg/admin/dashboards/7D668CAD-7FFC-4505-9215-655BCA5BEBAE/users": {
+        "https://api.powerbi.com/v1.0/myorg/admin/workspaces/scanResult/4674efd1-603c-4129-8d82-03cf2be05aff": {
             "method": "GET",
             "status_code": 200,
             "json": {
-                "value": [
+                "workspaces": [
                     {
-                        "identifier": "user1@foo.com",
-                        "displayName": "user1",
-                        "emailAddress": "user1@foo.com",
-                        "datasetUserAccessRight": "ReadWrite",
-                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
-                        "principalType": "User",
+                        "id": "64ED5CAD-7C10-4684-8180-826122881108",
+                        "name": "demo-workspace",
+                        "type": "Workspace",
+                        "state": "Active",
+                        "datasets": [],
+                        "reports": [],
+                        "dashboards": [
+                            {
+                                "id": "7D668CAD-7FFC-4505-9215-655BCA5BEBAE",
+                                "isReadOnly": True,
+                                "displayName": "marketing",
+                                "embedUrl": "https://localhost/dashboards/embed/1",
+                                "webUrl": "https://localhost/dashboards/web/1",
+                                "tiles": [],
+                                "users": [
+                                    {
+                                        "identifier": "user1@foo.com",
+                                        "displayName": "user1",
+                                        "emailAddress": "user1@foo.com",
+                                        "datasetUserAccessRight": "ReadWrite",
+                                        "graphId": "C9EE53F2-88EA-4711-A173-AF0515A3CD46",
+                                        "principalType": "User",
+                                    },
+                                ],
+                            },
+                        ],
                     },
                 ]
             },
-        },
-        "https://api.powerbi.com/v1.0/myorg/groups/64ED5CAD-7C10-4684-8180-826122881108/reports": {
-            "method": "GET",
-            "status_code": 200,
-            "json": {"value": []},
         },
     }
 

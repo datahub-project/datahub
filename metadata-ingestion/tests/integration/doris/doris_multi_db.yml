@@ -5,7 +5,7 @@ source:
   config:
     username: root
     password: ""
-    host_port: localhost:59030
+    host_port: "localhost:${DORIS_MYSQL_PORT}"
     # No database specified - should ingest from all databases
     database_pattern:
       allow:

@@ -30,6 +30,10 @@ class ProfilingContext:
     pretty_name: str
     table: str
     schema: Optional[str] = None
+    # PARTIALLY DEPRECATED: custom_sql should eventually be removed.
+    # It exists because some sources (e.g. BigQuery partitions) bypass the
+    # adapter layer. New adapters should centralize this logic in
+    # setup_profiling instead.
     custom_sql: Optional[str] = None
     partition: Optional[str] = None
 
@@ -42,7 +46,9 @@ class ProfilingContext:
     temp_view: Optional[str] = None
     temp_schema: Optional[str] = None
 
-    # Sampling information
+    # Sampling information. sample_percentage is diagnostic only -- adapters
+    # set it, nothing reads it back; extrapolating sampled statistics to
+    # full-table scale is not done today.
     is_sampled: bool = False
     sample_percentage: Optional[float] = None
 

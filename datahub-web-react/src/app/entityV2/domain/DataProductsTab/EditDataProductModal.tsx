@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import DataProductBuilderForm from '@app/entityV2/domain/DataProductsTab/DataProductBuilderForm';
 import { DataProductBuilderState } from '@app/entityV2/domain/DataProductsTab/types';
@@ -15,9 +16,13 @@ type Props = {
 };
 
 export default function EditDataProductModal({ dataProduct, onUpdateDataProduct, onClose }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>({
         name: dataProduct.properties?.name || '',
         description: dataProduct.properties?.description || '',
+        parentDataProductUrn: dataProduct.properties?.parentDataProduct?.urn || undefined,
+        parentDataProductName: dataProduct.properties?.parentDataProduct?.properties?.name || undefined,
     });
     const [updateDataProductMutation] = useUpdateDataProductMutation();
 
@@ -28,12 +33,13 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
                 input: {
                     name: builderState.name,
                     description: builderState.description || undefined,
+                    parentDataProduct: builderState.parentDataProductUrn || undefined,
                 },
             },
         })
             .then(({ data, errors }) => {
                 if (!errors) {
-                    message.success('Updates Data Product!');
+                    message.success(t('dataProduct.updateSuccess'));
                     if (data?.updateDataProduct) {
                         onUpdateDataProduct(data.updateDataProduct as DataProduct);
                     }
@@ -43,30 +49,36 @@ export default function EditDataProductModal({ dataProduct, onUpdateDataProduct,
             .catch(() => {
                 onClose();
                 message.destroy();
-                message.error({ content: 'Failed to update Data Product. An unexpected error occurred' });
+                message.error({ content: t('dataProduct.updateError') });
             });
     }
 
     return (
         <Modal
-            title={`Update ${dataProduct.properties?.name || 'Data Product'}`}
+            title={t('dataProduct.updateTitle', {
+                name: dataProduct.properties?.name || t('dataProduct.name'),
+            })}
             onCancel={onClose}
             open
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                 },
                 {
-                    text: 'Update',
+                    text: tc('update'),
                     onClick: updateDataProduct,
                     variant: 'filled',
                     disabled: !builderState.name,
                 },
             ]}
         >
-            <DataProductBuilderForm builderState={builderState} updateBuilderState={updateBuilderState} />
+            <DataProductBuilderForm
+                builderState={builderState}
+                updateBuilderState={updateBuilderState}
+                excludeUrn={dataProduct.urn}
+            />
         </Modal>
     );
 }

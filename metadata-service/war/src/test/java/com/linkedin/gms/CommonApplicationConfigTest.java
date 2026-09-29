@@ -4,12 +4,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import java.util.Set;
+import org.eclipse.jetty.http.UriCompliance;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
-import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory;
+import org.springframework.boot.jetty.servlet.JettyServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.core.env.Environment;
 import org.testng.annotations.BeforeMethod;
@@ -111,7 +113,28 @@ public class CommonApplicationConfigTest {
   public void testUriComplianceConfiguration() {
     HttpConfiguration httpConfig = getHttpConfiguration();
 
-    assertNotNull(httpConfig.getUriCompliance(), "URI compliance should be configured");
+    UriCompliance compliance = httpConfig.getUriCompliance();
+    assertNotNull(compliance, "URI compliance should be configured");
+
+    // DataHub URN paths (e.g. /aspects/urn:li:dataset:(...,s3:%2F%2F...,PROD)) routinely
+    // contain URL-encoded gen-delims and slashes. These ambiguous-path violations must be
+    // explicitly allowed or Jetty 12 returns 400 before the servlet sees the request. This
+    // test pins the set of violations we depend on in production — tightening compliance
+    // without replacing this with an equivalent allow-list will fail the test and surface
+    // the regression.
+    Set<UriCompliance.Violation> allowed = compliance.getAllowed();
+    assertTrue(
+        allowed.contains(UriCompliance.Violation.AMBIGUOUS_PATH_SEPARATOR),
+        "URN paths encode '/' as %2F — AMBIGUOUS_PATH_SEPARATOR must be allowed");
+    assertTrue(
+        allowed.contains(UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING),
+        "URN values can contain literal '%' — AMBIGUOUS_PATH_ENCODING must be allowed");
+    assertTrue(
+        allowed.contains(UriCompliance.Violation.AMBIGUOUS_PATH_SEGMENT),
+        "Fully-encoded URNs (%3A, %28, %29, %2C) — AMBIGUOUS_PATH_SEGMENT must be allowed");
+    assertTrue(
+        allowed.contains(UriCompliance.Violation.AMBIGUOUS_EMPTY_SEGMENT),
+        "s3:// decodes to // in the path — AMBIGUOUS_EMPTY_SEGMENT must be allowed");
   }
 
   @Test

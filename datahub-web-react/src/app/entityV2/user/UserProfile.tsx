@@ -1,6 +1,7 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -28,14 +29,16 @@ import { PageRoutes } from '@conf/Global';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '@graphql/user.generated';
-import { CorpGroup, EntityRelationship, EntityType } from '@types';
+import { EntityRelationship, EntityType } from '@types';
 
 interface Props {
     urn: string;
 }
 
 enum TabType {
+    /* untranslated-text -- enum doubles as route path + identity key */
     Assets = 'Owner Of',
+    /* untranslated-text -- enum doubles as route path + identity key */
     Groups = 'Groups',
 }
 
@@ -60,7 +63,7 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        box-shadow: ${props.theme.colors.shadowNavbar};
         margin: 5px;
     `}
     border-radius: ${(props) =>
@@ -92,6 +95,7 @@ const ContentColumn = styled(Col)`
  * Responsible for reading & writing users.
  */
 export default function UserProfile({ urn }: Props) {
+    const { t } = useTranslation('entity.types');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -102,14 +106,9 @@ export default function UserProfile({ urn }: Props) {
 
     const corpUser = data?.corpUser;
 
-    // Filter out soft-deleted or orphaned groups that lack both info and editableProperties
     const userGroups: Array<EntityRelationship> =
-        corpUser?.groups?.relationships
-            ?.filter((relationship) => {
-                const group = relationship?.entity as CorpGroup | undefined;
-                return group?.info || group?.editableProperties;
-            })
-            ?.map((relationship) => relationship as EntityRelationship) || [];
+        corpUser?.groups?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
+    const totalRelationships = corpUser?.groups?.total || 0;
     const userRoles: Array<EntityRelationship> =
         corpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
@@ -120,7 +119,7 @@ export default function UserProfile({ urn }: Props) {
     const getTabs = () => {
         return [
             {
-                name: TabType.Assets,
+                name: t('user.tab.ownerOf'),
                 path: TabType.Assets.toLocaleLowerCase(),
                 content: <UserAssets urn={urn} />,
                 display: {
@@ -128,14 +127,21 @@ export default function UserProfile({ urn }: Props) {
                 },
             },
             {
-                name: TabType.Groups,
+                name: t('user.tab.groups'),
                 path: TabType.Groups.toLocaleLowerCase(),
-                content: <UserGroups urn={urn} initialRelationships={userGroups} pageSize={GROUP_PAGE_SIZE} />,
+                content: (
+                    <UserGroups
+                        urn={urn}
+                        initialRelationships={userGroups}
+                        pageSize={GROUP_PAGE_SIZE}
+                        totalRelationships={totalRelationships}
+                    />
+                ),
                 display: {
                     enabled: () => userGroups?.length > 0,
                 },
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.includes(tab.name));
+        ].filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
     };
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
     const onTabChange = () => null;
@@ -168,7 +174,7 @@ export default function UserProfile({ urn }: Props) {
 
     const finalTabs = [
         {
-            name: 'About',
+            name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
             display: {

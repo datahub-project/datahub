@@ -1,6 +1,8 @@
 """Shared configuration models for Unstructured.io-based sources."""
 
 import re
+import tempfile
+from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import Field, field_validator
@@ -92,7 +94,7 @@ class SourceConfig(ConfigModel):
 
     type: Literal["NATIVE", "EXTERNAL"] = Field(
         default="EXTERNAL",
-        description="Source type (always EXTERNAL for ingested docs)",
+        description="Document source type: NATIVE for editable DataHub documents, EXTERNAL for read-only references.",
     )
     include_external_url: bool = Field(
         default=True, description="Include external URL in DocumentSource"
@@ -298,7 +300,10 @@ class FilteringConfig(ConfigModel):
         default=True, description="Skip documents with no text content"
     )
     min_text_length: int = Field(
-        default=50, description="Minimum text length in characters"
+        default=0,
+        description="Minimum text length in characters to embed a document. "
+        "Default 0 embeds all non-empty documents; set > 0 to skip short "
+        "documents. Empty documents are still governed by skip_empty_documents.",
     )
 
 
@@ -325,7 +330,12 @@ class CacheConfig(ConfigModel):
 class AdvancedConfig(ConfigModel):
     """Advanced configuration options."""
 
-    work_dir: str = Field(default="/tmp/unstructured_datahub")
+    work_dir: str = Field(
+        default_factory=lambda: str(
+            Path(tempfile.gettempdir()) / "unstructured_datahub"
+        ),
+        description="Working directory for intermediate processing files",
+    )
     preserve_outputs: bool = Field(default=False)
     output_format: Literal["json", "xml"] = Field(default="json")
     raise_on_error: bool = Field(default=False)

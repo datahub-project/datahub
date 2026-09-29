@@ -68,7 +68,7 @@ public class PageTemplateServiceTest {
             mockOpContext,
             templateUrn.toString(),
             rows,
-            PageTemplateScope.GLOBAL,
+            PageTemplateScope.PERSONAL,
             PageTemplateSurfaceType.HOME_PAGE);
     assertNotNull(urn);
     assertEquals(urn.toString(), templateUrn.toString());
@@ -87,7 +87,7 @@ public class PageTemplateServiceTest {
             mockOpContext,
             null, // null urn should generate a new one
             rows,
-            PageTemplateScope.GLOBAL,
+            PageTemplateScope.PERSONAL,
             PageTemplateSurfaceType.HOME_PAGE);
     assertNotNull(urn);
     assertTrue(urn.toString().startsWith("urn:li:dataHubPageTemplate:"));
@@ -106,7 +106,7 @@ public class PageTemplateServiceTest {
         mockOpContext,
         templateUrn.toString(),
         Collections.emptyList(),
-        PageTemplateScope.GLOBAL,
+        PageTemplateScope.PERSONAL,
         PageTemplateSurfaceType.HOME_PAGE);
   }
 
@@ -119,7 +119,7 @@ public class PageTemplateServiceTest {
         mockOpContext,
         templateUrn.toString(),
         rows,
-        PageTemplateScope.GLOBAL,
+        PageTemplateScope.PERSONAL,
         PageTemplateSurfaceType.HOME_PAGE);
   }
 
@@ -133,8 +133,95 @@ public class PageTemplateServiceTest {
         mockOpContext,
         templateUrn.toString(),
         rows,
-        PageTemplateScope.GLOBAL,
+        PageTemplateScope.PERSONAL,
         PageTemplateSurfaceType.HOME_PAGE);
+  }
+
+  @Test
+  public void testUpsertGlobalPageTemplateWithoutPrivilegeThrowsUnauthorized() throws Exception {
+    when(mockEntityClient.exists(any(), any())).thenReturn(true);
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
+          .thenReturn(false);
+
+      assertThrows(
+          UnauthorizedException.class,
+          () ->
+              service.upsertPageTemplate(
+                  mockOpContext,
+                  null,
+                  createTestRows(),
+                  PageTemplateScope.GLOBAL,
+                  PageTemplateSurfaceType.HOME_PAGE));
+    }
+  }
+
+  @Test
+  public void testUpsertPersonalScopeOverGlobalTemplateUrnThrowsUnauthorized() throws Exception {
+    // Mirrors GHSA-q33f-6fh7-4cgj for templates: attacker supplies scope=PERSONAL with the URN of
+    // an existing GLOBAL template. The persisted scope must be checked, not the input scope.
+    DataHubPageTemplateProperties globalProperties = createTestTemplateProperties();
+    globalProperties.getVisibility().setScope(PageTemplateScope.GLOBAL);
+
+    EntityResponse mockResponse = mock(EntityResponse.class);
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    EnvelopedAspect aspect = new EnvelopedAspect();
+    aspect.setValue(new com.linkedin.entity.Aspect(globalProperties.data()));
+    aspectMap.put(Constants.DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME, aspect);
+    when(mockResponse.getAspects()).thenReturn(aspectMap);
+    when(mockEntityClient.getV2(any(), anyString(), eq(templateUrn), any(), eq(false)))
+        .thenReturn(mockResponse);
+    when(mockEntityClient.exists(any(), any())).thenReturn(true);
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
+          .thenReturn(false);
+
+      assertThrows(
+          UnauthorizedException.class,
+          () ->
+              service.upsertPageTemplate(
+                  mockOpContext,
+                  templateUrn.toString(),
+                  createTestRows(),
+                  PageTemplateScope.PERSONAL, // attacker supplies PERSONAL
+                  PageTemplateSurfaceType.HOME_PAGE));
+    }
+  }
+
+  @Test
+  public void testUpsertGlobalPageTemplateWithPrivilegeSucceeds() throws Exception {
+    when(mockEntityClient.batchIngestProposals(any(), anyList(), eq(false))).thenReturn(null);
+    when(mockEntityClient.exists(any(), any())).thenReturn(true);
+
+    try (MockedStatic<AuthUtil> authUtilMock = mockStatic(AuthUtil.class)) {
+      authUtilMock
+          .when(
+              () ->
+                  AuthUtil.isAuthorized(
+                      mockOpContext, PoliciesConfig.MANAGE_HOME_PAGE_TEMPLATES_PRIVILEGE))
+          .thenReturn(true);
+
+      Urn urn =
+          service.upsertPageTemplate(
+              mockOpContext,
+              null,
+              createTestRows(),
+              PageTemplateScope.GLOBAL,
+              PageTemplateSurfaceType.HOME_PAGE);
+
+      assertNotNull(urn);
+      verify(mockEntityClient, times(1)).batchIngestProposals(any(), anyList(), eq(false));
+    }
   }
 
   @Test
@@ -152,7 +239,7 @@ public class PageTemplateServiceTest {
             mockOpContext,
             templateUrn.toString(),
             rows,
-            PageTemplateScope.GLOBAL,
+            PageTemplateScope.PERSONAL,
             PageTemplateSurfaceType.HOME_PAGE,
             assetSummary);
 

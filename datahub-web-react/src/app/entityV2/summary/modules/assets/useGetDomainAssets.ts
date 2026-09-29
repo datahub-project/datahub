@@ -27,7 +27,6 @@ export const useGetDomainAssets = (initialCount = NUMBER_OF_ASSETS_TO_FETCH) => 
                     {
                         field: ENTITY_FILTER_NAME,
                         values: [EntityType.DataProduct],
-                        value: EntityType.DataProduct,
                         negated: true,
                     },
                     {

@@ -1,6 +1,7 @@
 import { Icon, Text, Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import spacing from '@components/theme/foundations/spacing';
@@ -38,28 +39,31 @@ interface Props {
 }
 
 export default function MenuItem({ icon, title, description, hasChildren, isDisabled, isSmallModule }: Props) {
+    const { t } = useTranslation('modules');
     const tooltipText = useMemo(() => {
         if (!isDisabled) return undefined;
         if (isSmallModule) {
-            return 'Cannot add small widget to large widget row';
+            return t('menu.cannotAddSmallToLarge');
         }
-        return 'Cannot add large widget to small widget row';
-    }, [isDisabled, isSmallModule]);
+        return t('menu.cannotAddLargeToSmall');
+    }, [t, isDisabled, isSmallModule]);
 
-    const iconColorLevel = isDisabled ? 300 : 1800;
+    const itemColor = isDisabled ? 'textDisabled' : 'text';
+    const descriptionColor = isDisabled ? 'textDisabled' : 'textSecondary';
+    const iconColor = isDisabled ? 'iconDisabled' : 'icon';
 
     const content = (
         <Wrapper>
             <IconWrapper>
-                <Icon icon={icon} color="gray" colorLevel={iconColorLevel} size="2xl" />
+                <Icon icon={icon} color={iconColor} size="2xl" />
             </IconWrapper>
 
             <Container>
-                <Text weight="semiBold" color="gray" colorLevel={600}>
+                <Text weight="semiBold" color={itemColor}>
                     {title}
                 </Text>
                 {description && (
-                    <Text color="gray" colorLevel={isDisabled ? 300 : 1700} size="sm">
+                    <Text color={descriptionColor} size="sm">
                         {description}
                     </Text>
                 )}
@@ -67,7 +71,7 @@ export default function MenuItem({ icon, title, description, hasChildren, isDisa
 
             <SpaceFiller />
 
-            {hasChildren && <Icon icon={CaretRight} color="gray" colorLevel={iconColorLevel} size="lg" />}
+            {hasChildren && <Icon icon={CaretRight} color={iconColor} size="lg" />}
         </Wrapper>
     );
 

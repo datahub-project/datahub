@@ -7,7 +7,7 @@ query listRecommendations($input: ListRecommendationsInput!) {
             content {
                 value
                 entity {
-                    ...entityPreview
+                    ...recommendationEntityPreview
                 }
                 params {
                     searchParams {

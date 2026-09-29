@@ -1,7 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.*;
+import javax.annotation.Nonnull;
 import lombok.Builder;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
@@ -87,18 +89,19 @@ public class IndexCostEstimator {
    * @return List of IndexCostInfo sorted by cost (low to high), with tier classification
    * @throws IOException If unable to fetch index metadata from Elasticsearch
    */
-  public List<IndexCostInfo> estimateIndexCosts(List<String> indexNames) throws IOException {
+  public List<IndexCostInfo> estimateIndexCosts(
+      @Nonnull OperationContext opContext, List<String> indexNames) throws IOException {
     if (indexNames.isEmpty()) {
       return Collections.emptyList();
     }
 
-    int dataNodeCount = getDataNodeCount();
+    int dataNodeCount = getDataNodeCount(opContext);
     List<IndexCostInfo> costs = new ArrayList<>();
     List<String> skippedIndices = new ArrayList<>();
 
     for (String indexName : indexNames) {
       try {
-        IndexCostInfo cost = estimateSingleIndex(indexName, dataNodeCount);
+        IndexCostInfo cost = estimateSingleIndex(opContext, indexName, dataNodeCount);
         costs.add(cost);
       } catch (Exception e) {
         log.error("Failed to estimate cost for index {}: {}", indexName, e.getMessage(), e);
@@ -142,10 +145,10 @@ public class IndexCostEstimator {
    * @return IndexCostInfo with cost calculation and tier classification
    * @throws IOException If unable to fetch index metadata
    */
-  private IndexCostInfo estimateSingleIndex(String indexName, int dataNodeCount)
-      throws IOException {
-    long documentCount = indexBuilder.getCountWithoutRefresh(indexName);
-    int primaryShards = getPrimaryShardCount(indexName);
+  private IndexCostInfo estimateSingleIndex(
+      @Nonnull OperationContext opContext, String indexName, int dataNodeCount) throws IOException {
+    long documentCount = indexBuilder.getCountWithoutRefresh(opContext, indexName);
+    int primaryShards = getPrimaryShardCount(opContext, indexName);
 
     // Cost = (documents × primary_shards) / data_nodes
     // This represents the "work per node" for reindexing
@@ -168,9 +171,10 @@ public class IndexCostEstimator {
    * @return Number of primary shards
    * @throws IOException If unable to fetch index settings
    */
-  private int getPrimaryShardCount(String indexName) throws IOException {
+  private int getPrimaryShardCount(@Nonnull OperationContext opContext, String indexName)
+      throws IOException {
     try {
-      return indexBuilder.getPrimaryShardCount(indexName);
+      return indexBuilder.getPrimaryShardCount(opContext, indexName);
     } catch (Exception e) {
       log.error(
           "Failed to get shard count for index {}, defaulting to 1: {}",
@@ -186,8 +190,8 @@ public class IndexCostEstimator {
    *
    * @return Number of data nodes capable of holding data
    */
-  private int getDataNodeCount() {
-    return indexBuilder.getDataNodeCount();
+  private int getDataNodeCount(@Nonnull OperationContext opContext) {
+    return indexBuilder.getDataNodeCount(opContext);
   }
 
   /** Log cost estimates for debugging and visibility */

@@ -1,14 +1,16 @@
 import React, { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FilterField } from '@app/searchV2/filters/types';
 import { useFilterDisplayName } from '@app/searchV2/filters/utils';
 import useDateRangeFilterValues from '@app/searchV2/filters/value/useDateRangeFilterValues';
 import { Text } from '@src/alchemy-components';
-import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
+import { Datetime } from '@src/app/lineageV3/LineageTimeSelector';
 import { FacetFilterInput, FacetMetadata, FilterOperator } from '@src/types.generated';
 import DatePicker from '@utils/DayjsDatePicker';
 
+const DAYJS_DISPLAY_FORMAT = 'll';
 const { RangePicker } = DatePicker;
 
 const Container = styled.div`
@@ -25,6 +27,7 @@ interface Props {
 }
 
 export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
+    const { t } = useTranslation('search');
     const displayName = useFilterDisplayName(field);
 
     const [startDate, setStartDate] = useState<Datetime>(null);
@@ -67,7 +70,7 @@ export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
 
     return (
         <Container>
-            <Text weight="bold">Filter by {displayName}</Text>
+            <Text weight="bold">{t('filters.filterBy', { name: displayName })}</Text>
             <RangePicker
                 ref={ref}
                 open={isOpen}
@@ -75,7 +78,7 @@ export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
                 allowEmpty={[true, true]}
                 bordered={false}
                 value={[startDate, endDate]}
-                format="ll"
+                format={DAYJS_DISPLAY_FORMAT}
                 onChange={handleRangeChange}
                 onOpenChange={handleOpenChange}
                 onCalendarChange={() => handleOpenChange(true)}

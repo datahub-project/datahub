@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { v4 as uuidv4 } from 'uuid';
 
 import {
     Checkmark,
@@ -13,6 +15,7 @@ import {
 import { RadioGroupProps, RadioProps } from '@components/components/Radio/types';
 
 export const radioDefaults = {
+    // Storybook-only default; the component resolves an unset label to t('radio.label') at render time.
     label: 'Label',
     error: '',
     isChecked: false,
@@ -23,7 +26,7 @@ export const radioDefaults = {
 };
 
 export const Radio = ({
-    label = radioDefaults.label,
+    label,
     error = radioDefaults.error,
     isChecked = radioDefaults.isChecked,
     isDisabled = radioDefaults.isDisabled,
@@ -31,38 +34,40 @@ export const Radio = ({
     setIsChecked = radioDefaults.setIsChecked,
     ...props
 }: RadioProps) => {
+    const { t } = useTranslation('alchemy');
+    const resolvedLabel = label ?? t('radio.label');
     const [checked, setChecked] = useState(isChecked || false);
+    const [generatedId] = useState(() => `radio-${uuidv4()}`);
 
     useEffect(() => {
         setChecked(isChecked || false);
     }, [isChecked]);
 
-    const id = props.id || `checkbox-${label}`;
+    const id = props.id || generatedId;
 
     return (
-        <RadioWrapper disabled={isDisabled} error={error}>
-            <RadioBase>
+        <RadioWrapper disabled={isDisabled}>
+            <RadioBase disabled={isDisabled} error={error}>
                 <HiddenInput
                     type="radio"
-                    id={label}
-                    value={label}
+                    value={resolvedLabel}
                     checked={checked}
                     disabled={isDisabled}
                     onChange={() => {
                         setChecked(true);
                         setIsChecked?.(true);
                     }}
-                    aria-label={label}
-                    aria-labelledby={id}
+                    aria-label={resolvedLabel}
                     aria-checked={checked}
                     {...props}
+                    id={id}
                 />
                 <Checkmark checked={checked} disabled={isDisabled} error={error} />
             </RadioBase>
-            {label && (
+            {resolvedLabel && (
                 <RadioLabel>
-                    <Label onClick={() => setChecked(true)}>
-                        {label} {isRequired && <Required>*</Required>}
+                    <Label htmlFor={id}>
+                        {resolvedLabel} {isRequired && <Required>*</Required>}
                     </Label>
                 </RadioLabel>
             )}
@@ -70,15 +75,18 @@ export const Radio = ({
     );
 };
 
-export const RadioGroup = ({ isVertical, radios }: RadioGroupProps) => {
+export const RadioGroup = ({ isVertical, radios, name, ariaLabel }: RadioGroupProps) => {
+    const [generatedName] = useState(() => `radio-group-${uuidv4()}`);
+    const groupName = name || generatedName;
+
     if (!radios.length) {
         return <></>;
     }
 
     return (
-        <RadioGroupContainer isVertical={isVertical}>
+        <RadioGroupContainer isVertical={isVertical} role="radiogroup" aria-label={ariaLabel}>
             {radios.map((checkbox) => {
-                const props = { ...checkbox };
+                const props = { ...checkbox, name: groupName };
                 return (
                     <React.Fragment key={checkbox.label}>
                         <Radio {...props} />

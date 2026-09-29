@@ -10,14 +10,14 @@ responsibility of this service for the DataHub.
 While GMS defaults to using MySQL as its storage backend, it is possible to switch to any of the
 [database platforms](https://ebean.io/docs/database/) supported by Ebean.
 
-For example, you can run the following command to start a GMS that connects to a PostgreSQL backend.
+For example, use Docker Compose profiles under `docker/profiles/`:
 
-```
-(cd docker/ && docker-compose -f docker-compose.yml -f docker-compose.postgre.yml -p datahub up)
+```shell
+# PostgreSQL instead of MySQL
+./gradlew quickstartPgDebug
+
+# Or directly with compose
+cd docker/profiles && docker compose --profile quickstart-postgres up
 ```
 
-or a MariaDB backend
-
-```
-(cd docker/ && docker-compose -f docker-compose.yml -f docker-compose.mariadb.yml -p datahub up)
-```
+See `docker/profiles/README.md` in the repository for all profile options.

@@ -82,6 +82,7 @@ export const sandbox: Story = {
 export const colors = () => (
     <GridList>
         <Link href="https://datahub.io">Primary Link (Default)</Link>
+        {/* eslint-disable-next-line rulesdir/no-hardcoded-colors -- Storybook showcase of the violet color variant */}
         <Link href="https://datahub.io" color="violet">
             Violet Link
         </Link>

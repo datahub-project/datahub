@@ -94,10 +94,8 @@ public class BatchSetApplicationResolver implements DataFetcher<CompletableFutur
   private void batchUnsetApplication(List<Urn> resources, QueryContext context) {
     log.debug("Batch unsetting Application. resources: {}", resources);
     try {
-      for (Urn resource : resources) {
-        applicationService.unsetApplication(
-            context.getOperationContext(), resource, UrnUtils.getUrn(context.getActorUrn()));
-      }
+      applicationService.batchUnsetAllApplications(
+          context.getOperationContext(), resources, UrnUtils.getUrn(context.getActorUrn()));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to batch unset application for resources with urns %s!", resources),

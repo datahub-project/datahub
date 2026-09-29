@@ -9,16 +9,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.config.HealthCheckConfiguration;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.GracefulShutdownHandler;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
@@ -43,6 +44,10 @@ public class HealthCheckControllerTest extends AbstractTestNGSpringContextTests 
   @MockitoBean
   @Qualifier("searchClientShim")
   private SearchClientShim<?> elasticClient;
+
+  @MockitoBean
+  @Qualifier("searchClusterRegistry")
+  private SearchClusterRegistry searchClusterRegistry;
 
   @MockitoBean
   @Qualifier("bootstrapManager")

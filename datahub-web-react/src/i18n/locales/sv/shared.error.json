@@ -1,0 +1,11 @@
+{
+    "boundary.onPremActionMessage": "Rapportera felmeddelandena från din webbläsare till din DataHub-administratör",
+    "bulkEditUnauthorized": "Ditt val för massredigering innehöll entiteter som du inte har behörighet att uppdatera. Massredigeringen kommer inte att sparas.",
+    "fallback.defaultMessage": "Vårt team har meddelats om det här oväntade felet och arbetar på en lösning.",
+    "fallback.subtitle": "Något gick inte som planerat.",
+    "fallback.title": "Hoppsan!",
+    "section.description": "Ett oväntat fel uppstod. Försök igen senare eller kontakta din administratör",
+    "section.needSupport": "<bold>Behöver du hjälp?</bold> Ta en titt på de här resurserna:",
+    "section.title": "Något gick fel.",
+    "unauthorized": "Inte behörig. Kontakta din DataHub-administratör."
+}

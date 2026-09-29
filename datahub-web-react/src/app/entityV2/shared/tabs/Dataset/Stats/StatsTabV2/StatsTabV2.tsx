@@ -22,7 +22,7 @@ const StatsTabV2 = () => {
 
     return (
         <>
-            <TabContainer>
+            <TabContainer data-testid="stats-tab-container">
                 <StatsHighlights />
                 <StatsSections />
             </TabContainer>

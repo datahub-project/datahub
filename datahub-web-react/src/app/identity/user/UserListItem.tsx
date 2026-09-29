@@ -1,7 +1,11 @@
-import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
-import { Avatar } from '@components';
-import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
+import { Avatar, Text, Tooltip } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
+import { LockOpen } from '@phosphor-icons/react/dist/csr/LockOpen';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
+import { Button, Dropdown, List, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
@@ -50,7 +54,7 @@ const ButtonGroup = styled.div`
     align-items: center;
 `;
 
-const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;
@@ -71,6 +75,8 @@ export default function UserListItem({
     onDelete,
     refetch,
 }: Props) {
+    const { t } = useTranslation('entity.identity');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const [isViewingResetToken, setIsViewingResetToken] = useState(false);
@@ -87,7 +93,7 @@ export default function UserListItem({
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
             case CorpUserStatus.Active:
-                return 'The user has logged in.';
+                return t('users.activeStatusTooltip');
             default:
                 return '';
         }
@@ -108,6 +114,20 @@ export default function UserListItem({
 
     const items = [
         {
+            key: 'copyurn',
+            label: (
+                <MenuItemStyle
+                    onClick={() => {
+                        navigator.clipboard.writeText(user.urn);
+                        message.success(t('users.urnCopied'));
+                    }}
+                    data-testid="copyurn-menu-item"
+                >
+                    <Copy data-testid="copyUrnButton" /> &nbsp; {t('users.copyUrn')}
+                </MenuItemStyle>
+            ),
+        },
+        {
             key: 'reset',
             label: (
                 <MenuItemStyle
@@ -115,15 +135,16 @@ export default function UserListItem({
                     onClick={() => setIsViewingResetToken(true)}
                     data-testid="reset-menu-item"
                 >
-                    <UnlockOutlined data-testid="resetButton" /> &nbsp; Reset user password
+                    <LockOpen data-testid="resetButton" /> &nbsp; {t('users.resetPasswordMenu')}
                 </MenuItemStyle>
             ),
         },
+
         {
             key: 'delete',
             label: (
                 <MenuItemStyle onClick={onDeleteEntity}>
-                    <DeleteOutlined /> &nbsp;Delete
+                    <Trash /> &nbsp;{tc('delete')}
                 </MenuItemStyle>
             ),
         },
@@ -145,7 +166,9 @@ export default function UserListItem({
                                 <Typography.Text>{displayName}</Typography.Text>
                             </div>
                             <div data-testid={`email-${shouldShowPasswordReset ? 'native' : 'non-native'}`}>
-                                <Typography.Text type="secondary">{user.username}</Typography.Text>
+                                <Text type="span" color="textSecondary">
+                                    {user.username}
+                                </Text>
                             </div>
                         </div>
                         {userStatus && (
@@ -169,10 +192,14 @@ export default function UserListItem({
                     refetch={refetch}
                 />
                 <Dropdown trigger={['click']} menu={{ items }}>
-                    <MenuIcon
-                        fontSize={20}
+                    <Button
+                        type="text"
+                        style={{ padding: 0 }}
+                        onClick={(e) => e.preventDefault()}
                         data-testid={`userItem-${shouldShowPasswordReset ? 'native' : 'non-native'}`}
-                    />
+                    >
+                        <MenuIcon fontSize={20} />
+                    </Button>
                 </Dropdown>
             </ButtonGroup>
             <ViewResetTokenModal

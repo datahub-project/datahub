@@ -121,14 +121,9 @@ public class ViewUtilsTest {
                 LogicalOperator.AND,
                 ImmutableList.of(
                     new FacetFilterInput(
-                        "test1",
-                        null,
-                        ImmutableList.of("value1", "value2"),
-                        false,
-                        FilterOperator.IN),
+                        "test1", ImmutableList.of("value1", "value2"), false, FilterOperator.IN),
                     new FacetFilterInput(
                         "test2",
-                        null,
                         ImmutableList.of("value3", "value4"),
                         true,
                         FilterOperator.CONTAIN))));

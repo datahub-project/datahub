@@ -1,5 +1,5 @@
 ---
-title: Configuration
+title: Looker Configuration
 ---
 
 # Configuring Looker & LookML Connector

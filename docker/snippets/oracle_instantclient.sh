@@ -9,6 +9,10 @@
 # IC_UNZIP_DIR must match the top-level directory inside the Basic ZIP (see unzip -l); Oracle
 # uses the same folder name for x64 and arm64 at a given 23.x release.
 #
+# A stable path /opt/oracle/instantclient -> ${IC_UNZIP_DIR} is created so Python (oracledb
+# thick_mode_lib_dir), ORACLE_HOME-style tooling, and user configs do not need updating when
+# the Instant Client minor version (and thus the unzip directory name) changes.
+#
 # libaio: Oracle's loader expects libaio.so.1, but distros differ:
 #   - Debian/Ubuntu (multiarch): often only libaio.so.1t64 under /usr/lib/*-linux-gnu/
 #   - Wolfi: libaio.so.1 under /usr/lib, while client libs may still look beside multiarch paths
@@ -53,6 +57,68 @@ rm -f "$zip"
 # Ensure libaio can be found the way Oracle's shared libraries expect (see header).
 link_libaio_for_oracle
 
+# Stable path for ldconfig, ORACLE_HOME, thick_mode_lib_dir, ORACLE_CLIENT_LIBRARY_DIR, etc.
+ln -sfn "/opt/oracle/${IC_UNZIP_DIR}" /opt/oracle/instantclient
+
 # Register the client directory with the dynamic linker (libclntsh.so, etc.).
-sh -c "echo /opt/oracle/${IC_UNZIP_DIR} > /etc/ld.so.conf.d/oracle-instantclient.conf"
+sh -c "echo /opt/oracle/instantclient > /etc/ld.so.conf.d/oracle-instantclient.conf"
 ldconfig
+
+list_shared_lib_deps() {
+  local lib_path="$1"
+  if command -v ldd >/dev/null 2>&1; then
+    ldd "${lib_path}"
+    return 0
+  fi
+
+  local loader=""
+  case "$(uname -m)" in
+    x86_64) loader=/lib/ld-linux-x86-64.so.2 ;;
+    aarch64) loader=/lib/ld-linux-aarch64.so.1 ;;
+    *)
+      echo "Unsupported architecture for shared library verification: $(uname -m)"
+      exit 1
+      ;;
+  esac
+  test -x "${loader}" || { echo "missing dynamic linker: ${loader}"; exit 1; }
+  "${loader}" --list "${lib_path}"
+}
+
+verify_shared_lib() {
+  local lib_path="$1"
+  local deps=""
+  test -n "${lib_path}"
+  test -f "${lib_path}" || { echo "missing library: ${lib_path}"; exit 1; }
+  deps="$(list_shared_lib_deps "${lib_path}")"
+  if echo "${deps}" | grep -q 'not found'; then
+    echo "unresolved shared library dependencies for ${lib_path}:"
+    echo "${deps}"
+    exit 1
+  fi
+}
+
+verify_oracle_instantclient() {
+  client_dir="/opt/oracle/instantclient"
+  test -e "${client_dir}" || { echo "missing Oracle Instant Client directory: ${client_dir}"; exit 1; }
+
+  clntsh=""
+  for candidate in \
+    "${client_dir}/libclntsh.so" \
+    "${client_dir}"/libclntsh.so.*; do
+    if [ -e "${candidate}" ]; then
+      clntsh="$(readlink -f "${candidate}")"
+      break
+    fi
+  done
+  test -n "${clntsh}" || { echo "libclntsh.so not found under ${client_dir}"; ls -la "${client_dir}"; exit 1; }
+
+  verify_shared_lib "${clntsh}"
+
+  if ! ldconfig -p 2>/dev/null | grep -q libclntsh; then
+    echo "libclntsh not registered with dynamic linker after ldconfig"
+    ldconfig -p | grep -i oracle || true
+    exit 1
+  fi
+}
+
+verify_oracle_instantclient

@@ -4,6 +4,10 @@
 
 Access Policies define who can do what to which resources. In conjunction with [Roles](./roles.md), Access Policies determine what users are allowed to do on DataHub.
 
+:::note View-based access control
+If you are creating policies to **restrict what users can view or discover** (not just edit), read [Designing policies for view-based access control](./policies.md#designing-policies-for-view-based-access-control) in the Policies Guide before creating policies.
+:::
+
 ## Policy Types
 
 There are 2 types of Access Policy within DataHub:

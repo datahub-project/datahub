@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import PropertyTypeLabel from '@app/entity/shared/tabs/Dataset/Schema/components/PropertyTypeLabel';
@@ -33,13 +34,14 @@ interface Props {
 }
 
 export default function StructuredPropertyTooltip({ propertyRow }: Props) {
+    const { t } = useTranslation('entity.profile.tabs');
     const { structuredProperty } = propertyRow;
 
     if (!structuredProperty) return null;
 
     return (
         <ContentWrapper>
-            <Header>Structured Property</Header>
+            <Header>{t('properties.structuredProperty.title')}</Header>
             <NameLabelWrapper>
                 <NameWrapper>
                     {structuredProperty.definition.displayName || structuredProperty.definition.qualifiedName}{' '}

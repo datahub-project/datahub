@@ -1,0 +1,14 @@
+{
+    "backButton.tooltip": "Voltar",
+    "confirmationModal.areYouSure": "Tem certeza?",
+    "copyUrn.tooltip": "Copiar URN. Um URN identifica exclusivamente uma Entity no DataHub.",
+    "customIcon.alt": "Ícone",
+    "entityCountCard.viewCountTooltip": "Ver {{formattedCount}} {{tooltipDescriptor}}",
+    "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
+    "multiStepForm.disabledNextTooltip": "Por favor, preencha todos os campos obrigatórios antes de avançar para a próxima etapa",
+    "noEntityFound.subtitle": "Desculpe, não conseguimos encontrar esta Entity no DataHub",
+    "noEntityFound.title": "Não Encontrado",
+    "noPageFound.backToHome": "Voltar ao Início",
+    "noPageFound.subtitle": "A página solicitada não foi encontrada.",
+    "platformIcon.alt": "Logo da Plataforma"
+}

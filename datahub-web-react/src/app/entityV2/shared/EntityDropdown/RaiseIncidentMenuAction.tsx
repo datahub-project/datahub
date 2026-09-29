@@ -1,17 +1,27 @@
-import { WarningOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import {
+    ActionMenuItem,
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
-import { AddIncidentModal } from '@app/entityV2/shared/tabs/Incident/components/AddIncidentModal';
+import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
+// Tab path segment passed to getEntityPath — a route identifier, not user-visible copy.
+const INCIDENTS_TAB_NAME = 'Incidents';
+
 export default function RaiseIncidentMenuAction() {
-    const { urn, entityType } = useEntityData();
+    const { t } = useTranslation('entity.shared.entityDropdown');
+    const { urn, entityType, entityData } = useEntityData();
     const refetchForEntity = useRefetch();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -19,18 +29,18 @@ export default function RaiseIncidentMenuAction() {
     const [isRaiseIncidentModalVisible, setIsRaiseIncidentModalVisible] = useState(false);
 
     return (
-        <Tooltip placement="bottom" title="Raise an incident">
+        <Tooltip placement="bottom" title={t('menuAction.raiseIncidentTooltip')}>
             <ActionMenuItem key="incident" disabled={false} onClick={() => setIsRaiseIncidentModalVisible(true)}>
-                <WarningOutlined style={{ display: 'flex' }} />
+                <Warning size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
             </ActionMenuItem>
             {isRaiseIncidentModalVisible && (
-                <AddIncidentModal
-                    urn={urn}
-                    entityType={entityType}
-                    visible={isRaiseIncidentModalVisible}
-                    onClose={() => setIsRaiseIncidentModalVisible(false)}
-                    refetch={
-                        (() => {
+                <IncidentDetailDrawer
+                    entity={{ urn, entityType, platform: entityData?.platform ?? undefined }}
+                    mode={IncidentAction.CREATE}
+                    onCancel={() => setIsRaiseIncidentModalVisible(false)}
+                    onSubmit={() => {
+                        setIsRaiseIncidentModalVisible(false);
+                        setTimeout(() => {
                             refetchForEntity?.();
                             history.push(
                                 `${getEntityPath(
@@ -39,11 +49,11 @@ export default function RaiseIncidentMenuAction() {
                                     entityRegistry,
                                     false,
                                     isHideSiblingMode,
-                                    'Incidents',
+                                    INCIDENTS_TAB_NAME,
                                 )}`,
                             );
-                        }) as any
-                    }
+                        }, 3000);
+                    }}
                 />
             )}
         </Tooltip>

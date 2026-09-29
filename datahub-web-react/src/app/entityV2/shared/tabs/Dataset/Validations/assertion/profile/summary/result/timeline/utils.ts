@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 
 import { AssertionRunEventDetailsFragment } from '@graphql/assertion.generated';
@@ -6,19 +8,21 @@ const ONE_HOUR_IN_MS = 60 * 60 * 1000; // Milliseconds in one hour
 const ONE_DAY_IN_MS = 24 * ONE_HOUR_IN_MS; // Milliseconds in one day
 const ONE_WEEK_IN_MS = 7 * ONE_DAY_IN_MS; // Milliseconds in one week
 
-function isLessThanOneDay(timeRange) {
+type TimeRange = { startMs: number; endMs: number };
+
+function isLessThanOneDay(timeRange: TimeRange) {
     return timeRange.endMs - timeRange.startMs <= ONE_DAY_IN_MS;
 }
 
-function isLessThanOneHour(timeRange) {
+function isLessThanOneHour(timeRange: TimeRange) {
     return timeRange.endMs - timeRange.startMs <= ONE_HOUR_IN_MS;
 }
 
-function isGreaterThanOneYear(timeRange) {
+function isGreaterThanOneYear(timeRange: TimeRange) {
     return timeRange.endMs - timeRange.startMs >= 365 * ONE_DAY_IN_MS;
 }
 
-export function getTimeRangeDisplay(timeRange) {
+export function getTimeRangeDisplay(timeRange: TimeRange) {
     /**
      * Start and end dates being observed in the chart.
      */
@@ -32,18 +36,18 @@ export function getTimeRangeDisplay(timeRange) {
     });
 
     if (isLessThanOneHour(timeRange)) {
-        return 'Last hour';
+        return i18next.t('entity.profile.validations:timeline.lastHour');
     }
     if (isLessThanOneDay(timeRange)) {
-        return 'Last day';
+        return i18next.t('entity.profile.validations:timeline.lastDay');
     }
     if (isGreaterThanOneYear(timeRange)) {
-        return 'Last year';
+        return i18next.t('entity.profile.validations:timeline.lastYear');
     }
-    return `${startDate} - ${endDate}`;
+    return i18next.t('entity.profile.validations:timeline.timeRange', { startDate, endDate });
 }
 
-export const getFormattedTimeString = (timestampMs) => {
+export const getFormattedTimeString = (timestampMs: number) => {
     // If the time is less than 1 day ago, show the time of day in hours and minutes.
     if (Date.now() - timestampMs < ONE_DAY_IN_MS) {
         return new Date(timestampMs).toLocaleTimeString('en-us', { hour: '2-digit', minute: '2-digit' });

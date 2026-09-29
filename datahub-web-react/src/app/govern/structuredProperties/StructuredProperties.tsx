@@ -1,11 +1,11 @@
 import { Button, PageTitle, SearchBar, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router';
 import { useDebounce } from 'react-use';
 
-import StructuredPropsDrawer from '@app/govern/structuredProperties/StructuredPropsDrawer';
 import StructuredPropsTable from '@app/govern/structuredProperties/StructuredPropsTable';
-import ViewStructuredPropsDrawer from '@app/govern/structuredProperties/ViewStructuredPropsDrawer';
 import {
     ButtonContainer,
     HeaderContainer,
@@ -19,23 +19,22 @@ import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { PageRoutes } from '@src/conf/Global';
 import { useGetAutoCompleteResultsLazyQuery, useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { Entity, EntityType, SortOrder, StructuredPropertyEntity } from '@src/types.generated';
+import { Entity, EntityType, SortOrder } from '@src/types.generated';
 
 const MAX_PROPERTIES_TO_FETCH = 20;
 
 const StructuredProperties = () => {
+    const { t } = useTranslation('governance.structured-properties');
+    const { t: tc } = useTranslation('common.actions');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [debouncedQuery, setDebouncedQuery] = useState<string>('');
     const [searchResults, setSearchResults] = useState<Entity[] | null>(null);
-    const [newProperty, setNewProperty] = useState<StructuredPropertyEntity>();
-    const [updatedProperty, setUpdatedProperty] = useState<StructuredPropertyEntity>();
     const [totalCount, setTotalCount] = useState<number>(0);
 
-    const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
-    const [isViewDrawerOpen, setIsViewDrawerOpen] = useState<boolean>(false);
-    const [selectedProperty, setSelectedProperty] = useState<StructuredPropertyEntity | undefined>();
+    const history = useHistory();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
 
@@ -60,7 +59,7 @@ const StructuredProperties = () => {
     const { data, loading, refetch } = useGetSearchResultsForMultipleQuery({
         variables: { input: inputs },
         skip: !!debouncedQuery,
-        fetchPolicy: 'cache-first',
+        fetchPolicy: 'cache-and-network',
     });
 
     const [getAutoComplete, { data: autocompleteData, loading: isSearchLoading }] =
@@ -96,10 +95,6 @@ const StructuredProperties = () => {
 
     const searchAcrossEntities = data?.searchAcrossEntities;
 
-    const badgeProperty = searchAcrossEntities?.searchResults?.find(
-        (prop) => (prop.entity as StructuredPropertyEntity).settings?.showAsAssetBadge,
-    )?.entity;
-
     useEffect(() => {
         if (searchAcrossEntities?.total !== undefined) {
             setTotalCount(searchAcrossEntities?.total);
@@ -114,50 +109,34 @@ const StructuredProperties = () => {
         [refetch, getInputVariables],
     );
 
-    const handleAddProperty = (property: StructuredPropertyEntity) => {
-        setNewProperty(property);
-        setTotalCount((prev) => prev + 1);
-    };
-
-    const handleUpdateProperty = (property: StructuredPropertyEntity) => {
-        setUpdatedProperty(property);
-    };
-
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <HeaderContainer>
                 <HeaderContent>
                     <PageTitle
-                        title="Structured Properties"
+                        title={t('page.title')}
                         pillLabel={totalCount ? totalCount.toString() : undefined}
-                        subTitle="Create and manage custom properties for your data assets"
+                        subTitle={t('page.subtitle')}
                     />
                 </HeaderContent>
-                <Tooltip
-                    showArrow={false}
-                    title={
-                        !canEditProps
-                            ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
-                            : null
-                    }
-                >
+                <Tooltip showArrow={false} title={!canEditProps ? t('permissionTooltip') : null}>
                     <ButtonContainer>
                         <Button
                             disabled={!canEditProps}
                             icon={{ icon: Plus }}
                             data-testid="structured-props-create-button"
                             onClick={() => {
-                                setIsDrawerOpen(true);
+                                history.push(PageRoutes.STRUCTURED_PROPERTIES_CREATE);
                                 analytics.event({ type: EventType.CreateStructuredPropertyClickEvent });
                             }}
                         >
-                            Create
+                            {tc('create')}
                         </Button>
                     </ButtonContainer>
                 </Tooltip>
             </HeaderContainer>
             <SearchBar
-                placeholder="Search"
+                placeholder={tc('search')}
                 value={searchQuery}
                 onChange={(value) => handleSearch(value)}
                 width="272px"
@@ -166,38 +145,14 @@ const StructuredProperties = () => {
                 <StructuredPropsTable
                     searchQuery={debouncedQuery}
                     loading={loading}
-                    setIsDrawerOpen={setIsDrawerOpen}
-                    setIsViewDrawerOpen={setIsViewDrawerOpen}
-                    setSelectedProperty={setSelectedProperty}
-                    selectedProperty={selectedProperty}
                     fetchData={fetchProperties}
                     totalCount={totalCount}
                     setTotalCount={setTotalCount}
                     pageSize={MAX_PROPERTIES_TO_FETCH}
                     searchResults={searchResults}
-                    newProperty={newProperty}
-                    updatedProperty={updatedProperty}
                     isSearchLoading={isSearchLoading}
                 />
             </TableContainer>
-            <StructuredPropsDrawer
-                isDrawerOpen={isDrawerOpen}
-                setIsDrawerOpen={setIsDrawerOpen}
-                refetch={refetch}
-                selectedProperty={selectedProperty}
-                setSelectedProperty={setSelectedProperty}
-                badgeProperty={badgeProperty as StructuredPropertyEntity}
-                handleAddProperty={handleAddProperty}
-                handleUpdateProperty={handleUpdateProperty}
-            />
-            {selectedProperty && (
-                <ViewStructuredPropsDrawer
-                    isViewDrawerOpen={isViewDrawerOpen}
-                    setIsViewDrawerOpen={setIsViewDrawerOpen}
-                    selectedProperty={selectedProperty}
-                    setSelectedProperty={setSelectedProperty}
-                />
-            )}
         </PageContainer>
     );
 };

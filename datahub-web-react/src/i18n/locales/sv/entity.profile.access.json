@@ -1,0 +1,11 @@
+{
+    "accessManagement.accessAlreadyGranted": "Åtkomst redan beviljad",
+    "accessManagement.accessGrantedTooltip": "Du har redan åtkomst till den här rollen",
+    "accessManagement.columnAccess": "Åtkomst",
+    "accessManagement.columnAccessType": "Åtkomsttyp",
+    "accessManagement.columnRoleName": "Rollnamn",
+    "accessManagement.granted": "Beviljad",
+    "accessManagement.request": "Begär",
+    "accessManagement.requestAccess": "Begär åtkomst",
+    "accessManagement.tableAriaLabel": "Tabell för åtkomsthantering av roller"
+}

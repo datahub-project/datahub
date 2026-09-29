@@ -1,3 +1,7 @@
+---
+description: "Add a new metadata ingestion source to DataHub by extending the Python ingestion framework with a custom connector."
+---
+
 # Adding a Metadata Ingestion Source
 
 :::tip Build Connectors Faster with DataHub Skills
@@ -113,7 +117,7 @@ from datahub.ingestion.api.decorators import (
 )
 
 @platform_name("File")
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @config_class(FileSourceConfig)
 @capability(
     SourceCapability.PLATFORM_INSTANCE,

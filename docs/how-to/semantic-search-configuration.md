@@ -2,10 +2,12 @@
 
 Semantic search lets you find DataHub entities using natural language queries like "customer churn analysis" — even when exact keywords differ.
 
+Semantic search covers document entities (`ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` defaults to `document`); keyword search still covers every entity type. The hosted providers below (OpenAI, AWS Bedrock, Cohere) call an external embedding API with your own credentials, while `onnx` runs a neural model in-process.
+
 ## Prerequisites
 
-1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`). Elasticsearch is **not** supported.
-2. **An API key** for your chosen embedding provider (see table below).
+1. **OpenSearch 2.17.0+** with k-NN plugin (DataHub ships with `opensearchproject/opensearch:2.19.3`), or **Elasticsearch 8.18+**.
+2. **An API key** for your chosen embedding provider (see table below). The in-process `onnx` provider needs a local model download instead of a key. The `classical` provider below needs neither, but it is a CI and smoke-test provider, not semantic search.
 
 ## How to Configure Semantic Search
 
@@ -122,6 +124,18 @@ COHERE_API_KEY=your-cohere-api-key
 ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
 ```
 
+#### Classical (CI and smoke tests only)
+
+```bash
+ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true
+ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document
+EMBEDDING_PROVIDER_TYPE=classical
+CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true
+```
+
+The `classical` provider is not semantic search. It computes deterministic lexical vectors in-process: word and character n-gram features are hashed with SHA-256 into a 2048-dimensional vector, so results rank by shared words and character fragments, never by meaning. It exists so CI, smoke tests and quickstarts can run the full chunk, embed, kNN index and query pipeline with no API key, endpoint or model download, with bit-identical vectors on the Python ingestion side and the Java query side. GMS refuses to start with `EMBEDDING_PROVIDER_TYPE=classical` until `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true` is also set, and logs a warning at startup while the provider is active. A deployment that needs semantic quality without a cloud dependency should use the in-process `onnx` provider instead. The default model is `hash-v1-2048`; `CLASSICAL_EMBEDDING_MODEL` selects another width (`hash-v1-<dims>`), which needs a matching `semanticSearch.models` entry and, like any model switch, a re-index (see [Switching Providers](../dev-guides/semantic-search/SWITCHING_PROVIDERS.md)). The `hash_v1_2048` field is added by the first system-update run on a version that includes it, and only when system-update itself runs with the semantic search variables above (Helm passes them to both; in Docker Compose give the `system-update` service and the MAE consumer the same variables as GMS, for example through a shared env file: every process that builds the embedding provider needs the opt-in too, or it refuses to start). Restarting only GMS does not add it. An instance already upgraded to such a version needs nothing more, while one that only restarted GMS with the new env var must run system-update once before the first classical ingestion. The `datahub-documents` source does not apply its per-minute document limiter (`embedding.rate_limit`, `documents_per_minute`) to in-process providers, this one and `onnx`, since there is no external API to protect.
+
 ### Verify It's Working
 
 After restarting, check the GMS logs:
@@ -165,25 +179,32 @@ datahub ingest -c recipe.yml
 
 For external document sources (Notion, Confluence, etc.), see the [Notion Source](../generated/ingestion/sources/notion.md) and [DataHub Documents Source](../generated/ingestion/sources/datahub-documents.md) documentation.
 
+## Search V3
+
+With Search V3 writes on (`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true`), document embeddings are also written to the V3 document index. Semantic search keeps reading the semantic indices until you set `ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED=true`, after which it reads the V3 document index instead. The flag is independent of `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED`, so keyword and semantic reads can move to V3 at different times. Turn it on only after the V3 document index holds your document embeddings: documents embedded before V3 writes were turned on get V3 vectors only once they are re-indexed into V3 (for example with the `RestoreIndices` upgrade job) or re-embedded. To check, count the documents that carry embeddings in each index, running `GET documentindex_v3/_count` and `GET documentindex_v2_semantic/_count` (named `<prefix>_documentindex_v3` and so on if you set an index prefix) with the body `{"query":{"nested":{"path":"embeddings.<model>.chunks","query":{"match_all":{}}}}}`, where `<model>` is your model key (for example `text_embedding_3_large`). The flag needs OpenSearch 3.5+ or Elasticsearch 8.18+ on the Search V3 cluster, and DataHub refuses to start with it on older OpenSearch: before 3.5, OpenSearch k-NN pre-filters ignore fields under the V3 `_aspects` object, which facet and View filters use.
+
 ## Supported Models
 
-| Provider    | Model                     | Dimensions | Notes                   |
-| ----------- | ------------------------- | ---------- | ----------------------- |
-| OpenAI      | `text-embedding-3-large`  | 3072       | Default, higher quality |
-| OpenAI      | `text-embedding-3-small`  | 1536       | Fast, cost-effective    |
-| AWS Bedrock | `cohere.embed-english-v3` | 1024       | AWS-managed             |
-| Cohere      | `embed-english-v3.0`      | 1024       | English optimized       |
-| Cohere      | `embed-multilingual-v3.0` | 1024       | 100+ languages          |
+| Provider    | Model                     | Dimensions | Notes                                          |
+| ----------- | ------------------------- | ---------- | ---------------------------------------------- |
+| OpenAI      | `text-embedding-3-large`  | 3072       | Default, higher quality                        |
+| OpenAI      | `text-embedding-3-small`  | 1536       | Fast, cost-effective                           |
+| AWS Bedrock | `cohere.embed-english-v3` | 1024       | AWS-managed                                    |
+| Cohere      | `embed-english-v3.0`      | 1024       | English optimized                              |
+| Cohere      | `embed-multilingual-v3.0` | 1024       | 100+ languages                                 |
+| Classical   | `hash-v1-2048`            | 2048       | CI and smoke tests only: lexical, not semantic |
 
-> To use a non-default model, set the model name in your Helm values or environment variable and update `vectorDimension` / `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match.
+> To use a non-default model, set the model name in your Helm values or environment variable and update `vectorDimension` / `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match. The classical row is the exception: its width is fixed by the model name (`hash-v1-<dimensions>`) and its `hash_v1_2048` entry ships in the default `semanticSearch.models`, so there is nothing to update.
 
 ## Troubleshooting
 
-| Symptom                                         | Fix                                                                  |
-| ----------------------------------------------- | -------------------------------------------------------------------- |
-| "Semantic search is disabled or not configured" | Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS  |
-| "Invalid API key provided"                      | Check your API key is set correctly in the GMS environment           |
-| "Dimension mismatch: expected 3072, got 1024"   | Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model |
+| Symptom                                            | Fix                                                                                                                        |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| "Elasticsearch 8.18+ required for semantic search" | Upgrade the cluster to Elasticsearch 8.18 or newer, or turn semantic search off                                            |
+| "Semantic search is disabled or not configured"    | Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS                                                        |
+| "Invalid API key provided"                         | Check your API key is set correctly in the GMS environment                                                                 |
+| "Dimension mismatch: expected 3072, got 1024"      | Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model                                                       |
+| "meant for CI, smoke tests and quickstarts"        | The `classical` provider needs `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`; for a local neural provider use `onnx` |
 
 ## Further Reading
 

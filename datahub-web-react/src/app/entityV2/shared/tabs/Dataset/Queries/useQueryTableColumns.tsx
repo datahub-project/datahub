@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import TopUsersFacepile from '@app/entityV2/shared/containers/profile/sidebar/shared/TopUsersFacepile';
@@ -18,6 +19,8 @@ import dayjs from '@utils/dayjs';
 import { ActorWithDisplayNameFragment } from '@graphql/query.generated';
 import { CorpUser, Entity } from '@types';
 
+const DATE_FORMAT = 'MM/DD/YYYY';
+
 const UsersWrapper = styled.div`
     display: flex;
     flex-direction: column;
@@ -28,6 +31,7 @@ interface Props {
     queries: Query[];
     hoveredQueryUrn: string | null;
     showDetails?: boolean;
+    // The antd list still passes these. Editing moved off the card, so the column does not forward them.
     showEdit?: boolean;
     showDelete?: boolean;
     onDeleted?: (query) => void;
@@ -40,19 +44,19 @@ export default function useQueryTableColumns({
     queries,
     hoveredQueryUrn,
     showDetails,
-    showEdit,
-    showDelete,
     onDeleted,
     onEdited,
     sorting,
     showPagination,
 }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistryV2();
     // only rely on backend sorting if we provide a sorting config and we are paginating
     const shouldRelyOnBackendSorting = sorting && showPagination;
 
     const titleColumn = {
-        title: 'Title',
+        title: tc('title'),
         dataIndex: 'title',
         key: 'name',
         field: 'name',
@@ -63,14 +67,17 @@ export default function useQueryTableColumns({
     };
 
     const descriptionColumn = {
-        title: 'Description',
+        title: t('queryCard.columnDescription'),
         dataIndex: 'description',
         key: 'description',
+        // Give the cell a min-width so the auto-layout table can't squeeze it to min-content, which
+        // would wrap the markdown one word (or character) per line when the side panel is open.
+        className: 'description',
         render: (description: string) => <QueryDescription description={description} />,
     };
 
     const queryTextColumn = (width?: string | number) => ({
-        title: 'Query Text',
+        title: t('queryCard.columnQueryText'),
         dataIndex: 'query',
         key: 'query',
         render: (rowQuery: string) => {
@@ -79,17 +86,12 @@ export default function useQueryTableColumns({
             return (
                 <div style={{ width: width || 450 }}>
                     <QueryComponent
-                        urn={query.urn}
                         title={query.title || undefined}
                         description={query.description || undefined}
                         query={query.query}
                         createdAtMs={query.createdTime}
-                        showDelete={showDelete}
-                        showEdit={showEdit}
                         showDetails={showDetails}
                         showHeader={false}
-                        onDeleted={() => onDeleted?.(query)}
-                        onEdited={(newQuery) => onEdited?.(newQuery)}
                         isCompact
                     />
                 </div>
@@ -98,9 +100,10 @@ export default function useQueryTableColumns({
     });
 
     const createdByColumn = {
-        title: 'Created By',
+        title: t('queryCard.columnCreatedBy'),
         dataIndex: 'createdBy',
         key: 'createdBy',
+        width: 85,
         sorter: shouldRelyOnBackendSorting
             ? false // we don't support sorting by createdBy on backend since it is a text field
             : (queryA, queryB) => {
@@ -115,18 +118,18 @@ export default function useQueryTableColumns({
     };
 
     const createdDateColumn = {
-        title: 'Date Created',
+        title: t('queryCard.columnDateCreated'),
         dataIndex: 'createdTime',
         key: 'dateCreated',
         field: 'createdAt',
         sorter: shouldRelyOnBackendSorting ? true : (queryA, queryB) => queryA.createdTime - queryB.createdTime,
         render: (date: number) => {
-            return <div>{dayjs(date).format('MM/DD/YYYY')}</div>;
+            return <div>{dayjs(date).format(DATE_FORMAT)}</div>;
         },
     };
 
     const powersColumn = {
-        title: 'Powers',
+        title: t('queryCard.columnPowers'),
         dataIndex: 'poweredEntity',
         key: 'powers',
         sorter: (queryA, queryB) => {
@@ -146,7 +149,7 @@ export default function useQueryTableColumns({
     };
 
     const topUsersColumn = {
-        title: 'Top Users',
+        title: t('queryCard.columnTopUsers'),
         dataIndex: 'usedBy',
         key: 'usedBy',
         className: 'usedBy',
@@ -168,7 +171,7 @@ export default function useQueryTableColumns({
     };
 
     const columnsColumn = {
-        title: 'Columns',
+        title: tc('columns'),
         key: 'columns',
         width: 105,
         render: (query: Query) => <ColumnsColumn query={query} />,

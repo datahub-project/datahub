@@ -583,16 +583,19 @@ public class DatasetTest {
     dataset.addTag("test-tag");
     dataset.removeTag("test-tag");
 
+    // Mixed add+remove produces 2 MCPs: one for adds (source-first APK),
+    // one for wildcard removes (tag-first APK).
     List<MetadataChangeProposal> patches = dataset.getPendingPatches();
-    assertEquals("Should have exactly one globalTags patch", 1, patches.size());
-    assertEquals("globalTags", patches.get(0).getAspectName());
+    assertEquals("Mixed add+remove should produce 2 globalTags patches", 2, patches.size());
+    patches.forEach(p -> assertEquals("globalTags", p.getAspectName()));
 
-    // Parse the patch to verify operations
-    String patchJson =
-        patches.get(0).getAspect().getValue().asString(java.nio.charset.StandardCharsets.UTF_8);
-    assertTrue("Should contain add operation", patchJson.contains("\"op\":\"add\""));
-    assertTrue("Should contain remove operation", patchJson.contains("\"op\":\"remove\""));
-    assertTrue("Should reference test-tag", patchJson.contains("test-tag"));
+    String allJson =
+        patches.stream()
+            .map(p -> p.getAspect().getValue().asString(java.nio.charset.StandardCharsets.UTF_8))
+            .reduce("", String::concat);
+    assertTrue("Should contain add operation", allJson.contains("\"op\":\"add\""));
+    assertTrue("Should contain remove operation", allJson.contains("\"op\":\"remove\""));
+    assertTrue("Should reference test-tag", allJson.contains("test-tag"));
   }
 
   @Test
@@ -602,16 +605,19 @@ public class DatasetTest {
     dataset.removeTag("test-tag");
     dataset.addTag("test-tag");
 
+    // Mixed remove+add produces 2 MCPs: one for adds (source-first APK),
+    // one for wildcard removes (tag-first APK).
     List<MetadataChangeProposal> patches = dataset.getPendingPatches();
-    assertEquals("Should have exactly one globalTags patch", 1, patches.size());
-    assertEquals("globalTags", patches.get(0).getAspectName());
+    assertEquals("Mixed remove+add should produce 2 globalTags patches", 2, patches.size());
+    patches.forEach(p -> assertEquals("globalTags", p.getAspectName()));
 
-    // Parse the patch to verify operations
-    String patchJson =
-        patches.get(0).getAspect().getValue().asString(java.nio.charset.StandardCharsets.UTF_8);
-    assertTrue("Should contain remove operation", patchJson.contains("\"op\":\"remove\""));
-    assertTrue("Should contain add operation", patchJson.contains("\"op\":\"add\""));
-    assertTrue("Should reference test-tag", patchJson.contains("test-tag"));
+    String allJson =
+        patches.stream()
+            .map(p -> p.getAspect().getValue().asString(java.nio.charset.StandardCharsets.UTF_8))
+            .reduce("", String::concat);
+    assertTrue("Should contain remove operation", allJson.contains("\"op\":\"remove\""));
+    assertTrue("Should contain add operation", allJson.contains("\"op\":\"add\""));
+    assertTrue("Should reference test-tag", allJson.contains("test-tag"));
   }
 
   @Test
@@ -623,19 +629,22 @@ public class DatasetTest {
     dataset.addTag("tag3");
     dataset.removeTag("tag2");
 
+    // Mixed adds+remove produces 2 MCPs: one for the 3 adds (source-first APK),
+    // one for the wildcard remove (tag-first APK).
     List<MetadataChangeProposal> patches = dataset.getPendingPatches();
-    assertEquals("Should have exactly one globalTags patch", 1, patches.size());
+    assertEquals("Mixed adds+remove should produce 2 globalTags patches", 2, patches.size());
 
-    String patchJson =
-        patches.get(0).getAspect().getValue().asString(java.nio.charset.StandardCharsets.UTF_8);
-    assertTrue("Should contain tag1", patchJson.contains("tag1"));
-    assertTrue("Should contain tag2", patchJson.contains("tag2"));
-    assertTrue("Should contain tag3", patchJson.contains("tag3"));
-    // Should have 3 adds and 1 remove
-    int addCount = patchJson.split("\"op\":\"add\"").length - 1;
-    int removeCount = patchJson.split("\"op\":\"remove\"").length - 1;
-    assertTrue("Should have add operations for tags", addCount >= 3);
-    assertTrue("Should have remove operation", removeCount >= 1);
+    String allJson =
+        patches.stream()
+            .map(p -> p.getAspect().getValue().asString(java.nio.charset.StandardCharsets.UTF_8))
+            .reduce("", String::concat);
+    assertTrue("Should contain tag1", allJson.contains("tag1"));
+    assertTrue("Should contain tag2", allJson.contains("tag2"));
+    assertTrue("Should contain tag3", allJson.contains("tag3"));
+    int addCount = allJson.split("\"op\":\"add\"").length - 1;
+    int removeCount = allJson.split("\"op\":\"remove\"").length - 1;
+    assertEquals("Should have 3 add operations", 3, addCount);
+    assertEquals("Should have 1 remove operation", 1, removeCount);
   }
 
   @Test

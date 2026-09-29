@@ -1,10 +1,14 @@
 ---
-title: Setup
+title: Snowflake Setup
 ---
 
 # Snowflake Ingestion Guide: Setup & Prerequisites
 
 In order to configure ingestion from Snowflake, you'll first have to ensure you have a Snowflake user with the `ACCOUNTADMIN` role or `MANAGE GRANTS` privilege.
+
+:::note Already ingesting with password auth?
+Snowflake is deprecating username + password authentication (`DEFAULT_AUTHENTICATOR`) as part of its Strong Authentication rollout. If you have an existing recipe using password auth, follow the [migration guide](migrate-to-key-pair-auth.md) to switch to key-pair auth before your account's enforcement date.
+:::
 
 ## Snowflake Prerequisites
 
@@ -18,15 +22,32 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 
    Make note of this role and warehouse. You'll need this in the next step.
 
-2. Create a DataHub-specific user by executing the following queries. Replace `<your-password>` with a strong password. Replace `<your-warehouse>` with the same warehouse used above.
+2. Create a DataHub-specific user with **key-pair authentication**. Key-pair auth is the recommended target for scheduled, headless ingestion — Snowflake is deprecating username + password auth as part of its Strong Authentication rollout (see the [migration guide](migrate-to-key-pair-auth.md) for background).
+
+   First, generate an RSA key-pair on your machine:
+
+   ```bash
+   # Unencrypted 2048-bit RSA private key (PEM) — simplest for headless ingestion
+   openssl genrsa 2048 | openssl pkcs8 -topk8 -nocrypt -out snowflake_key.p8
+   # Public key to assign to the Snowflake user
+   openssl rsa -in snowflake_key.p8 -pubout -out snowflake_key.pub
+   ```
+
+   :::caution Keep the private key safe
+   `snowflake_key.p8` is the private key DataHub will use to connect. Store it as a DataHub secret (see the next page) — do not commit it to source control. If your security policy requires an encrypted private key, add a passphrase and use it as `private_key_password` later; see the [migration guide](migrate-to-key-pair-auth.md#1a-generate-the-key-pair) for the encrypted-key commands.
+   :::
+
+   Then create the DataHub user as a service account and assign the public key. Strip the `-----BEGIN/END-----` lines and newlines from `snowflake_key.pub` when pasting it into `RSA_PUBLIC_KEY`. Replace `<your-warehouse>` with the same warehouse used above.
 
    ```sql
-   create user datahub_user display_name = 'DataHub' password='<your-password>' default_role = datahub_role type='LEGACY_SERVICE' default_warehouse = '<your-warehouse>';
+   create user datahub_user display_name = 'DataHub' default_role = datahub_role type='SERVICE' default_warehouse = '<your-warehouse>';
+   -- Assign the public key to the DataHub user
+   alter user datahub_user set RSA_PUBLIC_KEY = 'MIIBIjANBgkqhkiG9w0B...';
    -- Grant access to the DataHub role created above
    grant role datahub_role to user datahub_user;
    ```
 
-   Make note of the user and its password. You'll need this in the next step.
+   Make note of the user and the path to the private key (`snowflake_key.p8`). You'll need both in the next step.
 
 3. Assign privileges to read metadata about your assets by executing the following queries. Replace `<your-database>` with an existing database. Repeat for all databases from your Snowflake instance that you wish to integrate with DataHub.
 
@@ -60,6 +81,19 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 
    -- Assign privileges to extract lineage and usage statistics from Snowflake by executing the below query.
    grant imported privileges on database snowflake to role datahub_role;
+
+   -- Optional: If you want to ingest Snowflake internal marketplace listings as Data Products
+   -- Grant IMPORT SHARE for consumer mode (requires ACCOUNTADMIN to grant account-level privileges)
+   use role accountadmin;
+   grant import share on account to role datahub_role;  -- For INBOUND shares
+
+   -- For provider mode (OUTBOUND shares), grant SYSADMIN role (use SECURITYADMIN to grant roles)
+   -- Note: Only needed if shares are owned by ACCOUNTADMIN/SYSADMIN
+   -- If datahub_role creates/owns the shares, no additional grant needed
+   use role securityadmin;
+   grant role sysadmin to role datahub_role;  -- Allows seeing shares owned by SYSADMIN/ACCOUNTADMIN
+
+   -- Alternatively, use role: SYSADMIN directly in your recipe
 
    ```
 

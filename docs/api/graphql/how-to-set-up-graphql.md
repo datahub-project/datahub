@@ -1,3 +1,7 @@
+---
+description: "Set up a local DataHub deployment for GraphQL development and use the GraphiQL explorer to test queries and mutations."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

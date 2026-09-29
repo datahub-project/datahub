@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_DUPLICATE
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_ROLLING_BACK;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_STATUS_SUCCESS;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
@@ -40,6 +41,7 @@ public class ExecutionRequestResultValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.of();
@@ -47,7 +49,9 @@ public class ExecutionRequestResultValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return changeMCPs.stream()
         .filter(item -> item.getPreviousRecordTemplate() != null)
         .map(

@@ -1,3 +1,7 @@
+---
+description: "Migrate DataHub from legacy browse paths to the new browse paths v2 model, including upgrade steps and compatibility background."
+---
+
 # Browse Paths Upgrade (August 2022)
 
 ## Background

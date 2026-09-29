@@ -1,6 +1,9 @@
+import csv
+import io
 import logging
+import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Callable, Dict, Final, List, Optional, TypedDict
+from typing import TYPE_CHECKING, Callable, ClassVar, Dict, Final, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -15,7 +18,10 @@ from datahub.configuration.source_common import (
     DatasetLineageProviderConfigBase,
     PlatformInstanceConfigMixin,
 )
+from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
 from datahub.ingestion.source.kafka_connect.config_constants import (
+    ConnectorConfigKeys,
     parse_comma_separated_list,
 )
 from datahub.ingestion.source.kafka_connect.pattern_matchers import JavaRegexMatcher
@@ -29,8 +35,16 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.metadata.schema_classes import (
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    SchemaMetadataClass,
+)
+from datahub.sql_parsing._models import _TableName
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -43,8 +57,31 @@ SINK: Final[str] = "sink"
 CONNECTOR_CLASS: Final[str] = "connector.class"
 JDBC_PREFIX: Final[str] = "jdbc:"
 
+# Regex patterns for non-standard JDBC URL formats (see normalize_jdbc_url)
+_ORACLE_THIN_RE: Final = re.compile(
+    r"^(?:jdbc:)?oracle:(?:thin|oci):@/?"
+    r"/?(?P<host>[^:/@\s]+)"
+    r":(?P<port>\d+)"
+    r"(?:[:/](?P<db>[^@?;\s]+))?"
+    r"(?:[;?].*)?$"
+)
+_SQLSERVER_RE: Final = re.compile(
+    r"^(?:jdbc:)?sqlserver://(?P<host>[^:;/\s]+)"
+    r"(?::(?P<port>\d+))?"
+    r"(?:;(?P<params>.*))?$"
+)
+_JTDS_RE: Final = re.compile(
+    r"^(?:jdbc:)?jtds:sqlserver://(?P<host>[^:/@\s]+)"
+    r"(?::(?P<port>\d+))?"
+    r"(?:/(?P<db>[^;?\s]+))?"
+    r"(?:[;?].*)?$"
+)
+
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
+
+_QUOTED_IDENTIFIER_RE: Final = re.compile(r'"([^"]+)"')
+_VALID_TOPIC_NAME_RE: Final = re.compile(r'^[a-zA-Z0-9._\-"\s]+$')
 
 # ================================
 # TRANSFORM TYPE CONSTANTS
@@ -72,15 +109,6 @@ KNOWN_TOPIC_ROUTING_TRANSFORMS: Final[List[str]] = [
 DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
     "io.debezium.connector.sqlserver.SqlServerConnector",
 }
-
-
-class FineGrainedLineageDict(TypedDict):
-    """Structure for fine-grained (column-level) lineage mappings."""
-
-    upstreamType: str
-    downstreamType: str
-    upstreams: List[str]
-    downstreams: List[str]
 
 
 # Confluent Cloud connector class names
@@ -127,6 +155,46 @@ class GenericConnectorConfig(ConfigModel):
     connector_name: str
     source_dataset: str
     source_platform: str
+    target_dataset: Optional[str] = None
+    target_platform: Optional[str] = None
+
+    @model_validator(mode="after")
+    def target_fields_together(self) -> "GenericConnectorConfig":
+        if self.target_dataset is None and self.target_platform is None:
+            return self
+        if not self.target_dataset or not self.target_platform:
+            raise ValueError(
+                "target_dataset and target_platform must be provided together"
+            )
+        return self
+
+
+class ConfluentCatalogConfig(ConfluentStreamCatalogConfig):
+    include_lineage: bool = Field(
+        default=False,
+        description="Take connector -> topic lineage from the catalog rather than inferring it from "
+        "connector config. The catalog reports topic names after any topic-routing transform has been "
+        "applied, so the topic is exact rather than predicted. "
+        "Off by default because it is a trade-off: the catalog does not know which source table the "
+        "data came from, so enabling this replaces a source connector's `table -> topic` lineage, and "
+        "the column-level lineage that comes with it, with a `connector -> topic` edge only. "
+        "Sink connectors are unaffected.",
+    )
+    include_tags: bool = Field(
+        default=True,
+        description="Emit Confluent Cloud tags on connectors as DataHub tags.",
+    )
+    include_business_metadata: bool = Field(
+        default=True,
+        description="Emit Confluent Cloud business metadata attributes on connectors as DataHub "
+        "custom properties.",
+    )
+
+    @model_validator(mode="after")
+    def validate_catalog_connection(self) -> "ConfluentCatalogConfig":
+        if self.enabled:
+            self.validate_connection()
+        return self
 
 
 class KafkaConnectSourceConfig(
@@ -252,6 +320,12 @@ class KafkaConnectSourceConfig(
         "When use_schema_resolver=True, this controls whether to generate column-level lineage "
         "by matching schemas between source tables and Kafka topics. Only applies when use_schema_resolver is enabled. "
         "Defaults to True when use_schema_resolver is enabled.",
+    )
+
+    confluent_catalog: ConfluentCatalogConfig = Field(
+        default_factory=ConfluentCatalogConfig,
+        description="Confluent Cloud Stream Catalog settings, used to read connector -> topic lineage, "
+        "tags and business metadata from Stream Governance.",
     )
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -466,11 +540,26 @@ class KafkaConnectSourceReport(StaleEntityRemovalSourceReport):
     connectors_scanned: int = 0
     filtered: LossyList[str] = field(default_factory=LossyList)
 
+    catalog_connectors_indexed: int = 0
+    catalog_lineage_connectors: int = 0
+    catalog_tagged_flows: int = 0
+    catalog_connectors_with_business_metadata: int = 0
+    catalog_lineage_fallbacks: LossyList[str] = field(default_factory=LossyList)
+
     def report_connector_scanned(self, connector: str) -> None:
         self.connectors_scanned += 1
 
     def report_dropped(self, connector: str) -> None:
         self.filtered.append(connector)
+
+    def report_catalog_lineage_fallback(self, connector: str) -> None:
+        self.catalog_lineage_fallbacks.append(connector)
+        self.warning(
+            message="The Stream Catalog entry for this connector listed no topics, so its "
+            "lineage was inferred from the connector config instead. Topic names produced by a "
+            "topic-routing SMT may not be reflected.",
+            context=f"connector={connector}",
+        )
 
 
 @dataclass
@@ -482,7 +571,7 @@ class KafkaConnectLineage:
     target_platform: str
     job_property_bag: Optional[Dict[str, str]] = None
     source_dataset: Optional[str] = None
-    fine_grained_lineages: Optional[List[FineGrainedLineageDict]] = None
+    fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None
 
 
 @dataclass
@@ -528,14 +617,55 @@ def unquote(
     return string
 
 
+def normalize_jdbc_url(url: str) -> str:
+    """Convert a JDBC URL to a form SQLAlchemy can parse.
+
+    Non-standard formats handled:
+    - Oracle thin/OCI (oracle:thin:@[//]host:port/service) → oracle://host:port/service
+    - SQL Server JDBC (sqlserver://host[:port][;databaseName=db;...]) → mssql://host:port/db
+    - jTDS SQL Server (jtds:sqlserver://host[:port][/db]) → mssql://host:port/db
+
+    All other URLs are returned unchanged after stripping a leading jdbc:.
+    """
+    m = _ORACLE_THIN_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port")
+        db = m.group("db") or ""
+        return f"oracle://{host}:{port}/{db}"
+
+    m = _SQLSERVER_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port") or "1433"
+        db = ""
+        params_str = m.group("params") or ""
+        for param in params_str.split(";"):
+            if "=" in param:
+                k, _, v = param.partition("=")
+                if k.strip().lower() == "databasename":
+                    db = v.strip()
+                    break
+        return f"mssql://{host}:{port}/{db}"
+
+    m = _JTDS_RE.match(url)
+    if m:
+        host = m.group("host")
+        port = m.group("port") or "1433"
+        db = m.group("db") or ""
+        return f"mssql://{host}:{port}/{db}"
+
+    return remove_prefix(url, JDBC_PREFIX)
+
+
 def validate_jdbc_url(url: str) -> bool:
-    """Validate JDBC URL format and return whether it's well-formed."""
+    """Return whether url is a JDBC URL format we can parse."""
     if not url or not isinstance(url, str):
         return False
-
+    if _ORACLE_THIN_RE.match(url) or _SQLSERVER_RE.match(url) or _JTDS_RE.match(url):
+        return True
     if not url.startswith(JDBC_PREFIX):
         return False
-
     parts = url.split(":", 3)
     return len(parts) >= 3  # jdbc:protocol:connection_details
 
@@ -546,9 +676,7 @@ def parse_table_identifier(identifier: str) -> str:
         return ""
 
     # Handle quoted identifiers: "schema"."table" -> schema.table
-    import re
-
-    cleaned = re.sub(r'"([^"]+)"', r"\1", identifier)
+    cleaned = _QUOTED_IDENTIFIER_RE.sub(r"\1", identifier)
     return cleaned.strip()
 
 
@@ -558,9 +686,6 @@ def parse_comma_separated_with_quotes(value: str) -> List[str]:
         return []
 
     # Use csv.reader for proper quote handling
-    import csv
-    import io
-
     try:
         reader = csv.reader(io.StringIO(value))
         return [item.strip() for item in next(reader, [])]
@@ -634,11 +759,9 @@ def validate_topic_name(topic_name: str) -> bool:
     if topic_name in [".", ".."] or len(topic_name) > 249:
         return False
 
-    import re
-
     # Allow alphanumeric, dots, underscores, hyphens, quotes, spaces, and common punctuation
     # This is more permissive to handle quoted identifiers and various connector naming patterns
-    return bool(re.match(r'^[a-zA-Z0-9._\-"\s]+$', topic_name))
+    return bool(_VALID_TOPIC_NAME_RE.match(topic_name))
 
 
 def get_dataset_name(
@@ -693,7 +816,7 @@ def transform_connector_config(
 
 # TODO: Find a more automated way to discover new platforms with 3 level naming hierarchy.
 def has_three_level_hierarchy(platform: str) -> bool:
-    return platform in ["postgres", "trino", "redshift", "snowflake"]
+    return platform in ["postgres", "trino", "redshift", "snowflake", "mssql"]
 
 
 @dataclass
@@ -707,6 +830,11 @@ class BaseConnector:
     - supports_connector_class(): Checks if this connector handles the given class
     """
 
+    # Opt in when lineage inference needs the live Kafka REST topic list on
+    # Confluent Cloud (topic_names is always empty there). Sinks are always
+    # opted in via requires_cluster_topics(); EventRouter Debezium overrides it.
+    needs_cluster_topics: ClassVar[bool] = False
+
     connector_manifest: ConnectorManifest
     config: KafkaConnectSourceConfig
     report: KafkaConnectSourceReport
@@ -714,6 +842,25 @@ class BaseConnector:
     all_cluster_topics: Optional[List[str]] = (
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
     )
+
+    def requires_cluster_topics(self) -> bool:
+        if self.connector_manifest.type == SINK:
+            return True
+        return self.needs_cluster_topics
+
+    def available_topics(self) -> List[str]:
+        # None = list unavailable (fall back to connector topic_names); [] = empty cluster.
+        return self.topics_for_regex_expansion() or []
+
+    def topics_for_regex_expansion(self) -> Optional[List[str]]:
+        # Prefer the live cluster list (including empty). Fall back to connector
+        # topic_names only when they are non-empty; otherwise None so callers can
+        # try DataHub / warn instead of treating "unknown" as an empty match set.
+        if self.all_cluster_topics is not None:
+            return list(self.all_cluster_topics)
+        if self.connector_manifest.topic_names:
+            return list(self.connector_manifest.topic_names)
+        return None
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         """Extract lineage mappings for this connector. Override in subclasses."""
@@ -726,6 +873,90 @@ class BaseConnector:
     def get_topics_from_config(self) -> List[str]:
         """Extract topics from connector configuration. Override in subclasses."""
         return []
+
+    def _get_topics_from_sink_config(self) -> List[str]:
+        """
+        Extract topics from sink connector configuration (shared helper).
+
+        Supports both explicit topic lists and regex patterns:
+        - topics: Comma-separated list of topic names
+        - topics.regex: Java regex pattern to match topics dynamically
+        """
+        config = self.connector_manifest.config
+
+        # Priority 1: Explicit 'topics' field
+        topics = config.get(ConnectorConfigKeys.TOPICS, "")
+        if topics:
+            return parse_comma_separated_list(topics)
+
+        # Priority 2: 'topics.regex' pattern
+        topics_regex = config.get(ConnectorConfigKeys.TOPICS_REGEX, "")
+        if topics_regex:
+            return self._expand_topic_regex_patterns(
+                topics_regex,
+                available_topics=self.topics_for_regex_expansion(),
+            )
+
+        return []
+
+    def _sink_has_topic_subscription(self) -> bool:
+        config = self.connector_manifest.config
+        return bool(
+            config.get(ConnectorConfigKeys.TOPICS)
+            or config.get(ConnectorConfigKeys.TOPICS_REGEX)
+        )
+
+    def _resolve_subscribed_topics(
+        self, connector_manifest: ConnectorManifest, subscribed_topics: List[str]
+    ) -> List[str]:
+        """
+        Resolve topic list from subscribed config + runtime Kafka API (shared helper).
+
+        Applies three-way fallback logic:
+        1. Intersect subscribed topics with runtime topics (exclude stale subscriptions)
+        2. Use subscribed topics only when the runtime list is unavailable (None)
+        3. Use all runtime topics only when no topics / topics.regex subscription is set
+
+        An empty result from a configured subscription (e.g. topics.regex matched
+        nothing) must not fall through to the whole-cluster list. Results are sorted
+        so downstream lineage ordering is deterministic across processes.
+        """
+        # None = cluster list unavailable (fall back to the subscription); [] = an
+        # authoritative empty cluster, so a configured subscription resolves to nothing.
+        runtime_topics = self.topics_for_regex_expansion()
+        subscribed_topics_set = set(subscribed_topics)
+        subscription_configured = self._sink_has_topic_subscription()
+
+        if subscription_configured or subscribed_topics_set:
+            if not subscribed_topics_set:
+                logger.debug(
+                    f"Configured topic subscription for {connector_manifest.name} "
+                    f"resolved to zero topics; not falling back to the cluster list"
+                )
+                return []
+            if runtime_topics is None:
+                topic_list = sorted(subscribed_topics_set)
+                logger.debug(
+                    f"Runtime topics unavailable for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
+            else:
+                topic_list = sorted(
+                    set(runtime_topics).intersection(subscribed_topics_set)
+                )
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(runtime_topics)} runtime topics and "
+                    f"{len(subscribed_topics_set)} configured topics)"
+                )
+        else:
+            topic_list = sorted(runtime_topics or [])
+            logger.debug(
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
+            )
+
+        return topic_list
 
     @staticmethod
     def supports_connector_class(connector_class: str) -> bool:
@@ -806,91 +1037,134 @@ class BaseConnector:
             )
             return []
 
-    def _apply_replace_field_transform(
+    def _apply_field_transforms(
         self, source_columns: List[str]
     ) -> Dict[str, Optional[str]]:
+        """Apply field-level SMT transforms to a column mapping (source → target name).
+
+        Handles ReplaceField (include/exclude/rename), ExtractField (unwrap a nested
+        struct), and HoistField (wrap all fields under a new struct field).
+        Returns a dict mapping each source column to its target name, or None if dropped.
         """
-        Apply ReplaceField SMT transformations to column mappings.
-
-        ReplaceField transform can filter, rename, or drop fields:
-        - include: Keep only specified fields (all others dropped)
-        - exclude: Drop specified fields (all others kept)
-        - rename: Rename fields using from:to format
-
-        Reference: https://docs.confluent.io/platform/current/connect/transforms/replacefield.html
-
-        Args:
-            source_columns: List of source column names
-
-        Returns:
-            Dictionary mapping source column -> target column name (None if dropped)
-        """
-        # Parse transforms from connector config
         transforms_config = self.connector_manifest.config.get("transforms", "")
         if not transforms_config:
-            # No transforms - return 1:1 mapping
             return {col: col for col in source_columns}
 
         transform_names = parse_comma_separated_list(transforms_config)
-
-        # Build column mapping (source -> target, None means dropped)
         column_mapping: Dict[str, Optional[str]] = {col: col for col in source_columns}
 
-        # Apply each ReplaceField transform in order
         for transform_name in transform_names:
             transform_type = self.connector_manifest.config.get(
                 f"transforms.{transform_name}.type", ""
             )
+            cfg_prefix = f"transforms.{transform_name}."
+            transform_cfg = {
+                k[len(cfg_prefix) :]: v
+                for k, v in self.connector_manifest.config.items()
+                if k.startswith(cfg_prefix)
+            }
 
-            # Check if this is a ReplaceField$Value transform
-            # We only support Value transforms since those affect the column data
             if (
                 transform_type
-                != "org.apache.kafka.connect.transforms.ReplaceField$Value"
+                == "org.apache.kafka.connect.transforms.ReplaceField$Value"
             ):
-                continue
-
-            # Get transform configuration
-            include_config = self.connector_manifest.config.get(
-                f"transforms.{transform_name}.include", ""
-            )
-            exclude_config = self.connector_manifest.config.get(
-                f"transforms.{transform_name}.exclude", ""
-            )
-            rename_config = self.connector_manifest.config.get(
-                f"transforms.{transform_name}.renames", ""
-            )
-
-            # Apply include filter (keep only specified fields)
-            if include_config:
-                include_fields = set(parse_comma_separated_list(include_config))
-                for col in list(column_mapping.keys()):
-                    if column_mapping[col] not in include_fields:
-                        column_mapping[col] = None
-
-            # Apply exclude filter (drop specified fields)
-            if exclude_config:
-                exclude_fields = set(parse_comma_separated_list(exclude_config))
-                for col in list(column_mapping.keys()):
-                    if column_mapping[col] in exclude_fields:
-                        column_mapping[col] = None
-
-            # Apply renames (format: "from:to,from2:to2")
-            if rename_config:
-                rename_pairs = parse_comma_separated_list(rename_config)
-                rename_map = {}
-                for pair in rename_pairs:
-                    if ":" in pair:
-                        from_field, to_field = pair.split(":", 1)
-                        rename_map[from_field.strip()] = to_field.strip()
-
-                # Apply renames to the column mapping
-                for col in list(column_mapping.keys()):
-                    current_name = column_mapping[col]
-                    if current_name and current_name in rename_map:
-                        column_mapping[col] = rename_map[current_name]
+                column_mapping = self._apply_replace_field(
+                    column_mapping, transform_cfg
+                )
+            elif transform_type in (
+                "org.apache.kafka.connect.transforms.ExtractField$Value",
+                "org.apache.kafka.connect.transforms.ExtractField$Key",
+            ):
+                column_mapping = self._apply_extract_field(
+                    column_mapping, transform_cfg
+                )
+            elif transform_type in (
+                "org.apache.kafka.connect.transforms.HoistField$Value",
+                "org.apache.kafka.connect.transforms.HoistField$Key",
+            ):
+                column_mapping = self._apply_hoist_field(column_mapping, transform_cfg)
+            elif transform_type in (
+                "org.apache.kafka.connect.transforms.Flatten$Value",
+                "org.apache.kafka.connect.transforms.Flatten$Key",
+            ):
+                column_mapping = self._apply_flatten(column_mapping, transform_cfg)
 
         return column_mapping
+
+    @staticmethod
+    def _apply_replace_field(
+        column_mapping: Dict[str, Optional[str]], cfg: Dict[str, str]
+    ) -> Dict[str, Optional[str]]:
+        if include_config := cfg.get("include", ""):
+            include_fields = set(parse_comma_separated_list(include_config))
+            for col in list(column_mapping.keys()):
+                if column_mapping[col] not in include_fields:
+                    column_mapping[col] = None
+
+        if exclude_config := cfg.get("exclude", ""):
+            exclude_fields = set(parse_comma_separated_list(exclude_config))
+            for col in list(column_mapping.keys()):
+                if column_mapping[col] in exclude_fields:
+                    column_mapping[col] = None
+
+        if rename_config := cfg.get("renames", ""):
+            rename_map = {}
+            for pair in parse_comma_separated_list(rename_config):
+                if ":" in pair:
+                    from_field, to_field = pair.split(":", 1)
+                    rename_map[from_field.strip()] = to_field.strip()
+            for col in list(column_mapping.keys()):
+                current = column_mapping[col]
+                if current and current in rename_map:
+                    column_mapping[col] = rename_map[current]
+
+        return column_mapping
+
+    @staticmethod
+    def _apply_extract_field(
+        column_mapping: Dict[str, Optional[str]], cfg: Dict[str, str]
+    ) -> Dict[str, Optional[str]]:
+        # Promotes sub-fields of one struct field as the top-level record.
+        # e.g. ExtractField with field=after on a Debezium envelope exposes
+        # {after.id, after.name} as {id, name}.
+        extract_field = cfg.get("field", "")
+        if not extract_field:
+            return column_mapping
+        prefix = f"{extract_field}."
+        return {
+            col: target[len(prefix) :]
+            for col, target in column_mapping.items()
+            if target is not None and target.startswith(prefix)
+        }
+
+    @staticmethod
+    def _apply_hoist_field(
+        column_mapping: Dict[str, Optional[str]], cfg: Dict[str, str]
+    ) -> Dict[str, Optional[str]]:
+        # Wraps all fields under a new named struct field.
+        # e.g. HoistField with field=data maps {id, name} → {data.id, data.name}.
+        hoist_field = cfg.get("field", "")
+        if not hoist_field:
+            return column_mapping
+        return {
+            col: f"{hoist_field}.{target}" if target is not None else None
+            for col, target in column_mapping.items()
+        }
+
+    @staticmethod
+    def _apply_flatten(
+        column_mapping: Dict[str, Optional[str]], cfg: Dict[str, str]
+    ) -> Dict[str, Optional[str]]:
+        # Flatten converts nested struct paths to delimited names.
+        # DataHub already normalises nested paths to dot notation (user.id), so
+        # a "." delimiter (the default) is a no-op. Custom delimiters need a substitution.
+        delimiter = cfg.get("delimiter", ".")
+        if delimiter == ".":
+            return column_mapping
+        return {
+            col: target.replace(".", delimiter) if target is not None else None
+            for col, target in column_mapping.items()
+        }
 
     def _extract_fine_grained_lineage(
         self,
@@ -898,7 +1172,7 @@ class BaseConnector:
         source_platform: str,
         target_dataset: str,
         target_platform: str = "kafka",
-    ) -> Optional[List[FineGrainedLineageDict]]:
+    ) -> Optional[List[FineGrainedLineageClass]]:
         """
         Extract column-level lineage using schema metadata from DataHub.
 
@@ -914,12 +1188,11 @@ class BaseConnector:
         Returns:
             List of fine-grained lineage dictionaries or None if not available
         """
-        # Check if feature is enabled
-        if not self.config.use_schema_resolver:
-            return None
-        if not self.config.schema_resolver_finegrained_lineage:
-            return None
-        if not self.schema_resolver:
+        if not (
+            self.config.use_schema_resolver
+            and self.config.schema_resolver_finegrained_lineage
+            and self.schema_resolver
+        ):
             return None
 
         # Skip fine-grained lineage for Kafka source platform
@@ -932,10 +1205,6 @@ class BaseConnector:
             return None
 
         try:
-            from datahub.emitter.mce_builder import make_schema_field_urn
-            from datahub.sql_parsing._models import _TableName
-            from datahub.utilities.urns.dataset_urn import DatasetUrn
-
             # Build source table reference
             source_table = _TableName(
                 database=None, db_schema=None, table=source_dataset
@@ -964,14 +1233,10 @@ class BaseConnector:
                 platform_instance=kafka_platform_instance,
             )
 
-            # Apply ReplaceField transforms to column mappings
-            # source_schema is Dict[str, str] mapping column names to types
-            column_mapping = self._apply_replace_field_transform(
-                list(source_schema.keys())
-            )
+            column_mapping = self._apply_field_transforms(list(source_schema.keys()))
 
             # Create fine-grained lineage for each source column
-            fine_grained_lineages: List[FineGrainedLineageDict] = []
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
 
             for source_col in source_schema:
                 target_col = column_mapping.get(source_col)
@@ -983,25 +1248,128 @@ class BaseConnector:
                     )
                     continue
 
-                fine_grained_lineage: FineGrainedLineageDict = {
-                    "upstreamType": "FIELD_SET",
-                    "downstreamType": "FIELD",
-                    "upstreams": [make_schema_field_urn(source_urn_str, source_col)],
-                    "downstreams": [make_schema_field_urn(str(target_urn), target_col)],
-                }
+                fine_grained_lineage = FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[make_schema_field_urn(source_urn_str, source_col)],
+                    downstreams=[make_schema_field_urn(str(target_urn), target_col)],
+                )
                 fine_grained_lineages.append(fine_grained_lineage)
 
             if fine_grained_lineages:
                 logger.debug(
                     f"Generated {len(fine_grained_lineages)} fine-grained lineages "
-                    f"for {source_platform} table {source_dataset} → {target_dataset}"
+                    f"for {source_platform} table {source_dataset} -> {target_dataset}"
                 )
                 return fine_grained_lineages
 
         except Exception as e:
-            logger.debug(
-                f"Failed to extract fine-grained lineage for "
-                f"{source_dataset} → {target_dataset}: {e}"
+            self.report.warning(
+                message="Failed to extract source column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_platform={source_platform}, "
+                f"source={source_dataset}, target={target_dataset}",
+                exc=e,
+            )
+
+        return None
+
+    def _extract_sink_fine_grained_lineage(
+        self,
+        source_topic: str,
+        target_dataset: str,
+        target_platform: str,
+    ) -> Optional[List[FineGrainedLineageClass]]:
+        """Extract column-level lineage for sink connectors (Kafka topic → DB table)."""
+        if not (
+            self.config.use_schema_resolver
+            and self.config.schema_resolver_finegrained_lineage
+            and self.schema_resolver
+            and self.schema_resolver.graph
+        ):
+            return None
+
+        try:
+            kafka_platform_instance = get_platform_instance(
+                self.config, self.connector_manifest.name, KAFKA
+            )
+            source_urn = DatasetUrn.create_from_ids(
+                platform_id=KAFKA,
+                table_name=source_topic,
+                env=self.config.env,
+                platform_instance=kafka_platform_instance,
+            )
+
+            kafka_schema_aspect = self.schema_resolver.graph.get_aspect(
+                str(source_urn), SchemaMetadataClass
+            )
+            if not kafka_schema_aspect:
+                logger.debug(
+                    f"No schema found in DataHub for Kafka topic '{source_topic}'. "
+                    f"Ingest Kafka topic schemas before Kafka Connect to enable sink column lineage."
+                )
+                return None
+
+            kafka_fields = [
+                get_simple_field_path_from_v2_field_path(field.fieldPath)
+                for field in kafka_schema_aspect.fields
+            ]
+
+            target_table = _TableName(
+                database=None, db_schema=None, table=target_dataset
+            )
+            target_urn_str, target_schema = self.schema_resolver.resolve_table(
+                target_table
+            )
+            if not target_schema:
+                logger.debug(
+                    f"No schema found in DataHub for {target_platform} table '{target_dataset}'. "
+                    f"Ingest destination tables before Kafka Connect to enable sink column lineage."
+                )
+                return None
+
+            column_mapping = self._apply_field_transforms(kafka_fields)
+
+            # Some platforms (e.g. Snowflake) store columns in a different case than
+            # Kafka field names — try exact match first, then case-insensitive fallback.
+            target_schema_lower: Dict[str, str] = {k.lower(): k for k in target_schema}
+
+            fine_grained_lineages: List[FineGrainedLineageClass] = []
+            for source_field, target_field in column_mapping.items():
+                if target_field is None:
+                    continue
+                if target_field in target_schema:
+                    actual_target_field = target_field
+                elif target_field.lower() in target_schema_lower:
+                    actual_target_field = target_schema_lower[target_field.lower()]
+                else:
+                    logger.debug(
+                        f"Kafka field '{source_field}' -> '{target_field}' not found "
+                        f"in {target_platform} table '{target_dataset}' — skipping"
+                    )
+                    continue
+                fine_grained_lineage = FineGrainedLineageClass(
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    upstreams=[make_schema_field_urn(str(source_urn), source_field)],
+                    downstreams=[
+                        make_schema_field_urn(target_urn_str, actual_target_field)
+                    ],
+                )
+                fine_grained_lineages.append(fine_grained_lineage)
+
+            if fine_grained_lineages:
+                logger.debug(
+                    f"Generated {len(fine_grained_lineages)} sink fine-grained lineages "
+                    f"for Kafka topic '{source_topic}' -> {target_platform} table '{target_dataset}'"
+                )
+                return fine_grained_lineages
+
+        except Exception as e:
+            self.report.warning(
+                message="Failed to extract sink column-level lineage — asset-level lineage is unaffected",
+                context=f"connector={self.connector_manifest.name}, source_topic={source_topic}, "
+                f"target_platform={target_platform}, target={target_dataset}",
+                exc=e,
             )
 
         return None
@@ -1019,10 +1387,23 @@ class BaseConnector:
             Extracted table name (e.g., "database.schema.table") or None if parsing fails
         """
         try:
-            return DatasetUrn.from_string(urn).name
+            name = DatasetUrn.from_string(urn).name
         except Exception as e:
             logger.debug(f"Failed to extract table name from URN {urn}: {e}")
             return None
+
+        # DataHub bakes the platform_instance into the URN name as a leading
+        # `{platform_instance}.` segment. Strip it so callers see the logical
+        # db.schema.table name; otherwise table discovery and pattern matching
+        # break for sources ingested with a platform_instance.
+        platform_instance = (
+            self.schema_resolver.platform_instance if self.schema_resolver else None
+        )
+        if platform_instance:
+            prefix = f"{platform_instance}."
+            if name.lower().startswith(prefix.lower()):
+                name = name[len(prefix) :]
+        return name
 
     def _extract_lineages_from_schema_resolver(
         self,
@@ -1161,15 +1542,15 @@ class BaseConnector:
         """
         matcher = JavaRegexMatcher()
 
-        # Priority 1: Use provided available_topics (from Kafka API)
-        if available_topics:
+        # Distinguish None (unavailable → try DataHub) from [] (empty cluster).
+        if available_topics is not None:
             matched_topics = matcher.filter_matches([topics_regex], available_topics)
             if matched_topics:
                 logger.info(
                     f"Expanded topics.regex '{topics_regex}' to {len(matched_topics)} topics "
                     f"from {len(available_topics)} available Kafka topics"
                 )
-            elif not matched_topics:
+            else:
                 logger.warning(
                     f"Java regex pattern '{topics_regex}' did not match any of the {len(available_topics)} available topics"
                 )

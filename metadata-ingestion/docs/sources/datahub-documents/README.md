@@ -2,7 +2,7 @@
 
 Datahub Documents is a documentation or collaboration platform. Learn more in the [official Datahub Documents documentation](https://datahub.com/docs/).
 
-The DataHub integration for Datahub Documents covers document/workspace entities and hierarchy context for knowledge assets. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Datahub Documents covers document/workspace entities and hierarchy context for knowledge assets. It also captures stateful deletion detection.
 
 Process Document entities from DataHub and generate semantic embeddings for semantic search.
 

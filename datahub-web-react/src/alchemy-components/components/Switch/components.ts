@@ -30,6 +30,13 @@ export const SwitchContainer = styled.label<{
         gap: spacing.sm,
         cursor: isDisabled ? 'not-allowed' : 'pointer',
         width: 'max-content',
+        // Anchor the absolutely-positioned hidden `<input>` (StyledInput) to
+        // this label so its bounding box matches the visible Slider. Without
+        // this, the input's containing block falls back up the DOM (often to
+        // the document), the browser thinks the focused input is far from
+        // where it visually appears, and "scroll focused element into view"
+        // shifts the page or modal upward when the Switch is clicked.
+        position: 'relative',
     };
 
     if (labelPosition === 'top') {

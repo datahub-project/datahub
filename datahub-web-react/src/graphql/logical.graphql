@@ -1,0 +1,85 @@
+fragment logicalParentOrChildFields on Entity {
+    urn
+    type
+    ... on Dataset {
+        ...nonSiblingsDatasetSearchFields
+    }
+    ... on SchemaFieldEntity {
+        urn
+        type
+        fieldPath
+        parent {
+            urn
+            type
+            ... on Dataset {
+                ...nonSiblingsDatasetSearchFields
+            }
+        }
+    }
+}
+
+mutation createLogicalModel($input: CreateLogicalModelInput!) {
+    createLogicalModel(input: $input)
+}
+
+mutation linkPhysicalChild($input: LinkPhysicalChildInput!) {
+    linkPhysicalChild(input: $input)
+}
+
+mutation unlinkPhysicalChild($input: UnlinkPhysicalChildInput!) {
+    unlinkPhysicalChild(input: $input)
+}
+
+query getLogicalModelColumns($urn: String!) {
+    dataset(urn: $urn) {
+        urn
+        schemaMetadata(version: 0) {
+            fields {
+                fieldPath
+                type
+            }
+        }
+    }
+}
+
+# Whether a dataset's own platform is marked `properties.logical: true` — used to block linking a
+# logical model as the physical child of another logical model.
+query getDatasetPlatformLogical($urn: String!) {
+    dataset(urn: $urn) {
+        urn
+        platform {
+            urn
+            properties {
+                logical
+            }
+        }
+    }
+}
+
+mutation updateLogicalModelSchema($input: UpdateLogicalModelSchemaInput!) {
+    updateLogicalModelSchema(input: $input)
+}
+
+# Lists platforms marked `properties.logical: true` (see platformFields), i.e. platforms that
+# exist to host hand-authored logical models rather than ingested data. Filtered server-side on
+# the `logical` BOOLEAN facet so the result isn't truncated by the seeded (non-logical) platform
+# count.
+query listLogicalPlatforms {
+    search(
+        input: {
+            type: DATA_PLATFORM
+            query: "*"
+            count: 100
+            orFilters: [{ and: [{ field: "logical", values: ["true"] }] }]
+        }
+    ) {
+        searchResults {
+            entity {
+                urn
+                ... on DataPlatform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+}

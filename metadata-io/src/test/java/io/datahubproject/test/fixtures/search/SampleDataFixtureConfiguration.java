@@ -7,6 +7,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFI
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.createDelegatingMappingsBuilder;
 import static io.datahubproject.test.search.config.SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -17,6 +18,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.client.JavaEntityClient;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -32,6 +34,8 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
@@ -44,9 +48,12 @@ import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.ranker.SearchRanker;
 import com.linkedin.metadata.search.ranker.SimpleRanker;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.ConfiguredIndexPrefixResolver;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SearchContext;
@@ -102,20 +109,16 @@ public class SampleDataFixtureConfiguration {
   @Bean(name = "sampleDataIndexConvention")
   protected IndexConvention indexConvention(@Qualifier("sampleDataPrefix") String prefix) {
     return new IndexConventionImpl(
-        IndexConventionImpl.IndexConventionConfig.builder()
-            .prefix(prefix)
-            .hashIdAlgo("MD5")
-            .build(),
+        IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+        new ConfiguredIndexPrefixResolver(prefix),
         SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
   @Bean(name = "longTailIndexConvention")
   protected IndexConvention longTailIndexConvention(@Qualifier("longTailPrefix") String prefix) {
     return new IndexConventionImpl(
-        IndexConventionImpl.IndexConventionConfig.builder()
-            .prefix(prefix)
-            .hashIdAlgo("MD5")
-            .build(),
+        IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
+        new ConfiguredIndexPrefixResolver(prefix),
         SearchTestUtils.DEFAULT_ENTITY_INDEX_CONFIGURATION);
   }
 
@@ -145,6 +148,7 @@ public class SampleDataFixtureConfiguration {
                     testOpContext.getEntityRegistry(), mappingsBuilder))
             .searchableFieldPaths(
                 ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .searchClusterAccess(SearchClusterAccess.fixed(_searchClient))
             .build();
 
     return testOpContext.toBuilder()
@@ -168,6 +172,7 @@ public class SampleDataFixtureConfiguration {
                     testOpContext.getEntityRegistry(), mappingsBuilder))
             .searchableFieldPaths(
                 ESUtils.buildSearchableFieldPaths(testOpContext.getEntityRegistry()))
+            .searchClusterAccess(SearchClusterAccess.fixed(_longTailSearchClient))
             .build();
 
     return testOpContext.toBuilder()
@@ -185,7 +190,11 @@ public class SampleDataFixtureConfiguration {
 
   @Bean
   protected ESWriteDAO esWriteDAO() {
-    return new ESWriteDAO(TEST_OS_SEARCH_CONFIG, _searchClient, _bulkProcessor);
+    return new ESWriteDAO(
+        TEST_OS_SEARCH_CONFIG,
+        _searchClient,
+        _bulkProcessor,
+        SearchWriteAccess.fixed(_bulkProcessor));
   }
 
   @Bean("sampleDataESIndexBuilder")
@@ -215,12 +224,11 @@ public class SampleDataFixtureConfiguration {
     IndexConfiguration indexConfiguration =
         IndexConfiguration.builder().minSearchFilterLength(3).build();
     IndexConvention indexConvention = mock(IndexConvention.class);
-    when(indexConvention.isV2EntityIndex(anyString())).thenReturn(true);
+    when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder settingsBuilder =
         new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            _searchClient,
             false,
             TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
@@ -229,7 +237,6 @@ public class SampleDataFixtureConfiguration {
             TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            _searchClient,
             TEST_OS_SEARCH_CONFIG,
             _customSearchConfiguration,
             queryFilterRewriteChain,
@@ -239,7 +246,9 @@ public class SampleDataFixtureConfiguration {
         indexBuilder,
         TEST_SEARCH_SERVICE_CONFIG,
         TEST_ES_SEARCH_CONFIG,
-        new V2MappingsBuilder(TEST_ES_SEARCH_CONFIG.getEntityIndex()),
+        new V2MappingsBuilder(
+            TEST_ES_SEARCH_CONFIG.getEntityIndex(),
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG),
         new V2LegacySettingsBuilder(TEST_ES_SEARCH_CONFIG.getIndex(), indexConvention),
         searchDAO,
         browseDAO,
@@ -370,10 +379,10 @@ public class SampleDataFixtureConfiguration {
             new ConcurrentMapCacheManager(), entitySearchService, 1, false);
 
     AspectDao mockAspectDao = mock(AspectDao.class);
-    when(mockAspectDao.batchGet(anySet(), anyBoolean()))
+    when(mockAspectDao.batchGet(any(OperationContext.class), anySet(), anyBoolean()))
         .thenAnswer(
             args -> {
-              Set<EntityAspectIdentifier> ids = args.getArgument(0);
+              Set<EntityAspectIdentifier> ids = args.getArgument(1);
               return ids.stream()
                   .map(
                       id -> {
@@ -389,7 +398,12 @@ public class SampleDataFixtureConfiguration {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     return new JavaEntityClient(
-        new EntityServiceImpl(mockAspectDao, null, true, preProcessHooks, true),
+        new EntityServiceImpl(
+            mockAspectDao,
+            null,
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            mock(MetricUtils.class)),
         null,
         entitySearchService,
         cachingEntitySearchService,

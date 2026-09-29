@@ -1,5 +1,6 @@
 import { Table, Text } from '@components';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
@@ -49,6 +50,7 @@ interface Props {
 }
 
 function ColumnStatsTable({ columnStats, searchQuery }: Props) {
+    const { t } = useTranslation('entity.profile.stats');
     const { entityWithSchema } = useGetEntityWithSchema();
     const rawFields = entityWithSchema?.schemaMetadata?.fields;
 
@@ -128,7 +130,7 @@ function ColumnStatsTable({ columnStats, searchQuery }: Props) {
     if (filteredData.length === 0) {
         return (
             <EmptyContainer>
-                <Text weight="bold">No search results!</Text>
+                <Text weight="bold">{t('columnStatsTable.noSearchResults')}</Text>
             </EmptyContainer>
         );
     }
@@ -163,7 +165,7 @@ function ColumnStatsTable({ columnStats, searchQuery }: Props) {
                     editableSchemaMetadata={entityWithSchema?.editableSchemaMetadata as any}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     displayedRows={rows}
-                    defaultSelectedTabName="Statistics"
+                    defaultSelectedTabKey="Statistics"
                     selectPreviousField={selectPreviousField}
                     selectNextField={selectNextField}
                 />

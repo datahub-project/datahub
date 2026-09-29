@@ -4,7 +4,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import java.io.IOException;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -14,6 +13,26 @@ import org.testng.annotations.Test;
  * multiple entity registries.
  */
 public class MergedEntityRegistrySearchGroupTest {
+
+  private static final String BASE_WITH_PRIMARY_GROUPS =
+      """
+      id: base-registry
+      entities:
+        - name: dataset
+          keyAspect: datasetKey
+          searchGroup: primary
+          aspects:
+            - datasetProperties
+        - name: chart
+          keyAspect: chartKey
+          searchGroup: primary
+          aspects:
+            - chartInfo
+      """;
+
+  private static ConfigEntityRegistry registryFromYaml(String yaml) {
+    return new ConfigEntityRegistry(new java.io.ByteArrayInputStream(yaml.getBytes()));
+  }
 
   @BeforeTest
   public void disableAssert() {
@@ -28,11 +47,7 @@ public class MergedEntityRegistrySearchGroupTest {
   @Test
   public void testMergeWithSameSearchGroup() throws IOException, EntityRegistryException {
     // Create base registry with dataset having searchGroup "primary"
-    ConfigEntityRegistry baseRegistry =
-        new ConfigEntityRegistry(
-            MergedEntityRegistrySearchGroupTest.class
-                .getClassLoader()
-                .getResourceAsStream("test-search-index-group-entity-registry.yml"));
+    ConfigEntityRegistry baseRegistry = registryFromYaml(BASE_WITH_PRIMARY_GROUPS);
 
     // Create patch registry with dataset also having searchGroup "primary"
     String patchYaml =
@@ -63,13 +78,9 @@ public class MergedEntityRegistrySearchGroupTest {
   public void testMergeWithDefaultAndPrimarySearchGroup()
       throws IOException, EntityRegistryException {
     // Create base registry with dataset having searchGroup "primary"
-    ConfigEntityRegistry baseRegistry =
-        new ConfigEntityRegistry(
-            MergedEntityRegistrySearchGroupTest.class
-                .getClassLoader()
-                .getResourceAsStream("test-search-index-group-entity-registry.yml"));
+    ConfigEntityRegistry baseRegistry = registryFromYaml(BASE_WITH_PRIMARY_GROUPS);
 
-    // Create patch registry with dataset having no searchGroup (defaults to "default")
+    // Create patch registry with dataset having no searchGroup (unset / entity-named V3)
     String patchYaml =
         """
         id: patch-registry
@@ -96,7 +107,7 @@ public class MergedEntityRegistrySearchGroupTest {
   @Test
   public void testMergeWithPrimaryAndDefaultSearchGroup()
       throws IOException, EntityRegistryException {
-    // Create base registry with dataset having no searchGroup (defaults to "default")
+    // Create base registry with dataset having no searchGroup (unset / entity-named V3)
     String baseYaml =
         """
         id: base-registry
@@ -138,11 +149,7 @@ public class MergedEntityRegistrySearchGroupTest {
   @Test(expectedExceptions = EntityRegistryException.class)
   public void testMergeWithConflictingSearchGroups() throws IOException, EntityRegistryException {
     // Create base registry with dataset having searchGroup "primary"
-    ConfigEntityRegistry baseRegistry =
-        new ConfigEntityRegistry(
-            MergedEntityRegistrySearchGroupTest.class
-                .getClassLoader()
-                .getResourceAsStream("test-search-index-group-entity-registry.yml"));
+    ConfigEntityRegistry baseRegistry = registryFromYaml(BASE_WITH_PRIMARY_GROUPS);
 
     // Create patch registry with dataset having searchGroup "timeseries"
     String patchYaml =
@@ -168,11 +175,7 @@ public class MergedEntityRegistrySearchGroupTest {
   public void testMergeWithNewEntityHavingSearchGroup()
       throws IOException, EntityRegistryException {
     // Create base registry
-    ConfigEntityRegistry baseRegistry =
-        new ConfigEntityRegistry(
-            MergedEntityRegistrySearchGroupTest.class
-                .getClassLoader()
-                .getResourceAsStream("test-search-index-group-entity-registry.yml"));
+    ConfigEntityRegistry baseRegistry = registryFromYaml(BASE_WITH_PRIMARY_GROUPS);
 
     // Create patch registry with a new entity having searchGroup "primary"
     // Use existing aspects from the test registry
@@ -204,11 +207,7 @@ public class MergedEntityRegistrySearchGroupTest {
   public void testMergeWithMultipleConflictingEntities()
       throws IOException, EntityRegistryException {
     // Create base registry
-    ConfigEntityRegistry baseRegistry =
-        new ConfigEntityRegistry(
-            MergedEntityRegistrySearchGroupTest.class
-                .getClassLoader()
-                .getResourceAsStream("test-search-index-group-entity-registry.yml"));
+    ConfigEntityRegistry baseRegistry = registryFromYaml(BASE_WITH_PRIMARY_GROUPS);
 
     // Create patch registry with multiple entities having conflicting searchGroups
     String patchYaml =
@@ -241,13 +240,9 @@ public class MergedEntityRegistrySearchGroupTest {
     // the specific one takes precedence
 
     // Create base registry with dataset having searchGroup "primary"
-    ConfigEntityRegistry baseRegistry =
-        new ConfigEntityRegistry(
-            MergedEntityRegistrySearchGroupTest.class
-                .getClassLoader()
-                .getResourceAsStream("test-search-index-group-entity-registry.yml"));
+    ConfigEntityRegistry baseRegistry = registryFromYaml(BASE_WITH_PRIMARY_GROUPS);
 
-    // Create patch registry with dataset having no searchGroup (defaults to "default")
+    // Create patch registry with dataset having no searchGroup (unset / entity-named V3)
     String patchYaml =
         """
         id: patch-registry
@@ -308,9 +303,9 @@ public class MergedEntityRegistrySearchGroupTest {
     MergedEntityRegistry mergedRegistry = new MergedEntityRegistry(baseRegistry);
     mergedRegistry.apply(patchRegistry);
 
-    // Verify that testEntity2 has default searchGroup
+    // Verify that testEntity2 has unset searchGroup
     EntitySpec testEntitySpec = mergedRegistry.getEntitySpec("testEntity2");
     assertNotNull(testEntitySpec);
-    assertEquals(testEntitySpec.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertEquals(testEntitySpec.getSearchGroup(), null);
   }
 }

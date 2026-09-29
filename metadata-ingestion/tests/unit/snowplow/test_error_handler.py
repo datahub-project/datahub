@@ -99,11 +99,11 @@ class TestErrorHandlerValidationErrors:
             entity_id="com.example/test_schema/jsonschema/1-0-0",
         )
 
-        # Should log to report
+        # Should log to report with static title and dynamic context
         assert len(report.failures) > 0
         log_entry = report.failures[0]
         assert isinstance(log_entry, StructuredLogEntry)
-        assert "schema" in str(log_entry.title or "")
+        assert log_entry.title == "Validation Error"
         assert "test_schema" in str(log_entry.context)
 
     def test_handle_validation_error_with_field(self):
@@ -127,7 +127,7 @@ class TestErrorHandlerValidationErrors:
         assert "enrichments" in str(log_entry.context)
 
     def test_handle_validation_error_different_entity_types(self):
-        """Test validation errors for different entity types."""
+        """Test validation errors for different entity types are grouped under one entry."""
         report = SnowplowSourceReport()
         handler = ErrorHandler(report)
 
@@ -141,8 +141,13 @@ class TestErrorHandlerValidationErrors:
                 entity_id=f"{entity_type}-1",
             )
 
-        # Should log all failures
-        assert len(report.failures) == len(entity_types)
+        # Static title+message means all are grouped into one entry
+        assert len(report.failures) == 1
+        log_entry = report.failures[0]
+        # Each entity type should appear in the context list
+        assert len(log_entry.context) == len(entity_types)
+        for entity_type in entity_types:
+            assert any(entity_type in ctx for ctx in log_entry.context)
 
 
 class TestErrorHandlerProcessingErrors:
@@ -181,14 +186,15 @@ class TestErrorHandlerProcessingErrors:
             fatal=True,
         )
 
-        # Should log as error (fatal)
+        # Should log as error (fatal) with static title and dynamic context
         assert len(report.failures) > 0
         log_entry = report.failures[0]
         assert isinstance(log_entry, StructuredLogEntry)
-        assert "initialize connection" in str(log_entry.title or "")
+        assert log_entry.title == "Processing Error"
+        assert "initialize connection" in str(log_entry.context)
 
     def test_handle_processing_error_different_operations(self):
-        """Test processing errors for different operations."""
+        """Test processing errors for different operations are grouped under one entry."""
         report = SnowplowSourceReport()
         handler = ErrorHandler(report)
 
@@ -207,8 +213,13 @@ class TestErrorHandlerProcessingErrors:
                 entity_id="test-1",
             )
 
-        # Should log all failures with different operations
-        assert len(report.failures) == len(operations)
+        # Static title+message means all are grouped into one entry
+        assert len(report.failures) == 1
+        log_entry = report.failures[0]
+        # Each operation should appear in the context list
+        assert len(log_entry.context) == len(operations)
+        for operation in operations:
+            assert any(operation in ctx for ctx in log_entry.context)
 
 
 class TestErrorHandlerMissingDependency:
@@ -224,11 +235,12 @@ class TestErrorHandlerMissingDependency:
             operation="fetch enrichments",
         )
 
-        # Should log to report
+        # Should log to report with static title and dynamic context
         assert len(report.failures) > 0
         log_entry = report.failures[0]
         assert isinstance(log_entry, StructuredLogEntry)
-        assert "snowplow-api-client" in str(log_entry.title or "")
+        assert log_entry.title == "Missing Dependency"
+        assert "snowplow-api-client" in str(log_entry.context)
 
     def test_handle_missing_dependency_with_suggestion(self):
         """Test missing dependency with suggestion."""
@@ -241,14 +253,15 @@ class TestErrorHandlerMissingDependency:
             suggestion="Install with: pip install sqlalchemy",
         )
 
-        # Should include suggestion in message
+        # Should include suggestion in context
         assert len(report.failures) > 0
         log_entry = report.failures[0]
         assert isinstance(log_entry, StructuredLogEntry)
-        assert "pip install" in str(log_entry.message)
+        assert log_entry.message == "Missing dependency required for operation"
+        assert "pip install" in str(log_entry.context)
 
     def test_handle_missing_dependency_multiple(self):
-        """Test handling multiple missing dependencies."""
+        """Test handling multiple missing dependencies are grouped under one entry."""
         report = SnowplowSourceReport()
         handler = ErrorHandler(report)
 
@@ -260,8 +273,13 @@ class TestErrorHandlerMissingDependency:
                 operation="test operation",
             )
 
-        # Should log all dependencies
-        assert len(report.failures) == len(dependencies)
+        # Static title+message means all are grouped into one entry
+        assert len(report.failures) == 1
+        log_entry = report.failures[0]
+        # Each dependency should appear in the context list
+        assert len(log_entry.context) == len(dependencies)
+        for dep in dependencies:
+            assert any(dep in ctx for ctx in log_entry.context)
 
 
 class TestErrorHandlerLogging:
@@ -327,7 +345,7 @@ class TestErrorHandlerIntegration:
         assert len(report.failures) == 3
 
     def test_error_handler_with_real_exceptions(self):
-        """Test error handler with real exception types."""
+        """Test error handler with real exception types grouped under one entry."""
         report = SnowplowSourceReport()
         handler = ErrorHandler(report)
 
@@ -343,8 +361,13 @@ class TestErrorHandlerIntegration:
         for i, exc in enumerate(exceptions):
             handler.handle_api_error(exc, f"operation-{i}")
 
-        # Should handle all exception types
-        assert len(report.failures) == len(exceptions)
+        # Static title+message means all are grouped into one entry
+        assert len(report.failures) == 1
+        log_entry = report.failures[0]
+        # Each operation should appear in the context list
+        assert len(log_entry.context) == len(exceptions)
+        for i in range(len(exceptions)):
+            assert any(f"operation-{i}" in ctx for ctx in log_entry.context)
 
     def test_error_context_formatting(self):
         """Test that error context is formatted consistently."""
@@ -371,7 +394,10 @@ class TestErrorHandlerIntegration:
             context="ctx3",
         )
 
-        # All should have consistent context formatting
-        assert len(report.failures) == 3
-        for log_entry in report.failures:
-            assert log_entry.context  # Not empty
+        # Static title+message means all are grouped into one entry
+        assert len(report.failures) == 1
+        log_entry = report.failures[0]
+        # All three calls should produce context entries
+        assert len(log_entry.context) == 3
+        for ctx in log_entry.context:
+            assert ctx  # Not empty

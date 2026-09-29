@@ -1,17 +1,15 @@
 import logging
-from typing import Iterable, Optional
+from typing import Optional
 
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.emitter.mce_builder import datahub_guid, set_aspect
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     DashboardInfoClass,
     FineGrainedLineageClass,
-    MetadataChangeEventClass,
     SystemMetadataClass,
     UpstreamLineageClass,
 )
@@ -136,39 +134,6 @@ def get_fine_grained_lineage_key(fine_upstream: FineGrainedLineageClass) -> str:
             "transformOperation": fine_upstream.transformOperation,
         }
     )
-
-
-def auto_incremental_lineage(
-    incremental_lineage: bool,
-    stream: Iterable[MetadataWorkUnit],
-) -> Iterable[MetadataWorkUnit]:
-    if not incremental_lineage:
-        yield from stream
-        return  # early exit
-
-    for wu in stream:
-        urn = wu.get_urn()
-
-        if isinstance(wu.metadata, MetadataChangeEventClass):
-            lineage_aspect = wu.get_aspect_of_type(UpstreamLineageClass)
-            set_aspect(wu.metadata, None, UpstreamLineageClass)
-            if len(wu.metadata.proposedSnapshot.aspects) > 0:
-                yield wu
-
-            if lineage_aspect and lineage_aspect.upstreams:
-                yield convert_upstream_lineage_to_patch(
-                    urn, lineage_aspect, wu.metadata.systemMetadata
-                )
-        elif isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
-            wu.metadata.aspect, UpstreamLineageClass
-        ):
-            lineage_aspect = wu.metadata.aspect
-            if lineage_aspect.upstreams:
-                yield convert_upstream_lineage_to_patch(
-                    urn, lineage_aspect, wu.metadata.systemMetadata
-                )
-        else:
-            yield wu
 
 
 class IncrementalLineageConfigMixin(ConfigModel):

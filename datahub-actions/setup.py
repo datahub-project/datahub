@@ -40,12 +40,14 @@ def get_long_description():
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.7",
+    "ruff==0.15.22",
     "mypy==1.17.1",
 }
 
 base_requirements = {
     f"acryl-datahub[datahub-kafka]{_self_pin}",
+    # pg_queue event source imports metadata-ingestion connection helpers that require psycopg2.
+    "psycopg2-binary<3.0.0",
     # Actual dependencies.
     "typing-inspect",
     "pydantic>=2.4.0,<3.0.0",
@@ -58,7 +60,8 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=6.0.0",
+    # CVE-2026-7246: click 8.1.7 / 8.3.1; fixed in 8.3.3.
+    "click>=8.3.3",
     "click-default-group",
     "prometheus-client",
     "PyYAML",
@@ -74,12 +77,10 @@ framework_common = {
 plugins: Dict[str, Set[str]] = {
     # Source Plugins
     "kafka": {
-        "confluent-kafka[schemaregistry]<2.13.0",
+        "confluent-kafka[schemaregistry]>=2.15.1,<3.0.0",
     },
     # Action Plugins
-    "executor": {
-        "acryl-executor>=0.3.11,<1"
-    },
+    "executor": set(),
     "slack": {
         "slack-bolt>=1.15.5",
     },
@@ -127,7 +128,8 @@ base_dev_requirements = {
     "pytest-dependency>=0.5.1",
     "pytest-docker>=0.10.3",
     "tox",
-    "deepdiff",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    "deepdiff>=8.6.2,<9.0.0",
     "requests-mock",
     "freezegun",
     "jsonpickle",
@@ -184,6 +186,7 @@ entry_points = {
     ],
     "datahub_actions.transformer.plugins": [],
     "datahub_actions.source.plugins": [],
+    "datahub_actions.filter.plugins": [],
 }
 
 
@@ -191,14 +194,15 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://docs.datahub.com/",
+    url="https://datahub.com/",
     project_urls={
-        "Documentation": "https://docs.datahub.com/docs/actions",
-        "Source": "https://github.com/acryldata/datahub-actions",
-        "Changelog": "https://github.com/acryldata/datahub-actions/releases",
+        "Documentation": "https://docs.datahub.com/",
+        "Source": "https://github.com/datahub-project/datahub",
+        "Changelog": "https://github.com/acryldata/datahub/releases",
+        "Releases": "https://github.com/acryldata/datahub/releases",
     },
     license="Apache-2.0",
-    description="An action framework to work with DataHub real time changes.",
+    description="Event-driven action framework for DataHub — trigger automations and workflows in response to real-time metadata changes",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     classifiers=[
@@ -206,6 +210,8 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

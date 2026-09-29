@@ -8,6 +8,9 @@ services:
       ACCEPT_EULA: "Y"
       SA_PASSWORD: "test!Password"
     ports:
-      - 21433:1433
+      # Ephemeral: the fixed host port could be held forever by a leaked
+      # container from a prior CI run. Tests discover the real port via
+      # docker_services.port_for("testsqlserver", 1433).
+      - "1433"
     volumes:
       - ./setup:/setup

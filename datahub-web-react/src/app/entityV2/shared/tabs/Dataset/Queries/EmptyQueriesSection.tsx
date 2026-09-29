@@ -3,6 +3,7 @@ import { Popover } from '@components';
 import { Empty, Typography } from 'antd';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AddButton from '@app/entityV2/shared/tabs/Dataset/Queries/AddButton';
@@ -64,6 +65,7 @@ const StyledInfoOutlined = styled(InfoCircleOutlined)`
 
 interface Props {
     sectionName?: string;
+    emptyText?: string;
     showButton: boolean;
     buttonLabel?: string;
     isButtonDisabled?: boolean;
@@ -74,6 +76,7 @@ interface Props {
 
 export default function EmptyQueriesSection({
     sectionName,
+    emptyText,
     showButton = false,
     buttonLabel,
     isButtonDisabled,
@@ -81,6 +84,9 @@ export default function EmptyQueriesSection({
     tooltip,
     tooltipPosition,
 }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const description = emptyText || t('emptyQueries.noHighlightedQueries');
+
     return (
         <SectionWrapper>
             <div>
@@ -93,7 +99,7 @@ export default function EmptyQueriesSection({
             </div>
             <ContentContainer>
                 <LeftContainer>
-                    <StyledEmpty description={<Description>No highlighted queries yet</Description>} image={NoDocs} />
+                    <StyledEmpty description={<Description>{description}</Description>} image={NoDocs} />
                 </LeftContainer>
                 <RightContainer>
                     {showButton && (

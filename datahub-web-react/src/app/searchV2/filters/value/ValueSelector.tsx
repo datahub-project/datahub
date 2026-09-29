@@ -15,6 +15,7 @@ interface Props {
     className?: string;
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
+    showDefaultOptions?: boolean;
 }
 
 export default function ValueSelector({
@@ -26,6 +27,7 @@ export default function ValueSelector({
     className,
     manuallyUpdateFilters,
     aggregationsEntityTypes,
+    showDefaultOptions,
 }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -56,6 +58,7 @@ export default function ValueSelector({
                     className={className}
                     manuallyUpdateFilters={onManuallyUpdateFilters}
                     aggregationsEntityTypes={aggregationsEntityTypes}
+                    showDefaultOptions={showDefaultOptions}
                 />
             )}
         >

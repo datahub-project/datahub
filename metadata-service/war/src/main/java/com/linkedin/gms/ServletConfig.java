@@ -1,12 +1,15 @@
 package com.linkedin.gms;
 
+import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
+import static com.linkedin.metadata.Constants.MAX_JACKSON_NAME_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 
 import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
 import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
+import com.datahub.graphql.GraphQLResponseBodyConverter;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -16,7 +19,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.linkedin.metadata.config.GMSConfiguration;
+import com.linkedin.metadata.ratelimit.RateLimitFilter;
 import com.linkedin.metadata.utils.BasePathUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
@@ -28,6 +33,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.rest.RESTSerializers;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
@@ -65,13 +71,24 @@ public class ServletConfig implements WebMvcConfigurer {
 
   @Autowired private GMSConfiguration gmsConfiguration;
 
+  @Autowired(required = false)
+  private MetricUtils metricUtils;
+
+  @Autowired
+  @Qualifier("graphQLResponseObjectMapper")
+  private ObjectMapper graphQLResponseObjectMapper;
+
   @Bean
   public FilterRegistrationBean<AuthenticationExtractionFilter> authExtractionFilter(
       AuthenticationExtractionFilter filter) {
     FilterRegistrationBean<AuthenticationExtractionFilter> registration =
         new FilterRegistrationBean<>();
     registration.setFilter(filter);
-    registration.setOrder(Ordered.HIGHEST_PRECEDENCE); // Run FIRST to extract authentication info
+    // Slot 1 (HIGHEST_PRECEDENCE + 1). Slot 0 (HIGHEST_PRECEDENCE) is reserved for context-
+    // establishing filters that must run before auth extraction — e.g. the cloud fork's
+    // TenantExtractionFilter, which stamps a per-request tenant identifier consumed by
+    // downstream services. See metadata-cloud/.../TenantFilterConfiguration.
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
     registration.setAsyncSupported(true);
 
     // Register for all paths - this filter ALWAYS runs to extract auth info
@@ -87,12 +104,23 @@ public class ServletConfig implements WebMvcConfigurer {
         new FilterRegistrationBean<>();
     registration.setFilter(filter);
     registration.setOrder(
-        Ordered.HIGHEST_PRECEDENCE + 1); // Run SECOND after AuthenticationExtractionFilter
+        Ordered.HIGHEST_PRECEDENCE + 2); // Run after AuthenticationExtractionFilter
     registration.setAsyncSupported(true);
 
     // Register filter for all paths - exclusions are handled by shouldNotFilter()
     registration.addUrlPatterns("/*");
 
+    return registration;
+  }
+
+  @Bean
+  public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(
+      RateLimitFilter filter) {
+    FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>();
+    registration.setFilter(filter);
+    registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 3);
+    registration.setAsyncSupported(true);
+    registration.addUrlPatterns("/*");
     return registration;
   }
 
@@ -160,6 +188,9 @@ public class ServletConfig implements WebMvcConfigurer {
 
   @Override
   public void configureMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
+    // First so it wins for GraphQLResponseBody payloads; see GraphQLResponseBodyConverter.
+    messageConverters.add(
+        new GraphQLResponseBodyConverter(graphQLResponseObjectMapper, metricUtils));
     messageConverters.add(new StringHttpMessageConverter());
     messageConverters.add(new ByteArrayHttpMessageConverter());
     messageConverters.add(new FormHttpMessageConverter());
@@ -170,9 +201,17 @@ public class ServletConfig implements WebMvcConfigurer {
         Integer.parseInt(
             System.getenv()
                 .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
+    int maxNameLength =
+        Integer.parseInt(
+            System.getenv()
+                .getOrDefault(INGESTION_MAX_SERIALIZED_NAME_LENGTH, MAX_JACKSON_NAME_LENGTH));
     objectMapper
         .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
+        .setStreamReadConstraints(
+            StreamReadConstraints.builder()
+                .maxStringLength(maxSize)
+                .maxNameLength(maxNameLength)
+                .build());
     objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     objectMapper.registerModule(new Jdk8Module());

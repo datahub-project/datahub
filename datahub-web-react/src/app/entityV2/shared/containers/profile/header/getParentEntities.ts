@@ -7,15 +7,33 @@ type GetContextPathInput = Pick<
     'parent' | 'parentContainers' | 'parentDomains' | 'parentNodes' | 'domain'
 > & {
     parentDocuments?: ParentDocumentsResult;
+    parentDataProducts?: DataProduct[] | null;
 };
+
+const MAX_PARENT_DEPTH = 10;
+
+/** Walk a nested `parent` chain (direct parent first). */
+function collectNestedParents(parent: GenericEntityProperties | null | undefined): Entity[] {
+    const parents: Entity[] = [];
+    let current: GenericEntityProperties | null | undefined = parent;
+    while (current?.urn && parents.length < MAX_PARENT_DEPTH) {
+        parents.push(current as Entity);
+        current = current.parent ?? undefined;
+    }
+    return parents;
+}
 
 export function getParentEntities(entityData: GetContextPathInput | null, entityType?: EntityType): Entity[] {
     if (!entityData) return [];
 
     switch (entityType) {
         case EntityType.DataProduct: {
-            const domain = (entityData as DataProduct).domain?.domain;
-            return domain ? [domain, ...(domain.parentDomains?.domains || [])] : [];
+            const dp = entityData as DataProduct;
+            const immediateParent = dp.properties?.parentDataProduct;
+            const dpChain = immediateParent ? [immediateParent] : [];
+            const domain = dp.domain?.domain;
+            const domainChain = domain ? [domain, ...(domain.parentDomains?.domains || [])] : [];
+            return [...dpChain, ...domainChain];
         }
 
         case EntityType.GlossaryTerm:
@@ -37,7 +55,7 @@ export function getParentEntities(entityData: GetContextPathInput | null, entity
                 [];
             if (containerPath.length) return containerPath;
 
-            if (entityData.parent) return [entityData.parent as Entity];
+            if (entityData.parent) return collectNestedParents(entityData.parent);
 
             return [];
         }

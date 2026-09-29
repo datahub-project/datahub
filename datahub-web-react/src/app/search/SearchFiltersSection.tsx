@@ -1,5 +1,6 @@
 import { Button } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -10,7 +11,14 @@ import { SEARCH_RESULTS_ADVANCED_SEARCH_ID } from '@app/onboarding/config/Search
 import { AdvancedSearchFilters } from '@app/search/AdvancedSearchFilters';
 import { SaveAsViewButton } from '@app/search/SaveAsViewButton';
 import { SimpleSearchFilters } from '@app/search/SimpleSearchFilters';
-import { UnionType } from '@app/search/utils/constants';
+import {
+    COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    COMPLETED_FORMS_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    UnionType,
+    VERIFIED_FORMS_FILTER_NAME,
+} from '@app/search/utils/constants';
 import { hasAdvancedFilters } from '@app/search/utils/hasAdvancedFilters';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
@@ -31,7 +39,7 @@ const FiltersContainer = styled.div`
     min-width: 260px;
     overflow-wrap: break-word;
     border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
     height: 100%;
 `;
 
@@ -47,7 +55,7 @@ const FiltersHeader = styled.div`
     height: 47px;
     line-height: 47px;
     border-bottom: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
 
     justify-content: space-between;
     display: flex;
@@ -61,12 +69,12 @@ const SearchFiltersWrapper = styled.div`
     &::-webkit-scrollbar {
         height: 12px;
         width: 1px;
-        background: #f2f2f2;
+        background: ${(props) => props.theme.colors.scrollbarTrack};
     }
     &::-webkit-scrollbar-thumb {
-        background: #cccccc;
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         -webkit-border-radius: 1ex;
-        -webkit-box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.75);
+        -webkit-box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 `;
 
@@ -75,6 +83,15 @@ const AdvancedSearchFiltersWrapper = styled.div`
     margin-left: 12px;
     margin-right: 12px;
 `;
+
+const FILTERS_TO_REMOVE = [
+    // remove form-related filters for bulk form search and browse experience
+    COMPLETED_FORMS_FILTER_NAME,
+    INCOMPLETE_FORMS_FILTER_NAME,
+    VERIFIED_FORMS_FILTER_NAME,
+    COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+    INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME,
+];
 
 // This component renders the entire filters section that allows toggling
 // between the simplified search experience and advanced search
@@ -86,6 +103,9 @@ export const SearchFiltersSection = ({
     onChangeFilters,
     onChangeUnionType,
 }: Props) => {
+    const { t } = useTranslation('search');
+    const { t: tc } = useTranslation('common.actions');
+    const filteredFilters = filters?.filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
     const userContext = useUserContext();
     const onlyShowAdvancedFilters = hasAdvancedFilters(selectedFilters, unionType);
     const [showViewBuilder, setShowViewBuilder] = useState(false);
@@ -103,15 +123,16 @@ export const SearchFiltersSection = ({
     return (
         <FiltersContainer>
             <FiltersHeader>
-                <span>Filter</span>
+                <span>{tc('filter')}</span>
                 <span>
                     <Button
                         disabled={onlyShowAdvancedFilters}
                         type="link"
                         onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}
                         id={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
+                        data-testid={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
                     >
-                        {seeAdvancedFilters ? 'Basic' : 'Advanced'}
+                        {seeAdvancedFilters ? t('filtersSection.basic') : t('filtersSection.advanced')}
                     </Button>
                 </span>
             </FiltersHeader>
@@ -123,7 +144,7 @@ export const SearchFiltersSection = ({
                             selectedFilters={selectedFilters}
                             onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
                             onChangeUnionType={onChangeUnionType}
-                            facets={filters || []}
+                            facets={filteredFilters || []}
                             loading={loading}
                         />
                         {showSaveAsView && <SaveAsViewButton onClick={onSaveAsView} />}
@@ -139,7 +160,7 @@ export const SearchFiltersSection = ({
                 ) : (
                     <SimpleSearchFilters
                         loading={loading}
-                        facets={filters || []}
+                        facets={filteredFilters || []}
                         selectedFilters={selectedFilters}
                         onFilterSelect={(newFilters) => onChangeFilters(newFilters)}
                     />

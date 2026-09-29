@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import GlossaryRelatedTermsResult, {
     RelatedTermTypes,
+    getRelatedTermTypeLabel,
 } from '@app/entityV2/glossaryTerm/profile/GlossaryRelatedTermsResult';
 
 const DetailWrapper = styled.div`
@@ -55,7 +56,7 @@ export default function GlossayRelatedTerms() {
                 >
                     {menuOptionsArray.map((option) => (
                         <Menu.Item data-testid={option} key={option}>
-                            {RelatedTermTypes[option]}
+                            {getRelatedTermTypeLabel(RelatedTermTypes[option])}
                         </Menu.Item>
                     ))}
                 </Menu>

@@ -19,6 +19,10 @@ const SummaryWrapper = styled.div`
 
 interface Props {
     hideLinksButton?: boolean;
+    /** Hide the About-section edit pencil (MVP read-only entities). */
+    hideEditDescription?: boolean;
+    /** Optional content rendered between PropertiesHeader and AboutSection. */
+    preContent?: React.ReactNode;
 }
 
 export default function SummaryTab({ properties }: { properties?: Props }) {
@@ -28,7 +32,13 @@ export default function SummaryTab({ properties }: { properties?: Props }) {
         <PageTemplateProvider templateType={PageTemplateSurfaceType.AssetSummary}>
             <SummaryWrapper>
                 <PropertiesHeader />
-                <AboutSection hideLinksButton={!!properties?.hideLinksButton} key={urn} />
+                {properties?.preContent}
+                {properties?.preContent && <StyledDivider />}
+                <AboutSection
+                    hideLinksButton={!!properties?.hideLinksButton}
+                    hideEditDescription={!!properties?.hideEditDescription}
+                    key={urn}
+                />
                 <StyledDivider />
                 <Template />
             </SummaryWrapper>

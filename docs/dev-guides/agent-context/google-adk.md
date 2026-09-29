@@ -58,7 +58,7 @@ from google.adk.tools.mcp_tool.mcp_session_manager import StreamableHTTPConnecti
 
 toolset = McpToolset(
     connection_params=StreamableHTTPConnectionParams(
-        url="https://<tenant>.acryl.io/integrations/ai/mcp"
+        url="https://<tenant>.acryl.io/mcp"
     ),
     headers={"Authorization": f"Bearer {YOUR_TOKEN}"},
 )

@@ -2,6 +2,7 @@ import { useReactiveVar } from '@apollo/client';
 import { Modal } from '@components';
 import { Form, message } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
@@ -16,6 +17,7 @@ import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export default function ResetCredentialsModal() {
+    const { t } = useTranslation('auth');
     const [form] = Form.useForm();
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const resetToken = useGetResetTokenFromUrlParams();
@@ -50,11 +52,11 @@ export default function ResetCredentialsModal() {
                     return Promise.resolve();
                 })
                 .catch((_) => {
-                    message.error(`Failed to log in!`);
+                    message.error(t('reset.failed'));
                 })
                 .finally(() => setLoading(false));
         },
-        [refreshContext, resetToken],
+        [refreshContext, resetToken, t],
     );
 
     const onFormChange = () => {
@@ -74,7 +76,7 @@ export default function ResetCredentialsModal() {
             title={<ModalHeader />}
             buttons={[
                 {
-                    text: 'Reset Credentials',
+                    text: t('reset.submitButton'),
                     onClick: () => form.submit(),
                     disabled: isSubmitDisabled,
                     buttonDataTestId: 'reset-password',
@@ -85,7 +87,7 @@ export default function ResetCredentialsModal() {
             closable={false}
             width="533px"
         >
-            {loading && <Message type="loading" content="Resetting credentials..." />}
+            {loading && <Message type="loading" content={t('reset.loading')} />}
             <ResetCredentialsForm
                 form={form}
                 handleSubmit={handleResetCredentials}

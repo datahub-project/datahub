@@ -40,10 +40,10 @@ const StyledButton = styled(Button)<{ $orientation: AddModuleButtonOrientation; 
             `}
 
     justify-content: center;
-    background: ${(props) => props.theme.colors.bgSurfaceNewNav};
+    background: ${(props) => props.theme.colors.bgSurface};
 
     :hover {
-        background: ${(props) => props.theme.colors.bgSurfaceNewNav};
+        background: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

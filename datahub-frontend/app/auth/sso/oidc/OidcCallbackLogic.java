@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -150,6 +151,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
 
     // By this point, we know that OIDC is the enabled provider.
     final OidcConfigs oidcConfigs = (OidcConfigs) ssoManager.getSsoProvider().configs();
+    // JIT provision/status writes intentionally use systemOperationContext (system actor +
+    // Authorizer.SYSTEM parity). Session actor would mis-attribute audit before login completes.
     return handleOidcCallback(systemOperationContext, ctx, oidcConfigs, result);
   }
 
@@ -179,7 +182,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
           foundClients != null && foundClients.size() == 1,
           "unable to find one indirect client for the callback: check the callback URL for a client name parameter or suffix path or ensure that your configuration defaults to one indirect client");
       Client foundClient = (Client) foundClients.get(0);
-      LOGGER.debug("foundClient: {}", foundClient);
+      LOGGER.debug(
+          "foundClient: name={}, class={}",
+          foundClient != null ? foundClient.getName() : null,
+          foundClient != null ? foundClient.getClass().getName() : null);
       CommonHelper.assertNotNull("foundClient", foundClient);
       Credentials credentials = (Credentials) foundClient.getCredentials(ctx).orElse(null);
       LOGGER.debug("extracted credentials: {}", credentials);
@@ -256,6 +262,10 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       final String userName = extractUserNameOrThrow(oidcConfigs, profile);
       final CorpuserUrn corpUserUrn = new CorpuserUrn(userName);
 
+      // If RequiredGroups has groups, ensure that the user belongs to at least one of the required
+      // groups.
+      checkRequiredGroups(profile, userName, oidcConfigs);
+
       try {
         // If just-in-time User Provisioning is enabled, try to create the DataHub user if it does
         // not exist.
@@ -322,6 +332,48 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     }
     return internalServerError(
         "Failed to authenticate current user. Cannot find valid identity provider profile in session.");
+  }
+
+  public static void checkRequiredGroups(
+      CommonProfile profile, String userName, OidcConfigs oidcConfigs) {
+    if (!oidcConfigs.getRequiredGroups().isEmpty()) {
+      final Set<String> required = oidcConfigs.getRequiredGroups();
+      final List<String> groupsClaimNames =
+          Arrays.stream(oidcConfigs.getGroupsClaimName().split(","))
+              .map(String::trim)
+              .filter(s -> !s.isEmpty())
+              .collect(Collectors.toList());
+
+      final Set<String> userGroups = new HashSet<>();
+      for (final String claimName : groupsClaimNames) {
+        if (profile.containsAttribute(claimName)) {
+          Collection<String> groupNames =
+              getGroupNames(profile, profile.getAttribute(claimName), claimName);
+          userGroups.addAll(groupNames);
+        }
+      }
+
+      Set<String> matchingGroups = new HashSet<>(userGroups);
+      matchingGroups.retainAll(required);
+
+      if (matchingGroups.isEmpty()) {
+        log.warn(
+            "User {} has none of the required groups. Required (any)={}, User has={}",
+            userName,
+            required,
+            userGroups);
+        throw new RequiredGroupsException(
+            String.format(
+                "Access denied: User %s does not have any of the required groups. Required (any): %s",
+                userName, required));
+      }
+
+      log.debug(
+          "User {} passed IAM group check. Matching groups={}, User groups={}",
+          userName,
+          matchingGroups,
+          userGroups);
+    }
   }
 
   private String extractUserNameOrThrow(

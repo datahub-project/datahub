@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { EmptyContainer } from '@app/govern/structuredProperties/styledComponents';
@@ -18,22 +19,23 @@ interface Props {
 }
 
 const EmptySources = ({ sourceType, isEmptySearchResult }: Props) => {
+    const { t } = useTranslation('ingestion');
     return (
         <EmptyContainer>
             {isEmptySearchResult ? (
                 <TextContainer>
                     <Text size="lg" color="gray" weight="bold">
-                        No search results!
+                        {t('source.emptySearchTitle')}
                     </Text>
                     <Text size="sm" color="gray" weight="normal">
-                        Try another search query with at least 3 characters...
+                        {t('source.emptySearchSubtitle')}
                     </Text>
                 </TextContainer>
             ) : (
                 <>
                     <EmptyFormsImage />
                     <Text size="md" color="gray" weight="bold">
-                        {`No ${sourceType || 'sources'} yet!`}
+                        {t('source.emptyTitle', { sourceType: sourceType || t('source.sourcesNoun') })}
                     </Text>
                 </>
             )}

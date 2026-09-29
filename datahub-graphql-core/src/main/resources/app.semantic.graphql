@@ -46,6 +46,11 @@ type EmbeddingConfig {
   AWS Bedrock-specific configuration (only populated when provider is "aws-bedrock")
   """
   awsProviderConfig: AwsProviderConfig
+
+  """
+  Google Vertex AI-specific configuration (only populated when provider is "vertex_ai")
+  """
+  vertexProviderConfig: VertexProviderConfig
 }
 
 """
@@ -58,10 +63,39 @@ type AwsProviderConfig {
   region: String!
 }
 
+"""
+Google Vertex AI provider-specific configuration
+"""
+type VertexProviderConfig {
+  """
+  GCP project ID where Vertex AI is enabled
+  """
+  projectId: String!
+
+  """
+  GCP region for the Vertex AI endpoint (e.g., "us-east1", "us-central1")
+  """
+  location: String!
+}
+
+type EntityIndexV3Config {
+  """
+  Whether Search V3 entity indices are enabled on the server
+  """
+  enabled: Boolean!
+}
+
 # Extend AppConfig with semantic search configuration
 extend type AppConfig {
   """
   Semantic search and embedding configuration
   """
   semanticSearchConfig: SemanticSearchConfig
+
+  """
+  Search V3 entity-index configuration. Embedding generation stays gated on
+  semanticSearchConfig; this flag only indicates GMS will also write document
+  embeddings onto documentindex_v3 when both are on.
+  """
+  entityIndexV3: EntityIndexV3Config
 }

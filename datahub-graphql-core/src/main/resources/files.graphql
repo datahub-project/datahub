@@ -71,22 +71,23 @@ type DataHubFile implements Entity {
   """
   A primary key associated with the DataHub File
   """
-  urn: String!
+  urn: String! @noAspects
 
   """
   A standard Entity Type
   """
-  type: EntityType!
+  type: EntityType! @noAspects
 
   """
   The main information about a DataHub file
   """
-  info: DataHubFileInfo!
+  info: DataHubFileInfo! @aspectMapping(aspects: ["dataHubFileInfo"])
 
   """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+    @noAspects
 }
 
 """

@@ -69,23 +69,23 @@ export const test = composedTest.extend<ExtendedFixtures>({
     await use(readGmsToken(user.username));
   },
 
-  featureDataLoader: async ({ playwright, gmsToken }, use) => {
+  featureDataLoader: async ({ playwright, gmsToken, logger }, use) => {
     const url = gmsUrl();
     const request = await playwright.request.newContext({ baseURL: url });
     try {
-      await use(new RestFeatureDataLoader(request, gmsToken, url));
+      await use(new RestFeatureDataLoader(request, gmsToken, url, logger));
     } finally {
       await request.dispose();
     }
   },
 
-  cleanup: async ({ playwright, gmsToken }, use, testInfo) => {
+  cleanup: async ({ playwright, gmsToken, logger }, use, testInfo) => {
     const url = gmsUrl();
     const request = await playwright.request.newContext({
       baseURL: url,
       extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}` },
     });
-    const scopedCleanup = new ApiScopedCleanup(request, url);
+    const scopedCleanup = new ApiScopedCleanup(request, url, logger);
     await use(scopedCleanup);
     // Preserve entities on failure so engineers can inspect the broken state.
     await scopedCleanup.flush(testInfo.status);

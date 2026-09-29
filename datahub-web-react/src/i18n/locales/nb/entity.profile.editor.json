@@ -1,0 +1,22 @@
+{
+    "addImage.altText": "Alt-tekst",
+    "addImage.imageUrl": "Bilde-URL",
+    "addImage.title": "Legg til bilde",
+    "heading.heading1": "Overskrift 1",
+    "heading.heading2": "Overskrift 2",
+    "heading.heading3": "Overskrift 3",
+    "heading.heading4": "Overskrift 4",
+    "heading.heading5": "Overskrift 5",
+    "heading.normal": "Normal",
+    "link.linkUrl": "Lenke-URL",
+    "link.text": "Tekst",
+    "link.title": "Legg til lenke",
+    "mentions.failedToFindEntity": "Fant ikke entiteten",
+    "table.deleteColumn": "Slett kolonne",
+    "table.deleteRow": "Slett rad",
+    "table.deleteTable": "Slett tabell",
+    "table.insertColumnLeft": "Sett inn kolonne til venstre",
+    "table.insertColumnRight": "Sett inn kolonne til høyre",
+    "table.insertRowAbove": "Sett inn rad over",
+    "table.insertRowBelow": "Sett inn rad under"
+}

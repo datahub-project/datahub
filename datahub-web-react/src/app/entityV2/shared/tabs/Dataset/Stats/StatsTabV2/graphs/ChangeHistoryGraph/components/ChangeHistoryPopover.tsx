@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import {
@@ -12,9 +13,10 @@ import { Button, Text } from '@src/alchemy-components';
 import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { pluralize, pluralizeIfIrregular } from '@src/app/shared/textUtil';
-import { OperationType } from '@src/types.generated';
 import dayjs from '@utils/dayjs';
+
+// dayjs format token (localized weekday + date), not user-visible text.
+const DAY_HEADER_FORMAT = 'dddd, MMM DD ’YY';
 
 const Container = styled.div`
     display: flex;
@@ -68,6 +70,7 @@ export default function ChangeHistoryPopover({
     defaultCustomOperationTypes,
     selectedOperationTypes,
 }: ChangeHistoryPopoverProps) {
+    const { t } = useTranslation('entity.profile.stats');
     const operations = useMemo(
         () =>
             Object.entries(
@@ -88,7 +91,7 @@ export default function ChangeHistoryPopover({
     const renderTotalRow = (value: number) => {
         return (
             <Text size="sm" color="gray" weight="bold" type="div" data-testid="total-changes">
-                {abbreviateNumber(value)} {pluralize(value, 'Change')}
+                {t('changeHistoryPopover.change', { count: value, formattedCount: abbreviateNumber(value) })}
             </Text>
         );
     };
@@ -96,7 +99,7 @@ export default function ChangeHistoryPopover({
     const renderNoData = () => {
         return (
             <Text size="sm" color="gray" weight="bold" data-testid="no-data-reported">
-                No data reported
+                {t('changeHistoryPopover.noData')}
             </Text>
         );
     };
@@ -104,20 +107,19 @@ export default function ChangeHistoryPopover({
     const renderNoDataThisDay = () => {
         return (
             <Text size="sm" color="gray" weight="bold" data-testid="no-changes-this-day">
-                No changes this day
+                {t('changeHistoryPopover.noChangesThisDay')}
             </Text>
         );
     };
 
     const renderOperation = (operation: Operation) => {
         const color = colorAccessors?.[operation.key](datum.value);
-        const name = operation.type === OperationType.Custom ? operation.name : pluralizeIfIrregular(operation.name);
 
         return (
             <ValueContainer key={operation.key} data-testid={`operation-${operation.key}`}>
                 <Square $color={color} />
                 <Text size="sm" color="gray" data-testid="operation-name">
-                    {name}
+                    {operation.name}
                 </Text>
                 <Text size="sm" color="gray" weight="bold" data-testid="operation-value">
                     {formatNumberWithoutAbbreviation(operation.value)}
@@ -137,7 +139,7 @@ export default function ChangeHistoryPopover({
                     <LinkContainer>
                         {operations.length > 0 && (
                             <Button variant="text" size="xs" onClick={() => onViewDetails?.()}>
-                                View Details
+                                {t('changeHistoryPopover.viewDetails')}
                             </Button>
                         )}
                     </LinkContainer>
@@ -149,7 +151,7 @@ export default function ChangeHistoryPopover({
     return (
         <Container data-testid={`day-popover-${datum.key}`}>
             <Text size="sm" color="gray" type="div">
-                {dayjs(datum.day).format('dddd, MMM DD ’YY')}
+                {dayjs(datum.day).format(DAY_HEADER_FORMAT)}
             </Text>
             {renderChanges()}
         </Container>

@@ -1,3 +1,7 @@
+---
+description: "Use the DataHub dataset CLI command to create, update, retrieve, validate, and synchronize Dataset entities and their metadata."
+---
+
 # datahub dataset
 
 The `dataset` command allows you to interact with Dataset entities in DataHub. This includes creating, updating, retrieving, validating, and synchronizing Dataset metadata.

@@ -1,5 +1,6 @@
 import { Empty, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 type Props = {
@@ -21,19 +22,18 @@ const StyledEmpty = styled(Empty)`
 `;
 
 const EmptyApplications = ({ isEmptySearch }: Props) => {
+    const { t } = useTranslation('misc');
     return (
         <EmptyContainer>
             <StyledEmpty
                 description={
                     <>
                         <Typography.Text data-testid="applications-not-found">
-                            {isEmptySearch ? 'No applications found for your search query' : 'No applications found'}
+                            {isEmptySearch ? t('applications.emptySearch') : t('applications.empty')}
                         </Typography.Text>
                         <div>
                             {!isEmptySearch && (
-                                <Typography.Paragraph>
-                                    Applications can be used to organize data assets in DataHub.
-                                </Typography.Paragraph>
+                                <Typography.Paragraph>{t('applications.emptyDescription')}</Typography.Paragraph>
                             )}
                         </div>
                     </>

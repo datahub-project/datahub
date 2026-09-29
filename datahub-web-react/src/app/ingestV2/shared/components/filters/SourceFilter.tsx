@@ -1,7 +1,8 @@
 import { Select } from '@components';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { CLI_EXECUTOR_ID } from '@app/ingest/source/utils';
+import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import useIngestionSourcesFromData from '@app/ingestV2/shared/components/filters/hooks/useIngestionSourcesFromData';
 import useOptions from '@app/ingestV2/shared/components/filters/hooks/useOptions';
 import { NameColumn } from '@app/ingestV2/source/IngestionSourceTableColumns';
@@ -21,6 +22,7 @@ interface Props {
 }
 
 export default function SourceFilter({ defaultValues, onUpdate, hideSystemSources, shouldPreserveParams }: Props) {
+    const { t: tl } = useTranslation('common.labels');
     const [values, setValues] = useState<string[]>(defaultValues ?? []);
     const [query, setQuery] = useState<string | undefined>();
 
@@ -103,7 +105,7 @@ export default function SourceFilter({ defaultValues, onUpdate, hideSystemSource
             onUpdate={onUpdateHandler}
             options={options}
             isMultiSelect
-            selectLabelProps={{ variant: 'labeled', label: 'Source' }}
+            selectLabelProps={{ variant: 'labeled', label: tl('source') }}
             renderCustomOptionText={(option) => (
                 <NameColumn
                     type={option.item.type}

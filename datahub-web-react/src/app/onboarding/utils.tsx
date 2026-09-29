@@ -1,9 +1,9 @@
-import { Typography } from 'antd';
+import { Heading } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import { OnboardingConfig } from '@app/onboarding/OnboardingConfig';
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 import { StepStateResult } from '@types';
 
@@ -43,7 +43,11 @@ function hasStepBeenSeen(stepId: string, userUrn: string, educationSteps: StepSt
     return educationSteps.some((step) => step.id === convertedStepId);
 }
 
-function hasSeenPrerequisiteStepIfExists(step: OnboardingStep, userUrn: string, educationSteps: StepStateResult[]) {
+export function hasSeenPrerequisiteStepIfExists(
+    step: OnboardingStep,
+    userUrn: string,
+    educationSteps: StepStateResult[],
+) {
     if (step?.prerequisiteStepId) {
         if (hasStepBeenSeen(step.prerequisiteStepId, userUrn, educationSteps)) {
             return true;
@@ -53,8 +57,8 @@ function hasSeenPrerequisiteStepIfExists(step: OnboardingStep, userUrn: string, 
     return true;
 }
 
-const StepTitle = styled(Typography.Title)`
-    margin-botton: 5px;
+const StepTitle = styled.div`
+    margin-bottom: 5px;
 `;
 
 export function getStepsToRender(
@@ -78,7 +82,11 @@ export function getStepsToRender(
             ...step,
             content: (
                 <div>
-                    <StepTitle level={5}>{step?.title}</StepTitle>
+                    <StepTitle>
+                        <Heading type="h5" size="lg" weight="bold">
+                            {step?.title}
+                        </Heading>
+                    </StepTitle>
                     <div>{step?.content}</div>
                 </div>
             ),
@@ -89,3 +97,18 @@ export function getStepsToRender(
 export function getInitialAllowListIds() {
     return OnboardingConfig.filter((config) => !config.isActionStep).map((config) => config.id as string);
 }
+
+/**
+ * Helper to get a step's property value by key from educationSteps
+ */
+export const getStepPropertyByKey = (
+    educationSteps: StepStateResult[] | null,
+    stepId: string,
+    propKey: string,
+): string | null => {
+    if (!educationSteps) return null;
+    const stepResult = educationSteps.find((step) => step.id === stepId);
+    if (!stepResult) return null;
+    const entry = stepResult.properties.find((prop) => prop.key === propKey);
+    return entry?.value ?? null;
+};

@@ -1,6 +1,7 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import EntityContext from '@app/entity/shared/EntityContext';
@@ -56,7 +57,11 @@ const ContentCard = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
-    box-shadow: ${(props) => props.theme.colors.shadowMd};
+    /* shadowSm matches what other entity-profile cards use (glossary, domain).
+       shadowMd has a 24px blur that gets clipped by the parent's
+       overflow:hidden + 4-8px padding, producing visible "shadow stripes" on
+       the top/right edges of the document card. */
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
     height: 100%;
     overflow: hidden;
 `;
@@ -125,12 +130,13 @@ const sidebarSections = [
  * Uses a custom single-page editor with editable title and content
  */
 export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading = false, refetch }) => {
+    const { t } = useTranslation('entity.types');
     const [sidebarClosed, setSidebarClosed] = useState(true); // Start closed by default
     const isCompact = useContext(CompactContext);
 
     const sidebarTabs = [
         {
-            name: 'Properties',
+            name: t('tab.properties'),
             component: PropertiesTab,
             icon: ListBullets,
             display: {

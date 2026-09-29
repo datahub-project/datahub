@@ -1,4 +1,5 @@
 import logging
+import time
 from enum import Enum
 from pathlib import Path
 from typing import Iterable, List, Optional, Type, Union
@@ -11,8 +12,10 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     PropertyValueClass,
     StructuredPropertyDefinitionClass,
+    StructuredPropertySettingsClass,
 )
 from datahub.metadata.urns import DataTypeUrn, StructuredPropertyUrn, Urn
 from datahub.utilities.urns._urn_base import URN_TYPES
@@ -69,6 +72,14 @@ class TypeQualifierAllowedTypes(ConfigModel):
         return _validate_entity_type_urn(cls, v)
 
 
+class StructuredPropertySettings(ConfigModel):
+    is_hidden: bool = False
+    show_as_asset_badge: bool = False
+    show_in_asset_summary: bool = False
+    show_in_columns_table: bool = False
+    show_in_search_filters: bool = False
+
+
 class StructuredProperties(ConfigModel):
     id: Optional[str] = None
     urn: Optional[str] = Field(None, validate_default=True)
@@ -83,6 +94,7 @@ class StructuredProperties(ConfigModel):
     allowed_values: Optional[List[AllowedValue]] = None
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
     immutable: Optional[bool] = False
+    structured_property_settings: Optional[StructuredPropertySettings] = None
 
     @field_validator("version", mode="before")
     @classmethod
@@ -157,6 +169,7 @@ class StructuredProperties(ConfigModel):
         return result
 
     def generate_mcps(self) -> List[MetadataChangeProposalWrapper]:
+        mcps = []
         mcp = MetadataChangeProposalWrapper(
             entityUrn=self.urn,
             aspect=StructuredPropertyDefinitionClass(
@@ -186,7 +199,24 @@ class StructuredProperties(ConfigModel):
                 version=self.version,
             ),
         )
-        return [mcp]
+        mcps.append(mcp)
+        if self.structured_property_settings:
+            settings = self.structured_property_settings
+            mcp_settings = MetadataChangeProposalWrapper(
+                entityUrn=self.urn,
+                aspect=StructuredPropertySettingsClass(
+                    isHidden=settings.is_hidden,
+                    showAsAssetBadge=settings.show_as_asset_badge,
+                    showInAssetSummary=settings.show_in_asset_summary,
+                    showInColumnsTable=settings.show_in_columns_table,
+                    showInSearchFilters=settings.show_in_search_filters,
+                    lastModified=AuditStampClass(
+                        time=int(time.time() * 1000.0), actor="urn:li:corpuser:datahub"
+                    ),
+                ),
+            )
+            mcps.append(mcp_settings)
+        return mcps
 
     @staticmethod
     def create(file: str, graph: DataHubGraph) -> None:

@@ -40,7 +40,7 @@ These permissions must be granted on **every project** you want to extract metad
 :::
 | Permission | Description | Capability | Default GCP Role Which Contains This Permission |
 |----------------------------------|-----------------------------------------------------------------------------------------------------------------|-------------------------------------|---------------------------------------------------------------------------|
-| `bigquery.datasets.get` | Retrieve metadata about a dataset. | Table Metadata Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
+| `bigquery.datasets.get` | Retrieve metadata about a dataset; also used on the lineage-only path to detect BigQuery Sharing linked datasets. | Table Metadata Extraction, Lineage Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
 | `bigquery.datasets.getIamPolicy` | Read a dataset's IAM permissions. | Table Metadata Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
 | `bigquery.tables.list` | List BigQuery tables. | Table Metadata Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
 | `bigquery.tables.get` | Retrieve metadata for a table. | Table Metadata Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
@@ -53,6 +53,7 @@ These permissions must be granted on **every project** you want to extract metad
 | `logging.privateLogEntries.list` | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. | Lineage Extraction/Usage Extraction | [roles/logging.privateLogViewer](https://cloud.google.com/logging/docs/access-control#logging.privateLogViewer) |
 | `bigquery.tables.getData` | Access table data to extract storage size, last updated at, partition information, data profiles etc. **Required when profiling is enabled or when `use_tables_list_query_v2` is enabled.** This permission is needed to query BigQuery's `__TABLES__` pseudo-table. | Profiling/Enhanced Table Metadata | |
 | `datacatalog.taxonomies.get` | _Optional_ Get policy tags for columns with associated policy tags. This permission is required only if `extract_policy_tags_from_catalog` is enabled. | Policy Tag Extraction | [roles/datacatalog.viewer](https://cloud.google.com/iam/docs/roles-permissions/datacatalog#datacatalog.viewer) |
+| `analyticshub.subscriptions.list` | _Optional_ List BigQuery Sharing subscriptions, to record which listing a linked dataset came from and whether the subscription is still active. Required only if `extract_subscriptions_from_analytics_hub` is enabled. | BigQuery Sharing Properties | [roles/analyticshub.subscriptionOwner](https://cloud.google.com/bigquery/docs/analytics-hub-grant-roles) |
 
 :::warning Important: bigquery.tables.getData Permission
 
@@ -64,6 +65,37 @@ The `bigquery.tables.getData` permission is **required** in the following scenar
 Without this permission, you'll encounter errors when the connector tries to access BigQuery's `__TABLES__` pseudo-table for detailed table information including partition data, row counts, and storage metrics.
 
 :::
+
+##### BigQuery Sharing (linked datasets)
+
+A linked dataset is a read-only pointer into a dataset published by another project. The dataset
+itself is labelled `Linked Dataset`, and its tables are given lineage back to the objects they were
+shared from, using the permissions listed above. Nothing extra is needed on the project that holds
+the linked dataset.
+
+Lineage points at the **publisher's** project, so the ingestion account needs to be able to resolve
+that project's name. What you grant there decides the outcome:
+
+| Granted on the publisher project                                                                                                         | Result                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Nothing                                                                                                                                  | No lineage for datasets shared from it. The ingestion report says which project could not be resolved |
+| Any role carrying `resourcemanager.projects.get`, such as [roles/browser](https://cloud.google.com/iam/docs/understanding-roles#browser) | Lineage resolves. The publisher's own tables are not catalogued unless that project is also ingested  |
+| The permissions listed above, i.e. you ingest the publisher project too                                                                  | Lineage resolves and both ends appear in the catalogue                                                |
+
+:::note
+
+The share reports its source as a project **number**, not a project ID. When the publisher project
+is one the ingestion account can already see in BigQuery, the number is resolved from the project
+list at no extra cost; otherwise it falls back to the Resource Manager API, which is where
+`resourcemanager.projects.get` on the publisher project is needed.
+
+:::
+
+This is off by default; set `include_linked_dataset_lineage: true` to enable it. Set
+`extract_subscriptions_from_analytics_hub: true` to additionally record the listing and
+subscription state. That reads the BigQuery Sharing API and needs
+`analyticshub.subscriptions.list` plus the `analyticshub.googleapis.com` service enabled on the
+project holding the linked dataset.
 
 #### Create a service account in the Extractor Project
 
@@ -106,6 +138,33 @@ Without this permission, you'll encounter errors when the connector tries to acc
      client_email: "test@suppproject-id-1234567.iam.gserviceaccount.com"
      client_id: "123456678890"
    ```
+
+#### Workload Identity Federation (keyless authentication)
+
+As an alternative to long-lived service account keys, you can authenticate with [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) (WIF). WIF lets workloads running outside of Google Cloud (for example in AWS, Azure, on-prem Kubernetes, or self-hosted Docker) impersonate a Google service account using short-lived tokens minted from an external identity provider.
+
+To use WIF, set `auth_type: workload_identity_federation` and supply the WIF configuration in one of three mutually exclusive ways:
+
+| Field                               | Description                                                                                               |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `gcp_wif_configuration`             | Path to the WIF configuration JSON file on disk.                                                          |
+| `gcp_wif_configuration_json`        | The WIF configuration as an inline YAML/JSON dict (or JSON string). Useful when storing the value inline. |
+| `gcp_wif_configuration_json_string` | The WIF configuration as a single JSON string. Useful when injecting from a secret manager.               |
+
+The WIF configuration is the standard `external_account` JSON produced by `gcloud iam workload-identity-pools create-cred-config` — for example:
+
+```json
+{
+  "type": "external_account",
+  "audience": "//iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+  "token_url": "https://sts.googleapis.com/v1/token",
+  "credential_source": { "file": "/var/run/secrets/tokens/gcp-ksa/token" },
+  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/SERVICE_ACCOUNT_EMAIL:generateAccessToken"
+}
+```
+
+The impersonated service account must have the BigQuery permissions described above. When `auth_type` is `workload_identity_federation`, the `credential` field is not used and must be omitted.
 
 ##### Profiling Requirements
 

@@ -39,6 +39,11 @@ class RowCountTotalVolumeAssertion(BaseEntityAssertion):
                 rowCountTotal=RowCountTotal(
                     operator=self.operator.operator,
                     parameters=self.operator.generate_parameters(),
+                    failureSeverityConfig=(
+                        self.failure_severity_config.to_model()
+                        if self.failure_severity_config
+                        else None
+                    ),
                 ),
             ),
         )
@@ -79,6 +84,11 @@ class RowCountChangeVolumeAssertion(BaseEntityAssertion):
                     ),
                     operator=self.operator.operator,
                     parameters=self.operator.generate_parameters(),
+                    failureSeverityConfig=(
+                        self.failure_severity_config.to_model()
+                        if self.failure_severity_config
+                        else None
+                    ),
                 ),
             ),
         )

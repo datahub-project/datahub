@@ -5,15 +5,17 @@
  * needed. SearchPage constructed in beforeEach with logger.
  */
 
-import { test, expect } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.use({ featureName: 'search' });
 
 test.describe('Search Filters V2', () => {
   let searchPage: SearchPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     searchPage = new SearchPage(page, logger, logDir);
     await searchPage.navigateToHome();
   });

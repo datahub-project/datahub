@@ -1,7 +1,8 @@
 import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
-import { isEqual } from 'lodash';
+import isEqual from 'lodash/isEqual';
 import queryString from 'query-string';
 import React, { useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -14,6 +15,7 @@ import {
     PopularityTier,
     getBarsStatusFromPopularityTier,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { useExtraSidebarTabs } from '@app/entityV2/shared/containers/profile/useExtraSidebarTabs';
 import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import {
@@ -243,7 +245,11 @@ export const defaultTabDisplayConfig = {
     enabled: (_, _1) => true,
 };
 
-const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: EntitySidebarSection[]) => {
+const getFinalSidebarTabs = (
+    tabs: EntitySidebarTab[],
+    sidebarSections: EntitySidebarSection[],
+    t: (key: string) => string,
+) => {
     const sidebarTabsWithDefaults = tabs.map((tab) => ({
         ...tab,
         display: { ...defaultTabDisplayConfig, ...tab.display },
@@ -255,7 +261,7 @@ const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: EntitySi
     if ((sidebarSections || [])?.length > 0) {
         finalTabs = [
             {
-                name: 'Summary',
+                name: t('profile.defaultSummaryTabLabel'),
                 icon: BookOpen,
                 component: EntitySidebarSectionsTab,
                 properties: {
@@ -272,13 +278,13 @@ const getFinalSidebarTabs = (tabs: EntitySidebarTab[], sidebarSections: EntitySi
     return finalTabs;
 };
 
-export function getPopularityColumn(tier: PopularityTier): SidebarStatsColumn | null {
+export function getPopularityColumn(tier: PopularityTier, t: (key: string) => string): SidebarStatsColumn | null {
     if (tier === undefined) return null;
 
     const status = getBarsStatusFromPopularityTier(tier);
     if (status) {
         return {
-            title: 'Popularity',
+            title: t('profile.popularityColumnTitle'),
             content: <SidebarPopularityHeaderSection />,
         };
     }
@@ -293,7 +299,9 @@ export function getPopularityColumn(tier: PopularityTier): SidebarStatsColumn | 
 export function useFinalSidebarTabs(
     baseTabs: EntitySidebarTab[],
     sidebarSections: EntitySidebarSection[] | undefined,
-    _contextType: TabContextType,
+    contextType: TabContextType,
 ) {
-    return useMemo(() => getFinalSidebarTabs(baseTabs, sidebarSections || []), [baseTabs, sidebarSections]);
+    const { t } = useTranslation('entity.shared.containers');
+    const extraTabs = useExtraSidebarTabs(baseTabs, contextType);
+    return useMemo(() => getFinalSidebarTabs(extraTabs, sidebarSections || [], t), [extraTabs, sidebarSections, t]);
 }

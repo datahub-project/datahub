@@ -137,6 +137,57 @@ def test_lossydict_resize_respects_new_limit_on_insert():
     assert d.sampled
 
 
+def test_lossylist_resize_grow_is_lossless():
+    """Growing the limit keeps all existing entries and accepts more."""
+    lst: LossyList[int] = LossyList(max_elements=3)
+    for i in range(3):
+        lst.append(i)
+    assert not lst.sampled
+    lst.resize(10)
+    assert lst.max_elements == 10
+    assert not lst.sampled
+    for i in range(3, 10):
+        lst.append(i)
+    assert list(lst) == list(range(10))
+    assert not lst.sampled
+
+
+def test_lossylist_resize_shrink_drops_entries():
+    """Shrinking below current size drops entries and marks as sampled."""
+    original = list(range(20))
+    lst: LossyList[int] = LossyList(max_elements=100)
+    for i in original:
+        lst.append(i)
+    lst.resize(5)
+    assert lst.max_elements == 5
+    assert lst.sampled
+    # __len__ reports total_elements seen, not retained count.
+    assert lst.total_elements == 20
+    retained = list(lst)
+    # Exactly 5 entries are kept, all drawn from the original set.
+    assert len(retained) == 5
+    assert set(retained) <= set(original)
+
+
+def test_lossylist_resize_rejects_invalid_max_elements():
+    """resize() must reject non-positive max_elements to prevent silent data loss."""
+    lst: LossyList[int] = LossyList(max_elements=10)
+    with pytest.raises(ValueError, match="max_elements must be >= 1"):
+        lst.resize(0)
+    with pytest.raises(ValueError, match="max_elements must be >= 1"):
+        lst.resize(-5)
+
+
+def test_lossylist_resize_to_same_size_is_noop():
+    lst: LossyList[int] = LossyList(max_elements=5)
+    for i in range(3):
+        lst.append(i)
+    lst.resize(5)
+    assert lst.max_elements == 5
+    assert not lst.sampled
+    assert list(lst) == [0, 1, 2]
+
+
 def test_lossylist_getitem_direct_indexing():
     """Test that direct indexing returns unwrapped items, not tuples.
 
@@ -283,3 +334,30 @@ def test_lossylist_getitem_with_structured_log_entries():
     assert all(isinstance(item, StructuredLogEntry) for item in slice_result)
     assert slice_result[0].title == "Error 1"
     assert slice_result[1].title == "Error 2"
+
+
+def test_lossylist_contains_unwraps_items():
+    lossy_list: LossyList[str] = LossyList(max_elements=10)
+    lossy_list.append("alpha")
+    lossy_list.append("beta")
+    lossy_list.append("gamma")
+
+    assert "alpha" in lossy_list
+    assert "beta" in lossy_list
+    assert "gamma" in lossy_list
+    assert "delta" not in lossy_list
+
+    # The internal (index, item) representation must not leak.
+    assert (0, "alpha") not in lossy_list
+
+
+def test_lossylist_contains_with_reservoir_sampling():
+    lossy_list: LossyList[str] = LossyList(max_elements=5)
+    for i in range(20):
+        lossy_list.append(f"item_{i}")
+
+    assert lossy_list.sampled is True
+    for survivor in list(lossy_list):
+        assert survivor in lossy_list
+
+    assert "definitely_not_there" not in lossy_list

@@ -1,6 +1,7 @@
 import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
@@ -33,6 +34,7 @@ interface Props {
 }
 
 export default function MoreFilters({ filters, filterPredicates, activeFilters, onChangeFilters }: Props) {
+    const { t } = useTranslation('search');
     const { trackShowMoreEvent } = useSearchFilterAnalytics();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
@@ -79,7 +81,7 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
             onOpenChange={onOpenChange}
         >
             <SearchFilterLabel data-testid="more-filters-dropdown" $isActive={!!numActiveFilters}>
-                More {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {t('filters.moreCount', { count: numActiveFilters })}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>
         </Dropdown>

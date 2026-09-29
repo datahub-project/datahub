@@ -1,3 +1,7 @@
+---
+description: "Browse Paths V2 organizes DataHub entities in hierarchical folder-style navigation that reflects platform structure and ownership."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Generating Browse Paths (V2)

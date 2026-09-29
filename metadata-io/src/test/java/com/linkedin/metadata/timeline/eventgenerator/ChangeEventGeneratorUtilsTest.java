@@ -3,8 +3,11 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlossaryTermAssociation;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.urn.GlossaryTermUrn;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeEvent;
@@ -49,10 +52,10 @@ public class ChangeEventGeneratorUtilsTest extends AbstractTestNGSpringContextTe
             .category(ChangeCategory.TAG)
             .operation(ChangeOperation.ADD)
             .modifier(TEST_TAG_URN)
-            .parameters(
-                ImmutableMap.of(
-                    "tagUrn", TEST_TAG_URN,
-                    "context", TEST_CONTEXT))
+            .tagAssociation(
+                new TagAssociation()
+                    .setTag(TagUrn.createFromString(TEST_TAG_URN))
+                    .setContext(TEST_CONTEXT))
             .auditStamp(auditStamp)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Test tag added")
@@ -87,18 +90,16 @@ public class ChangeEventGeneratorUtilsTest extends AbstractTestNGSpringContextTe
     AuditStamp auditStamp = getTestAuditStamp();
 
     // Create a GlossaryTermChangeEvent with context
-    Map<String, Object> parameters =
-        ImmutableMap.of(
-            "termUrn", TEST_GLOSSARY_TERM_URN,
-            "context", TEST_CONTEXT);
-
     GlossaryTermChangeEvent glossaryTermChangeEvent =
         GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
             .entityUrn(TEST_ENTITY_URN)
             .category(ChangeCategory.GLOSSARY_TERM)
             .operation(ChangeOperation.ADD)
             .modifier(TEST_GLOSSARY_TERM_URN)
-            .parameters(parameters)
+            .glossaryTermAssociation(
+                new GlossaryTermAssociation()
+                    .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN))
+                    .setContext(TEST_CONTEXT))
             .auditStamp(auditStamp)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Test glossary term added")
@@ -142,7 +143,7 @@ public class ChangeEventGeneratorUtilsTest extends AbstractTestNGSpringContextTe
             .category(ChangeCategory.TAG)
             .operation(ChangeOperation.REMOVE)
             .modifier(TEST_TAG_URN)
-            .parameters(ImmutableMap.of("tagUrn", TEST_TAG_URN, "context", "{}"))
+            .tagAssociation(new TagAssociation().setTag(TagUrn.createFromString(TEST_TAG_URN)))
             .auditStamp(auditStamp)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Test tag removed")
@@ -174,16 +175,15 @@ public class ChangeEventGeneratorUtilsTest extends AbstractTestNGSpringContextTe
     AuditStamp auditStamp = getTestAuditStamp();
 
     // Create a GlossaryTermChangeEvent without context
-    Map<String, Object> parameters =
-        ImmutableMap.of("termUrn", TEST_GLOSSARY_TERM_URN, "context", "{}");
-
     GlossaryTermChangeEvent glossaryTermChangeEvent =
         GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
             .entityUrn(TEST_ENTITY_URN)
             .category(ChangeCategory.GLOSSARY_TERM)
             .operation(ChangeOperation.REMOVE)
             .modifier(TEST_GLOSSARY_TERM_URN)
-            .parameters(parameters)
+            .glossaryTermAssociation(
+                new GlossaryTermAssociation()
+                    .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN)))
             .auditStamp(auditStamp)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Test glossary term removed")
@@ -218,27 +218,20 @@ public class ChangeEventGeneratorUtilsTest extends AbstractTestNGSpringContextTe
     AuditStamp auditStamp = getTestAuditStamp();
 
     // Create multiple GlossaryTermChangeEvents
-    Map<String, Object> addParameters =
-        ImmutableMap.of(
-            "termUrn", TEST_GLOSSARY_TERM_URN,
-            "context", TEST_CONTEXT);
-
     GlossaryTermChangeEvent addEvent =
         GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
             .entityUrn(TEST_ENTITY_URN)
             .category(ChangeCategory.GLOSSARY_TERM)
             .operation(ChangeOperation.ADD)
             .modifier(TEST_GLOSSARY_TERM_URN)
-            .parameters(addParameters)
+            .glossaryTermAssociation(
+                new GlossaryTermAssociation()
+                    .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN))
+                    .setContext(TEST_CONTEXT))
             .auditStamp(auditStamp)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Test glossary term added")
             .build();
-
-    Map<String, Object> removeParameters =
-        ImmutableMap.of(
-            "termUrn", "urn:li:glossaryTerm:Test.Term2",
-            "context", "{}");
 
     GlossaryTermChangeEvent removeEvent =
         GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
@@ -246,7 +239,9 @@ public class ChangeEventGeneratorUtilsTest extends AbstractTestNGSpringContextTe
             .category(ChangeCategory.GLOSSARY_TERM)
             .operation(ChangeOperation.REMOVE)
             .modifier("urn:li:glossaryTerm:Test.Term2")
-            .parameters(removeParameters)
+            .glossaryTermAssociation(
+                new GlossaryTermAssociation()
+                    .setUrn(GlossaryTermUrn.createFromString("urn:li:glossaryTerm:Test.Term2")))
             .auditStamp(auditStamp)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Test glossary term removed")
@@ -292,19 +287,14 @@ public class ChangeEventGeneratorUtilsTest extends AbstractTestNGSpringContextTe
             .category(ChangeCategory.TAG)
             .operation(ChangeOperation.ADD)
             .modifier(TEST_TAG_URN)
-            .parameters(
-                ImmutableMap.of(
-                    "tagUrn", TEST_TAG_URN,
-                    "context", TEST_CONTEXT))
+            .tagAssociation(
+                new TagAssociation()
+                    .setTag(TagUrn.createFromString(TEST_TAG_URN))
+                    .setContext(TEST_CONTEXT))
             .auditStamp(auditStamp)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Test tag added")
             .build();
-
-    Map<String, Object> glossaryTermParameters =
-        ImmutableMap.of(
-            "termUrn", TEST_GLOSSARY_TERM_URN,
-            "context", TEST_CONTEXT);
 
     GlossaryTermChangeEvent glossaryTermChangeEvent =
         GlossaryTermChangeEvent.entityGlossaryTermChangeEventBuilder()
@@ -312,7 +302,10 @@ public class ChangeEventGeneratorUtilsTest extends AbstractTestNGSpringContextTe
             .category(ChangeCategory.GLOSSARY_TERM)
             .operation(ChangeOperation.ADD)
             .modifier(TEST_GLOSSARY_TERM_URN)
-            .parameters(glossaryTermParameters)
+            .glossaryTermAssociation(
+                new GlossaryTermAssociation()
+                    .setUrn(GlossaryTermUrn.createFromString(TEST_GLOSSARY_TERM_URN))
+                    .setContext(TEST_CONTEXT))
             .auditStamp(auditStamp)
             .semVerChange(SemanticChangeType.MINOR)
             .description("Test glossary term added")

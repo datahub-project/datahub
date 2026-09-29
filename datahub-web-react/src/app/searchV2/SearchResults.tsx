@@ -1,5 +1,6 @@
 import { Pagination } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { PreviewType } from '@app/entity/Entity';
@@ -8,6 +9,7 @@ import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
+import { SearchEntityWithLineage, getSearchResultLineage } from '@app/searchV2/SearchResults.utils';
 import SearchResultsLoadingSection from '@app/searchV2/SearchResultsLoadingSection';
 import BrowseSidebar from '@app/searchV2/sidebar';
 import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
@@ -95,7 +97,7 @@ const StyledTabToolbar = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 1.5px solid ${(props) => props.theme.colors.bgSurface};
+    border: 1.5px solid ${(props) => props.theme.colors.border};
 `;
 
 const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`
@@ -167,6 +169,7 @@ export const SearchResults = ({
     previewType,
     onCardClick,
 }: Props) => {
+    const { t } = useTranslation('search');
     const showSearchFiltersV2 = useIsSearchV2();
     const showBrowseV2 = useIsBrowseV2();
     const pageStart = searchResponse?.start || 0;
@@ -183,6 +186,10 @@ export const SearchResults = ({
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
+    const highlightedSearchEntity =
+        highlightedIndex !== null && combinedSiblingSearchResults?.length > highlightedIndex
+            ? (combinedSiblingSearchResults[highlightedIndex]?.entity as SearchEntityWithLineage | undefined)
+            : undefined;
 
     const [resultsHeight, setResultsHeight] = useState('calc(100vh - 155px)');
     const resultsRef = React.useCallback((node: HTMLDivElement) => {
@@ -248,18 +255,22 @@ export const SearchResults = ({
                                             )}
                                             <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
                                                 <LeftControlsContainer>
-                                                    Showing{' '}
-                                                    <b>
-                                                        {lastResultIndex > 0 ? (page - 1) * numResultsPerPage + 1 : 0} -{' '}
-                                                        {lastResultIndex}
-                                                    </b>{' '}
-                                                    of{' '}
-                                                    <b>
-                                                        {totalResults >= 10000
-                                                            ? `${formatNumberWithoutAbbreviation(10000)}+`
-                                                            : formatNumberWithoutAbbreviation(totalResults)}
-                                                    </b>{' '}
-                                                    results
+                                                    <Trans
+                                                        t={t}
+                                                        i18nKey="results.showingCount"
+                                                        values={{
+                                                            start:
+                                                                lastResultIndex > 0
+                                                                    ? (page - 1) * numResultsPerPage + 1
+                                                                    : 0,
+                                                            end: lastResultIndex,
+                                                            total:
+                                                                totalResults >= 10000
+                                                                    ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                                                    : formatNumberWithoutAbbreviation(totalResults),
+                                                        }}
+                                                        components={{ bold: <b /> }}
+                                                    />
                                                 </LeftControlsContainer>
                                             </PaginationInfoContainer>
                                             <SearchResultList
@@ -296,16 +307,14 @@ export const SearchResults = ({
                                             height={resultsHeight}
                                             highlightedIndex={highlightedIndex}
                                             selectedEntity={
-                                                highlightedIndex !== null &&
-                                                combinedSiblingSearchResults?.length > highlightedIndex
+                                                highlightedSearchEntity
                                                     ? {
-                                                          urn: combinedSiblingSearchResults[highlightedIndex]?.entity
-                                                              .urn,
-                                                          type: combinedSiblingSearchResults[highlightedIndex]?.entity
-                                                              .type,
+                                                          urn: highlightedSearchEntity.urn,
+                                                          type: highlightedSearchEntity.type,
                                                       }
                                                     : null
                                             }
+                                            searchResultLineage={getSearchResultLineage(highlightedSearchEntity)}
                                         />
                                     </SearchResultsContainer>
                                 </SearchResultsScrollContainer>

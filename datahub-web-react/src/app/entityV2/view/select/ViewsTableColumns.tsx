@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -33,6 +34,7 @@ type NameColumnProps = {
 };
 
 export function NameColumn({ name, record, onEditView }: NameColumnProps) {
+    const { t } = useTranslation('entity.views');
     const userContext = useUserContext();
     const maybePersonalDefaultViewUrn = userContext.state?.views?.personalDefaultViewUrn;
     const maybeGlobalDefaultViewUrn = userContext.state?.views?.globalDefaultViewUrn;
@@ -43,8 +45,8 @@ export function NameColumn({ name, record, onEditView }: NameColumnProps) {
     return (
         <NameContainer>
             <IconPlaceholder>
-                {isUserDefault && <UserDefaultViewIcon title="Your default View." />}
-                {isGlobalDefault && <GlobalDefaultViewIcon title="Your organization's default View." />}
+                {isUserDefault && <UserDefaultViewIcon title={t('userDefaultTooltip')} />}
+                {isGlobalDefault && <GlobalDefaultViewIcon title={t('orgDefaultTooltip')} />}
             </IconPlaceholder>
             <Text size="md" weight="semiBold" onClick={() => onEditView?.(record.urn)}>
                 {name}
@@ -58,7 +60,8 @@ type DescriptionColumnProps = {
 };
 
 export function DescriptionColumn({ description }: DescriptionColumnProps) {
-    return <StyledDescription>{description || '-'}</StyledDescription>;
+    const { t } = useTranslation('entity.views');
+    return <StyledDescription>{description || t('emptyDescription')}</StyledDescription>;
 }
 
 type ViewTypeColumnProps = {

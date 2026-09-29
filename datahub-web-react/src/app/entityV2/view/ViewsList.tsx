@@ -1,6 +1,7 @@
 import { SearchBar, Text } from '@components';
 import { Pagination, message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { ViewsTable } from '@app/entityV2/view/ViewsTable';
@@ -54,7 +55,6 @@ const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - 330px); /* Constrain to page height minus header/filters space */
     overflow: auto;
 
     /* Make table header sticky */
@@ -80,9 +80,11 @@ const SearchContainer = styled.div`
 `;
 
 const ViewsContainer = styled.div`
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
     padding-top: 7px;
 `;
 
@@ -94,6 +96,8 @@ const StyledSearchBar = styled(SearchBar)`
  * This component renders a paginated, searchable list of Views.
  */
 export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
+    const { t } = useTranslation('entity.views');
+
     /**
      * State
      */
@@ -154,7 +158,7 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
         return (
             <EmptyContainer>
                 <Text size="md" weight="bold" style={{ color: theme.colors.textSecondary }}>
-                    No Views yet!
+                    {t('emptyTitle')}
                 </Text>
             </EmptyContainer>
         );
@@ -162,12 +166,12 @@ export const ViewsList = ({ viewType = DataHubViewType.Personal }: Props) => {
 
     return (
         <>
-            {!viewsData && loading && <Message type="loading" content="Loading Views..." />}
-            {error && message.error({ content: `Failed to load Views! An unexpected error occurred.`, duration: 3 })}
+            {!viewsData && loading && <Message type="loading" content={t('loading')} />}
+            {error && message.error({ content: t('loadError'), duration: 3 })}
             <ViewsContainer>
                 <StyledTabToolbar>
                     <SearchContainer>
-                        <StyledSearchBar placeholder="Search Views..." onChange={setQuery} value={query || ''} />
+                        <StyledSearchBar placeholder={t('searchPlaceholder')} onChange={setQuery} value={query || ''} />
                     </SearchContainer>
                 </StyledTabToolbar>
                 <TableContainer>

@@ -31,6 +31,9 @@ from datahub.configuration.time_window_config import (
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -43,6 +46,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.sql.clickhouse_connection import with_client_identity
 from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
     logger,
@@ -258,7 +262,11 @@ class ClickHouseConfig(
         if self.sqlalchemy_uri and current_db:
             url = url.set(database=current_db)
 
-        return str(url)
+        url = with_client_identity(url)
+        # Explicit about keeping the password: on SQLAlchemy 1.4 (currently pinned)
+        # str(URL) already renders it, but SQLAlchemy 2.0 masks it in str() — this
+        # keeps create_engine() working if/when the pin moves to 2.x.
+        return url.render_as_string(hide_password=False)
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @model_validator(mode="before")
@@ -288,6 +296,23 @@ class ClickHouseConfig(
             )
 
         return values
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # ClickHouse has information_schema, and its idiomatic catalog is the
+        # `system` database. Not allowed wholesale: system.query_log holds executed
+        # SQL -- our own usage extraction reads it -- and the *_log family generally
+        # carries statement text.
+        return CatalogScope(
+            relations=frozenset(
+                {
+                    "system.tables",
+                    "system.columns",
+                    "system.databases",
+                    "system.dictionaries",
+                }
+            ),
+        )
 
 
 PROPERTIES_COLUMNS = (
@@ -511,7 +536,7 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 
 @platform_name("ClickHouse")
 @config_class(ClickHouseConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
@@ -531,6 +556,10 @@ clickhouse_datetime_format = "%Y-%m-%d %H:%M:%S"
 @capability(
     SourceCapability.USAGE_STATS,
     "Optionally enabled via `include_usage_statistics`",
+)
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `include_query_log_operations`",
 )
 class ClickHouseSource(TwoTierSQLAlchemySource):
     """
@@ -744,9 +773,10 @@ ORDER BY event_time ASC
             result = engine.execute(text(query))
             rows = list(result)
         except Exception as e:
-            self.report.report_failure(
-                "query_log_extraction",
-                f"Failed to fetch query log: {e}",
+            self.report.failure(
+                message="Failed to fetch query log",
+                context="query_log_extraction",
+                exc=e,
             )
             return
 
@@ -785,11 +815,11 @@ ORDER BY event_time ASC
                 session_id=row.get("query_id"),
                 timestamp=event_time,
                 user=CorpUserUrn(user) if user else None,
-                # Don't pass current_database as default_db. ClickHouse uses 2-level
-                # naming (database.table), but sqlglot expects 3-level (database.schema.table).
-                # Passing current_database causes sqlglot to prepend it to already-qualified
-                # names, creating incorrect URNs like "default.analytics_marts.table".
+                # ClickHouse is 2-level: the database goes in the schema slot (as in
+                # TwoTierSQLAlchemySource.get_db_schema); default_db would fill the
+                # unused catalog slot, over-qualifying to "default.my_db.table".
                 default_db=None,
+                default_schema=row.get("current_database") or None,
                 query_hash=str(row.get("normalized_query_hash", "")),
             )
         except Exception as e:

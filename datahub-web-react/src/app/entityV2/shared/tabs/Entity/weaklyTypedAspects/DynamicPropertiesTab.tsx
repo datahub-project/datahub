@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { StyledTable } from '@app/entityV2/shared/components/styled/StyledTable';
@@ -16,20 +17,21 @@ const NameText = styled(Typography.Text)`
 `;
 
 export default function DynamicTabularTab({ payload: rawPayload }: Props) {
+    const { t: tc } = useTranslation('common.labels');
     const aspectData = JSON.parse(rawPayload || '{}');
     const transformedRowData = Object.keys(aspectData).map((key) => ({ key, value: aspectData[key] }));
 
     const propertyTableColumns = [
         {
             width: 210,
-            title: 'Name',
+            title: tc('name'),
             dataIndex: 'key',
             sorter: (a, b) => a?.key?.localeCompare(b?.key || '') || 0,
             defaultSortOrder: 'ascend',
             render: (name: string) => <NameText>{name}</NameText>,
         },
         {
-            title: 'Value',
+            title: tc('value'),
             dataIndex: 'value',
             render: (value: string) => <TableValueElement value={value} />,
         },

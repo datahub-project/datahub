@@ -1,3 +1,7 @@
+---
+description: "How DataHub versions immutable metadata aspects, the challenges of sequential version numbers, and the design tradeoffs behind the model."
+---
+
 # Aspect Versioning
 
 As each version of [metadata aspect](../what/aspect.md) is immutable, any update to an existing aspect results in the creation of a new version. Typically one would expect the version number increases sequentially with the largest version number being the latest version, i.e. `v1` (oldest), `v2` (second oldest), ..., `vN` (latest). However, this approach results in major challenges in both rest.li modeling & transaction isolation and therefore requires a rethinking.

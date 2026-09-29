@@ -1,0 +1,12 @@
+{
+    "actorsSearch.placeholder": "搜索用户或用户组",
+    "domainSelector.label": "数据域",
+    "domainSelector.placeholder": "选择数据域",
+    "domainSelector.searchPlaceholder": "搜索所有数据域...",
+    "domainSelector.singleLabel": "数据域",
+    "domainSelector.singlePlaceholder": "选择数据域",
+    "entitySearch.noEntitiesFound": "未找到实体",
+    "entitySearch.placeholder": "搜索实体...",
+    "groupBy.displayValue": "按 {{label}} 分组",
+    "groupBy.group": "分组"
+}

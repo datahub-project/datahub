@@ -1,5 +1,6 @@
 import { Link } from '@components';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
@@ -7,6 +8,7 @@ import { CUSTOM_SOURCE_DISPLAY_NAME, getSourceConfigs } from '@app/ingestV2/sour
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
 
 export function ConnectionDetailsSubTitle() {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { state } = useMultiStepContext<MultiStepSourceBuilderState, IngestionSourceFormStep>();
     const { type } = state;
     const { ingestionSources } = useIngestionSources();
@@ -15,16 +17,23 @@ export function ConnectionDetailsSubTitle() {
     const docsUrl = sourceConfigs?.docsUrl;
 
     const isCustomSource = sourceDisplayName === CUSTOM_SOURCE_DISPLAY_NAME;
-    const displayName = isCustomSource ? 'this source' : sourceDisplayName;
-    const linkDisplayName = isCustomSource ? 'Metadata Ingestion' : displayName;
+    const displayName = isCustomSource ? t('multiStep.connection.thisSource') : sourceDisplayName;
+    const linkDisplayName = isCustomSource ? t('multiStep.connection.metadataIngestion') : displayName;
 
     return (
         <>
-            Provide credentials and define what metadata to collect from {displayName}.
+            {t('multiStep.connection.subtitle', { displayName })}
             {docsUrl && (
                 <>
                     {' '}
-                    Check out the <Link href={docsUrl}>{linkDisplayName} Guide</Link> for more information.
+                    <Trans
+                        t={t}
+                        i18nKey="multiStep.connection.subtitleDocs"
+                        values={{ linkDisplayName }}
+                        components={{
+                            docsLink: <Link href={docsUrl}>{null}</Link>,
+                        }}
+                    />
                 </>
             )}
         </>

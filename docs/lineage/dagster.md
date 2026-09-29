@@ -1,3 +1,7 @@
+---
+description: "Capture and emit dataset lineage, run status, and asset materialization metadata from Dagster pipelines into DataHub."
+---
+
 # Dagster Integration
 
 This connector supports extracting:
@@ -53,6 +57,7 @@ Dagster Sensors allow us to perform actions when important events occur in Dagst
    | enable_asset_query_metadata_parsing | True          | Whether to enable parsing query from asset metadata. See [below](https://docs.datahub.com/docs/lineage/dagster/#extracting-lineage-from-sql-queries) for details                                                                                                                                                                     |
    | connect_ops_to_ops                  | False         | Whether to connect ops to ops based on the order of execution                                                                                                                                                                                                                                                                        |
    | capture_dataset_from_asset_key      | True          | Whether to capture dataset from asset key                                                                                                                                                                                                                                                                                            |
+   | emit_mode                           | ASYNC         | Emit mode for writes to DataHub. `ASYNC` (default) avoids blocking on a synchronous commit per write, reducing GMS load at high volume. Use `SYNC_WAIT`/`SYNC_PRIMARY` for read-after-write or raise-on-failure guarantees.                                                                                                          |
    | asset_keys_to_dataset_urn_converter |               | Custom asset key to urn converter function. See details [below](https://docs.datahub.com/docs/lineage/dagster/#capturing-table-lineage)                                                                                                                                                                                              |
    | materialize_dependencies            | False         | Whether to materialize asset dependency in DataHub. It emits a datasetKey for each dependencies                                                                                                                                                                                                                                      |
    | emit_queries                        | False         | Whether to emit queries aspects                                                                                                                                                                                                                                                                                                      |

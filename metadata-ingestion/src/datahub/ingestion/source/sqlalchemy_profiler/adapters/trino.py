@@ -13,6 +13,7 @@ from trino import exceptions as trino_exceptions
 from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     DEFAULT_QUANTILES,
     PlatformAdapter,
+    ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
     ProfilingContext,
@@ -31,7 +32,7 @@ class TrinoAdapter(PlatformAdapter):
     3. approx_percentile() for median and quantiles
 
     Note: Trino differs from Athena in cleanup - temp tables are ALWAYS dropped,
-    not conditionally (ge_data_profiler.py:1487-1490).
+    not conditionally.
     """
 
     def setup_profiling(
@@ -78,7 +79,7 @@ class TrinoAdapter(PlatformAdapter):
         Cleanup Trino temp views.
 
         Note: Trino ALWAYS drops temp tables/views, unlike Athena which only
-        drops conditionally. This matches GE profiler behavior (line 1487-1490).
+        drops conditionally.
 
         Args:
             context: Profiling context
@@ -135,8 +136,8 @@ class TrinoAdapter(PlatformAdapter):
             )
             self.report.warning(
                 title="Failed to create Trino temporary view",
-                message=f"Profiling exception when running custom sql: {context.custom_sql}",
-                context=f"Asset: {context.pretty_name}",
+                message="Profiling exception when running custom sql",
+                context=f"asset={context.pretty_name}, custom_sql={context.custom_sql}",
                 exc=e,
             )
             if not self.config.catch_exceptions:
@@ -177,8 +178,6 @@ class TrinoAdapter(PlatformAdapter):
         """
         Trino uses approx_distinct() for fast unique count estimation.
 
-        This matches GE profiler behavior (ge_data_profiler.py:223-231).
-
         Args:
             column: Column name
 
@@ -190,8 +189,6 @@ class TrinoAdapter(PlatformAdapter):
     def get_median_expr(self, column: str) -> Optional[ColumnElement[Any]]:
         """
         Trino median via approx_percentile(col, 0.5).
-
-        This matches GE profiler behavior (ge_data_profiler.py:299-310).
 
         Args:
             column: Column name
@@ -227,7 +224,7 @@ class TrinoAdapter(PlatformAdapter):
         self,
         table: sa.Table,
         column: str,
-        conn: Connection,
+        conn: ProfilingConnection,
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
@@ -254,7 +251,7 @@ class TrinoAdapter(PlatformAdapter):
             f"approx_percentile({quoted_column}, {array_str})"
         ).label("quantiles")
         query = sa.select([trino_expr]).select_from(table)
-        result = conn.execute(query).scalar()
+        result = conn.execute_rows(query).scalar()
         logger.debug(
             f"Trino quantiles for {column}: result type={type(result)}, "
             f"value={result}, expected_length={len(quantiles)}"

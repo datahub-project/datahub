@@ -1,3 +1,7 @@
+---
+title: Metadata File Sink
+---
+
 # Metadata File
 
 For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).

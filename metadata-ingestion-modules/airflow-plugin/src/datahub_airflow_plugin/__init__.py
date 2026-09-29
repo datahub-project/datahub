@@ -21,11 +21,4 @@ def get_provider_info() -> dict:
                 "connection-type": "datahub-file",
             },
         ],
-        # Deprecated method of providing connection types, kept for backwards compatibility.
-        # We can remove with Airflow 3.
-        "hook-class-names": [
-            "datahub_airflow_plugin.hooks.datahub.DatahubRestHook",
-            "datahub_airflow_plugin.hooks.datahub.DatahubKafkaHook",
-            "datahub_airflow_plugin.hooks.datahub.SynchronizedFileHook",
-        ],
     }

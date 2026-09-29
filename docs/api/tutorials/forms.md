@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for creating and managing DataHub Compliance Forms via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -22,6 +26,12 @@ This guide will show you how to
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
 For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
+
+### Required Privileges
+
+- Creating, updating, deleting, assigning, or unassigning forms through the GraphQL API (including the `batchAssignForm`, `batchRemoveForm`, and `createDynamicFormAssignment` mutations used below) requires the **Manage Compliance Forms** Platform privilege. Admins and Editors hold it by default.
+- Writing the `forms` or `dynamicFormAssignment` aspects directly through OpenAPI, Rest.li, or a CLI metadata emitter requires **Manage Compliance Forms** _and_ **Edit Entity** on the target entity, because those APIs authorize every aspect write as a generic entity update (unless REST API authorization is disabled).
+- Completing or verifying a form that is already assigned to you does not require **Manage Compliance Forms**.
 
 <Tabs>
 <TabItem value="CLI" label="CLI">
@@ -66,6 +76,12 @@ mutation createForm {
           "urn:li:corpuser:john@email.com"
         ]
         groups: ["urn:li:corpGroup:team@email.com"]
+        owners: true # assign to asset owners
+        ownershipTypes: [
+          # optional: filter by specific ownership types
+          "urn:li:ownershipType:__system__technical_owner"
+          "urn:li:ownershipType:__system__data_steward"
+        ]
       }
     }
   ) {
@@ -104,6 +120,11 @@ For example, below file represents a form `123456` You can see the full example 
       - urn:li:corpuser:john@email.com
     groups:
       - urn:li:corpGroup:team@email.com # note: these should be urns
+    owners: true # assign to asset owners (default: true when actors is omitted)
+    ownership_types: # optional: filter by specific ownership types
+      - urn:li:ownershipType:__system__technical_owner
+      - urn:li:ownershipType:__system__data_steward
+      # you can also use custom ownership types
 ```
 
 :::note
@@ -135,6 +156,25 @@ filters:
 ```
 
 Note that you can filter to entity types, platforms, domains, and/or containers.
+
+#### Form Assignment Options
+
+The `actors` field controls who is asked to complete the form. The three options can be combined:
+
+- `owners: true` (default) — assign to all owners of each in-scope asset.
+- `ownership_types` — restrict the `owners: true` assignment to owners with one or more specific ownership types (e.g. `__system__technical_owner`, `__system__data_steward`, or any custom type). Omit it to match all ownership types.
+- `users` / `groups` — explicitly target individuals or groups by URN, independent of ownership.
+
+Example assigning to data stewards plus one explicit user:
+
+```yaml
+actors:
+  owners: true
+  ownership_types:
+    - urn:li:ownershipType:__system__data_steward
+  users:
+    - urn:li:corpuser:admin@email.com
+```
 
 Use the CLI to create your properties:
 

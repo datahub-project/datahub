@@ -1,3 +1,7 @@
+---
+description: "DataHub Cloud Applications group related assets by business purpose, providing an experimental way to model software systems and services."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # About DataHub Applications

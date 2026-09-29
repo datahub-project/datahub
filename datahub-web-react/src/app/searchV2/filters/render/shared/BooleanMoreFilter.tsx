@@ -8,6 +8,9 @@ import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/Boolean
 import { MoreFilterOptionLabel } from '@app/searchV2/filters/styledComponents';
 import { useElementDimensions } from '@app/searchV2/filters/utils';
 
+const CSS_SIDE_RIGHT = 'right';
+const CSS_SIDE_LEFT = 'left';
+
 const IconNameWrapper = styled.span`
     display: flex;
     align-items: center;
@@ -66,7 +69,7 @@ export default function BooleanMoreFilter({ icon, title, option, count, initialS
                     style={{
                         position: 'absolute',
                         top: -height,
-                        [isElementOutsideWindow ? 'right' : 'left']: width,
+                        [isElementOutsideWindow ? CSS_SIDE_RIGHT : CSS_SIDE_LEFT]: width,
                     }}
                 />
             )}

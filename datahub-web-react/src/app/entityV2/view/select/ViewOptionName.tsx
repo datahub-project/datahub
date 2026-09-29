@@ -3,6 +3,7 @@ import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocus
 import { GlobeHemisphereEast } from '@phosphor-icons/react/dist/csr/GlobeHemisphereEast';
 import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
@@ -105,6 +106,7 @@ export const ViewOptionName = ({
     onClickPreview,
     selectView,
 }: Props) => {
+    const { t } = useTranslation('entity.views');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const { theme } = useCustomTheme();
 
@@ -120,7 +122,7 @@ export const ViewOptionName = ({
                                     $isShowNavBarRedesign={isShowNavBarRedesign}
                                 >
                                     <GlobalDefaultViewIcon
-                                        title="Your organization's default View."
+                                        title={t('orgDefaultTooltip')}
                                         color={theme?.colors?.icon}
                                         size={5}
                                     />
@@ -132,7 +134,7 @@ export const ViewOptionName = ({
                                     $isShowNavBarRedesign={isShowNavBarRedesign}
                                 >
                                     <UserDefaultViewIcon
-                                        title="Your default View."
+                                        title={t('userDefaultTooltip')}
                                         color={theme?.colors?.iconBrand}
                                         size={5}
                                     />
@@ -140,7 +142,11 @@ export const ViewOptionName = ({
                             )}
                         </IconPlaceholder>
                     )}
-                    <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
+                    <Tooltip
+                        placement="bottom"
+                        showArrow
+                        title={type === 'GLOBAL' ? t('typePublic') : t('typePrivate')}
+                    >
                         <ViewIconNavBarRedesign $selected={selected}>
                             {type === 'GLOBAL' && <GlobeHemisphereEast size={22} />}
                             {type === 'PERSONAL' && <Lock size={22} />}
@@ -157,13 +163,13 @@ export const ViewOptionName = ({
                     <IconPlaceholder>
                         {isGlobalDefault && (
                             <DefaultViewIconContainer selected={selected}>
-                                <GlobalDefaultViewIcon title="Your organization's default View." size={10} />
+                                <GlobalDefaultViewIcon title={t('orgDefaultTooltip')} size={10} />
                             </DefaultViewIconContainer>
                         )}
                         {isUserDefault && (
                             <DefaultViewIconContainer selected={selected}>
                                 <UserDefaultViewIcon
-                                    title="Your default View."
+                                    title={t('userDefaultTooltip')}
                                     color={theme?.colors?.textSuccess}
                                     size={10}
                                 />
@@ -171,7 +177,7 @@ export const ViewOptionName = ({
                         )}
                     </IconPlaceholder>
                 )}
-                <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
+                <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? t('typePublic') : t('typePrivate')}>
                     <ViewType>
                         {type === 'GLOBAL' && <Icon icon={GlobeHemisphereEast} size="lg" />}
                         {type === 'PERSONAL' && <Icon icon={Lock} size="lg" />}

@@ -1,3 +1,7 @@
+---
+description: "GMS (Generalized Metadata Service) is the microservice layer in DataHub that exposes Rest.li APIs for accessing GMA-backed metadata."
+---
+
 # What is Generalized Metadata Service (GMS)?
 
 Metadata for [entities](entity.md) [onboarded](../modeling/metadata-model.md) to [GMA](gma.md) is served through microservices known as Generalized Metadata Service (GMS). GMS typically provides a [Rest.li](http://rest.li) API and must access the metadata using [GMA DAOs](../architecture/metadata-serving.md).

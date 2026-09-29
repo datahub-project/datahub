@@ -9,7 +9,10 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
+import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletionException;
@@ -43,7 +46,10 @@ public class DeleteDocumentResolverTest {
 
     // Verify service was called
     verify(mockService, times(1))
-        .deleteDocument(any(OperationContext.class), eq(UrnUtils.getUrn(TEST_ARTICLE_URN)));
+        .deleteDocument(
+            any(OperationContext.class),
+            eq(UrnUtils.getUrn(TEST_ARTICLE_URN)),
+            eq(SearchIndexMode.SYNC));
   }
 
   @Test
@@ -55,7 +61,8 @@ public class DeleteDocumentResolverTest {
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
     // Verify service was NOT called
-    verify(mockService, times(0)).deleteDocument(any(OperationContext.class), any(Urn.class));
+    verify(mockService, times(0))
+        .deleteDocument(any(OperationContext.class), any(Urn.class), any(SearchIndexMode.class));
   }
 
   @Test
@@ -66,8 +73,23 @@ public class DeleteDocumentResolverTest {
 
     doThrow(new RuntimeException("Service error"))
         .when(mockService)
-        .deleteDocument(any(OperationContext.class), any(Urn.class));
+        .deleteDocument(any(OperationContext.class), any(Urn.class), eq(SearchIndexMode.SYNC));
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  public void testDeleteDocumentServiceAuthorizationFailureIsPreserved() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("urn"))).thenReturn(TEST_ARTICLE_URN);
+    doThrow(new ServiceAuthorizationException("denied"))
+        .when(mockService)
+        .deleteDocument(any(OperationContext.class), any(Urn.class), eq(SearchIndexMode.SYNC));
+
+    CompletionException exception =
+        expectThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    assertTrue(exception.getCause() instanceof AuthorizationException);
   }
 }

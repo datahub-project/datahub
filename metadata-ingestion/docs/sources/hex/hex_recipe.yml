@@ -1,8 +1,70 @@
 source:
   type: hex
   config:
-    workspace_name: # Hex workspace name. You can find this name in your Hex home page URL: https://app.hex.tech/<workspace_name>
-    token: # Your PAT or Workspace token
+    # Hex workspace name — find it in the workspace switcher dropdown in the top-left corner of the Hex app
+    workspace_name: my-workspace
+    workspace_id: id  # optional override for workspace ID (UUID); if not set, the source will call the Hex API to fetch it
+    token: "${HEX_TOKEN}"
 
+    # (Optional) platform_instance / env for the Hex side (Dashboards, Charts).
+    # platform_instance: prod_hex
+    # env: PROD
+
+    # (Optional) Feature toggles — all default to true. Uncomment to opt out.
+    # include_components: false
+    # include_lineage: false
+    # include_run_history: false
+    # set_ownership_from_email: false
+    # collections_as_tags: false
+    # status_as_tag: false
+    # categories_as_tags: false
+
+    # (Optional) Emit a DataHub Document per Project and per Component for
+    # AI agent retrieval. Off by default — opt in if you use AI agents and
+    # want context documents in your catalog.
+    # include_context_documents: true
+
+    # (Optional) Hex Enterprise workspaces only — use Hex's queriedTables API
+    # as the primary lineage source for published projects/components.
+    # Defaults to false (SQL-cell parsing for everything).
+    # use_queried_tables_lineage: true
+
+    # (Optional) Match the platform_instance under which the upstream warehouses
+    # were ingested. Required so Hex's lineage URNs collide with the
+    # warehouse-ingested ones. Keyed by Hex dataConnectionId (UUID).
+    # connection_platform_map:
+    #   "8f3a1c2d-4b5e-6789-abcd-ef0123456789":
+    #     platform: snowflake
+    #     platform_instance: prod_snowflake
+    #     default_database: ANALYTICS
+    #     default_schema: PUBLIC
+    #   "1a2b3c4d-5e6f-7890-abcd-1234567890ab":
+    #     platform: bigquery
+    #     default_database: my-gcp-project
+    #     default_schema: analytics
+
+    # (Optional) Filter projects and components by title or category.
+    # project_title_pattern:
+    #   allow:
+    #     - "^Production .*"
+    # component_title_pattern:
+    #   allow:
+    #     - "^Shared .*"
+    # category_pattern:
+    #   deny:
+    #     - "^Sandbox$"
+
+    # (Optional) Cap projects per run — useful for staged rollouts.
+    # WARNING: with stateful_ingestion enabled, projects beyond the limit are
+    # soft-deleted on the next run.
+    # max_projects: 50
+
+    # Enable stale-entity removal (projects deleted in Hex are soft-deleted in DataHub).
+    stateful_ingestion:
+      enabled: true
+
+# sink configs — see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub
 sink:
-  # sink configs
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

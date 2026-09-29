@@ -35,6 +35,8 @@ default_exclude_paths = [
     r"root\[\d+\]\['aspect'\]\['json'\]\['upstreams'\]\[\d+\]\['lastModified'\]\['time'\]",
     # Assertion source created timestamp (set at emit time)
     r"root\[\d+\]\['aspect'\]\['json'\]\['source'\]\['created'\]\['time'\]",
+    # auditStamp.time is wall-clock time (time.time()*1000), not meaningful test data
+    r"root\[\d+\].*\['auditStamp'\]\['time'\]",
 ]
 
 

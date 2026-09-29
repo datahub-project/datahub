@@ -1,7 +1,7 @@
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { useUserContext } from '@app/context/useUserContext';
 import { useGetDomains } from '@app/homeV2/content/tabs/discovery/sections/domains/useGetDomains';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
@@ -12,11 +12,32 @@ import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils'
 
 import { DataHubPageModuleType } from '@types';
 
-const TopDomainsModule = (props: ModuleProps) => {
-    const { user } = useUserContext();
-    const { isReloading } = useModuleContext();
+const MAX_DOMAINS = 25;
 
-    const { domains, loading } = useGetDomains(user, isReloading ? 'cache-and-network' : 'cache-first');
+const TopDomainsModule = (props: ModuleProps) => {
+    const { t } = useTranslation('modules');
+    const { isReloading, onReloadingFinished } = useModuleContext();
+
+    const { domains, loading, refetch } = useGetDomains(MAX_DOMAINS);
+    const wasReloading = useRef(false);
+
+    useEffect(() => {
+        const reloadWasRequested = isReloading && !wasReloading.current;
+        wasReloading.current = isReloading;
+
+        if (!isReloading) {
+            return;
+        }
+
+        if (!reloadWasRequested) {
+            return;
+        }
+
+        // Treat mount-time isReloading as a requested reload. A mutation on another page can
+        // mark the module stale before this component mounts; skipping that left cache-first
+        // data on screen. A failed best-effort refresh should not block a later reload.
+        refetch().then(onReloadingFinished, onReloadingFinished);
+    }, [isReloading, refetch, onReloadingFinished]);
 
     const { renderDomainCounts, navigateToDomains } = useGetDomainUtils({ domains });
 
@@ -25,9 +46,9 @@ const TopDomainsModule = (props: ModuleProps) => {
             {domains.length === 0 ? (
                 <EmptyContent
                     icon={Globe}
-                    title="No Domains Created"
-                    description="Start by creating a domain in order to see it on your list"
-                    linkText="Configure your data domains"
+                    title={t('domains.emptyTitle')}
+                    description={t('domains.emptyDescription')}
+                    linkText={t('domains.emptyLink')}
                     onLinkClick={navigateToDomains}
                 />
             ) : (

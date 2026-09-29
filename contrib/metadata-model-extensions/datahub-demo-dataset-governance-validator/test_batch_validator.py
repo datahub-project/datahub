@@ -5,7 +5,6 @@ Test script for the DataHub dataset governance validator using ASYNC_BATCH mode.
 This script tests both valid and invalid datasets to prove the validator works.
 """
 
-import json
 from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -18,7 +17,6 @@ from datahub.metadata.schema_classes import (
     DomainsClass
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
-from datahub.utilities.urns.urn import Urn
 
 # DataHub connection config
 GMS_SERVER = "http://localhost:8080"
@@ -50,7 +48,7 @@ def test_invalid_logical_dataset():
         print("❌ ERROR: Expected validation failure but ingestion succeeded!")
         return False
     except Exception as e:
-        print(f"✅ SUCCESS: Validator blocked invalid logical dataset as expected")
+        print("✅ SUCCESS: Validator blocked invalid logical dataset as expected")
         print(f"   Error: {str(e)}")
         return True
 

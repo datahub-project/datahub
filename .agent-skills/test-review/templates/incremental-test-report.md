@@ -19,8 +19,6 @@
 ### Classification
 
 - **Smoke tests:** {{SMOKE_COUNT}} files
-- **Integration tests:** {{INTEGRATION_COUNT}} files
-- **Filtered out (connector-specific):** {{FILTERED_COUNT}} files
 
 ---
 
@@ -38,7 +36,7 @@ No critical issues found.
 **{{INDEX}}. {{TITLE}}**
 
 - **Location:** `{{FILE}}:{{LINE}}`
-- **Standard:** `standards/smoke-and-integration.md` - {{SECTION}}
+- **Standard:** `standards/smoke.md` - {{SECTION}}
 - **Issue:** {{DESCRIPTION}}
 - **Fix:** {{RECOMMENDATION}}
   {{/EACH}}
@@ -67,25 +65,19 @@ No critical issues found.
 
 ### For New Smoke Tests
 
-- [{{NEW_LIFECYCLE}}] Uses `_ingest_cleanup_data_impl` data lifecycle pattern
+- [{{NEW_ISOLATION}}] Run-unique names (not shared hardcoded URNs)
+- [{{NEW_LIFECYCLE}}] Unique ingest or `_ingest_cleanup_data_impl` only when keys are already unique
 - [{{NEW_AUTH}}] Uses `auth_session` fixture (not inline credentials)
 - [{{NEW_RETRY}}] Uses retry patterns (no bare `time.sleep`)
-- [{{NEW_CLEANUP}}] Cleanup in fixture teardown
-- [{{NEW_NAMES}}] Descriptive test names
-- [{{NEW_ASSERTIONS}}] Non-trivial assertions
-
-### For New Cypress Integration Tests
-
-- [{{NEW_ISOLATION}}] Uses unique random IDs per `describe` block
-- [{{NEW_SELECTORS}}] Uses `data-testid` selectors (not CSS classes)
-- [{{NEW_LOGIN}}] Calls `cy.login()` per test or in `beforeEach`
-- [{{NEW_CY_ASSERT}}] Has non-trivial assertions (`cy.waitTextVisible`, `.should()`)
+- [{{NEW_CLEANUP}}] Cleanup in fixture `yield` or `try/finally`
+- [{{NEW_DOMAIN}}] Declares `pytest.mark.domain(...)`
+- [{{NEW_ASSERTIONS}}] Specific field assertions, not response-exists
 
 ### For Modified Tests
 
 - [{{MOD_EXISTING}}] Existing test behavior preserved
-- [{{MOD_GOLDEN}}] Golden files updated if output changed
 - [{{MOD_NO_REGRESSION}}] No new anti-patterns introduced
+- [{{MOD_ISOLATION}}] Did not reintroduce shared hardcoded URNs
 
 ---
 

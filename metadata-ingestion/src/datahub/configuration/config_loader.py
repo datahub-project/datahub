@@ -1,4 +1,5 @@
 import io
+import json
 import os
 import pathlib
 import re
@@ -6,6 +7,7 @@ import sys
 import tempfile
 import unittest.mock
 import urllib.parse
+from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Optional, Set, Union
 
 import requests
@@ -194,6 +196,90 @@ def _process_directives(config: dict) -> dict:
     return _process(config)
 
 
+class MalformedRecipeEnvelope(ConfigurationError):
+    """A well-formed JSON envelope whose `__recipe_yaml__` is not a string.
+
+    Carries the envelope's secrets so a caller can still register them for
+    masking before it reports the failure -- the error path is where
+    unmasked values do the most damage.
+    """
+
+    def __init__(self, message: str, secrets: Dict[str, str]) -> None:
+        super().__init__(message)
+        self.secrets = secrets
+
+
+@dataclass(frozen=True)
+class RecipeEnvelope:
+    """The JSON envelope `--recipe -` and `ingest -c -` both accept.
+
+    `{"__recipe_yaml__": "<yaml>", "__secrets__": {"NAME": "value"}}` --
+    secrets travel beside the recipe so a caller can hand over resolved
+    credentials without putting them in the environment, where they are
+    readable from /proc/<pid>/environ and inherited by every child.
+    """
+
+    recipe_yaml: str
+    secrets: Dict[str, str]
+
+
+def parse_recipe_envelope(raw: str) -> Optional[RecipeEnvelope]:
+    """The envelope in `raw`, or None when `raw` is a plain recipe.
+
+    One parser, because there were two and they had already drifted: only
+    one validated that `__recipe_yaml__` is a string, so the same malformed
+    envelope produced a named error on one path and
+    `TypeError: initial_value must be str or None, not dict` on the other.
+
+    Returning None rather than raising for a non-envelope is what keeps the
+    plain YAML/JSON form working: every caller treats None as "this is the
+    recipe itself".
+
+    Secrets are filtered to strings, and that is not tidying. str(v) would
+    turn a JSON null into the literal "None", so a secret the caller failed
+    to resolve becomes a password of "None" and the probe reports whatever
+    the server says about it rather than naming the reference it could not
+    resolve -- and the registry will not mask that value either, since
+    "none" is on its unmaskable-literals list. Dropping the entry lets
+    resolution fail by name. An empty string is KEPT: it is a value the
+    caller chose, and dropping it leaves nothing for the mapping resolver,
+    so the ambient variable of the same name is read instead -- the
+    fall-through the envelope exists to prevent.
+    """
+    try:
+        envelope = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(envelope, dict) or "__recipe_yaml__" not in envelope:
+        return None
+
+    # Secrets FIRST, before anything can raise.
+    #
+    # recipe_cli registers envelope secrets before parsing the YAML on
+    # purpose: a failure during loading is exactly when the error text is
+    # least controlled, so the values have to be maskable by then. Raising
+    # on a bad __recipe_yaml__ before reading __secrets__ reopened that
+    # window -- the caller never saw the secrets it was about to need.
+    #
+    # They travel on the exception so the caller can register them and
+    # still fail.
+    raw_secrets = envelope.get("__secrets__") or {}
+    secrets = (
+        {str(k): v for k, v in raw_secrets.items() if isinstance(v, str)}
+        if isinstance(raw_secrets, dict)
+        else {}
+    )
+
+    recipe_yaml = envelope["__recipe_yaml__"]
+    if not isinstance(recipe_yaml, str):
+        raise MalformedRecipeEnvelope(
+            "__recipe_yaml__ must be a string holding the recipe YAML; got "
+            f"{type(recipe_yaml).__name__}",
+            secrets=secrets,
+        )
+    return RecipeEnvelope(recipe_yaml=recipe_yaml, secrets=secrets)
+
+
 def load_config_file(
     config_file: Union[str, pathlib.Path],
     squirrel_original_config: bool = False,
@@ -202,13 +288,41 @@ def load_config_file(
     allow_remote: bool = True,  # TODO: Change the default to False.
     resolve_env_vars: bool = True,  # TODO: Change the default to False.
     process_directives: bool = False,
+    extra_env_vars: Optional[Dict[str, str]] = None,
 ) -> dict:
     config_mech: ConfigurationMechanism
     if allow_stdin and config_file == "-":
-        # If we're reading from stdin, we assume that the input is a YAML file.
-        # Note that YAML is a superset of JSON, so this will also read JSON files.
+        # Reading from stdin. Supports two formats:
+        # 1. Plain YAML/JSON recipe (backward compatible)
+        # 2. JSON envelope: {"__recipe_yaml__": "...", "__secrets__": {...}}
+        #    Secrets are merged into the env resolver without touching os.environ.
         config_mech = YamlConfigurationMechanism()
-        raw_config_file = sys.stdin.read()
+        raw_stdin = sys.stdin.read()
+
+        try:
+            envelope = parse_recipe_envelope(raw_stdin)
+        except MalformedRecipeEnvelope as exc:
+            # The other caller of the parser -- recipe_cli -- does this too,
+            # and for the reason the exception carries its secrets at all: a
+            # failure during loading is when the error text is least
+            # controlled, so the values have to be maskable before the error
+            # travels. Leaving this path uncaught meant the exception type
+            # existed to hand secrets to a handler and half its callers had
+            # none.
+            if exc.secrets:
+                SecretRegistry.get_instance().register_secrets_batch(exc.secrets)
+            raise
+        if envelope is None:
+            # Plain YAML or plain JSON (which is valid YAML) — the recipe itself.
+            raw_config_file = raw_stdin
+        else:
+            raw_config_file = envelope.recipe_yaml
+            if envelope.secrets:
+                extra_env_vars = {**(extra_env_vars or {}), **envelope.secrets}
+                # Envelope secrets are secrets by declaration: maskable even
+                # when the recipe does not reference them (e.g. it arrived
+                # with values already substituted).
+                SecretRegistry.get_instance().register_secrets_batch(envelope.secrets)
     else:
         config_file_path = pathlib.Path(config_file)
         if config_file_path.suffix in {".yaml", ".yml"}:
@@ -256,7 +370,10 @@ def load_config_file(
 
     config = raw_config.copy()
     if resolve_env_vars:
-        config = EnvResolver(environ=os.environ).resolve(config)
+        environ: Environ = os.environ
+        if extra_env_vars:
+            environ = {**os.environ, **extra_env_vars}
+        config = EnvResolver(environ=environ).resolve(config)
     if process_directives:
         config = _process_directives(config)
 

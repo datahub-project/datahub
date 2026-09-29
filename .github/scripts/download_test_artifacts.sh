@@ -5,34 +5,59 @@
 # This script uses the GitHub CLI (gh) to fetch workflow runs and download
 # test result artifacts, organizing them by run ID for later processing.
 
-set -euo pipefail
+set -euxo pipefail
 
 # Default values
 OUTPUT_DIR="./dev-artifacts/test-results"
 RUN_COUNT=3
 WORKFLOW_NAME="docker-unified.yml"
 REPOSITORY=""
+# Artifact name prefix to download. Default matches smoke-test result artifacts; override for
+# other workflows (e.g. "build-and-test" for Gradle JUnit from build-and-test.yml).
+ARTIFACT_PREFIX="Test Results (smoke tests)"
+ALLOW_FAILED=false
+NO_FAIL_ON_EMPTY=false
+# Filtered workflow-run queries (branch=, status=, …) time out past a few thousand
+# matches and can return a created-desc page whose newest run is months old.
+# Always bound the search with created>=. Start at MIN_LOOKBACK_DAYS and widen
+# to MAX_LOOKBACK_DAYS when that window has fewer than RUN_COUNT qualifying runs.
+# MAX matches report-test-results retention (7 days); older runs have no artifacts.
+# https://github.blog/changelog/2026-09-25-changes-to-query-results-in-the-github-actions-api-and-ui/
+MIN_LOOKBACK_DAYS=3
+MAX_LOOKBACK_DAYS=7
 
 # Parse arguments
 usage() {
     cat <<EOF
 Usage: $0 [OPTIONS]
 
-Download test artifacts from recent successful CI runs.
+Download test artifacts from recent CI runs.
 
 OPTIONS:
-    --output-dir DIR     Output directory for artifacts (default: ./dev-artifacts/test-results)
-    --run-count N        Number of recent runs to download (default: 3)
-    --workflow NAME      Workflow file name (default: docker-unified.yml)
-    --repository REPO    Repository in format owner/repo (default: auto-detect from git)
-    -h, --help           Show this help message
+    --output-dir DIR      Output directory for artifacts (default: ./dev-artifacts/test-results)
+    --run-count N         Number of recent runs to download (default: 3)
+    --workflow NAME       Workflow file name (default: docker-unified.yml)
+    --repository REPO     Repository in format owner/repo (default: auto-detect from git)
+    --artifact-prefix STR Artifact name prefix to download (default: "Test Results (smoke tests)")
+    --allow-failed        Also harvest completed-but-failed runs (default: off, success-only).
+                          Only success and failure conclusions are selected; cancelled and
+                          in-progress runs are always skipped.
+    --no-fail-on-empty    Exit 0 and print a "NO_DATA=true" sentinel when no qualifying runs
+                          or no artifacts are found (default: off, exits 1 on no runs).
+    -h, --help            Show this help message
 
 REQUIREMENTS:
     - GitHub CLI (gh) must be installed and authenticated
     - Must be run from within a git repository (unless --repository is specified)
 
 EXAMPLE:
+    # Smoke test weights (default prefix)
     $0 --output-dir ./dev-artifacts/test-results --run-count 3
+
+    # Ingestion integration test weights (harvest per-batch junit artifacts)
+    $0 --output-dir ./test-artifacts --run-count 3 \
+        --workflow metadata-ingestion.yml --artifact-prefix "metadata-ingestion-test-results" \
+        --allow-failed --no-fail-on-empty
 EOF
     exit 1
 }
@@ -51,9 +76,21 @@ while [[ $# -gt 0 ]]; do
             WORKFLOW_NAME="$2"
             shift 2
             ;;
+        --artifact-prefix)
+            ARTIFACT_PREFIX="$2"
+            shift 2
+            ;;
         --repository)
             REPOSITORY="$2"
             shift 2
+            ;;
+        --allow-failed)
+            ALLOW_FAILED=true
+            shift
+            ;;
+        --no-fail-on-empty)
+            NO_FAIL_ON_EMPTY=true
+            shift
             ;;
         -h|--help)
             usage
@@ -108,21 +145,116 @@ echo "============================================================"
 echo "Repository: $REPOSITORY"
 echo "Workflow: $WORKFLOW_NAME"
 echo "Run count: $RUN_COUNT"
+echo "Artifact prefix: $ARTIFACT_PREFIX"
 echo "Output directory: $OUTPUT_DIR"
+if [[ "$ALLOW_FAILED" == "true" ]]; then
+    echo "Mode: success + failure runs (--allow-failed)"
+else
+    echo "Mode: success-only runs"
+fi
+if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
+    echo "Empty handling: soft-skip with NO_DATA sentinel (--no-fail-on-empty)"
+else
+    echo "Empty handling: fail on no runs"
+fi
 echo "============================================================"
 echo
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Fetch recent successful workflow runs from master branch
-echo "Fetching recent successful workflow runs from master branch..."
-RUN_IDS=$(gh api "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs" \
-    --jq ".workflow_runs[] | select(.conclusion==\"success\" and .head_branch==\"master\") | .id" \
-    | head -n "$RUN_COUNT")
+# Build the run-selection jq filter. With --allow-failed we also harvest
+# completed-but-failed runs (e.g. a single flaky batch failing the whole run);
+# cancelled and in-progress runs are never selected.
+if [[ "$ALLOW_FAILED" == "true" ]]; then
+    RUN_FILTER='select((.conclusion=="success" or .conclusion=="failure") and .head_branch=="master")'
+else
+    RUN_FILTER='select(.conclusion=="success" and .head_branch=="master")'
+fi
+
+# Fetch recent successful workflow runs from master branch.
+#
+# List with created>= so the filtered workflow-runs search stays inside a window
+# small enough to return the actual newest runs. Sort here; do not trust page
+# order from an unbounded branch query.
+echo "Fetching recent workflow runs from master branch..."
+
+# gh api with retry on transient failures (5xx, timeouts). Returns non-zero
+# only if every attempt fails.
+gh_api_retry() {
+    local max_attempts=3 attempt=1 delay=5 rc=0
+    while [ "$attempt" -le "$max_attempts" ]; do
+        if gh api "$@"; then
+            return 0
+        fi
+        rc=$?
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo "gh api call failed (exit $rc); retrying in ${delay}s..." >&2
+            sleep "$delay"
+            delay=$((delay * 2))
+        fi
+        attempt=$((attempt + 1))
+    done
+    return "$rc"
+}
+
+# GNU date (`-d`) on the runner, BSD date (`-v`) for local macOS dev.
+utc_days_ago() {
+    date -u -d "$1 days ago" +%Y-%m-%d 2>/dev/null \
+        || date -u -v-"$1"d +%Y-%m-%d
+}
+
+# Print a JSON array of the newest RUN_COUNT qualifying runs created on or after
+# SINCE_DATE. `gh api --paginate` streams one JSON object per page; `jq -s`
+# slurps them. The created>= filter stays in the URL (not `-f`): gh's field flag
+# URL-encodes `>` and GitHub 404s on the encoded form.
+fetch_qualifying_runs_since() {
+    local since_date="$1"
+    local page_file
+    page_file=$(mktemp)
+    if ! gh_api_retry --paginate \
+        "repos/$REPOSITORY/actions/workflows/$WORKFLOW_NAME/runs?branch=master&per_page=100&created=>=${since_date}" \
+        > "$page_file"; then
+        rm -f "$page_file"
+        return 1
+    fi
+    if ! jq -se --argjson n "$RUN_COUNT" \
+        '[.[] | .workflow_runs[]? | '"$RUN_FILTER"' | {id: .id, created: .created_at}]
+         | sort_by(.created) | reverse | .[0:$n]' \
+        "$page_file"; then
+        rm -f "$page_file"
+        return 1
+    fi
+    rm -f "$page_file"
+}
+
+SINCE_DATE=$(utc_days_ago "$MIN_LOOKBACK_DAYS")
+echo "Selecting up to $RUN_COUNT runs created since $SINCE_DATE..."
+if ! RUNS_JSON=$(fetch_qualifying_runs_since "$SINCE_DATE"); then
+    echo "Error: Failed to fetch workflow runs from GitHub API" >&2
+    exit 1
+fi
+QUALIFYING_COUNT=$(printf '%s' "$RUNS_JSON" | jq 'length')
+
+if [ "$QUALIFYING_COUNT" -lt "$RUN_COUNT" ]; then
+    WIDER_DATE=$(utc_days_ago "$MAX_LOOKBACK_DAYS")
+    echo "Only $QUALIFYING_COUNT qualifying run(s) since $SINCE_DATE; widening to $WIDER_DATE..."
+    if WIDER_JSON=$(fetch_qualifying_runs_since "$WIDER_DATE"); then
+        RUNS_JSON="$WIDER_JSON"
+        SINCE_DATE="$WIDER_DATE"
+    else
+        echo "Warning: lookback to $WIDER_DATE failed; keeping runs since $SINCE_DATE." >&2
+    fi
+fi
+
+RUN_IDS=$(printf '%s' "$RUNS_JSON" | jq -r '.[].id')
 
 if [[ -z "$RUN_IDS" ]]; then
-    echo "Error: No successful workflow runs found on master branch"
+    if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
+        echo "NO_DATA=true"
+        exit 0
+    fi
+    echo "Error: No qualifying workflow runs on master since $SINCE_DATE"
     exit 1
 fi
 
@@ -138,6 +270,12 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
 done
 echo
 
+# Track total artifacts successfully extracted across all runs. The download
+# loop below runs in a subshell (piped input), so a counter file is used to
+# propagate the count back to this shell for the empty-data check.
+DOWNLOAD_COUNT_FILE=$(mktemp)
+echo 0 > "$DOWNLOAD_COUNT_FILE"
+
 # Download artifacts for each run
 for run_id in "${RUN_ID_ARRAY[@]}"; do
     echo "------------------------------------------------------------"
@@ -149,7 +287,10 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
 
     # List all artifacts for this run
     echo "Fetching artifact list..."
-    ARTIFACTS=$(gh api "repos/$REPOSITORY/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name | startswith("Test Results (smoke tests)")) | {name: .name, id: .id}')
+    # Pass the prefix via jq --arg (not shell interpolation) so a quote/backslash in it can't
+    # break or inject into the jq program. Pipe to standalone jq since gh's --jq takes no --arg.
+    ARTIFACTS=$(gh api --paginate "repos/$REPOSITORY/actions/runs/$run_id/artifacts" \
+        | jq -c --arg prefix "$ARTIFACT_PREFIX" '.artifacts[] | select(.name | startswith($prefix)) | {name: .name, id: .id}')
 
     if [[ -z "$ARTIFACTS" ]]; then
         echo "Warning: No test result artifacts found for run $run_id"
@@ -172,14 +313,11 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
             else
                 artifact_subdir="$RUN_DIR/pytests-0"
             fi
-        elif [[ $artifact_name =~ "cypress" ]]; then
-            # Extract batch number if present
-            if [[ $artifact_name =~ cypress[[:space:]]+([0-9]+) ]]; then
-                batch_num="${BASH_REMATCH[1]}"
-                artifact_subdir="$RUN_DIR/cypress-$batch_num"
-            else
-                artifact_subdir="$RUN_DIR/cypress-0"
-            fi
+        elif [[ $artifact_name =~ ^playwright-junit-([0-9]+)$ ]]; then
+            # Each shard's artifact contains a same-named test-results/junit.xml; without a
+            # per-shard subdirectory here, every shard after the first overwrites the last
+            # extracted into the shared "other" dir, silently dropping 7/8 shards' data.
+            artifact_subdir="$RUN_DIR/playwright-${BASH_REMATCH[1]}"
         else
             artifact_subdir="$RUN_DIR/other"
         fi
@@ -192,6 +330,7 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
             if unzip -q "$artifact_subdir/artifact.zip" -d "$artifact_subdir" 2>/dev/null; then
                 rm "$artifact_subdir/artifact.zip"
                 echo "    ✓ Downloaded and extracted to: $artifact_subdir"
+                echo $(( $(cat "$DOWNLOAD_COUNT_FILE") + 1 )) > "$DOWNLOAD_COUNT_FILE"
             else
                 echo "    ✗ Failed to extract artifact"
                 rm -f "$artifact_subdir/artifact.zip"
@@ -205,6 +344,19 @@ for run_id in "${RUN_ID_ARRAY[@]}"; do
     echo
 done
 
+TOTAL_DOWNLOADS=$(cat "$DOWNLOAD_COUNT_FILE")
+rm -f "$DOWNLOAD_COUNT_FILE"
+
+# Soft-skip when no artifacts were harvested across all runs.
+if [[ "$TOTAL_DOWNLOADS" -eq 0 ]]; then
+    if [[ "$NO_FAIL_ON_EMPTY" == "true" ]]; then
+        echo "NO_DATA=true"
+        exit 0
+    fi
+    echo "Error: No test result artifacts were downloaded from any run"
+    exit 1
+fi
+
 echo "============================================================"
 echo "Download complete!"
 echo "============================================================"
@@ -216,5 +368,4 @@ echo
 echo "Next step: Generate test weights with:"
 echo "  python .github/scripts/generate_test_weights.py \\"
 echo "    --input-dir $OUTPUT_DIR \\"
-echo "    --cypress-output ./dev-artifacts/generated-weights/cypress_weights.json \\"
 echo "    --pytest-output ./dev-artifacts/generated-weights/pytest_weights.json"

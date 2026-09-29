@@ -1,6 +1,7 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Dropdown } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import OptionLabel from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/OptionLabel';
@@ -20,6 +21,7 @@ interface Props<T extends LinkItem> {
 }
 
 export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Props<T>) {
+    const { t } = useTranslation('common.actions');
     const theme = useTheme();
     const onLinkItemClick = (linkItem: T) => {
         linkItem.attributes.onClick?.();
@@ -40,10 +42,10 @@ export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Prop
             overlayStyle={{ zIndex: 1200 }}
         >
             <DropdownBase data-testid="view-more-dropdown">
-                <Text size="sm" color="gray" colorLevel={1700}>
-                    View more
+                <Text size="sm" color="textTertiary">
+                    {t('viewMore')}
                 </Text>
-                <CaretDown size={12} color={theme.colors.textSecondary} />
+                <CaretDown size={12} color={theme.colors.textTertiary} />
             </DropdownBase>
         </Dropdown>
     );

@@ -111,7 +111,8 @@ class TestResolveGcpProjects:
     def test_resolve_explicit_project_ids(self):
         """Test resolution with explicit project IDs."""
         config = GcpProjectFilterConfig(project_ids=["proj-1", "proj-2"])
-        projects = resolve_gcp_projects(config, SourceReport())
+        report = SourceReport()
+        projects = resolve_gcp_projects(config, report)
 
         assert len(projects) == 2
         assert all(isinstance(p, GcpProject) for p in projects)
@@ -119,6 +120,11 @@ class TestResolveGcpProjects:
         assert projects[0].name == "proj-1"
         assert projects[1].id == "proj-2"
         assert projects[1].name == "proj-2"
+        assert any(
+            "via explicit project_ids" in entry.message
+            and any("proj-1" in ctx for ctx in entry.context)
+            for entry in report.infos
+        )
 
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
     def test_resolve_with_labels(self, mock_client_class):
@@ -156,32 +162,45 @@ class TestResolveGcpProjects:
             project_labels=["env:prod"],
             project_id_pattern=AllowDenyPattern(deny=[".*-test$"]),
         )
-        projects = resolve_gcp_projects(
-            config, SourceReport(), projects_client=mock_client
-        )
+        report = SourceReport()
+        projects = resolve_gcp_projects(config, report, projects_client=mock_client)
 
         assert len(projects) == 1
         assert projects[0].id == "prod-ml"
+        assert any(
+            "via project_labels and project_id_pattern" in entry.message
+            and any("prod-ml" in ctx for ctx in entry.context)
+            for entry in report.infos
+        )
 
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
     def test_resolve_all_projects(self, mock_client_class):
-        """Test resolution listing all projects."""
+        """Test resolution searching all projects.
+
+        Pins discovery to `search_projects` rather than `list_projects` —
+        v3 `list_projects` requires a `parent` arg and 400s when not provided.
+        """
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.list_projects.return_value = [
+        mock_client.search_projects.return_value = [
             SimpleNamespace(project_id="proj-1", display_name="Project 1"),
             SimpleNamespace(project_id="proj-2", display_name="Project 2"),
         ]
 
         config = GcpProjectFilterConfig()
-        projects = resolve_gcp_projects(
-            config, SourceReport(), projects_client=mock_client
-        )
+        report = SourceReport()
+        projects = resolve_gcp_projects(config, report, projects_client=mock_client)
 
         assert len(projects) == 2
         assert projects[0].id == "proj-1"
-        mock_client.list_projects.assert_called_once()
+        mock_client.search_projects.assert_called_once()
+        mock_client.list_projects.assert_not_called()
+        assert any(
+            "via project_id_pattern" in entry.message
+            and any("proj-1" in ctx for ctx in entry.context)
+            for entry in report.infos
+        )
 
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
     def test_auth_failure_in_search(self, mock_client_class):
@@ -199,12 +218,14 @@ class TestResolveGcpProjects:
         assert len(report.failures) > 0
 
     @patch("datahub.ingestion.source.common.gcp_project_filter.ProjectsClient")
-    def test_auth_failure_in_list(self, mock_client_class):
-        """Test handling of authentication failures during project listing."""
+    def test_auth_failure_in_search_all(self, mock_client_class):
+        """Test handling of authentication failures during project search."""
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.list_projects.side_effect = GoogleAPICallError("Permission denied")
+        mock_client.search_projects.side_effect = GoogleAPICallError(
+            "Permission denied"
+        )
 
         config = GcpProjectFilterConfig()
         report = SourceReport()
@@ -219,7 +240,7 @@ class TestResolveGcpProjects:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.list_projects.return_value = []
+        mock_client.search_projects.return_value = []
 
         config = GcpProjectFilterConfig()
         report = SourceReport()
@@ -235,7 +256,7 @@ class TestResolveGcpProjects:
         mock_client_class.return_value = mock_client
 
         # Project object without project_id attribute
-        mock_client.list_projects.return_value = [
+        mock_client.search_projects.return_value = [
             SimpleNamespace(display_name="Project 1"),  # Missing project_id
             SimpleNamespace(project_id="proj-2", display_name="Project 2"),
         ]
@@ -255,7 +276,7 @@ class TestResolveGcpProjects:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.list_projects.return_value = [
+        mock_client.search_projects.return_value = [
             SimpleNamespace(project_id="proj-1", display_name=None),
         ]
 
@@ -289,7 +310,7 @@ class TestResolveGcpProjects:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.list_projects.return_value = [
+        mock_client.search_projects.return_value = [
             SimpleNamespace(project_id="dev-1", display_name="Dev 1"),
             SimpleNamespace(project_id="dev-2", display_name="Dev 2"),
         ]
@@ -309,14 +330,14 @@ class TestResolveGcpProjects:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.list_projects.return_value = []
+        mock_client.search_projects.return_value = []
 
         config = GcpProjectFilterConfig(project_ids=[])
         projects = resolve_gcp_projects(
             config, SourceReport(), projects_client=mock_client
         )
 
-        # Empty list should fall through to list_all_projects
+        # Empty list should fall through to _search_all_projects
         assert isinstance(projects, list)
         assert len(projects) == 0
 
@@ -326,7 +347,7 @@ class TestResolveGcpProjects:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.list_projects.return_value = [
+        mock_client.search_projects.return_value = [
             SimpleNamespace(project_id="my-project-123", display_name="My Project 123"),
         ]
 

@@ -1,0 +1,214 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "customers",
+              "description": "dbt customers"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "customers",
+              "description": "BigQuery customers"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.raw_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "raw_orders"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.raw_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "raw_orders"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.stg_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "stg_orders"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.raw_orders,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.stg_orders,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "name": "stg_orders"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+              "upstreams": [
+                {
+                  "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.raw_orders,PROD)",
+                  "type": "TRANSFORMED"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "contentType": "application/json",
+      "value": "{\"siblings\": [\"urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.customers,PROD)\"], \"primary\": true}"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "contentType": "application/json",
+      "value": "{\"siblings\": [\"urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.customers,PROD)\"], \"primary\": false}"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "contentType": "application/json",
+      "value": "{\"siblings\": [\"urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.raw_orders,PROD)\"], \"primary\": true}"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.raw_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "contentType": "application/json",
+      "value": "{\"siblings\": [\"urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.raw_orders,PROD)\"], \"primary\": false}"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.stg_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "contentType": "application/json",
+      "value": "{\"siblings\": [\"urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.stg_orders,PROD)\"], \"primary\": true}"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_project.jaffle_shop.stg_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "contentType": "application/json",
+      "value": "{\"siblings\": [\"urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_project.jaffle_shop.stg_orders,PROD)\"], \"primary\": false}"
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightSiblingsTerm",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+              "definition": "Test glossary term for Playwright siblings E2E tests",
+              "name": "PlaywrightSiblingsTerm",
+              "termSource": "INTERNAL"
+            }
+          }
+        ]
+      }
+    }
+  }
+]

@@ -50,4 +50,3 @@ try {
  * Always import credentials from here, never from `defaultUsers` directly.
  */
 export const users: UserMap = { ...defaultUsers, ...ciOverrides };
-

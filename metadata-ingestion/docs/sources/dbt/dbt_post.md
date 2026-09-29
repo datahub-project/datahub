@@ -48,6 +48,16 @@ meta_mapping:
     config:
       link: {{ $match }}
       description: "Documentation Link"
+  business_domain:
+    match: ".*"
+    operation: "add_domain"
+    config:
+      domain: "{{ $match }}"
+  data_load_frequency:
+    match: ".*"
+    operation: "add_structured_property"
+    config:
+      structured_property_urn: "urn:li:structuredProperty:io.acme.data_load_frequency"
 column_meta_mapping:
   terms_list:
     match: ".*"
@@ -64,6 +74,11 @@ column_meta_mapping:
     operation: "add_tag"
     config:
       tag: "pii"
+  classification:
+    match: ".*"
+    operation: "add_structured_property"
+    config:
+      structured_property_urn: "urn:li:structuredProperty:io.acme.classification"
 ```
 
 We support the following operations:
@@ -77,10 +92,12 @@ We support the following operations:
    - You can use commas to specify multiple owners - e.g. `business_owner: "jane,john,urn:li:corpGroup:data-team"`.
 
 5. add_doc_link - Requires `link` and `description` properties in config. Upon ingestion run, this will overwrite current links in the institutional knowledge section with this new link. The anchor text is defined here in the meta_mappings as `description`.
+6. add_domain - Adds the dataset to a DataHub Domain. The `domain` config value can be a short ID (e.g. `Marketing`) or a fully-qualified URN (`urn:li:domain:Marketing`). Supports `{{ $match }}` substitution.
+7. add_structured_property - Assigns a value to a [DataHub Structured Property](../../../../docs/features/feature-guides/properties/overview.md). Required config: `structured_property_urn` (full URN or qualified name). Optional config: `value` (literal or `{{ $match }}` template; defaults to the raw meta value, preserving numeric types) and `value_type` (`string` or `number`). Multiple rules targeting the same property URN have their values aggregated into a single assignment. The structured property itself must be defined in DataHub before ingestion runs — this operation only assigns values, it does not create the property definition.
 
 Note:
 
-1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level.
+1. The dbt `meta_mapping` config works at the model level, while the `column_meta_mapping` config works at the column level. The `add_owner` operation is not supported at the column level. The `add_structured_property` operation is supported at both levels — at the column level it produces a `structuredProperties` aspect attached to each matching `schemaField` URN.
 2. For string meta properties we support regex matching.
 3. **List support**: YAML lists are now supported in meta properties. Each item in the list that matches the regex pattern will be processed.
 
@@ -523,6 +540,100 @@ If these conditions are not met, warnings will appear in the ingestion report:
 > **Note: Limitations**
 >
 > Column-level lineage is currently only supported for Snowflake semantic views, as it relies on parsing the Snowflake-specific DDL.
+
+#### Semantic Models
+
+DataHub ingests [dbt semantic models](https://docs.getdbt.com/docs/build/semantic-models) (dbt 1.6+) - the `semantic_models:` entries in your YAML that define entities, dimensions, and measures on top of a dbt model.
+
+A semantic model is a **logical** structure: it lives in your dbt project and is never materialized in the warehouse. DataHub models it accordingly.
+
+##### How Semantic Models Appear in DataHub
+
+- **Subtype**: Datasets are tagged with the subtype `Semantic Model`.
+- **Name**: The dataset is named from dbt's own unique id, `semantic_model.<project>.<semantic_model_name>`, giving a urn like:
+
+  ```
+  urn:li:dataset:(urn:li:dataPlatform:dbt,semantic_model.jaffle_shop.orders,PROD)
+  ```
+
+  This is the same rule already used for [exposures](#exposures), which are named `exposure.<project>.<name>`. A semantic model has no warehouse address of its own, so it is not named `<database>.<schema>.<name>` like a model, seed, or snapshot. Naming it that way would give it the address of the model it sits on - colliding with that model whenever the two share a name, which is dbt's own documented convention:
+
+  ```yaml
+  semantic_models:
+    - name: orders
+      model: ref("orders")
+  ```
+
+- **No warehouse entity**: Unlike models, seeds, and snapshots, a semantic model produces no dataset on the target platform, no sibling relationship, and no lineage into one - there is no warehouse table to describe.
+- **Schema**: Entities, dimensions, and measures are surfaced as columns, with native types of the form `entity:primary`, `dimension:time`, and `measure:sum`.
+- **Lineage**: Upstream lineage points at the dbt model the semantic model is built on.
+
+##### Configuration
+
+Semantic models are emitted by default. Control them with `entities_enabled.semantic_models`:
+
+```yaml
+source:
+  type: dbt
+  config:
+    entities_enabled:
+      semantic_models: "NO"
+```
+
+Two connector settings do not apply to semantic models, because both concern physical assets: `include_database_name` (the urn carries no database) and `materialized_node_pattern` (there is no materialized location to match against). To filter semantic models by name, use `node_name_pattern`, which matches the dbt unique id.
+
+#### Semantic Model and Metric Entities
+
+On top of the datasets described above, DataHub can also describe your dbt semantic layer with first-class [Semantic Model](../../metamodel/entities/semanticModel.md) and [Metric](../../metamodel/entities/metric.md) entities. This is **purely additive**: it does not change the dataset urns, and it does not change any aspect the connector already writes for them.
+
+##### What Gets Emitted
+
+- **One `semanticModel` per dbt project**, holding the join relationships between your semantic models. Its urn is `urn:li:semanticModel:(urn:li:dataPlatform:dbt,<project>,semantic_layer)`.
+- **Semantic annotations on each semantic model's dataset.** The dataset keeps the urn, name, description, schema, subtype, tags, owners and lineage described above, and gains a link to its parent `semanticModel` plus a per-column annotation recording whether the column is a dimension or a measure, its aggregation function, and whether it is a time dimension.
+- **One `metric` per measure with `create_metric: true`**, and one per top-level `metrics:` entry. Its urn is `urn:li:metric:(urn:li:dataPlatform:dbt,<project>,<metric_name>)`. Metrics carry an expression, a subtype naming dbt's metric type (`Simple`, `Ratio`, `Derived`, `Cumulative`, `Conversion`), upstream lineage to the datasets of the semantic models they read, and `derivedFrom` edges to the metrics they are built on.
+
+Relationships follow MetricFlow's own join semantics: a semantic model that declares an entity as `foreign`, `unique` or `natural` joins to every semantic model that declares an entity of the **same name** as `primary`, `unique` or `natural`. When a key is declared in more than one semantic model, an edge is emitted to each - MetricFlow joins to each of them too. A reference to a key that is not in the ingested project is counted in the ingestion report rather than warned about, since that is normal when you filter part of a project.
+
+##### Enabling It
+
+```yaml
+source:
+  type: dbt
+  config:
+    emit_semantic_model_entities: true
+```
+
+`emit_semantic_model_entities` is three-valued:
+
+| Value           | Behavior                                                                                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| unset (default) | Follow the server. Enabled on DataHub Cloud new enough to register these entity types, unless the Metrics feature is disabled. Off on OSS, older DataHub Cloud, and runs with no server connection (for example a `file` sink). |
+| `true`          | Request emission. Refused, with the reason in the ingestion report, where the server cannot accept these entities.                                                                                                              |
+| `false`         | Off, whatever the server says.                                                                                                                                                                                                  |
+
+Because nothing about the datasets changes, you can turn this on and off freely: there is no urn change and no migration.
+
+##### Project Name
+
+The `semanticModel` and `metric` urns are keyed by your dbt project name, read from `manifest.metadata.project_name` (dbt Core) or from the semantic models' package name (dbt Cloud). Since it is part of the entities' identity, pin it if it might change:
+
+```yaml
+source:
+  type: dbt
+  config:
+    emit_semantic_model_entities: true
+    semantic_model_project_name: jaffle_shop
+```
+
+If the project name cannot be determined, the run reports a failure and emits no semantic model or metric entities rather than inventing a placeholder name - the datasets are unaffected.
+
+When `platform_instance` is set it is folded into the path segment of these urns (`urn:li:semanticModel:(urn:li:dataPlatform:dbt,<instance>.<project>,semantic_layer)`), because `semanticModelKey` and `metricKey` have no platform-instance field of their own. It is not folded twice when `platform_instance` and the project name are the same, which is the documented setup for multi-project dbt.
+
+##### Limitations
+
+- **dbt Cloud has no `metrics:` block.** The Discovery API does not expose it, so only metrics from `create_metric: true` measures are ingested there. The ingestion report says so on every dbt Cloud run that emits these entities. Use the dbt Core source if you need the `metrics:` block.
+- **Metric type, filters and cumulative windows have no field of their own on `metricInfo`.** The type becomes a subtype; a filter is folded into the metric's expression as a `FILTER (WHERE ...)` clause, or stated as a trailing SQL comment where the expression cannot carry one (a ratio, or an author-written `expr`); a cumulative window becomes a trailing comment such as `/* cumulative over 7 day */`. dbt keeps filters as Jinja templates, so a folded filter is not always parseable SQL.
+- **Time-dimension granularity** is recorded only as "this is a time dimension" - the annotation has no field for the grain itself.
 
 #### Exposures
 

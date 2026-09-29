@@ -14,7 +14,6 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +22,7 @@ import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
@@ -130,11 +130,11 @@ public class StatelessTokenService {
     Objects.requireNonNull(accessToken);
     try {
       byte[] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
-      final String base64Key = Base64.getEncoder().encodeToString(apiKeySecretBytes);
-      final Jws<Claims> jws =
-          Jwts.parserBuilder().setSigningKey(base64Key).build().parseClaimsJws(accessToken);
+      final SecretKey key =
+          new SecretKeySpec(apiKeySecretBytes, this.signingAlgorithm.getJcaName());
+      final Jws<Claims> jws = Jwts.parser().verifyWith(key).build().parseSignedClaims(accessToken);
       validateTokenAlgorithm(jws.getHeader().getAlgorithm());
-      final Claims claims = jws.getBody();
+      final Claims claims = jws.getPayload();
       final String tokenVersion = claims.get(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.class);
       final String tokenType = claims.get(TokenClaims.TOKEN_TYPE_CLAIM_NAME, String.class);
       final String actorId = claims.get(TokenClaims.ACTOR_ID_CLAIM_NAME, String.class);
@@ -173,7 +173,7 @@ public class StatelessTokenService {
               .build();
 
       // Use the existing isActive check from ActorContext
-      if (!actorContext.isActive(aspectRetriever)) {
+      if (!actorContext.isActive(systemOperationContext, aspectRetriever)) {
         throw new TokenException("Actor is not active");
       }
     } catch (Exception e) {

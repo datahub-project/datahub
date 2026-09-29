@@ -117,6 +117,7 @@ class BigQueryTestConnection:
                     dataset_name=result[0].name,
                     tables={},
                     with_partitions=config.have_table_data_read_permission,
+                    use_legacy_table_stats=config.use_legacy_table_stats,
                     report=BigQueryV2Report(),
                 )
                 if len(list(tables)) == 0:

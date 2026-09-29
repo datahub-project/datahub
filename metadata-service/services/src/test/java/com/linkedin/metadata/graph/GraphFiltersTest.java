@@ -3,13 +3,18 @@ package com.linkedin.metadata.graph;
 import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 import static org.testng.Assert.*;
 
+import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import org.apache.commons.lang3.tuple.Pair;
 import org.testng.annotations.Test;
 
 public class GraphFiltersTest {
@@ -42,7 +47,9 @@ public class GraphFiltersTest {
     // Test from method
     Set<String> relationshipTypes = new HashSet<>(Arrays.asList("HAS", "OWNS"));
     RelationshipFilter relationshipFilter =
-        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+        new RelationshipFilter()
+            .setDirection(RelationshipDirection.OUTGOING)
+            .setOr(new ConjunctiveCriterionArray());
 
     GraphFilters fromFilters =
         GraphFilters.from(sourceFilter, relationshipTypes, relationshipFilter);
@@ -72,7 +79,9 @@ public class GraphFiltersTest {
     Set<String> destTypes = new HashSet<>(Arrays.asList("dataset", "schemaField"));
     Set<String> relationshipTypes = new HashSet<>(Arrays.asList("DownstreamOf", "Consumes"));
     RelationshipFilter relationshipFilter =
-        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+        new RelationshipFilter()
+            .setDirection(RelationshipDirection.OUTGOING)
+            .setOr(new ConjunctiveCriterionArray());
 
     GraphFilters filters =
         new GraphFilters(
@@ -90,6 +99,19 @@ public class GraphFiltersTest {
     assertEquals(filters.getRelationshipTypes(), relationshipTypes);
     assertEquals(filters.getRelationshipFilter(), relationshipFilter);
     assertEquals(filters.getRelationshipDirection(), RelationshipDirection.OUTGOING);
+  }
+
+  @Test
+  public void testConstructorNormalizesRelationshipFilterWithUnsetOr() {
+    RelationshipFilter unsetOrFilter =
+        new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING);
+    assertNull(unsetOrFilter.getOr());
+
+    GraphFilters filters = GraphFilters.from(EMPTY_FILTER, Set.of("HAS"), unsetOrFilter);
+
+    assertNotNull(filters.getRelationshipFilter().getOr());
+    assertTrue(filters.getRelationshipFilter().getOr().isEmpty());
+    assertEquals(filters.getRelationshipFilter().getDirection(), RelationshipDirection.OUTGOING);
   }
 
   @Test
@@ -208,5 +230,77 @@ public class GraphFiltersTest {
             GraphFilters.INCOMING_FILTER);
 
     assertFalse(populatedFilters.noResultsByType());
+  }
+
+  @Test
+  public void testForLineage() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    LineageRegistry lineageRegistry = opContext.getLineageRegistry();
+
+    GraphFilters filters = GraphFilters.forLineage(lineageRegistry);
+
+    // Should have empty entity/relationship type filters
+    assertEquals(filters.getSourceEntityFilter(), EMPTY_FILTER);
+    assertEquals(filters.getDestinationEntityFilter(), EMPTY_FILTER);
+    RelationshipFilter emptyRelationshipFilter =
+        new RelationshipFilter()
+            .setDirection(RelationshipDirection.INCOMING)
+            .setOr(new ConjunctiveCriterionArray());
+    assertEquals(filters.getRelationshipFilter(), emptyRelationshipFilter);
+    assertNull(filters.getSourceTypes());
+    assertNull(filters.getDestinationTypes());
+    assertTrue(filters.getRelationshipTypes().isEmpty());
+
+    // Should have triplets populated from the lineage registry
+    Set<Pair<String, LineageRegistry.EdgeInfo>> triplets = filters.getAllowedEdgeTriplets();
+    assertNotNull(triplets);
+    assertFalse(triplets.isEmpty());
+
+    // Verify triplets contains DownstreamOf on datasets
+    boolean hasDownstreamOf =
+        triplets.stream()
+            .anyMatch(
+                p ->
+                    p.getKey().equals("dataset")
+                        && p.getValue().getType().equals("DownstreamOf")
+                        && p.getValue().getDirection().equals(RelationshipDirection.OUTGOING));
+    assertTrue(hasDownstreamOf, "Expected dataset DownstreamOf edge in lineage triplets");
+
+    // Verify every triplet comes from the lineage registry
+    for (Pair<String, LineageRegistry.EdgeInfo> triplet : triplets) {
+      String entityType = triplet.getKey();
+      LineageRegistry.LineageSpec spec = lineageRegistry.getLineageSpecs().get(entityType);
+      assertNotNull(spec, "Entity type " + entityType + " should exist in lineage specs");
+      Set<LineageRegistry.EdgeInfo> allEdges = new HashSet<>();
+      allEdges.addAll(spec.getUpstreamEdges());
+      allEdges.addAll(spec.getDownstreamEdges());
+      assertTrue(
+          allEdges.contains(triplet.getValue()),
+          "Edge " + triplet.getValue() + " should exist in lineage spec for " + entityType);
+    }
+  }
+
+  @Test
+  public void testForLineageCoversAllRegistryEdges() {
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    LineageRegistry lineageRegistry = opContext.getLineageRegistry();
+
+    GraphFilters filters = GraphFilters.forLineage(lineageRegistry);
+    Set<Pair<String, LineageRegistry.EdgeInfo>> triplets = filters.getAllowedEdgeTriplets();
+
+    // Collect all expected triplets from the registry
+    Set<Pair<String, LineageRegistry.EdgeInfo>> expectedTriplets = new HashSet<>();
+    for (var entry : lineageRegistry.getLineageSpecs().entrySet()) {
+      String entityType = entry.getKey();
+      LineageRegistry.LineageSpec spec = entry.getValue();
+      for (LineageRegistry.EdgeInfo edge : spec.getUpstreamEdges()) {
+        expectedTriplets.add(Pair.of(entityType, edge));
+      }
+      for (LineageRegistry.EdgeInfo edge : spec.getDownstreamEdges()) {
+        expectedTriplets.add(Pair.of(entityType, edge));
+      }
+    }
+
+    assertEquals(triplets, expectedTriplets);
   }
 }

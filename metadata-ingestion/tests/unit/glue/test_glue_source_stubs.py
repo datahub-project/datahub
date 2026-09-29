@@ -1,6 +1,8 @@
+import base64
 import datetime
 import io
-from typing import Any, Dict
+import json
+from typing import Any, Dict, List
 
 from botocore.response import StreamingBody
 
@@ -48,6 +50,61 @@ target_database_tables = [
     }
 ]
 get_tables_response_for_target_database = {"TableList": target_database_tables}
+
+# A regular (non-resource-link) database that contains a mix of normal tables and
+# table-level resource links. Lake Formation can share individual tables across
+# accounts at table granularity, so the database itself has no TargetDatabase but
+# some tables expose a TargetTable pointer.
+mixed_database = {
+    "Name": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "CreateTableDefaultPermissions": [],
+    "CatalogId": "123412341234",
+}
+
+normal_table_in_mixed_database = {
+    "Name": "normal-table",
+    "DatabaseName": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "UpdateTime": datetime.datetime(
+        2021, 6, 9, 14, 14, 19, tzinfo=datetime.timezone.utc
+    ),
+    "Retention": 0,
+    "StorageDescriptor": {
+        "Columns": [{"Name": "id", "Type": "bigint", "Comment": ""}],
+        "Location": "s3://test-db-123412341234/normal-table",
+        "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+        "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+        "Compressed": False,
+        "NumberOfBuckets": 0,
+        "SerdeInfo": {
+            "Parameters": {"serialization.format": "1"},
+            "SerializationLibrary": "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe",
+        },
+        "SortColumns": [],
+        "StoredAsSubDirectories": False,
+    },
+    "TableType": "EXTERNAL_TABLE",
+    "Parameters": {"classification": "parquet"},
+    "CatalogId": "123412341234",
+}
+
+resource_link_table_in_mixed_database = {
+    "Name": "shared-transactions",
+    "DatabaseName": "mixed-database",
+    "CreateTime": datetime.datetime(2021, 6, 9, 14, 14, 19),
+    "TargetTable": {
+        "CatalogId": "432143214321",
+        "DatabaseName": "test-database",
+        "Name": "transactions",
+    },
+    "CatalogId": "123412341234",
+}
+
+get_databases_response_with_mixed_database = {"DatabaseList": [mixed_database]}
+get_tables_response_for_mixed_database = {
+    "TableList": [normal_table_in_mixed_database, resource_link_table_in_mixed_database]
+}
 
 get_databases_response = {
     "DatabaseList": [
@@ -105,7 +162,7 @@ tables_1 = [
         "Owner": "owner",
         "CreateTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "UpdateTime": datetime.datetime(
-            2021, 6, 9, 14, 17, 35, tzinfo=datetime.timezone.utc
+            2021, 6, 10, 12, 3, 31, tzinfo=datetime.timezone.utc
         ),
         "LastAccessTime": datetime.datetime(2021, 6, 9, 14, 17, 35),
         "Retention": 0,
@@ -1265,3 +1322,110 @@ def get_bucket_tagging() -> Dict[str, Any]:
 
 def get_object_tagging() -> Dict[str, Any]:
     return {"TagSet": [{"Key": "baz", "Value": "bob"}]}
+
+
+def _presto_view_text(original_sql: str, columns: List[Dict[str, str]]) -> str:
+    """Build an Athena/Presto-encoded ViewOriginalText for test fixtures."""
+    payload = json.dumps(
+        {
+            "originalSql": original_sql,
+            "catalog": "awsdatacatalog",
+            "schema": "my_db",
+            "columns": columns,
+        }
+    )
+    encoded = base64.b64encode(payload.encode()).decode()
+    return f"/* Presto View: {encoded} */"
+
+
+# Single database with a base table, a view over it, and a view over that view —
+# exercises the end-to-end VIRTUAL_VIEW path: View subtype, ViewProperties, and
+# (table + column-level) view lineage via the SqlParsingAggregator.
+get_databases_response_views = {
+    "DatabaseList": [
+        {
+            "Name": "my_db",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "CatalogId": "123412341234",
+        },
+    ]
+}
+
+get_tables_response_views = {
+    "TableList": [
+        {
+            "Name": "base_table",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "EXTERNAL_TABLE",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                    {"Name": "name", "Type": "string"},
+                ],
+                "Location": "s3://my-bucket/base_table",
+            },
+        },
+        {
+            "Name": "view_from_table",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": _presto_view_text(
+                "SELECT id, name FROM base_table",
+                [
+                    {"name": "id", "type": "varchar"},
+                    {"name": "name", "type": "varchar"},
+                ],
+            ),
+            "ViewExpandedText": "/* Presto View */",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                    {"Name": "name", "Type": "string"},
+                ],
+            },
+        },
+        {
+            "Name": "view_on_view",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": _presto_view_text(
+                "SELECT id FROM view_from_table",
+                [{"name": "id", "type": "varchar"}],
+            ),
+            "ViewExpandedText": "/* Presto View */",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                ],
+            },
+        },
+        {
+            # Raw (non-Presto) view authored by Spark/Hive: SQL is stored verbatim
+            # with backtick-quoted identifiers, which parse under the Spark/Hive
+            # dialect but NOT under Trino — so resolving its lineage proves per-view
+            # dialect detection works end-to-end.
+            "Name": "spark_view",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": "SELECT `id`, `name` FROM `base_table`",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                    {"Name": "name", "Type": "string"},
+                ],
+            },
+        },
+    ]
+}

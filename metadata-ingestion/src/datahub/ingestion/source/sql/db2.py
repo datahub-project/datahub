@@ -26,7 +26,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +103,12 @@ class Db2Config(BasicSQLAlchemyConfig):
             {**self.uri_args, **(uri_opts or {})}, database
         )
 
+    # No probe_catalog_scope here on purpose. sqlglot has no db2 dialect, so
+    # sql_gate cannot parse a DB2 query and refuses it at dialect resolution --
+    # before any scope is consulted. Declaring SYSCAT relations would read as though
+    # `probe sql` worked on DB2, which it cannot; the typed commands do. Revisit if
+    # sqlglot gains a db2 dialect, and see test_dialects_the_gate_cannot_resolve.
+
 
 def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
@@ -110,7 +116,7 @@ def _quote_identifier(value: str) -> str:
 
 @platform_name("IBM Db2", id="db2")
 @config_class(Db2Config)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

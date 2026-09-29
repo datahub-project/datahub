@@ -1,0 +1,10 @@
+{
+    "appearance.subTitle": "Gestione sus ajustes de apariencia.",
+    "appearance.title": "Apariencia",
+    "language.description": "Elija su idioma de visualización preferido",
+    "language.title": "Idioma de la interfaz de usuario",
+    "noSettings": "No se han encontrado ajustes de apariencia.",
+    "showApplications.description": "Las aplicaciones son otra forma de organizar sus datos, similar a los Dominios. Están ocultas de forma predeterminada.",
+    "showApplications.successMessage": "¡Ajuste actualizado!",
+    "showApplications.title": "Mostrar aplicaciones"
+}

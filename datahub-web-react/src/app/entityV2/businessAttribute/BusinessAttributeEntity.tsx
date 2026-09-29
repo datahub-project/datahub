@@ -1,4 +1,5 @@
 import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
+import i18next from 'i18next';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -52,9 +53,9 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
 
     getPathName = () => 'business-attribute';
 
-    getEntityName = () => 'Business Attribute';
+    getEntityName = () => i18next.t('entity.types:businessAttribute.name');
 
-    getCollectionName = () => 'Business Attributes';
+    getCollectionName = () => i18next.t('entity.types:businessAttribute.namePlural');
 
     getGraphName = () => 'businessAttribute';
 
@@ -103,15 +104,15 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
                 isNameEditable
                 tabs={[
                     {
-                        name: 'Documentation',
+                        name: i18next.t('entity.types:tab.documentation'),
                         component: DocumentationTab,
                     },
                     {
-                        name: 'Related Entities',
+                        name: i18next.t('entity.types:businessAttribute.relatedEntitiesTab'),
                         component: BusinessAttributeRelatedEntity,
                     },
                     {
-                        name: 'Properties',
+                        name: i18next.t('entity.types:tab.properties'),
                         component: PropertiesTab,
                     },
                 ]}

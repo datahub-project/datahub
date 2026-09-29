@@ -1,10 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.models.StructuredPropertyUtils.toStructuredPropertyFacetName;
 import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -47,8 +47,10 @@ import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
 import org.opensearch.search.aggregations.bucket.missing.ParsedMissing;
+import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
 import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 
 @Slf4j
 public class AggregationQueryBuilder {
@@ -59,13 +61,29 @@ public class AggregationQueryBuilder {
   private final Set<String> allFacetFields;
   private final Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations;
 
+  /**
+   * Search V3 entity indices keep keyword fields at the root, so facets aggregate on the field
+   * itself instead of a {@code .keyword} subfield.
+   */
+  private final boolean v3KeywordReadEnabled;
+
   private Map<String, String> filtersToDisplayName;
 
+  /** V2 facets only; production passes the V3 read decision through the other constructor. */
+  @VisibleForTesting
   public AggregationQueryBuilder(
       @Nonnull final SearchConfiguration configs,
       @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations) {
+    this(configs, entitySearchAnnotations, false);
+  }
+
+  public AggregationQueryBuilder(
+      @Nonnull final SearchConfiguration configs,
+      @Nonnull Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations,
+      final boolean v3KeywordReadEnabled) {
     this.configs = Objects.requireNonNull(configs, "configs must not be null");
     this.entitySearchAnnotations = entitySearchAnnotations;
+    this.v3KeywordReadEnabled = v3KeywordReadEnabled;
 
     List<SearchableAnnotation> annotations =
         this.entitySearchAnnotations.values().stream()
@@ -155,11 +173,15 @@ public class AggregationQueryBuilder {
             aggBuilder =
                 INDEX_VIRTUAL_FIELD.equalsIgnoreCase(specialTypeFields.get(1))
                     ? AggregationBuilders.missing(inputFacet)
-                        .field(getAggregationField(ES_INDEX_FIELD, opContext.getAspectRetriever()))
+                        .field(
+                            getAggregationField(
+                                opContext, entityTypeField(), opContext.getAspectRetriever()))
                     : AggregationBuilders.missing(inputFacet)
                         .field(
                             getAggregationField(
-                                specialTypeFields.get(1), opContext.getAspectRetriever()));
+                                opContext,
+                                specialTypeFields.get(1),
+                                opContext.getAspectRetriever()));
             break;
           default:
             throw new UnsupportedOperationException(
@@ -168,12 +190,9 @@ public class AggregationQueryBuilder {
       } else {
         aggBuilder =
             facet.equalsIgnoreCase(INDEX_VIRTUAL_FIELD)
-                ? AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField(ES_INDEX_FIELD, opContext.getAspectRetriever()))
-                    .size(maxTermBuckets)
-                    .minDocCount(0)
+                ? entityTypeAggregation(opContext, inputFacet, maxTermBuckets)
                 : AggregationBuilders.terms(inputFacet)
-                    .field(getAggregationField(facet, opContext.getAspectRetriever()))
+                    .field(getAggregationField(opContext, facet, opContext.getAspectRetriever()))
                     .size(maxTermBuckets);
       }
       if (lastAggBuilder != null) {
@@ -185,16 +204,42 @@ public class AggregationQueryBuilder {
     return lastAggBuilder;
   }
 
+  /** V3 documents store their entity type; V2 derives it from the index name. */
+  private String entityTypeField() {
+    return v3KeywordReadEnabled ? INDEX_VIRTUAL_FIELD : ES_INDEX_FIELD;
+  }
+
+  private TermsAggregationBuilder entityTypeAggregation(
+      @Nonnull OperationContext opContext, @Nonnull String name, int maxTermBuckets) {
+    TermsAggregationBuilder aggBuilder =
+        AggregationBuilders.terms(name)
+            .field(
+                getAggregationField(opContext, entityTypeField(), opContext.getAspectRetriever()))
+            .size(maxTermBuckets)
+            .minDocCount(0);
+    if (v3KeywordReadEnabled) {
+      // A V3 index can hold several entity types. Report only the requested ones, including those
+      // without hits, like the per-index buckets on V2.
+      aggBuilder.includeExclude(
+          new IncludeExclude(
+              entitySearchAnnotations.keySet().stream()
+                  .map(EntitySpec::getName)
+                  .toArray(String[]::new),
+              null));
+    }
+    return aggBuilder;
+  }
+
   private String getAggregationField(
-      final String facet, @Nullable AspectRetriever aspectRetriever) {
+      @Nullable final Object opContext,
+      final String facet,
+      @Nullable AspectRetriever aspectRetriever) {
     if (facet.startsWith("has")) {
       // Boolean hasX field, not a keyword field. Return the name of the original facet.
       return facet;
     }
-    // intercept structured property if it exists
-    return toStructuredPropertyFacetName(facet, aspectRetriever)
-        // Otherwise assume that this field is of keyword type.
-        .orElse(ESUtils.toKeywordField(facet, false, aspectRetriever));
+    // Structured properties and keyword fields share one resolver (SP type → parent vs .keyword).
+    return ESUtils.toKeywordField(opContext, facet, v3KeywordReadEnabled, aspectRetriever);
   }
 
   List<String> getDefaultFacetFieldsFromAnnotation(final SearchableAnnotation annotation) {
@@ -239,10 +284,12 @@ public class AggregationQueryBuilder {
   List<AggregationMetadata> extractAggregationMetadata(
       @Nonnull SearchResponse searchResponse,
       @Nullable Filter filter,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
     final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
     if (searchResponse.getAggregations() == null) {
-      return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
+      return addFiltersToAggregationMetadata(
+          aggregationMetadataList, filter, opContext, aspectRetriever);
     }
     for (Map.Entry<String, Aggregation> entry :
         searchResponse.getAggregations().getAsMap().entrySet()) {
@@ -253,7 +300,8 @@ public class AggregationQueryBuilder {
         processMissingAggregations(entry, aggregationMetadataList);
       }
     }
-    return addFiltersToAggregationMetadata(aggregationMetadataList, filter, aspectRetriever);
+    return addFiltersToAggregationMetadata(
+        aggregationMetadataList, filter, opContext, aspectRetriever);
   }
 
   public void processTermAggregations(
@@ -312,12 +360,14 @@ public class AggregationQueryBuilder {
       Terms.Bucket bucket, Map<String, Long> aggResult, boolean includeZeroes) {
     final String key = bucket.getKeyAsString();
     String finalKey = key;
-    try {
-      // if the value is a date string, convert to milliseconds since epoch
-      OffsetDateTime time = OffsetDateTime.parse(key);
-      finalKey = String.valueOf(time.toEpochSecond() * 1000);
-    } catch (DateTimeParseException e) {
-      // do nothing, this is expected if the value is not a date
+    if (looksLikeIsoOffsetDateTime(key)) {
+      try {
+        // if the value is a date string, convert to milliseconds since epoch
+        OffsetDateTime time = OffsetDateTime.parse(key);
+        finalKey = String.valueOf(time.toEpochSecond() * 1000);
+      } catch (DateTimeParseException e) {
+        // do nothing, this is expected if the value is not a date
+      }
     }
     // Gets filtered sub aggregation doc count if exist
     Map<String, Long> subAggs = recursivelyAddNestedSubAggs(bucket.getAggregations());
@@ -329,6 +379,21 @@ public class AggregationQueryBuilder {
     if (includeZeroes || docCount > 0) {
       aggResult.put(finalKey, docCount);
     }
+  }
+
+  // Minimal valid OffsetDateTime.parse() input is "yyyy-MM-ddTHH:mmZ" (17 chars)
+  private static final int MIN_ISO_OFFSET_DATE_TIME_LENGTH = "2000-01-01T00:00Z".length();
+
+  /**
+   * Cheap check for strings that cannot possibly be a valid {@link OffsetDateTime}, so that {@link
+   * #processTermBucket} avoids paying for a {@link DateTimeParseException} on every non-date bucket
+   * key (A very common case).
+   */
+  private static boolean looksLikeIsoOffsetDateTime(String value) {
+    return value.length() >= MIN_ISO_OFFSET_DATE_TIME_LENGTH
+        && value.charAt(4) == '-'
+        && value.charAt(7) == '-'
+        && value.charAt(10) == 'T';
   }
 
   private static void recurseMissingAgg(ParsedMissing missing, Map<String, Long> aggResult) {
@@ -364,15 +429,17 @@ public class AggregationQueryBuilder {
   public List<AggregationMetadata> addFiltersToAggregationMetadata(
       @Nonnull final List<AggregationMetadata> originalMetadata,
       @Nullable final Filter filter,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
     if (filter == null) {
       return originalMetadata;
     }
     if (filter.getOr() != null) {
-      addOrFiltersToAggregationMetadata(filter.getOr(), originalMetadata, aspectRetriever);
+      addOrFiltersToAggregationMetadata(
+          filter.getOr(), originalMetadata, opContext, aspectRetriever);
     } else if (filter.getCriteria() != null) {
       addCriteriaFiltersToAggregationMetadata(
-          filter.getCriteria(), originalMetadata, aspectRetriever);
+          filter.getCriteria(), originalMetadata, opContext, aspectRetriever);
     }
     return originalMetadata;
   }
@@ -380,26 +447,30 @@ public class AggregationQueryBuilder {
   void addOrFiltersToAggregationMetadata(
       @Nonnull final ConjunctiveCriterionArray or,
       @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
     for (ConjunctiveCriterion conjunction : or) {
       // For each item in the conjunction, inject an empty aggregation if necessary
       addCriteriaFiltersToAggregationMetadata(
-          conjunction.getAnd(), originalMetadata, aspectRetriever);
+          conjunction.getAnd(), originalMetadata, opContext, aspectRetriever);
     }
   }
 
   private void addCriteriaFiltersToAggregationMetadata(
       @Nonnull final CriterionArray criteria,
       @Nonnull final List<AggregationMetadata> originalMetadata,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
     for (Criterion criterion : criteria) {
-      addCriterionFiltersToAggregationMetadata(criterion, originalMetadata, aspectRetriever);
+      addCriterionFiltersToAggregationMetadata(
+          criterion, originalMetadata, opContext, aspectRetriever);
     }
   }
 
   public void addCriterionFiltersToAggregationMetadata(
       @Nonnull final Criterion criterion,
       @Nonnull final List<AggregationMetadata> aggregationMetadata,
+      @Nullable final OperationContext opContext,
       @Nullable AspectRetriever aspectRetriever) {
 
     // We should never see duplicate aggregation for the same field in aggregation metadata list.
@@ -408,7 +479,7 @@ public class AggregationQueryBuilder {
             .collect(Collectors.toMap(AggregationMetadata::getName, agg -> agg));
 
     // Map a filter criterion to a facet field (e.g. domains.keyword -> domains)
-    final String finalFacetField = toParentField(criterion.getField(), aspectRetriever);
+    final String finalFacetField = toParentField(opContext, criterion.getField(), aspectRetriever);
 
     if (finalFacetField == null) {
       log.warn(

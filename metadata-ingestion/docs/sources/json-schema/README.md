@@ -2,7 +2,7 @@
 
 Json Schema is a storage and lakehouse platform. Learn more in the [official Json Schema documentation](https://json-schema.org/).
 
-The DataHub integration for Json Schema covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Json Schema covers file/lakehouse metadata entities such as datasets, paths, and containers. It also captures stateful deletion detection.
 
 ## Concept Mapping
 

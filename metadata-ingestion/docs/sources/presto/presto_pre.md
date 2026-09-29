@@ -62,7 +62,8 @@ source:
 **For complete details**, see:
 
 - [Hive Metastore Connector Documentation](../hive-metastore)
-  :::
+
+:::
 
 #### Related Documentation
 

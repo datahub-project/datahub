@@ -42,12 +42,11 @@ public class AddTermsResolverTest {
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN),
+        Urn.createFromString(TEST_TERM_1_URN),
+        Urn.createFromString(TEST_TERM_2_URN));
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
 
@@ -65,11 +64,8 @@ public class AddTermsResolverTest {
     Mockito.verify(mockService, Mockito.times(1))
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), eq(false));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
+    // Term and resource existence must both go through the batched call.
+    verifyExistenceResolvedInBatches(mockService);
   }
 
   @Test
@@ -92,12 +88,11 @@ public class AddTermsResolverTest {
                 eq(0L)))
         .thenReturn(originalTerms);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(
+        mockService,
+        Urn.createFromString(TEST_ENTITY_URN),
+        Urn.createFromString(TEST_TERM_1_URN),
+        Urn.createFromString(TEST_TERM_2_URN));
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
 
@@ -115,11 +110,8 @@ public class AddTermsResolverTest {
     Mockito.verify(mockService, Mockito.times(1))
         .ingestProposal(any(), Mockito.any(AspectsBatchImpl.class), eq(false));
 
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true));
-
-    Mockito.verify(mockService, Mockito.times(1))
-        .exists(any(), eq(Urn.createFromString(TEST_TERM_2_URN)), eq(true));
+    // Term and resource existence must both go through the batched call.
+    verifyExistenceResolvedInBatches(mockService);
   }
 
   @Test
@@ -134,10 +126,7 @@ public class AddTermsResolverTest {
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(true);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
-        .thenReturn(false);
+    stubExistingUrns(mockService, Urn.createFromString(TEST_ENTITY_URN));
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
 
@@ -166,10 +155,7 @@ public class AddTermsResolverTest {
                 eq(0L)))
         .thenReturn(null);
 
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_ENTITY_URN)), eq(true)))
-        .thenReturn(false);
-    Mockito.when(mockService.exists(any(), eq(Urn.createFromString(TEST_TERM_1_URN)), eq(true)))
-        .thenReturn(true);
+    stubExistingUrns(mockService, Urn.createFromString(TEST_TERM_1_URN));
 
     AddTermsResolver resolver = new AddTermsResolver(mockService);
 

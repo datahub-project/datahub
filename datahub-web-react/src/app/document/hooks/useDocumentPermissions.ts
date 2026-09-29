@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 
+import { Document, DocumentSourceType } from '@types';
+
 interface DocumentPermissions {
     canCreate: boolean;
     canEditContents: boolean;
@@ -20,12 +22,17 @@ interface DocumentPermissions {
  * - Document Contents, Title, State, Type: Requires EDIT_ENTITY_DOCS privilege for asset
  * - Owners, Tags, Terms, Domain, Data Product: Requires the respective EDIT_X privilege
  * - Create/Delete/Move: Requires EDIT_ENTITY or MANAGE_DOCUMENTS privilege.
+ *
+ * External documents (ingested from Confluence, Notion, etc.) treat state and type as
+ * read-only because ingestion owns those fields and would overwrite any UI edits.
  */
 export function useDocumentPermissions(_documentUrn?: string): DocumentPermissions {
     const { entityData } = useEntityData();
     const { platformPrivileges } = useUserContext();
 
     return useMemo(() => {
+        const isExternal = (entityData as Document)?.info?.source?.sourceType === DocumentSourceType.External;
+
         // Platform-level privilege check
         const hasManageDocuments = platformPrivileges?.manageDocuments || false;
 
@@ -37,13 +44,19 @@ export function useDocumentPermissions(_documentUrn?: string): DocumentPermissio
         const canDelete = canManageEntity || hasManageDocuments;
         const canMove = canManageEntity || hasManageDocuments;
 
+        // Edit rights require entity data to be loaded. Once loaded, either the entity-level
+        // canEditDescription privilege OR the platform-level manageDocuments privilege grants access.
+        const canEditContents = !!entityData && (canEditDescription || hasManageDocuments);
+        const canEditTitle = !!entityData && (canEditDescription || hasManageDocuments);
+        // Ingestion owns state and type for external documents — UI edits would be overwritten.
+        const canEditState = isExternal ? false : !!entityData && (canEditDescription || hasManageDocuments);
+
         return {
             canCreate: hasManageDocuments,
-            // All the same here.
-            canEditContents: canEditDescription,
-            canEditTitle: canEditDescription,
-            canEditState: canEditDescription,
-            canEditType: canEditDescription,
+            canEditContents,
+            canEditTitle,
+            canEditState,
+            canEditType: isExternal ? false : !!entityData && (canEditDescription || hasManageDocuments),
             canDelete,
             canMove,
         };

@@ -66,6 +66,7 @@ export type EntityTab = {
 };
 
 export type EntitySidebarTab = {
+    key?: string;
     name: string;
     component: React.FunctionComponent<EntityTabProps>;
     icon: React.FunctionComponent<any>;

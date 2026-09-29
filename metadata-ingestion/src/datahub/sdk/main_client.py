@@ -128,17 +128,21 @@ class DataHubClient:
         return LineageClient(self)
 
     @property
-    def assertions(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues
+    def assertions(self):
         try:
-            from acryl_datahub_cloud.sdk import AssertionsClient
+            from acryl_datahub_cloud.sdk import (  # type: ignore[import-not-found]
+                AssertionsClient,
+            )
+
+            return AssertionsClient(self)
         except ImportError as e:
-            if "acryl_datahub_cloud" in str(e):
-                raise SdkUsageError(
-                    "AssertionsClient is not installed, please install it with `pip install acryl-datahub-cloud`"
-                ) from e
-            else:
-                raise e
-        return AssertionsClient(self)
+            # Fallback only when the cloud package is missing. Re-raise other
+            # ImportErrors (broken deps inside an installed cloud package).
+            if "acryl_datahub_cloud" not in str(e):
+                raise
+            from datahub.sdk.assertion_client import AssertionClient
+
+            return AssertionClient(self)
 
     @property
     def subscriptions(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues

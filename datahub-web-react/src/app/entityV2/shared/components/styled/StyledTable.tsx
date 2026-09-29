@@ -24,7 +24,7 @@ export const StyledTable = styled(Table)`
         > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not(
             [colspan]
         )::before {
-        border: 1px solid ${(props) => props.theme.colors.bgSurface};
+        border: 1px solid ${(props) => props.theme.colors.border};
     }
 
     &&& tr {
@@ -35,3 +35,4 @@ export const StyledTable = styled(Table)`
         background-color: inherit;
     }
 ` as typeof Table;
+// this above line preserves the Table component's generic-ness

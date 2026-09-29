@@ -89,7 +89,7 @@ query getContainerEntitySummary($urn: String!) {
             types: []
             query: "*"
             facets: ["_entityType␞typeNames", "_entityType"]
-            orFilters: [{ and: [{ field: "container", values: [$urn], value: $urn }] }]
+            orFilters: [{ and: [{ field: "container", values: [$urn] }] }]
         }
     ) {
         facets {

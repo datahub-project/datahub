@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
@@ -14,6 +15,7 @@ const ColumnStatsContainer = styled.div`
 `;
 
 const ColumnStatsV2 = () => {
+    const { t } = useTranslation('entity.profile.stats');
     const [searchQuery, setSearchQuery] = useState<string>('');
     const { columnStats } = useGetStatsData();
     const {
@@ -43,12 +45,12 @@ const ColumnStatsV2 = () => {
     return (
         <ColumnStatsContainer data-testid="column-stats-container">
             <PageTitle
-                title="Column Stats"
-                subTitle="View latest stats for each column in this table."
+                title={t('columnStatsV2.title')}
+                subTitle={t('columnStatsV2.subtitle')}
                 variant="sectionHeader"
             />
             <SearchBar
-                placeholder="Search Column Name"
+                placeholder={t('columnStatsV2.searchPlaceholder')}
                 value={searchQuery}
                 onChange={(value) => handleSearch(value)}
                 data-testid="column-stats-search-bar"

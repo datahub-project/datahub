@@ -124,7 +124,13 @@ public class HdfsPathDataset extends SparkDataset {
     return null;
   }
 
-  private static String getRawNameWithoutPartition(String pathUri, String partitionRegexp) {
+  /**
+   * Strips a trailing partition (matched by {@code partitionRegexp}, anchored at the end) from a
+   * path. Public so the converter can apply the same {@code file_partition_regexp} logic to
+   * bare-namespace FS datasets (e.g. {@code file}, {@code dbfs}) that don't flow through {@link
+   * #create}.
+   */
+  public static String getRawNameWithoutPartition(String pathUri, String partitionRegexp) {
     String result = pathUri.replaceAll(partitionRegexp + "$", "");
     // Remove trailing slash
     return result.replaceAll("/$", "");

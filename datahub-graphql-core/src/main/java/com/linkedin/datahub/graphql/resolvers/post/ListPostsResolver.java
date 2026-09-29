@@ -114,11 +114,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
           new AndFilterInput(
               List.of(
                   new FacetFilterInput(
-                      "target",
-                      null,
-                      ImmutableList.of(maybeResourceUrn),
-                      false,
-                      FilterOperator.EQUAL))));
+                      "target", ImmutableList.of(maybeResourceUrn), false, FilterOperator.EQUAL))));
     }
 
     return ResolverUtils.buildFilter(null, filters);

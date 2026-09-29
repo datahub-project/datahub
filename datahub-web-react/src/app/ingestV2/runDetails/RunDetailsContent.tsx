@@ -3,6 +3,7 @@ import { ApolloError } from '@apollo/client';
 import { Icon, Pill } from '@components';
 import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -41,6 +42,7 @@ interface Props {
 }
 
 export default function RunDetailsContent({ urn, data, loading, error, refetch, setTitlePill }: Props) {
+    const { t } = useTranslation('ingestion');
     const location = useLocation();
     const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
     const status = getIngestionSourceStatus(result);
@@ -49,7 +51,6 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
 
     const sendAnalyticsTabViewedEvent = useCallback(
         (tab: TabType) => {
-            if (!result) return;
             analytics.event({
                 type: EventType.IngestionExecutionResultViewedEvent,
                 executionUrn: urn,
@@ -58,7 +59,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                 sourceType: data?.executionRequest?.source?.type,
             });
         },
-        [result, urn, status, data?.executionRequest?.source?.type],
+        [urn, status, data?.executionRequest?.source?.type],
     );
 
     const selectTab = (tab: TabType) => {
@@ -88,6 +89,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                     label={getExecutionRequestStatusDisplayText(status)}
                     color={resultColor}
                     size="md"
+                    dataTestId="run-details-status-pill"
                 />
             ),
         [ResultIcon, resultColor, status],
@@ -138,8 +140,8 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
     );
     return (
         <ContentWrapper>
-            {!data && loading && <Message type="loading" content="Loading execution run details..." />}
-            {error && message.error('Failed to load execution run details :(')}
+            {!data && loading && <Message type="loading" content={t('runDetails.loading')} />}
+            {error && message.error(t('runDetails.loadError'))}
             <Tabs
                 tabs={tabs}
                 selectedTab={selectedTab}
