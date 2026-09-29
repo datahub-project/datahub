@@ -127,8 +127,11 @@ function isDisabledControl(element: ReactElement): boolean {
         __ANT_BUTTON?: boolean;
         __ANT_SWITCH?: boolean;
         __ANT_RADIO?: boolean;
+        displayName?: string;
     };
-    return !!(componentType.__ANT_BUTTON || componentType.__ANT_SWITCH || componentType.__ANT_RADIO);
+    if (componentType.__ANT_BUTTON || componentType.__ANT_SWITCH || componentType.__ANT_RADIO) return true;
+    // Alchemy Button renders a native <button> and forwards `disabled` onto it.
+    return componentType.displayName === 'Button';
 }
 
 function assignRef(ref: Ref<HTMLElement> | undefined, node: HTMLElement | null): void {

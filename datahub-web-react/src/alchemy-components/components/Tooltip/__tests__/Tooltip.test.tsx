@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Button, Tooltip } from '@components';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
@@ -43,6 +43,26 @@ describe('Tooltip', () => {
         renderTooltip('A very long description'.repeat(50), true);
 
         expect(screen.getByRole('tooltip').querySelector('.alchemy-floating-overlay-clamp')).toBeInTheDocument();
+    });
+
+    it('opens from a wrapper when the trigger is a disabled button', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Tooltip title="Missing permission">
+                    <Button disabled>Resolve</Button>
+                </Tooltip>
+            </ThemeProvider>,
+        );
+
+        const button = screen.getByRole('button', { name: 'Resolve' });
+        expect(button.parentElement?.tagName).toBe('SPAN');
+
+        vi.useFakeTimers();
+        fireEvent.mouseEnter(button.parentElement as HTMLElement);
+        vi.advanceTimersByTime(100);
+
+        expect(screen.getByRole('tooltip')).toHaveTextContent('Missing permission');
+        vi.useRealTimers();
     });
 
     it('forwards a click handler placed on the tooltip itself', () => {

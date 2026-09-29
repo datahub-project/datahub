@@ -9,6 +9,10 @@ import HealthIcon from '@app/previewV2/HealthIcon';
 
 import { Entity } from '@types';
 
+// The hover card itself renders at 1100 (see HoverEntityTooltip), so badge overlays opened from
+// inside it must sit above that or they land behind the card. Matches HealthIcon's popover.
+const NESTED_BADGE_OVERLAY_Z_INDEX = 1200;
+
 const Badges = styled.div`
     display: flex;
     align-items: center;
@@ -43,12 +47,19 @@ export default function HoverCardStatusBadges({ entity, properties, entityUrl }:
     return (
         <Badges>
             {deprecation?.deprecated && (
-                <DeprecationIcon urn={entity.urn} deprecation={deprecation} showUndeprecate={false} showText={false} />
+                <DeprecationIcon
+                    urn={entity.urn}
+                    deprecation={deprecation}
+                    showUndeprecate={false}
+                    showText={false}
+                    zIndexOverride={NESTED_BADGE_OVERLAY_Z_INDEX}
+                />
             )}
             {health.length > 0 && <HealthIcon urn={entity.urn} health={health} baseUrl={entityUrl} />}
             <StructuredPropertyBadge
                 structuredProperties={structuredProperties}
                 platformUrn={properties?.platform?.urn}
+                zIndex={NESTED_BADGE_OVERLAY_Z_INDEX}
             />
             <VersioningBadge versionProperties={versionProperties} showPopover={false} />
         </Badges>

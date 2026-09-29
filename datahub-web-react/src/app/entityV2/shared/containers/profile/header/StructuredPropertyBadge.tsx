@@ -37,9 +37,11 @@ const BadgeContainer = styled.div`
 interface Props {
     structuredProperties?: StructuredProperties | null;
     platformUrn?: string | null;
+    /** Raise the tooltip when the badge itself sits inside another overlay (e.g. the entity hover card). */
+    zIndex?: number;
 }
 
-const StructuredPropertyBadge = ({ structuredProperties, platformUrn }: Props) => {
+const StructuredPropertyBadge = ({ structuredProperties, platformUrn, zIndex }: Props) => {
     const { t } = useTranslation('entity.shared.containers');
     const badgeStructuredProperty = structuredProperties?.properties?.find((prop) =>
         filterForAssetBadge(prop, platformUrn),
@@ -81,7 +83,12 @@ const StructuredPropertyBadge = ({ structuredProperties, platformUrn }: Props) =
     };
 
     return (
-        <StyledTooltip showArrow={false} title={<BadgeTooltip />} overlayInnerStyle={{ width: 250, padding: 16 }}>
+        <StyledTooltip
+            showArrow={false}
+            title={<BadgeTooltip />}
+            overlayInnerStyle={{ width: 250, padding: 16 }}
+            zIndex={zIndex}
+        >
             <BadgeContainer>
                 <Pill label={propRow?.values[0]?.value?.toString() || ''} size="sm" color="primary" clickable={false} />
             </BadgeContainer>

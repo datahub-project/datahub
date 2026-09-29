@@ -101,8 +101,9 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
     const { entityData } = useEntityData();
     const dataset = entityData as any;
 
-    // To determine the popularity for the dataset, we need to pull out the stats summary.
-    const statsSummary = dataset?.statsSummary || statsSummaryFromProps;
+    // An explicit summary wins. The hover card passes the hovered entity's stats, and falling
+    // back to the page entity first painted that page's popularity bars on the card.
+    const statsSummary = statsSummaryFromProps || dataset?.statsSummary;
     const viewCountPercentileLast30Days = statsSummary?.viewCountPercentileLast30Days;
     const queryCountPercentileLast30Days = statsSummary?.queryCountPercentileLast30Days;
     const uniqueUserPercentileLast30Days = statsSummary?.uniqueUserPercentileLast30Days;

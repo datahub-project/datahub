@@ -168,15 +168,20 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
         hasPropagationDetails(propagationDetails) ||
         !!ownershipRole;
 
+    // Each parent list comes back nearest-first. Reverse each one on its own so a glossary
+    // path, a domain path, and a container path all read root → leaf. Reversing the combined
+    // list would do the same to each path and would also swap the order of the three groups.
     const crumbs = [
-        ...(properties?.parentNodes?.nodes ?? []).map((node) => entityRegistry.getDisplayName(node.type, node)),
-        ...(properties?.parentDomains?.domains ?? []).map((parentDomain) =>
-            entityRegistry.getDisplayName(parentDomain.type, parentDomain),
-        ),
-        ...(properties?.parentContainers?.containers ?? []).map((container) =>
-            entityRegistry.getDisplayName(container.type, container),
-        ),
-    ].reverse();
+        ...(properties?.parentContainers?.containers ?? [])
+            .map((container) => entityRegistry.getDisplayName(container.type, container))
+            .reverse(),
+        ...(properties?.parentDomains?.domains ?? [])
+            .map((parentDomain) => entityRegistry.getDisplayName(parentDomain.type, parentDomain))
+            .reverse(),
+        ...(properties?.parentNodes?.nodes ?? [])
+            .map((node) => entityRegistry.getDisplayName(node.type, node))
+            .reverse(),
+    ];
 
     return (
         // The card renders in a portal, but React still bubbles its clicks to the trigger's ancestors.
