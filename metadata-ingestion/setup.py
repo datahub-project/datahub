@@ -246,7 +246,8 @@ looker_common = {
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<4.0.0",
-    "google-cloud-bigquery<4.0.0",
+    # >=3.14.0 for QueryJobConfig.job_timeout_ms (partition-fetch probe timeout).
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
@@ -330,7 +331,8 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     # >= 4.7.1 for CVE-2026-15925: the connector accepted a certificate signed by any
     # trusted CA for any domain without matching the requested host. 4.7.0 was yanked.
-    "snowflake-connector-python>=4.7.1,<5.0.0",
+    # Floor is 4.7.3: 4.7.1/4.7.2 reject valid certificates for account locators with underscores.
+    "snowflake-connector-python>=4.7.3,<5.0.0",
     "pandas<3.0.0",
     # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
     # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
@@ -894,7 +896,9 @@ plugins: Dict[str, Set[str]] = {
     "quicksight": aws_common | sqlglot_lib,
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
-    "sigma": sqlglot_lib | usage_common | {"requests<3.0.0"},
+    # requests>=2.27 for requests.exceptions.JSONDecodeError, which the
+    # source references at import time to classify a malformed response.
+    "sigma": sqlglot_lib | usage_common | {"requests>=2.27,<3.0.0"},
     # pycarlo is Monte Carlo's official sgqlc-based GraphQL client over the MCD API.
     "montecarlo": {"pycarlo>=0.15.262,<1.0.0", "tenacity>=8.0.1,!=8.4.0,<9.0.0"},
     "sac": sac,
@@ -904,8 +908,10 @@ plugins: Dict[str, Set[str]] = {
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
-        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
-        "vcrpy>=8.0.0,<9.0",
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError);
+        # 8.2.0+ required for aiohttp 3.14, which removed streams.AsyncStreamReaderMixin
+        # that older vcrpy aiohttp stubs subclass.
+        "vcrpy>=8.2.0,<9.0",
         # responses library for HTTP replay - better compatibility with custom SDK transports
         # (e.g., Looker SDK) that break with VCR's urllib3 patching
         "responses>=0.25.0,<1.0",

@@ -1143,9 +1143,21 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         border-color: ${(props) => props.theme.colors.borderDisabled};
         color: ${(props) => props.theme.colors.textDisabled};
     }
-    .ant-pagination-item-link-icon,
     .ant-pagination-item-active a,
     .ant-pagination-item-active:hover a {
+        color: ${(props) => props.theme.colors.textBrand};
+    }
+    /* antd paints the jump-page ellipsis with a translucent black that disappears on the dark-mode
+       surface. Match the page numbers beside it instead. The full descendant chain is needed to
+       reach antd's own specificity. */
+    .ant-pagination-jump-prev .ant-pagination-item-container .ant-pagination-item-ellipsis,
+    .ant-pagination-jump-next .ant-pagination-item-container .ant-pagination-item-ellipsis {
+        color: ${(props) => props.theme.colors.text};
+    }
+    /* The double-arrow swapped in on hover has the same problem: antd hardcodes it to the compiled
+       primary, which is too dark to read against the dark-mode surface. */
+    .ant-pagination-jump-prev .ant-pagination-item-container .ant-pagination-item-link-icon,
+    .ant-pagination-jump-next .ant-pagination-item-container .ant-pagination-item-link-icon {
         color: ${(props) => props.theme.colors.textBrand};
     }
     .ant-pagination-options-quick-jumper input {
