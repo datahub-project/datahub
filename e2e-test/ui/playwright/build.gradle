@@ -17,7 +17,18 @@ node {
 }
 
 task yarnInstall(type: YarnTask) {
-  args = ['install', '--network-timeout', '300000']
+  def argsList = ['install']
+  if (System.getenv("CI") == "true") {
+    argsList += ['--immutable']
+  }
+  args.set(argsList)
+  inputs.files(
+    file('package.json'),
+    file('yarn.lock'),
+    rootProject.file('.yarnrc.yml'),
+    rootProject.file('mise.toml'),
+  )
+  outputs.file('node_modules/.yarn-state.yml')
 }
 
 task lintFix(type: YarnTask, dependsOn: yarnInstall) {

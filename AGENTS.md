@@ -483,6 +483,11 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 
 **Frontend hot-reload:** Run `scripts/dev/datahub-dev.sh frontend` to start the React dev server with hot-reload (instead of rebuilding the frontend container).
 
+**Java development servers:** After `start`, run `scripts/dev/datahub-dev.sh play` for Play
+server-side reloads or `scripts/dev/datahub-dev.sh gms` for GMS continuous compilation plus Spring
+Boot DevTools restarts. Each command temporarily replaces its Docker service and restores the
+container on exit.
+
 ### Module-to-Container Mapping
 
 | Source directory                  | Container                                     |

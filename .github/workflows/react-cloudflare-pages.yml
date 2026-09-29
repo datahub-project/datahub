@@ -56,6 +56,9 @@ jobs:
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          install_args: node yarn
       - name: Set up JDK 25
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
@@ -147,7 +150,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           # Measure PR bundle (dist already built by Gradle above)
-          PR_BYTES=$(cd datahub-web-react && yarn --silent size --json 2>/dev/null \
+          PR_BYTES=$(cd datahub-web-react && yarn run size --json 2>/dev/null \
             | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['size'])")
 
           # Checkout base commit's src/ only — keeps PR's node_modules, vite.config, package.json
@@ -160,7 +163,7 @@ jobs:
             npx vite build --mode production 2>/dev/null
 
           # Measure base bundle
-          BASE_BYTES=$(yarn --silent size --json 2>/dev/null \
+          BASE_BYTES=$(yarn run size --json 2>/dev/null \
             | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['size'])")
 
           # Format sizes and diff

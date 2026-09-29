@@ -9,7 +9,7 @@
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "serve": "docusaurus serve",
-    "clear": "docusaurus clear && rm -rf genDocs/*",
+    "clear": "docusaurus clear && if [ -d genDocs ]; then find genDocs -mindepth 1 -maxdepth 1 -exec rm -rf {} +; fi",
     "_generate-graphql": "docusaurus docs:generate:graphql",
     "_generate-python-sdk": "cd sphinx && make md",
     "_generate-docs-dir-script": "ts-node -O '{ \"lib\": [\"es2020\"], \"target\": \"es6\" }' generateDocsDir.ts",
@@ -20,7 +20,7 @@
     "lint-check": "prettier -l generateDocsDir.ts sidebars.js src/pages/index.js",
     "lint-fix": "prettier --write generateDocsDir.ts sidebars.js src/pages/index.js",
     "_list-link-check-files": "find ./genDocs -name '*.md' -not \\( -path './genDocs/python-sdk/*' -o -path './genDocs/releases.md' \\)",
-    "check-links": "yarn run -s _list-link-check-files -print0 | xargs -0 -n1 -t markdown-link-check -q -c markdown-link-check-config.json"
+    "check-links": "yarn run _list-link-check-files -print0 | xargs -0 -n1 -t markdown-link-check -q -c markdown-link-check-config.json"
   },
   "dependencies": {
     "@ant-design/icons": "^4.7.0",

@@ -1,9 +1,20 @@
-// Change this to listen on a different port
-project.ext.httpPort = 9001
+evaluationDependsOn(':metadata-service:restli-api')
+def restClientJar = project(':metadata-service:restli-api').tasks.named('mainRestClientJar')
+
+project.ext.httpPort = (project.findProperty('playHttpPort') ?: (project.hasProperty('playDev') ? '9002' : '9001')) as int
 project.ext.playBinaryBaseName = "datahub-frontend"
 
 tasks.named("playRun").configure {
   it.httpPort = project.ext.httpPort
+  if (project.hasProperty('playDev')) {
+    dependsOn ':metadata-service:restli-api:mainRestClientJar'
+    devSettings.put('mfeConfigFilePath', 'conf/mfe.config.dev.yaml')
+    environment 'DATAHUB_GMS_HOST', 'localhost'
+    environment 'DATAHUB_GMS_PORT', '8080'
+    environment 'KAFKA_BOOTSTRAP_SERVER', 'localhost:9092'
+    environment 'ELASTIC_CLIENT_HOST', 'localhost'
+    environment 'ELASTIC_CLIENT_PORT', '9200'
+  }
 }
 
 ext {
@@ -14,9 +25,19 @@ ext {
 dependencies {
   // Single version source for org.playframework:* deps below (see externalDependency.play* in root build.gradle).
   implementation platform("org.playframework:play-bom_${rootProject.ext.playScalaVersion}:${rootProject.ext.playVersion}")
-  implementation project(':datahub-web-react')
+  // Vite serves React in Play development mode. Keeping the asset project out of that
+  // graph avoids both a production frontend build and a Gradle configuration-on-demand
+  // incompatibility in the Play plugin.
+  if (!project.hasProperty('playDev')) {
+    implementation project(':datahub-web-react')
+  }
 
   implementation project(":metadata-service:restli-client")
+  // The Play plugin's reload classpath drops transitive custom project artifacts.
+  // Add the generated Rest.li client jar as a file so request builders remain available.
+  if (project.hasProperty('playDev')) {
+    runtimeOnly files(restClientJar)
+  }
   implementation project(":metadata-service:auth-config")
   implementation project(":metadata-service:configuration")
   implementation project(":metadata-utils")

@@ -47,6 +47,8 @@ dependencies {
   implementation externalDependency.springBootElasticsearch
   implementation(externalDependency.springBootStarterValidation)
 
+  developmentOnly externalDependency.springBootDevtools
+
   implementation externalDependency.jettyJmx
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBootAutoconfigure
@@ -129,6 +131,16 @@ tasks.register('onnxBootJar', org.springframework.boot.gradle.tasks.bundling.Boo
 bootRun {
   environment "SCHEMA_REGISTRY_TYPE", "INTERNAL"
   environment "KAFKA_SCHEMAREGISTRY_URL", "http://localhost:8080/schema-registry/api"
+  if (project.hasProperty('hostDev')) {
+    sourceResources sourceSets.main
+    jvmArgs '-Dkubernetes.disable.autoConfig=true', '-Dhazelcast.wait.seconds.before.join=0'
+    environment 'SERVER_PORT', '8080'
+    environment 'ENTITY_REGISTRY_CONFIG_PATH', rootProject.file('metadata-models/src/main/resources/entity-registry.yml').absolutePath
+    environment 'KAFKA_SCHEMAREGISTRY_URL', 'http://localhost:8080/schema-registry/api/'
+    environment 'SPRING_DEVTOOLS_RESTART_ENABLED', 'true'
+  } else {
+    classpath = sourceSets.main.output + configurations.productionRuntimeClasspath
+  }
   jvmArgs(
       '--add-modules', 'java.se',
       '--add-exports', 'java.base/jdk.internal.ref=ALL-UNNAMED',
