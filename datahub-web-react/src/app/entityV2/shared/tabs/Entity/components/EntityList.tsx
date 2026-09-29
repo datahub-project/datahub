@@ -96,15 +96,18 @@ export const EntityList = ({
     const entityRegistry = useEntityRegistry();
     const { t } = useTranslation('entity.profile.tabs');
     const { t: tc } = useTranslation('common.feedback');
+    // Callers map `relationship.entity` without a null check, and an unresolved related entity
+    // comes back null. Reading `.urn` on it throws and blanks the tab.
+    const resolvedEntities = entities.filter((item) => item?.urn);
 
     return (
         <>
             <ScrollWrapper>
                 <StyledList>
                     <ListHeader weight="semiBold">
-                        {title || `${entities.length || 0} ${entityRegistry.getCollectionName(type)}`}
+                        {title || `${resolvedEntities.length} ${entityRegistry.getCollectionName(type)}`}
                     </ListHeader>
-                    {entities.map((item) => (
+                    {resolvedEntities.map((item) => (
                         <StyledListItem key={item.urn}>
                             {entityRegistry.renderPreview(type, PreviewType.PREVIEW, item)}
                         </StyledListItem>

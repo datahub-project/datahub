@@ -168,8 +168,8 @@ export const RunsTab = () => {
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
-            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity).filter(notEmpty),
-            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity).filter(notEmpty),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity)?.filter(notEmpty),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity)?.filter(notEmpty),
             externalUrl: run?.externalUrl,
         }));
     if (loading) {
