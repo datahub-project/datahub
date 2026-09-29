@@ -1215,12 +1215,21 @@ def test_new_exec_boundary_is_tsql_only() -> None:
             "DECLARE @rc INT\nEXEC @rc = dbo.child @a",
             ["DECLARE @rc INT", "EXEC @rc = dbo.child @a"],
         ),
+        # Temp procedure: session-scoped, so the name resolves to no known dataJob.
+        (
+            "INSERT INTO t SELECT 1 FROM u\nEXEC #tmp_proc @a",
+            ["INSERT INTO t SELECT 1 FROM u", "EXEC #tmp_proc @a"],
+        ),
+        (
+            "INSERT INTO t SELECT 1 FROM u\nEXEC ##global_proc @a",
+            ["INSERT INTO t SELECT 1 FROM u", "EXEC ##global_proc @a"],
+        ),
     ],
 )
 def test_new_tsql_execute_without_a_call_target_still_opens_a_statement(
     sql: str, expected: List[str]
 ) -> None:
-    # None of these three resolves to a callee, so none produces an edge of its own.
+    # None of these resolves to a callee, so none produces an edge of its own.
     # They still have to open a statement: left unsplit they absorb the statement
     # before them, which costs that statement its lineage as well.
     assert [c.strip() for c in split_statements(sql, dialect="tsql")] == expected

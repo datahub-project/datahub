@@ -477,51 +477,119 @@ def test_privilege_statement_does_not_invent_a_called_procedure(verb, body):
     assert result.inputDatajobs == [f"urn:li:dataJob:({flow},real_child)"]
 
 
+def _jobs_beside_a_real_call(call, terminator=""):
+    """Resolve `call` in a body that also calls `dbo.real_child`.
+
+    The real call anchors every one of these: it proves the body parsed, so an empty
+    result means the form was read and dropped rather than that nothing was read at
+    all. It goes *first* deliberately -- what would otherwise glue `call` into the
+    `CREATE PROCEDURE ... BEGIN` fragment is a missing boundary before it, not after,
+    and a fragment the classifier skips looks identical from here to a form the guard
+    dropped.
+    """
+    result = parse_procedure_code(
+        schema_resolver=SchemaResolver(platform="mssql", env="STG"),
+        default_db="my_db",
+        default_schema="dbo",
+        code=(
+            f"CREATE PROCEDURE dbo.runner AS\n"
+            f"    BEGIN\n        EXEC dbo.real_child @a{terminator}\n"
+            f"        {call}{terminator}\n    END"
+        ),
+        is_temp_table=lambda _: False,
+    )
+    assert result is not None
+    return result.inputDatajobs or []
+
+
 @pytest.mark.parametrize(
     "call",
     [
         "EXEC sp_executesql @sql",
         "EXEC sys.sp_executesql @sql",
+        "EXEC master.sys.sp_executesql @sql",
+    ],
+)
+def test_sp_executesql_is_not_a_procedure_edge(call):
+    """`sp_executesql` runs a string; the name here is the system procedure.
+
+    Matched on the node type, which sqlglot has already decided by name for us: its
+    T-SQL parser rewrites an `Execute` whose last name part is `sp_executesql` into
+    `exp.ExecuteSql`, so qualifiers do not have to be enumerated here. `ExecuteSql`
+    subclasses `Execute`, so the check has to come first. A user procedure whose name
+    merely starts the same way (`dbo.sp_executesql_wrapper`) stays a plain `Execute`
+    and is kept.
+    """
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+    assert _jobs_beside_a_real_call(call) == [f"urn:li:dataJob:({flow},real_child)"]
+
+
+def test_a_procedure_named_like_sp_executesql_is_still_an_edge():
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+    assert _jobs_beside_a_real_call("EXEC dbo.sp_executesql_wrapper @sql") == [
+        f"urn:li:dataJob:({flow},real_child)",
+        f"urn:li:dataJob:({flow},sp_executesql_wrapper)",
+    ]
+
+
+@pytest.mark.parametrize("terminator", ["", ";"], ids=["newline", "semicolon"])
+@pytest.mark.parametrize(
+    "call",
+    [
+        # Dynamic dispatch: the callee is whatever the variable holds at runtime.
+        "EXEC @proc_name @a",
+        # Session-scoped, and the name arrives with its `#` stripped, so it would
+        # collide with a real procedure called `tmp_proc`.
+        "EXEC #tmp_proc @b",
+        "EXEC ##global_proc @b",
+        # Bracketed, so the tokenizer emits one IDENTIFIER rather than HASH + VAR.
+        # A different path into the splitter, same `temporary=True` at the parser.
+        "EXEC [#tmp_proc] @b",
+    ],
+)
+def test_calls_with_no_resolvable_callee_are_not_edges(call, terminator):
+    """sqlglot wraps these targets in a `Table` just like a real name.
+
+    Without the guards the variable's or temp procedure's own name becomes the
+    callee, inventing a dataJob nothing ever emits. Both terminator forms are
+    asserted so neither rests on a single splitter rule: the newline form relies on
+    the closer ending an EXEC run at the next EXECUTE token, the semicolon form on
+    nothing beyond `;` itself.
+    """
+    flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+    assert _jobs_beside_a_real_call(call, terminator=terminator) == [
+        f"urn:li:dataJob:({flow},real_child)"
+    ]
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
         "EXEC sp_rename 'a', 'b'",
         "EXEC msdb.dbo.sp_send_dbmail @p = 1",
     ],
 )
-def test_system_procedure_calls_are_currently_emitted_as_edges(call):
+def test_other_system_procedure_calls_are_currently_emitted_as_edges(call):
     """Known gap, pinned rather than fixed here: system procedures become dataJobs.
 
-    The call detector has no system-procedure filter, so `sp_executesql` resolves to
-    `<default_db>.dbo.stored_procedures` even though it lives in `sys`. That predates
-    this change: on the base splitter any body written with semicolons already emitted
-    these. What changes here is reach -- semicolon-less bodies now resolve too, and
-    `sp_executesql` is the most common call there is.
+    Unlike `sp_executesql` these parse as ordinary `Execute` nodes, so telling them
+    apart means deciding which names count as system -- a policy decision rather than
+    a bug fix, so it is deliberately not made here. A blanket `sp_` prefix test would
+    wrongly drop a user procedure such as `master.dbo.sp_LogError`. MSSQL already
+    drops both of these downstream, since `MSSQLAliasFilter` discards calls to
+    procedures the run never discovered.
 
-    The fix is a policy decision (which names count as system) rather than a bug fix,
-    so it is deliberately not made here. Note for whoever does make it: T-SQL `EXEC`
-    goes through the `Execute` branch of `_extract_procedure_call` and every other
-    dialect's `CALL` goes through the `Command` branch, so a filter in the `Execute`
-    branch would be T-SQL-only. A blanket `sp_` prefix test would wrongly drop a user
-    procedure such as `master.dbo.sp_LogError`.
+    Note for whoever does close the gap: T-SQL `EXEC` is the only form that reaches
+    the `Execute` branch of `_extract_procedure_call`. Every other dialect's `CALL`
+    and `EXECUTE` fall through to the `Command` branch, so a filter added here is
+    T-SQL-only.
     """
-    schema_resolver = SchemaResolver(platform="mssql", env="STG")
     flow = "urn:li:dataFlow:(mssql,my_db.dbo.stored_procedures,STG)"
+    jobs = _jobs_beside_a_real_call(call)
 
-    result = parse_procedure_code(
-        schema_resolver=schema_resolver,
-        default_db="my_db",
-        default_schema="dbo",
-        code=(
-            f"CREATE PROCEDURE dbo.runner AS\n"
-            f"    BEGIN\n        {call}\n        EXEC dbo.real_child @a\n    END"
-        ),
-        is_temp_table=lambda _: False,
-    )
-
-    assert result is not None
-    jobs = result.inputDatajobs or []
-    # The real call is captured, which is the point of this PR...
     assert f"urn:li:dataJob:({flow},real_child)" in jobs
-    # ...but so is the system procedure, under a database and schema it does not live
-    # in. Change this assertion when the detector learns to drop them.
+    # The system procedure resolves under a database and schema it does not live in.
+    # Change this assertion when the detector learns to drop them.
     assert len(jobs) == 2
 
 
@@ -629,18 +697,22 @@ def test_return_code_call_yields_no_lineage():
         "EXEC(@sql)",
         "EXEC @rc = dbo.child @a",
         "EXECUTE AS USER = 'etl'",
+        "EXEC #tmp_proc @a",
     ],
 )
 def test_a_call_with_no_resolvable_callee_does_not_cost_the_statement_before_it(
     trailing_call,
 ):
-    """None of these three names a callee, so none of them yields an edge.
+    """None of these names a callee, so none of them yields an edge.
 
-    They still have to open a statement. While they did not, `EXEC @rc =` and
-    `EXECUTE AS` absorbed the DML in front of them into a fragment sqlglot cannot
-    parse, costing that statement its lineage too. `EXEC(@sql)` is asserted alongside
-    them because sqlglot happens to tolerate it at the end of a blob today, which is
-    incidental -- the split is what the behaviour should rest on.
+    They still have to open a statement. While they did not, `EXEC @rc =`,
+    `EXECUTE AS` and `EXEC #tmp_proc` absorbed the DML in front of them into a
+    fragment sqlglot cannot parse, costing that statement its lineage too. Splitting
+    a temp call out is only safe because the call itself now resolves to nothing;
+    without that guard it would add a phantom dataJob per body instead.
+    `EXEC(@sql)` is asserted alongside them because sqlglot happens to tolerate it at
+    the end of a blob today, which is incidental -- the split is what the behaviour
+    should rest on.
     """
     schema_resolver = SchemaResolver(platform="mssql", env="PROD")
 
