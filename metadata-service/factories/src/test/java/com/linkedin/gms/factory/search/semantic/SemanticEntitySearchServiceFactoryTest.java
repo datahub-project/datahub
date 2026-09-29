@@ -8,6 +8,7 @@ import static org.testng.Assert.assertEquals;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EmbeddingProviderConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -29,6 +30,14 @@ public class SemanticEntitySearchServiceFactoryTest {
   @Test
   public void passesActiveModelDimensionToService() throws Exception {
     assertEquals(dimensionPassedToService(semanticSearch(true, DEFAULT_MODEL_KEY, 1024)), 1024);
+
+    // A configured provider's model id selects its own models entry.
+    EmbeddingProviderConfiguration local = new EmbeddingProviderConfiguration();
+    local.setType("local");
+    local.getLocal().setModel("nomic-embed-text");
+    SemanticSearchConfiguration localSearch = semanticSearch(true, "nomic_embed_text", 768);
+    localSearch.setEmbeddingProvider(local);
+    assertEquals(dimensionPassedToService(localSearch), 768);
   }
 
   @Test

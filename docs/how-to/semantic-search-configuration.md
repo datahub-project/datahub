@@ -198,13 +198,14 @@ With Search V3 writes on (`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true`), documen
 
 ## Troubleshooting
 
-| Symptom                                            | Fix                                                                                                                        |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| "Elasticsearch 8.18+ required for semantic search" | Upgrade the cluster to Elasticsearch 8.18 or newer, or turn semantic search off                                            |
-| "Semantic search is disabled or not configured"    | Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS                                                        |
-| "Invalid API key provided"                         | Check your API key is set correctly in the GMS environment                                                                 |
-| "Dimension mismatch: expected 3072, got 1024"      | Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model                                                       |
-| "meant for CI, smoke tests and quickstarts"        | The `classical` provider needs `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`; for a local neural provider use `onnx` |
+| Symptom                                                                                        | Fix                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "Elasticsearch 8.18+ required for semantic search"                                             | Upgrade the cluster to Elasticsearch 8.18 or newer, or turn semantic search off                                                                                                                     |
+| "Semantic search is disabled or not configured"                                                | Verify `ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true` and restart GMS                                                                                                                                 |
+| "Invalid API key provided"                                                                     | Check your API key is set correctly in the GMS environment                                                                                                                                          |
+| "Dimension mismatch: expected 3072, got 1024"                                                  | Update `ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` to match your model                                                                                                                                |
+| "Embedding provider returned 1024 dimensions for model '...'; configured mapping expects 3072" | Set that model's `vectorDimension` (`ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION` for the default model) to the size your model returns, and re-index if the semantic index was built with another size |
+| "meant for CI, smoke tests and quickstarts"                                                    | The `classical` provider needs `CLASSICAL_EMBEDDING_ACKNOWLEDGE_LEXICAL_ONLY=true`; for a local neural provider use `onnx`                                                                          |
 
 ## Further Reading
 
