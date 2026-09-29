@@ -259,9 +259,20 @@ export const RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES = 'RecentlyViewed
 export const RECOMMENDATION_MODULE_ID_RECENTLY_EDITED_ENTITIES = 'RecentlyEditedEntities';
 export const RECOMMENDATION_MODULE_ID_RECENT_SEARCHES = 'RecentSearches';
 
+/**
+ * Profiles that render the new Summary tab (and drop the Documentation tab) when
+ * `assetSummaryPageV1` is on. Datasets are separate — they follow `datasetSummaryPageV1`.
+ * Keep this aligned with each entity's `getProfileTabs`: the sidebar Documentation pencil
+ * routes through `useEntityHasSummaryTab`, and a route to a tab the profile does not render
+ * falls back to the default tab and drops the edit query param.
+ */
 export const ENTITY_TYPES_WITH_NEW_SUMMARY_TAB = [
-    EntityType.GlossaryNode,
-    EntityType.GlossaryTerm,
+    EntityType.Application,
+    EntityType.Chart,
+    EntityType.Container,
+    EntityType.Dashboard,
     EntityType.DataProduct,
     EntityType.Domain,
+    EntityType.GlossaryNode,
+    EntityType.GlossaryTerm,
 ];
