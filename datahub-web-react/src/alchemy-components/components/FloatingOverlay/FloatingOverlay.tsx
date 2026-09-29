@@ -6,6 +6,7 @@ import React, {
     Ref,
     useCallback,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useRef,
     useState,
@@ -134,6 +135,23 @@ function isDisabledControl(element: ReactElement): boolean {
     return componentType.displayName === 'Button';
 }
 
+const FORWARD_REF_TYPE = Symbol.for('react.forward_ref');
+const MEMO_TYPE = Symbol.for('react.memo');
+
+/**
+ * Whether cloning `ref` onto this element can reach a DOM node. Plain function components drop
+ * the ref (and React warns), class components hand back the instance; either way the overlay
+ * would have nothing to anchor to and render at the page origin. antd used `findDOMNode` for
+ * these; here they get a layout-neutral wrapper to anchor on instead.
+ */
+function acceptsDomRef(type: ReactElement['type']): boolean {
+    if (typeof type === 'string') return true;
+    if (typeof type !== 'object' || type === null) return false;
+    const composite = type as { $$typeof?: symbol; type?: ReactElement['type'] };
+    if (composite.$$typeof === MEMO_TYPE && composite.type) return acceptsDomRef(composite.type);
+    return composite.$$typeof === FORWARD_REF_TYPE;
+}
+
 function assignRef(ref: Ref<HTMLElement> | undefined, node: HTMLElement | null): void {
     if (typeof ref === 'function') {
         ref(node);
@@ -195,11 +213,17 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         // overlay's DOM node. React still bubbles their events through the overlay, so this flag lets a
         // press inside them count as inside rather than dismissing the overlay and unmounting them.
         const pointerDownInOverlayTree = useRef(false);
+        // A `forwardRef` child can still swallow the ref (e.g. `styled()` around a plain function
+        // component). That only shows up after commit, so it's tracked here and the child gets
+        // re-rendered inside an anchor wrapper.
+        const directRefAttempted = useRef(false);
+        const [childDroppedRef, setChildDroppedRef] = useState(false);
         const [uncontrolledOpen, setUncontrolledOpen] = useState(defaultOpen);
         const [overlayId] = useState(() => `alchemy-overlay-${Math.random().toString(36).slice(2)}`);
         const isControlled = controlledOpen !== undefined || visible !== undefined;
         const isOpen = controlledOpen ?? visible ?? uncontrolledOpen;
         const content = resolveContent(contentProp);
+        const contentPresent = hasContent(content);
         const triggers = useMemo(() => (Array.isArray(trigger) ? trigger : [trigger]), [trigger]);
         const alignmentOffset = align?.offset;
 
@@ -259,6 +283,13 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
             },
             [clearCloseTimer, clearOpenTimer],
         );
+
+        // Re-checked when the child component or the presence of content changes, since either
+        // decides whether a ref was handed out at all.
+        const childType = React.isValidElement(children) ? children.type : 'span';
+        useLayoutEffect(() => {
+            if (directRefAttempted.current && refs.reference.current === null) setChildDroppedRef(true);
+        }, [childType, contentPresent, refs.reference]);
 
         useEffect(() => {
             if (!isOpen) return undefined;
@@ -320,6 +351,16 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
             },
             [child.ref, forwardedRef, refs],
         );
+        // The wrapper has no box of its own (`display: contents`), so the overlay anchors to the
+        // child's root DOM node inside it. Child refs are called before the parent's, so it exists.
+        const anchorWrapperRef = useCallback(
+            (node: HTMLElement | null) => {
+                const anchor = (node?.firstElementChild as HTMLElement | null) ?? node;
+                refs.setReference(anchor);
+                assignRef(forwardedRef, anchor);
+            },
+            [forwardedRef, refs],
+        );
 
         const hasParentHandlers = !!(
             forwardedRef ||
@@ -335,6 +376,7 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         );
         // An empty overlay with nothing to forward can stay the raw child. Cloning it to attach
         // `data-testid={undefined}` overwrites a test id the child sets on its own DOM node.
+        directRefAttempted.current = false;
         if (!hasContent(content) && !hasParentHandlers) return child;
 
         const isWithinOverlay = (node: EventTarget | null): boolean =>
@@ -343,7 +385,10 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         // A disabled control can't host the listeners itself, so they go on a wrapper and the child's
         // own handlers are dropped — matching the browser, which fires nothing for a disabled control.
         const needsDisabledWrapper = isDisabledControl(child);
-        const forwardTo = needsDisabledWrapper ? undefined : child.props;
+        // A child that can't take the ref keeps all of its own props; the wrapper only listens.
+        const needsAnchorWrapper = !needsDisabledWrapper && (childDroppedRef || !acceptsDomRef(child.type));
+        const forwardTo = needsDisabledWrapper || needsAnchorWrapper ? undefined : child.props;
+        directRefAttempted.current = !needsDisabledWrapper && !needsAnchorWrapper;
 
         // Only set an attribute when this overlay has a value for it. `undefined` still overwrites
         // whatever the child renders itself (lineage nodes set `data-testid` inside, then spread props).
@@ -352,9 +397,9 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         if (role === 'dialog' && isOpen) ariaProps['aria-controls'] = overlayId;
         if (role === 'dialog') ariaProps['aria-expanded'] = isOpen;
 
+        const testIdProps = dataTestId ? { 'data-testid': dataTestId } : {};
         const triggerProps = {
             ...ariaProps,
-            ...(dataTestId ? { 'data-testid': dataTestId } : {}),
             onMouseEnter: (event: React.MouseEvent<HTMLElement>) => {
                 parentOnMouseEnter?.(event);
                 forwardTo?.onMouseEnter?.(event);
@@ -400,29 +445,46 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
             },
         };
 
-        // The child keeps its own className so styled-components styling survives; only the wrapper
-        // takes over pointer duties. `inline-block` keeps it from collapsing around the control.
-        const reference = needsDisabledWrapper ? (
-            <span
-                ref={referenceRef}
-                className={className}
-                style={{ display: 'inline-block', cursor: 'not-allowed', ...style }}
-                data-testid={dataTestId}
-                {...triggerProps}
-            >
-                {React.cloneElement(child, {
-                    style: { ...child.props.style, pointerEvents: 'none' },
-                })}
-            </span>
-        ) : (
-            React.cloneElement(child, {
+        let reference: ReactElement;
+        if (needsDisabledWrapper) {
+            // The child keeps its own className so styled-components styling survives; only the wrapper
+            // takes over pointer duties. `inline-block` keeps it from collapsing around the control.
+            reference = (
+                <span
+                    ref={referenceRef}
+                    className={className}
+                    style={{ display: 'inline-block', cursor: 'not-allowed', ...style }}
+                    data-testid={dataTestId}
+                    {...triggerProps}
+                >
+                    {React.cloneElement(child, {
+                        style: { ...child.props.style, pointerEvents: 'none' },
+                    })}
+                </span>
+            );
+        } else if (needsAnchorWrapper) {
+            // React dispatches enter/leave and focus events through the component tree, so the
+            // wrapper still hears them even though it contributes no box to layout. The test id
+            // stays on the child: a box-less element can't be hovered by browser automation.
+            reference = (
+                <span ref={anchorWrapperRef} style={{ display: 'contents' }} {...triggerProps}>
+                    {React.cloneElement(child, {
+                        ...testIdProps,
+                        className: [child.props.className, className].filter(Boolean).join(' ') || undefined,
+                        style: { ...child.props.style, ...style },
+                    })}
+                </span>
+            );
+        } else {
+            reference = React.cloneElement(child, {
                 ...child.props,
                 ref: referenceRef,
                 className: [child.props.className, className].filter(Boolean).join(' ') || undefined,
                 style: { ...child.props.style, ...style },
+                ...testIdProps,
                 ...triggerProps,
-            })
-        );
+            });
+        }
 
         const shouldDestroyWhenHidden =
             typeof destroyTooltipOnHide === 'boolean' ? destroyTooltipOnHide : !destroyTooltipOnHide.keepParent;

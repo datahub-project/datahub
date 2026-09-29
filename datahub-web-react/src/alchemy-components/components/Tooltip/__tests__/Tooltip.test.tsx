@@ -65,6 +65,44 @@ describe('Tooltip', () => {
         vi.useRealTimers();
     });
 
+    it('anchors to the DOM node of a child that cannot take a ref', () => {
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Tooltip title="View change history">
+                    <Button>History</Button>
+                </Tooltip>
+            </ThemeProvider>,
+        );
+
+        const button = screen.getByRole('button', { name: 'History' });
+        expect(button.parentElement).toHaveStyle({ display: 'contents' });
+        expect(consoleError).not.toHaveBeenCalled();
+
+        vi.useFakeTimers();
+        fireEvent.mouseEnter(button.parentElement as HTMLElement);
+        vi.advanceTimersByTime(100);
+
+        expect(screen.getByRole('tooltip')).toHaveTextContent('View change history');
+        vi.useRealTimers();
+        consoleError.mockRestore();
+    });
+
+    it('recovers when a forwardRef child swallows the ref', () => {
+        const SwallowsRef = React.forwardRef<HTMLButtonElement, React.ComponentProps<'button'>>((props, _ref) => (
+            <button type="button" {...props} />
+        ));
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Tooltip title="Helpful details">
+                    <SwallowsRef>Target</SwallowsRef>
+                </Tooltip>
+            </ThemeProvider>,
+        );
+
+        expect(screen.getByRole('button', { name: 'Target' }).parentElement).toHaveStyle({ display: 'contents' });
+    });
+
     it('forwards a click handler placed on the tooltip itself', () => {
         const onClick = vi.fn();
         render(
