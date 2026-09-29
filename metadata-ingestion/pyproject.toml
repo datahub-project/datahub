@@ -527,6 +527,7 @@ feast = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "numpy<2",
+    "starlette>=1.3.1,<2.0.0",
 ]
 
 fivetran = [
@@ -1454,7 +1455,7 @@ dev = [
     "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
@@ -1644,7 +1645,7 @@ docs = [
     "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
