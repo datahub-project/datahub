@@ -122,6 +122,7 @@ dependencies {
   implementation spec.product.pegasus.generator
 
   implementation externalDependency.guava
+  implementation externalDependency.commonsCollections4
   implementation externalDependency.reflections
 
   implementation externalDependency.neo4jJavaDriver
