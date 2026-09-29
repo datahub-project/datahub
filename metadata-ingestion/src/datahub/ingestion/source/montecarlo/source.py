@@ -283,10 +283,13 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
         # ingestion run, so multiple monitors sharing a table don't refetch.
         metric_cache: Dict[str, List[MonteCarloMetricPoint]] = {}
 
-        for monitor_uuid, ingested in self.builder.iter_ingested_monitors():
-            if ingested.mcon is None:
-                continue
-            metric_names = self.builder.metric_names_for_monitor(ingested.definition)
+        for (
+            monitor_uuid,
+            ingested_list,
+        ) in self.builder.ingested_assertions_by_monitor().items():
+            metric_names = self.builder.metric_names_for_monitor(
+                ingested_list[0].definition
+            )
             try:
                 executions = self.client.get_job_executions(
                     monitor_uuid,
@@ -310,57 +313,64 @@ class MonteCarloSource(StatefulIngestionSourceBase, TestableSource):
             if not success_executions:
                 continue
 
-            # Fetch measured values (cached per mcon+metric). Attach the latest
-            # point(s) to the latest SUCCESS run; older SUCCESS runs get no
-            # measured value (jobExecutionUuid is null on metric points, so a
-            # per-run join is not possible — best-effort temporal correlation).
-            latest_metrics: List[MonteCarloMetricPoint] = []
-            for metric_name in metric_names:
-                field = self.builder.field_for_metric(ingested.definition, metric_name)
-                # Include the field in the cache key so two monitors on the same
-                # table measuring the same metric on different columns don't reuse
-                # each other's getMetricsV4 result (which would put the wrong
-                # measured value on the second assertion's SUCCESS run event).
-                cache_key = f"{ingested.mcon}:{metric_name}:{field}"
-                if cache_key not in metric_cache:
-                    metric_cache[cache_key] = self.client.get_metrics_v4(
-                        mcon=ingested.mcon,
-                        metric_name=metric_name,
-                        start_time=start_time,
-                        field=field,
-                        first=1,
-                    )
-                    self.report.report_metric_point_fetched(
-                        len(metric_cache[cache_key])
-                    )
-                latest_metrics.extend(metric_cache[cache_key])
-
-            for i, execution in enumerate(success_executions):
+            for _execution in success_executions:
                 self.report.report_job_execution_scanned()
-                # Only the latest SUCCESS run carries the measured value.
-                points = latest_metrics if i == 0 else []
-                # Materialize build() inside the try so a build failure for THIS
-                # run event is demoted to a warning; yield OUTSIDE the try so an
-                # exception raised by the downstream consumer at the yield point
-                # (sink/processor error) propagates instead of being swallowed as
-                # a fake per-run-event build failure — same rule _emit follows.
-                try:
-                    built = list(
-                        self.builder.build_run_events_from_execution(execution, points)
+
+            for ingested in ingested_list:
+                # Fetch measured values (cached per mcon+metric). Attach the latest
+                # point(s) to the latest SUCCESS run; older SUCCESS runs get no
+                # measured value (jobExecutionUuid is null on metric points, so a
+                # per-run join is not possible — best-effort temporal correlation).
+                latest_metrics: List[MonteCarloMetricPoint] = []
+                for metric_name in metric_names:
+                    field = self.builder.field_for_metric(
+                        ingested.definition, metric_name
                     )
-                except _FATAL_RUN_ERRORS:
-                    raise
-                except Exception as e:
-                    self.report.report_build_failure()
-                    self.report.warning(
-                        title="Failed to build run event",
-                        message="Skipping this run event due to an error.",
-                        context=f"monitor_uuid={monitor_uuid}, "
-                        f"job_execution_uuid={execution.job_execution_uuid}",
-                        exc=e,
-                    )
-                    continue
-                yield from built
+                    # Include the field in the cache key so two monitors on the same
+                    # table measuring the same metric on different columns don't reuse
+                    # each other's getMetricsV4 result (which would put the wrong
+                    # measured value on the second assertion's SUCCESS run event).
+                    cache_key = f"{ingested.mcon}:{metric_name}:{field}"
+                    if cache_key not in metric_cache:
+                        metric_cache[cache_key] = self.client.get_metrics_v4(
+                            mcon=ingested.mcon,
+                            metric_name=metric_name,
+                            start_time=start_time,
+                            field=field,
+                            first=1,
+                        )
+                        self.report.report_metric_point_fetched(
+                            len(metric_cache[cache_key])
+                        )
+                    latest_metrics.extend(metric_cache[cache_key])
+
+                for i, execution in enumerate(success_executions):
+                    # Only the latest SUCCESS run carries the measured value.
+                    points = latest_metrics if i == 0 else []
+                    # Materialize build() inside the try so a build failure for THIS
+                    # run event is demoted to a warning; yield OUTSIDE the try so an
+                    # exception raised by the downstream consumer at the yield point
+                    # (sink/processor error) propagates instead of being swallowed as
+                    # a fake per-run-event build failure — same rule _emit follows.
+                    try:
+                        built = list(
+                            self.builder.build_run_events_from_execution(
+                                execution, points, ingested=ingested
+                            )
+                        )
+                    except _FATAL_RUN_ERRORS:
+                        raise
+                    except Exception as e:
+                        self.report.report_build_failure()
+                        self.report.warning(
+                            title="Failed to build run event",
+                            message="Skipping this run event due to an error.",
+                            context=f"monitor_uuid={monitor_uuid}, "
+                            f"job_execution_uuid={execution.job_execution_uuid}",
+                            exc=e,
+                        )
+                        continue
+                    yield from built
 
     def get_report(self) -> MonteCarloSourceReport:
         return self.report

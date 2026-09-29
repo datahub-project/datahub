@@ -6,10 +6,18 @@ import tenacity
 from pydantic import BaseModel, Field, field_validator
 
 from datahub.ingestion.source.montecarlo.config import MonteCarloSourceConfig
+from datahub.ingestion.source.montecarlo.constants import (
+    ALERT_TYPE_SCHEMA_CHANGES,
+    ASSET_FILTER_INPUT_FIELDS,
+    ASSET_FILTER_JOINER_OR,
+    SCHEMA_CHANGE_MATCH_MAX_DELTA_SECONDS,
+    SCHEMA_CHANGE_PAGE_SIZE,
+)
 from datahub.ingestion.source.montecarlo.queries import (
+    EVALUATE_ASSET_SELECTION_QUERY,
     GET_JOB_EXECUTIONS_QUERY,
     GET_METRICS_V4_QUERY,
-    GET_TABLE_BY_FULL_TABLE_ID_QUERY,
+    GET_SCHEMA_CHANGES_QUERY,
     GET_TABLE_QUERY,
     TABLE_MONITOR_QUERY,
 )
@@ -196,18 +204,91 @@ class MonteCarloAssertionDef(BaseModel):
         return self.monitor_type or self.rule_type or "MONITOR"
 
 
+class MonteCarloFieldTypeChange(BaseModel):
+    """A single column type change from getSchemaChanges.fieldTypeChanges."""
+
+    field_name: str
+    old_field_type: str
+    new_field_type: str
+
+
+class MonteCarloSchemaChange(BaseModel):
+    """One catalog schema-change event from getSchemaChanges."""
+
+    mcon: str
+    start_time: Optional[datetime] = None
+    fields_added: List[str] = Field(default_factory=list)
+    fields_removed: List[str] = Field(default_factory=list)
+    field_type_changes: List[MonteCarloFieldTypeChange] = Field(default_factory=list)
+
+    @field_validator("start_time", mode="before")
+    @classmethod
+    def _coerce_start_time(cls, value: Any) -> Optional[datetime]:
+        return _coerce_iso_datetime(value)
+
+
+def _coerce_iso_datetime(value: Any) -> Optional[datetime]:
+    """Parse Monte Carlo ISO timestamps; null malformed values instead of aborting."""
+    if value is None or isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
+
+
+def _as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def closest_schema_change(
+    events: List[MonteCarloSchemaChange],
+    alert_time: datetime,
+    max_delta_seconds: int = SCHEMA_CHANGE_MATCH_MAX_DELTA_SECONDS,
+) -> Optional[MonteCarloSchemaChange]:
+    """Pick the catalog event nearest to ``alert_time`` within ``max_delta_seconds``.
+
+    SCHEMA_CHANGES alerts do not carry field names; getSchemaChanges does.
+    The live join key is temporal: collection writes the SchemaChange a few
+    seconds before the alert. Events outside the window are ignored so an
+    older unrelated DDL is not attached.
+    """
+    aware_alert = _as_aware_utc(alert_time)
+    best: Optional[MonteCarloSchemaChange] = None
+    best_delta: Optional[float] = None
+    for event in events:
+        if event.start_time is None:
+            continue
+        delta = abs((_as_aware_utc(event.start_time) - aware_alert).total_seconds())
+        if delta > max_delta_seconds:
+            continue
+        if best_delta is None or delta < best_delta:
+            best = event
+            best_delta = delta
+    return best
+
+
 class MonteCarloAlert(BaseModel):
     """An alert/incident raised by Monte Carlo, mapped to an assertion failure."""
 
     uuid: str
     alert_type: Optional[str] = None
     sub_types: List[str] = Field(default_factory=list)
+    title: Optional[str] = None
     severity: Optional[str] = None
     priority: Optional[str] = None
     status: Optional[str] = None
     created_time: Optional[datetime] = None
     monitor_uuids: List[str] = Field(default_factory=list)
     asset_mcons: List[str] = Field(default_factory=list)
+    # Catalog field diffs joined from getSchemaChanges for SCHEMA_CHANGES
+    # alerts, keyed by the alert's asset MCON. Empty for other alert types
+    # and when no catalog event falls within the match window.
+    schema_changes_by_mcon: Dict[str, MonteCarloSchemaChange] = Field(
+        default_factory=dict
+    )
 
     @field_validator("created_time", mode="before")
     @classmethod
@@ -216,12 +297,7 @@ class MonteCarloAlert(BaseModel):
         # non-ISO or otherwise malformed values by nulling rather than letting a
         # ValidationError abort the whole alert page (build_run_event already
         # guards against a missing timestamp).
-        if value is None or isinstance(value, datetime):
-            return value
-        try:
-            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-        except (ValueError, TypeError):
-            return None
+        return _coerce_iso_datetime(value)
 
 
 class ResolvedTable(BaseModel):
@@ -539,7 +615,7 @@ class MonteCarloClient:
                 continue
             entity_mcons = raw.get("entity_mcons") or []
             resource_id = raw.get("resource_id")
-            if not entity_mcons and monitor_type == "TABLE" and resource_id:
+            if not entity_mcons and (monitor_type or "").upper() == "TABLE":
                 entity_mcons = self._resolve_table_monitor_entity_mcons(
                     uuid, resource_id
                 )
@@ -571,25 +647,19 @@ class MonteCarloClient:
                 )
 
     def _resolve_table_monitor_entity_mcons(
-        self, monitor_uuid: str, resource_id: str
+        self, monitor_uuid: str, resource_id: Optional[str]
     ) -> List[str]:
-        """Resolve a TABLE monitor's entity MCONs via its asset_selection filters.
+        """Resolve a TABLE monitor's entity MCONs via evaluateAssetSelection.
 
         getMonitors' entityMcons is only populated for single-entity METRIC
         monitors; TABLE monitors cover many tables via asset_selection instead.
-        Only the FULL_TABLE_ID filter case (an explicit, fixed table list) is
-        handled here — pattern-based filters (TABLE_NAME, TABLE_TAG, activity
-        filters) would need evaluateAssetSelection to resolve dynamically,
-        which isn't implemented yet.
+        getTableMonitor returns that selection (filters, exclusions, databases);
+        evaluateAssetSelection expands it to concrete table MCONs.
 
-        Deliberately catches Exception broadly (not just an API-specific
-        error type) and demotes any failure to a per-monitor warning, matching
-        this source's continue-on-recoverable-error philosophy (see _emit in
-        source.py) rather than aborting the whole run over one monitor's
-        resolution failing. (DailyCallBudgetExceeded, MonteCarloAuthError) are
-        the exceptions this does NOT apply to: an exhausted daily quota or a
-        rejected credential is a run-level failure, not a per-monitor one, so
-        both are re-raised as-is (see MonteCarloClient._safe_call).
+        An empty or missing selection is not evaluated — empty input would
+        select every table in the warehouse. Failures other than
+        (DailyCallBudgetExceeded, MonteCarloAuthError) are demoted to a
+        per-monitor warning via _safe_call.
         """
         response = self._safe_call(
             TABLE_MONITOR_QUERY,
@@ -601,29 +671,191 @@ class MonteCarloClient:
         )
         if response is None:
             return []
-        monitor = response.get("get_table_monitor")
-        full_table_ids = [
-            f.get("full_table_id")
-            for f in ((monitor or {}).get("asset_selection") or {}).get("filters") or []
-            if isinstance(f, dict)
-            and f.get("type") == "FULL_TABLE_ID"
-            and f.get("full_table_id")
-        ]
-        mcons = []
-        for full_table_id in full_table_ids:
-            table_response = self._safe_call(
-                GET_TABLE_BY_FULL_TABLE_ID_QUERY,
-                {"dwId": resource_id, "fullTableId": full_table_id},
-                title="Could not resolve table monitor's full_table_id",
-                message="getTable call failed for a FULL_TABLE_ID filter; "
-                "skipping this table.",
-                context=f"monitor_uuid={monitor_uuid}, full_table_id={full_table_id}",
+        monitor = response.get("get_table_monitor") or {}
+        warehouse_uuid = resource_id or monitor.get("warehouse_uuid")
+        if not warehouse_uuid:
+            self._warn(
+                title="Table monitor has no warehouse",
+                message="Cannot evaluate TABLE monitor scope without a warehouse "
+                "UUID; skipping this monitor.",
+                context=f"monitor_uuid={monitor_uuid}",
             )
-            if table_response is None:
-                continue
-            mcon = (table_response.get("get_table") or {}).get("mcon")
-            if mcon:
-                mcons.append(mcon)
+            return []
+        asset_selection = self._asset_selection_to_input(
+            monitor.get("asset_selection") or {}
+        )
+        if asset_selection is None:
+            self._warn(
+                title="Table monitor has empty asset selection",
+                message="TABLE monitor has no databases, filters, or exclusions; "
+                "refusing to evaluate against the whole warehouse. Skipping.",
+                context=f"monitor_uuid={monitor_uuid}",
+            )
+            return []
+        return self._evaluate_asset_selection_mcons(
+            monitor_uuid=monitor_uuid,
+            warehouse_uuid=warehouse_uuid,
+            asset_selection=asset_selection,
+        )
+
+    def _asset_selection_to_input(
+        self, raw: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
+        """Convert getTableMonitor's snake_cased AssetSelection into the
+        camelCase AssetSelectionInput evaluateAssetSelection expects.
+
+        Returns None when the selection is empty (no databases, filters, or
+        exclusions) so callers do not evaluate an unbounded warehouse query.
+        """
+        databases_in = [
+            self._database_to_input(d)
+            for d in (raw.get("databases") or [])
+            if isinstance(d, dict)
+        ]
+        databases = [d for d in databases_in if d is not None]
+        filters = [
+            converted
+            for converted in (
+                self._filter_to_input(f)
+                for f in (raw.get("filters") or [])
+                if isinstance(f, dict)
+            )
+            if converted is not None
+        ]
+        exclusions = [
+            converted
+            for converted in (
+                self._filter_to_input(f)
+                for f in (raw.get("exclusions") or [])
+                if isinstance(f, dict)
+            )
+            if converted is not None
+        ]
+        if not databases and not filters and not exclusions:
+            return None
+        return {
+            "databases": databases,
+            "filters": filters,
+            "filtersJoiner": raw.get("filters_joiner") or ASSET_FILTER_JOINER_OR,
+            "exclusions": exclusions,
+            "exclusionsJoiner": raw.get("exclusions_joiner") or ASSET_FILTER_JOINER_OR,
+        }
+
+    @staticmethod
+    def _database_to_input(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        name = raw.get("name")
+        if not name:
+            return None
+        converted: Dict[str, Any] = {"name": name}
+        schemas = raw.get("schemas")
+        if schemas:
+            converted["schemas"] = schemas
+        return converted
+
+    @staticmethod
+    def _filter_to_input(raw: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        filter_type = raw.get("type")
+        if not filter_type:
+            return None
+        converted: Dict[str, Any] = {"type": filter_type}
+        if raw.get("negated") is not None:
+            converted["negated"] = raw["negated"]
+        for snake_name, camel_name in ASSET_FILTER_INPUT_FIELDS.items():
+            value = raw.get(snake_name)
+            if value is not None:
+                converted[camel_name] = value
+        return converted
+
+    def _evaluate_asset_selection_mcons(
+        self,
+        monitor_uuid: str,
+        warehouse_uuid: str,
+        asset_selection: Dict[str, Any],
+    ) -> List[str]:
+        """Page evaluateAssetSelection and collect selected table MCONs, capped
+        by table_monitor_max_assets so a warehouse-wide TABLE monitor cannot
+        explode assertion count / API spend."""
+        max_assets = self.config.table_monitor_max_assets
+        mcons: List[str] = []
+        offset = 0
+        truncated = False
+        incomplete = False
+        while len(mcons) < max_assets:
+            response = self._safe_call(
+                EVALUATE_ASSET_SELECTION_QUERY,
+                {
+                    "warehouseUuid": warehouse_uuid,
+                    "assetSelection": asset_selection,
+                    "monitorUuid": monitor_uuid,
+                    "limit": self.page_size,
+                    "offset": offset,
+                },
+                title="Could not evaluate table monitor scope",
+                message="evaluateAssetSelection call failed; this monitor's "
+                "entities cannot be resolved and it will be skipped."
+                if not mcons
+                else "evaluateAssetSelection failed after some tables were "
+                "already resolved; remaining pages were skipped.",
+                context=f"monitor_uuid={monitor_uuid}, offset={offset}",
+            )
+            if response is None:
+                if not mcons:
+                    return []
+                incomplete = True
+                break
+            page = response.get("evaluate_asset_selection")
+            if not isinstance(page, list):
+                self._warn(
+                    title="Malformed evaluateAssetSelection response",
+                    message="Expected a list of asset selection results; "
+                    "stopping pagination for this monitor.",
+                    context=f"monitor_uuid={monitor_uuid}, got={type(page).__name__}",
+                )
+                if mcons:
+                    incomplete = True
+                else:
+                    return []
+                break
+            if not page:
+                break
+            selected_mcons: List[str] = []
+            for row in page:
+                if not isinstance(row, dict) or row.get("selected") is False:
+                    continue
+                mcon = row.get("mcon")
+                if isinstance(mcon, str) and mcon:
+                    selected_mcons.append(mcon)
+            remaining = max_assets - len(mcons)
+            if len(selected_mcons) > remaining:
+                truncated = True
+            mcons.extend(selected_mcons[:remaining])
+            if len(mcons) >= max_assets:
+                if len(page) == self.page_size:
+                    truncated = True
+                break
+            if len(page) < self.page_size:
+                break
+            offset += self.page_size
+        if truncated:
+            self._warn(
+                title="Table monitor coverage truncated",
+                message="TABLE monitor covers more tables than "
+                "table_monitor_max_assets; remaining tables were skipped.",
+                context=f"monitor_uuid={monitor_uuid}, "
+                f"ingested={len(mcons)}, cap={max_assets}",
+            )
+            if self.report is not None:
+                self.report.report_table_monitor_scope_truncated()
+        if incomplete:
+            self._warn(
+                title="Table monitor coverage incomplete",
+                message="evaluateAssetSelection failed mid-pagination; "
+                "only the tables resolved before the failure were ingested.",
+                context=f"monitor_uuid={monitor_uuid}, ingested={len(mcons)}",
+            )
+            if self.report is not None:
+                self.report.report_build_failure()
+                self.report.report_table_monitor_scope_truncated()
         return mcons
 
     def get_custom_rules(self) -> Iterable[MonteCarloAssertionDef]:
@@ -665,6 +897,9 @@ class MonteCarloClient:
         variables = {
             "createdTime": {"after": start_time.isoformat(), "before": now.isoformat()}
         }
+        # One getSchemaChanges call per unique SCHEMA_CHANGES asset MCON
+        # for the whole alerts lookback, then pick the closest event per alert.
+        schema_cache: Dict[str, Optional[List[MonteCarloSchemaChange]]] = {}
         for raw in self._paginate(
             self._query_builder.alerts_query(), "get_alerts", variables
         ):
@@ -673,20 +908,24 @@ class MonteCarloClient:
                 self._report_missing_id("alert", raw)
                 continue
             try:
-                yield MonteCarloAlert(
+                asset_mcons = [
+                    mcon
+                    for a in (raw.get("assets") or [])
+                    if isinstance(a, dict)
+                    for mcon in [a.get("mcon")]
+                    if isinstance(mcon, str) and mcon
+                ]
+                alert = MonteCarloAlert(
                     uuid=alert_id,
                     alert_type=raw.get("type"),
                     sub_types=raw.get("sub_types") or [],
+                    title=raw.get("title"),
                     severity=raw.get("severity"),
                     priority=raw.get("priority"),
                     status=raw.get("status"),
                     created_time=raw.get("created_time"),
                     monitor_uuids=list(raw.get("monitor_uuids") or []),
-                    asset_mcons=[
-                        a.get("mcon")
-                        for a in (raw.get("assets") or [])
-                        if a.get("mcon")
-                    ],
+                    asset_mcons=asset_mcons,
                 )
             except _FATAL_RUN_ERRORS:
                 raise
@@ -699,6 +938,144 @@ class MonteCarloClient:
                     context=f"alert_id={alert_id}, raw={raw!r}",
                     exc=e,
                 )
+                continue
+            if (alert.alert_type or "").upper() == ALERT_TYPE_SCHEMA_CHANGES:
+                alert.schema_changes_by_mcon = self._schema_changes_for_alert(
+                    alert, schema_cache, start_time, now
+                )
+            yield alert
+
+    def _schema_changes_for_alert(
+        self,
+        alert: MonteCarloAlert,
+        cache: Dict[str, Optional[List[MonteCarloSchemaChange]]],
+        window_start: datetime,
+        window_end: datetime,
+    ) -> Dict[str, MonteCarloSchemaChange]:
+        """Join getSchemaChanges onto a SCHEMA_CHANGES alert by asset MCON."""
+        if alert.created_time is None:
+            return {}
+        joined: Dict[str, MonteCarloSchemaChange] = {}
+        for mcon in alert.asset_mcons:
+            if mcon not in cache:
+                cache[mcon] = self._fetch_schema_changes(mcon, window_start, window_end)
+            events = cache[mcon]
+            if events is None:
+                continue
+            matched = closest_schema_change(events, alert.created_time)
+            if matched is not None:
+                joined[mcon] = matched
+            else:
+                self._warn(
+                    title="Schema-change alert has no matching catalog event",
+                    message="getSchemaChanges returned no event within the "
+                    "match window; this SCHEMA_CHANGES alert will be ingested "
+                    "without field-level diffs.",
+                    context=f"alert_uuid={alert.uuid}, mcon={mcon}",
+                )
+                if self.report is not None:
+                    self.report.report_schema_change_join_missed()
+        return joined
+
+    def _fetch_schema_changes(
+        self,
+        mcon: str,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> Optional[List[MonteCarloSchemaChange]]:
+        """One page of catalog schema history for ``mcon``. Returns None when
+        the fetch fails so callers do not treat an empty page as a join miss."""
+        response = self._safe_call(
+            GET_SCHEMA_CHANGES_QUERY,
+            {
+                "mcon": mcon,
+                "startTime": start_time.isoformat(),
+                "endTime": end_time.isoformat(),
+                "first": SCHEMA_CHANGE_PAGE_SIZE,
+            },
+            title="Could not fetch schema changes",
+            message="getSchemaChanges call failed; this SCHEMA_CHANGES alert "
+            "will be ingested without field-level diffs.",
+            context=f"mcon={mcon}",
+        )
+        if response is None:
+            return None
+        connection = response.get("get_schema_changes")
+        if not isinstance(connection, dict):
+            self._warn(
+                title="Malformed getSchemaChanges response",
+                message="Expected a SchemaChangeConnection; this SCHEMA_CHANGES "
+                "alert will be ingested without field-level diffs.",
+                context=f"mcon={mcon}, got={type(connection).__name__}",
+            )
+            return None
+        page_info = connection.get("page_info") or {}
+        if isinstance(page_info, dict) and page_info.get("has_next_page"):
+            self._warn(
+                title="Schema change history truncated",
+                message="getSchemaChanges has more pages than "
+                "SCHEMA_CHANGE_PAGE_SIZE; the closest catalog event may be "
+                "missing.",
+                context=f"mcon={mcon}",
+            )
+        events: List[MonteCarloSchemaChange] = []
+        for edge in connection.get("edges") or []:
+            if not isinstance(edge, dict):
+                continue
+            node = edge.get("node")
+            if not isinstance(node, dict):
+                continue
+            parsed = self._parse_schema_change(node, fallback_mcon=mcon)
+            if parsed is not None:
+                events.append(parsed)
+        return events
+
+    def _parse_schema_change(
+        self, raw: Dict[str, Any], fallback_mcon: str
+    ) -> Optional[MonteCarloSchemaChange]:
+        mcon = raw.get("mcon") or fallback_mcon
+        if not isinstance(mcon, str) or not mcon:
+            return None
+        field_type_changes: List[MonteCarloFieldTypeChange] = []
+        for entry in raw.get("field_type_changes") or []:
+            if not isinstance(entry, dict):
+                continue
+            field_name = entry.get("field_name")
+            old_type = entry.get("old_field_type")
+            new_type = entry.get("new_field_type")
+            if (
+                isinstance(field_name, str)
+                and field_name
+                and old_type is not None
+                and new_type is not None
+            ):
+                field_type_changes.append(
+                    MonteCarloFieldTypeChange(
+                        field_name=field_name,
+                        old_field_type=str(old_type),
+                        new_field_type=str(new_type),
+                    )
+                )
+        try:
+            return MonteCarloSchemaChange(
+                mcon=mcon,
+                start_time=raw.get("start_time"),
+                fields_added=[
+                    f for f in (raw.get("fields_added") or []) if isinstance(f, str)
+                ],
+                fields_removed=[
+                    f for f in (raw.get("fields_removed") or []) if isinstance(f, str)
+                ],
+                field_type_changes=field_type_changes,
+            )
+        except Exception as e:
+            self._warn(
+                title="Skipped malformed schema change",
+                message="Could not parse a getSchemaChanges row; skipping it.",
+                context=f"mcon={mcon}, raw={raw!r}",
+                exc=e,
+            )
+            return None
 
     def get_table(self, mcon: str) -> Optional[ResolvedTable]:
         table = self._call(GET_TABLE_QUERY, {"mcon": mcon}).get("get_table")

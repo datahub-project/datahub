@@ -32,8 +32,10 @@ SQL expression is captured in `customAssertion.logic`.
 Monte Carlo rules can carry several independent comparisons, but DataHub's assertion model is
 single-comparison. The connector maps `comparisons[0]` onto the structured fields above and folds
 any remaining comparisons into `customAssertion.logic` as JSON, so a compound rule is still fully
-represented. This preserves the one-monitor → one-assertion-URN scheme, so alert and run-event
-wiring is unchanged.
+represented. Single-asset monitors keep one assertion URN per monitor. Pattern-scoped TABLE
+monitors that cover several tables emit one assertion per covered dataset (the assertion URN
+includes the table MCON), and an alert attaches to the assertion whose dataset matches the
+alert's assets.
 
 Monitors for which no `comparisons` are returned (or the comparisons are malformed) fall back to
 `scope = DATASET_ROWS` with `_NATIVE_` operator/aggregation, so they still render through the
@@ -92,6 +94,17 @@ path) if the monitor disappears from Monte Carlo, but its run history is preserv
   table-level metrics, so a per-run join is not possible. The measured value is attached to the
   latest SUCCESS run as a best-effort temporal correlation ("most recent measurement" on "most
   recent successful run"), not a proven same-run match.
+- **TABLE monitor scope:** Pattern-scoped TABLE monitors (tags, activity, table-name
+  filters) are resolved via Monte Carlo's `evaluateAssetSelection` API. Each covered
+  table becomes its own assertion. Coverage is capped by `table_monitor_max_assets`
+  (default 100); remaining tables are skipped with a warning.
+- **Catalog schema history is not ingested as assertions:** Monte Carlo's Schema
+  changes panel (`getSchemaChanges`) is per-table catalog history, not a monitor.
+  Unmonitored tables with schema-change history will not get an assertion in
+  DataHub. Schema-change _alerts_ raised by TABLE monitors are ingested as
+  assertion failures on the covered tables. For those alerts the connector
+  joins `getSchemaChanges` by table MCON and timestamp so `fieldsAdded` /
+  `fieldsRemoved` / `fieldTypeChanges` land on the run event's `nativeResults`.
 - **MCON resolution:** Each monitored asset requires one `getTable` call to resolve its MCON to a
   warehouse table (results are cached per MCON). Assets whose warehouse is not in
   `connection_to_platform_map` are skipped with a warning unless `auto_map_connection_types` is

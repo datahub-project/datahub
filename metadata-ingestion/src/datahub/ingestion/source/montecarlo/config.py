@@ -227,6 +227,15 @@ class MonteCarloSourceConfig(
         default=[],
         description="Optional list of Monte Carlo domain UUIDs to scope ingestion to.",
     )
+    table_monitor_max_assets: pydantic.PositiveInt = Field(
+        default=100,
+        description="Maximum number of tables to ingest per pattern-scoped TABLE "
+        "monitor. TABLE monitors often cover a warehouse via tags or activity "
+        "filters; each covered table becomes its own assertion, so this cap "
+        "bounds API calls (evaluateAssetSelection + getTable) and assertion "
+        "count. Remaining tables are skipped with a warning. Raise it if a "
+        "TABLE monitor's coverage is truncated in the run report.",
+    )
     strict_schema_drift: bool = Field(
         default=False,
         description="When enabled, abort the run if the Monte Carlo GraphQL schema has "

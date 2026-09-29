@@ -313,6 +313,7 @@ def test_builder_fallback_does_not_poison_other_types() -> None:
                     "priority": "SCALAR:String",
                     "status": "SCALAR:String",
                     "createdTime": "SCALAR:DateTime",
+                    "title": "SCALAR:String",
                     "monitorUuids": "SCALAR:String",
                     "assets": "OBJECT:AlertAsset",
                 }

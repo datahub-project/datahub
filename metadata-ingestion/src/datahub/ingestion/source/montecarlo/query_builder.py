@@ -85,6 +85,7 @@ ALERT_DESIRED_FIELDS: DesiredFields = {
     "priority": None,
     "status": None,
     "createdTime": None,
+    "title": None,
     "monitorUuids": None,
     "assets": {"mcon": None},
 }
@@ -120,7 +121,7 @@ _CUSTOM_RULE_FALLBACK_SELECTION = (
 )
 _ALERT_FALLBACK_SELECTION = (
     "id\n    type\n    subTypes\n    severity\n    priority\n    status\n    "
-    "createdTime\n    monitorUuids\n    assets { mcon }"
+    "createdTime\n    title\n    monitorUuids\n    assets { mcon }"
 )
 
 
