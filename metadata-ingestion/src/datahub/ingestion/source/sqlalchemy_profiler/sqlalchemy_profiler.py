@@ -946,13 +946,8 @@ class SQLAlchemyProfiler:
 
         Schedules, flushes, and extracts row count. Updates partition spec if sampling was applied.
 
-        Sets `profile.rowCount` to the row count of the dataset itself, which on a
-        sampled profile is not what was counted here.
-
         Returns:
-            The number of rows actually measured -- the sample's count when the
-            adapter sampled -- which is the denominator every derived column
-            statistic must use (or None if unavailable).
+            Row count (or None if unavailable)
         """
         use_estimation = (
             self.config.profile_table_row_count_estimate_only
@@ -971,10 +966,12 @@ class SQLAlchemyProfiler:
 
         # Extract row count result with exception handling
         try:
-            measured_row_count = row_count_future.result()
+            profile.rowCount = row_count_future.result()
+            row_count = profile.rowCount
             logger.debug(
-                f"Row count result for {pretty_name}: {measured_row_count}, type: {type(measured_row_count)}"
+                f"Row count result for {pretty_name}: {row_count}, type: {type(row_count)}"
             )
+            self.total_row_count += row_count if row_count is not None else 0
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get row count for {pretty_name}. {e}"
@@ -985,20 +982,8 @@ class SQLAlchemyProfiler:
                 context=pretty_name,
                 exc=e,
             )
-            measured_row_count = None
-
-        # When the adapter sampled, the count above is the sample's, so reporting
-        # it as rowCount would show a billion-row table as ~10k in the UI. Report
-        # the pre-sample count the adapter recorded instead; the measured count
-        # stays the denominator for the derived column statistics and survives in
-        # the partition spec below. Falls back to the sample when the adapter
-        # could not establish a pre-sample count (e.g. views on Snowflake).
-        profile.rowCount = (
-            context.pre_sample_row_count
-            if context.is_sampled and context.pre_sample_row_count is not None
-            else measured_row_count
-        )
-        self.total_row_count += profile.rowCount if profile.rowCount is not None else 0
+            profile.rowCount = None
+            row_count = None
 
         # Update partition spec if sampling was applied by adapter
         if context.is_sampled:
@@ -1015,12 +1000,10 @@ class SQLAlchemyProfiler:
             ):
                 profile.partitionSpec.partition += " SAMPLE"
 
-            if profile.partitionSpec and measured_row_count is not None:
-                profile.partitionSpec.partition += (
-                    f" (sample rows {measured_row_count})"
-                )
+            if profile.partitionSpec and row_count is not None:
+                profile.partitionSpec.partition += f" (sample rows {row_count})"
 
-        return measured_row_count
+        return row_count
 
     def _ignore_list_as_stored_names(
         self,

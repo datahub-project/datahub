@@ -344,10 +344,6 @@ class BigQueryAdapter(PlatformAdapter):
 
         context.is_sampled = True
         context.sample_percentage = sample_pc
-        # `row_count` counts whatever we sampled from -- on the partition branch
-        # above that is the partition, not the whole table, and the profile being
-        # built is the partition's.
-        context.pre_sample_row_count = row_count
 
         return context
 
