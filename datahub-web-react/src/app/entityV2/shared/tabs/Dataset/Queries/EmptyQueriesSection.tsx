@@ -1,4 +1,4 @@
-import { Popover, Text } from '@components';
+import { Popover, Text, TooltipPlacement } from '@components';
 import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import React from 'react';
 import styled from 'styled-components';
@@ -38,8 +38,6 @@ const EmptyText = styled(Text)`
     margin-top: 12px;
     color: ${(props) => props.theme.colors.textSecondary};
 `;
-
-type TooltipPlacement = React.ComponentProps<typeof Popover>['placement'];
 
 interface Props {
     sectionName?: string;
