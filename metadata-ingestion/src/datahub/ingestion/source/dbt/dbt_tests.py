@@ -353,6 +353,24 @@ def make_assertion_from_test(
     )
 
 
+def select_test_results_to_emit(
+    test_results: List[DBTTestResult], latest_only: bool
+) -> List[DBTTestResult]:
+    """Order a test's results chronologically, dropping repeats of the same invocation.
+
+    Each emitted result becomes an AssertionRunEvent, and every run event can fan
+    out into an assertion notification. Emitting results in file order (rather than
+    time order), or re-emitting superseded ones, produces spurious alerts.
+    """
+    latest_by_invocation: Dict[str, DBTTestResult] = {}
+    for result in test_results:
+        existing = latest_by_invocation.get(result.invocation_id)
+        if existing is None or result.execution_time >= existing.execution_time:
+            latest_by_invocation[result.invocation_id] = result
+    ordered = sorted(latest_by_invocation.values(), key=lambda r: r.execution_time)
+    return ordered[-1:] if latest_only else ordered
+
+
 def make_assertion_result_from_test(
     node: "DBTNode",
     test_result: DBTTestResult,

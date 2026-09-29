@@ -44,6 +44,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
     parse_freshness_criteria,
+    select_test_results_to_emit,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
@@ -4783,3 +4784,35 @@ def test_load_file_as_json_handles_utf8_bom():
         assert DBTCoreSource.load_file_as_json(
             "https://example.com/manifest.json", None
         ) == {"nodes": {}}
+
+
+def _test_result(invocation_id: str, status: str, day: int) -> DBTTestResult:
+    return DBTTestResult(
+        invocation_id=invocation_id,
+        status=status,
+        execution_time=datetime(2026, 1, day, tzinfo=timezone.utc),
+        native_results={},
+    )
+
+
+def test_select_test_results_to_emit_latest_only_ignores_file_order() -> None:
+    # Newest run_results file listed first: the superseded failure must not be
+    # emitted after (or at all alongside) the current pass.
+    current = _test_result("inv-current", "pass", day=2)
+    previous = _test_result("inv-previous", "fail", day=1)
+
+    assert select_test_results_to_emit([current, previous], latest_only=True) == [
+        current
+    ]
+    assert select_test_results_to_emit([], latest_only=True) == []
+
+
+def test_select_test_results_to_emit_all_is_chronological_and_deduped() -> None:
+    current = _test_result("inv-current", "pass", day=3)
+    previous = _test_result("inv-previous", "fail", day=1)
+    # Same invocation loaded twice, e.g. overlapping run_results globs.
+    previous_again = _test_result("inv-previous", "fail", day=1)
+
+    assert select_test_results_to_emit(
+        [current, previous, previous_again], latest_only=False
+    ) == [previous, current]

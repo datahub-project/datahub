@@ -77,6 +77,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_assertion_from_test,
     make_assertion_result_from_freshness,
     make_assertion_result_from_test,
+    select_test_results_to_emit,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -833,6 +834,17 @@ class DBTCommonConfig(
             "The default will change to ``true`` in a future release once assertion "
             "result consumers can filter by severity; set ``true`` today to adopt the "
             "forthcoming behavior."
+        ),
+    )
+    only_emit_latest_test_result: bool = Field(
+        default=True,
+        description=(
+            "When multiple run_results files contain a result for the same dbt test "
+            "(e.g. a glob over historical runs, or `dbt build` followed by `dbt retry`), "
+            "only emit the most recent result. Older results are stale, and replaying "
+            "them on every ingestion re-triggers assertion notifications (a failure "
+            "immediately followed by a pass). Set to false to emit every result, "
+            "e.g. to backfill assertion run history."
         ),
     )
     infer_dbt_schemas: bool = Field(
@@ -2223,7 +2235,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         if ownership_mcp:
                             yield ownership_mcp
 
-                    for test_result in node.test_results:
+                    for test_result in select_test_results_to_emit(
+                        node.test_results,
+                        latest_only=self.config.only_emit_latest_test_result,
+                    ):
                         if self.config.entities_enabled.can_emit_test_results:
                             yield make_assertion_result_from_test(
                                 node,
