@@ -61,7 +61,7 @@ check() {
   if ! PATH="${STUB_DIR}:${PATH}" \
     GITHUB_OUTPUT="${out}" GITHUB_STEP_SUMMARY="${summary}" \
     env EVENT_NAME=pull_request FULL_BUILD_LABEL=false IS_FORK=false \
-    PR_PUBLISH=false SMOKE_BUILD_TASK= \
+    PR_PUBLISH=false SMOKE_BUILD_TASK= SMOKE_MODULES= \
     "$@" "${UNDER_TEST}" >/dev/null 2>&1; then
     failed=$((failed + 1))
     printf '  FAIL  %s\n        resolver exited nonzero\n' "${name}"
@@ -96,7 +96,7 @@ check_version_env() {
   if ! PATH="${STUB_DIR}:${PATH}" \
     GITHUB_OUTPUT="${out}" GITHUB_STEP_SUMMARY="${summary}" \
     env EVENT_NAME=pull_request FULL_BUILD_LABEL=false IS_FORK=false \
-    PR_PUBLISH=false SMOKE_BUILD_TASK= \
+    PR_PUBLISH=false SMOKE_BUILD_TASK= SMOKE_MODULES= \
     "$@" "${UNDER_TEST}" >/dev/null 2>&1; then
     failed=$((failed + 1))
     printf '  FAIL  %s\n        resolver exited nonzero\n' "${name}"
@@ -111,6 +111,57 @@ check_version_env() {
   failed=$((failed + 1))
   printf '  FAIL  %s\n        expected image_version_env to contain: %s\n        actual image_version_env block:\n%s\n' \
     "${name}" "${expected}" "$(sed -n '/^image_version_env<</,/^IMAGE_VERSION_ENV_EOF$/p' "${out}")"
+}
+
+# check_version_env_absent <name> <forbidden image_version_env line> <env assignments...>
+check_version_env_absent() {
+  local name="$1" forbidden="$2"
+  shift 2
+
+  local out="${WORK_DIR}/out" summary="${WORK_DIR}/summary"
+  : >"${out}"
+  : >"${summary}"
+
+  if ! PATH="${STUB_DIR}:${PATH}" \
+    GITHUB_OUTPUT="${out}" GITHUB_STEP_SUMMARY="${summary}" \
+    env EVENT_NAME=pull_request FULL_BUILD_LABEL=false IS_FORK=false \
+    PR_PUBLISH=false SMOKE_BUILD_TASK= SMOKE_MODULES= \
+    "$@" "${UNDER_TEST}" >/dev/null 2>&1; then
+    failed=$((failed + 1))
+    printf '  FAIL  %s\n        resolver exited nonzero\n' "${name}"
+    return
+  fi
+
+  if grep -qF "${forbidden}" "${out}"; then
+    failed=$((failed + 1))
+    printf '  FAIL  %s\n        image_version_env should not contain: %s\n        actual image_version_env block:\n%s\n' \
+      "${name}" "${forbidden}" "$(sed -n '/^image_version_env<</,/^IMAGE_VERSION_ENV_EOF$/p' "${out}")"
+    return
+  fi
+  passed=$((passed + 1))
+  printf '  ok    %s\n' "${name}"
+}
+
+# check_fails <name> <env assignments...>
+check_fails() {
+  local name="$1"
+  shift
+
+  local out="${WORK_DIR}/out" summary="${WORK_DIR}/summary"
+  : >"${out}"
+  : >"${summary}"
+
+  if PATH="${STUB_DIR}:${PATH}" \
+    GITHUB_OUTPUT="${out}" GITHUB_STEP_SUMMARY="${summary}" \
+    env EVENT_NAME=pull_request FULL_BUILD_LABEL=false IS_FORK=false \
+    PR_PUBLISH=false SMOKE_BUILD_TASK= SMOKE_MODULES= \
+    "$@" "${UNDER_TEST}" >/dev/null 2>&1; then
+    failed=$((failed + 1))
+    printf '  FAIL  %s\n        expected resolver to exit nonzero\n' "${name}"
+    return
+  fi
+  passed=$((passed + 1))
+  printf '  ok    %s\n' "${name}"
 }
 
 ALL=":metadata-service:war,:datahub-upgrade,:metadata-jobs:mae-consumer-job,:metadata-jobs:mce-consumer-job,:datahub-frontend,:datahub-actions"
@@ -176,8 +227,61 @@ check "fork pull request" \
   "${ALL}" IS_FORK=true 'CHANGED_FILES=["smoke-test/a.py"]'
 check "publish label" \
   "${ALL}" PR_PUBLISH=true 'CHANGED_FILES=["smoke-test/a.py"]'
-check "smoke: label" \
-  "${ALL}" SMOKE_BUILD_TASK=:docker:buildImagesQuickstartPg 'CHANGED_FILES=["smoke-test/a.py"]'
+check "publish label bakes every image even with a smoke profile" \
+  "${ALL}" PR_PUBLISH=true \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
+  SMOKE_MODULES=":datahub-upgrade :metadata-service:war :datahub-frontend :datahub-actions" \
+  'CHANGED_FILES=["smoke-test/a.py"]'
+QUICKSTART_PG_MODULES=":datahub-upgrade :metadata-service:war :datahub-frontend :datahub-actions"
+QUICKSTART_PG_BUILT=":metadata-service:war,:datahub-upgrade,:datahub-frontend,:datahub-actions"
+QUICKSTART_PG_CONSUMERS_MODULES=":datahub-upgrade :metadata-service:war :datahub-frontend :metadata-jobs:mce-consumer-job :metadata-jobs:mae-consumer-job :datahub-actions"
+# Same fake digest the curl stub emits for the bare `quickstart` tag.
+QUICKSTART_DIGEST="sha256:0000000000000000000000000000000000000000000000000000003571886052"
+check "smoke: quickstartPg builds its modules only" \
+  "${QUICKSTART_PG_BUILT}" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
+  SMOKE_MODULES="${QUICKSTART_PG_MODULES}" \
+  'CHANGED_FILES=["smoke-test/a.py"]'
+check_version_env "smoke: quickstartPg pins MAE to quickstart@digest" \
+  "DATAHUB_MAE_VERSION=quickstart@${QUICKSTART_DIGEST}" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
+  SMOKE_MODULES="${QUICKSTART_PG_MODULES}" \
+  'CHANGED_FILES=["smoke-test/a.py"]'
+check_version_env "smoke: quickstartPg pins MCE to quickstart@digest" \
+  "DATAHUB_MCE_VERSION=quickstart@${QUICKSTART_DIGEST}" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
+  SMOKE_MODULES="${QUICKSTART_PG_MODULES}" \
+  'CHANGED_FILES=["smoke-test/a.py"]'
+check "smoke: quickstartPg ignores paths outside its modules" \
+  "${QUICKSTART_PG_BUILT}" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
+  SMOKE_MODULES="${QUICKSTART_PG_MODULES}" \
+  'CHANGED_FILES=["metadata-io/src/main/java/A.java"]'
+check "smoke: quickstartPg leaves a missing out-of-list image unpinned" \
+  "${QUICKSTART_PG_BUILT}" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
+  SMOKE_MODULES="${QUICKSTART_PG_MODULES}" \
+  MISSING_TAGS="quickstart quickstart-slim" \
+  'CHANGED_FILES=["smoke-test/a.py"]'
+check_version_env_absent "smoke: quickstartPg does not pin MAE when quickstart is missing" \
+  "DATAHUB_MAE_VERSION=" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
+  SMOKE_MODULES="${QUICKSTART_PG_MODULES}" \
+  MISSING_TAGS="quickstart quickstart-slim" \
+  'CHANGED_FILES=["smoke-test/a.py"]'
+check "smoke: quickstartPgConsumers builds MAE and MCE" \
+  "${ALL}" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPgConsumers \
+  SMOKE_MODULES="${QUICKSTART_PG_CONSUMERS_MODULES}" \
+  'CHANGED_FILES=["smoke-test/a.py"]'
+check_version_env_absent "smoke: quickstartPgConsumers does not pin MAE" \
+  "DATAHUB_MAE_VERSION=" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPgConsumers \
+  SMOKE_MODULES="${QUICKSTART_PG_CONSUMERS_MODULES}" \
+  'CHANGED_FILES=["smoke-test/a.py"]'
+check_fails "smoke task without modules" \
+  SMOKE_BUILD_TASK=:docker:buildImagesquickstartPg \
+  'CHANGED_FILES=["smoke-test/a.py"]'
 check "empty changed-file list" \
   "${ALL}" 'CHANGED_FILES=[]'
 check "unreadable changed-file list" \

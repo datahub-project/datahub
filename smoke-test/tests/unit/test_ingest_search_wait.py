@@ -3,14 +3,14 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.utilities.domains import Domain
-from tests.utils import (
+from tests.e2e.utils import (
     entity_urns_from_ingest_file,
     searchable_ingest_urns,
     wait_for_browse_path_entities,
     wait_for_browse_path_entity,
     wait_for_ingested_urns_searchable,
 )
+from utilities.domains import Domain
 
 pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.PLATFORM)]
 
@@ -51,8 +51,8 @@ def test_wait_for_ingested_urns_searchable_retries_until_found(tmp_path, monkeyp
     path.write_text(json.dumps([{"entityUrn": MCP_URN}]))
 
     sleeps: list = []
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (1, 3))
-    monkeypatch.setattr("tests.utils.time.sleep", sleeps.append)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (1, 3))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", sleeps.append)
 
     search_calls: list = []
 
@@ -62,7 +62,7 @@ def test_wait_for_ingested_urns_searchable_retries_until_found(tmp_path, monkeyp
             return set()
         return {MCP_URN}
 
-    monkeypatch.setattr("tests.utils._search_results_contain_urns", fake_search)
+    monkeypatch.setattr("tests.e2e.utils._search_results_contain_urns", fake_search)
 
     wait_for_ingested_urns_searchable(MagicMock(), str(path))
 
@@ -109,9 +109,9 @@ def test_wait_for_ingested_urns_searchable_skips_non_searchable_types(
         search_calls.append(list(urns))
         return {MCP_URN}
 
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (1, 3))
-    monkeypatch.setattr("tests.utils.time.sleep", lambda seconds: None)
-    monkeypatch.setattr("tests.utils._search_results_contain_urns", fake_search)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (1, 3))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", lambda seconds: None)
+    monkeypatch.setattr("tests.e2e.utils._search_results_contain_urns", fake_search)
 
     wait_for_ingested_urns_searchable(MagicMock(), str(path))
 
@@ -125,8 +125,8 @@ def test_wait_for_ingested_urns_searchable_retries_when_graphql_errors(
     path.write_text(json.dumps([{"entityUrn": MCP_URN}]))
 
     sleeps: list = []
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (1, 3))
-    monkeypatch.setattr("tests.utils.time.sleep", sleeps.append)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (1, 3))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", sleeps.append)
 
     responses = [
         {"errors": [{"message": "boom"}]},
@@ -142,7 +142,7 @@ def test_wait_for_ingested_urns_searchable_retries_when_graphql_errors(
     def fake_graphql(*args, **kwargs):
         return responses.pop(0)
 
-    monkeypatch.setattr("tests.utils.execute_graphql", fake_graphql)
+    monkeypatch.setattr("tests.e2e.utils.execute_graphql", fake_graphql)
 
     wait_for_ingested_urns_searchable(MagicMock(), str(path))
 
@@ -157,8 +157,8 @@ def test_wait_for_ingested_urns_searchable_retries_when_graphql_raises(
     path.write_text(json.dumps([{"entityUrn": MCP_URN}]))
 
     sleeps: list = []
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (1, 3))
-    monkeypatch.setattr("tests.utils.time.sleep", sleeps.append)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (1, 3))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", sleeps.append)
 
     responses = [
         ConnectionError("network down"),
@@ -177,7 +177,7 @@ def test_wait_for_ingested_urns_searchable_retries_when_graphql_raises(
             raise next_response
         return next_response
 
-    monkeypatch.setattr("tests.utils.execute_graphql", fake_graphql)
+    monkeypatch.setattr("tests.e2e.utils.execute_graphql", fake_graphql)
 
     wait_for_ingested_urns_searchable(MagicMock(), str(path))
 
@@ -191,10 +191,10 @@ def test_wait_for_ingested_urns_searchable_times_out_when_graphql_errors(
     path = tmp_path / "ingest.json"
     path.write_text(json.dumps([{"entityUrn": MCP_URN}]))
 
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (0, 2))
-    monkeypatch.setattr("tests.utils.time.sleep", lambda seconds: None)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (0, 2))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", lambda seconds: None)
     monkeypatch.setattr(
-        "tests.utils.execute_graphql",
+        "tests.e2e.utils.execute_graphql",
         lambda *args, **kwargs: {"errors": [{"message": "boom"}]},
     )
 
@@ -206,10 +206,10 @@ def test_wait_for_ingested_urns_searchable_times_out(tmp_path, monkeypatch):
     path = tmp_path / "ingest.json"
     path.write_text(json.dumps([{"entityUrn": MCP_URN}]))
 
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (0, 2))
-    monkeypatch.setattr("tests.utils.time.sleep", lambda seconds: None)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (0, 2))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", lambda seconds: None)
     monkeypatch.setattr(
-        "tests.utils._search_results_contain_urns", lambda *args, **kwargs: set()
+        "tests.e2e.utils._search_results_contain_urns", lambda *args, **kwargs: set()
     )
 
     with pytest.raises(AssertionError, match="not searchable"):
@@ -225,14 +225,14 @@ def test_wait_for_ingested_urns_searchable_empty_when_only_non_searchable(
     def fail_search(*args, **kwargs):
         raise AssertionError("should not search non-searchable types")
 
-    monkeypatch.setattr("tests.utils._search_results_contain_urns", fail_search)
+    monkeypatch.setattr("tests.e2e.utils._search_results_contain_urns", fail_search)
     wait_for_ingested_urns_searchable(MagicMock(), str(path))
 
 
 def test_wait_for_browse_path_entity_retries_until_found(monkeypatch):
     sleeps: list = []
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (1, 3))
-    monkeypatch.setattr("tests.utils.time.sleep", sleeps.append)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (1, 3))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", sleeps.append)
 
     responses = [
         {"data": {"browse": {"entities": []}}},
@@ -242,7 +242,7 @@ def test_wait_for_browse_path_entity_retries_until_found(monkeypatch):
     def fake_graphql(*args, **kwargs):
         return responses.pop(0)
 
-    monkeypatch.setattr("tests.utils.execute_graphql", fake_graphql)
+    monkeypatch.setattr("tests.e2e.utils.execute_graphql", fake_graphql)
 
     wait_for_browse_path_entity(
         MagicMock(),
@@ -256,8 +256,8 @@ def test_wait_for_browse_path_entity_retries_until_found(monkeypatch):
 
 def test_wait_for_browse_path_entities_waits_for_all_urns(monkeypatch):
     sleeps: list = []
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (1, 3))
-    monkeypatch.setattr("tests.utils.time.sleep", sleeps.append)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (1, 3))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", sleeps.append)
 
     other = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-1,PROD)"
     responses = [
@@ -268,7 +268,7 @@ def test_wait_for_browse_path_entities_waits_for_all_urns(monkeypatch):
     def fake_graphql(*args, **kwargs):
         return responses.pop(0)
 
-    monkeypatch.setattr("tests.utils.execute_graphql", fake_graphql)
+    monkeypatch.setattr("tests.e2e.utils.execute_graphql", fake_graphql)
 
     wait_for_browse_path_entities(
         MagicMock(),
@@ -282,8 +282,8 @@ def test_wait_for_browse_path_entities_waits_for_all_urns(monkeypatch):
 
 def test_wait_for_browse_path_entities_retries_on_graphql_errors(monkeypatch):
     sleeps: list = []
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (1, 3))
-    monkeypatch.setattr("tests.utils.time.sleep", sleeps.append)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (1, 3))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", sleeps.append)
 
     responses = [
         {"errors": [{"message": "boom"}]},
@@ -294,7 +294,7 @@ def test_wait_for_browse_path_entities_retries_on_graphql_errors(monkeypatch):
         assert kwargs.get("expect_errors") is True
         return responses.pop(0)
 
-    monkeypatch.setattr("tests.utils.execute_graphql", fake_graphql)
+    monkeypatch.setattr("tests.e2e.utils.execute_graphql", fake_graphql)
 
     wait_for_browse_path_entities(
         MagicMock(),
@@ -308,8 +308,8 @@ def test_wait_for_browse_path_entities_retries_on_graphql_errors(monkeypatch):
 
 def test_wait_for_browse_path_entities_retries_when_graphql_raises(monkeypatch):
     sleeps: list = []
-    monkeypatch.setattr("tests.utils.get_sleep_info", lambda: (1, 3))
-    monkeypatch.setattr("tests.utils.time.sleep", sleeps.append)
+    monkeypatch.setattr("tests.e2e.utils.get_sleep_info", lambda: (1, 3))
+    monkeypatch.setattr("tests.e2e.utils.time.sleep", sleeps.append)
 
     responses = [
         ConnectionError("network down"),
@@ -323,7 +323,7 @@ def test_wait_for_browse_path_entities_retries_when_graphql_raises(monkeypatch):
             raise next_response
         return next_response
 
-    monkeypatch.setattr("tests.utils.execute_graphql", fake_graphql)
+    monkeypatch.setattr("tests.e2e.utils.execute_graphql", fake_graphql)
 
     wait_for_browse_path_entities(
         MagicMock(),
