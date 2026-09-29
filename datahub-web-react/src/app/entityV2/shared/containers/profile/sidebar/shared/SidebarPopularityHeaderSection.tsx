@@ -77,11 +77,12 @@ function getTier(
     return getDatasetPopularityTier(queryCountPercentileLast30Days, uniqueUserPercentileLast30Days);
 }
 
-function shouldRender(
-    entityType,
-    queryCountPercentileLast30Days,
-    uniqueUserPercentileLast30Days,
-    viewCountPercentileLast30Days,
+/** Whether the stats summary carries the percentiles the popularity bars are derived from. */
+export function hasPopularityStats(
+    entityType: EntityType | undefined,
+    queryCountPercentileLast30Days?: number | null,
+    uniqueUserPercentileLast30Days?: number | null,
+    viewCountPercentileLast30Days?: number | null,
 ) {
     if (entityType === EntityType.Chart || entityType === EntityType.Dashboard) {
         return isValuePresent(viewCountPercentileLast30Days) || isValuePresent(uniqueUserPercentileLast30Days);
@@ -108,7 +109,7 @@ const SidebarPopularityHeaderSection = ({ statsSummary: statsSummaryFromProps, s
     const updatePercentileLast30Days = statsSummary?.updatePercentileLast30Days;
 
     if (
-        !shouldRender(
+        !hasPopularityStats(
             entityType || entityData?.type,
             queryCountPercentileLast30Days,
             uniqueUserPercentileLast30Days,

@@ -288,7 +288,9 @@ export default defineConfig(async ({ mode }) => {
         resolve: {
             alias: [
                 {
-                    find: /^lodash\/(.+)$/,
+                    // Storybook's Vite builder pre-bundles `lodash/<fn>.js`; the optional group
+                    // keeps that from becoming `lodash-es/<fn>.js.js`, which fails dep scanning.
+                    find: /^lodash\/(.+?)(?:\.js)?$/,
                     replacement: 'lodash-es/$1.js',
                 },
                 // Root Directories
