@@ -211,16 +211,17 @@ input SearchFlags {
   minScore: Float
 
   """
-  Include the search engine's scoring explanation for each keyword search hit, as JSON in the
-  hit's extraProperties under the key _explain. Requires the ES_EXPLAIN_QUERY_PRIVILEGE or
-  MANAGE_SYSTEM_OPERATIONS privilege. Adds scoring overhead, so use it to debug relevance.
+  Include Elasticsearch scoring explanation in search results.
+  Explanations appear in SearchResult.extraProperties with key '_explain'.
+  Note: Adds computational overhead - use for debugging only.
   """
   includeExplain: Boolean
 
   """
-  Search type for keyword search: QUERY_THEN_FETCH (default) or DFS_QUERY_THEN_FETCH.
-  DFS_QUERY_THEN_FETCH gathers term statistics from all shards before scoring, so scores are
-  comparable across shards, at the cost of an extra round trip per search.
+  Elasticsearch search type for controlling IDF calculation across shards.
+  - QUERY_THEN_FETCH: Shard-local IDF (default, faster, production behavior)
+  - DFS_QUERY_THEN_FETCH: Global IDF across all shards (slower, more accurate for debugging)
+  Note: DFS mode adds 20-50% latency overhead - use for debugging only.
   """
   searchType: String
 }

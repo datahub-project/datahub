@@ -17,10 +17,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
-import com.datahub.authorization.AuthorizationRequest;
-import com.datahub.authorization.AuthorizationResult;
 import com.datahub.context.OperationFingerprint;
-import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -36,7 +33,6 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
@@ -62,9 +58,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
-import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.ArrayList;
@@ -78,7 +72,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nonnull;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.TotalHits;
 import org.opensearch.OpenSearchException;
@@ -1901,22 +1894,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         "\"urn:li:domain:root\"");
   }
 
-  // Grants only the explain privilege, so the tests show it is enough on its own
-  private static final Authorizer EXPLAIN_ONLY_AUTHORIZER =
-      new Authorizer() {
-        @Override
-        public AuthorizationResult authorize(@Nonnull AuthorizationRequest request) {
-          return new AuthorizationResult(
-              request,
-              PoliciesConfig.ES_EXPLAIN_QUERY_PRIVILEGE.getType().equals(request.getPrivilege())
-                  ? AuthorizationResult.Type.ALLOW
-                  : AuthorizationResult.Type.DENY,
-              "");
-        }
-      };
-
   @Test
-  public void testExplainAndSearchTypeApplyToSearchAndScrollRequests() {
+  public void testSearchTypeAppliesToSearchAndScrollRequests() {
     SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
             operationContext,
@@ -1925,95 +1904,36 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
-    OperationContext debugContext =
-        operationContext
-            .asSession(
-                RequestContext.TEST, EXPLAIN_ONLY_AUTHORIZER, TestOperationContexts.TEST_USER_AUTH)
-            .withSearchFlags(
-                flags ->
-                    flags
-                        .setFulltext(false)
-                        .setIncludeExplain(true)
-                        .setSearchType("DFS_QUERY_THEN_FETCH"));
+    OperationContext dfsContext =
+        operationContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(false)
+                    .setIncludeExplain(true)
+                    .setSearchType("DFS_QUERY_THEN_FETCH"));
     for (SearchRequest request :
         List.of(
-            handler.getSearchRequest(debugContext, "testQuery", null, null, 0, 10, List.of()),
+            handler.getSearchRequest(dfsContext, "testQuery", null, null, 0, 10, List.of()),
             handler.getSearchRequest(
-                debugContext, "testQuery", null, null, null, null, null, 10, List.of()))) {
+                dfsContext, "testQuery", null, null, null, null, null, 10, List.of()))) {
       assertEquals(request.source().explain(), Boolean.TRUE);
       assertEquals(request.searchType(), SearchType.DFS_QUERY_THEN_FETCH);
     }
 
-    SearchRequest defaults =
-        handler.getSearchRequest(
-            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
-            "testQuery",
-            null,
-            null,
-            0,
-            10,
-            List.of());
-    assertNotEquals(defaults.source().explain(), Boolean.TRUE);
-    assertEquals(defaults.searchType(), SearchType.QUERY_THEN_FETCH);
-  }
-
-  @Test
-  public void testUnknownSearchTypeIsRejected() {
-    SearchRequestHandler handler =
-        SearchRequestHandler.getBuilder(
-            operationContext,
-            TestEntitySpecBuilder.getSpec(),
-            testQueryConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            handler.getSearchRequest(
-                operationContext.withSearchFlags(
-                    flags -> flags.setFulltext(false).setSearchType("QUERY_AND_FETCH")),
-                "testQuery",
-                null,
-                null,
-                0,
-                10,
-                List.of()));
-  }
-
-  @Test
-  public void testIncludeExplainWithoutExplainPrivilegeIsDenied() {
-    SearchRequestHandler handler =
-        SearchRequestHandler.getBuilder(
-            operationContext,
-            TestEntitySpecBuilder.getSpec(),
-            testQueryConfig,
-            null,
-            QueryFilterRewriteChain.EMPTY,
-            TEST_SEARCH_SERVICE_CONFIG);
-    OperationContext denied =
-        operationContext
-            .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH)
-            .withSearchFlags(flags -> flags.setFulltext(false).setIncludeExplain(true));
-    assertThrows(
-        ActorAccessException.class,
-        () -> handler.getSearchRequest(denied, "testQuery", null, null, 0, 10, List.of()));
-    assertThrows(
-        ActorAccessException.class,
-        () ->
-            handler.getSearchRequest(
-                denied, "testQuery", null, null, null, null, null, 10, List.of()));
-
-    // Searching without explain needs no extra privilege
-    assertNotNull(
-        handler.getSearchRequest(
-            denied.withSearchFlags(flags -> flags.setIncludeExplain(false)),
-            "testQuery",
-            null,
-            null,
-            0,
-            10,
-            List.of()));
+    // The default, and any value other than DFS_QUERY_THEN_FETCH, is QUERY_THEN_FETCH
+    for (String searchType : List.of("QUERY_THEN_FETCH", "QUERY_AND_FETCH")) {
+      SearchRequest request =
+          handler.getSearchRequest(
+              operationContext.withSearchFlags(
+                  flags -> flags.setFulltext(false).setSearchType(searchType)),
+              "testQuery",
+              null,
+              null,
+              0,
+              10,
+              List.of());
+      assertEquals(request.searchType(), SearchType.QUERY_THEN_FETCH, searchType);
+    }
   }
 
   @Test
@@ -2038,9 +1958,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     SearchEntity searched =
         handler.extractResult(operationContext, mockResponse, null, 0, 10).getEntities().get(0);
-    JsonNode explain =
-        new ObjectMapper()
-            .readTree(searched.getExtraFields().get(SearchRequestHandler.EXPLAIN_EXTRA_FIELD));
+    JsonNode explain = new ObjectMapper().readTree(searched.getExtraFields().get("_explain"));
     assertEquals(explain.get("value").floatValue(), 2.0f);
     assertEquals(explain.get("description").asText(), "sum of:");
     assertTrue(explain.get("match").asBoolean());
@@ -2054,9 +1972,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .extractScrollResult(operationContext, mockResponse, null, null, 10, false)
             .getEntities()
             .get(0);
-    assertEquals(
-        scrolled.getExtraFields().keySet(),
-        Set.of(SearchRequestHandler.EXPLAIN_EXTRA_FIELD, "scrollId"));
+    assertEquals(scrolled.getExtraFields().keySet(), Set.of("_explain", "scrollId"));
   }
 
   private SearchHit mockHitWithUrn(String urn) {

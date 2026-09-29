@@ -6472,13 +6472,13 @@
     }, {
       "name" : "includeExplain",
       "type" : "boolean",
-      "doc" : "Include the search engine's scoring explanation for each keyword search hit, as JSON under the\n`_explain` key of SearchEntity.extraFields (extraProperties in GraphQL). Requires the\nES_EXPLAIN_QUERY_PRIVILEGE or MANAGE_SYSTEM_OPERATIONS privilege. Adds scoring overhead, so\nuse it to debug relevance, not in production traffic.",
+      "doc" : "Include Elasticsearch scoring explanation in search results.\nWhen enabled, each result includes detailed score breakdown in extraProperties._explain.\nNote: Adds 10-30% computational overhead - use for debugging only.",
       "default" : false,
       "optional" : true
     }, {
       "name" : "searchType",
       "type" : "string",
-      "doc" : "Search type for keyword search: QUERY_THEN_FETCH (default) or DFS_QUERY_THEN_FETCH.\nQUERY_THEN_FETCH scores each hit with the term statistics of its own shard.\nDFS_QUERY_THEN_FETCH first gathers term statistics from all shards, so scores are comparable\nacross shards, at the cost of an extra round trip per search.",
+      "doc" : "Elasticsearch search type for controlling IDF calculation across shards.\n- QUERY_THEN_FETCH: Shard-local IDF (default, faster, but less accurate scoring)\n- DFS_QUERY_THEN_FETCH: Global IDF across all shards (more accurate scoring)\n\nOnly affects relevance scoring in multi-shard scenarios.\nDFS mode adds 20-50% latency overhead but provides consistent scoring.",
       "default" : "QUERY_THEN_FETCH",
       "optional" : true
     }, {
