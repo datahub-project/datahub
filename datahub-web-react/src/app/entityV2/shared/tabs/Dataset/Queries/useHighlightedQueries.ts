@@ -1,6 +1,12 @@
+import { useState } from 'react';
+
 import { DEFAULT_PAGE_SIZE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
 import { filterQueries, getQueryEntitiesFilter } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
 import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
+import {
+    queriesEntityKey,
+    selectQueriesListData,
+} from '@app/entityV2/shared/tabs/Dataset/Queries/utils/selectQueriesListData';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 import useSorting from '@app/sharedV2/sorting/useSorting';
 
@@ -26,6 +32,7 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText, canVi
     const {
         data: newData,
         previousData,
+        error,
         client,
         loading,
     } = useListQueriesQuery({
@@ -42,9 +49,20 @@ export const useHighlightedQueries = ({ entityUrn, siblingUrn, filterText, canVi
         fetchPolicy: 'cache-first',
     });
 
-    // Same `cache-first` + previousData pattern as usePopularQueries: keep total/rows stable while
-    // paging or sorting so pagination does not unmount and the table does not flash empty.
-    const highlightedQueriesData = newData ?? previousData;
+    // Keep the previous page while paging or sorting the same dataset. Drop it when the dataset
+    // changes or the request fails, so this tab cannot show another dataset's queries.
+    const entityKey = queriesEntityKey(entityUrn, siblingUrn);
+    const [loadedEntityKey, setLoadedEntityKey] = useState<string | undefined>(undefined);
+    if (newData && loadedEntityKey !== entityKey) {
+        setLoadedEntityKey(entityKey);
+    }
+    const highlightedQueriesData = selectQueriesListData({
+        data: newData,
+        previousData,
+        error,
+        entityKey,
+        loadedEntityKey,
+    });
 
     const queries = [...(highlightedQueriesData?.listQueries?.queries || [])] as QueryEntity[];
 
