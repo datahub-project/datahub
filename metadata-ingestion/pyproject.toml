@@ -312,7 +312,8 @@ datahub-kafka = [
 datahub-lineage-file = []
 
 datahub-lite = [
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
+    "starlette>=1.3.1,<2.0.0",
     "uvicorn<0.41.0",
 ]
 
@@ -474,6 +475,7 @@ feast = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "numpy<2",
+    "starlette>=1.3.1,<2.0.0",
 ]
 
 fivetran = [
@@ -492,7 +494,7 @@ fivetran = [
     "pandas<3.0.0",
     "parse>=1.19.0,<2.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
@@ -792,6 +794,10 @@ onnx-embeddings = [
     "tokenizers>=0.20.0,<1.0.0",
 ]
 
+openapi = [
+    "requests<3.0.0",
+]
+
 oracle = [
     "cachetools<6.0.0",
     "greenlet<4.0.0",
@@ -963,7 +969,7 @@ sap-datasphere = [
 ]
 
 sigma = [
-    "requests<3.0.0",
+    "requests>=2.27,<3.0.0",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
 ]
@@ -982,7 +988,7 @@ snowflake = [
     "msal<2.0.0",
     "pandas<3.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -996,7 +1002,7 @@ snowflake-queries = [
     "msal<2.0.0",
     "pandas<3.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -1009,7 +1015,7 @@ snowflake-slim = [
     "msal<2.0.0",
     "pandas<3.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
 
@@ -1020,7 +1026,7 @@ snowflake-summary = [
     "msal<2.0.0",
     "pandas<3.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
@@ -1262,7 +1268,7 @@ all = [
     "slack-sdk==3.18.1",
     "smart-open[azure,gcs,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sortedcontainers>=2.4.0,<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb>=2.0.0,<3.0.0",
@@ -1334,7 +1340,7 @@ dev = [
     "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
@@ -1423,7 +1429,7 @@ dev = [
     "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
-    "requests==2.32.5,<3.0.0",
+    "requests>=2.27,==2.32.5,<3.0.0",
     "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.20.0",
@@ -1433,7 +1439,7 @@ dev = [
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sortedcontainers>=2.4.0,<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb>=2.0.0,<3.0.0",
@@ -1443,6 +1449,7 @@ dev = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
@@ -1527,7 +1534,7 @@ docs = [
     "duckdb>=1.0.0,<2.0.0",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
-    "fastapi<0.129.0",
+    "fastapi>=0.133.0,<0.142.0",
     "fastavro>=1.2.0,<2.0.0",
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
@@ -1616,7 +1623,7 @@ docs = [
     "redshift-connector>=2.1.14,<3.0.0",
     "requests-gssapi<2.0.0",
     "requests-mock<2.0.0",
-    "requests==2.32.5,<3.0.0",
+    "requests>=2.27,==2.32.5,<3.0.0",
     "requests_file==3.0.1,<4.0.0",
     "requests_ntlm<2.0.0",
     "ruamel.yaml<0.20.0",
@@ -1626,7 +1633,7 @@ docs = [
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "snowflake-connector-python>=4.7.3,<5.0.0",
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     "sortedcontainers>=2.4.0,<3.0.0",
     "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb>=2.0.0,<3.0.0",
@@ -1636,6 +1643,7 @@ docs = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
@@ -1746,6 +1754,7 @@ integration-tests = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -1763,6 +1772,7 @@ debug = [
 datahub = "datahub.entrypoints:main"
 
 [project.entry-points."datahub.token_provider.plugins"]
+pat = "datahub.ingestion.auth.pat:PatTokenProvider"
 k8s_oidc = "datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider"
 azure_entra = "datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider"
 oidc_client_credentials = "datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider"
@@ -1995,11 +2005,11 @@ constraint-dependencies = [
     # GHSA-xgmm-8j9v-c9wx: reject JWK JSON as HMAC secret; fixed in PyJWT 2.13.0.
     # Not in setup.py: Airflow constraints pin PyJWT to older versions (e.g. 2.10.1, 2.12.1).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
-    "PyJWT>=2.13.0,<3.0.0",
+    "PyJWT>=2.15.0,<3.0.0",
     # urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 (fixed 2.6.3), CVE-2026-44431 (2.7.0).
-    # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.7.0 is enforced here at lock time
+    # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.8.0 is enforced here at lock time
     # only, since Airflow constraints pin urllib3 below 2.7.
-    "urllib3>=2.7.0,<3.0.0",
+    "urllib3>=2.8.0,<3.0.0",
     # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
     # constraint files pin setuptools, so a base floor breaks those installs).
     "setuptools>=83.0.0",

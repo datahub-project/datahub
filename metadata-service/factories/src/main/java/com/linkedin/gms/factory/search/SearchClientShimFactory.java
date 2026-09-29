@@ -6,6 +6,7 @@ import com.linkedin.gms.factory.common.ElasticsearchSSLContextFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MaeConsumerConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.HttpProxySettings;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
 import com.linkedin.metadata.config.search.SearchClusterUri;
 import com.linkedin.metadata.config.search.SearchComponent;
@@ -136,7 +137,8 @@ public class SearchClientShimFactory {
         String.valueOf(cluster.getRegion()),
         shim == null ? "auto" : String.valueOf(shim.getEngineType()),
         shim == null ? "auto" : String.valueOf(shim.getAutoDetectEngine()),
-        sslIdentity(ssl));
+        sslIdentity(ssl),
+        proxyIdentity(cluster.getProxy()));
   }
 
   @Nonnull
@@ -155,6 +157,23 @@ public class SearchClientShimFactory {
         String.valueOf(ssl.getKeyStoreType()),
         hashedSecret(ssl.getKeyStorePassword()),
         hashedSecret(ssl.getKeyPassword()));
+  }
+
+  @Nonnull
+  private static String proxyIdentity(@Nullable HttpProxySettings proxy) {
+    if (proxy == null) {
+      return "proxy:system";
+    }
+    if (proxy.getHost() != null) {
+      return String.join(
+          ",",
+          proxy.getHost(),
+          String.valueOf(proxy.getPort()),
+          String.valueOf(proxy.getScheme()),
+          String.valueOf(proxy.getUsername()),
+          hashedSecret(proxy.getPassword()));
+    }
+    return proxy.isUseSystemProxyProperties() ? "proxy:system" : "proxy:none";
   }
 
   @Nonnull
@@ -229,6 +248,16 @@ public class SearchClientShimFactory {
                     : cluster.getThreadCount())
             .withConnectionRequestTimeout(connectionRequestTimeoutMs)
             .withSocketTimeout(socketTimeoutMs);
+
+    HttpProxySettings.resolve(cluster.getProxy(), uri.getHost(), uri.isUseSSL())
+        .ifPresent(
+            proxy ->
+                configBuilder.withHttpProxy(
+                    proxy.getHost(),
+                    proxy.getPort(),
+                    proxy.getScheme(),
+                    proxy.getUsername(),
+                    proxy.getPassword()));
 
     ShimSettings shim = cluster.getShim();
     SearchClientShim<?> client;

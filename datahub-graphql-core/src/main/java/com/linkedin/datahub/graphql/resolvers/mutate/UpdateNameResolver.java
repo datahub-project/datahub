@@ -36,6 +36,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
@@ -252,7 +253,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
   // udpates editable dataset properties aspect's name field
   private Boolean updateDatasetName(Urn targetUrn, UpdateNameInput input, QueryContext context) {
-    if (AuthorizationUtils.canEditProperties(targetUrn, context)) {
+    if (AuthorizationUtils.canEditProperties(targetUrn, context, Collections.emptyList())) {
       try {
         if (input.getName() != null) {
           final EditableDatasetProperties editableDatasetProperties =
