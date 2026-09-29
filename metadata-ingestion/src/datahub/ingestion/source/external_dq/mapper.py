@@ -1,3 +1,4 @@
+from collections import Counter
 from dataclasses import dataclass
 from typing import Dict, Iterable, Optional, Protocol, Sequence
 
@@ -86,16 +87,26 @@ class ExternalDQMapper:
         )
 
     def map_rules(
-        self, rules: Iterable[RuleRow]
+        self, rules: Sequence[RuleRow]
     ) -> Iterable[MetadataChangeProposalWrapper]:
+        # rule_id is the assertion identity, so the table must hold it once. Rows
+        # arrive in no particular order, so keeping one copy would re-point the
+        # assertion between runs; every copy is skipped instead.
+        duplicates = {
+            rule_id
+            for rule_id, count in Counter(r.rule_id for r in rules).items()
+            if count > 1
+        }
+        for rule_id in sorted(duplicates):
+            self.source_report.warning(
+                title="Duplicate external DQ rule_id",
+                message="rule_id must be unique in the rules table; every row for "
+                "this rule_id was skipped, so its results are not published.",
+                context=rule_id,
+            )
         for rule in rules:
-            if rule.rule_id in self._rules:
+            if rule.rule_id in duplicates:
                 self.report.rules_duplicate += 1
-                self.source_report.warning(
-                    title="Duplicate external DQ rule_id",
-                    message="Only the first row for this rule_id was used.",
-                    context=rule.rule_id,
-                )
                 continue
             dataset_urn = self.locator.dataset_urn(rule.dataset_path)
             if dataset_urn is None:

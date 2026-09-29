@@ -101,7 +101,10 @@ def test_inactive_rule_results_are_not_published() -> None:
     assert mapper.is_known_rule("r1") and not mapper.is_known_rule("r2")
 
 
-def test_unresolved_duplicate_and_unknown_rules_are_counted() -> None:
+def test_duplicate_rule_id_skips_every_copy() -> None:
+    # rule_id is the assertion identity, so the table must hold it once. Rows are
+    # read in no particular order; picking one copy would re-point the assertion
+    # between runs.
     mapper = make_mapper()
     emitted: List[Any] = list(
         mapper.map_rules(
@@ -112,8 +115,12 @@ def test_unresolved_duplicate_and_unknown_rules_are_counted() -> None:
             ]
         )
     )
-    assert len(emitted) == 2
-    assert mapper.report.rules_duplicate == 1
+    assert emitted == []
+    assert mapper.report.rules_duplicate == 2
+    assert not mapper.is_known_rule("r1")
+    assert [w.title for w in mapper.source_report.warnings].count(
+        "Duplicate external DQ rule_id"
+    ) == 1
     assert mapper.report.rules_unresolved_dataset == 1
     assert mapper.map_result(result(rule_id="r2")) is None
     assert mapper.report.results_unknown_rule == 1
