@@ -2,7 +2,7 @@ import { Tooltip } from '@components';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import themeV2 from '@conf/theme/themeV2';
 
@@ -43,6 +43,21 @@ describe('Tooltip', () => {
         renderTooltip('A very long description'.repeat(50), true);
 
         expect(screen.getByRole('tooltip').querySelector('.alchemy-floating-overlay-clamp')).toBeInTheDocument();
+    });
+
+    it('forwards a click handler placed on the tooltip itself', () => {
+        const onClick = vi.fn();
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Tooltip title="Helpful details" onClick={onClick}>
+                    <button type="button">Target</button>
+                </Tooltip>
+            </ThemeProvider>,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'Target' }));
+
+        expect(onClick).toHaveBeenCalledTimes(1);
     });
 
     it('leaves structured content unclamped unless maxLines is given', () => {

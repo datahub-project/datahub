@@ -26,7 +26,9 @@ type Props = {
 };
 
 export default function HoverCardSection({ title, children, className }: Props) {
-    if (!children) return null;
+    // A title on its own is a real section — an ownership role often has a name and no
+    // description, and dropping the whole section hid the role.
+    if (!title && !children) return null;
 
     return (
         <Section className={className}>
@@ -40,7 +42,7 @@ export default function HoverCardSection({ title, children, className }: Props) 
                     </Text>
                 </SectionTitle>
             )}
-            <SectionContent>{children}</SectionContent>
+            {children ? <SectionContent>{children}</SectionContent> : null}
         </Section>
     );
 }

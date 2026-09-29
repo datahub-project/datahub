@@ -105,6 +105,18 @@ describe('EntityHoverCard', () => {
         expect(screen.getByText('Responsible for the technical aspects')).toBeInTheDocument();
     });
 
+    it('shows an ownership role that has a name and no description', () => {
+        render(
+            <MockedProvider mocks={[]}>
+                <TestPageContainer>
+                    <EntityHoverCard entity={owner} ownershipRole={{ name: 'Technical Owner' }} />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        expect(screen.getByText('Technical Owner')).toBeInTheDocument();
+    });
+
     it('links a glossary term to its related assets', () => {
         renderCard({
             urn: 'urn:li:glossaryTerm:customer-id',

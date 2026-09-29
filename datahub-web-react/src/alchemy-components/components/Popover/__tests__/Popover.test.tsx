@@ -1,12 +1,33 @@
 import { Popover } from '@components';
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it } from 'vitest';
 
 import themeV2 from '@conf/theme/themeV2';
 
 describe('Popover', () => {
+    it('keeps a test id the trigger sets on its own element', () => {
+        const Node = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>((props, ref) => {
+            return (
+                <div ref={ref} data-testid="lineage-node" {...props}>
+                    node
+                </div>
+            );
+        });
+
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Popover content="Details">
+                    <Node />
+                </Popover>
+            </ThemeProvider>,
+        );
+
+        expect(screen.getByTestId('lineage-node')).toBeInTheDocument();
+    });
+
     it('opens on click and closes with Escape', () => {
         render(
             <ThemeProvider theme={themeV2}>
@@ -20,6 +41,28 @@ describe('Popover', () => {
         expect(screen.getByRole('dialog')).toContainElement(screen.getByRole('button', { name: 'Popover action' }));
 
         fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    });
+
+    it('stays open when a menu portaled from its content is pressed, and closes on an outside press', () => {
+        const PortaledMenu = () => createPortal(<button type="button">Edit view</button>, document.body);
+
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Popover content={<PortaledMenu />} trigger="click">
+                    <button type="button">Open views</button>
+                </Popover>
+            </ThemeProvider>,
+        );
+
+        fireEvent.click(screen.getByRole('button', { name: 'Open views' }));
+        const menuItem = screen.getByRole('button', { name: 'Edit view' });
+        expect(screen.getByRole('dialog')).not.toContainElement(menuItem);
+
+        fireEvent.mouseDown(menuItem);
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+        fireEvent.mouseDown(document.body);
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
