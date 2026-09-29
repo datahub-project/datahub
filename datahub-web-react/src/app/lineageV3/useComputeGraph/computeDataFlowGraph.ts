@@ -70,6 +70,13 @@ export default function computeDataFlowGraph(
     };
     console.debug(newGraphStore);
 
+    if (newGraphStore.nodes.size === 0) {
+        // No child DataJobs at all -- the DataFlow's own direct upstream/downstream (e.g. a linked
+        // source-code Repository via repositoryLineage) IS the entire graph, rendered the same way
+        // any other single entity's lineage is rendered.
+        return computeRootOwnLineage(urn, type, context, ignoreSchemaFieldStatus);
+    }
+
     const { displayedNodesByRoots, parents } = computeConnectedComponents(newGraphStore);
     const flowNodes: LineageVisualizationNode[] = [];
     const flowEdges: Edge<LineageTableEdgeData>[] = [];
@@ -119,6 +126,51 @@ export default function computeDataFlowGraph(
     const isInDataFlowGraphInterior: Map<string, Map<LineageDirection, boolean>> = new Map();
     if (flowNodes.length) {
         const boundingBox = addBoundingBoxDataFlow(flowNodes, { urn, type, entity: nodes.get(urn)?.entity });
+        const seenNodeIds = new Set(flowNodes.map((n) => n.id));
+
+        // The DataFlow itself may also have its own direct upstream/downstream (e.g. a linked
+        // Repository via repositoryLineage), independent of any child job's own lineage. The loop
+        // below only ever computes lineage for child jobs (`newGraphStore.nodes`), so without this,
+        // a DataFlow's own edge would never render once it has at least one child job.
+        //
+        // Positions are computed here directly rather than via computeImpactAnalysisGraph's own
+        // layer-based x positioning, which has a homeType === DataFlow special case (see
+        // NodeBuilder.computeNodeX) built for laying out child jobs relative to each other, not for
+        // a DataFlow's own upstream/downstream -- reusing it here places these nodes inside the
+        // box's own coordinate range instead of beside it: upstream to the box's left, downstream to
+        // its right, stacked vertically and centered on the box, matching how the per-job external
+        // entities below are positioned relative to it.
+        const { flowNodes: rootFlowNodes, flowEdges: rootFlowEdges } = computeRootOwnLineage(
+            urn,
+            type,
+            context,
+            ignoreSchemaFieldStatus,
+        );
+        // The box itself (id === urn) already represents the DataFlow node -- only merge in its
+        // external neighbors, deduplicated against anything a child job's own lineage also reaches
+        // (e.g. the same Repository linked to both the DataFlow and one of its jobs).
+        const rootExternalNodes = rootFlowNodes.filter((n) => n.id !== urn && !seenNodeIds.has(n.id));
+        rootExternalNodes.forEach((n) => seenNodeIds.add(n.id));
+        // `.data.direction` is only ever set for cyclic nodes (see getDisplayedNodes.ts), so it's
+        // undefined for an ordinary single-direction neighbor like this. Direction relative to the
+        // DataFlow itself has to be read directly from the adjacency list instead.
+        [LineageDirection.Upstream, LineageDirection.Downstream].forEach((direction) => {
+            const neighborUrnsInDirection = adjacencyList[direction].get(urn);
+            const nodesInDirection = rootExternalNodes.filter((n) => neighborUrnsInDirection?.has(n.id));
+            const x =
+                direction === LineageDirection.Upstream
+                    ? -(LINEAGE_NODE_WIDTH + ROOT_SEPARATION)
+                    : (boundingBox.width ?? LINEAGE_NODE_WIDTH) + ROOT_SEPARATION;
+            const startY =
+                (boundingBox.height ?? LINEAGE_NODE_HEIGHT) / 2 - ((nodesInDirection.length - 1) * ROOT_SEPARATION) / 2;
+            nodesInDirection.forEach((n, i) => {
+                // eslint-disable-next-line no-param-reassign
+                n.position = { x, y: startY + i * ROOT_SEPARATION };
+            });
+        });
+        flowNodes.push(...rootExternalNodes);
+        flowEdges.push(...rootFlowEdges);
+
         newGraphStore.nodes.forEach((node) => {
             const offsets: Map<LineageDirection, [number, number]> = new Map(
                 Object.values(LineageDirection).map((direction) => [
@@ -158,9 +210,14 @@ export default function computeDataFlowGraph(
                     showFilterNodes,
                 );
                 newLineageFilters.forEach((filter, id) => lineageFilters.set(id, filter));
-                flowNodes.push(
-                    ...newFlowNodes.filter((n) => n.id !== node.urn && nodes.get(n.id)?.parentDataJob !== urn),
-                );
+                newFlowNodes
+                    .filter(
+                        (n) => n.id !== node.urn && nodes.get(n.id)?.parentDataJob !== urn && !seenNodeIds.has(n.id),
+                    )
+                    .forEach((n) => {
+                        seenNodeIds.add(n.id);
+                        flowNodes.push(n);
+                    });
                 flowEdges.push(
                     ...newFlowEdges.filter(
                         (e) => !nodes.get(e.source)?.parentDataJob && !nodes.get(e.target)?.parentDataJob,
@@ -181,28 +238,41 @@ export default function computeDataFlowGraph(
             ) {
                 return { hide: true };
             }
-            if (
-                downstream.parentDataJob &&
-                upstream.direction === LineageDirection.Upstream &&
-                downstream.isExpanded[LineageDirection.Upstream]
-            ) {
-                // External upstream -> data flow
-                return {
-                    isInInterior: isInDataFlowGraphInterior.get(downstream.urn)?.get(LineageDirection.Upstream),
-                    direction: LineageDirection.Upstream,
-                };
+
+            // The edge's own source/target already encode the true upstream/downstream
+            // orientation (see NodeBuilder#addEdge / parseEdgeId), so the common, non-cyclic case
+            // doesn't need to re-derive it from `.direction` -- which is only ever set for
+            // genuinely cyclic nodes (see getDisplayedNodes.ts) and otherwise undefined, which
+            // silently hid every ordinary job-to-external edge here regardless of expansion state.
+            if (!upstream.inCycle && !downstream.inCycle) {
+                if (
+                    downstream.parentDataJob &&
+                    !upstream.parentDataJob &&
+                    downstream.isExpanded[LineageDirection.Upstream]
+                ) {
+                    // External upstream -> data flow
+                    return {
+                        isInInterior: isInDataFlowGraphInterior.get(downstream.urn)?.get(LineageDirection.Upstream),
+                        direction: LineageDirection.Upstream,
+                    };
+                }
+                if (
+                    upstream.parentDataJob &&
+                    !downstream.parentDataJob &&
+                    upstream.isExpanded[LineageDirection.Downstream]
+                ) {
+                    // Data flow -> external downstream
+                    return {
+                        isInInterior: isInDataFlowGraphInterior.get(upstream.urn)?.get(LineageDirection.Downstream),
+                        direction: LineageDirection.Downstream,
+                    };
+                }
+                return { hide: true };
             }
-            if (
-                upstream.parentDataJob &&
-                downstream.direction === LineageDirection.Downstream &&
-                upstream.isExpanded[LineageDirection.Downstream]
-            ) {
-                // Data flow -> external downstream
-                return {
-                    isInInterior: isInDataFlowGraphInterior.get(upstream.urn)?.get(LineageDirection.Downstream),
-                    direction: LineageDirection.Downstream,
-                };
-            }
+
+            // Cyclic case: an external entity reachable as both upstream and downstream of the
+            // DataFlow. `.direction` is reliably set here (see getDisplayedNodes.ts), so this is
+            // unchanged from before.
             if (
                 downstream.parentDataJob &&
                 upstream.direction === LineageDirection.Downstream &&
@@ -246,6 +316,46 @@ export default function computeDataFlowGraph(
         lineageFilters,
         adjacencyList: buildHighlightAdjacencyList(edges, new Set(flowNodes.map((node) => node.id))),
     };
+}
+
+/**
+ * Computes the DataFlow's own direct upstream/downstream (e.g. a linked Repository via
+ * repositoryLineage), independent of any child job's own lineage. Shared by both the no-child-job
+ * and has-child-job branches of computeDataFlowGraph above.
+ *
+ * Skips the traversal entirely when the DataFlow has no direct neighbors of its own (the common
+ * case: most DataFlows' only lineage runs through their child jobs), rather than always paying for
+ * computeImpactAnalysisGraph's full orderNodes/hideNodes/getDisplayedNodes/NodeBuilder pipeline
+ * just to find nothing.
+ */
+function computeRootOwnLineage(
+    urn: string,
+    type: EntityType,
+    context: Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>,
+    ignoreSchemaFieldStatus: boolean,
+) {
+    const { adjacencyList } = context;
+    const hasOwnLineage =
+        !!adjacencyList[LineageDirection.Upstream].get(urn)?.size ||
+        !!adjacencyList[LineageDirection.Downstream].get(urn)?.size;
+    if (!hasOwnLineage) {
+        return {
+            flowNodes: [],
+            flowEdges: [],
+            resetPositions: false,
+            lineageFilters: new Map<string, LineageFilter>(),
+            adjacencyList: buildHighlightAdjacencyList(context.edges, new Set<string>()),
+        };
+    }
+    return computeImpactAnalysisGraph(
+        urn,
+        type,
+        context,
+        ignoreSchemaFieldStatus,
+        undefined,
+        undefined,
+        (n) => n.urn === urn || n.parentDataJob !== urn,
+    );
 }
 
 function addBoundingBoxDataFlow(
