@@ -65,9 +65,6 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
         EventUtils.FAILED_METADATA_CHANGE_EVENT_SCHEMA_NAME);
     map.put(
         _convention.getMetadataAuditEventTopicName(), EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME);
-    map.put(
-        _convention.getDataHubUpgradeHistoryTopicName(),
-        EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME);
     return map;
   }
 
@@ -164,7 +161,6 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
     topics.add(_convention.getMetadataChangeEventTopicName());
     topics.add(_convention.getFailedMetadataChangeEventTopicName());
     topics.add(_convention.getMetadataAuditEventTopicName());
-    topics.add(_convention.getDataHubUpgradeHistoryTopicName());
     return ImmutableList.copyOf(topics);
   }
 
@@ -208,8 +204,6 @@ public class SchemaRegistryServiceImpl implements SchemaRegistryService {
       return Optional.of(_convention.getFailedMetadataChangeEventTopicName());
     } else if (schemaName.equals(EventUtils.METADATA_AUDIT_EVENT_SCHEMA_NAME)) {
       return Optional.of(_convention.getMetadataAuditEventTopicName());
-    } else if (schemaName.equals(EventUtils.DATAHUB_UPGRADE_HISTORY_EVENT_SCHEMA_NAME)) {
-      return Optional.of(_convention.getDataHubUpgradeHistoryTopicName());
     }
 
     return Optional.empty();

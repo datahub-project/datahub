@@ -1,4 +1,4 @@
-import type { Icon } from '@phosphor-icons/react';
+import type { Icon, IconWeight } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -23,6 +23,8 @@ interface Props {
     iconSize?: number;
     /** Override the container's border-radius (defaults to `size / 4`). */
     radius?: number;
+    /** Phosphor glyph weight. Cards use `regular`; denser surfaces keep the heavier default. */
+    weight?: IconWeight;
     className?: string;
 }
 
@@ -38,6 +40,7 @@ export default function ColoredEntityIcon({
     size = 24,
     iconSize,
     radius,
+    weight = 'bold',
     className,
 }: Props) {
     const resolvedIconSize = iconSize ?? Math.round(size * 0.6);
@@ -45,7 +48,7 @@ export default function ColoredEntityIcon({
 
     return (
         <Container $color={color} $size={size} $radius={resolvedRadius} className={className}>
-            <IconComponent size={resolvedIconSize} color="currentColor" weight="bold" />
+            <IconComponent size={resolvedIconSize} color="currentColor" weight={weight} />
         </Container>
     );
 }
