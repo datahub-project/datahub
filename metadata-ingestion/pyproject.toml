@@ -313,6 +313,7 @@ datahub-lineage-file = []
 
 datahub-lite = [
     "fastapi>=0.133.0,<0.142.0",
+    "starlette>=1.3.1,<2.0.0",
     "uvicorn<0.41.0",
 ]
 
@@ -474,6 +475,7 @@ feast = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "numpy<2",
+    "starlette>=1.3.1,<2.0.0",
 ]
 
 fivetran = [
@@ -1440,6 +1442,7 @@ dev = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
@@ -1633,6 +1636,7 @@ docs = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "tableauserverclient>=0.34,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.11.0",
@@ -1743,6 +1747,7 @@ integration-tests = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.12.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "starlette>=1.3.1,<2.0.0",
     "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -2016,9 +2021,6 @@ constraint-dependencies = [
     # Airflow-satisfiable (3.0/3.1 pin 8.2.1, 3.2 pins 8.3.1); >=8.3.3 is
     # enforced here at lock time only.
     "click>=8.3.3,<9.0.0",
-    # starlette: CVE-2026-48710, CVE-2026-48817, CVE-2026-48818,
-    # CVE-2026-54282, CVE-2026-54283; fixed in 1.3.1. Not in setup.py: Airflow pins <1.0.
-    "starlette>=1.3.1,<2.0.0",
     # soupsieve: CVE-2026-85999, CVE-2026-86000 (ReDoS); also CVE-2026-49476/49477
     # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
     # snippet: docker/snippets/ingestion/constraints.txt.
