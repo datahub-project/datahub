@@ -209,6 +209,9 @@ export default defineConfig(async ({ mode }) => {
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
+            // Emit dist/.vite/manifest.json so the Play server can map entrypoints to
+            // hashed filenames. Distinct from the PWA file at dist/manifest.json.
+            manifest: true,
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
