@@ -2003,11 +2003,11 @@ constraint-dependencies = [
     # GHSA-xgmm-8j9v-c9wx: reject JWK JSON as HMAC secret; fixed in PyJWT 2.13.0.
     # Not in setup.py: Airflow constraints pin PyJWT to older versions (e.g. 2.10.1, 2.12.1).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
-    "PyJWT>=2.13.0,<3.0.0",
+    "PyJWT>=2.15.0,<3.0.0",
     # urllib3: CVE-2025-66418, CVE-2025-66471, CVE-2026-21441 (fixed 2.6.3), CVE-2026-44431 (2.7.0).
-    # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.7.0 is enforced here at lock time
+    # setup.py floors urllib3 at >=2.5.0 (Airflow ceiling); >=2.8.0 is enforced here at lock time
     # only, since Airflow constraints pin urllib3 below 2.7.
-    "urllib3>=2.7.0,<3.0.0",
+    "urllib3>=2.8.0,<3.0.0",
     # CVE-2026-59890: floored at lock time, not in base_requirements (Airflow
     # constraint files pin setuptools, so a base floor breaks those installs).
     "setuptools>=83.0.0",
