@@ -2171,6 +2171,33 @@ FROM db1.events
     )
 
 
+def test_clickhouse_table_function_is_not_a_table() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT e.id, r.name
+FROM db1.events e
+JOIN mysql('host:3306', 'remote_db', 'remote_table', 'user', 'pass') r ON e.id = r.id
+""",
+        dialect="clickhouse",
+        default_schema="db1",
+        expected_file=RESOURCE_DIR / "test_clickhouse_table_function.json",
+    )
+
+
+def test_postgres_table_function_is_not_a_table() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT n FROM generate_series(1, 10) AS g(n)
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="public",
+        expected_file=RESOURCE_DIR / "test_postgres_table_function.json",
+    )
+
+
 def test_clickhouse_dictget_in_materialized_view() -> None:
     # dictGet table in in_tables, TO table in out_tables (not in_tables).
     # Guards against operator precedence bug where `- modified` doesn't

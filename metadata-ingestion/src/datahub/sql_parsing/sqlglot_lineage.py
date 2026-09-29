@@ -472,10 +472,16 @@ def _extract_table_names(
     result: OrderedSet[_TableName] = OrderedSet()
     for table in iterable:
         try:
-            result.add(_table_name_from_sqlglot_table(table, dialect))
+            name = _table_name_from_sqlglot_table(table, dialect)
         except SqlUnderstandingError as e:
             # One unresolvable table ref must not drop the whole statement's lineage.
             logger.debug(f"Skipping unresolvable table reference: {e}")
+            continue
+        # Table functions (mysql(), generate_series()) parse as nameless tables.
+        if not name.table:
+            logger.debug(f"Skipping table function: {table.sql(dialect=dialect)}")
+            continue
+        result.add(name)
     return result
 
 

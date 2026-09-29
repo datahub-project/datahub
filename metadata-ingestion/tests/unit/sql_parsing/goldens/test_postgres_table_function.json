@@ -1,0 +1,29 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "63d18dc64fc329c5c7b2ddd3c76a9ab08c30a98db49c82f29e751a6ddb9543d4",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.public.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,db1.public.target,PROD)",
+                "column": "n",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"g\".\"n\" AS \"n\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO target SELECT n FROM GENERATE_SERIES(?, ?) AS g(n)"
+    }
+}
