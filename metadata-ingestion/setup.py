@@ -590,7 +590,11 @@ plugins: Dict[str, Set[str]] = {
     # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
     # in its own extra below.
     "datahub-lite": {
-        "fastapi<0.129.0",
+        # >=0.133.0: older fastapi caps starlette<1.0, blocking its CVE fixes.
+        "fastapi>=0.133.0,<0.142.0",
+        # CVE-2026-48710, CVE-2026-48817, CVE-2026-48818, CVE-2026-54282,
+        # CVE-2026-54283; fixed in 1.3.1.
+        "starlette>=1.3.1,<2.0.0",
         "uvicorn<0.41.0",
     },
     # Alternative DataHub Lite storage engine, selected with `lite.type: duckdb`.
@@ -700,6 +704,8 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         # Note: feast>=0.48 requires numpy>=2, so numpy<2 below constrains feast to <=0.47.0 automatically
         "feast>=0.34.0,<1",
+        # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
+        "starlette>=1.3.1,<2.0.0",
         "flask-openid>=1.3.0,<2.0.0",
         "dask[dataframe]<2024.7.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
@@ -787,6 +793,7 @@ plugins: Dict[str, Set[str]] = {
     "doris": mysql_common,
     "odcs": aws_common | {"GitPython>=3.1.58,<4.0.0"},
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
+    "openapi": {"requests<3.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
     "presto": sql_common | pyhive_common | trino,
@@ -1081,6 +1088,7 @@ base_dev_requirements = {
             "matillion-dpc",
             "odcs",
             "okta",
+            "openapi",
             "oracle",
             "postgres",
             "sagemaker",
@@ -1192,6 +1200,7 @@ full_test_dev_requirements = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.token_provider.plugins": [
+        "pat = datahub.ingestion.auth.pat:PatTokenProvider",
         "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
         "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
         "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",

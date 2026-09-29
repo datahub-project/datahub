@@ -13223,14 +13223,22 @@ A DataHub View Filter. Note that
 """
 type DataHubViewFilter {
   """
-  The operator used to combine the filters.
+  Deprecated: Only returned for views created before json support.
+  New views will not include this field. Use json instead to preserve full nesting.
   """
-  operator: LogicalOperator!
+  operator: LogicalOperator
 
   """
+  Deprecated: Only returned for views created before json support.
+  New views will not include this field. Use json instead to preserve full nesting.
   A set of filters combined using the operator. If left empty, then no filters will be applied.
   """
-  filters: [FacetFilter!]!
+  filters: [FacetFilter!]
+
+  """
+  The primary format for view filters: stringified json representation of the logical predicate.
+  """
+  json: String
 }
 
 """
@@ -13348,14 +13356,28 @@ Input required for creating a DataHub View Definition
 """
 input DataHubViewFilterInput {
   """
+  Deprecated: Use orFilters instead.
   The operator used to combine the filters.
   """
-  operator: LogicalOperator!
+  operator: LogicalOperator
 
   """
+  Deprecated: Use orFilters instead.
   A set of filters combined via an operator. If left empty, then no filters will be applied.
   """
-  filters: [FacetFilterInput!]!
+  filters: [FacetFilterInput!]
+
+  """
+  A list of disjunctive criterion for the filter. (or operation to combine filters).
+  This is the preferred format for new views.
+  """
+  orFilters: [AndFilterInput!]
+
+  """
+  The stringified json representing the logical predicate built in the UI.
+  This is used to restore the full nested structure for editing.
+  """
+  json: String
 }
 
 """
