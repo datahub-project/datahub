@@ -65,6 +65,7 @@
     "filters.assertions.hasFailingOption": "Has failing assertions",
     "filters.assertions.hasPassingLabel": "Has Passing Assertions",
     "filters.assertions.title": "Assertions",
+    "filters.cardViewSwitchLabel": "Result card layout",
     "filters.compactCardView": "Compact Card View",
     "filters.dateRange.last1Day": "Last 1 day",
     "filters.dateRange.last3Days": "Last 3 days",
