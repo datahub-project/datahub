@@ -220,6 +220,18 @@ def _presto_get_schema_names(self: Any, connection: Connection, **kw: Any) -> Li
     return [row[0] for row in connection.execute(text("SHOW SCHEMAS"))]
 
 
+@reflection.cache
+def _presto_get_table_names(
+    self: Any, connection: Connection, schema: Optional[str] = None, **kw: Any
+) -> List[str]:
+    # For sql_generic's presto:// URIs. The Presto source replaces this with the
+    # Trino information_schema query (which excludes views), applied after this.
+    query = "SHOW TABLES"
+    if schema:
+        query += " FROM " + self.identifier_preparer.quote_identifier(schema)
+    return [row[0] for row in connection.execute(text(query))]
+
+
 def _presto_get_table_columns(
     self: Any, connection: Connection, table_name: str, schema: Optional[str]
 ) -> Sequence[Row]:
@@ -311,6 +323,7 @@ _patch(
     PrestoDialect,
     {
         "get_schema_names": _presto_get_schema_names,
+        "get_table_names": _presto_get_table_names,
         "_get_table_columns": _presto_get_table_columns,
         "get_indexes": _presto_get_indexes,
         "has_table": _has_table,

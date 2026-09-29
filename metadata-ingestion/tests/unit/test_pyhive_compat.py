@@ -93,6 +93,20 @@ def test_presto_get_schema_names(sqlite_conn: Connection) -> None:
     assert PrestoDialect().get_schema_names(conn) == ["s1"]
 
 
+def test_presto_get_table_names(sqlite_conn: Connection) -> None:
+    # Called directly: once presto.py is imported (as other tests do), the Presto
+    # source's Trino-based override replaces this on the dialect.
+    conn = StrictConnection(
+        sqlite_conn,
+        {'SHOW TABLES FROM "s1"': "SELECT 't1' AS \"Table\" UNION ALL SELECT 't2'"},
+    )
+    assert _pyhive_compat._presto_get_table_names(
+        PrestoDialect(),
+        conn,  # type: ignore[arg-type]
+        schema="s1",
+    ) == ["t1", "t2"]
+
+
 @pytest.mark.parametrize(
     "columns_select",
     [
@@ -187,6 +201,9 @@ def test_sql_generic_can_create_pyhive_engines() -> None:
         "for url in ['hive://localhost:10000/default', "
         "'presto://localhost:8080/hive/default']:\n"
         "    sqlalchemy.create_engine(url)\n"
+        "from datahub.ingestion.source.sql import _pyhive_compat\n"
+        "from pyhive.sqlalchemy_presto import PrestoDialect\n"
+        "assert PrestoDialect.get_table_names is _pyhive_compat._presto_get_table_names\n"
     )
     result = subprocess.run(
         [sys.executable, "-c", script], capture_output=True, text=True
