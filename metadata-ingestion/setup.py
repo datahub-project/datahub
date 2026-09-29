@@ -590,7 +590,7 @@ plugins: Dict[str, Set[str]] = {
     # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
     # in its own extra below.
     "datahub-lite": {
-        # >=0.133.0: older fastapi caps starlette<1.0, blocking the CVE-2026-48710 fix.
+        # >=0.133.0: older fastapi caps starlette<1.0, blocking its CVE fixes.
         "fastapi>=0.133.0,<0.142.0",
         "uvicorn<0.41.0",
     },
