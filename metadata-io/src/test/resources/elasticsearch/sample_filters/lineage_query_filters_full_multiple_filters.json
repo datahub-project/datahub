@@ -57,6 +57,40 @@
                         {
                           "term" : {
                             "relationshipType" : {
+                              "value" : "RepositoryConsumes",
+                              "boost" : 1.0
+                            }
+                          }
+                        },
+                        {
+                          "terms" : {
+                            "source.entityType" : [
+                              "dataJob"
+                            ],
+                            "boost" : 1.0
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  },
+                  {
+                    "bool" : {
+                      "filter" : [
+                        {
+                          "terms" : {
+                            "destination.urn" : [
+                              "urn:li:dataset:test-urn3",
+                              "urn:li:dataset:test-urn2",
+                              "urn:li:dataset:test-urn"
+                            ],
+                            "boost" : 1.0
+                          }
+                        },
+                        {
+                          "term" : {
+                            "relationshipType" : {
                               "value" : "Consumes",
                               "boost" : 1.0
                             }

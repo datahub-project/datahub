@@ -27,6 +27,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.repository.RepositoryLineage;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.List;
@@ -621,24 +622,50 @@ public class LineageService {
   }
 
   /**
-   * Validates that a given list of urns are all either datasets or dataJobs and that they exist.
-   * Otherwise, throw an error.
+   * Validates that a given list of urns are all either datasets, dataJobs, or repositories and that
+   * they exist. Otherwise, throw an error. Repositories are valid because dataJob registers the
+   * repositoryLineage aspect (see entity-registry.yml) to let a DataJob link to its source code
+   * repository.
    */
   public void validateDataJobUpstreamUrns(
       @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
     for (final Urn urn : urns) {
       if (!urn.getEntityType().equals(Constants.DATASET_ENTITY_NAME)
-          && !urn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)) {
+          && !urn.getEntityType().equals(Constants.DATA_JOB_ENTITY_NAME)
+          && !urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME)) {
         throw new IllegalArgumentException(
             String.format(
-                "Tried to add an upstream to a dataJob that isn't a datJob or dataset. Upstream urn: %s",
+                "Tried to add an upstream to a dataJob that isn't a dataJob, dataset, or repository. Upstream urn: %s",
                 urn));
       }
       validateUrnExists(opContext, urn);
     }
   }
 
-  /** Updates DataJob lineage by building and ingesting an MCP based on inputs. */
+  /**
+   * Validates that a given list of urns are all repositories and that they exist. Otherwise, throw
+   * an error. Used for dataFlow, which has no dataset/dataJob-shaped input/output aspect --
+   * repositoryLineage is its only lineage aspect.
+   */
+  public void validateDataFlowUpstreamUrns(
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
+    for (final Urn urn : urns) {
+      if (!urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Tried to add an upstream to a dataFlow that isn't a repository. Upstream urn: %s",
+                urn));
+      }
+      validateUrnExists(opContext, urn);
+    }
+  }
+
+  /**
+   * Updates DataJob lineage by building and ingesting an MCP based on inputs. Repository-typed
+   * upstream urns are split out and written to the separate repositoryLineage aspect -- the
+   * existing DataJobInputOutput proposal below already ignores any urn that isn't a dataset or
+   * dataJob, so passing the full mixed list through unchanged is safe.
+   */
   public void updateDataJobUpstreamLineage(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn downstreamUrn,
@@ -659,6 +686,131 @@ public class LineageService {
       throw new RuntimeException(
           String.format("Failed to update chart lineage for urn %s", downstreamUrn), e);
     }
+
+    updateRepositoryLineageIfPresent(
+        opContext,
+        Constants.DATA_JOB_ENTITY_NAME,
+        downstreamUrn,
+        upstreamUrnsToAdd,
+        upstreamUrnsToRemove,
+        actor);
+  }
+
+  /**
+   * Updates DataFlow lineage by writing to the repositoryLineage aspect. DataFlow has no
+   * dataset/dataJob-shaped input/output aspect, so Repository is its only valid upstream type.
+   */
+  public void updateDataFlowUpstreamLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    validateDataFlowUpstreamUrns(opContext, upstreamUrnsToAdd);
+    // TODO: add permissions check here for entity type - or have one overall permissions check
+    // above
+
+    updateRepositoryLineageIfPresent(
+        opContext,
+        Constants.DATA_FLOW_ENTITY_NAME,
+        downstreamUrn,
+        upstreamUrnsToAdd,
+        upstreamUrnsToRemove,
+        actor);
+  }
+
+  /**
+   * Writes the repositoryLineage aspect for {@code entityUrn} (a dataJob or dataFlow) if either
+   * upstream list contains at least one repository-typed urn -- avoids an unnecessary write on the
+   * overwhelmingly common case where no repository is involved at all.
+   */
+  private void updateRepositoryLineageIfPresent(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    final List<Urn> repositoryUrnsToAdd =
+        upstreamUrnsToAdd.stream()
+            .filter(urn -> urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME))
+            .collect(Collectors.toList());
+    final List<Urn> repositoryUrnsToRemove =
+        upstreamUrnsToRemove.stream()
+            .filter(urn -> urn.getEntityType().equals(Constants.REPOSITORY_ENTITY_NAME))
+            .collect(Collectors.toList());
+    if (repositoryUrnsToAdd.isEmpty() && repositoryUrnsToRemove.isEmpty()) {
+      return;
+    }
+
+    try {
+      MetadataChangeProposal changeProposal =
+          buildRepositoryLineageProposal(
+              opContext,
+              entityName,
+              downstreamUrn,
+              repositoryUrnsToAdd,
+              repositoryUrnsToRemove,
+              actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update repository lineage for urn %s", downstreamUrn), e);
+    }
+  }
+
+  /**
+   * Builds an MCP of RepositoryLineage.inputEdges for a dataJob or dataFlow entity. Reads the
+   * entity's existing repositoryLineage aspect (if any) and merges in new edges rather than
+   * replacing the whole aspect, so a concurrent writer's edges aren't dropped -- same
+   * merge-not-replace pattern as the dataset/dataJob edge helpers above.
+   */
+  @Nonnull
+  private MetadataChangeProposal buildRepositoryLineageProposal(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String entityName,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    EntityResponse entityResponse =
+        _entityClient.getV2(
+            opContext,
+            entityName,
+            downstreamUrn,
+            ImmutableSet.of(Constants.REPOSITORY_LINEAGE_ASPECT_NAME));
+
+    RepositoryLineage repositoryLineage = new RepositoryLineage();
+    if (entityResponse != null
+        && entityResponse.getAspects().containsKey(Constants.REPOSITORY_LINEAGE_ASPECT_NAME)) {
+      DataMap dataMap =
+          entityResponse
+              .getAspects()
+              .get(Constants.REPOSITORY_LINEAGE_ASPECT_NAME)
+              .getValue()
+              .data();
+      repositoryLineage = new RepositoryLineage(dataMap);
+    }
+    if (!repositoryLineage.hasInputEdges()) {
+      repositoryLineage.setInputEdges(new EdgeArray());
+    }
+    final EdgeArray inputEdges = repositoryLineage.getInputEdges();
+
+    for (final Urn upstreamUrn : upstreamUrnsToAdd) {
+      if (inputEdges.stream()
+          .anyMatch(inputEdge -> inputEdge.getDestinationUrn().equals(upstreamUrn))) {
+        continue;
+      }
+      addNewEdge(upstreamUrn, downstreamUrn, actor, inputEdges);
+    }
+    inputEdges.removeIf(inputEdge -> upstreamUrnsToRemove.contains(inputEdge.getDestinationUrn()));
+    repositoryLineage.setInputEdges(inputEdges);
+
+    return buildMetadataChangeProposal(
+        downstreamUrn, Constants.REPOSITORY_LINEAGE_ASPECT_NAME, repositoryLineage);
   }
 
   /**
