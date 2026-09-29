@@ -2206,6 +2206,8 @@ JOIN dbo.customers c ON o.id = c.id
 JOIN srv.db1.dbo.ufn_regions(1) r ON c.region_id = r.id
 JOIN dbo.accounts (NOLOCK) ON c.account_id = accounts.id
 JOIN srv.db1.dbo.branches (NOLOCK) ON c.branch_id = branches.id
+JOIN dbo.managers (HOLDLOCK) ON c.manager_id = managers.id
+JOIN dbo.ufn_flag('NOLOCK') fl ON c.id = fl.id
 JOIN dbo.regions (FASTFIRSTROW) ON c.region_id = regions.id
 CROSS JOIN dbo.ufn_all()
 CROSS APPLY OPENJSON(c.payload) j
