@@ -1,17 +1,10 @@
-import { Text } from '@components';
+import { EmptyState } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
 
 import { EmptyContainer } from '@app/govern/structuredProperties/styledComponents';
-import EmptyFormsImage from '@src/images/empty-forms.svg?react';
-
-const TextContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-`;
 
 interface Props {
     sourceType?: string;
@@ -23,21 +16,16 @@ const EmptySources = ({ sourceType, isEmptySearchResult }: Props) => {
     return (
         <EmptyContainer>
             {isEmptySearchResult ? (
-                <TextContainer>
-                    <Text size="lg" color="gray" weight="bold">
-                        {t('source.emptySearchTitle')}
-                    </Text>
-                    <Text size="sm" color="gray" weight="normal">
-                        {t('source.emptySearchSubtitle')}
-                    </Text>
-                </TextContainer>
+                <EmptyState
+                    icon={MagnifyingGlass}
+                    title={t('source.emptySearchTitle')}
+                    description={t('source.emptySearchSubtitle')}
+                />
             ) : (
-                <>
-                    <EmptyFormsImage />
-                    <Text size="md" color="gray" weight="bold">
-                        {t('source.emptyTitle', { sourceType: sourceType || t('source.sourcesNoun') })}
-                    </Text>
-                </>
+                <EmptyState
+                    icon={Plugs}
+                    title={t('source.emptyTitle', { sourceType: sourceType || t('source.sourcesNoun') })}
+                />
             )}
         </EmptyContainer>
     );

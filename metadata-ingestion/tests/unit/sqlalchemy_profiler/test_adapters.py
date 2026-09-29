@@ -379,11 +379,6 @@ class TestGenericAdapter:
         expr = adapter.get_quantiles_expr("test_column", [0.25, 0.5, 0.75])
         assert expr is None
 
-    def test_get_sample_clause(self, adapter):
-        """Test generic adapter returns None for sample clause (not supported)."""
-        clause = adapter.get_sample_clause(1000)
-        assert clause is None
-
     def test_supports_row_count_estimation(self, adapter):
         """Test generic adapter doesn't support row count estimation."""
         assert adapter.supports_row_count_estimation() is False
@@ -785,8 +780,10 @@ class TestSnowflakeAdapter:
         assert result.temp_table == "dh_sample_abc123"
         mock_sample.assert_called_once_with(context, mock_conn, 1_000_000)
 
-    def test_setup_profiling_no_row_count_conservative_sampling(self, adapter, config):
-        """When INFORMATION_SCHEMA row count is unavailable, be conservative and sample."""
+    def test_setup_profiling_no_row_count_uses_fixed_size_sampling(
+        self, adapter, config
+    ):
+        """When the row count is unavailable, sample by row count, not by fraction."""
         config.use_sampling = True
         config.sample_size = 10000
         adapter.config = config
@@ -798,14 +795,15 @@ class TestSnowflakeAdapter:
 
         with (
             patch.object(adapter, "_get_row_count_from_metadata", return_value=None),
+            patch.object(adapter, "_create_sampled_temp_table") as mock_fraction,
             patch.object(
-                adapter, "_create_sampled_temp_table", return_value=context
-            ) as mock_sample,
+                adapter, "_create_fixed_size_sampled_temp_table", return_value=context
+            ) as mock_fixed_size,
         ):
             adapter.setup_profiling(context, mock_conn)
 
-        # Should use sample_size * 10 as effective row count
-        mock_sample.assert_called_once_with(context, mock_conn, 100_000)
+        mock_fraction.assert_not_called()
+        mock_fixed_size.assert_called_once_with(context, mock_conn)
 
     def test_setup_profiling_sampling_disabled(self, adapter, config):
         """When use_sampling=False, profile the original table directly."""
@@ -1007,6 +1005,51 @@ class TestSnowflakeAdapter:
         # Temp name should NOT be quoted (no double quotes around dh_sample_...)
         assert '"dh_sample_' not in executed_sql
         assert "dh_sample_" in executed_sql
+
+    def test_fixed_size_sampled_temp_table_sql(self, adapter, config):
+        """An unknown row count samples a fixed number of rows, not a percentage."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="UNKNOWN_SIZE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_fixed_size_sampled_temp_table(context, mock_conn)
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "CREATE OR REPLACE TEMPORARY TABLE" in executed_sql
+        assert "TABLESAMPLE BERNOULLI (10000 ROWS)" in executed_sql
+        # Fixed-size sampling is incompatible with both of these.
+        assert "BLOCK" not in executed_sql
+        assert "SEED" not in executed_sql
+        assert context.is_sampled
+        assert context.temp_table is not None
+        # The fraction of the table sampled is unknowable without a row count.
+        assert context.sample_percentage is None
+
+    def test_fixed_size_sample_clamped_to_snowflake_limit(
+        self, adapter, config, report
+    ):
+        """sample_size above Snowflake's fixed-size cap is clamped and reported."""
+        config.sample_size = 5_000_000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="UNKNOWN_SIZE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_fixed_size_sampled_temp_table(context, mock_conn)
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "TABLESAMPLE BERNOULLI (1000000 ROWS)" in executed_sql
+        assert any("sample size reduced" in w.title.lower() for w in report.warnings)
 
     # =========================================================================
     # _get_row_count_from_metadata tests
@@ -1993,7 +2036,7 @@ class TestExecuteAggregateGuard:
 
 
 class TestRowCountRungChoice:
-    """get_row_count is the one site where the wrong rung is a correctness bug."""
+    """get_row_count counts a whole table, so it must take the flattenable rung."""
 
     @staticmethod
     def _adapter() -> Any:
@@ -2002,18 +2045,6 @@ class TestRowCountRungChoice:
             report=SQLSourceReport(),
             base_engine=sa.create_engine("sqlite://"),
         )
-
-    def test_sampled_row_count_is_not_flattenable(self) -> None:
-        # Flattening would drop the sample clause and count the whole table,
-        # reporting a full count as a sampled one.
-        conn = MagicMock()
-        conn.execute_single_row.return_value.scalar.return_value = 10
-        table = sa.table("t", sa.column("v"))
-
-        self._adapter().get_row_count(table, conn, sample_clause="TABLESAMPLE (10)")
-
-        conn.execute_aggregate.assert_not_called()
-        assert "TABLESAMPLE" in str(conn.execute_single_row.call_args.args[0])
 
     def test_unsampled_row_count_is_flattenable(self) -> None:
         conn = MagicMock()

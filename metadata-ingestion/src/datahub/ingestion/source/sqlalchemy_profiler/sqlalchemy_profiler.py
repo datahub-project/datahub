@@ -1218,12 +1218,9 @@ class SQLAlchemyProfiler:
                 non_null_count = None
 
             # Calculate null_count
-            effective_row_count = row_count
-            if effective_row_count is None:
-                effective_row_count = None
             null_count = (
-                max(0, effective_row_count - non_null_count)
-                if effective_row_count is not None and non_null_count is not None
+                max(0, row_count - non_null_count)
+                if row_count is not None and non_null_count is not None
                 else None
             )
             if self.config.include_field_null_count:
