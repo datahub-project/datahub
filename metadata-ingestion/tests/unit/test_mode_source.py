@@ -1,0 +1,1007 @@
+"""Unit tests for Mode connector helper functions and error handling.
+
+Tests cover:
+- _is_http_404 with various error types
+- _replace_definitions circular reference and max depth protection
+- _get_creator cache-on-success-only semantics
+- HTTPError429/HTTPError504 response preservation
+- _get_data_sources_by_id / _get_definitions_map retry on failure
+- _process_report error isolation (including error handler failures)
+- Dataset error isolation in _emit_workunits_for_space
+- exclude_personal_collections config
+"""
+
+from typing import Dict, Iterator, List, cast
+from unittest.mock import MagicMock, patch
+
+import requests
+from requests.models import HTTPError
+
+from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.mode import (
+    HTTPError429,
+    HTTPError504,
+    ModeConfig,
+    ModeSource,
+    _is_http_404,
+)
+from datahub.ingestion.source.mode_api_types import ModeQuery, ModeReport
+from datahub.metadata.schema_classes import (
+    UpstreamLineageClass,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
+)
+
+# ──────────────────────────────────────────────────────────────────────
+# _is_http_404
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestIsHttp404:
+    def test_with_404_response(self):
+        resp = MagicMock()
+        resp.status_code = 404
+        error = HTTPError("not found", response=resp)
+        assert _is_http_404(error) is True
+
+    def test_with_non_404_response(self):
+        resp = MagicMock()
+        resp.status_code = 500
+        error = HTTPError("server error", response=resp)
+        assert _is_http_404(error) is False
+
+    def test_with_none_response(self):
+        error = HTTPError("no response")
+        error.response = None  # type: ignore[assignment]
+        assert _is_http_404(error) is False
+
+    def test_with_no_response_attribute(self):
+        """HTTPError without response attribute set at all."""
+        error = HTTPError("bare error")
+        assert _is_http_404(error) is False
+
+    def test_with_non_http_error(self):
+        assert _is_http_404(ValueError("something")) is False
+
+    def test_with_429_response(self):
+        resp = MagicMock()
+        resp.status_code = 429
+        error = HTTPError429("rate limited", response=resp)
+        assert _is_http_404(error) is False
+
+
+# ──────────────────────────────────────────────────────────────────────
+# HTTPError429 / HTTPError504 response preservation
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestHTTPErrorSubclasses:
+    def test_http_error_429_preserves_response(self):
+        resp = MagicMock()
+        resp.status_code = 429
+        error = HTTPError429("rate limited", response=resp)
+        assert error.response is resp
+        assert error.response.status_code == 429
+
+    def test_http_error_504_preserves_response(self):
+        resp = MagicMock()
+        resp.status_code = 504
+        error = HTTPError504("gateway timeout", response=resp)
+        assert error.response is resp
+        assert error.response.status_code == 504
+
+    def test_http_error_429_is_http_error(self):
+        error = HTTPError429("test")
+        assert isinstance(error, HTTPError)
+
+    def test_http_error_504_is_http_error(self):
+        error = HTTPError504("test")
+        assert isinstance(error, HTTPError)
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Thread-safe counter increments via report._lock
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestThreadSafeCounters:
+    def test_locked_counter_increments_are_thread_safe(self):
+        """Concurrent increments protected by _lock must not lose updates."""
+        import concurrent.futures
+
+        from datahub.ingestion.source.mode import ModeSourceReport
+
+        report = ModeSourceReport()
+        increments_per_thread = 1000
+        num_threads = 8
+
+        def worker():
+            for _ in range(increments_per_thread):
+                with report._lock:
+                    report.num_sql_parsed += 1
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as pool:
+            futures = [pool.submit(worker) for _ in range(num_threads)]
+            for f in futures:
+                f.result()
+
+        assert report.num_sql_parsed == increments_per_thread * num_threads
+
+
+# ──────────────────────────────────────────────────────────────────────
+# _replace_definitions
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _make_source_with_definitions(
+    definitions_map: Dict[str, str],
+) -> ModeSource:
+    """Create a ModeSource with mocked API and a pre-populated definitions cache."""
+    config = ModeConfig(
+        token="test",
+        password="test",
+        workspace="test_workspace",
+    )
+
+    with (
+        patch("datahub.ingestion.source.mode.requests.Session"),
+        patch.object(ModeSource, "_get_request_json", return_value={}),
+    ):
+        ctx = MagicMock()
+        ctx.graph = None
+        ctx.pipeline_name = "test"
+        ctx.run_id = "test-run"
+        ctx.pipeline_config = None
+        source = ModeSource(ctx, config)
+
+    source._definitions_map_cache = definitions_map
+    return source
+
+
+class TestReplaceDefinitions:
+    def test_no_definitions_returns_query_unchanged(self):
+        source = _make_source_with_definitions({})
+        query = "SELECT * FROM users"
+        assert source._replace_definitions(query) == query
+
+    def test_simple_definition_replacement(self):
+        source = _make_source_with_definitions({"my_def": "SELECT id FROM orders"})
+        query = "SELECT * FROM {{ @my_def as order_tbl }}"
+        result = source._replace_definitions(query)
+        assert "(SELECT id FROM orders\n) as order_tbl" in result
+
+    def test_definition_ending_with_line_comment(self):
+        """Trailing -- comment in a definition body must not swallow the closing paren."""
+        source = _make_source_with_definitions(
+            {"my_def": "SELECT id FROM orders\n-- some comment"}
+        )
+        query = "SELECT * FROM {{ @my_def as tbl }} WHERE 1=1"
+        result = source._replace_definitions(query)
+        # The closing ") as tbl" must NOT be inside the comment
+        assert ") as tbl" in result
+        # Verify the comment is terminated by a newline before the paren
+        assert "-- some comment\n) as tbl" in result
+
+    def test_circular_reference_detected(self):
+        source = _make_source_with_definitions(
+            {
+                "def_a": "SELECT * FROM {{ @def_b as alias_b }}",
+                "def_b": "SELECT * FROM {{ @def_a as alias_a }}",
+            }
+        )
+        query = "SELECT * FROM {{ @def_a as alias_a }}"
+        result = source._replace_definitions(query)
+        # Should complete without infinite recursion
+        assert result is not None
+        # The circular def_a reference should be broken (replaced with name)
+        assert "def_a as alias_a" in result
+
+    def test_max_depth_exceeded(self):
+        """Deeply nested definitions beyond depth 10 return query as-is."""
+        # Build a chain: def_0 -> def_1 -> def_2 -> ... -> def_11
+        definitions = {}
+        for i in range(12):
+            if i < 11:
+                definitions[f"def_{i}"] = f"SELECT * FROM {{{{ @def_{i + 1} as tbl }}}}"
+            else:
+                definitions[f"def_{i}"] = "SELECT 1"
+
+        source = _make_source_with_definitions(definitions)
+        query = "SELECT * FROM {{ @def_0 as tbl }}"
+        result = source._replace_definitions(query)
+        # Should not recurse infinitely — depth limit kicks in
+        assert result is not None
+
+    def test_missing_definition_uses_name(self):
+        source = _make_source_with_definitions({})
+        query = "SELECT * FROM {{ @unknown_def as alias_tbl }}"
+        result = source._replace_definitions(query)
+        assert "unknown_def as alias_tbl" in result
+
+    def test_multiple_definitions_in_single_query(self):
+        source = _make_source_with_definitions(
+            {
+                "active_users": "SELECT id, name FROM users WHERE active = true",
+                "recent_orders": "SELECT user_id, total FROM orders WHERE dt > '2024-01-01'",
+            }
+        )
+        query = (
+            "SELECT orders.total, buyers.name, sellers.name "
+            "FROM {{ @recent_orders as orders }} "
+            "JOIN {{ @active_users as buyers }} ON orders.user_id = buyers.id "
+            "JOIN {{ @active_users as sellers }} ON orders.seller_id = sellers.id"
+        )
+        result = source._replace_definitions(query)
+        assert (
+            "(SELECT user_id, total FROM orders WHERE dt > '2024-01-01'\n) as orders"
+            in result
+        )
+        assert "(SELECT id, name FROM users WHERE active = true\n) as buyers" in result
+        assert "(SELECT id, name FROM users WHERE active = true\n) as sellers" in result
+
+    def test_nested_definitions(self):
+        """A definition whose body references another definition should have
+        both levels expanded, even when the inner one is also used directly."""
+        source = _make_source_with_definitions(
+            {
+                "paid_orders": "SELECT * FROM orders WHERE channel IN ({{ @channels as ch }})",
+                "channels": "SELECT channel_name FROM dim_channels WHERE paid = true",
+            }
+        )
+        query = (
+            "SELECT * FROM {{ @paid_orders as revenue }} "
+            "JOIN {{ @channels as all_ch }} ON 1=1"
+        )
+        result = source._replace_definitions(query)
+        assert (
+            "(SELECT channel_name FROM dim_channels WHERE paid = true\n) as ch"
+            in result
+        )
+        assert (
+            "(SELECT channel_name FROM dim_channels WHERE paid = true\n) as all_ch"
+            in result
+        )
+
+    def test_definition_without_alias(self):
+        """Definitions used inline without 'as alias' should expand to
+        just the parenthesized body, without a trailing 'as '."""
+        source = _make_source_with_definitions(
+            {"active_accounts": "SELECT id FROM accounts WHERE active = true"}
+        )
+        query = "SELECT * FROM (SELECT * FROM {{ @active_accounts }}) accts"
+        result = source._replace_definitions(query)
+        assert "(SELECT id FROM accounts WHERE active = true\n)" in result
+        assert "as " not in result.split("active = true\n)")[1][:5]
+
+
+# ──────────────────────────────────────────────────────────────────────
+# _get_creator cache semantics
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestGetCreatorCache:
+    def _make_source(self) -> ModeSource:
+        config = ModeConfig(
+            token="test",
+            password="test",
+            workspace="test_workspace",
+        )
+        with (
+            patch("datahub.ingestion.source.mode.requests.Session"),
+            patch.object(ModeSource, "_get_request_json", return_value={}),
+        ):
+            ctx = MagicMock()
+            ctx.graph = None
+            ctx.pipeline_name = "test"
+            ctx.run_id = "test-run"
+            ctx.pipeline_config = None
+            source = ModeSource(ctx, config)
+        return source
+
+    def test_successful_lookup_is_cached(self):
+        source = self._make_source()
+        with patch.object(
+            source,
+            "_get_request_json",
+            return_value={"username": "alice", "email": "alice@example.com"},
+        ) as mock_get:
+            # First call — hits API
+            result1 = source._get_creator("/api/user1")
+            assert result1 == "alice"
+            assert mock_get.call_count == 1
+
+            # Second call — should use cache, not API
+            result2 = source._get_creator("/api/user1")
+            assert result2 == "alice"
+            assert mock_get.call_count == 1
+
+    def test_failed_lookup_is_not_cached(self):
+        source = self._make_source()
+        with patch.object(
+            source,
+            "_get_request_json",
+            side_effect=[
+                HTTPError("transient error"),
+                {"username": "bob", "email": "bob@example.com"},
+            ],
+        ) as mock_get:
+            # First call — fails
+            result1 = source._get_creator("/api/user2")
+            assert result1 is None
+            assert mock_get.call_count == 1
+
+            # Second call — should retry (not cached)
+            result2 = source._get_creator("/api/user2")
+            assert result2 == "bob"
+            assert mock_get.call_count == 2
+
+    def test_empty_href_returns_none_without_api_call(self):
+        source = self._make_source()
+        with patch.object(source, "_get_request_json") as mock_get:
+            result = source._get_creator("")
+            assert result is None
+            mock_get.assert_not_called()
+
+
+# ──────────────────────────────────────────────────────────────────────
+# _get_data_sources_by_id and _get_definitions_map retry on failure
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestDataSourcesRetryOnFailure:
+    def _make_source(self) -> ModeSource:
+        config = ModeConfig(
+            token="test",
+            password="test",
+            workspace="test_workspace",
+        )
+        with (
+            patch("datahub.ingestion.source.mode.requests.Session"),
+            patch.object(ModeSource, "_get_request_json", return_value={}),
+        ):
+            ctx = MagicMock()
+            ctx.graph = None
+            ctx.pipeline_name = "test"
+            ctx.run_id = "test-run"
+            ctx.pipeline_config = None
+            source = ModeSource(ctx, config)
+        return source
+
+    def test_data_sources_retries_after_failure(self):
+        source = self._make_source()
+        ds_response = {
+            "_embedded": {
+                "data_sources": [
+                    {
+                        "id": 1,
+                        "adapter": "jdbc:postgresql",
+                        "name": "db",
+                        "database": "mydb",
+                    }
+                ]
+            }
+        }
+        with patch.object(
+            source,
+            "_get_request_json",
+            side_effect=[HTTPError("fail"), ds_response],
+        ) as mock_get:
+            # First call fails — returns empty
+            result1 = source._get_data_sources_by_id()
+            assert result1 == {}
+            assert mock_get.call_count == 1
+
+            # Second call retries — should succeed
+            result2 = source._get_data_sources_by_id()
+            assert 1 in result2
+            assert mock_get.call_count == 2
+
+    def test_data_sources_caches_on_success(self):
+        source = self._make_source()
+        ds_response = {
+            "_embedded": {
+                "data_sources": [
+                    {
+                        "id": 1,
+                        "adapter": "jdbc:postgresql",
+                        "name": "db",
+                        "database": "mydb",
+                    }
+                ]
+            }
+        }
+        with patch.object(
+            source, "_get_request_json", return_value=ds_response
+        ) as mock_get:
+            result1 = source._get_data_sources_by_id()
+            result2 = source._get_data_sources_by_id()
+            assert result1 == result2
+            assert 1 in result1
+            # Should only call API once — cached
+            assert mock_get.call_count == 1
+
+    def test_definitions_map_retries_after_failure(self):
+        source = self._make_source()
+        def_response = {
+            "_embedded": {"definitions": [{"name": "my_def", "source": "SELECT 1"}]}
+        }
+        with patch.object(
+            source,
+            "_get_request_json",
+            side_effect=[HTTPError("fail"), def_response],
+        ) as mock_get:
+            # First call fails
+            result1 = source._get_definitions_map()
+            assert result1 == {}
+
+            # Second call retries
+            result2 = source._get_definitions_map()
+            assert "my_def" in result2
+            assert mock_get.call_count == 2
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Helpers for error isolation tests
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _make_source() -> ModeSource:
+    """Create a ModeSource with mocked API calls."""
+    config = ModeConfig(
+        token="test",
+        password="test",
+        workspace="test_workspace",
+    )
+    with (
+        patch("datahub.ingestion.source.mode.requests.Session"),
+        patch.object(ModeSource, "_get_request_json", return_value={}),
+    ):
+        ctx = MagicMock()
+        ctx.graph = None
+        ctx.pipeline_name = "test"
+        ctx.run_id = "test-run"
+        ctx.pipeline_config = None
+        source = ModeSource(ctx, config)
+    return source
+
+
+def _make_workunit(id: str) -> MagicMock:
+    wu = MagicMock()
+    wu.id = id
+    return wu
+
+
+# ──────────────────────────────────────────────────────────────────────
+# get_upstream_lineage_for_parsed_sql
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestGetUpstreamLineageForParsedSql:
+    def test_skips_unresolved_upstream_column(self):
+        """An upstream ColumnRef with an empty column (sqlglot couldn't
+        resolve it) is dropped instead of producing an invalid
+        schemaField URN."""
+        source = _make_source()
+        upstream_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.upstream,PROD)"
+        )
+        parsed = SqlParsingResult(
+            in_tables=[upstream_table_urn],
+            out_tables=[],
+            column_lineage=[
+                ColumnLineageInfo(
+                    downstream=DownstreamColumnRef(column="my_col"),
+                    upstreams=[
+                        ColumnRef(table=upstream_table_urn, column=""),
+                        ColumnRef(table=upstream_table_urn, column="resolved_col"),
+                    ],
+                )
+            ],
+        )
+
+        wus = list(
+            source.get_upstream_lineage_for_parsed_sql(
+                query_urn="urn:li:query:(mode,q1)",
+                query_data=ModeQuery(id=1, last_run_id=2, data_source_id=3),
+                parsed_query_object=parsed,
+            )
+        )
+
+        assert len(wus) == 1
+        mcpw = cast(MetadataChangeProposalWrapper, wus[0].metadata)
+        upstream_lineage = cast(UpstreamLineageClass, mcpw.aspect)
+        assert upstream_lineage.fineGrainedLineages is not None
+        fgl = upstream_lineage.fineGrainedLineages[0]
+        assert fgl.upstreams == [
+            f"urn:li:schemaField:({upstream_table_urn},resolved_col)"
+        ]
+
+
+# ──────────────────────────────────────────────────────────────────────
+# _process_report error isolation
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestProcessReportErrorIsolation:
+    def test_failing_report_does_not_stop_other_reports(self):
+        """If _process_report_inner raises, the error is caught and
+        remaining reports can still be processed."""
+        source = _make_source()
+
+        report_ok = ModeReport(token="ok_tok", name="OK Report")
+        report_bad = ModeReport(token="bad_tok", name="Bad Report")
+
+        def fake_inner(space_token: str, report: ModeReport) -> Iterator:
+            if report.token == "bad_tok":
+                raise RuntimeError("boom")
+            yield _make_workunit(f"wu-{report.token}")
+
+        with patch.object(source, "_process_report_inner", side_effect=fake_inner):
+            # Process the bad report first — should not raise
+            bad_results = list(source._process_report("space1", report_bad))
+            assert bad_results == []
+
+            # Good report should still work
+            good_results = list(source._process_report("space1", report_ok))
+            assert len(good_results) == 1
+
+        # Failure should have been recorded
+        assert source.report.failures
+
+    def test_timeout_error_uses_report_warning_not_failure(self):
+        """Built-in TimeoutError should call report_warning, not report_failure,
+        so one timed-out report doesn't mark the whole run as FAILURE."""
+        source = _make_source()
+        report = ModeReport(token="tok", name="Report")
+
+        def timeout_inner(space_token: str, report: dict) -> Iterator:
+            raise TimeoutError("timed out")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=timeout_inner):
+            list(source._process_report("space1", report))
+
+        assert not source.report.failures
+        assert source.report.warnings
+
+    def test_requests_timeout_uses_report_warning_not_failure(self):
+        """requests.exceptions.Timeout should also call report_warning."""
+        source = _make_source()
+        report = ModeReport(token="tok", name="Report")
+
+        def timeout_inner(space_token: str, report: dict) -> Iterator:
+            raise requests.exceptions.Timeout("connection timed out")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=timeout_inner):
+            list(source._process_report("space1", report))
+
+        assert not source.report.failures
+        assert source.report.warnings
+
+    def test_non_timeout_error_still_uses_report_failure(self):
+        """Non-timeout exceptions should still call report_failure."""
+        source = _make_source()
+        report = ModeReport(token="tok", name="Report")
+
+        def failing_inner(space_token: str, report: dict) -> Iterator:
+            raise ValueError("unexpected error")
+            yield
+
+        with patch.object(source, "_process_report_inner", side_effect=failing_inner):
+            list(source._process_report("space1", report))
+
+        assert source.report.failures
+        assert not source.report.warnings
+
+    def test_error_handler_failure_does_not_propagate(self):
+        """If report_failure itself raises (e.g. serialization error),
+        the exception must not escape _process_report — otherwise
+        ThreadedIteratorExecutor would kill all workers."""
+        source = _make_source()
+        report = ModeReport(token="tok", name="Report")
+
+        def exploding_inner(space_token: str, report: dict) -> Iterator:
+            raise RuntimeError("inner error")
+            yield  # make it a generator
+
+        with (
+            patch.object(source, "_process_report_inner", side_effect=exploding_inner),
+            patch.object(
+                source.report,
+                "report_failure",
+                side_effect=TypeError("serialization bug"),
+            ),
+        ):
+            # Must not raise — the nested except catches the handler failure
+            results = list(source._process_report("space1", report))
+            assert results == []
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Dataset error isolation in _process_dataset
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestDatasetErrorIsolation:
+    def test_failing_dataset_does_not_abort_remaining(self):
+        """An exception processing one dataset should not prevent
+        subsequent datasets from being processed."""
+        source = _make_source()
+
+        dataset_good = ModeReport(token="ds_good")
+        dataset_bad = ModeReport(token="ds_bad")
+        query = {
+            "id": 1,
+            "token": "q1",
+            "raw_query": "SELECT 1",
+            "created_at": "2024-01-01",
+            "updated_at": "2024-01-01",
+            "data_source_id": 1,
+            "last_run_id": 1,
+            "_links": {"creator": {"href": ""}},
+        }
+
+        call_order: List[str] = []
+
+        original_construct = source.construct_query_or_dataset
+
+        def mock_construct(report_token, query_data, **kwargs):
+            call_order.append(report_token)
+            if report_token == "ds_bad":
+                raise RuntimeError("dataset processing failed")
+            return original_construct(report_token, query_data, **kwargs)
+
+        with (
+            patch.object(source, "_get_queries", return_value=[query]),
+            patch.object(
+                source, "construct_query_or_dataset", side_effect=mock_construct
+            ),
+        ):
+            # Processing bad dataset should not raise
+            list(source._process_dataset("space1", dataset_bad))
+            # Processing good dataset should also succeed
+            list(source._process_dataset("space1", dataset_good))
+
+        # Both datasets should have been attempted
+        assert "ds_bad" in call_order
+        assert "ds_good" in call_order
+        # Failure should have been recorded
+        assert source.report.failures
+
+
+# ──────────────────────────────────────────────────────────────────────
+# exclude_personal_collections config
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestExcludePersonalCollections:
+    def _make_source_with_config(self, **kwargs: object) -> ModeSource:
+        config = ModeConfig(
+            token="test",
+            password="test",
+            workspace="test_workspace",
+            **kwargs,
+        )
+        with (
+            patch("datahub.ingestion.source.mode.requests.Session"),
+            patch.object(ModeSource, "_get_request_json", return_value={}),
+        ):
+            ctx = MagicMock()
+            ctx.graph = None
+            ctx.pipeline_name = "test"
+            ctx.run_id = "test-run"
+            ctx.pipeline_config = None
+            source = ModeSource(ctx, config)
+        return source
+
+    def test_default_uses_custom_filter(self):
+        """Default exclude_personal_collections=True should use ?filter=custom."""
+        source = self._make_source_with_config()
+        assert source.config.exclude_personal_collections is True
+
+        with patch.object(
+            source, "_get_paged_request_json", return_value=iter([])
+        ) as mock_paged:
+            source._get_space_name_and_tokens()
+            mock_paged.assert_called_once()
+            url_arg = mock_paged.call_args[0][0]
+            assert "?filter=custom" in url_arg
+
+    def test_false_uses_all_filter(self):
+        """exclude_personal_collections=False should use ?filter=all."""
+        source = self._make_source_with_config(exclude_personal_collections=False)
+
+        with patch.object(
+            source, "_get_paged_request_json", return_value=iter([])
+        ) as mock_paged:
+            source._get_space_name_and_tokens()
+            mock_paged.assert_called_once()
+            url_arg = mock_paged.call_args[0][0]
+            assert "?filter=all" in url_arg
+
+    def test_space_pattern_still_applies_with_custom_filter(self):
+        """Even with server-side filtering, client-side space_pattern
+        should still filter spaces."""
+        source = self._make_source_with_config(
+            space_pattern=AllowDenyPattern(allow=["^Allowed"]),
+        )
+        spaces_page = [
+            {"token": "tok1", "name": "Allowed Space"},
+            {"token": "tok2", "name": "Blocked Space"},
+        ]
+
+        with patch.object(
+            source, "_get_paged_request_json", return_value=iter([spaces_page])
+        ):
+            result = source._get_space_name_and_tokens()
+
+        assert "tok1" in result
+        assert "tok2" not in result
+
+
+class TestGetPagedRequestJsonUrlSeparator:
+    """_get_paged_request_json used to append "&per_page=...&page=..."
+    unconditionally, assuming its caller's url already had a "?" (true for
+    every current call site). A url with none produces "...&per_page=...",
+    which no server parses as query params -- it would return the same
+    non-empty first page forever, and this generator would never terminate.
+    """
+
+    def _make_source_with_config(self, **kwargs: object) -> ModeSource:
+        config = ModeConfig(
+            token="test",
+            password="test",
+            workspace="test_workspace",
+            **kwargs,
+        )
+        with (
+            patch("datahub.ingestion.source.mode.requests.Session"),
+            patch.object(ModeSource, "_get_request_json", return_value={}),
+        ):
+            ctx = MagicMock()
+            ctx.graph = None
+            ctx.pipeline_name = "test"
+            ctx.run_id = "test-run"
+            ctx.pipeline_config = None
+            source = ModeSource(ctx, config)
+        return source
+
+    def test_paginates_and_terminates_on_a_url_with_no_query_string(self):
+        page_urls: List[str] = []
+
+        def _fake_get_request_json(url: str) -> Dict:
+            page_urls.append(url)
+            page = int(url.rsplit("page=", 1)[1])
+            return {"_embedded": {"things": [{"id": page}] if page == 1 else []}}
+
+        source = self._make_source_with_config()
+        with patch.object(
+            source, "_get_request_json", side_effect=_fake_get_request_json
+        ):
+            pages = list(
+                source._get_paged_request_json("https://x/things", "things", 100)
+            )
+
+        # Terminates after the second (empty) page, rather than looping
+        # forever on a same-url "page 1" the fake server would otherwise keep
+        # echoing.
+        assert pages == [[{"id": 1}]]
+        assert page_urls == [
+            "https://x/things?per_page=100&page=1",
+            "https://x/things?per_page=100&page=2",
+        ]
+
+    def test_appends_with_ampersand_when_the_url_already_has_a_query_string(self):
+        page_urls: List[str] = []
+
+        def _fake_get_request_json(url: str) -> Dict:
+            page_urls.append(url)
+            return {"_embedded": {"things": []}}
+
+        source = self._make_source_with_config()
+        with patch.object(
+            source, "_get_request_json", side_effect=_fake_get_request_json
+        ):
+            list(
+                source._get_paged_request_json(
+                    "https://x/things?filter=all", "things", 100
+                )
+            )
+
+        assert page_urls == ["https://x/things?filter=all&per_page=100&page=1"]
+
+
+class TestChartFetchGating:
+    """Charts are fetched unless the report explicitly reports none."""
+
+    @staticmethod
+    def _drive(source: ModeSource, report: ModeReport, query: ModeQuery) -> int:
+        """Run _process_report_inner over one query; count _get_charts calls."""
+        chart_calls: List[tuple] = []
+
+        def fake_get_charts(report_token: str, query_token: str) -> List[dict]:
+            chart_calls.append((report_token, query_token))
+            return []
+
+        with (
+            patch.object(source, "_get_queries", return_value=[query]),
+            patch.object(source, "_get_charts", side_effect=fake_get_charts),
+            patch.object(source, "construct_query_or_dataset", return_value=iter([])),
+            patch.object(source, "construct_dashboard", return_value=None),
+        ):
+            list(source._process_report_inner(space_token="s", report=report))
+        return len(chart_calls)
+
+    @staticmethod
+    def _query() -> ModeQuery:
+        return ModeQuery(
+            id=1,
+            token="qtok",
+            name="q",
+            data_source_id=1,
+            last_run_id=1,
+            _links={"creator": {"href": "/api/modeuser"}},
+        )
+
+    def test_fetches_charts_when_report_reports_charts(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", id=1, name="r", chart_count=3, _links={})
+        assert self._drive(source, report, self._query()) == 1
+        assert source.report.chart_api_calls_skipped == 0
+
+    def test_fetches_charts_when_report_omits_chart_count(self):
+        """Absent means unknown, never zero."""
+        source = _make_source()
+        report = ModeReport(token="rtok", id=1, name="r", _links={})
+        assert self._drive(source, report, self._query()) == 1
+        assert source.report.chart_api_calls_skipped == 0
+
+    def test_skips_chart_api_when_report_explicitly_has_no_charts(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", id=1, name="r", chart_count=0, _links={})
+        assert self._drive(source, report, self._query()) == 0
+        assert source.report.chart_api_calls_skipped == 1
+
+    def test_chart_count_is_not_part_of_the_query_contract(self):
+        """Mode does not send a query-level chart_count; a stray one stays in
+        raw where it cannot be mistaken for a gating signal."""
+        assert not hasattr(ModeQuery(), "chart_count")
+
+        query = ModeQuery.from_api({"token": "qtok", "chart_count": 0})
+        assert not hasattr(query, "chart_count")
+        assert query.raw["chart_count"] == 0
+
+
+class TestNoChartsGuardrail:
+    """A run where Mode claims charts but none come out must warn."""
+
+    def test_warns_when_expected_charts_never_materialise(self):
+        source = _make_source()
+        source.report.num_reports_expecting_charts = 52
+        source.report.num_charts_processed = 0
+        source._warn_if_no_charts_extracted()
+        assert source.report.warnings
+
+    def test_silent_when_charts_were_extracted(self):
+        source = _make_source()
+        source.report.num_reports_expecting_charts = 52
+        source.report.num_charts_processed = 120
+        source._warn_if_no_charts_extracted()
+        assert not source.report.warnings
+
+    def test_silent_when_no_report_claims_charts(self):
+        """A workspace of SQL-only reports is legitimate."""
+        source = _make_source()
+        source.report.num_queries_processed = 610
+        source.report.num_reports_expecting_charts = 0
+        source.report.num_charts_processed = 0
+        source._warn_if_no_charts_extracted()
+        assert not source.report.warnings
+
+
+class TestImportedDatasetsResolution:
+    """The reports listing may send has_imported_datasets instead of the
+    imported_datasets array; only an explicit False means "none"."""
+
+    def test_uses_inline_array_without_an_extra_call(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", imported_datasets=[{"token": "d1"}])
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == [{"token": "d1"}]
+        get_json.assert_not_called()
+
+    def test_inline_empty_array_is_authoritative(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", imported_datasets=[])
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == []
+        get_json.assert_not_called()
+
+    def test_explicit_false_flag_skips_the_detail_call(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=False)
+        with patch.object(source, "_get_request_json") as get_json:
+            assert source._imported_datasets(report) == []
+        get_json.assert_not_called()
+
+    def test_true_flag_resolves_via_the_detail_endpoint(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        with patch.object(
+            source,
+            "_get_request_json",
+            return_value={"imported_datasets": [{"token": "d1"}, {"token": "d2"}]},
+        ) as get_json:
+            assert source._imported_datasets(report) == [
+                {"token": "d1"},
+                {"token": "d2"},
+            ]
+        assert get_json.call_count == 1
+        assert get_json.call_args[0][0].endswith("/reports/rtok")
+        assert source.report.report_detail_get_api_called == 1
+
+    def test_neither_field_present_still_looks_rather_than_assuming_none(self):
+        """Absent means unknown, not empty."""
+        source = _make_source()
+        with patch.object(
+            source, "_get_request_json", return_value={"imported_datasets": [{"t": 1}]}
+        ) as get_json:
+            assert source._imported_datasets(ModeReport(token="rtok")) == [{"t": 1}]
+        assert get_json.call_count == 1
+
+    def test_detail_endpoint_without_the_array_yields_nothing(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        with patch.object(source, "_get_request_json", return_value={"id": 1}):
+            assert source._imported_datasets(report) == []
+
+    def test_missing_report_token_does_not_call_the_api(self):
+        source = _make_source()
+        with patch.object(source, "_get_request_json") as get_json:
+            assert (
+                source._imported_datasets(ModeReport(has_imported_datasets=True)) == []
+            )
+        get_json.assert_not_called()
+
+    def test_404_on_the_detail_call_warns_instead_of_raising(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        response = requests.Response()
+        response.status_code = 404
+        with patch.object(
+            source,
+            "_get_request_json",
+            side_effect=HTTPError("404", response=response),
+        ):
+            assert source._imported_datasets(report) == []
+        assert source.report.warnings
+
+    def test_non_404_on_the_detail_call_warns_instead_of_raising(self):
+        """Raising would abort construct_dashboard after the query workunits
+        were yielded, costing the report's dashboard and charts."""
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        response = requests.Response()
+        response.status_code = 503
+        with patch.object(
+            source,
+            "_get_request_json",
+            side_effect=HTTPError("503", response=response),
+        ):
+            assert source._imported_datasets(report) == []
+        assert source.report.warnings
+
+    def test_unexpected_error_on_the_detail_call_warns_instead_of_raising(self):
+        source = _make_source()
+        report = ModeReport(token="rtok", has_imported_datasets=True)
+        with patch.object(
+            source, "_get_request_json", side_effect=ValueError("bad json")
+        ):
+            assert source._imported_datasets(report) == []
+        assert source.report.warnings

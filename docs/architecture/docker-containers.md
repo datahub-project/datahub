@@ -18,8 +18,5 @@ the proper ordering of the components whereas docker-compose relies on a series 
                                 datahub-upgrade (SystemUpdate completed)
             /--------------------/   |      \------------------------------------------------\
            /                         |                                                         \
-mysql-setup (completed)  elasticsearch-setup (completed)                           (if apply) neo4j (healthy)
-    |                           |
-    |                           |
-mysql (healthy)         elasticsearch (healthy)
+    mysql (healthy)         elasticsearch (healthy)  kafka-setup (completed)      (if apply) neo4j (healthy)
 ```

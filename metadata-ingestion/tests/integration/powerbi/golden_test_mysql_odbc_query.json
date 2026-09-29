@@ -8,12 +8,15 @@
         "json": {
             "customProperties": {
                 "platform": "powerbi",
+                "env": "PROD",
                 "workspace": "Employees",
                 "workspace_id": "64ed5cad-7c10-4684-8180-826122881108",
                 "workspace_name": "Employees",
                 "workspace_type": "Workspace"
             },
-            "name": "Employees"
+            "externalUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108",
+            "name": "Employees",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -222,7 +225,7 @@
             "customProperties": {
                 "datasetId": "5e033fd1-385c-4f0c-8a61-58910cc25194"
             },
-            "externalUrl": "http://localhost/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5e033fd1-385c-4f0c-8a61-58910cc25194/details",
+            "externalUrl": "https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108/datasets/5e033fd1-385c-4f0c-8a61-58910cc25194/details",
             "name": "employees employees",
             "description": "Test report description",
             "tags": []
@@ -260,6 +263,22 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,employeereport.employees_employees,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
         }
     },
     "systemMetadata": {
@@ -318,8 +337,11 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:1ef10eb69a6800020b384274a129fe20",
+                    "id": "Employees",
                     "urn": "urn:li:container:1ef10eb69a6800020b384274a129fe20"
+                },
+                {
+                    "id": "EmployeeReport"
                 }
             ]
         }

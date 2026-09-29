@@ -1,25 +1,50 @@
+import ctypes
 import datetime
+import glob
 import logging
+import os
 import platform
 import re
 import sys
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
+from dataclasses import dataclass
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    NoReturn,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import oracledb
 import sqlalchemy.engine
-from pydantic import Field, ValidationInfo, field_validator, model_validator
-from sqlalchemy import event, sql
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
+from sqlalchemy import create_engine, event, inspect, sql
 from sqlalchemy.dialects.oracle.base import ischema_names
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import sqltypes
 from sqlalchemy.types import FLOAT, INTEGER, TIMESTAMP
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
+    make_data_job_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.ingestion.agent.sql_gate import (
+    CatalogScope,
+)
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -29,14 +54,15 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import TestConnectionReport
-from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
+    JobContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
+    SQLCommonConfig,
     SqlWorkUnit,
     get_schema_metadata,
     make_sqlalchemy_type,
@@ -44,18 +70,61 @@ from datahub.ingestion.source.sql.sql_common import (
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
 )
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.sql_utils import (
+    gen_database_key,
+    gen_schema_key,
+    get_domain_wu,
+)
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    generate_procedure_workunits,
+)
+from datahub.ingestion.source.sql.stored_procedures.models import (
+    BaseProcedure,
+    get_procedure_flow_name,
+)
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-
-# Oracle uses SQL aggregator for usage and lineage like SQL Server
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+    METADATA_EXTRACTION,
+    QUERIES_EXTRACTION,
+)
 from datahub.metadata.schema_classes import (
+    QueryLanguageClass,
     SubTypesClass,
     ViewPropertiesClass,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
+)
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+# Pre-compiled regex pattern for extracting Oracle error codes
+_ORACLE_ERROR_CODE_PATTERN = re.compile(r"ORA-(\d{5})")
+
+
+def _extract_oracle_error_code(exception: Exception) -> Optional[int]:
+    """Extract Oracle error code from exception.
+
+    Oracle error messages follow the format "ORA-XXXXX: message text"
+    where XXXXX is a 5-digit error code.
+
+    Args:
+        exception: Exception that may contain an Oracle error
+
+    Returns:
+        The numeric error code (e.g., 942 for ORA-00942), or None if not found
+    """
+    error_str = str(exception)
+    match = _ORACLE_ERROR_CODE_PATTERN.search(error_str)
+    if match:
+        return int(match.group(1))
+    return None
 
 
 class DataDictionaryMode(StrEnum):
@@ -63,6 +132,64 @@ class DataDictionaryMode(StrEnum):
 
     ALL = "ALL"
     DBA = "DBA"
+
+
+class OracleObjectType(StrEnum):
+    """Oracle database object types.
+
+    Also used to build the SQL IN-lists below via ``_sql_type_list``, so the
+    query text can't drift from the Python-side comparisons.
+    """
+
+    TABLE = "TABLE"
+    VIEW = "VIEW"
+    MATERIALIZED_VIEW = "MATERIALIZED VIEW"
+    PROCEDURE = "PROCEDURE"
+    FUNCTION = "FUNCTION"
+    PACKAGE = "PACKAGE"
+    PACKAGE_BODY = "PACKAGE BODY"
+    SYNONYM = "SYNONYM"
+
+
+class VSqlPrerequisiteCheckResult(BaseModel):
+    """Result of checking V$SQL view accessibility."""
+
+    is_accessible: bool
+    message: str
+
+
+class OracleErrorCode:
+    """Official Oracle error codes for structured error handling.
+
+    Reference: https://docs.oracle.com/en/database/oracle/oracle-database/19/errmg/
+    """
+
+    TABLE_OR_VIEW_NOT_EXIST = 942  # ORA-00942: table or view does not exist
+    INSUFFICIENT_PRIVILEGES = 1031  # ORA-01031: insufficient privileges
+
+
+class OracleSQLCommandType:
+    """Oracle V$SQL COMMAND_TYPE values for DML operations.
+
+    Reference: V$SQL.COMMAND_TYPE documentation
+    https://docs.oracle.com/en/database/oracle/oracle-database/19/refrn/V-SQL.html
+    """
+
+    INSERT = 2
+    SELECT = 3
+    UPDATE = 6
+    DELETE = 7
+    MERGE = 189
+
+
+class ProcedureDependencies(BaseModel):
+    """Structure for stored procedure dependencies.
+
+    All fields are optional since they may not be present depending on the procedure.
+    """
+
+    upstream: Optional[List[str]] = None
+    downstream: Optional[List[str]] = None
 
 
 # Oracle system schemas to exclude from ingestion
@@ -83,6 +210,38 @@ ORACLE_SYSTEM_SCHEMAS = (
 # Format system schemas for SQL IN clause
 _SYSTEM_SCHEMAS_SQL = ", ".join(f"'{schema}'" for schema in ORACLE_SYSTEM_SCHEMAS)
 
+
+def _sql_type_list(*types: OracleObjectType) -> str:
+    """Render OracleObjectType members as a SQL IN-list, e.g. "'TABLE', 'VIEW'"."""
+    return ", ".join(f"'{t.value}'" for t in types)
+
+
+# Object types that PROCEDURES_QUERY yields and that the enrichment queries
+# key their results by. Other IN-lists below extend this base set instead of
+# repeating its members.
+PROCEDURE_LIKE_TYPES = (
+    OracleObjectType.PROCEDURE,
+    OracleObjectType.FUNCTION,
+    OracleObjectType.PACKAGE,
+)
+TABLE_LIKE_TYPES = (
+    OracleObjectType.TABLE,
+    OracleObjectType.VIEW,
+    OracleObjectType.MATERIALIZED_VIEW,
+)
+
+_PROCEDURE_LIKE_TYPES_SQL = _sql_type_list(*PROCEDURE_LIKE_TYPES)
+# ALL_SOURCE/DBA_SOURCE splits packages into a spec ('PACKAGE') and a body
+# ('PACKAGE BODY') row; both are merged under 'PACKAGE' in
+# _get_procedure_source_codes_for_schema.
+_PROCEDURE_SOURCE_TYPES_SQL = _sql_type_list(
+    *PROCEDURE_LIKE_TYPES, OracleObjectType.PACKAGE_BODY
+)
+_DEPENDENT_OBJECT_TYPES_SQL = _sql_type_list(*TABLE_LIKE_TYPES, *PROCEDURE_LIKE_TYPES)
+_UPSTREAM_REFERENCED_TYPES_SQL = _sql_type_list(
+    *TABLE_LIKE_TYPES, *PROCEDURE_LIKE_TYPES, OracleObjectType.SYNONYM
+)
+
 # SQL Query Constants
 # Note: System schemas are explicitly excluded to prevent ingesting internal Oracle objects,
 # even if they match the user's schema_pattern. This is a defense-in-depth measure.
@@ -96,7 +255,9 @@ PROCEDURES_QUERY = (
         o.status
     FROM {tables_prefix}_OBJECTS o
     WHERE o.owner = :schema
-        AND o.object_type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
+        AND o.object_type IN ("""
+    + _PROCEDURE_LIKE_TYPES_SQL
+    + """)
         AND o.status = 'VALID'
         AND o.owner NOT IN ("""
     + _SYSTEM_SCHEMAS_SQL
@@ -105,51 +266,73 @@ PROCEDURES_QUERY = (
 """
 )
 
-PROCEDURE_SOURCE_QUERY = """
-    SELECT text
+# Schema-scoped enrichment queries.
+#
+# Earlier versions of this source ran three queries per procedure to hydrate
+# source body, argument signature, and dependency graph. On schemas with
+# hundreds of procedures those round-trips dominated ingestion time. The
+# queries below fetch the same data for every procedure in the schema in one
+# round-trip each; per-procedure dicts are then built in Python.
+PROCEDURE_SOURCES_FOR_SCHEMA_QUERY = (
+    """
+    SELECT name, type, line, text
     FROM {tables_prefix}_SOURCE
     WHERE owner = :schema
-        AND name = :procedure_name
-        AND type = :object_type
-    ORDER BY line
+        AND type IN ("""
+    + _PROCEDURE_SOURCE_TYPES_SQL
+    + """)
+    ORDER BY name, type, line
 """
+)
 
-PROCEDURE_ARGUMENTS_QUERY = """
+PROCEDURE_ARGUMENTS_FOR_SCHEMA_QUERY = """
     SELECT
+        object_name,
         argument_name,
         data_type,
         in_out,
         position
     FROM {tables_prefix}_ARGUMENTS
     WHERE owner = :schema
-        AND object_name = :procedure_name
         AND argument_name IS NOT NULL
-    ORDER BY position
+    ORDER BY object_name, position
 """
 
-PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY = """
+PROCEDURE_UPSTREAM_DEPENDENCIES_FOR_SCHEMA_QUERY = (
+    """
     SELECT DISTINCT 
+        name,
         referenced_owner,
         referenced_name,
         referenced_type
     FROM {tables_prefix}_DEPENDENCIES
     WHERE owner = :schema
-        AND name = :procedure_name
-        AND type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
-        AND referenced_type IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE', 'SYNONYM')
+        AND type IN ("""
+    + _PROCEDURE_LIKE_TYPES_SQL
+    + """)
+        AND referenced_type IN ("""
+    + _UPSTREAM_REFERENCED_TYPES_SQL
+    + """)
 """
+)
 
-PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY = """
+PROCEDURE_DOWNSTREAM_DEPENDENCIES_FOR_SCHEMA_QUERY = (
+    """
     SELECT DISTINCT 
+        referenced_name,
         owner,
         name,
         type
     FROM {tables_prefix}_DEPENDENCIES
     WHERE referenced_owner = :schema
-        AND referenced_name = :procedure_name
-        AND referenced_type IN ('PROCEDURE', 'FUNCTION', 'PACKAGE')
-        AND type IN ('TABLE', 'VIEW', 'MATERIALIZED VIEW', 'PROCEDURE', 'FUNCTION', 'PACKAGE')
+        AND referenced_type IN ("""
+    + _PROCEDURE_LIKE_TYPES_SQL
+    + """)
+        AND type IN ("""
+    + _DEPENDENT_OBJECT_TYPES_SQL
+    + """)
 """
+)
 
 MATERIALIZED_VIEWS_QUERY = (
     """
@@ -197,9 +380,135 @@ PROFILE_CANDIDATES_QUERY = """
         COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) AS SIZE_GB
     FROM {tables_table_name} t
     WHERE t.OWNER = :owner
-    AND (t.NUM_ROWS < :table_row_limit OR t.NUM_ROWS IS NULL)
-    AND COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) < :table_size_limit
+    AND (:table_row_limit IS NULL OR t.NUM_ROWS IS NULL OR t.NUM_ROWS < :table_row_limit)
+    AND (:table_size_limit IS NULL OR COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) < :table_size_limit)
 """
+
+VSQL_PREREQUISITES_QUERY = "SELECT COUNT(*) FROM V$SQL WHERE ROWNUM = 1"
+
+# DML command types to extract from V$SQL for lineage and usage analysis
+VSQL_DML_COMMAND_TYPES = (
+    OracleSQLCommandType.INSERT,
+    OracleSQLCommandType.SELECT,
+    OracleSQLCommandType.UPDATE,
+    OracleSQLCommandType.DELETE,
+    OracleSQLCommandType.MERGE,
+)
+
+VSQL_USAGE_QUERY = (
+    """
+    SELECT * FROM (
+        SELECT 
+            sql_id,
+            sql_text,
+            parsing_schema_name,
+            executions,
+            elapsed_time/1000000 as elapsed_seconds,
+            first_load_time
+        FROM V$SQL
+        WHERE parsing_schema_name IS NOT NULL
+            AND parsing_schema_name NOT IN ("""
+    + _SYSTEM_SCHEMAS_SQL
+    + """)
+            AND command_type IN """
+    + str(VSQL_DML_COMMAND_TYPES)
+    + """
+            AND sql_text NOT LIKE '%V$SQL%'
+            AND elapsed_time IS NOT NULL
+            AND executions IS NOT NULL
+        ORDER BY first_load_time DESC, sql_id ASC
+    )
+    WHERE ROWNUM <= :max_queries
+"""
+)
+
+
+def normalize_db_name(name: str) -> str:
+    """Replicate Oracle's normalize_name: ALL_UPPERCASE identifiers are lowercased.
+
+    Oracle stores unquoted identifiers in uppercase; SQLAlchemy's normalize_name
+    converts them to lowercase for consistency. We apply the same rule wherever
+    we use urn_db_name without access to the dialect (e.g. in OracleConfig methods).
+    """
+    return name.lower() if name.isupper() else name
+
+
+DB_NAME_QUERY = """
+    SELECT
+        CASE
+            WHEN sys_context('USERENV', 'CON_NAME') NOT IN (
+                'CDB$ROOT',
+                sys_context('USERENV', 'DB_NAME')
+            )
+            THEN sys_context('USERENV', 'CON_NAME')
+            ELSE sys_context('USERENV', 'DB_NAME')
+        END
+    FROM dual
+"""
+
+
+# Oracle Instant Client shared libs in the order they should be preloaded.
+# libclntsh is last because it has DT_NEEDED entries on the others; loading
+# the deps first by absolute path puts them in the process namespace by SONAME
+# so the linker reuses them when libclntsh is opened.
+_ORACLE_PRELOAD_PATTERNS = (
+    "libnnz*.so*",
+    "libclntshcore.so*",
+    "libons.so*",
+    "libipc1.so*",
+    "libmql1.so*",
+    "libociei.so*",
+    "libclntsh.so*",
+)
+
+
+def _preload_oracle_client_libs(lib_dir: str) -> None:
+    """Preload Oracle Instant Client libs from ``lib_dir`` so that
+    ``oracledb.init_oracle_client()`` succeeds on Linux without needing
+    ``LD_LIBRARY_PATH`` or ``ldconfig`` to be configured.
+
+    Background: on Linux, Oracle ships ``libclntsh.so`` without
+    ``RUNPATH=$ORIGIN``. Even when python-oracledb / ODPI-C dlopens
+    ``libclntsh.so`` via an absolute path (which is what ``lib_dir`` does),
+    the dynamic linker still has to resolve its DT_NEEDED dependencies
+    (``libnnz*.so``, ``libclntshcore.so``, ``libons.so``, ...) through the
+    normal ``LD_LIBRARY_PATH`` / ``ld.so.cache`` rules. With neither
+    configured, the load fails with DPI-1047.
+
+    Setting ``LD_LIBRARY_PATH`` from Python doesn't help: glibc's loader
+    reads it once at process startup. Loading each ``.so`` by absolute path
+    with ``RTLD_GLOBAL`` does work — once an object is mapped, the linker
+    looks it up by SONAME for subsequent ``dlopen()`` calls and finds it.
+
+    See https://github.com/oracle/python-oracledb/issues/578 for the upstream
+    discussion confirming this can only be fixed by preloading from the client
+    side or by patching ``RUNPATH=$ORIGIN`` into ``libclntsh.so`` itself.
+    """
+    if not os.path.isdir(lib_dir):
+        raise ConfigurationError(
+            f"thick_mode_lib_dir={lib_dir!r} does not exist or is not a directory"
+        )
+
+    loaded_any = False
+    for pattern in _ORACLE_PRELOAD_PATTERNS:
+        for path in sorted(glob.glob(os.path.join(lib_dir, pattern))):
+            try:
+                ctypes.CDLL(path, mode=ctypes.RTLD_GLOBAL)
+                loaded_any = True
+                logger.debug("Preloaded Oracle client lib: %s", path)
+            except OSError as e:
+                # Non-fatal: a missing satellite lib (e.g. libipc1 in older
+                # client releases) is fine as long as libclntsh and its actual
+                # deps load. Keep going so we surface a useful error from
+                # init_oracle_client() if anything critical is missing.
+                logger.debug("Skipping %s while preloading: %s", path, e)
+
+    if not loaded_any:
+        raise ConfigurationError(
+            f"No Oracle Instant Client libraries found in {lib_dir!r}. "
+            "Verify the path points to an unpacked Instant Client (it should "
+            "contain libclntsh.so* and libnnz*.so*)."
+        )
 
 
 def _setup_oracle_compatibility() -> None:
@@ -222,6 +531,7 @@ extra_oracle_types = {
     make_sqlalchemy_type("SDO_POINT_TYPE"),
     make_sqlalchemy_type("SDO_ELEM_INFO_ARRAY"),
     make_sqlalchemy_type("SDO_ORDINATE_ARRAY"),
+    make_sqlalchemy_type("XMLTYPE"),
 }
 assert ischema_names
 
@@ -256,9 +566,25 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         default=None,
         description="If using, omit `service_name`.",
     )
+    urn_db_name: Optional[str] = Field(
+        default=None,
+        description=(
+            "Override the database name used in URN construction. "
+            "Only relevant when add_database_name_to_urn is true and service_name is used "
+            "(i.e. database is not set). "
+            "The connector auto-detects the name by querying sys_context('USERENV','CON_NAME') "
+            "(the PDB name in multitenant setups) with a fallback to DB_NAME. "
+            "Set this explicitly if auto-detection returns the wrong value — for example "
+            "if your service_name does not route directly to the target PDB. "
+            "Do not set this alongside database; only one should be used."
+        ),
+    )
     add_database_name_to_urn: Optional[bool] = Field(
         default=False,
-        description="Add oracle database name to urn, default urn is schema.table",
+        description=(
+            "Include database name in URNs. Default is False (schema.table format). "
+            "Set to True for database.schema.table format when ingesting from multiple Oracle databases."
+        ),
     )
     # custom
     data_dictionary_mode: DataDictionaryMode = Field(
@@ -273,8 +599,13 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     )
     thick_mode_lib_dir: Optional[str] = Field(
         default=None,
-        description="If using thick mode on Windows or Mac, set thick_mode_lib_dir to the oracle client libraries path. "
-        "On Linux, this value is ignored, as ldconfig or LD_LIBRARY_PATH will define the location.",
+        description="Path to the directory containing the Oracle Instant Client libraries. "
+        "Required on Windows and Mac when enable_thick_mode is true. "
+        "Optional on Linux: when set, the connector preloads the client libraries "
+        "from this directory before initializing python-oracledb, which makes "
+        "thick mode work without needing ldconfig or LD_LIBRARY_PATH to be set "
+        "(see https://github.com/oracle/python-oracledb/issues/578). When unset "
+        "on Linux, the standard ldconfig / LD_LIBRARY_PATH search is used.",
     )
     # Stored procedures configuration
     include_stored_procedures: bool = Field(
@@ -286,6 +617,11 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         description="Regex patterns for stored procedures to filter in ingestion. "
         "Specify regex to match the entire procedure name in database.schema.procedure_name format. "
         "e.g. to match all procedures starting with customer in HR schema, use the regex 'ORCL.HR.CUSTOMER.*'",
+    )
+    include_lineage: bool = Field(
+        default=True,
+        description="Enable lineage extraction for stored procedures. "
+        "When enabled, SQL code in procedures/functions is parsed to extract table dependencies.",
     )
     include_materialized_views: bool = Field(
         default=True,
@@ -302,6 +638,65 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         default=False,
         description="Generate operation statistics from audit trail data (CREATE, INSERT, UPDATE, DELETE operations).",
     )
+
+    lazy_schema_resolver: bool = Field(
+        default=False,
+        description="If enabled, skips the upfront bulk fetch of all known schemas from DataHub "
+        "when resolving lineage. Useful on large DataHub instances where the bulk fetch "
+        "causes memory or performance issues.",
+    )
+
+    # Query extraction configuration for usage statistics
+    include_query_usage: bool = Field(
+        default=False,
+        description="Extract actual query usage from V$SQL for usage statistics. "
+        "Requires SELECT privilege on V$SQL (or SELECT_CATALOG_ROLE). "
+        "When enabled, usage statistics will be based on actual queries executed in Oracle.",
+    )
+
+    max_queries_to_extract: int = Field(
+        default=1000,
+        description="Maximum number of queries to extract from V$SQL for usage statistics. "
+        "Queries are ordered by recency (most recent first).",
+    )
+
+    query_exclude_patterns: Optional[List[str]] = Field(
+        default=None,
+        description="Regex patterns for SQL statements to exclude from usage statistics. "
+        "e.g., ['^SELECT.*FROM SYS\\..*', '^BEGIN.*END;'] to exclude system queries and PL/SQL blocks.",
+    )
+
+    @field_validator("max_queries_to_extract")
+    @classmethod
+    def validate_max_queries_to_extract(cls, value: int) -> int:
+        """Validate max_queries_to_extract is within reasonable range."""
+        if value <= 0:
+            raise ValueError(
+                "max_queries_to_extract must be positive. "
+                "Please set it to a value >= 1 (e.g., 1000)."
+            )
+        if value > 10000:
+            raise ValueError(
+                "max_queries_to_extract must be <= 10000 to avoid memory issues. "
+                "Please reduce the value to 10000 or less."
+            )
+        return value
+
+    @field_validator("query_exclude_patterns")
+    @classmethod
+    def validate_query_exclude_patterns(
+        cls, value: Optional[List[str]]
+    ) -> Optional[List[str]]:
+        """Validate query_exclude_patterns has reasonable limits."""
+        if value is None:
+            return value
+
+        if len(value) > 100:
+            raise ValueError(
+                "query_exclude_patterns must have <= 100 patterns to avoid performance issues. "
+                f"Please reduce from {len(value)} to 100 or fewer patterns."
+            )
+        return value
 
     @field_validator("service_name", mode="after")
     @classmethod
@@ -320,6 +715,15 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         if isinstance(value, str) and value not in ("ALL", "DBA"):
             raise ValueError("Specify one of data dictionary views mode: 'ALL', 'DBA'.")
         return value
+
+    @model_validator(mode="after")
+    def check_database_and_urn_db_name_mutually_exclusive(self):
+        if self.database and self.urn_db_name:
+            raise ValueError(
+                "Only one of 'database' or 'urn_db_name' may be set. "
+                "'urn_db_name' is only for service_name connections where 'database' is not set."
+            )
+        return self
 
     @model_validator(mode="after")
     def check_thick_mode_lib_dir(self):
@@ -347,11 +751,62 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     def get_identifier(self, schema: str, table: str) -> str:
         regular = f"{schema}.{table}"
         if self.add_database_name_to_urn:
-            if self.database:
-                return f"{self.database}.{regular}"
-            return regular
-        else:
-            return regular
+            db = self.database
+            if not db and self.urn_db_name:
+                # get_db_name normalises via the dialect; replicate that here so
+                # entity URNs and lineage URNs share the same db casing.
+                db = normalize_db_name(self.urn_db_name)
+            if db:
+                return f"{db}.{regular}"
+        return regular
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # Oracle has no information_schema. Its data dictionary is exposed as public
+        # synonyms, so the idiomatic read is unqualified -- these are listed without
+        # a schema for that reason, and the gate permits an unqualified name only
+        # when the scope lists it.
+        #
+        # Deliberately absent: ALL_SOURCE / DBA_SOURCE (PL/SQL body text) and the
+        # whole V$ family (V$SQL, V$SQLTEXT hold executed SQL). Qualifying with
+        # `sys.` is refused too, since permitting the SYS schema would reach both.
+        return CatalogScope(
+            schemas=frozenset(),
+            relations=frozenset(
+                {
+                    "all_tables",
+                    "all_views",
+                    "all_tab_columns",
+                    "all_tab_comments",
+                    "all_col_comments",
+                    "all_constraints",
+                    "all_cons_columns",
+                    "all_indexes",
+                    "all_ind_columns",
+                    "all_mviews",
+                    # all_users is deliberately absent: it is user identity, not
+                    # schema shape, and Oracle's ingestion never reads it. Every
+                    # other dialect here already withholds its equivalent --
+                    # Redshift's pg_user/svv_user_info, Snowflake's
+                    # account_usage.users, Postgres's pg_user/pg_roles,
+                    # ClickHouse's system.users, DBC.UsersV, sys.sql_logins --
+                    # so permitting it made Oracle the one inconsistent dialect.
+                    "dba_tables",
+                    "dba_views",
+                    "dba_tab_columns",
+                    "dba_tab_cols",
+                    "dba_tab_comments",
+                    "dba_col_comments",
+                    "dba_constraints",
+                    "dba_cons_columns",
+                    "dba_indexes",
+                    "dba_mviews",
+                    "user_tables",
+                    "user_views",
+                    "user_tab_columns",
+                }
+            ),
+        )
 
 
 class OracleInspectorObjectWrapper:
@@ -359,8 +814,9 @@ class OracleInspectorObjectWrapper:
     Inspector class wrapper, which queries DBA_TABLES instead of ALL_TABLES
     """
 
-    def __init__(self, inspector_instance: Inspector):
+    def __init__(self, inspector_instance: Inspector, report: SQLSourceReport):
         self._inspector_instance = inspector_instance
+        self.report = report
         self.log = logging.getLogger(__name__)
         # tables that we don't want to ingest into the DataHub
         self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
@@ -369,7 +825,7 @@ class OracleInspectorObjectWrapper:
         db_name = None
         try:
             db_name = self._inspector_instance.bind.execute(
-                sql.text("select sys_context('USERENV','DB_NAME') from dual")
+                sql.text(DB_NAME_QUERY)
             ).scalar()
             return str(db_name)
         except sqlalchemy.exc.DatabaseError as e:
@@ -759,8 +1215,8 @@ class OracleInspectorObjectWrapper:
             self.report.warning(
                 title="Failed to Process Primary Keys",
                 message=(
-                    f"Unable to process primary key constraints for {schema}.{table_name}. "
-                    "Ensure SELECT access on DBA_CONSTRAINTS and DBA_CONS_COLUMNS.",
+                    "Unable to process primary key constraints. "
+                    "Ensure SELECT access on DBA_CONSTRAINTS and DBA_CONS_COLUMNS."
                 ),
                 context=f"{schema}.{table_name}",
                 exc=e,
@@ -827,12 +1283,12 @@ class OracleInspectorObjectWrapper:
                     self.report.warning(
                         title="Missing Table Permissions",
                         message=(
-                            f"Unable to query table_name from dba_cons_columns{dblink}. "
+                            "Unable to query table_name from dba_cons_columns. "
                             "This usually indicates insufficient permissions on the target table. "
-                            f"Foreign key relationships will not be detected for {schema}.{table_name}. "
+                            "Foreign key relationships will not be detected. "
                             "Please ensure the user has SELECT privileges on dba_cons_columns."
                         ),
-                        context=f"{schema}.{table_name}",
+                        context=f"{schema}.{table_name} (dblink={dblink})",
                     )
 
                 rec = fkeys[cons_name]
@@ -897,9 +1353,91 @@ class OracleInspectorObjectWrapper:
 # when parsing stored procedures and materialized views, similar to SQL Server
 
 
+def _parse_oracle_procedure_dependencies(
+    dependencies_str: str,
+    database_key: DatabaseKey,
+    schema_key: Optional[SchemaKey],
+    procedure_registry: Optional[Dict[str, str]] = None,
+) -> List[str]:
+    """
+    Parse Oracle ALL_DEPENDENCIES string to DataJob URNs for procedure-to-procedure dependencies.
+
+    Format: "SCHEMA.NAME (TYPE)" where TYPE is PROCEDURE, FUNCTION, or PACKAGE.
+
+    Note: Only extracts procedure/function/package dependencies. Table/view dependencies
+    are handled separately by the SQL parser analyzing the procedure code.
+
+    Returns:
+        List of DataJob URNs for procedure dependencies. Empty list if no procedure
+        dependencies found (e.g., procedure only depends on tables/views).
+    """
+    if not dependencies_str.strip():
+        return []
+
+    input_jobs = []
+    deps = [d.strip() for d in dependencies_str.split(",") if d.strip()]
+
+    if not deps:
+        return []
+
+    for dep in deps:
+        match = re.match(r"^([^(]+)\s*\(\s*(PROCEDURE|FUNCTION|PACKAGE)\s*\)$", dep)
+        if not match:
+            continue
+
+        full_name = match.group(1).strip()
+        parts = full_name.split(".")
+
+        if len(parts) != 2:
+            continue
+
+        dep_schema, dep_name = parts
+
+        # Normalize to lowercase for case-insensitive matching (Oracle default behavior)
+        registry_key = f"{dep_schema.lower()}.{dep_name.lower()}"
+        job_id = dep_name.lower()
+
+        if procedure_registry and registry_key in procedure_registry:
+            job_id = procedure_registry[registry_key]
+
+        dep_job_urn = make_data_job_urn(
+            orchestrator=database_key.platform,
+            flow_id=get_procedure_flow_name(
+                database_key,
+                SchemaKey(
+                    database=database_key.database,
+                    schema=dep_schema.lower(),
+                    platform=database_key.platform,
+                    instance=database_key.instance,
+                    env=database_key.env,
+                    backcompat_env_as_instance=database_key.backcompat_env_as_instance,
+                ),
+            ),
+            job_id=job_id,
+            cluster=database_key.env or DEFAULT_ENV,
+            platform_instance=database_key.instance,
+        )
+
+        input_jobs.append(dep_job_urn)
+
+    return input_jobs
+
+
+@dataclass
+class OracleSourceReport(SQLSourceReport):
+    """Report for the Oracle source, tracking stored-procedure enrichment health."""
+
+    # Incremented once per batched enrichment query (source code, arguments, or
+    # dependencies) that fails, per schema — not per affected procedure, since a
+    # single failed query drops enrichment for every procedure in that schema.
+    # Affected procedures are still emitted, just without that enrichment.
+    # Should be 0 on a clean run.
+    procedure_enrichment_query_failures: int = 0
+
+
 @platform_name("Oracle")
 @config_class(OracleConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.GA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -919,7 +1457,11 @@ class OracleInspectorObjectWrapper:
 )
 @capability(
     SourceCapability.USAGE_STATS,
-    "Enabled by default via SQL aggregator when processing observed queries",
+    "Optionally enabled via `include_query_usage` to extract from V$SQL, or via `include_usage_stats` for view/procedure lineage",
+)
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `include_query_usage` and `include_operational_stats`",
 )
 class OracleSource(SQLAlchemySource):
     """
@@ -937,9 +1479,13 @@ class OracleSource(SQLAlchemySource):
     - Materialized view definitions (via SQL aggregator)
     - View definitions (via SQL aggregator)
 
-    Usage statistics and operations are generated from observed queries and audit trail data
-    processed by the SQL aggregator. This provides comprehensive lineage, usage, and
-    operational tracking from the same SQL parsing infrastructure.
+    Usage statistics can be generated from:
+    - Actual queries executed in Oracle (via V$SQL) when `include_query_usage` is enabled
+    - View and procedure definitions when `include_usage_stats` is enabled
+
+    Query extraction from V$SQL requires SELECT privilege on V$SQL or SELECT_CATALOG_ROLE.
+    This provides real usage patterns showing which tables are queried, by which schemas,
+    and how frequently.
 
     Using the Oracle source requires that you've also installed the correct drivers; see the [oracledb docs](https://python-oracledb.readthedocs.io/). The easiest approach is to use the thin mode (default) which requires no additional Oracle client installation.
     """
@@ -949,34 +1495,51 @@ class OracleSource(SQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "oracle")
 
+        self.report: OracleSourceReport = OracleSourceReport()
+        # The base class built classification_handler against the report it
+        # created in super().__init__(); re-point it at our subclass report so
+        # classification warnings/counters land on the report we actually use.
+        self.classification_handler.report = self.report
+
         # if connecting to oracle with enable_thick_mode, it must be initialized before calling
         # create_engine, which is called in get_inspectors()
         # https://python-oracledb.readthedocs.io/en/latest/user_guide/initialization.html#enabling-python-oracledb-thick-mode
         if self.config.enable_thick_mode:
-            if platform.system() == "Darwin" or platform.system() == "Windows":
-                # windows and mac os require lib_dir to be set explicitly
+            if platform.system() in ("Darwin", "Windows"):
+                # Mac/Windows: lib_dir is required and is enough; the platform's
+                # loader handles the dependent libs.
                 oracledb.init_oracle_client(lib_dir=self.config.thick_mode_lib_dir)
+            elif self.config.thick_mode_lib_dir:
+                # Linux: passing lib_dir to init_oracle_client() locates
+                # libclntsh.so itself but the loader still falls back to
+                # LD_LIBRARY_PATH / ld.so.cache for its DT_NEEDED deps, which
+                # fails on hosts that don't have ldconfig set up. Preload every
+                # .so in lib_dir by absolute path with RTLD_GLOBAL so the deps
+                # are resolved by SONAME from the process namespace.
+                _preload_oracle_client_libs(self.config.thick_mode_lib_dir)
+                oracledb.init_oracle_client()
             else:
-                # linux requires configurating the library path with ldconfig or LD_LIBRARY_PATH
+                # Linux without thick_mode_lib_dir: rely on ldconfig / LD_LIBRARY_PATH.
                 oracledb.init_oracle_client()
 
-        # Override SQL aggregator to enable usage and operations like BigQuery/Snowflake/Teradata
-        if self.config.include_usage_stats or self.config.include_operational_stats:
-            self.aggregator = SqlParsingAggregator(
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                graph=self.ctx.graph,
-                generate_lineage=self.include_lineage,
-                generate_usage_statistics=self.config.include_usage_stats,
-                generate_operations=self.config.include_operational_stats,
-                usage_config=self.config if self.config.include_usage_stats else None,
-                eager_graph_load=False,
-            )
-            self.report.sql_aggregator = self.aggregator.report
-
-    # Oracle inherits standard workunit generation from SQLAlchemySource
-    # Usage and lineage are handled automatically by the SQL aggregator
+        # Pre-fetch schemas from DataHub when not ingesting all tables/views so that
+        # V$SQL queries and view definitions can resolve lineage against tables outside
+        # the current run. lazy_schema_resolver lets large instances opt out.
+        self.aggregator = SqlParsingAggregator(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+            generate_lineage=self.include_lineage,
+            generate_usage_statistics=self.config.include_usage_stats,
+            generate_operations=self.config.include_operational_stats,
+            usage_config=self.config if self.config.include_usage_stats else None,
+            eager_graph_load=(
+                not (self.config.include_tables and self.config.include_views)
+                and not self.config.lazy_schema_resolver
+            ),
+        )
+        self.report.sql_aggregator = self.aggregator.report
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -986,8 +1549,6 @@ class OracleSource(SQLAlchemySource):
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
         """Test Oracle connection."""
-        import os
-
         # Force thin mode in test environments to avoid Oracle Client issues
         os.environ["ORACLE_CLIENT_LIBRARY_DIR"] = ""
         os.environ["TNS_ADMIN"] = ""
@@ -1000,19 +1561,43 @@ class OracleSource(SQLAlchemySource):
 
     def get_db_name(self, inspector: Inspector) -> str:
         """
-        This overwrites the default implementation, which only tries to read
-        database name from Connection URL, which does not work when using
-        service instead of database.
-        In that case, it tries to retrieve the database name by sending a query to the DB.
-
-        Note: This is used as a fallback if database is not specified in the config.
+        Overrides the default implementation to support service_name connections,
+        where the database name is not in the connection URL and must be queried
+        from Oracle directly.
         """
 
-        # call default implementation first
+        if self.config.urn_db_name:
+            normalized = inspector.dialect.normalize_name(self.config.urn_db_name)
+            return normalized or self.config.urn_db_name
+
         db_name = super().get_db_name(inspector)
 
-        if db_name == "" and isinstance(inspector, OracleInspectorObjectWrapper):
-            db_name = inspector.get_db_name()
+        if db_name == "":
+            # Query Oracle for database name when using service_name
+            if isinstance(inspector, OracleInspectorObjectWrapper):
+                # Use the wrapper's method when using DBA mode
+                db_name = inspector.get_db_name()
+            else:
+                # For ALL mode (regular inspector), query directly
+                try:
+                    db_name_result = inspector.bind.execute(
+                        sql.text(DB_NAME_QUERY)
+                    ).scalar()
+                    if db_name_result:
+                        db_name = str(db_name_result)
+                except sqlalchemy.exc.DatabaseError as e:
+                    logger.warning(
+                        f"Error fetching database name using sys_context: {e}",
+                        exc_info=True,
+                    )
+
+            # Normalize database name to match Oracle dialect behavior
+            # Oracle returns names in uppercase, but SQLAlchemy's normalize_name
+            # converts them to lowercase for consistency with schema/table names
+            if db_name:
+                normalized = inspector.dialect.normalize_name(db_name)
+                if normalized:
+                    db_name = normalized
 
         return db_name
 
@@ -1027,49 +1612,49 @@ class OracleSource(SQLAlchemySource):
 
             # SQLAlchemy inspector uses ALL_* tables; OracleInspectorObjectWrapper uses DBA_* tables
             if self.config.data_dictionary_mode != DataDictionaryMode.ALL:
-                yield cast(Inspector, OracleInspectorObjectWrapper(inspector))
+                # OracleInspectorObjectWrapper uses __getattr__ to proxy to Inspector
+                yield cast(
+                    Inspector, OracleInspectorObjectWrapper(inspector, self.report)
+                )
             else:
-                # To silent the mypy lint error
-                yield cast(Inspector, inspector)
+                yield inspector
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
-        """
-        Override the get_db_schema method to ensure proper schema name extraction.
-        This method is used during view lineage extraction to determine the default schema
-        for unqualified table names in view definitions.
-        """
         try:
-            # Try to get the schema from the dataset identifier
+            # dataset_identifier is either "db.schema.table" or "schema.table"
+            # depending on add_database_name_to_urn. parts[-3], parts[-2], parts[-1]
+            # are db, schema, table respectively.
             parts = dataset_identifier.split(".")
-
-            # Handle the identifier format differently based on add_database_name_to_urn flag
             if self.config.add_database_name_to_urn:
                 if len(parts) >= 3:
-                    # Format is: database.schema.view when add_database_name_to_urn=True
-                    db_name = parts[-3]
-                    schema_name = parts[-2]
-                    return db_name, schema_name
+                    return parts[-3], parts[-2]  # db, schema
                 elif len(parts) >= 2:
-                    # Handle the case where database might be missing even with flag enabled
-                    # If we have a database in the config, use that
-                    db_name = str(self.config.database)
-                    schema_name = parts[-2]
-                    return db_name, schema_name
+                    # Identifier is missing the db component — fall back to config.
+                    # Using str(None) here would produce "None.schema.table" URNs.
+                    # Normalise urn_db_name the same way as get_identifier so that
+                    # view-lineage default_db matches entity URN db components.
+                    urn_db = (
+                        normalize_db_name(self.config.urn_db_name)
+                        if self.config.urn_db_name
+                        else None
+                    )
+                    db_name = self.config.database or urn_db or None
+                    return db_name, parts[-2]  # db (or None), schema
             else:
-                # Format is: schema.view when add_database_name_to_urn=False
                 if len(parts) >= 2:
-                    # When add_database_name_to_urn is False, don't include database in the result
-                    db_name = None
-                    schema_name = parts[-2]
-                    return db_name, schema_name
+                    return None, parts[-2]  # schema only; no db in URNs
         except Exception as e:
             logger.warning(
                 f"Error extracting schema from identifier {dataset_identifier}: {e}"
             )
 
-        # Fall back to parent implementation if our approach fails
-        db_name, schema_name = super().get_db_schema(dataset_identifier)
-        return db_name, schema_name
+        # Reached only on a malformed identifier (e.g. no dots) or an exception above.
+        return super().get_db_schema(dataset_identifier)
+
+    @property
+    def include_lineage(self) -> bool:
+        """Enable lineage extraction for stored procedures and views."""
+        return self.config.include_lineage or self.config.include_view_lineage
 
     def get_schema_level_workunits(
         self,
@@ -1099,12 +1684,105 @@ class OracleSource(SQLAlchemySource):
         ):
             raise ValueError(f"Invalid tables_prefix: {tables_prefix}")
 
+    def loop_stored_procedures(
+        self,
+        inspector: Inspector,
+        schema: str,
+        config: Union[SQLCommonConfig, Type[SQLCommonConfig]],
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Override parent to ensure stored procedure URNs match table URNs.
+
+        For Oracle, we always pass the actual database name to _process_procedures
+        for correct container hierarchy, but BaseProcedure.default_db controls
+        whether the database appears in the procedure's URN.
+        """
+        actual_db_name = self.get_db_name(inspector)
+
+        procedures = self.fetch_procedures_for_schema(inspector, schema, actual_db_name)
+        if procedures:
+            yield from self._process_procedures(procedures, actual_db_name, schema)
+
+    def _process_procedure(
+        self,
+        procedure: BaseProcedure,
+        schema: str,
+        db_name: str,
+        procedure_registry: Optional[Dict[str, str]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        additional_input_jobs: Optional[List[str]] = None
+        if procedure.extra_properties and procedure_registry:
+            upstream_deps = procedure.extra_properties.get("upstream_dependencies", "")
+            if upstream_deps:
+                try:
+                    database_key = gen_database_key(
+                        database=db_name,
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    schema_key = gen_schema_key(
+                        db_name=db_name,
+                        schema=schema,
+                        platform=self.platform,
+                        platform_instance=self.config.platform_instance,
+                        env=self.config.env,
+                    )
+                    additional_input_jobs = _parse_oracle_procedure_dependencies(
+                        upstream_deps, database_key, schema_key, procedure_registry
+                    )
+                except (ValueError, KeyError, AttributeError) as e:
+                    logger.warning(
+                        f"Failed to parse Oracle procedure dependencies for {procedure.name}: {e}. "
+                        f"Dependencies string: {upstream_deps[:200]}"
+                    )
+                    additional_input_jobs = None
+
+        try:
+            yield from generate_procedure_workunits(
+                procedure=procedure,
+                database_key=gen_database_key(
+                    database=db_name,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_key=gen_schema_key(
+                    db_name=db_name,
+                    schema=schema,
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                ),
+                schema_resolver=self.get_schema_resolver(),
+                additional_input_jobs=additional_input_jobs,
+            )
+        except Exception as e:
+            self.report.warning(
+                title="Failed to emit stored procedure",
+                message="Failed to process stored procedure",
+                context=f"{db_name}.{schema}.{procedure.name}",
+                exc=e,
+            )
+
+    def _get_procedure_default_db(self) -> Optional[str]:
+        """
+        Determine the default_db value for procedure lineage URN generation.
+
+        Returns one of three values to control how database names appear in lineage URNs:
+        - None: Fallback to database_key.database (inherits from connection)
+        - "": Explicitly exclude database from URNs (two-tier: schema.table)
+        - str: Use specific database name in URNs (three-tier: database.schema.table)
+
+        This ensures procedure lineage URNs match the URN format of tables/views.
+        """
+        if self.config.add_database_name_to_urn and self.config.database:
+            return self.config.database
+        return ""
+
     def get_procedures_for_schema(
         self, inspector: Inspector, schema: str, db_name: str
     ) -> List[BaseProcedure]:
-        """
-        Get stored procedures, functions, and packages for a specific schema.
-        """
         base_procedures = []
         tables_prefix = self.config.data_dictionary_mode.value
 
@@ -1115,50 +1793,61 @@ class OracleSource(SQLAlchemySource):
             try:
                 self._validate_tables_prefix(tables_prefix)
                 procedures_query = PROCEDURES_QUERY.format(tables_prefix=tables_prefix)
-                procedures = conn.execute(
-                    sql.text(procedures_query), dict(schema=normalized_schema)
+                procedures = list(
+                    conn.execute(
+                        sql.text(procedures_query), dict(schema=normalized_schema)
+                    )
                 )
 
+                # Fetch enrichment data for every procedure in the schema in a single
+                # round-trip each, rather than three queries per procedure. On schemas
+                # with hundreds of procedures this turns O(N) queries into O(1).
+                source_codes = self._get_procedure_source_codes_for_schema(
+                    conn=conn,
+                    schema=normalized_schema,
+                    tables_prefix=tables_prefix,
+                )
+                argument_signatures = self._get_procedure_arguments_for_schema(
+                    conn=conn,
+                    schema=normalized_schema,
+                    tables_prefix=tables_prefix,
+                )
+                dependencies_by_name = self._get_procedure_dependencies_for_schema(
+                    conn=conn,
+                    schema=normalized_schema,
+                    tables_prefix=tables_prefix,
+                )
+
+                default_db = self._get_procedure_default_db()
+
                 for row in procedures:
-                    source_code = self._get_procedure_source_code(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        object_type=row.type,
-                        tables_prefix=tables_prefix,
-                    )
-
-                    arguments = self._get_procedure_arguments(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        tables_prefix=tables_prefix,
-                    )
-
-                    dependencies = self._get_procedure_dependencies(
-                        conn=conn,
-                        schema=normalized_schema,
-                        procedure_name=row.name,
-                        tables_prefix=tables_prefix,
-                    )
+                    source_code = source_codes.get((row.name, row.type))
+                    arguments = argument_signatures.get(row.name)
+                    dependencies = dependencies_by_name.get(row.name)
 
                     extra_props = {"object_type": row.type, "status": row.status}
 
-                    # Add dependency information if available (flatten to strings)
                     if dependencies:
-                        if "upstream" in dependencies:
+                        if dependencies.upstream:
+                            # sort for deterministic test output
                             extra_props["upstream_dependencies"] = ", ".join(
-                                dependencies["upstream"]
+                                sorted(dependencies.upstream)
                             )
-                        if "downstream" in dependencies:
+                        if dependencies.downstream:
                             extra_props["downstream_dependencies"] = ", ".join(
-                                dependencies["downstream"]
+                                sorted(dependencies.downstream)
                             )
+
+                    subtype = (
+                        JobContainerSubTypes.FUNCTION
+                        if row.type == "FUNCTION"
+                        else JobContainerSubTypes.STORED_PROCEDURE
+                    )
 
                     base_procedures.append(
                         BaseProcedure(
                             name=row.name,
-                            language="SQL",
+                            language=QueryLanguageClass.SQL,
                             argument_signature=arguments,
                             return_type=None,
                             procedure_definition=source_code,
@@ -1166,6 +1855,9 @@ class OracleSource(SQLAlchemySource):
                             last_altered=row.last_ddl_time,
                             comment=None,
                             extra_properties=extra_props,
+                            default_db=default_db,
+                            default_schema=normalized_schema,
+                            subtype=subtype,
                         )
                     )
 
@@ -1183,123 +1875,174 @@ class OracleSource(SQLAlchemySource):
 
         return base_procedures
 
-    def _get_procedure_source_code(
+    def _run_schema_enrichment_query(
         self,
-        conn: sqlalchemy.engine.Connection,
+        operation: str,
         schema: str,
-        procedure_name: str,
-        object_type: str,
         tables_prefix: str,
-    ) -> Optional[str]:
-        """Get procedure source code from ALL_SOURCE or DBA_SOURCE."""
+        fetch: Callable[[], _T],
+        default: _T,
+    ) -> _T:
+        """Shared validate -> execute -> handle-failure skeleton for the
+        per-schema stored procedure enrichment helpers below.
+
+        A single query failure here now drops enrichment for every procedure
+        in the schema (batching traded per-procedure blast radius for speed),
+        so failures are routed through ``self.report`` rather than a bare
+        ``logger.warning`` to keep them visible to operators.
+        """
         try:
             self._validate_tables_prefix(tables_prefix)
-            source_query = PROCEDURE_SOURCE_QUERY.format(tables_prefix=tables_prefix)
-
-            source_data = conn.execute(
-                sql.text(source_query),
-                dict(
-                    schema=schema,
-                    procedure_name=procedure_name,
-                    object_type=object_type,
+            return fetch()
+        except Exception as e:
+            # ``fetch`` runs both the query and the in-memory shaping
+            # (e.g. PACKAGE/PACKAGE BODY merge), so this isn't necessarily a
+            # permissions problem — keep the grant hint but defer to the
+            # attached exception rather than asserting the cause.
+            self.report.warning(
+                title="Failed to Fetch Stored Procedure Enrichment",
+                message=(
+                    f"Failed to {operation}. Affected procedures in this schema "
+                    "will be emitted without this enrichment. Often caused by "
+                    f"missing SELECT on {tables_prefix}_SOURCE/ARGUMENTS/DEPENDENCIES "
+                    "(grant it or set 'include_stored_procedures: false' to "
+                    "disable); see the attached error for the actual cause."
                 ),
+                context=f"schema={schema}",
+                exc=e,
             )
+            self.report.procedure_enrichment_query_failures += 1
+            return default
 
-            source_lines = []
-            for row in source_data:
-                source_lines.append(row.text)
-
-            return "".join(source_lines) if source_lines else None
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to get source code for {object_type} {schema}.{procedure_name}: {e}"
-            )
-            return None
-
-    def _get_procedure_arguments(
+    def _get_procedure_source_codes_for_schema(
         self,
         conn: sqlalchemy.engine.Connection,
         schema: str,
-        procedure_name: str,
         tables_prefix: str,
-    ) -> Optional[str]:
-        """Get procedure arguments from ALL_ARGUMENTS or DBA_ARGUMENTS."""
-        try:
-            # Validate tables_prefix to prevent injection
-            self._validate_tables_prefix(tables_prefix)
-            args_query = PROCEDURE_ARGUMENTS_QUERY.format(tables_prefix=tables_prefix)
+    ) -> Dict[Tuple[str, str], str]:
+        """Fetch all procedure/function/package source code in the schema.
 
-            args_data = conn.execute(
-                sql.text(args_query), dict(schema=schema, procedure_name=procedure_name)
+        Returns a mapping from ``(object_name, object_type)`` to the joined
+        source text. PACKAGE BODY rows are merged under the PACKAGE key (spec
+        text first, then body, per the query's ``ORDER BY name, type, line``)
+        so a package's definition carries its full source, not just the spec.
+        """
+
+        def _fetch() -> Dict[Tuple[str, str], str]:
+            source_query = PROCEDURE_SOURCES_FOR_SCHEMA_QUERY.format(
+                tables_prefix=tables_prefix
             )
 
-            arguments = []
-            for row in args_data:
-                arg_str = f"{row.in_out} {row.argument_name} {row.data_type}"
-                arguments.append(arg_str)
+            texts_by_type: Dict[Tuple[str, str], str] = {}
+            for row in conn.execute(sql.text(source_query), dict(schema=schema)):
+                key = (row.name, row.type)
+                texts_by_type[key] = texts_by_type.get(key, "") + row.text
 
-            return ", ".join(arguments) if arguments else None
+            merged: Dict[Tuple[str, str], str] = {}
+            for (name, obj_type), text in texts_by_type.items():
+                if obj_type != OracleObjectType.PACKAGE_BODY.value:
+                    merged[(name, obj_type)] = text
+                    continue
+                spec_key = (name, OracleObjectType.PACKAGE.value)
+                spec_text = merged.get(spec_key, "")
+                # Oracle doesn't guarantee the spec's last source line ends
+                # with a newline, so force a boundary before the body.
+                if spec_text and not spec_text.endswith("\n"):
+                    spec_text += "\n"
+                merged[spec_key] = spec_text + text
+            return merged
 
-        except Exception as e:
-            logger.warning(
-                f"Failed to get arguments for procedure {schema}.{procedure_name}: {e}"
-            )
-            return None
+        return self._run_schema_enrichment_query(
+            operation=f"fetch procedure source code for schema {schema}",
+            schema=schema,
+            tables_prefix=tables_prefix,
+            fetch=_fetch,
+            default={},
+        )
 
-    def _get_procedure_dependencies(
+    def _get_procedure_arguments_for_schema(
         self,
         conn: sqlalchemy.engine.Connection,
         schema: str,
-        procedure_name: str,
         tables_prefix: str,
-    ) -> Optional[Dict[str, List[str]]]:
-        """Get procedure dependencies from ALL_DEPENDENCIES or DBA_DEPENDENCIES."""
-        try:
-            # Validate tables_prefix to prevent injection
-            self._validate_tables_prefix(tables_prefix)
+    ) -> Dict[str, str]:
+        """Fetch argument signatures for every procedure in the schema.
 
-            upstream_query = PROCEDURE_UPSTREAM_DEPENDENCIES_QUERY.format(
+        Returns a mapping from procedure name to its rendered argument
+        signature (e.g. ``"IN p1 VARCHAR2, OUT p2 NUMBER"``).
+        """
+
+        def _fetch() -> Dict[str, str]:
+            args_query = PROCEDURE_ARGUMENTS_FOR_SCHEMA_QUERY.format(
                 tables_prefix=tables_prefix
             )
-            upstream_data = conn.execute(
-                sql.text(upstream_query),
-                dict(schema=schema, procedure_name=procedure_name),
-            )
 
-            downstream_query = PROCEDURE_DOWNSTREAM_DEPENDENCIES_QUERY.format(
+            args_by_proc: Dict[str, List[str]] = defaultdict(list)
+            for row in conn.execute(sql.text(args_query), dict(schema=schema)):
+                args_by_proc[row.object_name].append(
+                    f"{row.in_out} {row.argument_name} {row.data_type}"
+                )
+
+            return {name: ", ".join(args) for name, args in args_by_proc.items()}
+
+        return self._run_schema_enrichment_query(
+            operation=f"fetch procedure arguments for schema {schema}",
+            schema=schema,
+            tables_prefix=tables_prefix,
+            fetch=_fetch,
+            default={},
+        )
+
+    def _get_procedure_dependencies_for_schema(
+        self,
+        conn: sqlalchemy.engine.Connection,
+        schema: str,
+        tables_prefix: str,
+    ) -> Dict[str, ProcedureDependencies]:
+        """Fetch upstream and downstream dependencies for every procedure in the schema.
+
+        Returns a mapping from procedure name to its ``ProcedureDependencies``.
+        Procedures with no dependencies are not present in the result.
+        """
+
+        def _fetch() -> Dict[str, ProcedureDependencies]:
+            upstream_query = PROCEDURE_UPSTREAM_DEPENDENCIES_FOR_SCHEMA_QUERY.format(
                 tables_prefix=tables_prefix
             )
-            downstream_data = conn.execute(
-                sql.text(downstream_query),
-                dict(schema=schema, procedure_name=procedure_name),
+            downstream_query = (
+                PROCEDURE_DOWNSTREAM_DEPENDENCIES_FOR_SCHEMA_QUERY.format(
+                    tables_prefix=tables_prefix
+                )
             )
 
-            dependencies = {}
+            upstream_strs: Dict[str, List[str]] = defaultdict(list)
+            for row in conn.execute(sql.text(upstream_query), dict(schema=schema)):
+                upstream_strs[row.name].append(
+                    f"{row.referenced_owner}.{row.referenced_name} "
+                    f"({row.referenced_type})"
+                )
 
-            upstream_deps = []
-            for row in upstream_data:
-                dep_str = f"{row.referenced_owner}.{row.referenced_name} ({row.referenced_type})"
-                upstream_deps.append(dep_str)
+            downstream_strs: Dict[str, List[str]] = defaultdict(list)
+            for row in conn.execute(sql.text(downstream_query), dict(schema=schema)):
+                downstream_strs[row.referenced_name].append(
+                    f"{row.owner}.{row.name} ({row.type})"
+                )
 
-            if upstream_deps:
-                dependencies["upstream"] = upstream_deps
+            result: Dict[str, ProcedureDependencies] = {}
+            for name in set(upstream_strs) | set(downstream_strs):
+                result[name] = ProcedureDependencies(
+                    upstream=upstream_strs.get(name) or None,
+                    downstream=downstream_strs.get(name) or None,
+                )
+            return result
 
-            downstream_deps = []
-            for row in downstream_data:
-                dep_str = f"{row.owner}.{row.name} ({row.type})"
-                downstream_deps.append(dep_str)
-
-            if downstream_deps:
-                dependencies["downstream"] = downstream_deps
-
-            return dependencies if dependencies else None
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to get dependencies for procedure {schema}.{procedure_name}: {e}"
-            )
-            return None
+        return self._run_schema_enrichment_query(
+            operation=f"fetch procedure dependencies for schema {schema}",
+            schema=schema,
+            tables_prefix=tables_prefix,
+            fetch=_fetch,
+            default={},
+        )
 
     def loop_materialized_views(
         self,
@@ -1475,11 +2218,12 @@ class OracleSource(SQLAlchemySource):
             ).as_workunit()
 
             if self.config.domain and self.domain_registry:
-                domain_urn = self.domain_registry.get_domain_urn(dataset_urn)
-                if domain_urn:
-                    yield from auto_workunit(
-                        self.gen_domain_aspect(dataset_urn, domain_urn)  # type: ignore[attr-defined]
-                    )
+                yield from get_domain_wu(
+                    dataset_name=dataset_name,
+                    entity_urn=dataset_urn,
+                    domain_config=self.config.domain,
+                    domain_registry=self.domain_registry,
+                )
 
         except Exception as e:
             self.report.warning(
@@ -1518,6 +2262,170 @@ class OracleSource(SQLAlchemySource):
             )
             return None
 
+    def _get_metadata_engine(self) -> sqlalchemy.engine.Engine:
+        """Create a fresh engine for metadata queries."""
+        url = self.config.get_sql_alchemy_url()
+        return create_engine(url, **self.config.options)
+
+    def _check_vsql_prerequisites(
+        self, engine: sqlalchemy.engine.Engine
+    ) -> VSqlPrerequisiteCheckResult:
+        """Check if V$SQL view is accessible for query extraction."""
+        try:
+            with engine.connect() as conn:
+                conn.execute(sql.text(VSQL_PREREQUISITES_QUERY)).scalar()
+            return VSqlPrerequisiteCheckResult(
+                is_accessible=True, message="V$SQL is accessible"
+            )
+        except sqlalchemy.exc.DatabaseError as e:
+            error_code = _extract_oracle_error_code(e)
+
+            if error_code == OracleErrorCode.TABLE_OR_VIEW_NOT_EXIST:
+                return VSqlPrerequisiteCheckResult(
+                    is_accessible=False,
+                    message="V$SQL view not accessible. Grant SELECT on V$SQL or SELECT_CATALOG_ROLE to user.",
+                )
+            elif error_code == OracleErrorCode.INSUFFICIENT_PRIVILEGES:
+                return VSqlPrerequisiteCheckResult(
+                    is_accessible=False,
+                    message="Insufficient privileges to query V$SQL. Grant SELECT on V$SQL or SELECT_CATALOG_ROLE to user.",
+                )
+            else:
+                error_msg = str(e)
+                error_code_str = f"ORA-{error_code:05d}" if error_code else "UNKNOWN"
+                return VSqlPrerequisiteCheckResult(
+                    is_accessible=False,
+                    message=f"Error accessing V$SQL ({error_code_str}): {error_msg}",
+                )
+
+    def _extract_queries_from_vsql(
+        self, engine: sqlalchemy.engine.Engine
+    ) -> Iterable[ObservedQuery]:
+        """Extract queries from V$SQL for usage statistics."""
+        params = {"max_queries": self.config.max_queries_to_extract}
+
+        try:
+            with engine.connect() as conn:
+                inspector = inspect(conn)
+                # Get database name once outside the loop since it doesn't change per row
+                db_name = self.get_db_name(inspector)
+                result = conn.execute(sql.text(VSQL_USAGE_QUERY), params)
+
+                for row in result:
+                    sql_text = row["sql_text"]
+
+                    if self.config.query_exclude_patterns:
+                        should_exclude = False
+                        for pattern in self.config.query_exclude_patterns:
+                            if re.search(pattern, sql_text, re.IGNORECASE):
+                                logger.debug(
+                                    f"Excluding query matching pattern '{pattern}': {sql_text[:100]}..."
+                                )
+                                should_exclude = True
+                                break
+                        if should_exclude:
+                            continue
+
+                    timestamp = None
+                    first_load_time = row["first_load_time"]
+                    if first_load_time:
+                        try:
+                            # V$SQL.first_load_time is VARCHAR2(19) in format 'YYYY-MM-DD/HH24:MI:SS'
+                            timestamp = datetime.datetime.strptime(
+                                first_load_time, "%Y-%m-%d/%H:%M:%S"
+                            )
+                        except ValueError:
+                            # Fallback for alternative format
+                            try:
+                                timestamp = datetime.datetime.strptime(
+                                    first_load_time, "%Y-%m-%d %H:%M:%S"
+                                )
+                            except ValueError:
+                                pass
+
+                    yield ObservedQuery(
+                        query=sql_text,
+                        default_db=db_name,
+                        default_schema=row["parsing_schema_name"],
+                        timestamp=timestamp,
+                        session_id=f"sql_id:{row['sql_id']}",
+                        user=None,
+                    )
+
+        except sqlalchemy.exc.DatabaseError as e:
+            logger.error(f"Failed to extract queries from V$SQL: {e}", exc_info=True)
+            self.report.failure(
+                message="Failed to extract queries from V$SQL",
+                context="query_extraction_from_vsql_failed",
+                exc=e,
+            )
+
+    def _populate_aggregator_from_queries(self) -> None:
+        """Extract queries from Oracle and add them to the SQL aggregator."""
+        if not self.config.include_query_usage:
+            return
+
+        engine = self._get_metadata_engine()
+        try:
+            check_result = self._check_vsql_prerequisites(engine)
+            if not check_result.is_accessible:
+                logger.warning(
+                    f"V$SQL not accessible for query extraction: {check_result.message}. "
+                    "Query-based usage statistics will be skipped."
+                )
+                self.report.warning(
+                    message=check_result.message,
+                    context="vsql_not_accessible",
+                    log=False,
+                )
+                return
+
+            logger.info(f"V$SQL prerequisites check: {check_result.message}")
+
+            with self.report.new_stage(QUERIES_EXTRACTION):
+                logger.info(
+                    f"Starting query extraction from V$SQL (max_queries={self.config.max_queries_to_extract})"
+                )
+
+                queries_processed = 0
+                for observed_query in self._extract_queries_from_vsql(engine):
+                    self.aggregator.add(observed_query)
+                    queries_processed += 1
+
+                    if queries_processed % 100 == 0:
+                        logger.info(
+                            f"Processed {queries_processed} queries to aggregator"
+                        )
+
+                logger.info(
+                    f"Completed adding {queries_processed} queries from V$SQL to SqlParsingAggregator"
+                )
+
+                self.report.num_queries_extracted = queries_processed
+        finally:
+            engine.dispose()
+
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # Deferred: called explicitly after V$SQL population in get_workunits_internal.
+        return iter([])
+
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        # Schema first: registers table/view schemas into the resolver so that
+        # V$SQL queries and view definitions can resolve column-level lineage.
+        with self.report.new_stage(METADATA_EXTRACTION):
+            yield from super().get_workunits_internal()
+        logger.info("Schema metadata extraction complete")
+
+        # V$SQL second: observed queries are added to the aggregator after the
+        # schema resolver is populated. _generate_aggregator_workunits is a no-op
+        # in the parent call above (overridden below) so lineage is not emitted yet.
+        # _populate_aggregator_from_queries opens its own QUERIES_EXTRACTION stage.
+        self._populate_aggregator_from_queries()
+
+        with self.report.new_stage(LINEAGE_EXTRACTION):
+            yield from super()._generate_aggregator_workunits()
+        logger.info("Lineage and usage processing complete")
+
     def get_workunits(self):
         """
         Override get_workunits to patch Oracle dialect for custom types.
@@ -1527,7 +2435,7 @@ class OracleSource(SQLAlchemySource):
             {klass.__name__: klass for klass in extra_oracle_types},
             clear=False,
         ):
-            return super().get_workunits()
+            yield from super().get_workunits()
 
     def generate_profile_candidates(
         self,

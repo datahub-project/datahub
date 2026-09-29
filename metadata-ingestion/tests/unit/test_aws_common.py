@@ -1,14 +1,22 @@
+import copy
 import json
 import os
 from unittest.mock import MagicMock, patch
 
 import boto3
 import pytest
-from moto import mock_iam, mock_lambda, mock_sts
+from botocore.exceptions import (
+    ClientError,
+    ConnectTimeoutError,
+    EndpointConnectionError,
+    NoCredentialsError,
+)
+from moto import mock_aws
 
 from datahub.ingestion.source.aws.aws_common import (
     AwsConnectionConfig,
     AwsEnvironment,
+    aws_error_code,
     detect_aws_environment,
     get_current_identity,
     get_instance_metadata_token,
@@ -143,9 +151,7 @@ class TestAwsCommon:
         mock_get.return_value.status_code = 404
         assert is_running_on_ec2() is False
 
-    @mock_sts
-    @mock_lambda
-    @mock_iam
+    @mock_aws
     def test_get_current_identity_lambda(self):
         """Test getting identity in Lambda environment"""
         with patch.dict(
@@ -186,7 +192,7 @@ class TestAwsCommon:
 
     @patch("requests.get")
     @patch("requests.put")
-    @mock_sts
+    @mock_aws
     def test_get_instance_role_arn_success(self, mock_put, mock_get):
         """Test getting EC2 instance role ARN"""
         mock_put.return_value.status_code = 200
@@ -206,7 +212,7 @@ class TestAwsCommon:
                 role_arn == "arn:aws:sts::123456789012:assumed-role/test-role/instance"
             )
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_basic(self, mock_aws_config):
         """Test basic AWS connection configuration"""
         session = mock_aws_config.get_session()
@@ -214,7 +220,7 @@ class TestAwsCommon:
         assert creds.access_key == "test-key"
         assert creds.secret_key == "test-secret"
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_with_session_token(self):
         """Test AWS connection with session token"""
         config = AwsConnectionConfig(
@@ -229,7 +235,7 @@ class TestAwsCommon:
         assert creds is not None
         assert creds.token == "test-token"
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_role_assumption(self):
         """Test AWS connection with role assumption"""
         config = AwsConnectionConfig(
@@ -247,7 +253,7 @@ class TestAwsCommon:
             creds = session.get_credentials()
             assert creds is not None
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_skip_role_assumption(self):
         """Test AWS connection skipping role assumption when already in role"""
         config = AwsConnectionConfig(
@@ -265,7 +271,7 @@ class TestAwsCommon:
             session = config.get_session()
             assert session is not None
 
-    @mock_sts
+    @mock_aws
     def test_aws_connection_config_multiple_roles(self):
         """Test AWS connection with multiple role assumption"""
         config = AwsConnectionConfig(
@@ -341,7 +347,7 @@ class TestAwsCommon:
         with patch.dict(os.environ, env_vars, clear=True):
             assert detect_aws_environment() == expected_environment
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_credentials_cached_across_sessions(self):
         """
         Test that assumed role credentials are cached and reused across multiple
@@ -413,7 +419,7 @@ class TestAwsCommon:
             # assume_role should still only be called once
             assert mock_assume_role.call_count == 1
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_refreshes_expired_credentials(self):
         """
         Test that expired credentials trigger a new role assumption.
@@ -471,7 +477,7 @@ class TestAwsCommon:
             # assume_role should be called again due to expiration
             assert mock_assume_role.call_count == 2
 
-    @mock_sts
+    @mock_aws
     def test_multiple_clients_use_same_cached_credentials(self):
         """
         Test that multiple AWS clients (glue, s3, lakeformation) created from
@@ -521,7 +527,110 @@ class TestAwsCommon:
             # assume_role should only be called once
             assert mock_assume_role.call_count == 1
 
-    @mock_sts
+    def test_get_s3_client_cached_per_verify_ssl(self):
+        """
+        get_s3_client() memoizes the built client: repeated calls on the same
+        instance return the same object, and each verify_ssl value gets its
+        own client.
+        """
+        config = AwsConnectionConfig(
+            aws_access_key_id="test-key",
+            aws_secret_access_key="test-secret",
+            aws_region="us-east-1",
+        )
+
+        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+
+            client1 = config.get_s3_client()
+            client2 = config.get_s3_client()
+            assert client1 is client2
+            # Only one session/client construction for the repeated call
+            assert mock_get_session.call_count == 1
+
+            client3 = config.get_s3_client(verify_ssl=False)
+            assert client3 is not client1
+            assert mock_get_session.call_count == 2
+            assert config.get_s3_client(verify_ssl=False) is client3
+
+    def test_get_s3_client_rebuilt_when_role_credentials_need_refresh(self):
+        """
+        Once a role has actually been assumed, the cached client holds static
+        credentials, so it must be rebuilt when those credentials need a refresh.
+        """
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        # Model the post-assume state: get_session populates _cached_credentials
+        # only when it actually assumes a role, and that is the precondition for
+        # invalidating the cached client.
+        config._cached_credentials = {
+            "AccessKeyId": "ASSUMED_KEY",
+            "SecretAccessKey": "ASSUMED_SECRET",
+            "SessionToken": "ASSUMED_TOKEN",
+        }
+
+        with (
+            patch.object(AwsConnectionConfig, "get_session") as mock_get_session,
+            patch.object(
+                AwsConnectionConfig, "_should_refresh_credentials"
+            ) as mock_should_refresh,
+        ):
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+
+            mock_should_refresh.return_value = False
+            client1 = config.get_s3_client()
+            assert config.get_s3_client() is client1
+            assert mock_get_session.call_count == 1
+
+            mock_should_refresh.return_value = True
+            client2 = config.get_s3_client()
+            assert client2 is not client1
+            assert mock_get_session.call_count == 2
+
+    def test_get_s3_client_cached_when_role_matches_ambient_identity(self):
+        """
+        When a role is configured but never actually assumed (the ambient identity
+        already is that role), get_session records no expiration and leaves
+        _cached_credentials as None. The client must still be cached: invalidation
+        keys off assumed static credentials, not merely on aws_role being set —
+        otherwise _should_refresh_credentials() (always True while expiration is
+        None) would rebuild the client on every call.
+        """
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        assert config._cached_credentials is None
+
+        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+
+            client1 = config.get_s3_client()
+            assert config.get_s3_client() is client1
+            assert mock_get_session.call_count == 1
+
+    def test_config_is_deepcopyable(self):
+        """
+        dbt's config validators run copy.deepcopy over the recipe values, so an
+        AwsConnectionConfig passed as an already-built object must survive it. A
+        threading.Lock kept as instance state is not deep-copyable, which is why the
+        client-construction lock lives on the class rather than on the instance.
+        """
+        config = AwsConnectionConfig(aws_region="us-east-1")
+        # Mirrors DBTCoreConfig(aws_connection=AwsConnectionConfig(...)), whose
+        # validator does values = deepcopy(values).
+        copied = copy.deepcopy({"aws_connection": config})["aws_connection"]
+        assert copied.aws_region == "us-east-1"
+
+    @mock_aws
     def test_role_assumption_without_caching_before_fix(self):
         """
         This test demonstrates the bug that existed before the fix.
@@ -576,7 +685,7 @@ class TestAwsCommon:
             assert creds2.secret_key == "ASSUMED_SECRET"
             assert creds2.token == "ASSUMED_TOKEN"
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_with_explicit_credentials(self):
         """
         Test that explicit credentials (aws_access_key_id/aws_secret_access_key)
@@ -597,7 +706,7 @@ class TestAwsCommon:
         assert creds.access_key == "EXPLICIT_KEY"
         assert creds.secret_key == "EXPLICIT_SECRET"
 
-    @mock_sts
+    @mock_aws
     def test_role_assumption_chain(self):
         """
         Test assuming multiple roles in a chain.
@@ -655,3 +764,30 @@ class TestAwsCommon:
 
             # Both roles should have been assumed
             assert mock_assume_role.call_count == 2
+
+
+class TestAwsErrorCode:
+    def test_client_error_returns_aws_error_code_from_response_body(self):
+        e = ClientError(
+            {"Error": {"Code": "AccessDeniedException", "Message": "denied"}},
+            "ListStreams",
+        )
+        assert aws_error_code(e) == "AccessDeniedException"
+
+    def test_client_error_with_missing_code_returns_empty_string(self):
+        # Defensive: callsites pass the result into f-strings — must never raise KeyError.
+        e = ClientError({"Error": {"Message": "no code"}}, "ListStreams")
+        assert aws_error_code(e) == ""
+
+    def test_botocore_errors_return_class_name(self):
+        # BotoCoreError subclasses carry no structured code; the class name is the
+        # next-best stable identifier.
+        assert aws_error_code(NoCredentialsError()) == "NoCredentialsError"
+        assert (
+            aws_error_code(EndpointConnectionError(endpoint_url="https://x"))
+            == "EndpointConnectionError"
+        )
+        assert (
+            aws_error_code(ConnectTimeoutError(endpoint_url="https://x"))
+            == "ConnectTimeoutError"
+        )

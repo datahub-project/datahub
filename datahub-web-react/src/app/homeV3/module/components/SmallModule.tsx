@@ -1,5 +1,6 @@
 import { Icon } from '@components';
 import { useDraggable } from '@dnd-kit/core';
+import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -27,7 +28,11 @@ const ContainerWithHover = styled.div`
     justify-content: center;
 
     :hover {
-        background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
+        background: linear-gradient(
+            180deg,
+            ${(props) => props.theme.colors.bg} 0%,
+            ${(props) => props.theme.colors.bgSurface} 100%
+        );
     }
 
     :hover ${DragIcon} {
@@ -71,14 +76,7 @@ export default function SmallModule({
         <StyledModuleContainer ref={setNodeRef} {...attributes} data-testid={dataTestId}>
             <ContainerWithHover>
                 {isTemplateEditable && (
-                    <DragIcon
-                        {...listeners}
-                        size="lg"
-                        color="gray"
-                        icon="DotsSixVertical"
-                        source="phosphor"
-                        isDragging={isDragging}
-                    />
+                    <DragIcon {...listeners} size="lg" color="gray" icon={DotsSixVertical} isDragging={isDragging} />
                 )}
                 <Content $clickable={!!onClick} onClick={onClick}>
                     {children}

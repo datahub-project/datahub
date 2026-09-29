@@ -1,7 +1,10 @@
 package com.linkedin.metadata.models.annotation;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.models.ModelValidationException;
 import java.util.HashMap;
@@ -37,7 +40,7 @@ public class EntityAnnotationTest {
 
     assertEquals(annotation.getName(), "testEntity");
     assertEquals(annotation.getKeyAspect(), "testKey");
-    assertEquals(annotation.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertNull(annotation.getSearchGroup());
   }
 
   @Test
@@ -85,7 +88,33 @@ public class EntityAnnotationTest {
 
     assertEquals(annotation.getName(), "testEntity");
     assertEquals(annotation.getKeyAspect(), "testKey");
-    assertEquals(annotation.getSearchGroup(), EntityAnnotation.DEFAULT_SEARCH_GROUP);
+    assertNull(annotation.getSearchGroup());
+    assertFalse(annotation.isViewUnrestricted());
+  }
+
+  @Test
+  public void testEntityAnnotationWithViewUnrestricted() {
+    Map<String, Object> annotationMap = new HashMap<>();
+    annotationMap.put("name", "corpuser");
+    annotationMap.put("keyAspect", "corpUserKey");
+    annotationMap.put("viewUnrestricted", true);
+
+    EntityAnnotation annotation =
+        EntityAnnotation.fromSchemaProperty(annotationMap, "test-context");
+
+    assertTrue(annotation.isViewUnrestricted());
+  }
+
+  @Test
+  public void testEntityAnnotationViewUnrestrictedDefaultsFalse() {
+    Map<String, Object> annotationMap = new HashMap<>();
+    annotationMap.put("name", "dataset");
+    annotationMap.put("keyAspect", "datasetKey");
+
+    EntityAnnotation annotation =
+        EntityAnnotation.fromSchemaProperty(annotationMap, "test-context");
+
+    assertFalse(annotation.isViewUnrestricted());
   }
 
   @Test
@@ -121,7 +150,6 @@ public class EntityAnnotationTest {
 
   @Test
   public void testConstants() {
-    assertEquals(EntityAnnotation.DEFAULT_SEARCH_GROUP, "default");
     assertEquals(EntityAnnotation.ANNOTATION_NAME, "Entity");
   }
 

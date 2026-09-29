@@ -8,6 +8,11 @@ const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <ThemeProvider theme={themeV2}>{children}</ThemeProvider>
 );
 
+// Expected tooltip text. The V1 implementation hardcodes this string; the V2
+// implementation resolves it via i18next, which returns the English value in tests.
+const ACCESS_GRANTED_TOOLTIP_TEXT = 'You already have access to this role';
+const TEST_BUTTON_LABEL = 'Test Button';
+
 /**
  * Shared test suite for AccessButtonHelpers components
  * Tests both entity and entityV2 implementations to ensure consistency
@@ -94,8 +99,8 @@ export function createAccessButtonHelpersTestSuite(
                 fireEvent.mouseEnter(button);
 
                 // Wait for tooltip to appear
-                await screen.findByText(AccessButtonHelpers.ACCESS_GRANTED_TOOLTIP);
-                expect(screen.getByText(AccessButtonHelpers.ACCESS_GRANTED_TOOLTIP)).toBeInTheDocument();
+                await screen.findByText(ACCESS_GRANTED_TOOLTIP_TEXT);
+                expect(screen.getByText(ACCESS_GRANTED_TOOLTIP_TEXT)).toBeInTheDocument();
             });
 
             it('should not show tooltip when user does not have access', () => {
@@ -112,7 +117,7 @@ export function createAccessButtonHelpersTestSuite(
                 const button = screen.getByRole('button');
                 fireEvent.mouseOver(button);
 
-                expect(screen.queryByText(AccessButtonHelpers.ACCESS_GRANTED_TOOLTIP)).not.toBeInTheDocument();
+                expect(screen.queryByText(ACCESS_GRANTED_TOOLTIP_TEXT)).not.toBeInTheDocument();
             });
         });
 
@@ -184,7 +189,7 @@ export function createAccessButtonHelpersTestSuite(
                 const button = screen.getByRole('button');
                 expect(button).toHaveClass('ant-btn');
                 expect(button).toHaveStyle({
-                    width: '80px',
+                    'min-width': '80px',
                     height: '30px',
                 });
             });
@@ -207,7 +212,9 @@ export function createAccessButtonHelpersTestSuite(
             it('should render AccessButton component directly', () => {
                 render(
                     <TestWrapper>
-                        <AccessButtonHelpers.AccessButton disabled>Test Button</AccessButtonHelpers.AccessButton>
+                        <AccessButtonHelpers.AccessButton disabled>
+                            {TEST_BUTTON_LABEL}
+                        </AccessButtonHelpers.AccessButton>
                     </TestWrapper>,
                 );
 
@@ -222,7 +229,7 @@ export function createAccessButtonHelpersTestSuite(
                 render(
                     <TestWrapper>
                         <AccessButtonHelpers.AccessButton onClick={mockClick}>
-                            Test Button
+                            {TEST_BUTTON_LABEL}
                         </AccessButtonHelpers.AccessButton>
                     </TestWrapper>,
                 );
@@ -341,10 +348,6 @@ export function createAccessButtonHelpersTestSuite(
 
                 // The button should be directly rendered, not wrapped in a tooltip
                 expect(button.parentElement?.className).not.toContain('ant-tooltip');
-            });
-
-            it('should export ACCESS_GRANTED_TOOLTIP constant', () => {
-                expect(AccessButtonHelpers.ACCESS_GRANTED_TOOLTIP).toBe('You already have access to this role');
             });
 
             it('should handle multiple rapid clicks', () => {

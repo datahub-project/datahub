@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
+import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryContext;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
@@ -41,8 +42,7 @@ public class GetRootGlossaryTermsResolver
   public CompletableFuture<GetRootGlossaryTermsResult> get(
       final DataFetchingEnvironment environment) throws Exception {
 
-    final QueryContext context = environment.getContext();
-
+    final QueryContext context = getQueryContext(environment);
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final GetRootGlossaryEntitiesInput input =

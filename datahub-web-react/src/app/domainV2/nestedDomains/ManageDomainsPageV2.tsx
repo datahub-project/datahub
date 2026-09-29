@@ -1,4 +1,6 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -12,15 +14,16 @@ import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 const PageWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     flex: 1;
+    height: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     margin-left: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px')};
-    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};`}
+    ${(props) => props.$isShowNavBarRedesign && `box-shadow: ${props.theme.colors.shadowSm};`}
 `;
 
 const Header = styled.div`
@@ -31,6 +34,8 @@ const Header = styled.div`
 `;
 
 export default function ManageDomainsPageV2() {
+    const { t } = useTranslation('governance.domain');
+    const { t: tc } = useTranslation('common.actions');
     const { setEntityData } = useDomainsContextV2();
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -55,14 +60,14 @@ export default function ManageDomainsPageV2() {
         <PageWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[DOMAINS_INTRO_ID, DOMAINS_CREATE_DOMAIN_ID]} />
             <Header>
-                <PageTitle title="Domains" subTitle="Group data assets using hierarchical collections" />
+                <PageTitle title={t('page.title')} subTitle={t('page.subtitleNested')} />
                 <Button
                     id={DOMAINS_CREATE_DOMAIN_ID}
                     onClick={() => setIsCreatingDomain(true)}
                     data-testid="domains-new-domain-button"
-                    icon={{ icon: 'Add', source: 'material' }}
+                    icon={{ icon: Plus }}
                 >
-                    Create
+                    {tc('create')}
                 </Button>
             </Header>
             <RootDomains setIsCreatingDomain={setIsCreatingDomain} />

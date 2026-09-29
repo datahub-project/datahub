@@ -4,9 +4,11 @@ import static com.linkedin.metadata.Constants.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
@@ -15,6 +17,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -22,11 +25,14 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -51,6 +57,7 @@ public class MultiEntityMappingsBuilderTest {
     // Setup mock entity registry and specs
     mockEntityRegistry = mock(EntityRegistry.class);
     mockEntitySpec = createMockEntitySpec();
+    stubEntitySpecs(mockEntitySpec);
 
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization(mockEntityRegistry);
     // Note: operationContext is a real object, not a mock, so we can't mock its methods
@@ -79,21 +86,73 @@ public class MultiEntityMappingsBuilderTest {
   @Test
   public void testGetIndexMappingsWithV3Enabled() {
     // Setup: V3 enabled with valid entity specs
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
-
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(mappings, "Mappings should not be null");
     assertFalse(mappings.isEmpty(), "Mappings should not be empty when v3 is enabled");
 
-    // Verify we get one mapping per search group
-    assertEquals(mappings.size(), 1, "Should have one mapping for the default search group");
+    assertEquals(mappings.size(), 1, "Should have one mapping for the entity-named V3 key");
 
     IndexMapping mapping = mappings.iterator().next();
     assertNotNull(mapping.getIndexName(), "Index name should not be null");
     assertNotNull(mapping.getMappings(), "Mappings should not be null");
+  }
+
+  @Test
+  public void testGetIndexMappingsMergesMappingContributorRootFields() throws IOException {
+    V3MappingContributor contributor =
+        () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
+
+    IndexMapping mapping = mappingsBuilder.getIndexMappings(operationContext).iterator().next();
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) mapping.getMappings().get("properties");
+    assertNotNull(properties);
+    assertTrue(properties.containsKey("_ext"));
+  }
+
+  @Test
+  public void testGetIndexMappingsRejectsMappingContributorOverwrite() throws IOException {
+    V3MappingContributor first =
+        () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
+    V3MappingContributor second =
+        () -> Collections.singletonMap("_ext", FieldTypeMapper.getMappingsForKeyword());
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(first, second));
+
+    expectThrows(
+        IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
+  }
+
+  @Test
+  public void testGetIndexMappingsRejectsReservedSearchField() throws IOException {
+    V3MappingContributor contributor =
+        () -> Collections.singletonMap("_search", FieldTypeMapper.getMappingsForKeyword());
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
+
+    expectThrows(
+        IllegalArgumentException.class, () -> mappingsBuilder.getIndexMappings(operationContext));
+  }
+
+  @Test
+  public void testMappingContributorReceivesIndexKey() throws IOException {
+    java.util.concurrent.atomic.AtomicReference<String> seenKey =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    V3MappingContributor contributor =
+        new V3MappingContributor() {
+          @Override
+          public Map<String, Object> extraRootProperties() {
+            return Map.of();
+          }
+
+          @Override
+          public Map<String, Object> extraRootProperties(String indexKey) {
+            seenKey.set(indexKey);
+            return Map.of();
+          }
+        };
+    mappingsBuilder = new MultiEntityMappingsBuilder(mockConfig, 512, List.of(contributor));
+    mappingsBuilder.getIndexMappings(operationContext);
+    assertEquals(seenKey.get(), "testEntity");
   }
 
   @Test
@@ -112,11 +171,6 @@ public class MultiEntityMappingsBuilderTest {
 
   @Test
   public void testGetIndexMappingsWithStructuredProperties() {
-    // Setup: V3 enabled with structured properties
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
-
     // Create structured property
     StructuredPropertyDefinition property = createMockStructuredProperty();
     Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test:property");
@@ -136,6 +190,13 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(
         mappingProperties.containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD),
         "Should include structured properties field");
+    Map<String, Object> structuredPropsMapping =
+        (Map<String, Object>) mappingProperties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertEquals(
+        structuredPropsMapping.get("dynamic"),
+        false,
+        "structuredProperties root must have dynamic=false so unmapped property values stay"
+            + " unindexed instead of being dynamic-mapped as text");
   }
 
   @Test
@@ -158,14 +219,109 @@ public class MultiEntityMappingsBuilderTest {
         mappings.containsKey(expectedFieldName), "Should contain properly formatted field name");
   }
 
+  /**
+   * Regression test: valueType urn:li:dataType:datahub.urn must resolve to URN mapping so the field
+   * has a type and reindex (BuildIndicesStep) does not fail with mapper_parsing_exception.
+   */
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyWithDatahubUrnValueType()
+      throws URISyntaxException {
+    StructuredPropertyDefinition propWithUrnType =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("com.example.domain.owner_urn")
+            .setDisplayName("Owner URN")
+            .setEntityTypes(
+                new UrnArray(
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                    UrnUtils.getUrn("urn:li:entityType:datahub.dataJob")))
+            .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.urn"));
+
+    Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
+        Collections.singletonList(
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                propWithUrnType));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(structuredProperties);
+
+    assertFalse(mappings.isEmpty(), "Should have mappings for URN structured property");
+    String fieldName = "com_example_domain_owner_urn";
+    assertTrue(mappings.containsKey(fieldName), "Should contain sanitized field name");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertNotNull(fieldMapping.get("type"), "URN structured property must have type for reindex");
+    assertEquals(fieldMapping.get("type"), "keyword", "URN type should map to keyword");
+    assertFalse(
+        fieldMapping.containsKey("fields"),
+        "URN structured property uses parent keyword; query time skips .keyword");
+  }
+
+  /**
+   * Ensures every structured property field has a "type" so reindex/putMapping does not fail with
+   * mapper_parsing_exception. Covers STRING, URN, RICH_TEXT, DATE to meet coverage of
+   * getIndexMappingsForStructuredProperty branches.
+   */
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyEveryFieldHasTypeForReindex()
+      throws URISyntaxException {
+    List<Pair<Urn, StructuredPropertyDefinition>> properties =
+        List.of(
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("com.example.domain.owner_urn")
+                    .setDisplayName("Owner URN")
+                    .setEntityTypes(
+                        new UrnArray(
+                            UrnUtils.getUrn("urn:li:entityType:datahub.dataJob"),
+                            UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+                    .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.urn"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:simpleString"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("simpleString")
+                    .setDisplayName("Simple")
+                    .setEntityTypes(
+                        new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+                    .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.string"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:richTextProp"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("richTextProp")
+                    .setDisplayName("Rich Text")
+                    .setEntityTypes(
+                        new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+                    .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.rich_text"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:dateProp"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("dateProp")
+                    .setDisplayName("Date")
+                    .setEntityTypes(
+                        new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+                    .setValueType(UrnUtils.getUrn(DATA_TYPE_URN_PREFIX + "datahub.date"))));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(properties);
+
+    assertEquals(mappings.size(), 4, "Should have four field mappings");
+    for (Map.Entry<String, Object> entry : mappings.entrySet()) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> fieldMapping = (Map<String, Object>) entry.getValue();
+      assertNotNull(
+          fieldMapping.get("type"),
+          "Every structured property field must have type for reindex: " + entry.getKey());
+    }
+  }
+
   @Test
   public void testGetIndexMappingsWithNewStructuredProperty() {
-    // Setup: V3 enabled with entity spec
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
-    when(mockEntityRegistry.getEntitySpec("testEntity")).thenReturn(mockEntitySpec);
-
     // Create structured property
     StructuredPropertyDefinition property = createMockStructuredProperty();
     Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test:property");
@@ -184,10 +340,9 @@ public class MultiEntityMappingsBuilderTest {
     // Setup: Two entities with conflicting field names
     EntitySpec entitySpec1 = createMockEntitySpec("entity1", "conflictingField");
     EntitySpec entitySpec2 = createMockEntitySpec("entity2", "conflictingField");
-
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(ImmutableMap.of("entity1", entitySpec1, "entity2", entitySpec2));
+    when(entitySpec1.getSearchGroup()).thenReturn("primary");
+    when(entitySpec2.getSearchGroup()).thenReturn("primary");
+    stubEntitySpecs(entitySpec1, entitySpec2);
 
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
@@ -205,13 +360,47 @@ public class MultiEntityMappingsBuilderTest {
         "Should have root-level field for conflicted field");
   }
 
+  /**
+   * When a field name alias has type OBJECT and conflicts across entities (same alias, different
+   * aspect paths), the root field mapping must have dynamic=true so Elasticsearch can index nested
+   * properties.
+   */
+  @Test
+  public void testConflictedObjectFieldRootMappingHasDynamicTrue() {
+    EntitySpec entitySpec1 =
+        createMockEntitySpecWithAliasAndAspect(
+            "entity1", "objectField", FieldType.OBJECT, "objectAlias", "datasetProperties");
+    EntitySpec entitySpec2 =
+        createMockEntitySpecWithAliasAndAspect(
+            "entity2", "objectField", FieldType.OBJECT, "objectAlias", "otherProperties");
+    when(entitySpec1.getSearchGroup()).thenReturn("primary");
+    when(entitySpec2.getSearchGroup()).thenReturn("primary");
+    stubEntitySpecs(entitySpec1, entitySpec2);
+
+    Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Should handle conflicting object field alias");
+
+    IndexMapping mapping = mappings.iterator().next();
+    Map<String, Object> properties = (Map<String, Object>) mapping.getMappings().get("properties");
+    assertTrue(
+        properties.containsKey("objectAlias"),
+        "Should have root-level field for conflicted object field alias");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> objectAliasMapping = (Map<String, Object>) properties.get("objectAlias");
+    assertEquals(
+        objectAliasMapping.get("type"),
+        "object",
+        "Conflicted object field alias root must have type object");
+    assertEquals(
+        objectAliasMapping.get("dynamic"),
+        true,
+        "Conflicted object field alias root must have dynamic=true");
+  }
+
   @Test
   public void testMappingsConsistency() {
-    // Setup: V3 enabled
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.singletonMap("testEntity", mockEntitySpec));
-
     // Call multiple times to verify idempotency
     Collection<IndexMapping> mappings1 = mappingsBuilder.getIndexMappings(operationContext);
     Collection<IndexMapping> mappings2 = mappingsBuilder.getIndexMappings(operationContext);
@@ -258,55 +447,98 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   @Test
-  public void testGetIndexMappingsWithEmptySearchGroups() {
-    // Setup: No search groups
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.emptySet());
+  public void testGetIndexMappingsWithEmptyEntitySpecs() {
+    when(mockEntityRegistry.getEntitySpecs()).thenReturn(Collections.emptyMap());
 
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
     assertNotNull(mappings, "Mappings should not be null");
-    assertTrue(mappings.isEmpty(), "Should return empty mappings when no search groups");
+    assertTrue(mappings.isEmpty(), "Should return empty mappings when no entity specs");
   }
 
   @Test
-  public void testGetIndexMappingsWithEmptyEntitySpecs() {
-    // Setup: Search group exists but has no entity specs
-    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
-    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
-        .thenReturn(Collections.emptyMap());
+  public void testGetIndexMappingsEmitsOneIndexPerUnsetSearchGroup() {
+    EntitySpec dataset = createMockEntitySpec("dataset", "fieldA");
+    EntitySpec chart = createMockEntitySpec("chart", "fieldB");
+    stubEntitySpecs(dataset, chart);
 
     Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
 
-    assertNotNull(mappings, "Mappings should not be null");
-    assertEquals(1, mappings.size(), "Should have one index mapping for the search group");
+    assertEquals(mappings.size(), 2, "Unset searchGroup must not share defaultindex_v3");
+    Set<String> names =
+        mappings.stream().map(IndexMapping::getIndexName).collect(Collectors.toSet());
+    assertTrue(names.stream().anyMatch(n -> n.contains("dataset")));
+    assertTrue(names.stream().anyMatch(n -> n.contains("chart")));
+    assertFalse(names.stream().anyMatch(n -> n.contains("default")));
+  }
 
-    IndexMapping mapping = mappings.iterator().next();
-    assertNotNull(mapping.getIndexName(), "Index name should not be null");
-    assertTrue(mapping.getMappings().isEmpty(), "Mappings should be empty when no entity specs");
+  @Test
+  public void testGetIndexMappingsCollapsesExplicitSearchGroup() {
+    EntitySpec dataset = createMockEntitySpec("dataset", "fieldA");
+    EntitySpec chart = createMockEntitySpec("chart", "fieldB");
+    when(dataset.getSearchGroup()).thenReturn("primary");
+    when(chart.getSearchGroup()).thenReturn("primary");
+    stubEntitySpecs(dataset, chart);
+
+    Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
+
+    assertEquals(mappings.size(), 1);
+    assertTrue(mappings.iterator().next().getIndexName().contains("primary"));
   }
 
   // Helper methods
+
+  private void stubEntitySpecs(EntitySpec... specs) {
+    Map<String, EntitySpec> map = new java.util.LinkedHashMap<>();
+    for (EntitySpec spec : specs) {
+      map.put(spec.getName(), spec);
+      when(mockEntityRegistry.getEntitySpec(spec.getName())).thenReturn(spec);
+    }
+    when(mockEntityRegistry.getEntitySpecs()).thenReturn(map);
+  }
 
   private EntitySpec createMockEntitySpec() {
     return createMockEntitySpec("testEntity", "testField");
   }
 
   private EntitySpec createMockEntitySpec(String entityName, String fieldName) {
+    return createMockEntitySpec(entityName, fieldName, FieldType.KEYWORD);
+  }
+
+  private EntitySpec createMockEntitySpec(
+      String entityName, String fieldName, FieldType fieldType) {
+    return createMockEntitySpecWithAlias(entityName, fieldName, fieldType, null);
+  }
+
+  private EntitySpec createMockEntitySpecWithAlias(
+      String entityName, String fieldName, FieldType fieldType, String fieldNameAlias) {
+    return createMockEntitySpecWithAliasAndAspect(
+        entityName, fieldName, fieldType, fieldNameAlias, "datasetProperties");
+  }
+
+  private EntitySpec createMockEntitySpecWithAliasAndAspect(
+      String entityName,
+      String fieldName,
+      FieldType fieldType,
+      String fieldNameAlias,
+      String aspectName) {
     EntitySpec entitySpec = mock(EntitySpec.class);
     when(entitySpec.getName()).thenReturn(entityName);
-    when(entitySpec.getSearchGroup()).thenReturn("default");
+    when(entitySpec.getSearchGroup()).thenReturn(null);
 
     // Create entity annotation
     EntityAnnotation entityAnnotation = mock(EntityAnnotation.class);
     when(entityAnnotation.getName()).thenReturn(entityName);
     when(entitySpec.getEntityAnnotation()).thenReturn(entityAnnotation);
 
-    // Create aspect specs
-    List<AspectSpec> aspectSpecs = createMockAspectSpecs(fieldName);
+    // Create aspect specs with given aspect name so alias paths differ across entities
+    List<AspectSpec> aspectSpecs =
+        createMockAspectSpecsWithAliasAndAspect(fieldName, fieldType, fieldNameAlias, aspectName);
     when(entitySpec.getAspectSpecs()).thenReturn(aspectSpecs);
 
     // Create searchable field specs
-    List<SearchableFieldSpec> searchableFields = createMockSearchableFieldSpecs(fieldName);
+    List<SearchableFieldSpec> searchableFields =
+        createMockSearchableFieldSpecsWithAlias(fieldName, fieldType, fieldNameAlias);
     when(entitySpec.getSearchableFieldSpecs()).thenReturn(searchableFields);
 
     // Create searchable ref field specs
@@ -317,35 +549,60 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   private List<AspectSpec> createMockAspectSpecs(String fieldName) {
+    return createMockAspectSpecs(fieldName, FieldType.KEYWORD);
+  }
+
+  private List<AspectSpec> createMockAspectSpecs(String fieldName, FieldType fieldType) {
+    return createMockAspectSpecsWithAlias(fieldName, fieldType, null);
+  }
+
+  private List<AspectSpec> createMockAspectSpecsWithAlias(
+      String fieldName, FieldType fieldType, String fieldNameAlias) {
+    return createMockAspectSpecsWithAliasAndAspect(
+        fieldName, fieldType, fieldNameAlias, "datasetProperties");
+  }
+
+  private List<AspectSpec> createMockAspectSpecsWithAliasAndAspect(
+      String fieldName, FieldType fieldType, String fieldNameAlias, String aspectName) {
     List<AspectSpec> aspectSpecs = new ArrayList<>();
 
-    // Create a regular aspect spec
-    AspectSpec regularAspect = mock(AspectSpec.class);
-    when(regularAspect.getName()).thenReturn("datasetProperties");
+    AspectSpec aspectSpec = mock(AspectSpec.class);
+    when(aspectSpec.getName()).thenReturn(aspectName);
 
-    // Create mock searchable field specs for the regular aspect
-    List<SearchableFieldSpec> searchableFields = new ArrayList<>();
-    SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
-    SearchableAnnotation searchableAnnotation = mock(SearchableAnnotation.class);
-    when(searchableAnnotation.getFieldName()).thenReturn(fieldName);
-    when(searchableAnnotation.getFieldType()).thenReturn(SearchableAnnotation.FieldType.KEYWORD);
-    when(fieldSpec.getSearchableAnnotation()).thenReturn(searchableAnnotation);
-    searchableFields.add(fieldSpec);
-
-    when(regularAspect.getSearchableFieldSpecs()).thenReturn(searchableFields);
-    aspectSpecs.add(regularAspect);
+    // Create mock searchable field specs for the aspect
+    List<SearchableFieldSpec> searchableFields =
+        createMockSearchableFieldSpecsWithAlias(fieldName, fieldType, fieldNameAlias);
+    when(aspectSpec.getSearchableFieldSpecs()).thenReturn(searchableFields);
+    aspectSpecs.add(aspectSpec);
 
     return aspectSpecs;
   }
 
   private List<SearchableFieldSpec> createMockSearchableFieldSpecs(String fieldName) {
+    return createMockSearchableFieldSpecs(fieldName, FieldType.KEYWORD);
+  }
+
+  private List<SearchableFieldSpec> createMockSearchableFieldSpecs(
+      String fieldName, FieldType fieldType) {
+    return createMockSearchableFieldSpecsWithAlias(fieldName, fieldType, null);
+  }
+
+  private List<SearchableFieldSpec> createMockSearchableFieldSpecsWithAlias(
+      String fieldName, FieldType fieldType, String fieldNameAlias) {
     List<SearchableFieldSpec> searchableFields = new ArrayList<>();
 
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
     SearchableAnnotation searchableAnnotation = mock(SearchableAnnotation.class);
     when(searchableAnnotation.getFieldName()).thenReturn(fieldName);
-    when(searchableAnnotation.getFieldType()).thenReturn(SearchableAnnotation.FieldType.KEYWORD);
+    when(searchableAnnotation.getFieldType()).thenReturn(fieldType);
+    when(searchableAnnotation.getFieldNameAliases())
+        .thenReturn(fieldNameAlias != null ? Collections.singletonList(fieldNameAlias) : null);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(searchableAnnotation);
+    if (fieldType == FieldType.OBJECT) {
+      DataSchema mockSchema = mock(DataSchema.class);
+      when(mockSchema.getDereferencedType()).thenReturn(DataSchema.Type.RECORD);
+      when(fieldSpec.getPegasusSchema()).thenReturn(mockSchema);
+    }
     searchableFields.add(fieldSpec);
 
     return searchableFields;
@@ -362,6 +619,80 @@ public class MultiEntityMappingsBuilderTest {
     // Mock the qualifiedName
     when(property.getQualifiedName()).thenReturn("test.property");
 
+    // Mock entity types - use production format with datahub. prefix
+    UrnArray entityTypes = new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.testEntity"));
+    when(property.getEntityTypes()).thenReturn(entityTypes);
+
     return property;
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertySameTypeCollisionKeepsLowestUrn()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnUnderscore, defUnderscore), Pair.of(urnDot, defDot)));
+
+    assertEquals(mappings.size(), 1);
+    assertTrue(mappings.containsKey("certification_status"));
+  }
+
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyDifferentTypeCollisionOmitsField()
+      throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defString =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defNumber =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.number"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(Pair.of(urnDot, defString), Pair.of(urnUnderscore, defNumber)));
+
+    assertFalse(mappings.containsKey("certification_status"));
+  }
+
+  @Test
+  public void testCollisionKeepsSingleDeterministicField() throws URISyntaxException {
+    Urn urnDot = UrnUtils.getUrn("urn:li:structuredProperty:certification.status");
+    Urn urnUnderscore = UrnUtils.getUrn("urn:li:structuredProperty:certification_status");
+    StructuredPropertyDefinition defDot =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification.status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    StructuredPropertyDefinition defUnderscore =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("certification_status")
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"));
+    List<Pair<Urn, StructuredPropertyDefinition>> properties =
+        List.of(Pair.of(urnUnderscore, defUnderscore), Pair.of(urnDot, defDot));
+
+    Map<String, Object> v3Mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(properties);
+
+    assertEquals(v3Mappings.keySet(), Set.of("certification_status"));
   }
 }

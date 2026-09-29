@@ -13,6 +13,44 @@ vi.mock('@graphql/app.generated', () => ({
 describe('useCreateFile', () => {
     beforeEach(() => {
         mockCreateFileMutation.mockClear();
+
+        // Mock FileReader
+        global.FileReader = class MockFileReader {
+            onload: ((event: any) => void) | null = null;
+
+            onerror: ((event: any) => void) | null = null;
+
+            result: ArrayBuffer | null = null;
+
+            readAsArrayBuffer(_file: File) {
+                // Create a proper ArrayBuffer from the file content
+                const text = 'content'; // This is the content of our test file
+                const encoder = new TextEncoder();
+                const uint8Array = encoder.encode(text);
+                this.result = uint8Array.buffer;
+
+                // Simulate async file reading
+                setTimeout(() => {
+                    if (this.onload) {
+                        this.onload({ target: { result: this.result } } as any);
+                    }
+                }, 0);
+            }
+        } as any;
+
+        // Mock crypto.subtle.digest
+        vi.spyOn(crypto.subtle, 'digest').mockImplementation(
+            async (_algorithm: AlgorithmIdentifier, _data: BufferSource): Promise<ArrayBuffer> => {
+                // Return the expected SHA-256 hash for 'content'
+                const hashHex = 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73';
+                const hashArray = hashHex.match(/.{1,2}/g)!.map((byte) => parseInt(byte, 16));
+                return new Uint8Array(hashArray).buffer;
+            },
+        );
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
     });
 
     it('should successfully create a file', async () => {
@@ -49,7 +87,7 @@ describe('useCreateFile', () => {
                     schemaField,
                     scenario,
                     sizeInBytes: mockFile.size,
-                    storageKey: `product_assets/${fileId}`,
+                    storageKey: `product_assets/${fileId}__${mockFile.name}`,
                     contentHash: 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73', // Expected SHA-256 hash of 'content'
                 },
             },
@@ -132,7 +170,7 @@ describe('useCreateFile', () => {
                     schemaField: undefined,
                     scenario,
                     sizeInBytes: mockFile.size,
-                    storageKey: `product_assets/${fileId}`,
+                    storageKey: `product_assets/${fileId}__${mockFile.name}`,
                     contentHash: 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73',
                 },
             },

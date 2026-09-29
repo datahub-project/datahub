@@ -29,6 +29,6 @@ public class EntityTypeBatchResolver implements DataFetcher<CompletableFuture<Li
   public CompletableFuture<List<Entity>> get(DataFetchingEnvironment environment) {
     final List<Entity> entities = _entitiesProvider.apply(environment);
     return BatchLoadUtils.batchLoadEntitiesOfSameType(
-        entities, _entityTypes, environment.getDataLoaderRegistry());
+        entities, _entityTypes, environment.getDataLoaderRegistry(), environment.getContext());
   }
 }

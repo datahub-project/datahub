@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Modification de la page d'accueil par défaut de l'organisation",
+    "header.discoverLabel": "Découvrir",
+    "error.failedToAddSummaryElement": "Échec de l'ajout de l'élément de résumé",
+    "error.failedToRemoveSummaryElement": "Échec du retrait de l'élément de résumé",
+    "error.failedToReplaceSummaryElement": "Échec du remplacement de l'élément de résumé",
+    "error.noTemplateAvailable": "Aucun modèle disponible à mettre à jour",
+    "toast.editedDescription": "Pour réinitialiser votre page d'accueil, cliquez sur « Réinitialiser aux paramètres par défaut de l'organisation »",
+    "toast.editedTitle": "Vous avez modifié votre page d'accueil"
+}

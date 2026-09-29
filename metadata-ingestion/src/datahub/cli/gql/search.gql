@@ -1,0 +1,43 @@
+query search(
+  $types: [EntityType!]
+  $query: String!
+  $orFilters: [AndFilterInput!]
+  $count: Int!
+  $start: Int!
+  $viewUrn: String
+  $sortInput: SearchSortInput
+) {
+  searchAcrossEntities(
+    input: {
+      query: $query
+      count: $count
+      start: $start
+      types: $types
+      orFilters: $orFilters
+      viewUrn: $viewUrn
+      sortInput: $sortInput
+      searchFlags: { skipHighlighting: true, maxAggValues: 5 }
+    }
+  ) {
+    start
+    count
+    total
+    searchResults {
+      entity {
+        ...SearchEntityInfo
+      }
+    }
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        displayName
+        entity {
+          ...FacetEntityInfo
+        }
+      }
+    }
+  }
+}

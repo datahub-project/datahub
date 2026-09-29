@@ -1,4 +1,5 @@
 import { Modal, message } from 'antd';
+import i18next from 'i18next';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
@@ -40,14 +41,14 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
     const { reloadByKeyType } = useReloadableContext();
 
     const handleRemoveDomain = (urnToRemoveFrom) => {
-        message.loading({ content: 'Removing Domain...', duration: 2 });
+        message.loading({ content: i18next.t('entity.preview:domain.removing'), duration: 2 });
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
                     entityState?.setShouldRefetchContents(true);
                     refetch();
-                    message.success({ content: 'Domain Removed!', duration: 2 });
+                    message.success({ content: i18next.t('entity.preview:domain.removed'), duration: 2 });
                     // Reload modules
                     // Assets - to update assets in domain summary tab
                     reloadByKeyType([
@@ -64,20 +65,23 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove domain: \n ${e.message || ''}`, duration: 3 });
+                    message.error({
+                        content: i18next.t('entity.preview:domain.removeError', { error: e.message || '' }),
+                        duration: 3,
+                    });
                 }
             });
     };
 
     const removeDomain = (urnToRemoveFrom) => {
         Modal.confirm({
-            title: `Confirm Domain Removal`,
-            content: `Are you sure you want to remove this domain?`,
+            title: i18next.t('entity.preview:domain.removeConfirmTitle'),
+            content: i18next.t('entity.preview:domain.removeConfirmContent'),
             onOk() {
                 handleRemoveDomain(urnToRemoveFrom);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: i18next.t('common.actions:yes'),
             maskClosable: true,
             closable: true,
         });
@@ -92,7 +96,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
 
     const handleRemoveTerm = (previewData, termUrn) => {
         if (termUrn) {
-            message.loading({ content: 'Removing Term...', duration: 2 });
+            message.loading({ content: i18next.t('entity.preview:term.removing'), duration: 2 });
             removeTermMutation({
                 variables: {
                     input: {
@@ -105,7 +109,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                     if (!errors) {
                         setTimeout(() => {
                             setShouldRefetchEmbeddedListSearch(true);
-                            message.success({ content: 'Term Removed!', duration: 2 });
+                            message.success({ content: i18next.t('entity.preview:term.removed'), duration: 2 });
                             reloadByKeyType([
                                 getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
                             ]);
@@ -114,20 +118,23 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                 })
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `Failed to remove Term: \n ${e.message || ''}`, duration: 3 });
+                    message.error({
+                        content: i18next.t('entity.preview:term.removeError', { error: e.message || '' }),
+                        duration: 3,
+                    });
                 });
         }
     };
 
     const removeTerm = (previewData, termUrn) => {
         Modal.confirm({
-            title: `Do you want to remove ${previewData.name} term?`,
-            content: `Are you sure you want to remove the ${previewData.name} term?`,
+            title: i18next.t('entity.preview:term.removeConfirmTitle', { name: previewData.name }),
+            content: i18next.t('entity.preview:term.removeConfirmContent', { name: previewData.name }),
             onOk() {
                 handleRemoveTerm(previewData, termUrn);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: i18next.t('common.actions:yes'),
             maskClosable: true,
             closable: true,
         });
@@ -145,7 +152,7 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
-                    message.success({ content: 'Removed Data Product.', duration: 2 });
+                    message.success({ content: i18next.t('entity.preview:dataProduct.removed'), duration: 2 });
                     reloadByKeyType([
                         getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
                     ]);
@@ -155,7 +162,7 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
-                        content: e.message || `Failed to remove data product. An unknown error occurred.`,
+                        content: e.message || i18next.t('entity.preview:dataProduct.removeError'),
                         duration: 3,
                     });
                 }
@@ -164,13 +171,13 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
 
     const removeDataProduct = (urn) => {
         Modal.confirm({
-            title: `Confirm Data Product Removal`,
-            content: `Are you sure you want to remove this data product?`,
+            title: i18next.t('entity.preview:dataProduct.removeConfirmTitle'),
+            content: i18next.t('entity.preview:dataProduct.removeConfirmContent'),
             onOk() {
                 handleDataProduct(urn);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: i18next.t('common.actions:yes'),
             maskClosable: true,
             closable: true,
         });
@@ -187,14 +194,14 @@ export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
-                    message.success({ content: 'Removed Application.', duration: 2 });
+                    message.success({ content: i18next.t('entity.preview:application.removed'), duration: 2 });
                 }, 2000);
             })
             .catch((e: unknown) => {
                 message.destroy();
                 if (e instanceof Error) {
                     message.error({
-                        content: `Failed to remove application: ${e.message}`,
+                        content: i18next.t('entity.preview:application.removeError', { error: e.message }),
                         duration: 3,
                     });
                 }
@@ -203,13 +210,13 @@ export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
 
     const removeApplication = (urn) => {
         Modal.confirm({
-            title: `Confirm Application Removal`,
-            content: `Are you sure you want to remove this application?`,
+            title: i18next.t('entity.preview:application.removeConfirmTitle'),
+            content: i18next.t('entity.preview:application.removeConfirmContent'),
             onOk() {
                 handleApplication(urn);
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: i18next.t('common.actions:yes'),
             maskClosable: true,
             closable: true,
         });

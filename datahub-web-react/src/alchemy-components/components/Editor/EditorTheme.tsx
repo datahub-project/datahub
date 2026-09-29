@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import {
     extensionBlockquoteStyledCss,
     extensionCalloutStyledCss,
@@ -15,10 +14,9 @@ import {
 import { defaultRemirrorTheme } from '@remirror/theme';
 import type { RemirrorThemeType } from '@remirror/theme';
 import styled from 'styled-components';
+import type { DefaultTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
-
-export const EditorTheme: RemirrorThemeType = {
+export const getEditorTheme = (theme: DefaultTheme): RemirrorThemeType => ({
     ...defaultRemirrorTheme,
     fontSize: {
         default: '14px',
@@ -26,31 +24,32 @@ export const EditorTheme: RemirrorThemeType = {
     color: {
         border: 'none',
         outline: 'none',
-        primary: '#00B14F',
+        primary: theme.colors.textSuccess,
         table: {
             ...defaultRemirrorTheme.color.table,
-            mark: ANTD_GRAY[6],
+            mark: theme.colors.textDisabled,
             default: {
-                controller: ANTD_GRAY[3],
-                border: ANTD_GRAY[4.5],
+                controller: theme.colors.bgHover,
+                border: theme.colors.border,
             },
             selected: {
-                controller: ANTD_GRAY[4],
-                border: ANTD_GRAY[4.5],
-                cell: ANTD_GRAY[2.5],
+                controller: theme.colors.bgHover,
+                border: theme.colors.border,
+                cell: theme.colors.bgSurface,
             },
             preselect: {
-                controller: ANTD_GRAY[5],
-                border: ANTD_GRAY[6],
+                controller: theme.colors.borderDisabled,
+                border: theme.colors.border,
             },
         },
     },
-};
+});
 
 export const EditorContainer = styled.div<{
     $readOnly?: boolean;
     $hideBorder?: boolean;
     $fixedBottomToolbar?: boolean;
+    $compact?: boolean;
 }>`
     ${extensionBlockquoteStyledCss}
     ${extensionCalloutStyledCss}
@@ -67,7 +66,7 @@ export const EditorContainer = styled.div<{
     font-weight: 400;
     display: flex;
     flex: 1 1 auto;
-    border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${ANTD_GRAY[4.5]}`)};
+    border: ${(props) => (props.$readOnly || props.$hideBorder ? `none` : `1px solid ${props.theme.colors.border}`)};
     border-radius: 12px;
     padding-bottom: ${(props) => (props.$fixedBottomToolbar ? '100px' : '0')};
 
@@ -83,17 +82,26 @@ export const EditorContainer = styled.div<{
         flex: 1 1 100%;
         border: 0;
         font-size: 14px;
-        padding: 16px;
+        /* Editable editors need inset from the border; read-only viewers (sidebar,
+         * search cards, CompactMarkdownViewer) should sit flush with surrounding text. */
+        padding: ${(props) => {
+            if (props.$compact) return '12px 16px 0 16px';
+            if (props.$readOnly) return '0';
+            return '16px';
+        }};
         position: relative;
         outline: 0;
-        line-height: 1.5;
+        line-height: ${(props) => (props.$compact ? '20px' : '1.5')};
         white-space: pre-wrap;
         margin: 0;
-        color: ${colors.gray[600]};
+        color: ${(props) => props.theme.colors.text};
+        min-height: ${(props) => (props.$compact ? '80px' : 'auto')};
+        max-height: ${(props) => (props.$compact ? '80px' : 'auto')};
+        overflow-y: ${(props) => (props.$compact ? 'auto' : 'visible')};
 
         a {
             font-weight: 500;
-            color: ${colors.primary[500]};
+            color: ${(props) => props.theme.colors.hyperlinks};
         }
 
         li {
@@ -114,19 +122,88 @@ export const EditorContainer = styled.div<{
 
         hr {
             margin: 2rem 0;
-            border-color: rgba(0, 0, 0, 0.06);
+            border-color: ${(props) => props.theme.colors.overlayLight};
+        }
+
+        /*
+         * The prism syntax theme paints its own code block background — a light
+         * grey in light mode, a neutral dark grey in dark mode — neither of which
+         * matches our surface. Only the token colors come from prism; the frame
+         * comes from our tokens.
+         */
+        pre {
+            background: ${(props) => props.theme.colors.bgSurface};
+            border: 1px solid ${(props) => props.theme.colors.border};
+            border-radius: 8px;
+            padding: 12px;
+            overflow-x: auto;
+        }
+
+        details {
+            border: 1px solid ${(props) => props.theme.colors.border};
+            border-radius: 12px;
+            box-shadow: ${(props) => props.theme.colors.shadowXs};
+            margin: 0.5em 0;
+            overflow: hidden;
+            summary {
+                cursor: pointer;
+                font-weight: 500;
+                /* Extra right padding reserves space for the absolutely-positioned caret */
+                padding: 12px 40px 12px 14px;
+                user-select: none;
+                list-style: none;
+                position: relative;
+
+                /* Remove the browser's native disclosure marker */
+                &::-webkit-details-marker {
+                    display: none;
+                }
+
+                /*
+                 * CSS-only chevron — avoids data: URIs so it works under strict CSP
+                 * (production blocks data: in mask-image; localhost:3000 does not enforce CSP).
+                 * Two border sides of a rotated square form the down-pointing chevron;
+                 * the open state rotates it 180° to point up.
+                 */
+                &::after {
+                    content: '';
+                    position: absolute;
+                    right: 18px;
+                    top: 50%;
+                    width: 8px;
+                    height: 8px;
+                    border-right: 1px solid ${(props) => props.theme.colors.icon};
+                    border-bottom: 1px solid ${(props) => props.theme.colors.icon};
+                    transform: translateY(-75%) rotate(45deg);
+                    transition: transform 0.2s ease;
+                }
+            }
+
+            &[open] > summary {
+                border-bottom: 1px solid ${(props) => props.theme.colors.border};
+
+                &::after {
+                    transform: translateY(-25%) rotate(-135deg);
+                }
+            }
+
+            /* Code blocks inside an expanded details section need to be inset
+               from the section's own padding; the rest of the frame is shared. */
+            pre {
+                margin: 12px 16px 16px;
+            }
         }
 
         .autocomplete {
             padding: 0.2rem;
-            background: ${ANTD_GRAY[4]};
+            background: ${(props) => props.theme.colors.bgSurface};
             border-radius: 4px;
         }
 
         table {
             display: block;
             th:not(.remirror-table-controller) {
-                background: ${ANTD_GRAY[2]};
+                background: ${(props) => props.theme.colors.bgSurface};
             }
 
             th:not(.remirror-table-controller),
@@ -134,6 +211,16 @@ export const EditorContainer = styled.div<{
                 padding: 16px;
                 min-width: 120px;
             }
+        }
+
+        /* Scrollbar styling (only visible when overflow is auto, i.e. compact mode) */
+        &::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        &::-webkit-scrollbar-thumb {
+            background-color: ${(props) => props.theme.colors.textDisabled};
+            border-radius: 2px;
         }
     }
 

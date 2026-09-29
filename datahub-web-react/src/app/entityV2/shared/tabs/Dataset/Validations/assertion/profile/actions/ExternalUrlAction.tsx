@@ -1,25 +1,29 @@
-import { LaunchOutlined } from '@mui/icons-material';
+import { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { ActionItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/actions/ActionItem';
+import {
+    ENTITY_HEADER_ACTION_ICON_SIZE,
+    ENTITY_HEADER_ACTION_ICON_WEIGHT,
+} from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import { ActionItem } from '@app/shared/actions/ActionItem';
 
 import { Assertion, AssertionRunStatus, EntityType } from '@types';
 
-const StyledLaunchOutlined = styled(LaunchOutlined)`
-    && {
-        display: flex;
-        font-size: 16px;
-    }
+const StyledArrowUpRight = styled(ArrowUpRight)`
+    display: flex;
 `;
 
 type Props = {
     assertion: Assertion;
     isExpandedView?: boolean;
+    onActionTriggered?: () => void;
 };
 
-export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) => {
+export const ExternalUrlAction = ({ assertion, isExpandedView = false, onActionTriggered }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const platformName =
         assertion?.platform?.properties?.displayName || assertion?.platform?.name || 'external platform';
     const externalUrl =
@@ -48,11 +52,14 @@ export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) 
     return (
         <ActionItem
             key="external-url"
-            tip={`View in ${platformName}.`}
+            tip={t('action.viewInPlatform', { platformName })}
             onClick={handleRedirect}
-            icon={<StyledLaunchOutlined />}
+            icon={
+                <StyledArrowUpRight size={ENTITY_HEADER_ACTION_ICON_SIZE} weight={ENTITY_HEADER_ACTION_ICON_WEIGHT} />
+            }
             isExpandedView={isExpandedView}
-            actionName="View External platform"
+            actionName={t('action.viewExternalPlatform')}
+            onActionTriggered={onActionTriggered}
         />
     );
 };

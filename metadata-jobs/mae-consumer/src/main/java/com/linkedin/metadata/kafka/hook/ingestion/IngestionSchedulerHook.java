@@ -32,7 +32,6 @@ import org.springframework.stereotype.Component;
 public class IngestionSchedulerHook implements MetadataChangeLogHook {
   private final IngestionScheduler scheduler;
   private final boolean isEnabled;
-  private OperationContext systemOperationContext;
   @Getter private final String consumerGroupSuffix;
 
   @Autowired
@@ -58,13 +57,13 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
 
   @Override
   public IngestionSchedulerHook init(@Nonnull OperationContext systemOperationContext) {
-    this.systemOperationContext = systemOperationContext;
     scheduler.init();
     return this;
   }
 
   @Override
-  public void invoke(@Nonnull MetadataChangeLog event) {
+  public void invoke(@Nonnull OperationContext operationContext, @Nonnull MetadataChangeLog event)
+      throws Exception {
     if (isEligibleForProcessing(event)) {
 
       log.info(
@@ -73,13 +72,13 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
           event.getEntityUrn(),
           event.getEntityKeyAspect());
 
-      final Urn urn = getUrnFromEvent(event);
+      final Urn urn = getUrnFromEvent(operationContext, event);
 
       if (ChangeType.DELETE.equals(event.getChangeType())) {
         scheduler.unscheduleNextIngestionSourceExecution(urn);
       } else {
         // Update the scheduler to reflect the latest changes.
-        final DataHubIngestionSourceInfo info = getInfoFromEvent(event);
+        final DataHubIngestionSourceInfo info = getInfoFromEvent(operationContext, event);
         scheduler.scheduleNextIngestionSourceExecution(urn, info);
       }
     }
@@ -111,10 +110,11 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
    * Extracts and returns an {@link Urn} from a {@link MetadataChangeLog}. Extracts from either an
    * entityUrn or entityKey field, depending on which is present.
    */
-  private Urn getUrnFromEvent(final MetadataChangeLog event) {
+  private Urn getUrnFromEvent(
+      final OperationContext operationContext, final MetadataChangeLog event) {
     EntitySpec entitySpec;
     try {
-      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
+      entitySpec = operationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(
@@ -129,10 +129,11 @@ public class IngestionSchedulerHook implements MetadataChangeLogHook {
    * {@link MetadataChangeLog} event. The incoming event is expected to have a populated "aspect"
    * field.
    */
-  private DataHubIngestionSourceInfo getInfoFromEvent(final MetadataChangeLog event) {
+  private DataHubIngestionSourceInfo getInfoFromEvent(
+      final OperationContext operationContext, final MetadataChangeLog event) {
     EntitySpec entitySpec;
     try {
-      entitySpec = systemOperationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
+      entitySpec = operationContext.getEntityRegistry().getEntitySpec(event.getEntityType());
     } catch (IllegalArgumentException e) {
       log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
       throw new RuntimeException(

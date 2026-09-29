@@ -1,3 +1,5 @@
+import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import { Button } from '@components/components/Button';
@@ -30,7 +32,7 @@ export const Drawer = ({
                         {onBack && (
                             <Button
                                 color="gray"
-                                icon={{ icon: 'ArrowBack', source: 'material' }}
+                                icon={{ icon: ArrowLeft }}
                                 iconPosition="left"
                                 isCircle
                                 onClick={() => onBack?.()}
@@ -45,7 +47,7 @@ export const Drawer = ({
                     {closable && (
                         <Button
                             color="gray"
-                            icon={{ icon: 'Close', source: 'material' }}
+                            icon={{ icon: X }}
                             iconPosition="left"
                             isCircle
                             onClick={() => onClose?.()}

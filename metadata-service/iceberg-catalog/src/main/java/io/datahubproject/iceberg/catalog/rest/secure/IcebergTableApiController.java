@@ -7,6 +7,7 @@ import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.DataOperation;
 import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +46,7 @@ public class IcebergTableApiController extends AbstractIcebergController {
     log.info(
         "CREATE TABLE REQUEST in {}.{}, body {}", platformInstance, namespace, createTableRequest);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(
@@ -122,7 +123,7 @@ public class IcebergTableApiController extends AbstractIcebergController {
         table,
         xIcebergAccessDelegation);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_READ);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     PoliciesConfig.Privilege privilege =
@@ -171,7 +172,7 @@ public class IcebergTableApiController extends AbstractIcebergController {
         table,
         updateTableRequest);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
     authorize(
         operationContext,
@@ -208,7 +209,7 @@ public class IcebergTableApiController extends AbstractIcebergController {
         table,
         purgeRequested);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.ENTITY_DELETE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(
@@ -247,7 +248,7 @@ public class IcebergTableApiController extends AbstractIcebergController {
         platformInstance,
         renameTableRequest);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     ForbiddenException sourceAuthEx = null;
@@ -309,7 +310,7 @@ public class IcebergTableApiController extends AbstractIcebergController {
     log.info(
         "REGISTER TABLE REQUEST {}.{}, body {}", platformInstance, namespace, registerTableRequest);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_WRITE);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(
@@ -345,7 +346,7 @@ public class IcebergTableApiController extends AbstractIcebergController {
       @RequestParam(value = "pageSize", required = false) Integer pageSize) {
     log.info("LIST TABLES REQUEST for {}.{}", platformInstance, namespace);
 
-    OperationContext operationContext = opContext(request);
+    OperationContext operationContext = opContext(request, UsageOperation.METADATA_READ);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
     authorize(

@@ -490,6 +490,25 @@ public class DataFlowTest {
     assertTrue(str.contains("urn"));
   }
 
+  @Test
+  public void testDataFlowGetDefaultAspects() {
+    DataFlow dataflow =
+        DataFlow.builder().orchestrator("airflow").flowId("my_dag").cluster("prod").build();
+
+    List<?> aspects = dataflow.getDefaultAspects();
+    assertNotNull(aspects);
+    assertFalse("Default aspects should not be empty", aspects.isEmpty());
+    assertTrue(
+        "Should include DataFlowInfo", aspects.contains(com.linkedin.datajob.DataFlowInfo.class));
+    assertTrue("Should include Ownership", aspects.contains(com.linkedin.common.Ownership.class));
+    try {
+      ((List) aspects).clear();
+      fail("getDefaultAspects() should return an immutable list");
+    } catch (UnsupportedOperationException expected) {
+      // expected
+    }
+  }
+
   // ==================== URN Structure Tests ====================
 
   @Test

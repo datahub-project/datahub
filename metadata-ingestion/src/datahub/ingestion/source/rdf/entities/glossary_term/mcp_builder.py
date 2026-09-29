@@ -1,0 +1,348 @@
+"""
+Glossary Term MCP Builder
+
+Creates DataHub MCPs (Metadata Change Proposals) for glossary terms.
+"""
+
+import logging
+from typing import Any, Dict, List, Optional
+
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.source.rdf.entities.base import EntityMCPBuilder
+from datahub.ingestion.source.rdf.entities.glossary_term.ast import DataHubGlossaryTerm
+from datahub.metadata.schema_classes import (
+    GlossaryNodeInfoClass,
+    GlossaryTermInfoClass,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class GlossaryTermMCPBuilder(EntityMCPBuilder[DataHubGlossaryTerm]):
+    """
+    Creates MCPs for glossary terms.
+
+    Creates:
+    - GlossaryTermInfo MCP for term metadata
+
+    Note: Relationships are handled by the separate relationship entity.
+    """
+
+    @property
+    def entity_type(self) -> str:
+        return "glossary_term"
+
+    def build_mcps(
+        self, term: DataHubGlossaryTerm, context: Optional[Dict[str, Any]] = None
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Build MCPs for a single glossary term.
+
+        Args:
+            term: The DataHub glossary term
+            context: Optional context with 'parent_node_urn' for hierarchy
+        """
+        mcps = []
+        parent_node_urn: Optional[str] = None
+        if context:
+            parent_node_urn = context.get("parent_node_urn")  # type: ignore[assignment]
+
+        try:
+            # Create term info MCP
+            term_info_mcp = self._create_term_info_mcp(term, parent_node_urn)
+            mcps.append(term_info_mcp)
+
+        except (ValueError, RuntimeError, AttributeError) as e:
+            logger.error(f"Failed to create MCP for glossary term {term.name}: {e}")
+
+        return mcps
+
+    def build_all_mcps(
+        self, terms: List[DataHubGlossaryTerm], context: Optional[Dict[str, Any]] = None
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Build MCPs for glossary terms.
+
+        Terms that are in dependent entities (entities this entity depends on)
+        are skipped here and will be created in post-processing after their
+        parent entities are created. Only terms NOT in dependent entities are
+        created here (without parent nodes).
+        """
+        mcps = []
+        datahub_graph = context.get("datahub_graph") if context else None
+
+        # Collect terms that are in dependent entities (these will be handled in post-processing)
+        # Use dependency metadata to determine which entity types to check
+        terms_in_dependent_entities = set()
+        dependent_entity_types = []
+
+        # Get metadata for glossary_term to find its dependencies
+        from datahub.ingestion.source.rdf.entities.glossary_term import ENTITY_METADATA
+
+        if ENTITY_METADATA.dependencies:
+            dependent_entity_types = ENTITY_METADATA.dependencies
+
+        # Check each dependent entity type for terms
+        if datahub_graph and dependent_entity_types:
+            # Import the helper function to convert entity types to field names
+            from datahub.ingestion.source.rdf.core.utils import (
+                entity_type_to_field_name,
+            )
+
+            for dep_entity_type in dependent_entity_types:
+                # Get the field name for this entity type (pluralized)
+                field_name = entity_type_to_field_name(dep_entity_type)
+
+                if hasattr(datahub_graph, field_name):
+                    dependent_entities = getattr(datahub_graph, field_name, [])
+                    for entity in dependent_entities:
+                        # Check if this entity type has a glossary_terms attribute
+                        if hasattr(entity, "glossary_terms"):
+                            for term in entity.glossary_terms:
+                                terms_in_dependent_entities.add(term.urn)
+
+        # Only create MCPs for terms NOT in dependent entities
+        # Terms in dependent entities will be created in post-processing with correct parent nodes
+        for term in terms:
+            if term.urn not in terms_in_dependent_entities:
+                term_mcps = self.build_mcps(term, context)
+                mcps.extend(term_mcps)
+
+        skipped_count = len(terms) - len(mcps)
+        if skipped_count > 0:
+            logger.debug(
+                f"Skipped {skipped_count} terms that are in dependent entities {dependent_entity_types} "
+                f"(will be created in post-processing)"
+            )
+        logger.info(
+            f"Built {len(mcps)} MCPs for {len(terms) - skipped_count} glossary terms "
+            f"(skipped {skipped_count} in dependent entities)"
+        )
+        return mcps
+
+    def _create_term_info_mcp(
+        self, term: DataHubGlossaryTerm, parent_node_urn: Optional[str] = None
+    ) -> MetadataChangeProposalWrapper:
+        """Create the GlossaryTermInfo MCP.
+
+        According to DataHub documentation:
+        - termSource defaults to "INTERNAL" for terms defined within the organization
+        - termSource should be "EXTERNAL" when the term comes from an external standard
+          or glossary (e.g., FIBO, ISO standards, industry glossaries)
+
+        For RDF ingestion:
+        - term.source is set to the RDF IRI/URI (always present for RDF terms)
+        - If source is present, we mark as "EXTERNAL" since RDF terms come from external ontologies
+        - If source is None (shouldn't happen for RDF, but handle gracefully), termSource defaults to None
+          which will use the schema default of "INTERNAL"
+        """
+        # Determine term_source based on presence of source
+        # term.source is set in extractor.py (line 104: source_uri = str(uri), line 142: source=source_uri)
+        # It's always set to the RDF IRI/URI for RDF terms, so it should always be present.
+        # RDF terms come from external sources (ontologies, vocabularies), so if source is present,
+        # mark as EXTERNAL. If None (shouldn't happen for RDF, but handle gracefully), leave as None.
+        term_source: Optional[str] = "EXTERNAL" if term.source else None
+
+        # termSource is a required string field in the schema, so we must provide a value
+        # Use "INTERNAL" as fallback if term_source is None (per schema default)
+        term_info = GlossaryTermInfoClass(
+            name=term.name,
+            definition=term.definition or f"Glossary term: {term.name}",
+            termSource=term_source if term_source is not None else "INTERNAL",
+            parentNode=parent_node_urn,
+            sourceRef=term.source,  # External source identifier/name (RDF IRI)
+            sourceUrl=term.source,  # URL to external definition (RDF IRI)
+            customProperties=term.custom_properties or {},
+        )
+
+        return MetadataChangeProposalWrapper(entityUrn=term.urn, aspect=term_info)
+
+    @staticmethod
+    def create_glossary_node_mcp(
+        node_urn: str,
+        node_name: str,
+        parent_urn: Optional[str] = None,
+        custom_properties: Optional[Dict[str, str]] = None,
+    ) -> MetadataChangeProposalWrapper:
+        """Create MCP for a glossary node."""
+        node_info = GlossaryNodeInfoClass(
+            name=node_name,
+            definition=f"Glossary node: {node_name}",
+            parentNode=parent_urn,
+            customProperties=custom_properties or {},
+        )
+
+        return MetadataChangeProposalWrapper(
+            entityUrn=node_urn,
+            aspect=node_info,
+        )
+
+    def _get_node_custom_properties(
+        self, datahub_graph: Any
+    ) -> Optional[Dict[str, str]]:
+        """Extract node custom properties (e.g. FIBO copyright) from graph metadata."""
+        if not datahub_graph or not getattr(datahub_graph, "metadata", None):
+            return None
+        fibo_copyright = datahub_graph.metadata.get("fibo_copyright")
+        return {"fibo:copyright": fibo_copyright} if fibo_copyright else None
+
+    def _resolve_parent_glossary_node(
+        self,
+        config: Any,
+        report: Any,
+        mcps: List[MetadataChangeProposalWrapper],
+    ) -> Optional[str]:
+        """Resolve parent_glossary_node from config; create parent node MCP if needed."""
+        if not config or not getattr(config, "parent_glossary_node", None):
+            return None
+        raw = config.parent_glossary_node.strip()
+        if not raw:
+            return None
+        if raw.startswith("urn:li:glossaryNode:"):
+            return raw
+        parent_node_urn = f"urn:li:glossaryNode:{raw}"
+        parent_mcp = self.create_glossary_node_mcp(
+            parent_node_urn, raw, parent_urn=None
+        )
+        mcps.append(parent_mcp)
+        if report and hasattr(report, "report_entity_emitted"):
+            report.report_entity_emitted()
+        return parent_node_urn
+
+    def _create_glossary_nodes_from_domain(
+        self,
+        domain: Any,
+        parent_node_urn: Optional[str],
+        urn_generator: Any,
+        created_nodes: Dict[str, str],
+        node_custom_properties: Optional[Dict[str, str]],
+        report: Any,
+        mcps: List[MetadataChangeProposalWrapper],
+    ) -> None:
+        """Recursively create glossary nodes and terms from domain hierarchy."""
+        if not domain.path_segments:
+            return
+        node_name = domain.name
+        node_urn = urn_generator.generate_glossary_node_urn_from_name(
+            node_name, parent_node_urn
+        )
+        if node_urn not in created_nodes:
+            node_mcp = self.create_glossary_node_mcp(
+                node_urn,
+                node_name,
+                parent_node_urn,
+                custom_properties=node_custom_properties,
+            )
+            mcps.append(node_mcp)
+            created_nodes[node_urn] = node_name
+            if report and hasattr(report, "report_entity_emitted"):
+                report.report_entity_emitted()
+
+        for term in domain.glossary_terms:
+            try:
+                term_mcps = self.build_mcps(term, {"parent_node_urn": node_urn})
+                mcps.extend(term_mcps)
+                for _ in term_mcps:
+                    if report and hasattr(report, "report_entity_emitted"):
+                        report.report_entity_emitted()
+            except (ValueError, RuntimeError, AttributeError) as e:
+                logger.warning(
+                    f"Failed to create MCP for glossary term {term.urn}: {e}"
+                )
+
+        for subdomain in domain.subdomains:
+            self._create_glossary_nodes_from_domain(
+                subdomain,
+                node_urn,
+                urn_generator,
+                created_nodes,
+                node_custom_properties,
+                report,
+                mcps,
+            )
+
+    def _process_terms_not_in_domains(
+        self,
+        datahub_graph: Any,
+        parent_node_urn: Optional[str],
+        report: Any,
+        mcps: List[MetadataChangeProposalWrapper],
+    ) -> None:
+        """Create MCPs for terms that are not in any domain (fallback)."""
+        terms_in_domains = {
+            term.urn
+            for domain in datahub_graph.domains
+            for term in domain.glossary_terms
+        }
+        for term in datahub_graph.glossary_terms:
+            if term.urn in terms_in_domains:
+                continue
+            try:
+                term_mcps = self.build_mcps(term, {"parent_node_urn": parent_node_urn})
+                mcps.extend(term_mcps)
+                for _ in term_mcps:
+                    if report and hasattr(report, "report_entity_emitted"):
+                        report.report_entity_emitted()
+            except (ValueError, RuntimeError, AttributeError) as e:
+                logger.warning(
+                    f"Failed to create MCP for glossary term {term.urn}: {e}"
+                )
+
+    def build_post_processing_mcps(
+        self, datahub_graph: Any, context: Optional[Dict[str, Any]] = None
+    ) -> List[MetadataChangeProposalWrapper]:
+        """
+        Build MCPs for glossary nodes and terms from domain hierarchy.
+
+        This is the ONLY place where glossary MCPs are created. It:
+        1. Consults the domain hierarchy (built from glossary term path_segments)
+        2. Creates glossary nodes (term groups) from the domain hierarchy
+        3. Creates glossary terms under their parent glossary nodes
+
+        Domains are used ONLY as a data structure - they are NOT ingested as
+        DataHub domain entities. The glossary module is responsible for creating
+        all glossary-related MCPs (nodes and terms).
+
+        Args:
+            datahub_graph: The complete DataHubGraph AST (contains domains as data structure)
+            context: Optional context (should include 'report' for entity counting)
+
+        Returns:
+            List of MCPs for glossary nodes and terms (no domain MCPs)
+        """
+        from datahub.ingestion.source.rdf.entities.glossary_term.urn_generator import (
+            GlossaryTermUrnGenerator,
+        )
+
+        mcps: List[MetadataChangeProposalWrapper] = []
+        report = context.get("report") if context else None
+        graph = context.get("datahub_graph") if context else datahub_graph
+        config = context.get("config") if context else None
+
+        if graph is None:
+            return mcps
+
+        node_custom_properties = self._get_node_custom_properties(graph)
+        parent_node_urn = self._resolve_parent_glossary_node(config, report, mcps)
+
+        urn_generator = GlossaryTermUrnGenerator()
+        created_nodes: Dict[str, str] = {}
+
+        root_domains = [d for d in graph.domains if d.parent_domain_urn is None]
+        for domain in root_domains:
+            self._create_glossary_nodes_from_domain(
+                domain,
+                parent_node_urn,
+                urn_generator,
+                created_nodes,
+                node_custom_properties,
+                report,
+                mcps,
+            )
+
+        self._process_terms_not_in_domains(graph, parent_node_urn, report, mcps)
+
+        logger.debug(
+            f"Created {len(mcps)} MCPs for glossary nodes and terms from domains"
+        )
+        return mcps

@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
-import { message } from 'antd';
+import { toast } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
@@ -26,6 +27,7 @@ type Props = {
  * This component handles creating and editing DataHub Views.
  */
 export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Props) => {
+    const { t } = useTranslation('entity.views');
     const searchVersion = useSearchVersion();
     const userContext = useUserContext();
 
@@ -34,7 +36,9 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
     const [createViewMutation] = useCreateViewMutation();
 
     const emitTrackingEvent = (viewUrn: string, state: ViewBuilderState, isCreate: boolean) => {
-        const filterFields = Array.from(new Set(state.definition?.filter?.filters.map((filter) => filter.field) ?? []));
+        const filterFields = Array.from(
+            new Set(state.definition?.filter?.filters?.map((filter) => filter.field) ?? []),
+        );
         const entityTypes = Array.from(new Set(state.definition?.entityTypes ?? []));
 
         analytics.event({
@@ -109,11 +113,7 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
                 onSubmit?.(state);
             })
             .catch((_) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to save View! An unexpected error occurred.`,
-                    duration: 3,
-                });
+                toast.error(t('builder.saveError'), { duration: 3 });
             });
     };
 

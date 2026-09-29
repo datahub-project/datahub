@@ -1,6 +1,6 @@
 import React from 'react';
+import { useTheme } from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { DefaultViewIcon } from '@app/entityV2/view/shared/DefaultViewIcon';
 
 type Props = {
@@ -10,5 +10,6 @@ type Props = {
 };
 
 export const UserDefaultViewIcon = ({ title, color, size }: Props) => {
-    return <DefaultViewIcon title={title} color={color || REDESIGN_COLORS.BLUE} size={size} />;
+    const theme = useTheme();
+    return <DefaultViewIcon title={title} color={color || theme.colors.textInformation} size={size} />;
 };

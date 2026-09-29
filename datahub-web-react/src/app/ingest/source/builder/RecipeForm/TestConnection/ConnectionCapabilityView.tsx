@@ -1,6 +1,6 @@
 import { green, red } from '@ant-design/colors';
 import { CheckOutlined, CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -30,12 +30,12 @@ const StyledQuestion = styled(QuestionCircleOutlined)`
     margin-left: 4px;
 `;
 
-export const StyledCheck = styled(CheckOutlined)`
+const StyledCheck = styled(CheckOutlined)`
     color: ${green[6]};
     margin-right: 15px;
 `;
 
-export const StyledClose = styled(CloseOutlined)`
+const StyledClose = styled(CloseOutlined)`
     color: ${red[5]};
     margin-right: 15px;
 `;

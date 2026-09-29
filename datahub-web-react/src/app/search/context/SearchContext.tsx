@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 
-export type SearchContextType = {
+type SearchContextType = {
     query: string | undefined;
     selectedSortOption: string | undefined;
     setSelectedSortOption: (sortOption: string) => void;

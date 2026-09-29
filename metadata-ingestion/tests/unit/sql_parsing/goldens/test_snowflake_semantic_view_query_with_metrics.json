@@ -1,0 +1,70 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "0e7a6912089c8b1aa707c9b4853783d421378d34d64a2a14d1de2f183b77331b",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,product_metrics.semantic.sv_board_opens,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "organization_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,product_metrics.semantic.sv_board_opens,PROD)",
+                    "column": "organization_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"ORGANIZATION_ID\" AS \"ORGANIZATION_ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "month",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,product_metrics.semantic.sv_board_opens,PROD)",
+                    "column": "month"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"MONTH\" AS \"MONTH\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "active_users",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,product_metrics.semantic.sv_board_opens,PROD)",
+                    "column": "active_users"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"ACTIVE_USERS\" AS \"ACTIVE_USERS\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT organization_id, month, active_users FROM SEMANTIC_VIEW(product_metrics.semantic.sv_board_opens METRICS active_users DIMENSIONS organization_id, DATE_TRUNC('MONTH', time) AS month) ORDER BY organization_id, month DESC"
+    }
+}

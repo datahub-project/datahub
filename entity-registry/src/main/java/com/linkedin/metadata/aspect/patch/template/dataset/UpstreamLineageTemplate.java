@@ -1,19 +1,17 @@
 package com.linkedin.metadata.aspect.patch.template.dataset;
 
-import static com.linkedin.metadata.Constants.*;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
-import com.linkedin.metadata.aspect.patch.template.CompoundKeyTemplate;
+import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import com.linkedin.metadata.aspect.patch.template.FineGrainedLineageTemplateHelper;
 import java.util.Collections;
 import javax.annotation.Nonnull;
 
-public class UpstreamLineageTemplate extends CompoundKeyTemplate<UpstreamLineage> {
+public class UpstreamLineageTemplate implements ArrayMergingTemplate<UpstreamLineage> {
 
   // Fields
   private static final String UPSTREAMS_FIELD_NAME = "upstreams";

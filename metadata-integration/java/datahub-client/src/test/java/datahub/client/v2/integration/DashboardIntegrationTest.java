@@ -321,4 +321,244 @@ public class DashboardIntegrationTest extends BaseIntegrationTest {
     // If we get here, all dashboards were created successfully
     assertTrue(true);
   }
+
+  @Test
+  public void testGetDashboardWithSpecificAspects() throws Exception {
+    // Create a dashboard with multiple aspects
+    Dashboard dashboard =
+        Dashboard.builder()
+            .tool("looker")
+            .id("test_dashboard_specific_aspects_" + System.currentTimeMillis())
+            .title("Dashboard for specific aspects test")
+            .description("Testing fetching with specific aspect list")
+            .build();
+
+    dashboard.addTag("test-aspect-fetching");
+    dashboard.addOwner("urn:li:corpuser:datahub", OwnershipType.TECHNICAL_OWNER);
+    dashboard.setDomain("urn:li:domain:Engineering");
+
+    client.entities().upsert(dashboard);
+    assertNotNull(dashboard.getUrn());
+
+    // Fetch the dashboard with only specific aspects
+    java.util.List<Class<? extends com.linkedin.data.template.RecordTemplate>> specificAspects =
+        new java.util.ArrayList<>();
+    specificAspects.add(com.linkedin.dashboard.DashboardInfo.class);
+    specificAspects.add(com.linkedin.common.GlobalTags.class);
+
+    Dashboard fetchedDashboard =
+        client.entities().get(dashboard.getUrn().toString(), Dashboard.class, specificAspects);
+
+    assertNotNull("Fetched dashboard should not be null", fetchedDashboard);
+    assertEquals("URNs should match", dashboard.getUrn(), fetchedDashboard.getUrn());
+
+    // Verify DashboardInfo aspect is present
+    com.linkedin.dashboard.DashboardInfo info =
+        fetchedDashboard.getAspectLazy(com.linkedin.dashboard.DashboardInfo.class);
+    assertNotNull("DashboardInfo aspect should be present", info);
+    assertEquals("Title should match", "Dashboard for specific aspects test", info.getTitle());
+
+    // Verify GlobalTags aspect is present
+    com.linkedin.common.GlobalTags tags =
+        fetchedDashboard.getAspectLazy(com.linkedin.common.GlobalTags.class);
+    assertNotNull("GlobalTags aspect should be present", tags);
+    assertTrue("Should have at least one tag", tags.getTags().size() > 0);
+  }
+
+  @Test
+  public void testGetDashboardWithDefaultAspects() throws Exception {
+    // Create a dashboard
+    Dashboard dashboard =
+        Dashboard.builder()
+            .tool("looker")
+            .id("test_dashboard_default_aspects_" + System.currentTimeMillis())
+            .title("Dashboard for default aspects test")
+            .description("Testing fetching with default aspects")
+            .build();
+
+    client.entities().upsert(dashboard);
+    assertNotNull(dashboard.getUrn());
+
+    // Fetch the dashboard with default aspects (using the get method without aspect list)
+    Dashboard fetchedDashboard =
+        client.entities().get(dashboard.getUrn().toString(), Dashboard.class);
+
+    assertNotNull("Fetched dashboard should not be null", fetchedDashboard);
+    assertEquals("URNs should match", dashboard.getUrn(), fetchedDashboard.getUrn());
+
+    // Verify DashboardInfo aspect is present (should be in default aspects)
+    com.linkedin.dashboard.DashboardInfo info =
+        fetchedDashboard.getAspectLazy(com.linkedin.dashboard.DashboardInfo.class);
+    assertNotNull("DashboardInfo aspect should be present", info);
+    assertEquals("Title should match", "Dashboard for default aspects test", info.getTitle());
+  }
+
+  @Test
+  public void testGetDashboardAspectDirectly() throws Exception {
+    // Create a dashboard
+    Dashboard dashboard =
+        Dashboard.builder()
+            .tool("looker")
+            .id("test_dashboard_aspect_direct_" + System.currentTimeMillis())
+            .title("Dashboard for direct aspect fetch")
+            .description("Testing direct aspect fetching via getAspect")
+            .build();
+
+    client.entities().upsert(dashboard);
+    assertNotNull(dashboard.getUrn());
+
+    // Fetch DashboardInfo aspect directly using getAspect
+    datahub.client.v2.operations.AspectWithMetadata<com.linkedin.dashboard.DashboardInfo>
+        aspectResult =
+            client
+                .entities()
+                .getAspect(dashboard.getUrn(), com.linkedin.dashboard.DashboardInfo.class);
+
+    assertNotNull("AspectWithMetadata should not be null", aspectResult);
+    assertNotNull("Aspect value should not be null", aspectResult.getAspect());
+    assertEquals(
+        "Title should match",
+        "Dashboard for direct aspect fetch",
+        aspectResult.getAspect().getTitle());
+    assertNotNull("System metadata should be present", aspectResult.getSystemMetadata());
+    assertNotEquals(
+        "Version should not be -1 for existing aspect", "-1", aspectResult.getVersion());
+  }
+
+  @Test
+  public void testGetNonExistentDashboardAspect() throws Exception {
+    // Try to fetch an aspect for a dashboard that doesn't exist
+    com.linkedin.common.urn.DashboardUrn nonExistentUrn =
+        new com.linkedin.common.urn.DashboardUrn(
+            "looker", "nonexistent_dashboard_" + System.currentTimeMillis());
+
+    datahub.client.v2.operations.AspectWithMetadata<com.linkedin.dashboard.DashboardInfo>
+        aspectResult =
+            client.entities().getAspect(nonExistentUrn, com.linkedin.dashboard.DashboardInfo.class);
+
+    assertNotNull("AspectWithMetadata should not be null", aspectResult);
+    assertNull("Aspect value should be null", aspectResult.getAspect());
+    assertEquals("Version should be -1 for non-existent aspect", "-1", aspectResult.getVersion());
+  }
+
+  @Test
+  public void testGetDashboardWithMixedAspects() throws Exception {
+    // Create a dashboard with only DashboardInfo (no tags)
+    Dashboard dashboard =
+        Dashboard.builder()
+            .tool("looker")
+            .id("test_dashboard_mixed_aspects_" + System.currentTimeMillis())
+            .title("Dashboard for mixed aspects test")
+            .description("Testing fetching with some aspects present and some absent")
+            .build();
+
+    client.entities().upsert(dashboard);
+    assertNotNull(dashboard.getUrn());
+
+    // Request multiple aspects, including one that doesn't exist (GlobalTags was not added)
+    java.util.List<Class<? extends com.linkedin.data.template.RecordTemplate>> requestedAspects =
+        new java.util.ArrayList<>();
+    requestedAspects.add(com.linkedin.dashboard.DashboardInfo.class);
+    requestedAspects.add(com.linkedin.common.GlobalTags.class);
+    requestedAspects.add(com.linkedin.common.Ownership.class);
+
+    Dashboard fetchedDashboard =
+        client.entities().get(dashboard.getUrn().toString(), Dashboard.class, requestedAspects);
+
+    assertNotNull("Fetched dashboard should not be null", fetchedDashboard);
+
+    // DashboardInfo should exist (was created)
+    com.linkedin.dashboard.DashboardInfo info =
+        fetchedDashboard.getAspectLazy(com.linkedin.dashboard.DashboardInfo.class);
+    assertNotNull("DashboardInfo aspect should be present", info);
+
+    // GlobalTags and Ownership might not exist since we didn't add them
+    // Just verify we can fetch without errors
+  }
+
+  @Test
+  public void testDashboardUpdateAndRefetch() throws Exception {
+    // Create initial dashboard with custom properties
+    Dashboard dashboard =
+        Dashboard.builder()
+            .tool("looker")
+            .id("test_dashboard_update_refetch_" + System.currentTimeMillis())
+            .title("Dashboard for update test")
+            .description("Testing update and refetch")
+            .build();
+
+    dashboard.addCustomProperty("version", "1.0");
+    dashboard.addCustomProperty("environment", "dev");
+    client.entities().upsert(dashboard);
+    assertNotNull(dashboard.getUrn());
+
+    // Fetch it back and verify initial custom properties
+    Dashboard fetched1 = client.entities().get(dashboard.getUrn().toString(), Dashboard.class);
+    com.linkedin.dashboard.DashboardInfo info1 =
+        fetched1.getAspectLazy(com.linkedin.dashboard.DashboardInfo.class);
+    assertNotNull(info1);
+    assertEquals("1.0", info1.getCustomProperties().get("version"));
+    assertEquals("dev", info1.getCustomProperties().get("environment"));
+
+    // Update custom properties
+    dashboard.addCustomProperty("version", "2.0");
+    dashboard.addCustomProperty("environment", "prod");
+    dashboard.addCustomProperty("updated", "true");
+    client.entities().upsert(dashboard);
+
+    // Fetch again and verify updates
+    Dashboard fetched2 = client.entities().get(dashboard.getUrn().toString(), Dashboard.class);
+    com.linkedin.dashboard.DashboardInfo info2 =
+        fetched2.getAspectLazy(com.linkedin.dashboard.DashboardInfo.class);
+    assertNotNull(info2);
+    assertEquals("2.0", info2.getCustomProperties().get("version"));
+    assertEquals("prod", info2.getCustomProperties().get("environment"));
+    assertEquals("true", info2.getCustomProperties().get("updated"));
+  }
+
+  @Test
+  public void testDashboardWithMultipleAspectUpdates() throws Exception {
+    // Create a dashboard
+    Dashboard dashboard =
+        Dashboard.builder()
+            .tool("looker")
+            .id("test_dashboard_multi_aspect_updates_" + System.currentTimeMillis())
+            .title("Dashboard for multi-aspect updates")
+            .description("Testing multiple aspect updates in sequence")
+            .build();
+
+    client.entities().upsert(dashboard);
+    assertNotNull(dashboard.getUrn());
+
+    // Update different aspects
+    dashboard.addTag("tag1");
+    client.entities().upsert(dashboard);
+
+    dashboard.addOwner("urn:li:corpuser:datahub", OwnershipType.TECHNICAL_OWNER);
+    client.entities().upsert(dashboard);
+
+    dashboard.setDomain("urn:li:domain:Engineering");
+    client.entities().upsert(dashboard);
+
+    // Fetch and verify all aspects are present
+    Dashboard fetched = client.entities().get(dashboard.getUrn().toString(), Dashboard.class);
+    assertNotNull(fetched);
+
+    // Verify DashboardInfo
+    com.linkedin.dashboard.DashboardInfo info =
+        fetched.getAspectLazy(com.linkedin.dashboard.DashboardInfo.class);
+    assertNotNull("DashboardInfo should exist", info);
+
+    // Verify GlobalTags
+    com.linkedin.common.GlobalTags tags =
+        fetched.getAspectLazy(com.linkedin.common.GlobalTags.class);
+    assertNotNull("GlobalTags should exist", tags);
+    assertTrue("Should have at least one tag", tags.getTags().size() > 0);
+
+    // Verify Ownership
+    com.linkedin.common.Ownership ownership =
+        fetched.getAspectLazy(com.linkedin.common.Ownership.class);
+    assertNotNull("Ownership should exist", ownership);
+    assertTrue("Should have at least one owner", ownership.getOwners().size() > 0);
+  }
 }

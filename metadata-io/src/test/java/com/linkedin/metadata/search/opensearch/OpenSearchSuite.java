@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.opensearch;
 
 import io.datahubproject.test.search.OpenSearchTestContainer;
+import io.datahubproject.test.search.SearchContainerUtils;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -25,6 +26,7 @@ public class OpenSearchSuite extends AbstractTestNGSpringContextTests {
     if (container == null || !container.isRunning()) {
       OPENSEARCH_TEST_CONTAINER = new OpenSearchTestContainer();
       container = OPENSEARCH_TEST_CONTAINER.startContainer();
+      SearchContainerUtils.waitForClusterReady(container);
     }
     return container;
   }

@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for creating MLModel and MLModelGroup entities in DataHub via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -18,7 +22,7 @@ This guide will show you how to
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed steps, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed steps, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 ## Create MLModelGroup
 

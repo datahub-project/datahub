@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
     })
 @TestPropertySource(
     properties = {
+      "datahub.messaging.transport=kafka",
       "eventsApi.enabled=true",
       "kafka.consumerPool.initialSize=3",
       "kafka.consumerPool.maxSize=5",
@@ -157,6 +158,7 @@ public class KafkaConsumerPoolFactoryTest extends AbstractTestNGSpringContextTes
     })
 @TestPropertySource(
     properties = {
+      "datahub.messaging.transport=kafka",
       "eventsApi.enabled=true",
       "kafka.consumerPool.initialSize=2",
       "kafka.consumerPool.maxSize=4",

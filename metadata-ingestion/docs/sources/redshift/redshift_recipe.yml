@@ -15,10 +15,14 @@ source:
 
     include_table_lineage: true
     include_usage_statistics: true
-    # The following options are only used when include_usage_statistics is true
-    # it appends the domain after the redshift username which is extracted from the Redshift audit history
-    # in the format username@email_domain
+    # Appends the domain to Redshift usernames to form DataHub user URNs (e.g. username@email_domain).
+    # Used for both usage statistics and ownership extraction.
     email_domain: mydomain.com
+
+    # Ownership extraction (disabled by default)
+    # When enabled, extracts table/view/schema owners from pg_catalog.pg_user (no extra grants needed)
+    # and emits them as TECHNICAL_OWNER in DataHub. Note: overwrites any manually-set owners on each run.
+    # extract_ownership: true
 
     profiling:
       enabled: true

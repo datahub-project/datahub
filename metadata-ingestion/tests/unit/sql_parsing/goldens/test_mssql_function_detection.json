@@ -1,0 +1,17 @@
+{
+    "query_type": "CREATE_OTHER",
+    "query_type_props": {
+        "kind": "FUNCTION"
+    },
+    "query_fingerprint": "1a8e8e551dac643add608a9f72779055be9c8da4cf5577bd5eb5b25f056b3fe2",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,dbo.getcustomername,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": null,
+    "joins": null,
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE FUNCTION dbo.GetCustomerName(@id INTEGER) RETURNS NVARCHAR(?) AS BEGIN DECLARE @name AS NVARCHAR(?)"
+    }
+}

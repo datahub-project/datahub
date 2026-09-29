@@ -1,4 +1,8 @@
+import { Link } from '@phosphor-icons/react/dist/csr/Link';
+import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     ForPlatformWrapper,
@@ -7,7 +11,7 @@ import {
     StyledHeaderTitleContainer,
     StyledTitle,
 } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
-import { IncidentAction, noPermissionsMessage } from '@app/entityV2/shared/tabs/Incident/constant';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { useIncidentURNCopyLink } from '@app/entityV2/shared/tabs/Incident/hooks';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { Button } from '@src/alchemy-components';
@@ -35,6 +39,8 @@ export const IncidentDrawerHeader = ({
     platform,
     privileges,
 }: IncidentDrawerHeaderProps) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation('common.actions');
     const handleIncidentLinkCopy = useIncidentURNCopyLink(data ? data?.urn : '');
 
     const canEditIncidents = privileges?.canEditIncidents || false;
@@ -43,7 +49,7 @@ export const IncidentDrawerHeader = ({
         <StyledHeader>
             <StyledHeaderTitleContainer>
                 <StyledTitle data-testid="drawer-header-title">
-                    {mode === IncidentAction.CREATE ? 'Create New Incident' : data?.title}
+                    {mode === IncidentAction.CREATE ? t('drawer.createTitle') : data?.title}
                 </StyledTitle>
                 {platform && (
                     <ForPlatformWrapper>
@@ -55,10 +61,12 @@ export const IncidentDrawerHeader = ({
             <StyledHeaderActions>
                 {mode === IncidentAction.EDIT && isEditActive === false && (
                     <>
-                        <StructuredPopover title={canEditIncidents ? 'Edit Incident' : noPermissionsMessage}>
+                        <StructuredPopover
+                            title={canEditIncidents ? t('drawer.editTooltip') : t('permission.noEditIncidents')}
+                        >
                             <span>
                                 <Button
-                                    icon={{ icon: 'PencilSimpleLine', color: 'gray', source: 'phosphor' }}
+                                    icon={{ icon: PencilSimpleLine, color: 'gray' }}
                                     variant="text"
                                     onClick={() => setIsEditActive(!isEditActive)}
                                     disabled={!canEditIncidents}
@@ -67,9 +75,9 @@ export const IncidentDrawerHeader = ({
                                 />
                             </span>
                         </StructuredPopover>
-                        <StructuredPopover title="Copy Link">
+                        <StructuredPopover title={tc('copyLink')}>
                             <Button
-                                icon={{ icon: 'Link', color: 'gray', source: 'phosphor' }}
+                                icon={{ icon: Link, color: 'gray' }}
                                 variant="text"
                                 onClick={handleIncidentLinkCopy}
                                 size="xl"
@@ -78,7 +86,7 @@ export const IncidentDrawerHeader = ({
                     </>
                 )}
                 <Button
-                    icon={{ icon: 'X', color: 'gray', source: 'phosphor' }}
+                    icon={{ icon: X, color: 'gray' }}
                     variant="text"
                     onClick={() => onClose?.()}
                     data-testid="incident-drawer-close-button"

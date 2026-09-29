@@ -1,3 +1,11 @@
+# Zero-config: load bootstrap sample data
 source:
   type: demo-data
   config: {}
+
+# Or load a specific data pack with time-shifting:
+# source:
+#   type: demo-data
+#   config:
+#     pack_name: "showcase-ecommerce"
+#     no_time_shift: false

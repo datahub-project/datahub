@@ -1,19 +1,19 @@
 import { green, orange, red } from '@ant-design/colors';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Image, Popover } from 'antd';
-import moment from 'moment-timezone';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { getDisplayedEntityType } from '@app/entity/shared/containers/profile/header/PlatformContent/PlatformContentContainer';
 import { getPlatformName } from '@app/entity/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import dayjs from '@utils/dayjs';
 
 const StyledDot = styled.div<{ color: string }>`
-    border: 1px solid ${ANTD_GRAY[5]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 50%;
     background-color: ${(props) => props.color};
     width: 10px;
@@ -39,7 +39,7 @@ const PopoverContentWrapper = styled.div``;
 const MainContent = styled.div`
     align-items: center;
     display: flex;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const RelativeDescription = styled.div`
@@ -49,13 +49,13 @@ const RelativeDescription = styled.div`
 `;
 
 const SubText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     font-size: 10px;
     font-style: italic;
 `;
 
 const HelpIcon = styled(QuestionCircleOutlined)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-left: 7px;
     font-size: 10px;
 `;
@@ -85,27 +85,31 @@ const PreviewImage = styled(Image)`
 `;
 
 function TooltipContent() {
+    const { t } = useTranslation('entity.shared.containers');
     return (
         <div>
             <TooltipSection>
-                <StyledDot color={green[5]} /> Synchronized in the&nbsp;<b>past week</b>
+                <StyledDot color={green[5]} />{' '}
+                <Trans t={t} i18nKey="lastIngested.syncedPastWeek" components={{ bold: <b /> }} />
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={orange[5]} /> Synchronized in the&nbsp;<b>past month</b>
+                <StyledDot color={orange[5]} />{' '}
+                <Trans t={t} i18nKey="lastIngested.syncedPastMonth" components={{ bold: <b /> }} />
             </TooltipSection>
             <TooltipSection>
-                <StyledDot color={red[5]} /> Synchronized&nbsp;<b>more than a month ago</b>
+                <StyledDot color={red[5]} />{' '}
+                <Trans t={t} i18nKey="lastIngested.syncedMoreThanMonth" components={{ bold: <b /> }} />
             </TooltipSection>
         </div>
     );
 }
 
 export function getLastIngestedColor(lastIngested: number) {
-    const lastIngestedDate = moment(lastIngested);
-    if (lastIngestedDate.isAfter(moment().subtract(1, 'week'))) {
+    const lastIngestedDate = dayjs(lastIngested);
+    if (lastIngestedDate.isAfter(dayjs().subtract(1, 'week'))) {
         return green[5];
     }
-    if (lastIngestedDate.isAfter(moment().subtract(1, 'month'))) {
+    if (lastIngestedDate.isAfter(dayjs().subtract(1, 'month'))) {
         return orange[5];
     }
     return red[5];
@@ -116,6 +120,7 @@ interface Props {
 }
 
 function LastIngested({ lastIngested }: Props) {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
@@ -131,39 +136,61 @@ function LastIngested({ lastIngested }: Props) {
                     <PopoverContentWrapper>
                         <Title>
                             <StyledDot color={lastIngestedColor} />
-                            Last Synchronized
+                            {t('lastIngested.title')}
                         </Title>
                         <RelativeDescription>
-                            This {displayedEntityType.toLocaleLowerCase()} was last synchronized&nbsp;
-                            <b>{toRelativeTimeString(lastIngested)}</b>
+                            <Trans
+                                t={t}
+                                i18nKey="lastIngested.relativeDescription"
+                                values={{
+                                    entityType: displayedEntityType.toLocaleLowerCase(),
+                                    relativeTime: toRelativeTimeString(lastIngested),
+                                }}
+                                components={{ bold: <b /> }}
+                            />
                         </RelativeDescription>
-                        <SubText>Synchronized on {toLocalDateTimeString(lastIngested)}</SubText>
+                        <SubText>
+                            {t('lastIngested.syncedOn', { dateTime: toLocalDateTimeString(lastIngested) })}
+                        </SubText>
                     </PopoverContentWrapper>
                 }
             >
                 <MainContent>
                     <StyledDot color={lastIngestedColor} />
-                    Last synchronized&nbsp;
-                    <b>{toRelativeTimeString(lastIngested)}</b>
+                    <Trans
+                        t={t}
+                        i18nKey="lastIngested.lastSynchronized"
+                        values={{ relativeTime: toRelativeTimeString(lastIngested) }}
+                        components={{ bold: <b /> }}
+                    />
                 </MainContent>
             </Popover>
             <Popover
                 title={
                     <HelpHeader>
-                        This represents the time that the entity was last synchronized with&nbsp;
-                        {platformName ? (
-                            <strong>
-                                {platformLogoUrl && (
-                                    <>
-                                        <PreviewImage preview={false} src={platformLogoUrl} alt={platformName} />
-                                        &nbsp;
-                                    </>
-                                )}
-                                {platformName}
-                            </strong>
-                        ) : (
-                            <>the source platform</>
-                        )}
+                        <Trans
+                            t={t}
+                            i18nKey="lastIngested.helpHeader"
+                            components={{
+                                platform: platformName ? (
+                                    <strong>
+                                        {platformLogoUrl && (
+                                            <>
+                                                <PreviewImage
+                                                    preview={false}
+                                                    src={platformLogoUrl}
+                                                    alt={platformName}
+                                                />
+                                                &nbsp;
+                                            </>
+                                        )}
+                                        {platformName}
+                                    </strong>
+                                ) : (
+                                    <>{t('lastIngested.sourcePlatformFallback')}</>
+                                ),
+                            }}
+                        />
                     </HelpHeader>
                 }
                 content={TooltipContent}

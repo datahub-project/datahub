@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "A szervezet alapértelmezett kezdőlapjának szerkesztése",
+    "header.discoverLabel": "Felfedezés",
+    "error.failedToAddSummaryElement": "Nem sikerült hozzáadni az összefoglaló elemet",
+    "error.failedToRemoveSummaryElement": "Nem sikerült eltávolítani az összefoglaló elemet",
+    "error.failedToReplaceSummaryElement": "Nem sikerült lecserélni az összefoglaló elemet",
+    "error.noTemplateAvailable": "Nincs frissíthető sablon",
+    "toast.editedDescription": "A kezdőlap visszaállításához kattintson a „Visszaállítás a szervezet alapértelmezettjére” lehetőségre",
+    "toast.editedTitle": "Szerkesztette a kezdőlapját"
+}

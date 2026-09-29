@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for adding, updating, and removing custom properties on DataHub Datasets via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -22,7 +26,7 @@ This guide will show you how to add, remove or replace custom properties on a da
 ## Prerequisites
 
 For this tutorial, you need to deploy DataHub Quickstart and ingest sample data.
-For detailed information, please refer to [Datahub Quickstart Guide](/docs/quickstart.md).
+For detailed information, please refer to [DataHub Quickstart Guide](/docs/quickstart.md).
 
 :::note
 Before adding custom properties, you need to ensure the target dataset is already present in your DataHub instance.

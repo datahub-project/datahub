@@ -17,7 +17,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -34,7 +34,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -50,7 +50,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -73,7 +73,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -90,7 +90,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -106,7 +106,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -135,6 +135,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.identity.GroupMembership": {
                         "groups": [
                             "urn:li:corpGroup:All%20Employees",
@@ -148,7 +157,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -165,7 +174,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -181,7 +190,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -207,6 +216,15 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.identity.CorpUserStatus": {
+                        "status": "ACTIVE",
+                        "lastModified": {
+                            "time": 1586847600000,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.identity.GroupMembership": {
                         "groups": [
                             "urn:li:corpGroup:All%20Employees",
@@ -218,7 +236,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -235,7 +253,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }
@@ -251,7 +269,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1586847600000,
+        "lastObserved": 1586865600000,
         "runId": "test-okta-usage",
         "lastRunId": "no-run-id-provided"
     }

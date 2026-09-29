@@ -1,0 +1,64 @@
+source:
+  type: "flink"
+  config:
+    connection:
+      rest_api_url: "http://localhost:8081"
+
+      # SQL Gateway enables platform resolution for SQL/Table API lineage.
+      # Without it, only DataStream Kafka lineage is extracted.
+      # sql_gateway_url: "http://localhost:8083"
+
+      # Authentication (uncomment ONE method)
+      # token: "${FLINK_API_TOKEN}"
+      # username: "admin"
+      # password: "${FLINK_PASSWORD}"
+
+      # Advanced connection tuning
+      # timeout_seconds: 30
+      # max_retries: 3
+      # verify_ssl: true
+
+    # Filter jobs by name
+    # job_name_pattern:
+    #   allow:
+    #     - "^prod_.*"
+
+    # Filter by job state (defaults to RUNNING, FINISHED, FAILED, CANCELED)
+    # include_job_states:
+    #   - "RUNNING"
+    #   - "FINISHED"
+
+    # Per-catalog platform_instance overrides. Platform is auto-detected via
+    # SQL Gateway for most catalog types; specify platform only when
+    # auto-detection is unavailable (see documentation for details).
+    # catalog_platform_map:
+    #   pg_catalog:
+    #     platform_instance: "prod-postgres"
+    #   kafka_catalog:
+    #     platform_instance: "prod-kafka"
+
+    # DataJob granularity - "job" (default) or "vertex" (one per operator)
+    # operator_granularity: "job"
+
+    # include_lineage: true
+    # include_run_history: true
+
+    # Platform-wide fallback for platform_instance (used when catalog_platform_map
+    # does not have an entry for the catalog).
+    # platform_instance_map:
+    #   kafka: "prod-kafka-cluster"
+
+    # Parallel job processing
+    # max_workers: 10
+
+    # Stale entity removal
+    # stateful_ingestion:
+    #   enabled: true
+    #   remove_stale_metadata: true
+
+    env: "PROD"
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

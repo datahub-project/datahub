@@ -1,0 +1,18 @@
+namespace com.linkedin.incident
+
+/**
+ * The source type of an incident note, indicating whether it was created natively
+ * in DataHub or synced from an external system.
+ */
+enum IncidentNoteSourceType {
+
+  /**
+   * Created via the DataHub UI or API.
+   */
+  NATIVE
+
+  /**
+   * Synced from an external incident management or ticketing system.
+   */
+  EXTERNAL
+}

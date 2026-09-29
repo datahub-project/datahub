@@ -10,6 +10,7 @@ from typing import (
     Literal,
     Optional,
     Tuple,
+    Type,
     Union,
     get_args,
 )
@@ -43,6 +44,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.openapi import RelationshipDirection
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     DatasetPropertiesClass,
@@ -234,22 +236,47 @@ class SchemaFieldSpecification(StrictModel):
             "bytes",
             "fixed",
         ]
-        type = self.type.lower() if self.type else self.type
-        if type not in set(get_args(PrimitiveType)):
-            raise ValueError(f"Type {self.type} is not a valid primitive type")
 
-        if type == "string":
-            return models.SchemaFieldDataTypeClass(type=models.StringTypeClass())
-        elif type in ["number", "long", "float", "double", "int"]:
-            return models.SchemaFieldDataTypeClass(type=models.NumberTypeClass())
-        elif type == "fixed":
-            return models.SchemaFieldDataTypeClass(type=models.FixedTypeClass())
-        elif type == "bytes":
-            return models.SchemaFieldDataTypeClass(type=models.BytesTypeClass())
-        elif type == "boolean":
-            return models.SchemaFieldDataTypeClass(type=models.BooleanTypeClass())
+        ComplexType = Literal["array", "map", "union", "record"]
 
-        raise ValueError(f"Type {self.type} is not a valid primitive type")
+        TemporalType = Literal["date", "time", "timestamp"]
+
+        type_mapping: Dict[str, Type] = {
+            "string": models.StringTypeClass,
+            "number": models.NumberTypeClass,
+            "int": models.NumberTypeClass,
+            "long": models.NumberTypeClass,
+            "float": models.NumberTypeClass,
+            "double": models.NumberTypeClass,
+            "boolean": models.BooleanTypeClass,
+            "bytes": models.BytesTypeClass,
+            "fixed": models.FixedTypeClass,
+            "array": models.ArrayTypeClass,
+            "map": models.MapTypeClass,
+            "union": models.UnionTypeClass,
+            "record": models.RecordTypeClass,
+            "date": models.DateTypeClass,
+            "time": models.TimeTypeClass,
+            "timestamp": models.TimeTypeClass,
+        }
+
+        if not self.type:
+            raise ValueError("Type cannot be None or empty")
+
+        type_lower = self.type.lower()
+
+        if (
+            type_lower not in set(get_args(PrimitiveType))
+            and type_lower not in set(get_args(ComplexType))
+            and type_lower not in set(get_args(TemporalType))
+        ):
+            raise ValueError(f"Type {self.type} is not a valid type")
+
+        type_class = type_mapping.get(type_lower)
+        if type_class is None:
+            raise ValueError(f"Type {self.type} is not a valid type")
+
+        return models.SchemaFieldDataTypeClass(type=type_class())
 
     @staticmethod
     def _from_datahub_type(
@@ -870,7 +897,7 @@ class Dataset(StrictModel):
                 relationship_types=[
                     "DownstreamOf",
                 ],
-                direction=DataHubGraph.RelationshipDirection.INCOMING,
+                direction=RelationshipDirection.INCOMING,
             )
             downstreams = [r.urn for r in related_downstreams]
 

@@ -1,7 +1,9 @@
 package com.linkedin.metadata.utils;
 
+import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.AuditStamp;
@@ -206,5 +208,56 @@ public class SystemMetadataUtilsTest {
     SystemMetadata result = SystemMetadataUtils.setAspectModified(input, auditStamp);
 
     assertNull(result.getAspectModified());
+  }
+
+  @Test
+  public void testSetSchemaVersionSetsWhenAbsent() {
+    SystemMetadata metadata = new SystemMetadata();
+    assertFalse(metadata.hasSchemaVersion());
+
+    SystemMetadata result = SystemMetadataUtils.setSchemaVersion(metadata, 3L);
+
+    assertNotNull(result);
+    assertTrue(result.hasSchemaVersion());
+    assertEquals(result.getSchemaVersion(), (Long) 3L);
+  }
+
+  @Test
+  public void testSetSchemaVersionDoesNotOverwriteExisting() {
+    SystemMetadata metadata = new SystemMetadata().setSchemaVersion(2L);
+
+    SystemMetadataUtils.setSchemaVersion(metadata, 5L);
+
+    assertEquals(metadata.getSchemaVersion(), (Long) 2L);
+  }
+
+  @Test
+  public void testStripReservedAppSourceRemovesSystemUpdate() {
+    SystemMetadata metadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
+    properties.put("other", "keep");
+    metadata.setProperties(properties);
+
+    assertTrue(SystemMetadataUtils.stripReservedAppSource(metadata));
+    assertFalse(metadata.getProperties().containsKey(APP_SOURCE));
+    assertEquals(metadata.getProperties().get("other"), "keep");
+  }
+
+  @Test
+  public void testStripReservedAppSourceLeavesOtherSources() {
+    SystemMetadata metadata = new SystemMetadata();
+    StringMap properties = new StringMap();
+    properties.put(APP_SOURCE, "ui");
+    metadata.setProperties(properties);
+
+    assertFalse(SystemMetadataUtils.stripReservedAppSource(metadata));
+    assertEquals(metadata.getProperties().get(APP_SOURCE), "ui");
+  }
+
+  @Test
+  public void testStripReservedAppSourceNullSafe() {
+    assertFalse(SystemMetadataUtils.stripReservedAppSource(null));
+    assertFalse(SystemMetadataUtils.stripReservedAppSource(new SystemMetadata()));
   }
 }

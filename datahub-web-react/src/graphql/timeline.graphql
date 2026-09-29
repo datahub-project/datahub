@@ -1,10 +1,18 @@
+query getEntityDisplayNames($urns: [String!]!) {
+    entities(urns: $urns) {
+        ...entityDisplayNameFields
+    }
+}
+
 query getTimeline($input: GetTimelineInput!) {
     getTimeline(input: $input) {
+        skippedVersionCount
         changeTransactions {
             timestampMillis
             lastSemanticVersion
             versionStamp
             changeType
+            actor
             changes {
                 urn
                 category

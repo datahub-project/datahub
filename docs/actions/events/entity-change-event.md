@@ -1,3 +1,7 @@
+---
+description: "Reference for DataHub Entity Change Events emitted whenever metadata aspects on entities are added, modified, or removed."
+---
+
 # Entity Change Event V1
 
 ## Event Type
@@ -178,7 +182,7 @@ This event is emitted when a new owner has been assigned to an entity on DataHub
 {
   "entityUrn": "urn:li:dataset:abc",
   "entityType": "dataset",
-  "category": "OWNER",
+  "category": "OWNERSHIP",
   "operation": "ADD",
   "modifier": "urn:li:corpuser:jdoe",
   "parameters": {
@@ -202,7 +206,7 @@ This event is emitted when an existing owner has been removed from an entity on 
 {
   "entityUrn": "urn:li:dataset:abc",
   "entityType": "dataset",
-  "category": "OWNER",
+  "category": "OWNERSHIP",
   "operation": "REMOVE",
   "modifier": "urn:li:corpuser:jdoe",
   "parameters": {

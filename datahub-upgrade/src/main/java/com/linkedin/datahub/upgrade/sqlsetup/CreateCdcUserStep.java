@@ -75,21 +75,42 @@ public class CreateCdcUserStep implements UpgradeStep {
 
     try {
       try (Connection connection = server.dataSource().getConnection()) {
-        String createCdcUserSql = dbOps.createCdcUserSql(args.getCdcUser(), args.getCdcPassword());
-        try (PreparedStatement stmt = connection.prepareStatement(createCdcUserSql)) {
-          stmt.executeUpdate();
-        }
+        boolean previousAutoCommit = connection.getAutoCommit();
+        try {
+          connection.setAutoCommit(false);
 
-        java.util.List<String> grantCdcPrivilegesStmts =
-            dbOps.grantCdcPrivilegesSql(args.getCdcUser(), args.getDatabaseName());
-        for (String grantSql : grantCdcPrivilegesStmts) {
-          try (PreparedStatement grantStmt = connection.prepareStatement(grantSql)) {
-            grantStmt.executeUpdate();
+          String createCdcUserSql =
+              dbOps.createCdcUserSql(args.getCdcUser(), args.getCdcPassword());
+          try (PreparedStatement stmt = connection.prepareStatement(createCdcUserSql)) {
+            stmt.executeUpdate();
+          }
+
+          java.util.List<String> grantCdcPrivilegesStmts =
+              dbOps.grantCdcPrivilegesSql(
+                  args.getCdcUser(), args.getDatabaseName(), args.getPostgresMetadataSchema());
+          for (String grantSql : grantCdcPrivilegesStmts) {
+            try (PreparedStatement grantStmt = connection.prepareStatement(grantSql)) {
+              grantStmt.executeUpdate();
+            }
+          }
+
+          connection.commit();
+          result.setCdcUserCreated(true);
+          log.info("CDC user '{}' created successfully", args.getCdcUser());
+        } catch (SQLException e) {
+          try {
+            connection.rollback();
+          } catch (SQLException rollbackEx) {
+            log.warn("Failed to rollback CDC user creation transaction", rollbackEx);
+          }
+          throw e;
+        } finally {
+          try {
+            connection.setAutoCommit(previousAutoCommit);
+          } catch (SQLException e) {
+            log.warn("Failed to restore autoCommit", e);
           }
         }
-
-        result.setCdcUserCreated(true);
-        log.info("CDC user '{}' created successfully", args.getCdcUser());
       }
     } catch (Exception e) {
       throw new RuntimeException("Failed to create CDC user: " + e.getMessage(), e);

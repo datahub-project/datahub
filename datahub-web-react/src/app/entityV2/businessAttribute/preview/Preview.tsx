@@ -1,5 +1,6 @@
-import { GlobalOutlined } from '@ant-design/icons';
+import { Hexagon } from '@phosphor-icons/react/dist/csr/Hexagon';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { getRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -26,6 +27,7 @@ export const Preview = ({
     owners?: Array<Owner> | null;
     previewType: PreviewType;
 }): JSX.Element => {
+    const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     return (
         <DefaultPreviewCard
@@ -37,12 +39,12 @@ export const Preview = ({
             urn={urn}
             description={description || ''}
             owners={owners}
-            logoComponent={<GlobalOutlined style={{ fontSize: '20px' }} />}
-            type="Business Attribute"
+            logoComponent={<Hexagon size={20} color="currentColor" />}
+            type={t('businessAttribute.name')}
             typeIcon={entityRegistry.getIcon(EntityType.BusinessAttribute, 14, IconStyleType.ACCENT)}
             entityTitleSuffix={
                 <UrlButton href={resolveRuntimePath(getRelatedEntitiesUrl(entityRegistry, urn))}>
-                    View Related Entities
+                    {t('businessAttribute.viewRelatedEntities')}
                 </UrlButton>
             }
         />

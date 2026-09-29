@@ -18,7 +18,7 @@ interface Props {
 
 export default function useStructuredPropertyPrompt({ prompt, submitResponse, field }: Props) {
     const { refetch: refetchSchema } = useGetEntityWithSchema(!SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type));
-    const { refetch, entityData } = useEntityContext();
+    const { entityData } = useEntityContext();
     const { selectedPromptId, formView } = useEntityFormContext();
     const initialValues = useMemo(
         () => (formView === FormView.BY_ENTITY ? getInitialValues(prompt, entityData, field) : []),
@@ -70,7 +70,6 @@ export default function useStructuredPropertyPrompt({ prompt, submitResponse, fi
                 },
             },
             () => {
-                refetch();
                 setHasEdited(false);
                 if (field) {
                     refetchSchema();

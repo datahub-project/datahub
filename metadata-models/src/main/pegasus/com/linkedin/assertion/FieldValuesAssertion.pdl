@@ -15,11 +15,6 @@ record FieldValuesAssertion {
     /**
     * The field under evaluation
     */
-    @Searchable = {
-      "/path": {
-        "fieldName": "fieldPath"
-      }
-    }
     field: SchemaFieldSpec
 
     /**
@@ -72,6 +67,11 @@ record FieldValuesAssertion {
       */
       value: long = 0
     }
+
+    /**
+    * Optional configuration for assigning severities to failed field values assertions.
+    */
+    failureSeverityConfig: optional AssertionFailureSeverityConfig
 
     /**
     * Whether to ignore or allow nulls when running the values assertion. (i.e.

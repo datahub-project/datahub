@@ -1,14 +1,14 @@
 import { Button } from 'antd';
-import React, { useContext, useEffect } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import Tour from 'reactour';
+import { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
 import { convertStepId, getConditionalStepIdsToAdd, getStepsToRender } from '@app/onboarding/utils';
-import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 
 import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
@@ -19,12 +19,14 @@ type Props = {
 };
 
 export const OnboardingTour = ({ stepIds }: Props) => {
+    const { t } = useTranslation('onboarding');
     const { educationSteps, setEducationSteps, educationStepIdsAllowlist } = useContext(EducationStepsContext);
     const userUrn = useUserContext()?.user?.urn;
-    const isThemeV2 = useIsThemeV2();
-    const { isTourOpen, tourReshow, setTourReshow, setIsTourOpen } = useContext(OnboardingContext);
+    const theme = useTheme();
+    const { isTourOpen, tourReshow, setTourReshow, setIsTourOpen, setIsOnboardingAvailable } =
+        useContext(OnboardingContext);
     const location = useLocation();
-    const accentColor = isThemeV2 ? REDESIGN_COLORS.BACKGROUND_PURPLE : '#5cb7b7';
+    const accentColor = theme.colors.bgSurfaceBrand;
 
     useEffect(() => {
         function handleKeyDown(e) {
@@ -64,6 +66,20 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         }
     }, [filteredSteps.length, tourReshow, shouldSkipOnboardingTour, isHomepage, isTourOpen, setIsTourOpen]);
 
+    const prevStepRef = useRef<number | null>(null);
+    const [updateKey, setUpdateKey] = useState(0);
+
+    const handleStepChange = (currStep: number) => {
+        if (prevStepRef.current !== currStep) {
+            const step = filteredSteps[currStep];
+            if (step && step.tabName) {
+                // Force Reactour to recalculate highlight after action scrolls the tab
+                setUpdateKey((prev) => prev + 1);
+            }
+            prevStepRef.current = currStep;
+        }
+    };
+
     function closeTour() {
         setIsTourOpen(false);
         setTourReshow(false);
@@ -78,9 +94,32 @@ export const OnboardingTour = ({ stepIds }: Props) => {
         });
     }
 
+    const canTourBeShown = useMemo(() => {
+        // Do not show tour for home page (see `WelcomeToDataHubModal`)
+        if (isHomepage) return false;
+
+        return true;
+    }, [isHomepage]);
+
+    const canTourBeReshown = useMemo(() => {
+        // should have `filteredSteps` when `tourReshow` is true
+        // see `getStepsToRender` for details
+        if (!educationSteps) return false;
+        return canTourBeShown && stepIds.length > 0;
+    }, [canTourBeShown, educationSteps, stepIds]);
+
+    // Register and unregister the tour availability in the context
+    // FYI: it's using to hide the tour button when tour is not available
+    useEffect(() => {
+        setIsOnboardingAvailable(canTourBeReshown);
+        return () => setIsOnboardingAvailable(false);
+    }, [canTourBeReshown, setIsOnboardingAvailable]);
+
     // For automatic tours (tourReshow=false), only check if we have steps to show and not on homepage
     // For manual tours (tourReshow=true), also check the global skip flag
-    if (!filteredSteps.length || isHomepage || (tourReshow && shouldSkipOnboardingTour)) return null;
+    if (!canTourBeShown || !filteredSteps.length || (tourReshow && shouldSkipOnboardingTour)) {
+        return null;
+    }
 
     return (
         <Tour
@@ -91,7 +130,10 @@ export const OnboardingTour = ({ stepIds }: Props) => {
             rounded={10}
             scrollDuration={500}
             accentColor={accentColor}
-            lastStepNextButton={<Button>Let&apos;s go!</Button>}
+            badgeContent={(current) => <span style={{ color: theme.colors.text }}>{current}</span>}
+            lastStepNextButton={<Button>{t('tour.letsGo')}</Button>}
+            getCurrentStep={handleStepChange}
+            update={updateKey}
         />
     );
 };

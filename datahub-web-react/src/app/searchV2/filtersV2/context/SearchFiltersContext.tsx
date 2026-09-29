@@ -11,7 +11,7 @@ import {
     FiltersRenderer,
 } from '@app/searchV2/filtersV2/types';
 
-export type SearchFiltersContextType = {
+type SearchFiltersContextType = {
     // Fields to show in filters
     fields: FieldName[];
     // Applied view

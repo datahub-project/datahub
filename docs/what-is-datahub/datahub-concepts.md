@@ -113,7 +113,7 @@ Datasets represent collections of data that are typically represented as Tables 
 
 ### Chart
 
-A single data vizualization derived from a Dataset. A single Chart can be a part of multiple Dashboards. Charts can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include a Superset or Looker Chart.
+A single data visualization derived from a Dataset. A single Chart can be a part of multiple Dashboards. Charts can have tags, owners, links, glossary terms, and descriptions attached to them. Examples include a Superset or Looker Chart.
 
 > - [Developer Guides: Chart](/docs/generated/metamodel/entities/chart.md)
 
@@ -166,7 +166,7 @@ Domains are curated, top-level folders or categories where related assets can be
 
 ### Owner
 
-Owner refers to the users or groups that has ownership rights over entities. For example, owner can be acceessed to dataset or a column or a dataset.
+Owner refers to the users or groups that have ownership rights over entities. Ownership can be assigned to a dataset, a column, or other entities.
 
 > - [Getting Started : Adding Owners On Datasets/Columns](/docs/api/tutorials/owners.md#add-owners)
 

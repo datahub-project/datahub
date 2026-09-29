@@ -1,0 +1,217 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.TagSnapshot": {
+        "urn": "urn:li:tag:Playwright",
+        "aspects": [
+          {
+            "com.linkedin.tag.TagProperties": {
+              "name": "Playwright",
+              "description": "Indicates the entity is for Playwright integration test purposes"
+            }
+          },
+          {
+            "com.linkedin.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.GlossaryNodeSnapshot": {
+        "urn": "urn:li:glossaryNode:PlaywrightNode",
+        "aspects": [
+          {
+            "com.linkedin.glossary.GlossaryNodeInfo": {
+              "definition": "Playwright test glossary node"
+            }
+          },
+          {
+            "com.linkedin.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.GlossaryTermSnapshot": {
+        "urn": "urn:li:glossaryTerm:PlaywrightNode.PlaywrightTerm",
+        "aspects": [
+          {
+            "com.linkedin.glossary.GlossaryTermInfo": {
+              "definition": "Playwright test term",
+              "name": "PlaywrightTerm",
+              "termSource": "INTERNAL"
+            }
+          },
+          {
+            "com.linkedin.glossary.GlossaryRelatedTerms": {
+              "isRelatedTerms": [],
+              "hasRelatedTerms": []
+            }
+          },
+          {
+            "com.linkedin.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,Playwright_logging_events,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.dataset.DatasetProperties": {
+              "description": "table where each row represents a single log event",
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          },
+          {
+            "com.linkedin.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          },
+          {
+            "com.linkedin.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Hive dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "event_name",
+                  "nullable": false,
+                  "description": "Name of your logging event",
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "event_data",
+                  "nullable": false,
+                  "description": "Data of your event",
+                  "type": {
+                    "type": {
+                      "com.linkedin.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449",
+    "changeType": "UPSERT",
+    "aspectName": "businessAttributeInfo",
+    "aspect": {
+      "value": "{\"fieldPath\":\"PlaywrightAttribute\",\"description\":\"PlaywrightAttribute\",\"globalTags\":{\"tags\":[{\"tag\":\"urn:li:tag:Playwright\"}]},\"glossaryTerms\":{\"terms\":[{\"urn\":\"urn:li:glossaryTerm:PlaywrightNode.PlaywrightTerm\"}],\"auditStamp\":{\"time\":1706889592683,\"actor\":\"urn:li:corpuser:datahub\"}},\"customProperties\":{},\"created\":{\"time\":1706690081803,\"actor\":\"urn:li:corpuser:datahub\"},\"lastModified\":{\"time\":1706690081803,\"actor\":\"urn:li:corpuser:datahub\"},\"name\":\"PlaywrightAttribute\",\"type\":{\"type\":{\"com.linkedin.schema.BooleanType\":{}}}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:37c81832-06e0-40b1-a682-858e1dd0d449",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\"owners\":[{\"owner\":\"urn:li:corpuser:datahub\",\"type\":\"TECHNICAL_OWNER\",\"typeUrn\":\"urn:li:ownershipType:__system__technical_owner\",\"source\":{\"type\":\"MANUAL\"}}]}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:PlaywrightTestAttribute",
+    "changeType": "UPSERT",
+    "aspectName": "businessAttributeInfo",
+    "aspect": {
+      "value": "{\"fieldPath\":\"PlaywrightTestAttribute\",\"description\":\"PlaywrightTestAttribute\",\"customProperties\":{},\"created\":{\"time\":1706690081803,\"actor\":\"urn:li:corpuser:datahub\"},\"lastModified\":{\"time\":1706690081803,\"actor\":\"urn:li:corpuser:datahub\"},\"name\":\"PlaywrightTestAttribute\",\"type\":{\"type\":{\"com.linkedin.schema.BooleanType\":{}}}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "businessAttribute",
+    "entityUrn": "urn:li:businessAttribute:PlaywrightTestAttribute",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\"owners\":[{\"owner\":\"urn:li:corpuser:datahub\",\"type\":\"TECHNICAL_OWNER\",\"typeUrn\":\"urn:li:ownershipType:__system__technical_owner\",\"source\":{\"type\":\"MANUAL\"}}]}",
+      "contentType": "application/json"
+    }
+  }
+]

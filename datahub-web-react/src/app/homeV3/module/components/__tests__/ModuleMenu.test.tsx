@@ -1,9 +1,11 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
@@ -18,48 +20,34 @@ vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
     }),
 }));
 
-// Mock the Icon component
-vi.mock('@components', () => ({
-    Icon: React.forwardRef(({ icon, _source, _size, ...props }: any, ref: any) => (
-        <div ref={ref} data-testid="icon" data-icon={icon} {...props}>
-            {icon}
-        </div>
-    )),
-    Tooltip: (props: any) => <span {...props} />,
-    Text: (props: any) => <p {...props} />,
-    Button: (props: any) => <button type="button" data-testid="confirm" {...props} />,
-    Heading: (props: any) => <p {...props} />,
-    Modal: ({ children, buttons, ...props }: any) => (
-        <div data-testid="modal" {...props}>
-            {children}
-            {buttons &&
-                buttons.map((button: any, index: number) => (
-                    <button
-                        // eslint-disable-next-line
-                        key={index}
-                        data-testid={button.buttonDataTestId || `modal-button-${index}`}
-                        onClick={button.onClick}
-                        type="button"
-                    >
-                        {button.text}
-                    </button>
-                ))}
-        </div>
-    ),
-    typography: {
-        fonts: {
-            body: '#eeeeee',
-        },
-    },
-    colors: {
-        gray: {
-            600: '#4B5563',
-        },
-        red: {
-            500: '#ef4444',
-        },
-    },
-}));
+// Keep the real alchemy exports (notably Menu, which renders the dropdown items)
+// and stub only the Modal, so the confirmation buttons are reachable without
+// driving the real modal.
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<Record<string, unknown>>();
+    return {
+        ...actual,
+        Modal: ({ children, buttons, ...props }: any) => (
+            <div data-testid="modal" {...props}>
+                {children}
+                {buttons &&
+                    buttons.map((button: any, index: number) => (
+                        <button
+                            // eslint-disable-next-line
+                            key={index}
+                            data-testid={button.buttonDataTestId || `modal-button-${index}`}
+                            onClick={button.onClick}
+                            type="button"
+                        >
+                            {button.text}
+                        </button>
+                    ))}
+            </div>
+        ),
+    };
+});
+
+const renderWithTheme = (ui: React.ReactElement) => render(<CustomThemeProvider>{ui}</CustomThemeProvider>);
 
 describe('ModuleMenu', () => {
     const mockModule: PageModuleFragment = {
@@ -83,10 +71,10 @@ describe('ModuleMenu', () => {
     });
 
     it('should render menu with correct items', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Check that menu items are rendered
@@ -96,10 +84,10 @@ describe('ModuleMenu', () => {
     });
 
     it('should call removeModule when remove is clicked', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Click the remove option
@@ -133,10 +121,10 @@ describe('ModuleMenu', () => {
             rowSide: 'right',
         };
 
-        render(<ModuleMenu module={differentModule} position={differentPosition} />);
+        renderWithTheme(<ModuleMenu module={differentModule} position={differentPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Click the remove option
@@ -154,10 +142,10 @@ describe('ModuleMenu', () => {
     });
 
     it('should render remove option with red color', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Check that remove option has red color styling
@@ -173,10 +161,10 @@ describe('ModuleMenu', () => {
             moduleIndex: 2,
         };
 
-        render(<ModuleMenu module={mockModule} position={positionWithModuleIndex} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={positionWithModuleIndex} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Click the remove option
@@ -205,10 +193,10 @@ describe('ModuleMenu', () => {
             },
         };
 
-        render(<ModuleMenu module={moduleWithLongName} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={moduleWithLongName} position={mockPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Click the remove option
@@ -231,10 +219,10 @@ describe('ModuleMenu', () => {
             // rowSide and moduleIndex are optional/undefined
         };
 
-        render(<ModuleMenu module={mockModule} position={minimalPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={minimalPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Click the remove option
@@ -263,10 +251,10 @@ describe('ModuleMenu', () => {
             },
         };
 
-        render(<ModuleMenu module={moduleWithSpecialChars} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={moduleWithSpecialChars} position={mockPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Click the remove option
@@ -284,10 +272,10 @@ describe('ModuleMenu', () => {
     });
 
     it('should handle edit option (placeholder functionality)', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Check that edit and duplicate options are present
@@ -306,10 +294,10 @@ describe('ModuleMenu', () => {
     });
 
     it('should handle multiple rapid clicks on remove', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
-        const menuButton = screen.getByTestId('icon');
+        const menuButton = screen.getByTestId('module-options');
         fireEvent.click(menuButton);
 
         // Click the remove option

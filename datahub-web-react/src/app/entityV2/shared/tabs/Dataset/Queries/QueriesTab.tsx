@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
 import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
@@ -27,14 +28,17 @@ const Content = styled.div<{ $backgroundColor: string }>`
     overflow: auto;
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 8px;
     background-color: ${(props) => props.$backgroundColor};
 `;
 
 export default function QueriesTab() {
+    const { t } = useTranslation('entity.profile.queries');
+    const theme = useTheme();
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const entityUrn = baseEntity?.dataset?.urn;
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
     const canEditQueries = baseEntity?.dataset?.privileges?.canEditQueries || false;
     const siblingUrn = isSeparateSiblings
         ? undefined
@@ -55,23 +59,28 @@ export default function QueriesTab() {
         pagination: highlightedPagination,
         total: highlightedTotal,
         sorting: highlightedSorting,
-    } = useHighlightedQueries({ entityUrn, siblingUrn, filterText });
+    } = useHighlightedQueries({ entityUrn, siblingUrn, filterText, canViewQueries });
 
     /**
      * Fetch the List of Popular Queries
      */
     const { selectedUsersFilter, setSelectedUsersFilter, selectedColumnsFilter, setSelectedColumnsFilter } =
-        usePopularQueries({ entityUrn, siblingUrn, filterText });
+        usePopularQueries({ entityUrn, siblingUrn, filterText, canViewQueries });
 
     /**
      * Fetch the List of Downstream Queries
      */
-    const { downstreamQueries, loading: downstreamQueriesLoading } = useDownstreamQueries(filterText);
+    const { downstreamQueries, loading: downstreamQueriesLoading } = useDownstreamQueries(filterText, canViewQueries);
 
     /**
      * Fetch the List of Recent (auto-extracted) Queries
      */
-    const { recentQueries, loading: recentQueriesLoading } = useRecentQueries({ entityUrn, siblingUrn, filterText });
+    const { recentQueries, loading: recentQueriesLoading } = useRecentQueries({
+        entityUrn,
+        siblingUrn,
+        filterText,
+        canViewQueries,
+    });
 
     const onQueryCreated = (newQuery) => {
         addQueryToListQueriesCache(newQuery, client, highlightedPagination.count, entityUrn, siblingUrn);
@@ -91,11 +100,19 @@ export default function QueriesTab() {
     const showEmptyView =
         !isLoading && !recentQueries.length && !highlightedQueries.length && !downstreamQueries.length;
 
+    const showHighlightedSection = highlightedQueries.length > 0 || highlightedQueriesLoading;
+    const showDownstreamSection = downstreamQueries.length > 0;
+    const showRecentSection = recentQueries.length > 0;
+    const visibleSections = [
+        { section: QueriesTabSection.Highlighted, isVisible: showHighlightedSection },
+        { section: QueriesTabSection.Downstream, isVisible: showDownstreamSection },
+        { section: QueriesTabSection.Recent, isVisible: showRecentSection },
+    ].filter(({ isVisible }) => isVisible);
+    const fillHeightSection = visibleSections[visibleSections.length - 1]?.section;
+
     // shared props with all of the QueriesListSection components below
     const props = {
         showDetails: false,
-        showDelete: false,
-        showEdit: false,
         onDeleted: onQueryDeleted,
         onEdited: onQueryEdited,
         selectedUsersFilter,
@@ -115,15 +132,22 @@ export default function QueriesTab() {
 
     return (
         <>
-            <Content $backgroundColor={showLoading || showEmptyView ? 'white' : REDESIGN_COLORS.BACKGROUND}>
+            <Content $backgroundColor={showLoading || showEmptyView ? theme.colors.bg : theme.colors.bgSurface}>
                 {showLoading && <Loading />}
-                {!showLoading && (
+                {!showLoading && !canViewQueries && (
+                    <EmptyQueriesSection
+                        sectionName={t('queriesTab.queriesTitle')}
+                        emptyText={t('queriesTab.noViewPermission')}
+                        showButton={false}
+                    />
+                )}
+                {!showLoading && canViewQueries && (
                     <>
-                        {(highlightedQueries.length > 0 || highlightedQueriesLoading) && (
+                        {showHighlightedSection && (
                             <QueriesListSection
-                                title="Highlighted Queries"
+                                title={t('queriesTab.highlightedQueriesTitle')}
                                 section={QueriesTabSection.Highlighted}
-                                tooltip="Curated queries relevant to this dataset"
+                                tooltip={t('queriesTab.highlightedQueriesTooltip')}
                                 tooltipPosition="bottom"
                                 queries={highlightedQueries}
                                 loading={highlightedQueriesLoading}
@@ -133,37 +157,40 @@ export default function QueriesTab() {
                                 addQueryDisabled={!canEditQueries}
                                 onAddQuery={() => setShowQueryBuilder(true)}
                                 isTopSection
+                                fillHeight={fillHeightSection === QueriesTabSection.Highlighted}
                                 {...props}
                             />
                         )}
-                        {highlightedQueries.length === 0 && !highlightedQueriesLoading && (
+                        {!showHighlightedSection && (
                             <EmptyQueriesSection
-                                sectionName="Highlighted Queries"
-                                tooltip="Curated queries relevant to this dataset"
+                                sectionName={t('queriesTab.highlightedQueriesTitle')}
+                                tooltip={t('queriesTab.highlightedQueriesTooltip')}
                                 tooltipPosition="bottom"
                                 showButton
-                                buttonLabel="Add Highlighted Query"
+                                buttonLabel={t('queriesTab.addHighlightedQueryButton')}
                                 isButtonDisabled={!canEditQueries}
                                 onButtonClick={() => setShowQueryBuilder(true)}
                             />
                         )}
-                        {downstreamQueries.length > 0 && (
+                        {showDownstreamSection && (
                             <QueriesListSection
-                                title="Downstream Queries"
+                                title={t('queriesTab.downstreamQueriesTitle')}
                                 section={QueriesTabSection.Downstream}
-                                tooltip="Queries that power downstream assets"
+                                tooltip={t('queriesTab.downstreamQueriesTooltip')}
                                 queries={downstreamQueries}
                                 totalQueries={downstreamQueries.length}
+                                fillHeight={fillHeightSection === QueriesTabSection.Downstream}
                                 {...props}
                             />
                         )}
-                        {recentQueries.length > 0 && (
+                        {showRecentSection && (
                             <QueriesListSection
-                                title="Recent Queries"
+                                title={t('queriesTab.recentQueriesTitle')}
                                 section={QueriesTabSection.Recent}
-                                tooltip="Recently executed queries against this dataset"
+                                tooltip={t('queriesTab.recentQueriesTooltip')}
                                 queries={recentQueries}
                                 totalQueries={recentQueries.length}
+                                fillHeight={fillHeightSection === QueriesTabSection.Recent}
                                 {...props}
                             />
                         )}
@@ -172,7 +199,7 @@ export default function QueriesTab() {
             </Content>
             {showQueryBuilder && (
                 <QueryBuilderModal
-                    datasetUrn={baseEntity.dataset?.urn}
+                    datasetUrn={baseEntity?.dataset?.urn}
                     onClose={() => setShowQueryBuilder(false)}
                     onSubmit={onQueryCreated}
                 />

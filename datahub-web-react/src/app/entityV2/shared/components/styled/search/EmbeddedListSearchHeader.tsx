@@ -1,7 +1,9 @@
 import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useContext, useState } from 'react';
-import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { EntityAndType } from '@app/entity/shared/types';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
@@ -11,7 +13,7 @@ import { SearchBar } from '@app/search/SearchBar';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import { useSearchContext } from '@src/app/search/context/SearchContext';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
 
@@ -40,13 +42,13 @@ const ImpactAnalysisWarning = styled.div`
     padding: 12px 20px;
     display: flex;
     align-items: center;
-    background-color: ${colors.yellow[0]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
     z-index: 1;
 `;
 
 const StyledButton = styled(Button)`
     margin-left: auto;
-    color: #ee9521;
+    color: ${(props) => props.theme.colors.iconWarning};
     padding: 0;
 `;
 
@@ -87,6 +89,8 @@ export default function EmbeddedListSearchHeader({
     searchBarStyle,
     searchBarInputStyle,
 }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
     const { lineageSearchPath } = useContext(LineageTabContext);
@@ -96,15 +100,15 @@ export default function EmbeddedListSearchHeader({
         <>
             <TabToolbar>
                 <HeaderContainer>
-                    <AntButton type="text" onClick={onToggleFilters}>
+                    <AntButton type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
                         <FilterOutlined />
-                        <Typography.Text>Filters</Typography.Text>
+                        <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
                     </AntButton>
                     <SearchAndDownloadContainer>
                         <SearchBar
                             data-testid="embedded-search-bar"
                             initialQuery=""
-                            placeholderText={placeholderText || 'Search entities...'}
+                            placeholderText={placeholderText || t('embeddedSearch.searchEntitiesPlaceholder')}
                             suggestions={[]}
                             style={
                                 searchBarStyle || {
@@ -155,12 +159,12 @@ export default function EmbeddedListSearchHeader({
             )}
             {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
-                    Some results shown may not exist yet in DataHub
+                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                    {t('embeddedSearch.impactWarning')}
                     <StyledButton
                         onClick={() => setShowLightningWarning(false)}
                         variant="text"
-                        icon={{ icon: 'Close' }}
+                        icon={{ icon: X }}
                         size="xl"
                         data-testid="close-lightning-cache-warning"
                     />

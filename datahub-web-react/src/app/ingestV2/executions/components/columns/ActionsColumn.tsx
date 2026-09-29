@@ -1,9 +1,17 @@
 import { Icon } from '@components';
+import { ArrowUUpLeft } from '@phosphor-icons/react/dist/csr/ArrowUUpLeft';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { EXECUTION_REQUEST_STATUS_RUNNING, EXECUTION_REQUEST_STATUS_SUCCESS } from '@app/ingestV2/executions/constants';
+import { ItemType } from '@components/components/Menu/types';
+
+import {
+    EXECUTION_REQUEST_STATUS_RUNNING,
+    EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
+    EXECUTION_REQUEST_STATUS_SUCCESS,
+} from '@app/ingestV2/executions/constants';
 import { ExecutionRequestRecord } from '@app/ingestV2/executions/types';
-import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
+import BaseActionsColumn from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 
 interface ActionsColumnProps {
     record: ExecutionRequestRecord;
@@ -13,38 +21,35 @@ interface ActionsColumnProps {
 }
 
 export function ActionsColumn({ record, handleViewDetails, handleRollback, handleCancel }: ActionsColumnProps) {
-    const items = [
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
+    const items: ItemType[] = [
         {
-            key: '0',
+            type: 'item',
+            key: 'copy-urn',
+            title: t('executions.copyUrn'),
             disabled: !record.urn || !navigator.clipboard,
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        navigator.clipboard.writeText(record.urn);
-                    }}
-                >
-                    Copy URN
-                </MenuItem>
-            ),
+            onClick: () => {
+                navigator.clipboard.writeText(record.urn);
+            },
         },
         {
-            key: '1',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        handleViewDetails(record.urn);
-                    }}
-                >
-                    Details
-                </MenuItem>
-            ),
+            type: 'item',
+            key: 'details',
+            title: tl('details'),
+            onClick: () => {
+                handleViewDetails(record.urn);
+            },
         },
     ];
 
     if (record.status === EXECUTION_REQUEST_STATUS_RUNNING) {
         items.push({
-            key: '2',
-            label: <MenuItem onClick={() => handleCancel(record.urn)}>Cancel</MenuItem>,
+            type: 'item',
+            key: 'cancel',
+            title: tc('cancel'),
+            onClick: () => handleCancel(record.urn),
         });
     }
 
@@ -52,12 +57,13 @@ export function ActionsColumn({ record, handleViewDetails, handleRollback, handl
         <BaseActionsColumn
             dropdownItems={items}
             extraActions={
-                record.status === EXECUTION_REQUEST_STATUS_SUCCESS && record.showRollback ? (
+                (record.status === EXECUTION_REQUEST_STATUS_SUCCESS ||
+                    record.status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS) &&
+                record.showRollback ? (
                     <Icon
-                        icon="ArrowUUpLeft"
-                        source="phosphor"
+                        icon={ArrowUUpLeft}
                         onClick={() => handleRollback(record.id)}
-                        tooltipText="Rollback"
+                        tooltipText={t('executions.rollback')}
                     />
                 ) : null
             }

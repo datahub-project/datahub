@@ -1,6 +1,6 @@
 import { EntityType, FabricType, PlatformNativeType } from '@types';
 
-export const sampleUpstreamEntities = [
+const sampleUpstreamEntities = [
     {
         name: 'Upstream HiveDataset',
         type: EntityType.Dataset,
@@ -43,7 +43,7 @@ export const sampleUpstreamEntities = [
     },
 ];
 
-export const sampleDownstreamEntities = [
+const sampleDownstreamEntities = [
     {
         name: 'Downstream HiveDataset',
         type: EntityType.Dataset,

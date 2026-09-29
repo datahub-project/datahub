@@ -125,6 +125,7 @@ def construct_schema(
         # in mongodb ingestor)
         max_count = 0
         for key, value in doc.items():
+            key = str(key)
             new_parent_prefix = parent_prefix + (key,)
 
             # if nested value, look at the types within

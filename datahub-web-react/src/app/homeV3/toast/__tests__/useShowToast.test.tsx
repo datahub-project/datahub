@@ -1,112 +1,97 @@
+import { render, screen } from '@testing-library/react';
 import { act, renderHook } from '@testing-library/react-hooks';
-import { notification } from 'antd';
 import React from 'react';
+import { ThemeProvider } from 'styled-components';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import useShowToast from '@app/homeV3/toast/useShowToast';
+import { ToastRenderer, toast } from '@components/components/Toast';
 
-interface NotificationArgsProps {
-    message?: React.ReactNode;
-    description?: React.ReactNode;
-    placement?: string;
-    duration?: number;
-    icon?: React.ReactNode;
-    closeIcon?: React.ReactNode;
-    style?: React.CSSProperties;
+import useShowToast from '@app/homeV3/toast/useShowToast';
+import themeV2 from '@conf/theme/themeV2';
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <ThemeProvider theme={themeV2}>{children}</ThemeProvider>
+);
+
+function renderToasts() {
+    return render(
+        <ThemeProvider theme={themeV2}>
+            <ToastRenderer />
+        </ThemeProvider>,
+    );
 }
 
 describe('useShowToast', () => {
-    let notificationOpenSpy: ReturnType<typeof vi.spyOn>;
-
     beforeEach(() => {
-        notificationOpenSpy = vi.spyOn(notification, 'open').mockImplementation(() => {});
+        vi.useFakeTimers();
+        toast.destroy();
+        vi.runAllTimers();
     });
 
     afterEach(() => {
-        vi.clearAllMocks();
+        toast.destroy();
+        vi.runAllTimers();
+        vi.useRealTimers();
     });
 
     it('should return a showToast function', () => {
-        const { result } = renderHook(() => useShowToast());
+        const { result } = renderHook(() => useShowToast(), { wrapper });
         expect(typeof result.current.showToast).toBe('function');
     });
 
-    it('should call notification.open with correct config on showToast call', () => {
-        const { result } = renderHook(() => useShowToast());
-
-        const sampleTitle = 'Test Title';
-        const sampleDescription = 'Sample description text';
-
-        act(() => {
-            result.current.showToast(sampleTitle, sampleDescription);
-        });
-
-        expect(notificationOpenSpy).toHaveBeenCalledTimes(1);
-
-        const config = notificationOpenSpy.mock.calls[0][0] as NotificationArgsProps;
-
-        expect(config.placement).toBe('bottomRight');
-        expect(config.duration).toBe(0);
-
-        expect(config.style).toMatchObject({
-            backgroundColor: expect.any(String),
-            borderRadius: expect.any(Number),
-            width: expect.any(String),
-            padding: expect.any(String),
-            right: expect.any(Number),
-            bottom: expect.any(Number),
-        });
-
-        expect(React.isValidElement(config.icon)).toBe(true);
-        expect(React.isValidElement(config.closeIcon)).toBe(true);
-
-        expect(React.isValidElement(config.message)).toBe(true);
-        expect(React.isValidElement(config.description)).toBe(true);
-
-        if (React.isValidElement(config.message)) {
-            const messageProps = config.message.props;
-            expect(messageProps.children).toBe(sampleTitle);
-            expect(messageProps.color).toBe('blue');
-            expect(messageProps.colorLevel).toBe(1000);
-            expect(messageProps.weight).toBe('semiBold');
-            expect(messageProps.lineHeight).toBe('sm');
-        } else {
-            throw new Error('config.message is not a valid React element');
-        }
-
-        if (React.isValidElement(config.description)) {
-            const descriptionProps = config.description.props;
-            expect(descriptionProps.children).toBe(sampleDescription);
-            expect(descriptionProps.color).toBe('blue');
-            expect(descriptionProps.colorLevel).toBe(1000);
-            expect(descriptionProps.lineHeight).toBe('sm');
-        } else {
-            throw new Error('config.description is not a valid React element');
-        }
+    it('should return a stable showToast reference across renders', () => {
+        const { result, rerender } = renderHook(() => useShowToast(), { wrapper });
+        const first = result.current.showToast;
+        rerender();
+        expect(result.current.showToast).toBe(first);
     });
 
-    it('should handle missing description gracefully', () => {
-        const { result } = renderHook(() => useShowToast());
-
-        const sampleTitle = 'Only Title';
+    it('should render the title and description', () => {
+        const { result } = renderHook(() => useShowToast(), { wrapper });
+        renderToasts();
 
         act(() => {
-            result.current.showToast(sampleTitle);
+            result.current.showToast('Test Title', 'Sample description text');
         });
 
-        expect(notificationOpenSpy).toHaveBeenCalledTimes(1);
+        expect(screen.getByText('Test Title')).toBeInTheDocument();
+        expect(screen.getByText('Sample description text')).toBeInTheDocument();
+    });
 
-        const config = notificationOpenSpy.mock.calls[0][0] as NotificationArgsProps;
+    it('should apply the data test id to the title', () => {
+        const { result } = renderHook(() => useShowToast(), { wrapper });
+        renderToasts();
 
-        expect(React.isValidElement(config.message)).toBe(true);
+        act(() => {
+            result.current.showToast('Titled', undefined, 'my-toast');
+        });
 
-        if (config.description === undefined || config.description === null) {
-            expect(config.description).toBeUndefined();
-        } else if (React.isValidElement(config.description)) {
-            const descriptionProps = config.description.props;
-            expect(descriptionProps.children).toBeUndefined();
-        } else {
-            throw new Error('config.description is not a valid React element or undefined');
-        }
+        expect(screen.getByTestId('my-toast')).toHaveTextContent('Titled');
+    });
+
+    it('should handle a missing description gracefully', () => {
+        const { result } = renderHook(() => useShowToast(), { wrapper });
+        renderToasts();
+
+        act(() => {
+            result.current.showToast('Only Title');
+        });
+
+        expect(screen.getByText('Only Title')).toBeInTheDocument();
+    });
+
+    it('should persist until dismissed rather than auto-dismissing', () => {
+        const { result } = renderHook(() => useShowToast(), { wrapper });
+        renderToasts();
+
+        act(() => {
+            result.current.showToast('Sticky');
+        });
+
+        act(() => {
+            vi.advanceTimersByTime(10_000);
+        });
+
+        expect(screen.getByText('Sticky')).toBeInTheDocument();
     });
 });

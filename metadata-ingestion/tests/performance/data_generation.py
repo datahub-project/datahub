@@ -166,10 +166,10 @@ def generate_lineage(
 
     # TODO: Python 3.9 use random.sample with counts
     sample = []
-    for table, weight in zip(tables, table_weights):
+    for table, weight in zip(tables, table_weights, strict=False):
         for _ in range(weight):
             sample.append(table)
-    for view, weight in zip(views, view_weights):
+    for view, weight in zip(views, view_weights, strict=False):
         for _ in range(weight):
             sample.append(view)
     for i, table in enumerate(tables):

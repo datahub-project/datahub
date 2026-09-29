@@ -14,8 +14,8 @@ query getDataProduct($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
+        deprecation {
+            ...deprecationFields
         }
         ...notes
         settings {
@@ -68,6 +68,20 @@ fragment dataProductSearchFields on DataProduct {
         createdOn {
             time
         }
+        parentDataProduct {
+            urn
+            type
+            properties {
+                name
+            }
+        }
+    }
+    parentDataProducts {
+        urn
+        type
+        properties {
+            name
+        }
     }
     ownership {
         ...ownershipFields
@@ -81,9 +95,22 @@ fragment dataProductSearchFields on DataProduct {
     domain {
         ...entityDomain
     }
+    applications {
+        ...entityApplication
+    }
+    deprecation {
+        ...deprecationFields
+    }
+    privileges {
+        ...entityPrivileges
+    }
     entities(input: { start: 0, count: 0, query: "*" }) {
         total
     }
+}
+
+mutation moveDataProduct($input: MoveDataProductInput!) {
+    moveDataProduct(input: $input)
 }
 
 mutation createDataProduct($input: CreateDataProductInput!) {
@@ -104,4 +131,29 @@ mutation deleteDataProduct($urn: String!) {
 
 mutation batchSetDataProduct($input: BatchSetDataProductInput!) {
     batchSetDataProduct(input: $input)
+}
+
+mutation batchAddToDataProducts($input: BatchSetDataProductsInput!) {
+    batchAddToDataProducts(input: $input)
+}
+
+mutation batchRemoveFromDataProducts($input: BatchSetDataProductsInput!) {
+    batchRemoveFromDataProducts(input: $input)
+}
+
+query getDataProductEntitiesForLineage($urn: String!, $start: Int!, $count: Int!) {
+    dataProduct(urn: $urn) {
+        urn
+        type
+        exists
+        entities(input: { start: $start, count: $count, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+    }
 }

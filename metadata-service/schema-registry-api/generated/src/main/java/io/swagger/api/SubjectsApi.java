@@ -32,7 +32,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@javax.annotation.Generated(
+@javax.annotation.processing.Generated(
     value = "io.swagger.codegen.v3.generators.java.SpringCodegen",
     date = "2022-12-20T16:52:36.517693Z[Europe/Lisbon]")
 @Validated

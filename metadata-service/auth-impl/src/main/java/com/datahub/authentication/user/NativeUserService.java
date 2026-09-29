@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class NativeUserService {
-  private static final long ONE_DAY_MILLIS = TimeUnit.DAYS.toMillis(1);
+  private static final long DEFAULT_PASSWORD_RESET_TOKEN_EXPIRATION_MS = TimeUnit.DAYS.toMillis(1);
 
   private final EntityService<?> _entityService;
   private final EntityClient _entityClient;
@@ -40,13 +40,12 @@ public class NativeUserService {
       @Nonnull String userUrnString,
       @Nonnull String fullName,
       @Nonnull String email,
-      @Nonnull String title,
+      String title,
       @Nonnull String password)
       throws Exception {
     Objects.requireNonNull(userUrnString, "userUrnSting must not be null!");
     Objects.requireNonNull(fullName, "fullName must not be null!");
     Objects.requireNonNull(email, "email must not be null!");
-    Objects.requireNonNull(title, "title must not be null!");
     Objects.requireNonNull(password, "password must not be null!");
     Objects.requireNonNull(
         opContext.getSessionAuthentication(), "authentication must not be null!");
@@ -57,7 +56,6 @@ public class NativeUserService {
         // put in
         || userUrn.toString().equals(SYSTEM_ACTOR)
         || userUrn.toString().equals(new CorpuserUrn(_authConfig.getSystemClientId()).toString())
-        || userUrn.toString().equals(DATAHUB_ACTOR)
         || userUrn.toString().equals(UNKNOWN_ACTOR)) {
       throw new RuntimeException("This user already exists! Cannot create a new user.");
     }
@@ -71,14 +69,16 @@ public class NativeUserService {
       @Nonnull Urn userUrn,
       @Nonnull String fullName,
       @Nonnull String email,
-      @Nonnull String title)
+      String title)
       throws Exception {
     // Construct corpUserInfo
     final CorpUserInfo corpUserInfo = new CorpUserInfo();
     corpUserInfo.setFullName(fullName);
     corpUserInfo.setDisplayName(fullName);
     corpUserInfo.setEmail(email);
-    corpUserInfo.setTitle(title);
+    if (title != null) {
+      corpUserInfo.setTitle(title);
+    }
     corpUserInfo.setActive(true);
 
     // Ingest corpUserInfo MCP
@@ -117,7 +117,8 @@ public class NativeUserService {
     // Construct corpUserCredentials
     CorpUserCredentials corpUserCredentials = new CorpUserCredentials();
     final byte[] salt = _secretService.generateSalt(SALT_TOKEN_LENGTH);
-    String encryptedSalt = _secretService.encrypt(Base64.getEncoder().encodeToString(salt));
+    String encryptedSalt =
+        _secretService.encrypt(opContext, Base64.getEncoder().encodeToString(salt));
     corpUserCredentials.setSalt(encryptedSalt);
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     corpUserCredentials.setHashedPassword(hashedPassword);
@@ -148,9 +149,14 @@ public class NativeUserService {
     }
     // Add reset token to CorpUserCredentials
     String passwordResetToken = _secretService.generateUrlSafeToken(PASSWORD_RESET_TOKEN_LENGTH);
-    corpUserCredentials.setPasswordResetToken(_secretService.encrypt(passwordResetToken));
+    corpUserCredentials.setPasswordResetToken(
+        _secretService.encrypt(opContext, passwordResetToken));
 
-    long expirationTime = Instant.now().plusMillis(ONE_DAY_MILLIS).toEpochMilli();
+    long tokenExpirationMs = _authConfig.getPasswordResetTokenExpirationMs();
+    if (tokenExpirationMs <= 0) {
+      tokenExpirationMs = DEFAULT_PASSWORD_RESET_TOKEN_EXPIRATION_MS;
+    }
+    long expirationTime = Instant.now().plusMillis(tokenExpirationMs).toEpochMilli();
     corpUserCredentials.setPasswordResetTokenExpirationTimeMillis(expirationTime);
 
     // Ingest CorpUserCredentials MCP
@@ -193,7 +199,9 @@ public class NativeUserService {
       throw new RuntimeException("User has not generated a password reset token!");
     }
 
-    if (!_secretService.decrypt(corpUserCredentials.getPasswordResetToken()).equals(resetToken)) {
+    if (!_secretService
+        .decrypt(opContext, corpUserCredentials.getPasswordResetToken())
+        .equals(resetToken)) {
       throw new RuntimeException(
           "Invalid reset token. Please ask your administrator to send you an updated link!");
     }
@@ -206,7 +214,8 @@ public class NativeUserService {
 
     // Construct corpUserCredentials
     final byte[] salt = _secretService.generateSalt(SALT_TOKEN_LENGTH);
-    String encryptedSalt = _secretService.encrypt(Base64.getEncoder().encodeToString(salt));
+    String encryptedSalt =
+        _secretService.encrypt(opContext, Base64.getEncoder().encodeToString(salt));
     corpUserCredentials.setSalt(encryptedSalt);
     String hashedPassword = _secretService.getHashedPassword(salt, password);
     corpUserCredentials.setHashedPassword(hashedPassword);
@@ -237,7 +246,7 @@ public class NativeUserService {
       return false;
     }
 
-    String decryptedSalt = _secretService.decrypt(corpUserCredentials.getSalt());
+    String decryptedSalt = _secretService.decrypt(opContext, corpUserCredentials.getSalt());
     byte[] salt = Base64.getDecoder().decode(decryptedSalt);
     String storedHashedPassword = corpUserCredentials.getHashedPassword();
     String hashedPassword = _secretService.getHashedPassword(salt, password);

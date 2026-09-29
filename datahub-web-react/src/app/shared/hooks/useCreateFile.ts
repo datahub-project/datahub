@@ -5,6 +5,8 @@ import { PRODUCT_ASSETS_FOLDER } from '@app/shared/constants';
 import { useCreateDataHubFileMutation } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';
 
+// keep this consistent with same const in li-utils/src/main/java/com/linkedin/metadata/Constants.java
+export const S3_FILE_ID_NAME_SEPARATOR = '__';
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 300;
 
@@ -53,7 +55,7 @@ export default function useCreateFile({ scenario, assetUrn, schemaField }: Props
                                 schemaField,
                                 scenario,
                                 sizeInBytes: file.size,
-                                storageKey: `${PRODUCT_ASSETS_FOLDER}/${fileId}`,
+                                storageKey: `${PRODUCT_ASSETS_FOLDER}/${fileId}${S3_FILE_ID_NAME_SEPARATOR}${file.name}`,
                                 contentHash,
                             },
                         },

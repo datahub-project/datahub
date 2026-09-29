@@ -1,18 +1,16 @@
-import { Typography } from 'antd';
+import { Heading, Text } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import QueryCardDetailsMenu from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardDetailsMenu';
-import QueryCardEditButton from '@app/entityV2/shared/tabs/Dataset/Queries/QueryCardEditButton';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
 
-const Title = styled(Typography.Title)<{ secondary?: boolean }>`
+const Title = styled(Heading)<{ secondary?: boolean }>`
     && {
         margin: 0px;
         padding: 0px;
-        color: ${(props) => (props.secondary && ANTD_GRAY[6]) || ANTD_GRAY[9]};
+        color: ${(props) => (props.secondary && props.theme.colors.textTertiary) || props.theme.colors.text};
     }
     max-height: 40px;
     overflow: hidden;
@@ -29,18 +27,6 @@ const Header = styled.div`
     align-items: center;
     justify-content: space-between;
     white-space: nowrap;
-`;
-
-const Actions = styled.div`
-    flex-wrap: nowrap;
-`;
-
-const EditQueryAction = styled.span`
-    && {
-        margin: 0px;
-        padding: 0px;
-        margin-left: 4px;
-    }
 `;
 
 const Description = styled.div`
@@ -64,68 +50,43 @@ const Date = styled.div`
 
 const EmptyText = styled.div`
     && {
-        color: ${ANTD_GRAY[6]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
-export type Props = {
-    urn?: string;
+type Props = {
     title?: string;
     description?: string;
     createdAtMs?: number;
-    showDelete?: boolean;
-    showEdit?: boolean;
-    onDeleted?: (urn) => void;
     onClickExpand?: () => void;
-    onClickEdit?: () => void;
-    index?: number;
 };
 
-export default function QueryCardDetails({
-    urn,
-    title,
-    description,
-    createdAtMs,
-    showDelete,
-    showEdit,
-    onClickExpand,
-    onClickEdit,
-    onDeleted,
-    index,
-}: Props) {
+export default function QueryCardDetails({ title, description, createdAtMs, onClickExpand }: Props) {
+    const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <Details>
             <Header>
-                <Title secondary={!title} level={5}>
-                    {title || 'No title'}
+                <Title secondary={!title} type="h5">
+                    {title || t('queryCard.noTitle')}
                 </Title>
-                <Actions>
-                    {showEdit && (
-                        <EditQueryAction>
-                            <QueryCardEditButton onClickEdit={onClickEdit} index={index} />
-                        </EditQueryAction>
-                    )}
-                    {showDelete && urn && (
-                        <EditQueryAction>
-                            <QueryCardDetailsMenu urn={urn} onDeleted={onDeleted} index={index} />
-                        </EditQueryAction>
-                    )}
-                </Actions>
             </Header>
             <Description>
                 {(description && (
                     <NoMarkdownViewer
                         shouldWrap
                         limit={200}
-                        readMore={<MoreButton onClick={onClickExpand}>more</MoreButton>}
+                        readMore={<MoreButton onClick={onClickExpand}>{tc('more')}</MoreButton>}
                     >
                         {description}
                     </NoMarkdownViewer>
-                )) || <EmptyText>No description</EmptyText>}
+                )) || <EmptyText>{t('queryCard.noDescription')}</EmptyText>}
             </Description>
             <Date>
                 {(createdAtMs && (
-                    <Typography.Text type="secondary">Created on {toLocalDateString(createdAtMs)}</Typography.Text>
+                    <Text type="span" color="textSecondary">
+                        {t('queryCard.createdOn', { date: toLocalDateString(createdAtMs) })}
+                    </Text>
                 )) ||
                     undefined}
             </Date>

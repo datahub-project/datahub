@@ -1,16 +1,10 @@
-import { Text } from '@components';
+import { EmptyState } from '@components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 
 import { EmptyContainer } from '@app/govern/structuredProperties/styledComponents';
-import EmptyFormsImage from '@src/images/empty-forms.svg?react';
-
-export const TextContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-`;
 
 interface Props {
     sourceType?: string;
@@ -18,24 +12,20 @@ interface Props {
 }
 
 const EmptySources = ({ sourceType, isEmptySearchResult }: Props) => {
+    const { t } = useTranslation('ingestion');
     return (
         <EmptyContainer>
             {isEmptySearchResult ? (
-                <TextContainer>
-                    <Text size="lg" color="gray" weight="bold">
-                        No search results!
-                    </Text>
-                    <Text size="sm" color="gray" weight="normal">
-                        Try another search query with at least 3 characters...
-                    </Text>
-                </TextContainer>
+                <EmptyState
+                    icon={MagnifyingGlass}
+                    title={t('source.emptySearchTitle')}
+                    description={t('source.emptySearchSubtitle')}
+                />
             ) : (
-                <>
-                    <EmptyFormsImage />
-                    <Text size="md" color="gray" weight="bold">
-                        {`No ${sourceType || 'sources'} yet!`}
-                    </Text>
-                </>
+                <EmptyState
+                    icon={Plugs}
+                    title={t('source.emptyTitle', { sourceType: sourceType || t('source.sourcesNoun') })}
+                />
             )}
         </EmptyContainer>
     );

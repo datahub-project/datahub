@@ -1,15 +1,5 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { PropertyRow, ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
-
-import { CustomPropertiesEntry } from '@types';
-
-export function mapCustomPropertiesToPropertyRows(customProperties: CustomPropertiesEntry[]) {
-    return (customProperties?.map((customProp) => ({
-        displayName: customProp.key,
-        values: [{ value: customProp.value || '' }],
-    })) || []) as PropertyRow[];
-}
 
 function matchesName(name: string, filterText: string) {
     return name.toLocaleLowerCase().includes(filterText.toLocaleLowerCase());
@@ -23,10 +13,17 @@ function matchesAnyFromValues(values: ValueColumnData[], filterText: string, ent
     );
 }
 
-export function getFilteredCustomProperties(filterText: string, entityData?: GenericEntityProperties | null) {
-    return entityData?.customProperties?.filter(
-        (property) => matchesName(property.key, filterText) || matchesName(property.value || '', filterText),
-    );
+function filterHiddenPropertiesRecursive(rows: PropertyRow[]): PropertyRow[] {
+    return rows
+        .filter((row) => !row.structuredProperty?.settings?.isHidden)
+        .map((row) => {
+            const filteredChildren = row.children ? filterHiddenPropertiesRecursive(row.children) : undefined;
+            return {
+                ...row,
+                children: filteredChildren,
+                childrenCount: filteredChildren ? filteredChildren.length : row.childrenCount,
+            };
+        });
 }
 
 export function filterStructuredProperties(
@@ -65,4 +62,8 @@ export function filterStructuredProperties(
     const filteredRows = propertyRows.filter((row) => finalQualifiedNames.has(row.qualifiedName));
 
     return { filteredRows, expandedRowsFromFilter };
+}
+
+export function filterHiddenProperties(rows: PropertyRow[]): PropertyRow[] {
+    return filterHiddenPropertiesRecursive(rows);
 }

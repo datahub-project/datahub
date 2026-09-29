@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.entity.Aspect;
@@ -28,6 +29,7 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.structured.StructuredPropertySettings;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -50,9 +52,11 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return validateSettingsUpserts(
+        operationContext,
         mcpItems.stream()
             .filter(i -> STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME.equals(i.getAspectName()))
             .collect(Collectors.toList()),
@@ -61,12 +65,15 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 
   @VisibleForTesting
   public static Stream<AspectValidationException> validateSettingsUpserts(
+      OperationFingerprint operationFingerprint,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
@@ -87,35 +94,43 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
         // Only need to get first set, if there are more then will have to resolve bad state
         ScrollResult scrollResult = scrollIterator.next();
         if (CollectionUtils.isNotEmpty(scrollResult.getEntities())) {
-          if (scrollResult.getEntities().size() > 1) {
-            // If it's greater than one, don't bother querying DB since we for sure are in a bad
-            // state
-            exceptions.addException(
-                mcpItem,
-                StructuredPropertyUtils.ONLY_ONE_BADGE
-                    + scrollResult.getEntities().stream()
-                        .map(SearchEntity::getEntity)
-                        .collect(Collectors.toList()));
-          } else {
-            // If there is just one, verify against DB to make sure we're not hitting a timing issue
-            // with eventual consistency
-            AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
-            Optional<Aspect> propertySettings =
-                Optional.ofNullable(
-                    aspectRetriever.getLatestAspectObject(
-                        scrollResult.getEntities().get(0).getEntity(),
-                        STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME));
-            if (propertySettings.isPresent()) {
-              StructuredPropertySettings dbBadgeSettings =
-                  RecordUtils.toRecordTemplate(
-                      StructuredPropertySettings.class, propertySettings.get().data());
-              if (dbBadgeSettings.isShowAsAssetBadge()) {
-                exceptions.addException(
-                    mcpItem,
-                    StructuredPropertyUtils.ONLY_ONE_BADGE
-                        + scrollResult.getEntities().stream()
-                            .map(SearchEntity::getEntity)
-                            .collect(Collectors.toList()));
+          // Filter out the current entity being updated - it's allowed to keep its own badge
+          List<SearchEntity> otherBadgeEntities =
+              scrollResult.getEntities().stream()
+                  .filter(entity -> !entity.getEntity().equals(mcpItem.getUrn()))
+                  .collect(Collectors.toList());
+          if (CollectionUtils.isNotEmpty(otherBadgeEntities)) {
+            if (otherBadgeEntities.size() > 1) {
+              // If it's greater than one, don't bother querying DB since we for sure are in a bad
+              // state
+              exceptions.addException(
+                  mcpItem,
+                  StructuredPropertyUtils.ONLY_ONE_BADGE
+                      + otherBadgeEntities.stream()
+                          .map(SearchEntity::getEntity)
+                          .collect(Collectors.toList()));
+            } else {
+              // If there is just one, verify against DB to make sure we're not hitting a timing
+              // issue with eventual consistency
+              AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
+              Optional<Aspect> propertySettings =
+                  Optional.ofNullable(
+                      aspectRetriever.getLatestAspectObject(
+                          operationFingerprint,
+                          otherBadgeEntities.get(0).getEntity(),
+                          STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME));
+              if (propertySettings.isPresent()) {
+                StructuredPropertySettings dbBadgeSettings =
+                    RecordUtils.toRecordTemplate(
+                        StructuredPropertySettings.class, propertySettings.get().data());
+                if (dbBadgeSettings.isShowAsAssetBadge()) {
+                  exceptions.addException(
+                      mcpItem,
+                      StructuredPropertyUtils.ONLY_ONE_BADGE
+                          + otherBadgeEntities.stream()
+                              .map(SearchEntity::getEntity)
+                              .collect(Collectors.toList()));
+                }
               }
             }
           }

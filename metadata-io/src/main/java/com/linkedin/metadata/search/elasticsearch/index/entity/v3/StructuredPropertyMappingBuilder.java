@@ -1,16 +1,21 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
+import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -31,38 +36,33 @@ public class StructuredPropertyMappingBuilder {
       @Nonnull EntitySpec entitySpec,
       @Nullable Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
 
-    Map<String, Object> mappings = new HashMap<>();
-
     if (structuredProperties == null || structuredProperties.isEmpty()) {
-      return mappings;
+      return Map.of();
     }
 
     // Filter structured properties for this entity type
     String entityType = entitySpec.getEntityAnnotation().getName();
-    structuredProperties.stream()
-        .filter(
-            pair -> {
-              StructuredPropertyDefinition definition = pair.getValue();
-              return definition.getEntityTypes() != null
-                  && definition.getEntityTypes().stream()
-                      .anyMatch(
-                          urn -> {
-                            // Extract entity type name from URN like "urn:li:entityType:dataset"
-                            String urnString = urn.toString();
-                            String[] parts = urnString.split(":");
-                            return parts.length > 3 && parts[3].equals(entityType);
-                          });
-            })
-        .forEach(
-            pair -> {
-              Urn propertyUrn = pair.getKey();
-              StructuredPropertyDefinition definition = pair.getValue();
-              String fieldName = toElasticsearchFieldName(propertyUrn, definition);
-              Map<String, Object> fieldMapping = getMappingsForStructuredProperty(definition);
-              mappings.put(fieldName, fieldMapping);
-            });
+    List<StructuredPropertyUtils.StructuredPropertyFieldMapping> entries =
+        structuredProperties.stream()
+            .filter(
+                pair -> {
+                  StructuredPropertyDefinition definition = pair.getValue();
+                  return definition.getEntityTypes() != null
+                      && definition.getEntityTypes().stream()
+                          .anyMatch(entityTypeUrn -> entityTypeMatches(entityTypeUrn, entityType));
+                })
+            .map(
+                pair -> {
+                  Urn propertyUrn = pair.getKey();
+                  StructuredPropertyDefinition definition = pair.getValue();
+                  String fieldName = toElasticsearchFieldName(propertyUrn, definition);
+                  Map<String, Object> fieldMapping = getMappingsForStructuredProperty(definition);
+                  return new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                      fieldName, propertyUrn, fieldMapping);
+                })
+            .collect(Collectors.toList());
 
-    return mappings;
+    return StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(entries);
   }
 
   /**
@@ -76,8 +76,7 @@ public class StructuredPropertyMappingBuilder {
 
     Map<String, Object> fieldMapping = new HashMap<>();
 
-    String valueType = definition.getValueType().getId();
-    LogicalValueType logicalValueType = LogicalValueType.valueOf(valueType);
+    LogicalValueType logicalValueType = getLogicalValueType(definition.getValueType());
     String elasticsearchType =
         FieldTypeMapper.getElasticsearchTypeForLogicalValueType(logicalValueType);
 

@@ -1,11 +1,13 @@
-export interface BreadcrumbItem {
+export interface BreadcrumbItemType {
+    key: string;
     label: string | React.ReactNode;
     href?: string;
     onClick?: () => void;
-    isCurrent?: boolean;
+    isActive?: boolean;
     separator?: React.ReactNode;
 }
 
 export interface BreadcrumbProps {
-    items: BreadcrumbItem[];
+    items: BreadcrumbItemType[];
+    showPopover?: boolean;
 }

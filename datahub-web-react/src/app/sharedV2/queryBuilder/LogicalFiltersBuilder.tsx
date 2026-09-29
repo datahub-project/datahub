@@ -8,9 +8,11 @@ interface Props {
     filters: LogicalPredicate | PropertyPredicate;
     onChangeFilters: (newPredicate?: LogicalPredicate) => void;
     properties: Property[];
+    /** When true, hides the "Add Group" button (use when the backend model is flat). */
+    hideAddGroup?: boolean;
 }
 
-const LogicalFiltersBuilder = ({ filters, onChangeFilters, properties }: Props) => {
+const LogicalFiltersBuilder = ({ filters, onChangeFilters, properties, hideAddGroup }: Props) => {
     const clearFilters = () => {
         onChangeFilters(undefined);
     };
@@ -23,6 +25,7 @@ const LogicalFiltersBuilder = ({ filters, onChangeFilters, properties }: Props) 
             clearFilters={clearFilters}
             depth={0}
             index={0}
+            hideAddGroup={hideAddGroup}
         />
     );
 };

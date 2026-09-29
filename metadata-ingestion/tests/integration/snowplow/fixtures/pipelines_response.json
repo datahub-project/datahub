@@ -1,0 +1,20 @@
+{
+  "pipelines": [
+    {
+      "id": "a44e4bc8-6948-4844-91c4-96bfb1f7f3dc",
+      "name": "Default",
+      "status": "ready",
+      "label": "prod",
+      "workspaceId": "8f12a845-7a19-4eb2-b902-d31fe66d1cdf",
+      "k8sNamespaceId": "9dceb618-d219-4821-a8de-7114e5cb1e75",
+      "k8sClusterId": "c75e1a9a-7ff9-4705-93c3-fb5a1661e7f5",
+      "cloudSetupId": "99f6203a-2103-4246-b6e3-169ea75cdf54",
+      "config": {
+        "collectorEndpoints": ["com-datahub-stpgw.collector.snplow.net"],
+        "incompleteStreamDeployed": false,
+        "enrichAcceptInvalid": false,
+        "enrichAtomicFieldsLimits": {}
+      }
+    }
+  ]
+}

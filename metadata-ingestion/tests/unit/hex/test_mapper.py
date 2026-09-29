@@ -1,4 +1,3 @@
-import unittest
 from datetime import datetime
 
 from datahub.emitter.mce_builder import make_tag_urn, make_ts_millis, make_user_urn
@@ -28,6 +27,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dashboard import (
 )
 from datahub.metadata.schema_classes import (
     CalendarIntervalClass,
+    ChartInfoClass,
     ContainerClass,
     ContainerPropertiesClass,
     DashboardInfoClass,
@@ -41,8 +41,9 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DashboardUrn
 
 
-class TestMapper(unittest.TestCase):
+class TestMapper:
     workspace_name = "test-workspace"
+    workspace_id = "67a12d5f-c344-44e5-111f-5c11f942abcd"
     created_at = datetime(2022, 1, 1, 0, 0, 0)
     last_edited_at = datetime(2022, 1, 2, 0, 0, 0)
     last_modified = ChangeAuditStampsClass(
@@ -112,6 +113,7 @@ class TestMapper(unittest.TestCase):
     def test_map_project(self):
         mapper = Mapper(
             workspace_name=self.workspace_name,
+            workspace_id=self.workspace_id,
             patch_metadata=False,
         )
 
@@ -158,7 +160,7 @@ class TestMapper(unittest.TestCase):
         assert dashboard_info_wus[0].metadata.aspect.description == "A test project"
         assert (
             dashboard_info_wus[0].metadata.aspect.externalUrl
-            == "https://app.hex.tech/test-workspace/hex/uuid1"
+            == f"https://app.hex.tech/{self.workspace_id}/hex/uuid1"
         )
         assert dashboard_info_wus[0].metadata.aspect.customProperties == {
             "id": "uuid1",
@@ -343,6 +345,7 @@ class TestMapper(unittest.TestCase):
     def test_map_component(self):
         mapper = Mapper(
             workspace_name=self.workspace_name,
+            workspace_id=self.workspace_id,
             patch_metadata=False,
         )
 
@@ -366,32 +369,32 @@ class TestMapper(unittest.TestCase):
             ),
         )
 
-        # check URNs
+        # check URNs — components are Chart entities now
 
         work_units = list(mapper.map_component(component))
         assert len(work_units) == 8
         assert all(
             isinstance(wu.metadata, MetadataChangeProposalWrapper)
-            and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
+            and wu.metadata.entityUrn == "urn:li:chart:(hex,uuid1)"
             for wu in work_units
         )
 
-        # check DashboardInfoClass
+        # check ChartInfoClass
 
-        dashboard_info_wus = [
-            wu for wu in work_units if wu.get_aspect_of_type(DashboardInfoClass)
+        chart_info_wus = [
+            wu for wu in work_units if wu.get_aspect_of_type(ChartInfoClass)
         ]
-        assert len(dashboard_info_wus) == 1
+        assert len(chart_info_wus) == 1
         assert isinstance(
-            dashboard_info_wus[0].metadata, MetadataChangeProposalWrapper
-        ) and isinstance(dashboard_info_wus[0].metadata.aspect, DashboardInfoClass)
-        assert dashboard_info_wus[0].metadata.aspect.title == "Test Component"
-        assert dashboard_info_wus[0].metadata.aspect.description == "A test component"
+            chart_info_wus[0].metadata, MetadataChangeProposalWrapper
+        ) and isinstance(chart_info_wus[0].metadata.aspect, ChartInfoClass)
+        assert chart_info_wus[0].metadata.aspect.title == "Test Component"
+        assert chart_info_wus[0].metadata.aspect.description == "A test component"
         assert (
-            dashboard_info_wus[0].metadata.aspect.externalUrl
-            == "https://app.hex.tech/test-workspace/hex/uuid1"
+            chart_info_wus[0].metadata.aspect.chartUrl
+            == f"https://app.hex.tech/{self.workspace_id}/hex/uuid1"
         )
-        assert dashboard_info_wus[0].metadata.aspect.customProperties == {"id": "uuid1"}
+        assert chart_info_wus[0].metadata.aspect.customProperties == {"id": "uuid1"}
 
         # check SubTypesClass
 
@@ -472,75 +475,48 @@ class TestMapper(unittest.TestCase):
             ]
         )
 
-        # check DashboardUsageStatistics
+        # check ChartUsageStatisticsClass (components are Chart entities)
 
-        dashboard_usage_statistics_wus = [
-            wu for wu in work_units if wu.get_aspect_of_type(DashboardUsageStatistics)
+        from datahub.metadata.schema_classes import ChartUsageStatisticsClass
+
+        chart_usage_wus = [
+            wu for wu in work_units if wu.get_aspect_of_type(ChartUsageStatisticsClass)
         ]
-        assert len(dashboard_usage_statistics_wus) == 2
-        usage_stats_all_time_wu = dashboard_usage_statistics_wus[0]
-        usage_stats_last_7_days_wu = dashboard_usage_statistics_wus[1]
-        assert (
-            isinstance(usage_stats_all_time_wu.metadata, MetadataChangeProposalWrapper)
-            and isinstance(
-                usage_stats_all_time_wu.metadata.aspect, DashboardUsageStatistics
-            )
-            and isinstance(
-                usage_stats_last_7_days_wu.metadata, MetadataChangeProposalWrapper
-            )
-            and isinstance(
-                usage_stats_last_7_days_wu.metadata.aspect, DashboardUsageStatistics
-            )
+        assert len(chart_usage_wus) == 2
+        usage_all_time_wu = chart_usage_wus[0]
+        usage_last_7_days_wu = chart_usage_wus[1]
+        assert isinstance(usage_all_time_wu.metadata, MetadataChangeProposalWrapper)
+        assert isinstance(usage_last_7_days_wu.metadata, MetadataChangeProposalWrapper)
+        assert isinstance(usage_all_time_wu.metadata.aspect, ChartUsageStatisticsClass)
+        assert isinstance(
+            usage_last_7_days_wu.metadata.aspect, ChartUsageStatisticsClass
         )
+        assert usage_all_time_wu.metadata.aspect.viewsCount == 100
+        assert usage_last_7_days_wu.metadata.aspect.viewsCount == 10
+        assert not usage_all_time_wu.metadata.aspect.eventGranularity
         assert (
-            usage_stats_all_time_wu.metadata.aspect.viewsCount == 100
-            and usage_stats_last_7_days_wu.metadata.aspect.viewsCount == 10
-        )
-        assert (
-            not usage_stats_all_time_wu.metadata.aspect.eventGranularity
-            and usage_stats_last_7_days_wu.metadata.aspect.eventGranularity
+            usage_last_7_days_wu.metadata.aspect.eventGranularity
             == TimeWindowSizeClass(unit=CalendarIntervalClass.WEEK, multiple=1)
         )
-        assert (
-            usage_stats_all_time_wu.metadata.aspect.lastViewedAt
-            == usage_stats_last_7_days_wu.metadata.aspect.lastViewedAt
-            == make_ts_millis(datetime(2022, 1, 1))
-        )
 
-        # what if we set patch_metadata to True
+        # patch_metadata=True has no effect on Chart entities (only Dashboard patches are supported)
 
         mapper = Mapper(
             workspace_name=self.workspace_name,
             patch_metadata=True,
         )
 
-        # mostly the same
-
         work_units = list(mapper.map_component(component))
         assert len(work_units) == 8
         assert all(
-            isinstance(
-                wu.metadata,
-                (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
-            )
-            and wu.metadata.entityUrn == "urn:li:dashboard:(hex,uuid1)"
+            isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.entityUrn == "urn:li:chart:(hex,uuid1)"
             for wu in work_units
         )
-
-        # but DashboardInfo patch
-
-        patche_wus = [
-            wu
-            for wu in work_units
-            if isinstance(
-                wu.metadata,
-                (MetadataChangeProposalWrapper, MetadataChangeProposalClass),
-            )
-            and wu.metadata.changeType == "PATCH"
-        ]
-        assert len(patche_wus) == 1
-        assert isinstance(patche_wus[0].metadata, MetadataChangeProposalClass)
-        assert patche_wus[0].metadata.aspectName == "dashboardInfo"
+        # no PATCH WUs — ChartInfo does not support patch in this connector
+        assert not any(
+            getattr(wu.metadata, "changeType", None) == "PATCH" for wu in work_units
+        )
 
         # what if we set platform_instance
 
@@ -774,7 +750,7 @@ class TestMapper(unittest.TestCase):
         mapper = Mapper(
             workspace_name=self.workspace_name,
         )
-        dashboard_urn = mapper._get_dashboard_urn("dashboard_name")
+        dashboard_urn = mapper.get_dashboard_urn("dashboard_name")
         assert dashboard_urn == DashboardUrn(
             dashboard_id="dashboard_name", dashboard_tool=HEX_PLATFORM_NAME
         )
@@ -784,7 +760,7 @@ class TestMapper(unittest.TestCase):
             workspace_name=self.workspace_name,
             platform_instance="test-platform",
         )
-        dashboard_urn = mapper._get_dashboard_urn("dashboard_name")
+        dashboard_urn = mapper.get_dashboard_urn("dashboard_name")
         assert dashboard_urn == DashboardUrn(
             dashboard_id="test-platform.dashboard_name",
             dashboard_tool=HEX_PLATFORM_NAME,
@@ -795,7 +771,7 @@ class TestMapper(unittest.TestCase):
 
     def test_dataset_edges(self):
         from datahub.metadata.schema_classes import EdgeClass
-        from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+        from datahub.metadata.urns import DatasetUrn
 
         mapper = Mapper(
             workspace_name=self.workspace_name,
@@ -805,49 +781,22 @@ class TestMapper(unittest.TestCase):
         edges = mapper._dataset_edges([])
         assert not edges
 
-        # Test with only DatasetUrns
-        dataset_urn1 = DatasetUrn(
-            platform="snowflake",
-            name="test-dataset-1",
-        )
-        dataset_urn2 = DatasetUrn(
-            platform="bigquery",
-            name="test-dataset-2",
-        )
+        # Test with dataset URN strings (lineage builder now exclusively returns List[str])
+        dataset_urn1 = DatasetUrn(platform="snowflake", name="test-dataset-1")
+        dataset_urn2 = DatasetUrn(platform="bigquery", name="test-dataset-2")
 
-        edges = mapper._dataset_edges([dataset_urn1, dataset_urn2])
+        edges = mapper._dataset_edges([dataset_urn1.urn(), dataset_urn2.urn()])
         assert edges and len(edges) == 2
         assert all(isinstance(edge, EdgeClass) for edge in edges)
         assert edges[0].destinationUrn == dataset_urn1.urn()
         assert edges[1].destinationUrn == dataset_urn2.urn()
 
-        # Test with mixed DatasetUrns and SchemaFieldUrns - should filter out SchemaFieldUrns
-        schema_field_urn = SchemaFieldUrn(
-            parent=dataset_urn1,
-            field_path="test.field.path",
-        )
-
-        edges = mapper._dataset_edges([dataset_urn1, schema_field_urn, dataset_urn2])
-        assert edges and len(edges) == 2  # SchemaFieldUrn should be filtered out
-        assert edges[0].destinationUrn == dataset_urn1.urn()
-        assert edges[1].destinationUrn == dataset_urn2.urn()
-
     def test_map_project_with_upstream_datasets(self):
-        from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+        from datahub.metadata.urns import DatasetUrn
 
-        # Create a project with upstream datasets
-        dataset_urn1 = DatasetUrn(
-            platform="snowflake",
-            name="test-dataset-1",
-        )
-        dataset_urn2 = DatasetUrn(
-            platform="bigquery",
-            name="test-dataset-2",
-        )
-        schema_field_urn = SchemaFieldUrn(
-            parent=dataset_urn1,
-            field_path="test.field.path",
-        )
+        # Create a project with upstream datasets (lineage builder returns List[str])
+        dataset_urn1 = DatasetUrn(platform="snowflake", name="test-dataset-1")
+        dataset_urn2 = DatasetUrn(platform="bigquery", name="test-dataset-2")
 
         project = Project(
             id="uuid1",
@@ -858,7 +807,7 @@ class TestMapper(unittest.TestCase):
             status=Status(name="Published"),
             creator=Owner(email="creator@example.com"),
             owner=Owner(email="owner@example.com"),
-            upstream_datasets=[dataset_urn1, schema_field_urn, dataset_urn2],
+            upstream_datasets=[dataset_urn1.urn(), dataset_urn2.urn()],
         )
 
         mapper = Mapper(
@@ -883,18 +832,18 @@ class TestMapper(unittest.TestCase):
         edge_urns = [edge.destinationUrn for edge in dashboard_info.datasetEdges]
         assert dataset_urn1.urn() in edge_urns
         assert dataset_urn2.urn() in edge_urns
-        assert schema_field_urn.urn() not in edge_urns  # Should be filtered out
 
     def test_external_urls(self):
         mapper = Mapper(
             workspace_name=self.workspace_name,
+            workspace_id=self.workspace_id,
             patch_metadata=False,
         )
 
         cases = [
-            # unpublished projects and components are at: {workspace}/hex/{id}
+            # unpublished projects and components are at: {workspace_id}/hex/{id}
             (
-                "https://app.hex.tech/test-workspace/hex/uuid1",
+                f"https://app.hex.tech/{self.workspace_id}/hex/uuid1",
                 Project(
                     id="uuid1",
                     title="",
@@ -902,16 +851,16 @@ class TestMapper(unittest.TestCase):
                 ),
             ),
             (
-                "https://app.hex.tech/test-workspace/hex/uuid2",
+                f"https://app.hex.tech/{self.workspace_id}/hex/uuid2",
                 Component(
                     id="uuid2",
                     title="",
                     description="",
                 ),
             ),
-            # but published projects and components are at: {workspace}/app/{id}
+            # but published projects and components are at: {workspace_id}/app/{id}
             (
-                "https://app.hex.tech/test-workspace/app/uuid3",
+                f"https://app.hex.tech/{self.workspace_id}/app/uuid3",
                 Project(
                     id="uuid3",
                     title="",
@@ -920,7 +869,7 @@ class TestMapper(unittest.TestCase):
                 ),
             ),
             (
-                "https://app.hex.tech/test-workspace/app/uuid4",
+                f"https://app.hex.tech/{self.workspace_id}/app/uuid4",
                 Component(
                     id="uuid4",
                     title="",
@@ -933,15 +882,48 @@ class TestMapper(unittest.TestCase):
         for expected_external_url, project_or_component in cases:
             if isinstance(project_or_component, Project):
                 work_units = list(mapper.map_project(project_or_component))
+                url_aspects = [
+                    wu.get_aspect_of_type(DashboardInfoClass)
+                    for wu in work_units
+                    if wu.get_aspect_of_type(DashboardInfoClass)
+                ]
+                assert len(url_aspects) == 1
+                assert url_aspects[0]
+                assert url_aspects[0].externalUrl == expected_external_url
             elif isinstance(project_or_component, Component):
                 work_units = list(mapper.map_component(project_or_component))
+                chart_aspects = [
+                    wu.get_aspect_of_type(ChartInfoClass)
+                    for wu in work_units
+                    if wu.get_aspect_of_type(ChartInfoClass)
+                ]
+                assert len(chart_aspects) == 1
+                assert chart_aspects[0]
+                assert chart_aspects[0].chartUrl == expected_external_url
             else:
                 raise AssertionError()
-            dashboard_info_aspects = [
-                wu.get_aspect_of_type(DashboardInfoClass)
-                for wu in work_units
-                if wu.get_aspect_of_type(DashboardInfoClass)
-            ]
-            assert len(dashboard_info_aspects) == 1
-            assert dashboard_info_aspects[0]
-            assert dashboard_info_aspects[0].externalUrl == expected_external_url
+
+    def test_external_url_omitted_without_workspace_id(self):
+        """Without a workspace_id we can't build a working Hex URL — omit it
+        rather than emit a broken link using the workspace name."""
+        mapper = Mapper(
+            workspace_name=self.workspace_name,
+            workspace_id=None,
+            patch_metadata=False,
+        )
+
+        dashboard_info = next(
+            wu.get_aspect_of_type(DashboardInfoClass)
+            for wu in mapper.map_project(Project(id="uuid1", title="", description=""))
+            if wu.get_aspect_of_type(DashboardInfoClass)
+        )
+        assert dashboard_info and dashboard_info.externalUrl is None
+
+        chart_info = next(
+            wu.get_aspect_of_type(ChartInfoClass)
+            for wu in mapper.map_component(
+                Component(id="uuid2", title="", description="")
+            )
+            if wu.get_aspect_of_type(ChartInfoClass)
+        )
+        assert chart_info and chart_info.chartUrl is None

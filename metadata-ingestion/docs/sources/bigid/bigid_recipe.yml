@@ -1,0 +1,57 @@
+source:
+  type: bigid
+  config:
+    # Coordinates
+    bigid_url: "https://bigid.example.com"
+
+    # Credentials — provide either user_token (recommended) or access_token
+    user_token: "${BIGID_USER_TOKEN}"
+    # access_token: "${BIGID_ACCESS_TOKEN}"
+
+    # HTTP behaviour (optional)
+    # timeout: 60
+    # max_retries: 3
+
+    # Environment applied to generated dataset URNs
+    env: PROD
+
+    # Scope ingestion to a subset of BigID connections (regex allow/deny)
+    # connection_pattern:
+    #   allow:
+    #     - "^prod-.*"
+    #   deny:
+    #     - "^sandbox-.*"
+
+    # Per-connection platform / env / instance overrides (and mappings for
+    # connection types without a built-in platform mapping)
+    # datasource_platform_mapping:
+    #   my-snowflake-conn:
+    #     platform: snowflake
+    #     env: PROD
+    #     platform_instance: prod-account
+
+    # Dataset creation (opt-in). Default false = pure enrichment mode.
+    # create_datasets: false
+
+    # Classification findings
+    # minimum_confidence_threshold: 0.0   # HIGH=0.75, MEDIUM=0.50, LOW=0.25
+    # confidence_level_tag: false         # also emit urn:li:tag:bigid.confidence:{LEVEL}
+
+    # Tags
+    # sync_tags: true
+    # tag_application_types: ["sensitivityClassification", "risk", "userDefined"]
+
+    # Business glossary / classifiers / IDSoR
+    # sync_unlinked_classifiers: true
+    # sync_idsor: true
+    # sync_unstructured_enrichment: false
+    # owner_type: user                    # user | group | none
+    # domain_mode: none                   # none | auto_namespaced | config_map
+
+    # Stateful ingestion — removes stale entities emitted by this source
+    # stateful_ingestion:
+    #   enabled: true
+
+
+sink:
+  # sink configs

@@ -1,16 +1,16 @@
 import React from 'react';
 
-import DomainIcon from '@app/domain/DomainIcon';
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { PreviewType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import DomainEntitiesSnippet from '@app/entityV2/domain/preview/DomainEntitiesSnippet';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { useHandleDeprecateDomain } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Domain, EntityType, Owner, SearchInsight } from '@types';
+import { Deprecation, Domain, EntityType, Owner, SearchInsight } from '@types';
 
 export const Preview = ({
     domain,
@@ -22,6 +22,7 @@ export const Preview = ({
     insights,
     logoComponent,
     entityCount,
+    deprecation,
     headerDropdownItems,
     previewType,
 }: {
@@ -34,10 +35,12 @@ export const Preview = ({
     insights?: Array<SearchInsight> | null;
     logoComponent?: JSX.Element;
     entityCount?: number;
+    deprecation?: Deprecation | null;
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType: PreviewType;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const { handleDeprecateDomainComplete } = useHandleDeprecateDomain(urn);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.Domain, urn)}
@@ -46,14 +49,7 @@ export const Preview = ({
             data={data}
             description={description || ''}
             entityType={EntityType.Domain}
-            typeIcon={
-                <DomainIcon
-                    style={{
-                        fontSize: 14,
-                        color: '#BFBFBF',
-                    }}
-                />
-            }
+            typeIcon={entityRegistry.getIcon(EntityType.Domain, 14, IconStyleType.ACCENT)}
             owners={owners}
             insights={insights}
             logoComponent={logoComponent}
@@ -61,6 +57,8 @@ export const Preview = ({
             snippet={<DomainEntitiesSnippet domain={domain} />}
             subHeader={<EntityCount displayAssetsText entityCount={entityCount} />}
             entityIcon={<DomainColoredIcon domain={domain as Domain} size={28} />}
+            deprecation={deprecation}
+            refetchDeprecation={() => handleDeprecateDomainComplete(false)}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
         />

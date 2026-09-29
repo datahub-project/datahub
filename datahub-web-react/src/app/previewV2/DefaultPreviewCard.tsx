@@ -1,6 +1,6 @@
-import { CloseOutlined } from '@ant-design/icons';
-import { Button, Typography } from 'antd';
+import { Button } from '@components';
 import React, { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
@@ -9,10 +9,9 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
+import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import { useSearchCardContext } from '@app/entityV2/shared/SearchCardContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
@@ -32,7 +31,6 @@ import {
 } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
-import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
@@ -56,22 +54,10 @@ import {
 } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${(p) => p.theme.styles['primary-color']};
-    font-size: 12px;
-    box-shadow: none;
-    border: none;
-    padding: 0px 10px;
     display: none;
 
-    &&& span {
-        font-size: 12px;
-    }
-
     &:hover {
-        display: flex;
-        align-items: center;
-        opacity: 0.9;
-        color: ${(p) => p.theme.styles['primary-color']};
+        display: inline-flex;
     }
 `;
 
@@ -82,6 +68,7 @@ const PreviewContainer = styled.div`
     width: 100%;
     justify-content: space-between;
     align-items: start;
+
     .entityCount {
         margin-bottom: 2px;
     }
@@ -104,11 +91,11 @@ const RowContainer = styled.div<RowContainerProps>`
     width: 100%;
 `;
 
-const InsightsText = styled(Typography.Text)`
+const InsightsText = styled.span`
     font-size: 12px;
     line-height: 20px;
     font-weight: 600;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const InsightIconContainer = styled.span`
@@ -186,7 +173,7 @@ interface Props {
     statsSummary?: any;
     actions?: EntityMenuActions;
     browsePaths?: BrowsePathV2 | undefined;
-    propagationDetails?: AttributionDetails;
+    refetchDeprecation?: (formData?: DeprecationFormData) => void;
 }
 
 export default function DefaultPreviewCard({
@@ -233,7 +220,7 @@ export default function DefaultPreviewCard({
     actions,
     browsePaths,
     description,
-    propagationDetails,
+    refetchDeprecation,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const supportedCapabilities = entityRegistry.getSupportedEntityCapabilities(entityType);
@@ -249,7 +236,9 @@ export default function DefaultPreviewCard({
 
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
-    const previewData = usePreviewData();
+    // Passing previewType via context because not all entities pass it via props
+    // But not using previewContextType everywhere to avoid regressions... sorry
+    const { previewData, propagationDetails } = usePreviewData();
     const insightViews: Array<ReactNode> =
         insights?.map((insight) => (
             <>
@@ -271,6 +260,14 @@ export default function DefaultPreviewCard({
 
     const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
 
+    // When a caller passes a live `deprecation` (e.g. Preview using local optimistic state),
+    // merge it into the entityData handed to the row's actions menu so the menu reflects the
+    // current state (e.g. "Mark as Deprecated" vs "Mark as un-deprecated") instead of stale data.
+    const entityDataForMenu = React.useMemo(() => {
+        if (deprecation === undefined) return previewData;
+        return { ...(previewData ?? {}), deprecation };
+    }, [previewData, deprecation]);
+
     const lastRunEvent = data?.lastRunEvent;
     const shouldShowDPIinfo =
         lastRunEvent?.timestampMillis || lastRunEvent?.durationMillis || lastRunEvent?.result?.resultType;
@@ -285,6 +282,7 @@ export default function DefaultPreviewCard({
             deprecation={deprecation}
             health={health}
             degree={degree}
+            refetchDeprecation={refetchDeprecation}
             connectionName={previewData?.name}
             previewData={previewData}
         />
@@ -292,9 +290,6 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID ?? `preview-${urn}`}>
-            {(entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm) && (
-                <GlossaryPreviewCardDecoration urn={urn} entityData={previewData} displayProperties={undefined} />
-            )}
             {isFullViewCard || previewType === PreviewType.HOVER_CARD ? (
                 <>
                     <RowContainer alignment="self-start">
@@ -312,19 +307,20 @@ export default function DefaultPreviewCard({
                         )}
                         <ActionsAndStatusSection>
                             {removeButtonText && (
-                                <TransparentButton size="small" onClick={removeRelationship}>
-                                    <CloseOutlined size={5} /> {removeButtonText}
+                                <TransparentButton variant="text" size="sm" onClick={removeRelationship}>
+                                    {removeButtonText}
                                 </TransparentButton>
                             )}
-                            <ViewInPlatform urn={urn} data={data} />
+                            <ViewInPlatform urn={urn} data={data} shouldFillAllAvailableSpace={false} />
                             {headerDropdownItems && previewType !== PreviewType.HOVER_CARD && (
                                 <MoreOptionsMenuAction
                                     menuItems={headerDropdownItems}
                                     urn={urn}
                                     entityType={entityType}
-                                    entityData={previewData}
+                                    entityData={entityDataForMenu}
                                     triggerType={['click']}
                                     actions={actions}
+                                    refetchDeprecation={refetchDeprecation}
                                 />
                             )}
                         </ActionsAndStatusSection>
@@ -408,6 +404,7 @@ export default function DefaultPreviewCard({
 }
 
 function useRemoveRelationship(entityType: EntityType) {
+    const { t } = useTranslation('entity.preview');
     const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const { showRemovalFromList, onRemove, removeText } = useSearchCardContext();
     const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
@@ -415,7 +412,7 @@ function useRemoveRelationship(entityType: EntityType) {
     const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
     const { removeApplication } = useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch);
 
-    const previewData = usePreviewData();
+    const { previewData } = usePreviewData();
     const entityData = useEntityData();
     const pageEntityType = entityData.entityType;
 
@@ -424,26 +421,26 @@ function useRemoveRelationship(entityType: EntityType) {
             removeRelationship: () => (onRemove ? onRemove() : removeDomain(previewData?.urn)),
             removeButtonText:
                 showRemovalFromList && entityType !== EntityType.DataProduct
-                    ? removeText || 'Remove from Domain'
+                    ? removeText || t('removeFromDomain')
                     : null,
         };
     }
     if (pageEntityType === EntityType.GlossaryTerm) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeTerm(previewData, entityData.urn)),
-            removeButtonText: showRemovalFromList ? removeText || 'Remove Glossary Term' : null,
+            removeButtonText: showRemovalFromList ? removeText || t('removeGlossaryTerm') : null,
         };
     }
     if (pageEntityType === EntityType.DataProduct) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeDataProduct(previewData?.urn)),
-            removeButtonText: showRemovalFromList ? removeText || 'Remove from Data Product' : null,
+            removeButtonText: showRemovalFromList ? removeText || t('removeFromDataProduct') : null,
         };
     }
     if (pageEntityType === EntityType.Application) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
-            removeButtonText: showRemovalFromList ? removeText || 'Remove from Application' : null,
+            removeButtonText: showRemovalFromList ? removeText || t('removeFromApplication') : null,
         };
     }
 

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AdvancedSearchFilterOverallUnionTypeSelect } from '@app/searchV2/AdvancedSearchFilterOverallUnionTypeSelect';
@@ -25,14 +26,9 @@ const VerticalWrapper = styled.div`
     gap: 4px;
 `;
 
-export const FlexSpacer = styled.div`
+const FlexSpacer = styled.div`
     display: flex;
     justify-content: space-between;
-`;
-
-export const FilterButtonsWrapper = styled.div`
-    display: flex;
-    flex-wrap: nowrap;
 `;
 
 const AnyAllToggle = styled.div`
@@ -74,6 +70,8 @@ export default function SearchFiltersBuilder({
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     isOperatorDisabled = false,
 }: Props) {
+    const { t } = useTranslation('search');
+    const { t: tc } = useTranslation('common.actions');
     const hydratedFilters = useHydrateFilters(filters);
 
     const onChangeFilterOperator = (index, newOperator) => {
@@ -142,16 +140,23 @@ export default function SearchFiltersBuilder({
                 </Wrapper>
                 {showClearAll && (
                     <Button variant="text" onClick={onClearFilters} data-testid="clear-all-filters">
-                        Clear all
+                        {tc('clearAll')}
                     </Button>
                 )}
             </FlexSpacer>
             {showUnionType && hydratedFilters?.length >= 2 && (
                 <AnyAllToggle>
-                    Show results that match{' '}
-                    <AdvancedSearchFilterOverallUnionTypeSelect
-                        unionType={unionType}
-                        onUpdate={(newValue) => onChangeUnionType?.(newValue)}
+                    <Trans
+                        t={t}
+                        i18nKey="advancedSearch.showResultsThatMatch"
+                        components={{
+                            select: (
+                                <AdvancedSearchFilterOverallUnionTypeSelect
+                                    unionType={unionType}
+                                    onUpdate={(newValue) => onChangeUnionType?.(newValue)}
+                                />
+                            ),
+                        }}
                     />
                 </AnyAllToggle>
             )}

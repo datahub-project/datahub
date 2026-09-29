@@ -1,7 +1,8 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+import i18next from 'i18next';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import { TITLE_CASE_EXCEPTION_WORDS } from '@app/entityV2/shared/constants';
+import { pathMatchesInsensitiveToV2 } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { TimeWindowSize } from '@app/shared/time/timeUtils';
@@ -12,7 +13,6 @@ import {
     DashboardStatsSummary,
     DataPlatform,
     DataProduct,
-    Dataset,
     DatasetProfile,
     DatasetProperties,
     DatasetStatsSummary,
@@ -121,8 +121,6 @@ export function getExternalUrlDisplayName(entity: GenericEntityProperties | null
 
 export const EDITED_DESCRIPTIONS_CACHE_NAME = 'editedDescriptions';
 
-export const FORBIDDEN_URN_CHARS_REGEX = /.*[(),\\].*/;
-
 export enum SidebarTitleActionType {
     LineageExplore = 'Lineage Explore',
 }
@@ -147,8 +145,7 @@ function getGraphqlErrorCode(e) {
 export const handleBatchError = (urns, e, defaultMessage) => {
     if (urns.length > 1 && getGraphqlErrorCode(e) === 403) {
         return {
-            content:
-                'Your bulk edit selection included entities that you are unauthorized to update. The bulk edit being performed will not be saved.',
+            content: i18next.t('entity.shared.actions:bulkEditUnauthorized'),
             duration: 3,
         };
     }
@@ -244,7 +241,7 @@ export const extractChartValuesFromFieldProfiles = (profiles: Array<any>, fieldP
         .filter((profile) => profile.fieldProfiles)
         .map((profile) => {
             const fieldProfiles = profile.fieldProfiles
-                ?.filter((field) => field.fieldPath === fieldPath)
+                ?.filter((field) => pathMatchesInsensitiveToV2(field.fieldPath, fieldPath))
                 .filter((field) => field[statName] !== null && field[statName] !== undefined);
 
             if (fieldProfiles?.length === 1) {
@@ -296,37 +293,6 @@ export function getDashboardLastUpdatedMs(
     if (max === lastModified) return { property: 'lastModified', lastUpdatedMs: lastModified };
     return { property: 'lastRefreshed', lastUpdatedMs: lastRefreshed };
 }
-
-// return title case of the string with handling exceptions
-export const toProperTitleCase = (str: string) => {
-    return str
-        .toLowerCase()
-        .split(' ')
-        .map((word, index) =>
-            index === 0 || !TITLE_CASE_EXCEPTION_WORDS.includes(word)
-                ? word.charAt(0).toUpperCase() + word.slice(1)
-                : word,
-        )
-        .join(' ');
-};
-
-/**
- * Attempts to extract a description for a sub-resource of an entity, if it exists.
- * @param entity ie dataset
- * @param subResource ie field name
- * @returns the description of the sub-resource if it exists, otherwise undefined
- */
-export const tryExtractSubResourceDescription = (entity: Entity, subResource: string): string | undefined => {
-    // NOTE: we are casting to Dataset, but GlossaryTerms and more future entities can have editableSchemaMetadata
-    // We must do a ? check for editableSchemaMetadata/schemaMetadata to avoid runtime errors
-    const maybeEditableMetadataDescription = (entity as Dataset).editableSchemaMetadata?.editableSchemaFieldInfo?.find(
-        (field) => field.fieldPath === subResource,
-    )?.description;
-    const maybeSchemaMetadataDescription = (entity as Dataset).schemaMetadata?.fields?.find(
-        (field) => field.fieldPath === subResource,
-    )?.description;
-    return maybeEditableMetadataDescription?.valueOf() || maybeSchemaMetadataDescription?.valueOf();
-};
 
 /**
  * Type guard for entity type

@@ -3,16 +3,18 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { AddLinkModal } from '@app/entityV2/shared/components/styled/AddLinkModal';
-import LinkButton from '@app/entityV2/shared/containers/profile/sidebar/LinkButton';
-
-const AddLinksWrapper = styled.div`
-    margin-left: -15px;
-`;
+import { ResourceLinkPill } from '@app/entityV2/shared/tabs/Documentation/components/ResourceLinkPill';
 
 interface Props {
     hideLinksButton?: boolean;
     readOnly?: boolean;
 }
+
+const LinkPillsContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+`;
 
 export default function LinksSection({ hideLinksButton, readOnly }: Props) {
     const { entityData } = useEntityData();
@@ -25,16 +27,14 @@ export default function LinksSection({ hideLinksButton, readOnly }: Props) {
 
     return (
         <>
-            {links.map((link) => (
-                <>
-                    <LinkButton link={link} />
-                </>
-            ))}
-            {!readOnly && !hideLinksButton && (
-                <AddLinksWrapper>
-                    <AddLinkModal buttonProps={{ type: 'text' }} />
-                </AddLinksWrapper>
+            {links.length > 0 && (
+                <LinkPillsContainer>
+                    {links.map((link) => (
+                        <ResourceLinkPill key={`link-${link.url}`} link={link} />
+                    ))}
+                </LinkPillsContainer>
             )}
+            {!readOnly && !hideLinksButton && <AddLinkModal buttonProps={{ type: 'text' }} />}
         </>
     );
 }

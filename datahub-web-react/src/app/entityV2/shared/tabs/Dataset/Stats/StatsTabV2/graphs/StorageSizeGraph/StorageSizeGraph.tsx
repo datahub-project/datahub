@@ -1,6 +1,6 @@
 import { GraphCard, LineChart } from '@components';
-import dayjs from 'dayjs';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';
@@ -13,15 +13,21 @@ import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsT
 import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
 import {
     GRAPH_LOOKBACK_WINDOWS,
-    GRAPH_LOOKBACK_WINDOWS_OPTIONS,
+    getGraphLookbackWindowsOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByLookbackWindow from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { formatBytes, formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
 import { TimeRange } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
+
+// dayjs format tokens (localized date strings), not user-visible text.
+const AXIS_TICK_FORMAT = 'DD MMM';
+const POPOVER_HEADER_FORMAT = 'dddd. MMM. D ’YY';
 
 export default function StorageSizeGraph() {
+    const { t } = useTranslation('entity.profile.stats');
     const {
         dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
         statsEntityUrn,
@@ -30,8 +36,9 @@ export default function StorageSizeGraph() {
         setSectionState,
     } = useStatsSectionsContext();
 
+    const graphLookbackWindowsOptions = useMemo(() => getGraphLookbackWindowsOptions(), []);
     const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
-        GRAPH_LOOKBACK_WINDOWS_OPTIONS,
+        graphLookbackWindowsOptions,
         oldestDatasetProfileTime,
     );
     const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOKBACK_WINDOWS.MONTH);
@@ -58,14 +65,14 @@ export default function StorageSizeGraph() {
         return `${formatNumberWithoutAbbreviation(formattedBytes.number)} ${formattedBytes.unit}`;
     };
 
-    const chartName = 'Storage Size';
+    const chartName = t('storageSizeGraph.title');
 
     return (
         <GraphCard
             title={chartName}
             dataTestId="storage-size-card"
             isEmpty={data.length === 0 || !canViewDatasetProfile}
-            emptyContent={!canViewDatasetProfile && <NoPermission statName="storage size" />}
+            emptyContent={!canViewDatasetProfile && <NoPermission statName={t('storageSizeGraph.statName')} />}
             loading={loading}
             graphHeight="290px"
             renderControls={() => (
@@ -83,12 +90,12 @@ export default function StorageSizeGraph() {
                 <LineChart
                     dataTestId="storage-size-chart"
                     data={data}
-                    bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
+                    bottomAxisProps={{ tickFormat: (x) => dayjs(x).format(AXIS_TICK_FORMAT) }}
                     leftAxisProps={{ hideZero: true, tickFormat: bytesFormatter }}
                     margin={{ left: 50 }}
                     popoverRenderer={(datum: StorageSizeData) => (
                         <GraphPopover
-                            header={dayjs(datum.x).format('dddd. MMM. D ’YY')}
+                            header={dayjs(datum.x).format(POPOVER_HEADER_FORMAT)}
                             value={bytesFormatter(datum.y)}
                             pills={<MonthOverMonthPill value={datum.mom} />}
                         />

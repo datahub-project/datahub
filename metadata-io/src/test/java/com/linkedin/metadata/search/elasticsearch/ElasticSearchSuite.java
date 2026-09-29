@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch;
 
 import com.linkedin.metadata.graph.search.elasticsearch.SearchGraphServiceElasticSearchTest;
 import io.datahubproject.test.search.ElasticsearchTestContainer;
+import io.datahubproject.test.search.SearchContainerUtils;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.annotation.DirtiesContext;
@@ -17,6 +18,7 @@ public class ElasticSearchSuite extends AbstractTestNGSpringContextTests {
 
   private static ElasticsearchTestContainer ELASTICSEARCH_TEST_CONTAINER = null;
   private static GenericContainer<?> container;
+  private static String containerElasticVersion = null;
 
   @Parameters({"elasticVersion"})
   @BeforeTest
@@ -47,6 +49,12 @@ public class ElasticSearchSuite extends AbstractTestNGSpringContextTests {
     lineageTestContextManager
         .getTestContext()
         .markApplicationContextDirty(DirtiesContext.HierarchyMode.EXHAUSTIVE);
+
+    TestContextManager retryTestContextManager =
+        new TestContextManager(IndexBuilderRetryElasticSearchIntegrationTest.class);
+    retryTestContextManager
+        .getTestContext()
+        .markApplicationContextDirty(DirtiesContext.HierarchyMode.EXHAUSTIVE);
   }
 
   @AfterSuite
@@ -58,9 +66,19 @@ public class ElasticSearchSuite extends AbstractTestNGSpringContextTests {
 
   @Bean(name = "testSearchContainer")
   public GenericContainer<?> testSearchContainer() {
-    if (container == null || !container.isRunning()) {
+    String currentVersion = System.getProperty("ELASTIC_VERSION");
+    boolean versionMismatch =
+        currentVersion != null
+            && containerElasticVersion != null
+            && !currentVersion.equals(containerElasticVersion);
+    if (container == null || !container.isRunning() || versionMismatch) {
+      if (ELASTICSEARCH_TEST_CONTAINER != null) {
+        ELASTICSEARCH_TEST_CONTAINER.stopContainer();
+      }
       ELASTICSEARCH_TEST_CONTAINER = new ElasticsearchTestContainer();
       container = ELASTICSEARCH_TEST_CONTAINER.startContainer();
+      containerElasticVersion = currentVersion;
+      SearchContainerUtils.waitForClusterReady(container);
     }
     return container;
   }

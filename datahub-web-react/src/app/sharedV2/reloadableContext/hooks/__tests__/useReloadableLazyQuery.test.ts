@@ -18,6 +18,9 @@ describe('useReloadableLazyQuery', () => {
             shouldBeReloaded: () => true,
             markAsReloaded: () => {},
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         const { result } = renderHook(() =>
@@ -38,6 +41,9 @@ describe('useReloadableLazyQuery', () => {
             shouldBeReloaded: () => false,
             markAsReloaded: () => {},
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         const { result } = renderHook(() =>
@@ -58,6 +64,9 @@ describe('useReloadableLazyQuery', () => {
             shouldBeReloaded: () => true,
             markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         renderHook(() => useReloadableLazyQuery(mockLazyQueryHook, { type: 'test', id: '1' }, {}));
@@ -72,6 +81,9 @@ describe('useReloadableLazyQuery', () => {
             shouldBeReloaded: () => true,
             markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         renderHook(() => useReloadableLazyQuery(mockLazyQueryHook, { type: 'test', id: '1' }, {}));
@@ -88,6 +100,9 @@ describe('useReloadableLazyQuery', () => {
             shouldBeReloaded: () => true,
             markAsReloaded: markAsReloadedMock,
             reloadByKeyType: () => {},
+            bypassCacheForUrn: () => {},
+            shouldBypassCache: () => false,
+            clearCacheBypass: () => {},
         });
 
         renderHook(() => useReloadableLazyQuery(mockLazyQueryHook, { type: 'test', id: '1' }, {}));

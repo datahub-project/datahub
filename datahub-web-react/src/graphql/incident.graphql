@@ -75,6 +75,11 @@ fragment incidentLinkedAssetPreview on Entity {
             ...platformFields
         }
     }
+    ... on MLFeature {
+        name
+        featureNamespace
+        description
+    }
     ... on MLFeatureTable {
         urn
         type
@@ -208,7 +213,7 @@ fragment datasetSiblingIncidents on Dataset {
             }
         }
     }
-    siblingsSearch(input: { query: "*", count: 5 }) {
+    siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
         count
         total
         searchResults {
@@ -225,7 +230,13 @@ fragment datasetSiblingIncidents on Dataset {
     }
 }
 
-query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: IncidentState) {
+query getEntityIncidents(
+    $urn: String!
+    $start: Int!
+    $count: Int!
+    $state: IncidentState
+    $skipSiblingsSearch: Boolean = false
+) {
     entity(urn: $urn) {
         ... on Dataset {
             incidents(start: $start, count: $count, state: $state) {
@@ -261,6 +272,30 @@ query getEntityIncidents($urn: String!, $start: Int!, $count: Int!, $state: Inci
             }
         }
         ... on Chart {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLModel {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLFeature {
+            incidents(start: $start, count: $count, state: $state) {
+                ...incidentResultFields
+            }
+            privileges {
+                canEditIncidents
+            }
+        }
+        ... on MLFeatureTable {
             incidents(start: $start, count: $count, state: $state) {
                 ...incidentResultFields
             }

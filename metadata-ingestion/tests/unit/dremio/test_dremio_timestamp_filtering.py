@@ -1,4 +1,4 @@
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 
@@ -7,7 +7,7 @@ FROZEN_TIME = "2024-01-15 12:00:00"
 
 
 class TestDremioTimestampFiltering:
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_get_query_all_jobs_with_defaults(self):
         """Test that default timestamp filtering works with exact values"""
         query = DremioSQLQueries.get_query_all_jobs()
@@ -17,7 +17,7 @@ class TestDremioTimestampFiltering:
         assert "submitted_ts <= TIMESTAMP '2024-01-15 12:00:00.000'" in query
         assert "SYS.JOBS_RECENT" in query
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_get_query_all_jobs_cloud_with_defaults(self):
         """Test that default timestamp filtering works for cloud with exact values"""
         query = DremioSQLQueries.get_query_all_jobs_cloud()
@@ -53,7 +53,7 @@ class TestDremioTimestampFiltering:
         assert f"submitted_ts >= TIMESTAMP '{start_time}'" in query
         assert f"submitted_ts <= TIMESTAMP '{end_time}'" in query
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_default_timestamp_format(self):
         """Test that default timestamps have correct millisecond precision"""
         start_time = DremioSQLQueries._get_default_start_timestamp_millis()
@@ -68,7 +68,7 @@ class TestDremioTimestampFiltering:
         assert end_time[19] == "."
         assert len(end_time.split(".")[-1]) == 3
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_default_timestamp_values(self):
         """Test that default timestamps have expected values with frozen time"""
         start_time = DremioSQLQueries._get_default_start_timestamp_millis()
@@ -81,7 +81,7 @@ class TestDremioTimestampFiltering:
         # End time should be now: 2024-01-15 12:00:00.000
         assert end_time == "2024-01-15 12:00:00.000"
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_partial_timestamp_specification(self):
         """Test behavior when only one timestamp is specified"""
         start_time = "2023-01-01 00:00:00.000"
@@ -100,33 +100,33 @@ class TestDremioTimestampFiltering:
         assert f"submitted_ts <= TIMESTAMP '{end_time}'" in query
 
     def test_query_structure_unchanged(self):
-        """Test that core query structure remains unchanged"""
+        # Pin the WHERE invariants that gate which jobs feed lineage —
+        # silently dropping them changes lineage output without a test failure.
         query = DremioSQLQueries.get_query_all_jobs()
 
-        # Check that all original WHERE conditions are still present
         assert "STATUS = 'COMPLETED'" in query
         assert "LENGTH(queried_datasets)>0" in query
         assert "user_name != '$dremio$'" in query
         assert "query_type not like '%INTERNAL%'" in query
 
-        # Check that SELECT fields are unchanged
-        assert "job_id" in query
-        assert "user_name" in query
-        assert "submitted_ts" in query
-        assert "query" in query
-        assert "queried_datasets" in query
+        for field in (
+            "job_id",
+            "user_name",
+            "submitted_ts",
+            "query",
+            "queried_datasets",
+        ):
+            assert field in query, f"SELECT clause missing {field!r}"
 
     def test_cloud_query_structure_unchanged(self):
-        """Test that core cloud query structure remains unchanged"""
+        # On-prem invariants plus the Dremio 26.1.0+ ARRAY → string CONCAT
+        # projection for `queried_datasets` (see PR #17647).
         query = DremioSQLQueries.get_query_all_jobs_cloud()
 
-        # Check that all original WHERE conditions are still present
         assert "STATUS = 'COMPLETED'" in query
         assert "ARRAY_SIZE(queried_datasets)>0" in query
         assert "user_name != '$dremio$'" in query
         assert "query_type not like '%INTERNAL%'" in query
-
-        # Check that SELECT fields are unchanged including cloud-specific formatting
         assert (
             "CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets"
             in query

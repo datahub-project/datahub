@@ -84,10 +84,12 @@ query getDataFlow($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         ...notes
+        runs(start: 0, count: 20) {
+            count
+            start
+            total
+        }
     }
 }
 

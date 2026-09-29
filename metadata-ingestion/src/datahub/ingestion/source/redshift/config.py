@@ -1,16 +1,24 @@
 import logging
 from copy import deepcopy
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Annotated, Any, Dict, FrozenSet, List, Optional
 
 from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    HiddenFromDocs,
+    Qualifier,
+)
 from datahub.configuration.source_common import DatasetLineageProviderConfigBase
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.agent.sql_gate import (
+    INFORMATION_SCHEMA,
+    CatalogScope,
+)
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
@@ -27,6 +35,18 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 logger = logging.Logger(__name__)
+
+
+def dataset_name(database: str, schema: str, table: str) -> str:
+    """The identifier table_pattern/view_pattern is matched against.
+
+    Shared by ingestion (redshift.py) and the probe, so both sides filter on
+    the same string; they used to build it independently and disagreed. The
+    probe reaches it through the `Qualifier(authoritative=True)` on `database`
+    below rather than through an override of its own -- Redshift connects to
+    exactly one database, so the config is the authority on which.
+    """
+    return f"{database}.{schema}.{table}"
 
 
 # The lineage modes are documented in the Redshift source's docstring.
@@ -86,7 +106,9 @@ class RedshiftConfig(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-    database: str = Field(default="dev", description="database")
+    database: Annotated[str, Qualifier(authoritative=True)] = Field(
+        default="dev", description="database"
+    )
 
     # Although Amazon Redshift is compatible with Postgres's wire format,
     # we actually want to use the sqlalchemy-redshift package and dialect
@@ -101,17 +123,27 @@ class RedshiftConfig(
         description="",
     )
 
-    _database_alias_removed = pydantic_removed_field("database_alias")
-    _use_lineage_v2_removed = pydantic_removed_field("use_lineage_v2")
+    _database_alias_removed = pydantic_removed_field(
+        "database_alias", month="November", year=2023
+    )
+    _use_lineage_v2_removed = pydantic_removed_field(
+        "use_lineage_v2", month="August", year=2025
+    )
     _rename_lineage_v2_generate_queries_to_lineage_generate_queries = (
         pydantic_renamed_field(
             "lineage_v2_generate_queries", "lineage_generate_queries"
         )
     )
 
-    default_schema: str = Field(
+    default_schema: Optional[str] = Field(
         default="public",
-        description="The default schema to use if the sql parser fails to parse the schema with `sql_based` lineage collector",
+        description=(
+            "The default schema to use if the SQL parser fails to parse the "
+            "schema with the `sql_based` lineage collector. Set to `None` "
+            "(or override at runtime) to leave unqualified table references "
+            "without a schema qualifier in the resulting URN, instead of "
+            "forcing them under the default schema."
+        ),
     )
 
     is_serverless: bool = Field(
@@ -122,6 +154,18 @@ class RedshiftConfig(
     lineage_generate_queries: bool = Field(
         default=True,
         description="Whether to generate queries entities for the SQL-based lineage collector.",
+    )
+
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description=(
+            "Generate per-query popularity statistics (queryUsageStatistics) for the "
+            "Query entities emitted by the SQL-based lineage collector. This is a "
+            "sub-flag of include_usage_statistics: it only takes effect when "
+            "include_usage_statistics is enabled, and is independent of "
+            "include_column_usage_stats. Requires lineage_generate_queries (default "
+            "True) so Query entities exist to attach stats to."
+        ),
     )
 
     include_table_lineage: bool = Field(
@@ -139,6 +183,17 @@ class RedshiftConfig(
     include_usage_statistics: bool = Field(
         default=False,
         description="Generate usage statistic. email_domain config parameter needs to be set if enabled",
+    )
+
+    include_column_usage_stats: bool = Field(
+        default=False,
+        description="Generate column-level usage statistics (`fieldCounts`) by parsing "
+        "the SQL query text instead of attributing reads to the tables reported by "
+        "Redshift's `stl_scan` system table. This is slower (every read query is parsed) "
+        "but adds per-column usage. The full query text is reconstructed from "
+        "`STL_QUERYTEXT` / `SYS_QUERY_TEXT` (the same source used for lineage), not the "
+        "truncated `stl_query.querytxt`. Only applies when `include_usage_statistics` is "
+        "enabled.",
     )
 
     include_unload_lineage: bool = Field(
@@ -182,6 +237,17 @@ class RedshiftConfig(
         description="Whether to skip EXTERNAL tables.",
     )
 
+    extract_ownership: bool = Field(
+        default=False,
+        description=(
+            "When enabled, extracts table and view owners from the Redshift catalog "
+            "(pg_catalog.pg_user) and emits them as TECHNICAL_OWNER in DataHub. "
+            "Ownership is applied using OVERWRITE mode, meaning any existing ownership "
+            "information (including manually added or modified owners from the UI) "
+            "will be replaced."
+        ),
+    )
+
     @model_validator(mode="before")
     @classmethod
     def check_email_is_set_on_usage(cls, values):
@@ -195,6 +261,27 @@ class RedshiftConfig(
     def check_database_is_set(self) -> "RedshiftConfig":
         assert self.database, "database must be set"
         return self
+
+    @property
+    def lineage_enabled(self) -> bool:
+        """True if any lineage source is enabled. Single source of truth so the
+        source-level gating and the aggregator's generate_lineage stay in sync."""
+        return (
+            self.include_table_lineage
+            or self.include_view_lineage
+            or self.include_copy_lineage
+            or self.include_unload_lineage
+            or self.include_share_lineage
+            or self.include_table_rename_lineage
+        )
+
+    @classmethod
+    def default_schemas(cls) -> FrozenSet[str]:
+        # Reuse the same list the schema-listing SQL excludes, so the agent probe
+        # marks pg_catalog / information_schema as auto-dropped, not user-filtered.
+        from datahub.ingestion.source.redshift.query import REDSHIFT_DEFAULT_SCHEMAS
+
+        return frozenset(REDSHIFT_DEFAULT_SCHEMAS)
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> "RedshiftConfig":
@@ -235,3 +322,61 @@ class RedshiftConfig(
             else:
                 values["options"] = {"connect_args": values["extra_client_options"]}
         return values
+
+    @classmethod
+    def probe_catalog_scope(cls) -> CatalogScope:
+        # pg_catalog is named relation by relation here, NOT allowed at schema
+        # level, because Redshift keeps executed SQL in that schema: stl_query
+        # (querytxt), stl_querytext (text) and svl_statementtext (text) sit right
+        # beside the svv_* metadata views.
+        #
+        # An earlier version of this declaration allowed the schema *and* listed
+        # relations, with a comment claiming the list was what kept the query-text
+        # tables out. It was not: permits_path short-circuits on a schema-level
+        # allow, so the list was dead code and all three were readable. Naming
+        # relations only works when the schema is not also allowed.
+        #
+        # The list is derived from redshift/query.py: every catalog relation
+        # ingestion reads for schema shape belongs here, so the probe can see
+        # what the recipe will see. Naming too few is its own failure -- the
+        # first cut omitted pg_database, which list_databases reads, so the
+        # probe could not answer a question ingestion answers routinely.
+        #
+        # Deliberately absent, and the reason each is:
+        #   stl_query, stl_querytext, svl_statementtext -- executed SQL, which
+        #     carries literal values out of users' queries.
+        #   pg_user, pg_user_info, svv_user_info, svl_user_info -- user names
+        #     rather than schema shape.
+        #   stl_insert/delete/scan/load_commits/unload_log,
+        #     svl_query_metrics_summary -- operational history feeding lineage
+        #     and usage, not shape a probe needs to report.
+        return CatalogScope(
+            schemas=frozenset({INFORMATION_SCHEMA}),
+            relations=frozenset(
+                {
+                    # svv_* metadata views
+                    "pg_catalog.svv_table_info",
+                    "pg_catalog.svv_all_schemas",
+                    "pg_catalog.svv_external_schemas",
+                    "pg_catalog.svv_external_tables",
+                    "pg_catalog.svv_external_columns",
+                    "pg_catalog.svv_redshift_databases",
+                    "pg_catalog.svv_redshift_schemas",
+                    "pg_catalog.svv_redshift_tables",
+                    "pg_catalog.svv_redshift_columns",
+                    "pg_catalog.svv_datashares",
+                    "pg_catalog.svv_mv_info",
+                    "pg_catalog.stv_mv_info",
+                    # Postgres-inherited catalog: names, columns, comments and
+                    # dependencies. No statement text in any of these.
+                    "pg_catalog.pg_database",
+                    "pg_catalog.pg_class",
+                    "pg_catalog.pg_class_info",
+                    "pg_catalog.pg_namespace",
+                    "pg_catalog.pg_attribute",
+                    "pg_catalog.pg_attrdef",
+                    "pg_catalog.pg_depend",
+                    "pg_catalog.pg_description",
+                }
+            ),
+        )

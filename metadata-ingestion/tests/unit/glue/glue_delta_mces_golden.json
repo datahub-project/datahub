@@ -19,7 +19,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647690,
+        "lastObserved": 1773134921303,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -35,7 +35,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647690,
+        "lastObserved": 1773134921303,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -52,7 +52,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647690,
+        "lastObserved": 1773134921303,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -70,7 +70,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647690,
+        "lastObserved": 1773134921303,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -91,7 +91,29 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647690,
+        "lastObserved": 1773134921303,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1623248255000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "CREATE",
+            "lastUpdatedTimestamp": 1623248255000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1773685089913,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -118,6 +140,12 @@
                         },
                         "name": "delta_table_1",
                         "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/delta-database/delta_table_1",
+                        "created": {
+                            "time": 1623248255000
+                        },
+                        "lastModified": {
+                            "time": 1623248255000
+                        },
                         "tags": []
                     }
                 },
@@ -1461,7 +1489,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647704,
+        "lastObserved": 1773134921308,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -1479,7 +1507,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647704,
+        "lastObserved": 1773134921308,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -1495,7 +1523,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647704,
+        "lastObserved": 1773134921308,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }
@@ -1520,7 +1548,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1746455647704,
+        "lastObserved": 1773134921308,
         "runId": "glue-source-tes",
         "lastRunId": "no-run-id-provided"
     }

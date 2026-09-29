@@ -5,71 +5,74 @@ import {
     ExclamationCircleFilled,
     StopOutlined,
 } from '@ant-design/icons';
+import i18next from 'i18next';
 import React from 'react';
 
-import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, WARNING_COLOR_HEX } from '@components/theme/foundations/colors';
-
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import { DataContractCategoryType } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/types';
+import ColorTheme from '@src/conf/theme/colorThemes/types';
 
 import { Assertion, AssertionType, DataContract, DataContractState } from '@types';
 
-export const getContractSummaryIcon = (state: DataContractState, summary: AssertionStatusSummary) => {
+export const getContractSummaryIcon = (
+    state: DataContractState,
+    summary: AssertionStatusSummary,
+    colors: ColorTheme,
+) => {
     if (state === DataContractState.Pending) {
-        return <ClockCircleOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <ClockCircleOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.total === 0) {
-        return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+        return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.passing === summary.total) {
-        return <CheckOutlined style={{ color: SUCCESS_COLOR_HEX, fontSize: 28 }} />;
+        return <CheckOutlined style={{ color: colors.iconSuccess, fontSize: 28 }} />;
     }
     if (summary.failing > 0) {
-        return <CloseOutlined style={{ color: FAILURE_COLOR_HEX, fontSize: 28 }} />;
+        return <CloseOutlined style={{ color: colors.iconError, fontSize: 28 }} />;
     }
     if (summary.erroring > 0) {
-        return <ExclamationCircleFilled style={{ color: WARNING_COLOR_HEX, fontSize: 28 }} />;
+        return <ExclamationCircleFilled style={{ color: colors.iconWarning, fontSize: 28 }} />;
     }
-    return <StopOutlined style={{ color: ANTD_GRAY[6], fontSize: 28 }} />;
+    return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
 };
 
 export const getContractSummaryTitle = (state: DataContractState, summary: AssertionStatusSummary) => {
     if (state === DataContractState.Pending) {
-        return 'This contract is pending implementation';
+        return i18next.t('entity.profile.validations:contractStatus.pending');
     }
     if (summary.total === 0) {
-        return 'This contract has not yet been validated';
+        return i18next.t('entity.profile.validations:contractStatus.noAssertionsRun');
     }
     if (summary.passing === summary.total) {
-        return 'This dataset is meeting its contract';
+        return i18next.t('entity.profile.validations:contractStatus.passing');
     }
     if (summary.failing > 0) {
-        return 'This dataset is not meeting its contract';
+        return i18next.t('entity.profile.validations:contractStatus.failing');
     }
     if (summary.erroring > 0) {
-        return 'Unable to determine contract status';
+        return i18next.t('entity.profile.validations:contractStatus.erroring');
     }
-    return 'This contract has not yet been validated';
+    return i18next.t('entity.profile.validations:contractStatus.noAssertionsDefault');
 };
 
 export const getContractSummaryMessage = (state: DataContractState, summary: AssertionStatusSummary) => {
     if (state === DataContractState.Pending) {
-        return 'This may take some time. Come back later!';
+        return i18next.t('entity.profile.validations:contractMessage.pending');
     }
     if (summary.total === 0) {
-        return 'No contract assertions have been run yet';
+        return i18next.t('entity.profile.validations:contractMessage.noAssertionsRun');
     }
     if (summary.passing === summary.total) {
-        return 'All contract assertions are passing';
+        return i18next.t('entity.profile.validations:contractMessage.allPassing');
     }
     if (summary.failing > 0) {
-        return 'Some contract assertions are failing';
+        return i18next.t('entity.profile.validations:contractMessage.failing');
     }
     if (summary.erroring > 0) {
-        return 'Some contract assertions are completing with errors';
+        return i18next.t('entity.profile.validations:contractMessage.erroring');
     }
-    return 'No contract assertions have been run yet';
+    return i18next.t('entity.profile.validations:contractMessage.noAssertionsDefault');
 };
 
 /**
@@ -107,6 +110,16 @@ export const getDataContractCategoryFromAssertion = (assertion: Assertion) => {
         return DataContractCategoryType.SCHEMA;
     }
     return DataContractCategoryType.DATA_QUALITY;
+};
+
+export const getDataContractCategoryLabel = (category: DataContractCategoryType): string => {
+    const labels: Record<DataContractCategoryType, () => string> = {
+        [DataContractCategoryType.FRESHNESS]: () => i18next.t('entity.profile.validations:contractCategory.freshness'),
+        [DataContractCategoryType.SCHEMA]: () => i18next.t('entity.profile.validations:contractCategory.schema'),
+        [DataContractCategoryType.DATA_QUALITY]: () =>
+            i18next.t('entity.profile.validations:contractCategory.dataQuality'),
+    };
+    return labels[category]?.() ?? category;
 };
 
 export const DATA_QUALITY_ASSERTION_TYPES = new Set([

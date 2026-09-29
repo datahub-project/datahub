@@ -1,0 +1,173 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/kafka/SampleKafkaDataset"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleKafkaSchema",
+              "platform": "urn:li:dataPlatform:kafka",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "[version=2.0].[type=boolean].field_foo_2",
+                  "nullable": false,
+                  "description": "Foo field description",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "[version=2.0].[type=boolean].field_bar",
+                  "nullable": false,
+                  "description": "Bar field description",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:pw-incidents-v2-test-title",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\": \"OPERATIONAL\", \"title\": \"test title\", \"description\": \"test description\", \"entities\": [\"urn:li:dataset:(urn:li:dataPlatform:kafka,incidents-sample-dataset-v2,PROD)\"], \"status\": { \"state\": \"ACTIVE\", \"lastUpdated\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }, \"created\": { \"time\": 0, \"actor\": \"urn:li:corpuser:admin\" } }",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {},
+              "name": "customers"
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "value": "{\"siblings\":[\"urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)\"],\"primary\":true}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.common.Status": {
+              "removed": false
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "customProperties": {},
+              "name": "customers"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "siblings",
+    "aspect": {
+      "value": "{\"siblings\":[\"urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)\"],\"primary\":false}",
+      "contentType": "application/json"
+    }
+  }
+]

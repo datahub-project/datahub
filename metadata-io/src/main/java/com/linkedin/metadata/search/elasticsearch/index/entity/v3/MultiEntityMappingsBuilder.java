@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getEntityTypeId;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
@@ -19,10 +21,12 @@ import com.linkedin.metadata.models.FieldSpecUtils;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -104,7 +108,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   private final EntityIndexConfiguration entityIndexConfiguration;
 
   /** Base mapping configuration loaded from external resource if specified. */
-  private final Map<String, Object> mappingBaseConfiguration;
+  @Nullable private final Map<String, Object> mappingBaseConfiguration;
+
+  private final int keywordMaxLength;
+
+  @Nonnull private final List<V3MappingContributor> mappingContributors;
 
   /**
    * Constructs a new MultiEntityMappingsBuilder with the given entity index configuration.
@@ -120,8 +128,25 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    */
   public MultiEntityMappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration)
       throws IOException {
+    this(entityIndexConfiguration, ESUtils.KEYWORD_MAXLENGTH, List.of());
+  }
+
+  public MultiEntityMappingsBuilder(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration, int keywordMaxLength)
+      throws IOException {
+    this(entityIndexConfiguration, keywordMaxLength, List.of());
+  }
+
+  public MultiEntityMappingsBuilder(
+      @Nonnull EntityIndexConfiguration entityIndexConfiguration,
+      int keywordMaxLength,
+      @Nonnull List<V3MappingContributor> mappingContributors)
+      throws IOException {
 
     this.entityIndexConfiguration = entityIndexConfiguration;
+    this.keywordMaxLength = keywordMaxLength > 0 ? keywordMaxLength : ESUtils.KEYWORD_MAXLENGTH;
+    this.mappingContributors =
+        mappingContributors == null ? List.of() : List.copyOf(mappingContributors);
     String mappingConfig = entityIndexConfiguration.getV3().getMappingConfig();
     if (mappingConfig != null && !mappingConfig.trim().isEmpty()) {
       this.mappingBaseConfiguration =
@@ -162,19 +187,18 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull OperationContext opContext,
       @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     if (entityIndexConfiguration.getV3().isEnabled()) {
-      // Generate Index Mapping per group
-      return opContext.getEntityRegistry().getSearchGroups().stream()
+      return V3IndexKeys.groupEntitySpecs(opContext.getEntityRegistry()).keySet().stream()
           .map(
-              searchGroup -> {
+              indexKey -> {
                 Map<String, Object> mappings =
                     getMappingsForMultipleEntities(
-                        opContext.getEntityRegistry(), searchGroup, structuredProperties);
+                        opContext.getEntityRegistry(), indexKey, structuredProperties);
                 return IndexMapping.builder()
                     .indexName(
                         opContext
                             .getSearchContext()
                             .getIndexConvention()
-                            .getEntityIndexNameV3(searchGroup))
+                            .getEntityIndexNameV3(opContext, indexKey))
                     .mappings(mappings)
                     .build();
               })
@@ -206,25 +230,53 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       return Collections.emptyList();
     }
 
-    List<IndexMapping> result = new ArrayList<>(1);
+    List<IndexMapping> result = new ArrayList<>();
 
-    EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
-
-    if (entitySpec == null || entitySpec.getSearchGroup() == null) {
-      log.warn("Missing entitySpec with searchGroup for {}", urn.getEntityType());
+    // Get entity types from the property definition (e.g., urn:li:entityType:datahub.dataset)
+    if (property.getEntityTypes() == null || property.getEntityTypes().isEmpty()) {
+      log.warn("Property {} has no entity types defined", urn);
       return result;
     }
 
-    String searchGroup = entitySpec.getSearchGroup();
-    Map<String, Object> mappings =
-        getMappingsForMultipleEntities(
-            opContext.getEntityRegistry(), searchGroup, List.of(Pair.of(urn, property)));
-    result.add(
-        IndexMapping.builder()
-            .indexName(
-                opContext.getSearchContext().getIndexConvention().getEntityIndexNameV3(searchGroup))
-            .mappings(mappings)
-            .build());
+    Map<String, List<EntitySpec>> searchGroupToEntitySpecs = new HashMap<>();
+
+    for (Urn entityTypeUrn : property.getEntityTypes()) {
+      // Extract entity type name from URN, handling both formats:
+      // - urn:li:entityType:dataset (legacy)
+      // - urn:li:entityType:datahub.dataset (production)
+      String entityTypeName = getEntityTypeId(entityTypeUrn);
+      if (entityTypeName == null) {
+        log.warn("Could not extract entity type from URN: {}", entityTypeUrn);
+        continue;
+      }
+
+      EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityTypeName);
+
+      if (entitySpec != null) {
+        String indexKey = V3IndexKeys.resolve(entitySpec);
+        searchGroupToEntitySpecs.computeIfAbsent(indexKey, k -> new ArrayList<>()).add(entitySpec);
+      } else {
+        log.warn("Missing entitySpec for entity type: {}", entityTypeName);
+      }
+    }
+
+    // Build mappings for each search group
+    for (Map.Entry<String, List<EntitySpec>> entry : searchGroupToEntitySpecs.entrySet()) {
+      String searchGroup = entry.getKey();
+      Map<String, Object> mappings =
+          getMappingsForMultipleEntities(
+              opContext.getEntityRegistry(), searchGroup, List.of(Pair.of(urn, property)));
+
+      result.add(
+          IndexMapping.builder()
+              .indexName(
+                  opContext
+                      .getSearchContext()
+                      .getIndexConvention()
+                      .getEntityIndexNameV3(opContext, searchGroup))
+              .mappings(mappings)
+              .build());
+    }
 
     return result;
   }
@@ -242,32 +294,42 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   @Override
   public Map<String, Object> getIndexMappingsForStructuredProperty(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    return properties.stream()
-        .map(
-            urnProperty -> {
-              StructuredPropertyDefinition property = urnProperty.getSecond();
-              Map<String, Object> mappingForField = new HashMap<>();
-              String valueType = property.getValueType().getId();
+    List<StructuredPropertyUtils.StructuredPropertyFieldMapping> entries =
+        properties.stream()
+            .map(
+                urnProperty -> {
+                  StructuredPropertyDefinition property = urnProperty.getSecond();
+                  Map<String, Object> mappingForField = new HashMap<>();
+                  LogicalValueType logicalType = getLogicalValueType(property.getValueType());
 
-              // Map structured property value types to field types
-              if (valueType.equalsIgnoreCase(LogicalValueType.STRING.name())
-                  || valueType.equalsIgnoreCase(LogicalValueType.RICH_TEXT.name())) {
-                mappingForField = FieldTypeMapper.getMappingsForKeyword();
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.DATE.name())) {
-                mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.URN.name())) {
-                mappingForField = FieldTypeMapper.getMappingsForUrn();
-              } else if (valueType.equalsIgnoreCase(LogicalValueType.NUMBER.name())) {
-                mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
-              } else {
-                // Default to keyword for unknown types
-                mappingForField = FieldTypeMapper.getMappingsForKeyword();
-              }
+                  switch (logicalType) {
+                    case STRING:
+                    case RICH_TEXT:
+                      mappingForField =
+                          FieldTypeMapper.getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
+                      break;
+                    case DATE:
+                      mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
+                      break;
+                    case URN:
+                      mappingForField = FieldTypeMapper.getMappingsForUrn();
+                      break;
+                    case NUMBER:
+                      mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
+                      break;
+                    default:
+                      mappingForField =
+                          FieldTypeMapper.getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
+                      break;
+                  }
 
-              return Map.entry(
-                  toElasticsearchFieldName(urnProperty.getFirst(), property), mappingForField);
-            })
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                  return new StructuredPropertyUtils.StructuredPropertyFieldMapping(
+                      toElasticsearchFieldName(urnProperty.getFirst(), property),
+                      urnProperty.getFirst(),
+                      mappingForField);
+                })
+            .collect(Collectors.toList());
+    return StructuredPropertyUtils.resolveStructuredPropertyMappingCollisions(entries);
   }
 
   /**
@@ -299,8 +361,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
 
     // Extract entity specs from the registry based on searchGroup
-    Collection<EntitySpec> entitySpecs =
-        entityRegistry.getEntitySpecsBySearchGroup(searchGroup).values();
+    Collection<EntitySpec> entitySpecs = V3IndexKeys.entitySpecsForKey(entityRegistry, searchGroup);
 
     if (entitySpecs.isEmpty()) {
       log.warn("No entities found for search group '{}'", searchGroup);
@@ -389,6 +450,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
           MultiEntityMappingsUtils.mergeMappings(combinedMappings, mappingBaseConfiguration);
     }
 
+    applyMappingContributors(combinedMappings, searchGroup);
+
     // Build _search section with all copy_to destination fields
     Map<String, Object> searchSection =
         MultiEntityMappingsUtils.buildSearchSection(entitySpecs, combinedMappings);
@@ -401,6 +464,32 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
 
     return combinedMappings;
+  }
+
+  private void applyMappingContributors(
+      @Nonnull Map<String, Object> combinedMappings, @Nonnull String searchGroup) {
+    if (mappingContributors.isEmpty()) {
+      return;
+    }
+    @SuppressWarnings("unchecked")
+    Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");
+    if (properties == null) {
+      properties = new HashMap<>();
+      combinedMappings.put("properties", properties);
+    }
+    for (V3MappingContributor contributor : mappingContributors) {
+      Map<String, Object> extras = contributor.extraRootProperties(searchGroup);
+      for (Map.Entry<String, Object> extra : extras.entrySet()) {
+        if (properties.containsKey(extra.getKey())
+            || MappingConstants.STRATEGY_OWNED_ROOT_FIELDS.contains(extra.getKey())) {
+          throw new IllegalArgumentException(
+              "V3 mapping contributor attempted to overwrite existing property '"
+                  + extra.getKey()
+                  + "'");
+        }
+        properties.put(extra.getKey(), extra.getValue());
+      }
+    }
   }
 
   /**
@@ -490,16 +579,17 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         StructuredPropertyMappingBuilder.createStructuredPropertyMappings(
             entitySpec, structuredProperties);
 
-    // Add structured properties from parameters under a structuredProperties container
-    // Always create the structuredProperties field as dynamic to handle future structured
-    // properties
+    // Add structured properties from parameters under a structuredProperties container.
+    // dynamic:false — a structured property value indexed before its mapping update must stay
+    // in _source unindexed rather than be dynamic-mapped as text, which permanently poisons the
+    // field type and breaks terms aggregations across multi-index searches.
     mappings.put(
         STRUCTURED_PROPERTY_MAPPING_FIELD,
         ImmutableMap.of(
             TYPE,
             ESUtils.OBJECT_FIELD_TYPE,
             "dynamic",
-            true,
+            false,
             PROPERTIES,
             structuredPropertyMappings.isEmpty() ? new HashMap<>() : structuredPropertyMappings));
 
@@ -801,6 +891,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       // Create root field mapping - this is the target field that aspect fields will copy_to
       Map<String, Object> rootFieldMapping = new HashMap<>();
       rootFieldMapping.put(TYPE, resolvedElasticsearchType);
+      if (ESUtils.OBJECT_FIELD_TYPE.equals(resolvedElasticsearchType)) {
+        rootFieldMapping.put("dynamic", true);
+      }
 
       // Check if any of the conflicting fields have eagerGlobalOrdinals set to true
       boolean hasEagerGlobalOrdinals =
@@ -889,8 +982,12 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       log.debug("Creating root alias for _entityName -> _search.entityName");
     } else {
       // Create root field mapping - this is the target field that aspect fields will copy_to
+      String resolvedType = FieldTypeMapper.getElasticsearchTypeForFieldType(fieldType);
       Map<String, Object> rootFieldMapping = new HashMap<>();
-      rootFieldMapping.put(TYPE, FieldTypeMapper.getElasticsearchTypeForFieldType(fieldType));
+      rootFieldMapping.put(TYPE, resolvedType);
+      if (ESUtils.OBJECT_FIELD_TYPE.equals(resolvedType)) {
+        rootFieldMapping.put("dynamic", true);
+      }
 
       // Check if any of the conflicting fields have eagerGlobalOrdinals set to true
       boolean hasEagerGlobalOrdinals =

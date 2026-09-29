@@ -19,5 +19,3 @@ export const QuickFiltersContext = React.createContext<AppStateType>({
 export function useQuickFiltersContext() {
     return useContext(QuickFiltersContext);
 }
-
-export default QuickFiltersContext;

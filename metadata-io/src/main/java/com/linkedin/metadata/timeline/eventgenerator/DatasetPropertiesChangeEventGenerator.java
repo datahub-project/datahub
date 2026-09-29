@@ -1,7 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
-import static com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator.*;
+import static com.linkedin.metadata.timeline.eventgenerator.DocumentationChangeEventGenerator.*;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableMap;
@@ -71,7 +71,9 @@ public class DatasetPropertiesChangeEventGenerator
               .semVerChange(SemanticChangeType.MINOR)
               .description(
                   String.format(DESCRIPTION_CHANGED, entityUrn, baseDescription, targetDescription))
-              .parameters(ImmutableMap.of("description", targetDescription))
+              .parameters(
+                  ImmutableMap.of(
+                      "description", targetDescription, "previousDescription", baseDescription))
               .auditStamp(auditStamp)
               .build());
     }

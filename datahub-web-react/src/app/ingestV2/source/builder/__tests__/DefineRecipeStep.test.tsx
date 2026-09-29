@@ -8,7 +8,7 @@ import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import themeV2 from '@conf/theme/themeV2';
 
 describe('DefineRecipeStep', () => {
-    it('should render the RecipeBuilder if the type is in CONNECTORS_WITH_FORM', () => {
+    it('should render the RecipeBuilder if the type is in CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS', () => {
         const { getByText, queryByText } = render(
             <ThemeProvider theme={themeV2}>
                 <MockedProvider>
@@ -29,7 +29,7 @@ describe('DefineRecipeStep', () => {
         expect(queryByText('For more information about how to configure a recipe')).toBeNull();
     });
 
-    it('should not render the RecipeBuilder if the type is not in CONNECTORS_WITH_FORM', () => {
+    it('should not render the RecipeBuilder if the type is not in CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS', () => {
         const { getByText, queryByText } = render(
             <ThemeProvider theme={themeV2}>
                 <MockedProvider>

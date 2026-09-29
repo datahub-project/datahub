@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.authentication.group.GroupService;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
@@ -15,7 +14,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DocumentSourceType;
-import com.linkedin.datahub.graphql.generated.DocumentState;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
 import com.linkedin.entity.EntityResponse;
@@ -26,15 +24,22 @@ import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.DocumentStatus;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.view.DataHubViewDefinition;
+import com.linkedin.view.DataHubViewInfo;
+import com.linkedin.view.DataHubViewType;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
@@ -49,9 +54,12 @@ public class SearchDocumentsResolverTest {
   private static final String TEST_GROUP_URN = "urn:li:corpGroup:testGroup";
   private static final String OTHER_USER_URN = "urn:li:corpuser:other";
 
+  private static final String TEST_VIEW_URN = "urn:li:dataHubView:testView";
+  private static final String TEST_DOMAIN_URN = "urn:li:domain:marketing";
+
   private DocumentService mockService;
   private EntityClient mockEntityClient;
-  private GroupService mockGroupService;
+  private ViewService mockViewService;
   private SearchDocumentsResolver resolver;
   private DataFetchingEnvironment mockEnv;
   private SearchDocumentsInput input;
@@ -60,7 +68,7 @@ public class SearchDocumentsResolverTest {
   public void setupTest() throws Exception {
     mockService = mock(DocumentService.class);
     mockEntityClient = mock(EntityClient.class);
-    mockGroupService = mock(GroupService.class);
+    mockViewService = mock(ViewService.class);
     mockEnv = mock(DataFetchingEnvironment.class);
 
     // Setup default input
@@ -97,11 +105,37 @@ public class SearchDocumentsResolverTest {
     when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
         .thenReturn(entityResponseMap);
 
-    // Mock GroupService to return empty groups by default
-    when(mockGroupService.getGroupsForUser(any(OperationContext.class), any(Urn.class)))
-        .thenReturn(Collections.emptyList());
+    // Session group membership is stubbed via TestUtils.withSessionGroupMembership when needed
+    resolver = new SearchDocumentsResolver(mockService, mockEntityClient, mockViewService);
+  }
 
-    resolver = new SearchDocumentsResolver(mockService, mockEntityClient, mockGroupService);
+  /** Builds a minimal View whose filter scopes to a single domain. */
+  private DataHubViewInfo createViewWithDomainFilter(String domainUrn) {
+    Filter viewFilter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                CriterionUtils.buildCriterion(
+                                    "domains", Condition.EQUAL, domainUrn)))));
+    DataHubViewDefinition definition =
+        new DataHubViewDefinition()
+            .setEntityTypes(new com.linkedin.data.template.StringArray())
+            .setFilter(viewFilter);
+    return new DataHubViewInfo()
+        .setName("Test View")
+        .setType(DataHubViewType.GLOBAL)
+        .setDefinition(definition)
+        .setCreated(
+            new com.linkedin.common.AuditStamp()
+                .setTime(0L)
+                .setActor(UrnUtils.getUrn(TEST_USER_URN)))
+        .setLastModified(
+            new com.linkedin.common.AuditStamp()
+                .setTime(0L)
+                .setActor(UrnUtils.getUrn(TEST_USER_URN)));
   }
 
   private EntityResponse createPublishedDocumentResponse(String documentUrn, String ownerUrn) {
@@ -219,13 +253,51 @@ public class SearchDocumentsResolverTest {
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
     input.setTypes(ImmutableList.of("tutorial", "guide"));
-    input.setParentDocument("urn:li:document:parent");
+    input.setParentDocuments(ImmutableList.of("urn:li:document:parent"));
 
     SearchDocumentsResult result = resolver.get(mockEnv).get();
 
     assertNotNull(result);
 
     // Verify service was called with filters
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+  }
+
+  @Test
+  public void testSearchDocumentsWithRootOnly() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setRootOnly(true);
+
+    SearchDocumentsResult result = resolver.get(mockEnv).get();
+
+    assertNotNull(result);
+
+    // Verify service was called with rootOnly filter
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
+  }
+
+  @Test
+  public void testSearchDocumentsWithParentDocumentsAndRootOnly() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    // When both are set, parentDocuments takes precedence
+    input.setParentDocuments(ImmutableList.of("urn:li:document:parent"));
+    input.setRootOnly(true);
+
+    SearchDocumentsResult result = resolver.get(mockEnv).get();
+
+    assertNotNull(result);
+
+    // Verify service was called (parentDocuments filter should be used, not rootOnly)
     verify(mockService, times(1))
         .searchDocuments(
             any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
@@ -275,90 +347,11 @@ public class SearchDocumentsResolverTest {
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
-    // Don't set any states - should default to PUBLISHED
-    input.setStates(null);
-
     SearchDocumentsResult result = resolver.get(mockEnv).get();
 
     assertNotNull(result);
 
     // Verify service was called (the filter will contain state=PUBLISHED by default)
-    verify(mockService, times(1))
-        .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
-  }
-
-  @Test
-  public void testSearchDocumentsWithSingleState() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Set to only search UNPUBLISHED documents
-    input.setStates(ImmutableList.of(DocumentState.UNPUBLISHED));
-
-    SearchDocumentsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-
-    // Verify service was called with UNPUBLISHED state filter
-    verify(mockService, times(1))
-        .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
-  }
-
-  @Test
-  public void testSearchDocumentsWithMultipleStates() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Set to search both PUBLISHED and UNPUBLISHED documents
-    input.setStates(ImmutableList.of(DocumentState.PUBLISHED, DocumentState.UNPUBLISHED));
-
-    SearchDocumentsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-
-    // Verify service was called with both states in filter
-    verify(mockService, times(1))
-        .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
-  }
-
-  @Test
-  public void testSearchDocumentsExcludesDraftsByDefault() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Don't set includeDrafts - should exclude drafts by default
-    input.setIncludeDrafts(null);
-
-    SearchDocumentsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-
-    // Verify service was called (the filter will exclude draftOf != null by default)
-    verify(mockService, times(1))
-        .searchDocuments(
-            any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
-  }
-
-  @Test
-  public void testSearchDocumentsIncludeDrafts() throws Exception {
-    QueryContext mockContext = getMockAllowContext();
-    when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
-
-    // Explicitly include drafts
-    input.setIncludeDrafts(true);
-
-    SearchDocumentsResult result = resolver.get(mockEnv).get();
-
-    assertNotNull(result);
-
-    // Verify service was called without draftOf filter
     verify(mockService, times(1))
         .searchDocuments(
             any(OperationContext.class), eq("test query"), any(), any(), eq(0), eq(10));
@@ -543,22 +536,17 @@ public class SearchDocumentsResolverTest {
 
   @Test
   public void testUnpublishedDocumentShownToGroupMember() throws Exception {
-    QueryContext mockContext = getMockAllowContext(OTHER_USER_URN);
+    QueryContext mockContext =
+        getMockAllowContext(OTHER_USER_URN, ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
     when(mockEnv.getContext()).thenReturn(mockContext);
     when(mockEnv.getArgument(eq("input"))).thenReturn(input);
 
-    // Document is UNPUBLISHED and owned by a GROUP that the current user belongs to
     Map<Urn, EntityResponse> entityResponseMap = new HashMap<>();
     EntityResponse entityResponse =
         createUnpublishedDocumentResponse(TEST_DOCUMENT_URN, TEST_GROUP_URN);
     entityResponseMap.put(UrnUtils.getUrn(TEST_DOCUMENT_URN), entityResponse);
     when(mockEntityClient.batchGetV2(any(OperationContext.class), any(String.class), any(), any()))
         .thenReturn(entityResponseMap);
-
-    // Mock that the current user is part of TEST_GROUP
-    when(mockGroupService.getGroupsForUser(
-            any(OperationContext.class), eq(UrnUtils.getUrn(OTHER_USER_URN))))
-        .thenReturn(ImmutableList.of(UrnUtils.getUrn(TEST_GROUP_URN)));
 
     SearchDocumentsResult result = resolver.get(mockEnv).get();
 
@@ -588,5 +576,56 @@ public class SearchDocumentsResolverTest {
         result.getDocuments().size(),
         1,
         "PUBLISHED document should be shown to all users regardless of ownership");
+  }
+
+  @Test
+  public void testSearchDocumentsAppliesViewFilter() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    input.setViewUrn(TEST_VIEW_URN);
+    when(mockViewService.getViewInfo(
+            any(OperationContext.class), eq(UrnUtils.getUrn(TEST_VIEW_URN))))
+        .thenReturn(createViewWithDomainFilter(TEST_DOMAIN_URN));
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
+    verify(mockService, times(1))
+        .searchDocuments(
+            any(OperationContext.class),
+            eq("test query"),
+            filterCaptor.capture(),
+            any(),
+            eq(0),
+            eq(10));
+
+    // The View's domain filter must be conjoined onto every OR clause of the base
+    // (published/unpublished) filter, so every disjunct should carry the domain criterion.
+    Filter filter = filterCaptor.getValue();
+    assertNotNull(filter.getOr(), "Filter OR clause should not be null");
+    boolean everyClauseHasDomain =
+        filter.getOr().stream()
+            .allMatch(
+                cc ->
+                    cc.getAnd().stream()
+                        .anyMatch(
+                            c ->
+                                "domains".equals(c.getField())
+                                    && c.getValues() != null
+                                    && c.getValues().contains(TEST_DOMAIN_URN)));
+    assertTrue(everyClauseHasDomain, "View domain filter should be applied to all filter clauses");
+  }
+
+  @Test
+  public void testSearchDocumentsWithoutViewUrnDoesNotResolveView() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+
+    resolver.get(mockEnv).get();
+
+    verify(mockViewService, never()).getViewInfo(any(OperationContext.class), any());
   }
 }

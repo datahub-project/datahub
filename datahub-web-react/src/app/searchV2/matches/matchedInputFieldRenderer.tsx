@@ -22,6 +22,9 @@ export const matchedInputFieldRenderer = (matchedField: MatchedField, entity: Ch
         );
 
         if (matchedGlossaryTerm) {
+            /* untranslated-text -- termType is a dynamic value from the backend (custom property on a glossary term);
+               the fallback 'term' is part of a sentence fragment {termType} <TermName/> that requires a Trans
+               rewrite and backend-driven translation to localise properly */
             let termType = 'term';
             const typeProperty = matchedGlossaryTerm.term.properties?.customProperties?.find(
                 (property) => property.key === TYPE_PROPERTY_KEY_NAME,

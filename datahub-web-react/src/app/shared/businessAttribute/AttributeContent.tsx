@@ -2,7 +2,8 @@ import { GlobalOutlined } from '@ant-design/icons';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { MatchedFieldName } from '@app/search/matches/constants';
@@ -11,14 +12,12 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useRemoveBusinessAttributeMutation } from '@graphql/mutations.generated';
 import { BusinessAttributeAssociation, EntityType } from '@types';
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
-
 const StyledAttribute = styled(Tag)<{ fontSize?: number; highlightAttribute?: boolean }>`
     &&& {
         ${(props) =>
             props.highlightAttribute &&
-            `background: ${props.theme.styles['highlight-color']};
-            border: 1px solid ${props.theme.styles['highlight-border-color']};
+            `background: ${props.theme.colors.bgSurfaceBrand};
+            border: 1px solid ${props.theme.colors.borderBrand};
         `}
     }
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
@@ -32,7 +31,7 @@ interface Props {
     highlightText?: string;
     fontSize?: number;
     onOpenModal?: () => void;
-    refetch?: () => Promise<any>;
+    refetch?: () => void;
 }
 
 export default function AttributeContent({
@@ -45,6 +44,10 @@ export default function AttributeContent({
     entityUrn,
     refetch,
 }: Props) {
+    const { t } = useTranslation('shared.business-attribute');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const entityRegistry = useEntityRegistry();
     const [removeBusinessAttributeMutation] = useRemoveBusinessAttributeMutation();
     const highlightAttribute = useHasMatchedFieldByUrn(
@@ -61,8 +64,8 @@ export default function AttributeContent({
                 attributeToRemove.businessAttribute,
             );
         Modal.confirm({
-            title: `Do you want to remove ${AttributeName} attribute?`,
-            content: `Are you sure you want to remove the ${AttributeName} attribute?`,
+            title: t('removeConfirm.title', { attributeName: AttributeName }),
+            content: t('removeConfirm.content', { attributeName: AttributeName }),
             onOk() {
                 if (attributeToRemove.associatedUrn || entityUrn) {
                     removeBusinessAttributeMutation({
@@ -81,21 +84,21 @@ export default function AttributeContent({
                     })
                         .then(({ errors }) => {
                             if (!errors) {
-                                message.success({ content: 'Removed Business Attribute!', duration: 2 });
+                                message.success({ content: t('removeSuccess'), duration: 2 });
                             }
                         })
                         .then(refetch)
                         .catch((e) => {
                             message.destroy();
                             message.error({
-                                content: `Failed to remove business attribute: \n ${e.message || ''}`,
+                                content: t('removeAttributeError', { error: e.message || '' }),
                                 duration: 3,
                             });
                         });
                 }
             },
             onCancel() {},
-            okText: 'Yes',
+            okText: tc('yes'),
             maskClosable: true,
             closable: true,
         });

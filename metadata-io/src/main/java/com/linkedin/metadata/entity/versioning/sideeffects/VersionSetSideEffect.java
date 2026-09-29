@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.versioning.sideeffects;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
@@ -41,18 +42,25 @@ public class VersionSetSideEffect extends MCPSideEffect {
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
-      Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
-    return changeMCPS.stream().flatMap(item -> updateLatest(item, retrieverContext));
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
+    return changeMCPS.stream()
+        .flatMap(item -> updateLatest(operationContext, item, retrieverContext));
   }
 
   @Override
   protected Stream<MCPItem> postMCPSideEffect(
-      Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<MCLItem> mclItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.of();
   }
 
   private static Stream<ChangeMCP> updateLatest(
-      ChangeMCP changeMCP, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationFingerprint,
+      ChangeMCP changeMCP,
+      @Nonnull RetrieverContext retrieverContext) {
 
     if (VERSION_SET_PROPERTIES_ASPECT_NAME.equals(changeMCP.getAspectName())) {
       List<ChangeMCP> mcpItems = new ArrayList<>();
@@ -76,7 +84,8 @@ public class VersionSetSideEffect extends MCPSideEffect {
         Aspect previousLatestEntity =
             retrieverContext
                 .getAspectRetriever()
-                .getLatestAspectObject(previousLatest, VERSION_PROPERTIES_ASPECT_NAME);
+                .getLatestAspectObject(
+                    operationFingerprint, previousLatest, VERSION_PROPERTIES_ASPECT_NAME);
         if (!newLatest.equals(previousLatest) && previousLatestEntity != null) {
           EntitySpec entitySpec =
               retrieverContext
@@ -111,7 +120,8 @@ public class VersionSetSideEffect extends MCPSideEffect {
       Aspect newLatestEntity =
           retrieverContext
               .getAspectRetriever()
-              .getLatestAspectObject(newLatest, VERSION_PROPERTIES_ASPECT_NAME);
+              .getLatestAspectObject(
+                  operationFingerprint, newLatest, VERSION_PROPERTIES_ASPECT_NAME);
       if (newLatestEntity == null) {
         throw new UnsupportedOperationException(
             "Cannot set latest version to unversioned entity: " + newLatest);

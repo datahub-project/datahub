@@ -1,8 +1,14 @@
 import { renderHook } from '@testing-library/react-hooks';
 
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
-import { pathMatchesExact, pathMatchesInsensitiveToV2 } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
-import { EditableSchemaMetadata, EntityType, SchemaField, SchemaFieldDataType, Tag } from '@src/types.generated';
+import {
+    BusinessAttribute,
+    EditableSchemaMetadata,
+    EntityType,
+    SchemaField,
+    SchemaFieldDataType,
+    Tag,
+} from '@src/types.generated';
 
 const mockUseBaseEntity = vi.hoisted(() => vi.fn());
 
@@ -140,14 +146,63 @@ describe('useExtractFieldTagsInfo', () => {
         ...filledSchemaField,
     };
 
-    const emptyBaseEntity = {};
+    const businessAttributeTag: Tag = {
+        urn: 'urn:businessAttributeTag',
+        type: EntityType.Tag,
+        name: 'businessAttributeTagName',
+        properties: {
+            name: 'businessAttributeTagName',
+        },
+    };
 
-    beforeAll(() => {
-        expect(pathMatchesExact('testField', 'testField')).toBe(true);
-        expect(pathMatchesExact('testField', '[version=2.0].[type=record].testField')).toBe(false);
-        expect(pathMatchesInsensitiveToV2('testField', '[version=2.0].[type=record].testField')).toBe(true);
-        expect(pathMatchesInsensitiveToV2('[version=2.0].[type=record].testField', 'testField')).toBe(true);
-    });
+    const mockBusinessAttribute: BusinessAttribute = {
+        urn: 'urn:li:businessAttribute:testBA',
+        type: EntityType.BusinessAttribute,
+        properties: {
+            name: 'Test Business Attribute',
+            description: 'Test description',
+            tags: {
+                tags: [
+                    {
+                        associatedUrn: 'urn:li:globalTag:test.businessAttributeTagName',
+                        tag: businessAttributeTag,
+                    },
+                ],
+            },
+            created: {
+                time: Date.now(),
+                actor: 'urn:li:corpuser:test',
+            },
+            lastModified: {
+                time: Date.now(),
+                actor: 'urn:li:corpuser:test',
+            },
+        },
+    };
+
+    const schemaFieldWithBusinessAttribute: SchemaField = {
+        fieldPath: 'testField',
+        nullable: true,
+        recursive: false,
+        type: SchemaFieldDataType.String,
+        schemaFieldEntity: {
+            urn: 'urn:li:schemaField:testField',
+            type: EntityType.SchemaField,
+            fieldPath: 'testField',
+            parent: {
+                urn: 'urn:li:dataset:test',
+                type: EntityType.Dataset,
+            },
+            businessAttributes: {
+                businessAttribute: {
+                    businessAttribute: mockBusinessAttribute,
+                    associatedUrn: 'urn:li:schemaField:testField',
+                },
+            },
+        },
+    };
+
+    const emptyBaseEntity = {};
 
     beforeEach(() => {
         mockUseBaseEntity.mockReturnValue(emptyBaseEntity);
@@ -276,5 +331,73 @@ describe('useExtractFieldTagsInfo', () => {
         expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('extraTagName');
 
         expect(numberOfTags).toBe(2);
+    });
+
+    it('should match camelCase editable paths against lowercased schema paths', () => {
+        const metadata: EditableSchemaMetadata = {
+            editableSchemaFieldInfo: [
+                {
+                    fieldPath: 'payload.additionalInfo.rawCounterpartyId',
+                    globalTags: {
+                        tags: [{ associatedUrn: dummySchemaFieldUrn, tag: extraTag }],
+                    },
+                },
+            ],
+        };
+        const schemaField: SchemaField = {
+            fieldPath:
+                '[version=2.0].[type=struct].payload.[type=struct].additionalinfo.[type=string].rawcounterpartyid',
+            nullable: true,
+            recursive: false,
+            type: SchemaFieldDataType.String,
+        };
+
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(metadata)).result.current;
+        const { uneditableTags, numberOfTags } = extractFieldTagsInfo(schemaField);
+
+        expect(uneditableTags?.tags).toHaveLength(1);
+        expect(uneditableTags?.tags?.[0]?.tag?.properties?.name).toBe('extraTagName');
+        expect(numberOfTags).toBe(1);
+    });
+
+    it('should extract business attribute tags when schema field has business attribute', () => {
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
+            .current;
+
+        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(schemaFieldWithBusinessAttribute);
+
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(uneditableTags?.tags?.[0]?.tag?.properties?.name === 'businessAttributeTagName').toBeTruthy();
+        expect(numberOfTags).toBe(1);
+    });
+
+    it('should combine field tags and business attribute tags', () => {
+        const schemaFieldWithBothTags: SchemaField = {
+            ...filledSchemaField,
+            schemaFieldEntity: schemaFieldWithBusinessAttribute.schemaFieldEntity,
+        };
+
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
+            .current;
+
+        const { editableTags, uneditableTags, numberOfTags } = extractFieldTagsInfo(schemaFieldWithBothTags);
+
+        expect(editableTags?.tags).toHaveLength(0);
+        expect(uneditableTags?.tags).toHaveLength(2);
+        expect(uneditableTags?.tags?.some((tagAssoc) => tagAssoc.tag?.properties?.name === 'testTagName')).toBeTruthy();
+        expect(
+            uneditableTags?.tags?.some((tagAssoc) => tagAssoc.tag?.properties?.name === 'businessAttributeTagName'),
+        ).toBeTruthy();
+        expect(numberOfTags).toBe(2);
+    });
+
+    it('does not throw when the schema field has no fieldPath', () => {
+        const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
+            .current;
+        const schemaField = { ...emptySchemaField, fieldPath: undefined as unknown as string };
+
+        expect(() => extractFieldTagsInfo(schemaField)).not.toThrow();
+        const { numberOfTags } = extractFieldTagsInfo(schemaField);
+        expect(numberOfTags).toBe(0);
     });
 });

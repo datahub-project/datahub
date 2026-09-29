@@ -1,3 +1,13 @@
+### Overview
+
+The `teradata` module ingests metadata from Teradata into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+This plugin extracts the following:
+
+- Metadata for databases, schemas, views, and tables
+- Column types associated with each table
+- Table, row, and column statistics via optional SQL profiling
+
 ### Prerequisites
 
 1. Create a user which has access to the database you want to ingest.
@@ -20,11 +30,13 @@
 
    If you want to run profiling, you need to grant select permission on all the tables you want to profile.
 
-3. If lineage or usage extraction is enabled, please, check if query logging is enabled and it is set to size which
-   will fit for your queries (the default query text size Teradata captures is max 200 chars)
-   An example how you can set it for all users:
-   `sql
-REPLACE QUERY LOGGING LIMIT SQLTEXT=2000 ON ALL;
-`
+3. **For lineage/usage extraction**: Enable query logging and set an appropriate query text size (default is 200 chars, may be insufficient).
+
+   To set for all users:
+
+   ```sql
+   REPLACE QUERY LOGGING LIMIT SQLTEXT=2000 ON ALL;
+   ```
+
    See more here about query logging:
-   [https://docs.teradata.com/r/Teradata-VantageCloud-Lake/Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs](https://docs.teradata.com/r/Teradata-VantageCloud-Lake/Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs)
+   [https://docs.teradata.com/r/Lake-Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs/SQL-Statements-to-Control-Logging/LIMIT-Logging-Options](https://docs.teradata.com/r/Lake-Database-Reference/Database-Administration/Tracking-Query-Behavior-with-Database-Query-Logging-Operational-DBAs/SQL-Statements-to-Control-Logging/LIMIT-Logging-Options)

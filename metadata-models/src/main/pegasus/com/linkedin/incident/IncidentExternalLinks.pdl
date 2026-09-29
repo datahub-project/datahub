@@ -1,0 +1,15 @@
+namespace com.linkedin.incident
+
+/**
+ * Links to external systems for this incident (e.g., Jira, ServiceNow, PagerDuty)
+ */
+@Aspect = {
+  "name": "incidentExternalLinks"
+}
+record IncidentExternalLinks {
+  /**
+   * List of links to external systems
+   */
+  links: array[IncidentExternalLink] = []
+}
+

@@ -1,0 +1,33 @@
+source:
+  type: pinecone
+  config:
+    # Required: Pinecone API key
+    api_key: "${PINECONE_API_KEY}"
+
+    # Optional: Platform instance for multi-environment setups
+    # platform_instance: "production"
+
+    # Optional: Filter indexes by name pattern
+    # index_pattern:
+    #   allow:
+    #     - "prod-.*"
+    #   deny:
+    #     - ".*-test"
+
+    # Optional: Filter namespaces by name pattern
+    # namespace_pattern:
+    #   allow:
+    #     - "customer-.*"
+
+    # Optional: Schema inference settings
+    # enable_schema_inference: true
+    # schema_sampling_size: 100
+    # max_metadata_fields: 100
+
+    # Optional: Stateful ingestion for stale entity removal
+    # stateful_ingestion:
+    #   enabled: true
+    #   remove_stale_metadata: true
+
+sink:
+  # config sinks

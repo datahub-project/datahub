@@ -4,8 +4,10 @@ import CreatedProperty from '@app/entityV2/summary/properties/property/propertie
 import DocumentStatusProperty from '@app/entityV2/summary/properties/property/properties/DocumentStatusProperty';
 import DocumentTypeProperty from '@app/entityV2/summary/properties/property/properties/DocumentTypeProperty';
 import DomainProperty from '@app/entityV2/summary/properties/property/properties/DomainProperty';
+import LastIngestedProperty from '@app/entityV2/summary/properties/property/properties/LastIngestedProperty';
 import LastUpdatedProperty from '@app/entityV2/summary/properties/property/properties/LastUpdatedProperty';
 import OwnersProperty from '@app/entityV2/summary/properties/property/properties/OwnersProperty';
+import SemanticModelProperty from '@app/entityV2/summary/properties/property/properties/SemanticModelProperty';
 import TagsProperty from '@app/entityV2/summary/properties/property/properties/TagsProperty';
 import TermsProperty from '@app/entityV2/summary/properties/property/properties/TermsProperty';
 import StructuredPropertyProperty from '@app/entityV2/summary/properties/property/properties/structuredProperty/StructuredPropertyProperty';
@@ -27,6 +29,8 @@ export default function PropertyRenderer(props: PropertyComponentProps) {
                 return DomainProperty;
             case SummaryElementType.Created:
                 return CreatedProperty;
+            case SummaryElementType.LastIngested:
+                return LastIngestedProperty;
             case SummaryElementType.LastModified:
                 return LastUpdatedProperty;
             case SummaryElementType.StructuredProperty:
@@ -35,6 +39,8 @@ export default function PropertyRenderer(props: PropertyComponentProps) {
                 return DocumentStatusProperty;
             case SummaryElementType.DocumentType:
                 return DocumentTypeProperty;
+            case SummaryElementType.SemanticModel:
+                return SemanticModelProperty;
             default:
                 return () => null;
         }

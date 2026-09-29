@@ -1,3 +1,7 @@
+---
+description: "Business Attributes in DataHub bundle business names, descriptions, tags, glossary terms, and data quality rules into reusable units."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Business Attributes

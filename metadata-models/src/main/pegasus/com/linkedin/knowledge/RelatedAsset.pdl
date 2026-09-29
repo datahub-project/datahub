@@ -11,10 +11,12 @@ record RelatedAsset {
      */
     @Relationship = {
         "name": "RelatedAsset",
-        "entityTypes": ["container", "dataset", "dataJob", "dataFlow", "dashboard", "chart", "application", "dataPlatform", "mlModel", "mlModelGroup", "mlPrimaryKey", "mlFeatureTable", "corpuser", "corpGroup", "dataProduct", "domain", "glossaryTerm", "glossaryNode", "tag", "structuredProperty"]
+        "entityTypes": ["container", "dataset", "dataJob", "dataFlow", "dashboard", "chart", "application", "mlModel", "mlModelGroup", "mlPrimaryKey", "mlFeature", "mlFeatureTable", "dataProduct", "domain", "glossaryTerm", "glossaryNode", "tag", "structuredProperty", "mlModel", "mlModelGroup", "mlPrimaryKey", "mlFeature", "mlFeatureTable"]
     }
     @Searchable = {
-        "fieldName": "relatedAssets"
+        "fieldType": "URN",
+        "fieldName": "relatedAssets",
+        "queryByDefault": false
     }
     asset: Urn
 }

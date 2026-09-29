@@ -1,6 +1,7 @@
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Iterable, Optional, Union
+from datetime import datetime
+from typing import Iterable, Optional, Union
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -12,13 +13,18 @@ from datahub.ingestion.source.aws.s3_util import (
 )
 from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 
-if TYPE_CHECKING:
-    from mypy_boto3_s3.service_resource import ObjectSummary
-
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
 LIST_OBJECTS_PAGE_SIZE = 1000
+
+
+@dataclass(frozen=True)
+class S3ObjectInfo:
+    bucket_name: str
+    key: str
+    last_modified: datetime
+    size: int
 
 
 def get_s3_tags(
@@ -130,7 +136,7 @@ def list_objects_recursive_path(
     *,
     startswith: str = "",
     aws_config: Optional[AwsConnectionConfig] = None,
-) -> Iterable["ObjectSummary"]:
+) -> Iterable[S3ObjectInfo]:
     """
     Given an S3 URI to a folder or bucket, return all objects underneath that URI, optionally
     filtering by startswith.
@@ -187,10 +193,21 @@ def list_buckets(
 
 def list_objects_recursive(
     bucket_name: str, prefix: str, aws_config: Optional[AwsConnectionConfig]
-) -> Iterable["ObjectSummary"]:
+) -> Iterable[S3ObjectInfo]:
     if aws_config is None:
         raise ValueError("aws_config not set. Cannot browse s3")
-    s3_resource = aws_config.get_s3_resource()
-    bucket = s3_resource.Bucket(bucket_name)
-    for obj in bucket.objects.filter(Prefix=prefix).page_size(LIST_OBJECTS_PAGE_SIZE):
-        yield obj
+    s3_client = aws_config.get_s3_client()
+    # GCS URL-encodes '=' as '%3D' in ListObjects v1 Marker, stalling the cursor; v2's ContinuationToken is opaque.
+    paginator = s3_client.get_paginator("list_objects_v2")
+    for page in paginator.paginate(
+        Bucket=bucket_name,
+        Prefix=prefix,
+        PaginationConfig={"PageSize": LIST_OBJECTS_PAGE_SIZE},
+    ):
+        for obj in page.get("Contents", []):
+            yield S3ObjectInfo(
+                bucket_name=bucket_name,
+                key=obj["Key"],
+                last_modified=obj["LastModified"],
+                size=obj["Size"],
+            )

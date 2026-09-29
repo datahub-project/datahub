@@ -1,9 +1,9 @@
 import { Table, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { CompactFieldIconWithTooltip } from '@app/sharedV2/icons/CompactFieldIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -19,17 +19,17 @@ const TableContainer = styled.div`
         background-color: transparent;
         font-weight: 700;
         font-size: 14px;
-        color: ${REDESIGN_COLORS.SUBTITLE};
+        color: ${(props) => props.theme.colors.text};
     }
     && .ant-table-tbody > tr > td {
         padding: 8px 5px;
         border-bottom: none;
-        border-right: 1px solid ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+        border-right: 1px solid ${(props) => props.theme.colors.border};
     }
 `;
 
 const SeeMoreLink = styled(Link)`
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     font-weight: 600;
 `;
@@ -40,13 +40,15 @@ interface Props {
 }
 
 export default function ChartFieldsTable({ urn, rows }: Props) {
+    const { t } = useTranslation('entity.types');
+    const { t: tl } = useTranslation('common.labels');
     const entityRegistry = useEntityRegistry();
     const hasSeeMore = rows.length > MAX_ROWS;
 
     const nameColumn = {
         ellipsis: true,
         width: '45%',
-        title: 'Name',
+        title: tl('name'),
         dataIndex: 'fieldPath',
         key: 'fieldPath',
         filtered: true,
@@ -56,7 +58,7 @@ export default function ChartFieldsTable({ urn, rows }: Props) {
     const descriptionColumn = {
         ellipsis: true,
         width: '45%',
-        title: 'Description',
+        title: tl('description'),
         dataIndex: 'description',
         key: 'description',
         render: descriptionRender,
@@ -81,7 +83,7 @@ export default function ChartFieldsTable({ urn, rows }: Props) {
             />
             {hasSeeMore && (
                 <SeeMoreLink type="text" to={`${entityRegistry.getEntityUrl(EntityType.Chart, urn)}/Fields`}>
-                    View {rows.length - MAX_ROWS} More
+                    {t('chart.viewCountMore', { count: rows.length - MAX_ROWS })}
                 </SeeMoreLink>
             )}
         </TableContainer>
@@ -89,7 +91,7 @@ export default function ChartFieldsTable({ urn, rows }: Props) {
 }
 
 const TypeWrapper = styled.span`
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
     margin-right: 4px;
     width: 11px;
 `;
@@ -97,14 +99,14 @@ const TypeWrapper = styled.span`
 const FieldPathText = styled(Typography.Text)`
     font-size: 12px;
     font-weight: 500;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const Description = styled(Typography.Text)`
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 function nameRender(fieldPath: string, row: SchemaField) {

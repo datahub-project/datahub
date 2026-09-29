@@ -1,0 +1,22 @@
+views:
+  - name: orders_view
+    description: Query-ready orders enriched with customer attributes
+
+    cubes:
+      - join_path: orders
+        includes:
+          - count
+          - total_amount
+          - status
+          - created_at
+      - join_path: orders.customers
+        prefix: true
+        includes:
+          - name
+          - city
+
+    folders:
+      - name: Metrics
+        includes:
+          - count
+          - total_amount

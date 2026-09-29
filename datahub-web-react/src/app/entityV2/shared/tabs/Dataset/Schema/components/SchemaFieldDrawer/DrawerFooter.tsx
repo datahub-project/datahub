@@ -1,11 +1,10 @@
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { pluralize } from '@app/shared/textUtil';
 
 const HeaderWrapper = styled.div`
     position: absolute;
@@ -15,11 +14,11 @@ const HeaderWrapper = styled.div`
     align-self: center;
     margin-bottom: 16px;
     padding: 2px 4px;
-    background: #d9d9d9;
+    background: ${(props) => props.theme.colors.bgSurface};
     opacity: 0.8;
     border-radius: 15.5px;
     width: max-content;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
     bottom: 0px;
 `;
 
@@ -36,21 +35,21 @@ const StyledIcon = styled.div`
 
     &&:hover {
         cursor: pointer;
-        stroke: ${REDESIGN_COLORS.DARK_GREY};
+        stroke: ${(props) => props.theme.colors.textSecondary};
         stroke-width: 1px;
     }
 
     svg {
         height: 20px;
         width: 20px;
-        color: ${REDESIGN_COLORS.DARK_GREY};
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
 const FieldIndexText = styled.span`
     font-size: 12px;
     font-weight: 800;
-    color: ${REDESIGN_COLORS.HEADING_COLOR};
+    color: ${(props) => props.theme.colors.text};
     margin: 0 8px;
 `;
 
@@ -73,6 +72,7 @@ export default function DrawerFooter({
     selectNextField,
     displayedRows,
 }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     return (
         <HeaderWrapper>
             <ButtonsWrapper>
@@ -80,7 +80,11 @@ export default function DrawerFooter({
                     <KeyboardArrowUpIcon />
                 </StyledIcon>
                 <FieldIndexText>
-                    {expandedFieldIndex + 1} of {displayedRows.length} {pluralize(displayedRows.length, 'field')}
+                    {t('fieldDrawer.fieldNavigation', {
+                        count: displayedRows.length,
+                        current: expandedFieldIndex + 1,
+                        total: displayedRows.length,
+                    })}
                 </FieldIndexText>
                 <StyledIcon onClick={selectNextField}>
                     <KeyboardArrowDownIcon />

@@ -1,5 +1,6 @@
-import { Popover, colors } from '@components';
-import { CheckCircle, WarningCircle } from 'phosphor-react';
+import { Popover } from '@components';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -14,12 +15,12 @@ const IconContainer = styled.div`
 `;
 
 const UnhealthyIcon = styled(WarningCircle)`
-    color: ${colors.red[500]};
+    color: ${(props) => props.theme.colors.textError};
     font-size: 20px;
 `;
 
 const HealthyIcon = styled(CheckCircle)`
-    color: ${colors.green[500]};
+    color: ${(props) => props.theme.colors.textSuccess};
     font-size: 20px;
 `;
 

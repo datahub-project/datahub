@@ -36,7 +36,7 @@ public class LogMessageFilter extends AbstractMatcherFilter<ILoggingEvent> {
     if (this.excluded.stream()
         .anyMatch(
             message ->
-                formattedMessage.contains(message)
+                (formattedMessage != null && formattedMessage.contains(message))
                     || (throwableString != null && throwableString.contains(message)))) {
       return FilterReply.DENY;
     }

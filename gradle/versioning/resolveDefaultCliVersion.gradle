@@ -22,16 +22,19 @@ ext.resolveDefaultCliVersion = {
         // Get all releases
         def releases = data.releases
         
-        // Filter out RC versions and yanked releases
+        // Filter out RC versions, post/dev/local releases, and yanked releases.
+        // PyPI keys like 1.2.0.6.post1 are not dot-separated integers; they broke the
+        // legacy comparator and are not appropriate defaults (use the base release, e.g. 1.5.0).
         def validReleases = releases.findAll { version, releaseFiles ->
-            // Skip RC versions
             if (version.toLowerCase().contains("rc")) {
                 return false
             }
-            
-            // Skip if all files are yanked
-            def allYanked = releaseFiles.every { file -> 
-                file.yanked == true 
+            def parts = version.tokenize('.')
+            if (!parts.every { part -> part.isInteger() }) {
+                return false
+            }
+            def allYanked = releaseFiles.every { file ->
+                file.yanked == true
             }
             return !allYanked
         }

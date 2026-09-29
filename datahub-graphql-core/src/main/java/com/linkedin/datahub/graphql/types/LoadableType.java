@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import graphql.execution.DataFetcherResult;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -29,11 +30,15 @@ public interface LoadableType<T, K> {
    * Retrieves an entity by urn string. Null is provided in place of an entity object if an entity
    * cannot be found.
    *
+   * <p>This path bypasses DataLoader resolvers, so it merges {@code FETCH_ALL} before {@link
+   * #batchLoad} to avoid under-fetching when the request already has a narrow aspect selection.
+   *
    * @param key to retrieve
    * @param context the {@link QueryContext} corresponding to the request.
    */
   default DataFetcherResult<T> load(@Nonnull final K key, @Nonnull final QueryContext context)
       throws Exception {
+    AspectUtils.ensureFetchAllForDirectLoad(context, name());
     return batchLoad(ImmutableList.of(key), context).get(0);
   }
   ;

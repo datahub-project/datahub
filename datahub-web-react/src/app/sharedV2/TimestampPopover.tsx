@@ -2,16 +2,15 @@ import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { toLocalDateTimeString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 
 const PopoverContent = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 0.8rem;
 `;
 
 const Title = styled.div`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     border-bottom: none;
     font-size: 0.8rem;
     font-weight: 600;

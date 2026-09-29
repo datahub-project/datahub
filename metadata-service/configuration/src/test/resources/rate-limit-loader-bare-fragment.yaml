@@ -1,0 +1,10 @@
+# Bare fragment with no wrapper at all.
+failOpen: false
+endpoint:
+  rules:
+    - id: bare-fragment-rule
+      pathPattern: /auth/signUp
+      methods: [POST]
+      capacity: 200
+      refillTokens: 200
+      refillPeriodSeconds: 60

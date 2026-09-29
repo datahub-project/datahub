@@ -1,5 +1,5 @@
-Entities
-=======
+SDK Entities Reference
+======================
 
 The DataHub SDK provides a set of entities that can be used to interact with DataHub's metadata.
 
@@ -26,4 +26,10 @@ The DataHub SDK provides a set of entities that can be used to interact with Dat
    :member-order: alphabetical
 
 .. automodule:: datahub.sdk.dataflow
+   :member-order: alphabetical
+
+.. automodule:: datahub.sdk.semantic_model
+   :member-order: alphabetical
+
+.. automodule:: datahub.sdk.metric
    :member-order: alphabetical

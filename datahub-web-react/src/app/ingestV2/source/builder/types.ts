@@ -3,14 +3,6 @@ import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
 import { Entity, IngestionSource } from '@types';
 
 /**
- * The size of the builder modal
- */
-export enum ModalSize {
-    SMALL = 800,
-    LARGE = 1200,
-}
-
-/**
  * The default executor id used for ingestion
  */
 export const DEFAULT_EXECUTOR_ID = 'default';
@@ -25,6 +17,8 @@ export interface SourceConfig {
     category?: string;
     isPopular?: boolean;
     isExternal?: boolean;
+    isNew?: boolean;
+    priority?: number;
 }
 
 /**

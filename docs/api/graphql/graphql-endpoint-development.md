@@ -50,7 +50,7 @@ Tip: Resolver classes can be tested with unit tests!
 
 ### Adding the resolver to the GMS server
 
-The main GMS server is located in [`GmsGraphQLEngine.java`](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java). To hook up the resolver to handle the endpoint, find the relevant section based on if the new enpoint is a `Query` or a `Mutation` and add the resolver as the `dataFetcher` for the name of the endpoint.
+The main GMS server is located in [`GmsGraphQLEngine.java`](https://github.com/datahub-project/datahub/blob/master/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/GmsGraphQLEngine.java). To hook up the resolver to handle the endpoint, find the relevant section based on if the new endpoint is a `Query` or a `Mutation` and add the resolver as the `dataFetcher` for the name of the endpoint.
 
 > **listOwnershipTypes example:** The following line of code is added in [`GmsGraphQLEngine`](https://github.com/datahub-project/datahub/commit/ea92b86e6ab4cbb18742fb8db6bc11fae8970cdb#diff-e04c9c2d80cbfd7aa7e3e0f867248464db0f6497684661132d6ead81ded21856): `.dataFetcher("listOwnershipTypes", new ListOwnershipTypesResolver(this.entityClient))`. This uses the `ListOwnershipTypes` resolver to handle queries for `listOwnershipTypes` endpoint.
 

@@ -1,7 +1,7 @@
 import datetime
 from typing import Any, List, Optional, Sequence, Union
 
-from airflow.models import BaseOperator
+from airflow.sdk import BaseOperator
 
 from datahub.api.circuit_breaker import (
     AssertionCircuitBreaker,

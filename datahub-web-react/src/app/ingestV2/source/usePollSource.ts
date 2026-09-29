@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
@@ -8,6 +8,7 @@ import { IngestionSource, ListIngestionSourcesInput } from '@types';
 
 const REFRESH_INTERVAL_MS = 3000;
 const MAX_EMPTY_RETRIES = 10;
+const FIVE_SECONDS_MS = 5000;
 
 interface Props {
     urn: string;
@@ -43,6 +44,8 @@ export default function usePollSource({
         });
     }, [setExecutedUrns, setSourcesToRefetch, urn]);
 
+    const nowWithBuffer = useMemo(() => Date.now() - FIVE_SECONDS_MS, []); // 5 seconds ago
+
     const [getIngestionSourceQuery, { client }] = useGetIngestionSourceLazyQuery({
         fetchPolicy: 'network-only',
         onCompleted: (data) => {
@@ -66,6 +69,17 @@ export default function usePollSource({
 
             // Source executed recenty but returned no executions, retry polling
             if (isExecutedNow && executionRequests.length === 0) {
+                setEmptyRetries((prev) => prev + 1);
+                return;
+            }
+
+            // Source was executed but the execution request has not been picked up and executed yet
+            // Retry polling until the most recent request is more recent than when this hook mounted upon execution request
+            if (
+                isExecutedNow &&
+                executionRequests.length > 0 &&
+                nowWithBuffer > (executionRequests[0]?.result?.startTimeMs || 0)
+            ) {
                 setEmptyRetries((prev) => prev + 1);
                 return;
             }

@@ -1,21 +1,23 @@
 import { TextProps } from '@visx/text/lib/Text';
+import { TFunction } from 'i18next';
+import { DefaultTheme } from 'styled-components';
 
 import { ColorSchemeSettings, WhiskerMetricType } from '@components/components/WhiskerChart/types';
 
-export const DEFAULT_COLOR_SHEME: ColorSchemeSettings = {
-    box: '#705EE4',
-    boxAlternative: '#CAC3F1',
-    medianLine: '#2200F9',
-    alternative: '#533FD1',
-};
+export const getDefaultColorScheme = (theme: DefaultTheme): ColorSchemeSettings => ({
+    box: theme.colors.chartsBrandMedium,
+    boxAlternative: theme.colors.chartsBrandBase,
+    medianLine: theme.colors.chartsBrandContrast,
+    alternative: theme.colors.chartsBrandHigh,
+});
 
-export const WHISKER_METRIC_NAMES = {
-    [WhiskerMetricType.Max]: 'Max',
-    [WhiskerMetricType.FirstQuartile]: 'First Quartile',
-    [WhiskerMetricType.Median]: 'Median',
-    [WhiskerMetricType.ThirdQuartile]: 'Third Quartile',
-    [WhiskerMetricType.Min]: 'Min',
-};
+export const getWhiskerMetricNames = (t: TFunction): Record<WhiskerMetricType, string> => ({
+    [WhiskerMetricType.Max]: t('whiskerChart.metric.max'),
+    [WhiskerMetricType.FirstQuartile]: t('whiskerChart.metric.firstQuartile'),
+    [WhiskerMetricType.Median]: t('whiskerChart.metric.median'),
+    [WhiskerMetricType.ThirdQuartile]: t('whiskerChart.metric.thirdQuartile'),
+    [WhiskerMetricType.Min]: t('whiskerChart.metric.min'),
+});
 
 export const WHISKER_METRIC_ATTRIBUTE_NAMES = {
     [WhiskerMetricType.Max]: 'max',

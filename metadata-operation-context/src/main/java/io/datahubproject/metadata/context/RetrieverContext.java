@@ -4,6 +4,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.graph.cache.EntityGraphCache;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -20,12 +21,22 @@ public class RetrieverContext
   @Nonnull private final CachingAspectRetriever cachingAspectRetriever;
   @Nonnull private final SearchRetriever searchRetriever;
 
+  @Nonnull @Builder.Default
+  private final EntityGraphCache entityGraphCache = EntityGraphCache.NO_OP;
+
   @Override
   public Optional<Integer> getCacheKeyComponent() {
     return Optional.empty();
   }
 
   public static class RetrieverContextBuilder {
+    private EntityGraphCache entityGraphCache = EntityGraphCache.NO_OP;
+
+    public RetrieverContextBuilder entityGraphCache(EntityGraphCache entityGraphCache) {
+      this.entityGraphCache = entityGraphCache;
+      return this;
+    }
+
     public RetrieverContext build() {
       if (this.aspectRetriever == null && this.cachingAspectRetriever != null) {
         this.aspectRetriever = this.cachingAspectRetriever;
@@ -37,10 +48,11 @@ public class RetrieverContext
       }
 
       return new RetrieverContext(
-          this.graphRetriever,
-          Objects.requireNonNull(this.aspectRetriever),
-          Objects.requireNonNull(this.cachingAspectRetriever),
-          this.searchRetriever);
+          Objects.requireNonNull(this.graphRetriever, "graphRetriever"),
+          Objects.requireNonNull(this.aspectRetriever, "aspectRetriever"),
+          Objects.requireNonNull(this.cachingAspectRetriever, "cachingAspectRetriever"),
+          this.searchRetriever != null ? this.searchRetriever : SearchRetriever.EMPTY,
+          this.entityGraphCache != null ? this.entityGraphCache : EntityGraphCache.NO_OP);
     }
   }
 

@@ -35,7 +35,7 @@ fragment relationshipFields on EntityWithRelationships {
                 ...lineageNodeProperties
             }
         }
-        siblingsSearch(input: { query: "*", count: 5 }) {
+        siblingsSearch(input: { query: "*", count: 5 }) @skip(if: $skipSiblingsSearch) {
             count
             total
             searchResults {

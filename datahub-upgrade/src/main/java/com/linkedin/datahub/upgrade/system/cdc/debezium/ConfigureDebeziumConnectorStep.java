@@ -19,7 +19,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.codehaus.plexus.util.StringUtils;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 
 /**
  * Step that configures and creates the Debezium connector for CDC processing. Builds the connector
@@ -159,7 +160,12 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
 
   /** Configures Kafka connection, prioritizing kafkaConfiguration over kafkaProperties. */
   private void injectKafkaConnection(Map<String, Object> config) {
-    String bootstrapServers = kafkaConfig.getBootstrapServers();
+    // Configures the producer for the Debezium connector, so override with producer config if
+    // present
+    String bootstrapServers =
+        StringUtils.isNotBlank(kafkaConfig.getProducer().getBootstrapServers())
+            ? kafkaConfig.getProducer().getBootstrapServers()
+            : kafkaConfig.getBootstrapServers();
 
     if (bootstrapServers == null || bootstrapServers.trim().isEmpty()) {
       var serversList = kafkaProperties.getBootstrapServers();
@@ -227,13 +233,20 @@ public class ConfigureDebeziumConnectorStep implements UpgradeStep {
     if (response.statusCode() == 201) {
       log.info("Successfully created Debezium connector '{}'", connectorName);
       return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.SUCCEEDED);
-    } else {
-      log.error(
-          "Failed to create connector. Status: {}, Response: {}",
-          response.statusCode(),
-          response.body());
-      return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.FAILED);
     }
+    // Kafka Connect can return 409 when the connector exists but GET /connectors/{name}
+    // briefly returns 404 after a concurrent create (eventual consistency).
+    if (response.statusCode() == 409) {
+      log.info(
+          "Connector '{}' already exists (HTTP 409); updating configuration instead",
+          connectorName);
+      return updateConnector(httpClient, connectUrl, connectorName, config);
+    }
+    log.error(
+        "Failed to create connector. Status: {}, Response: {}",
+        response.statusCode(),
+        response.body());
+    return new DefaultUpgradeStepResult(this.id(), DataHubUpgradeState.FAILED);
   }
 
   /** Updates connector configuration via Kafka Connect REST API. */

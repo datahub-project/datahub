@@ -35,16 +35,12 @@ Let's get started!
 
 ## Support
 
-Volume Assertions are currently supported for:
+Volume Assertions are supported in two modes:
 
-1. Snowflake
-2. Redshift
-3. BigQuery
-4. Databricks
-5. DataHub Dataset Profile (collected via ingestion)
+- **Active query** (low-latency, schedule-driven) — requires an ingestion source configured for Snowflake, Redshift, BigQuery, or Databricks. Uses Information Schema or a `COUNT(*)` Query.
+- **Ingestion-driven** (any ingested platform, including Postgres, MySQL, Athena, Synapse, …) — uses the DataHub `DatasetProfile` aspect that is reported during ingestion. Evaluation cadence is bounded by your ingestion cadence.
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
-tab.
+See the [capabilities matrix](./assertions.md) for the full comparison of active-query vs ingestion-driven modes across all assertion types.
 
 > Note that Volume Assertions are not yet supported if you are connecting to your warehouse
 > using the DataHub CLI.
@@ -116,6 +112,27 @@ source types vary by the platform, but generally fall into these categories:
   and Tables stored inside the Data Warehouse, including their row count. It is usually efficient to check, but can in some cases be slightly delayed to update
   once a change has been made to a table. This is the optimal balance between cost and accuracy for most Data Platforms.
 
+- **Platform API** (BigQuery Only): Uses the Data Warehouse's native metadata API to retrieve the current row count for a Table. This is the
+  most cost-effective option as it does not run any SQL queries or scan any data — the row count is retrieved via a free API call.
+  For BigQuery, this uses the [tables.get](https://cloud.google.com/bigquery/docs/reference/rest/v2/tables/get) API, which requires
+  the `bigquery.tables.get` permission (included in the `roles/bigquery.metadataViewer` role).
+  This method is only supported for Tables, not Views.
+
+  :::caution Quota considerations
+  The `tables.get` API is subject to BigQuery's [API request rate limits](https://cloud.google.com/bigquery/quotas#api_quotas_and_limits).
+  These limits are quite high, but should be considered when running this assertion against a very large number of tables on a frequent
+  schedule. DataHub Cloud automatically jitters and distributes the execution of Smart Assertions and assertions it manages on its end
+  to avoid bursts of API calls. If you are configuring your own custom schedules across many assertions, consider staggering them
+  (e.g., varying the minute offset across assertions) to avoid hitting per-minute API quotas.
+  :::
+
+- **Table Statistics** (Databricks Only): Uses platform-native catalog statistics to retrieve the current row count for a Table. For Databricks,
+  this runs [`ANALYZE TABLE ... COMPUTE STATISTICS`](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) followed by
+  `DESCRIBE TABLE EXTENDED`, which reads the cached `numRows` from the catalog rather than scanning data. On Delta tables this is a metadata-only
+  operation (file-level statistics are pulled from the transaction log), making it significantly cheaper than a `COUNT(*)` query on large tables.
+  This method requires `MODIFY` privilege (or ownership) on the target table so that `ANALYZE TABLE` can refresh the cached statistics,
+  and is the default Volume Source for Databricks. This method is only supported for Tables, not Views.
+
 - **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform).
   This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve
   system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. This issues a query to the table, which can be more expensive than Information Schema.
@@ -134,12 +151,11 @@ Volume Assertions also have an off switch: they can be started or stopped at any
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
 
-2. (Optional) **Data Platform Connection**: In order to create a Volume Assertion that queries the source data platform directly (instead of DataHub metadata), you'll need to have an **Ingestion Source** configured to your
-   Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
+2. (Recommended) **Data Platform Connection**: To evaluate a Volume Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab. If you rely on the ingestion-driven `DataHub Dataset Profile` source, no warehouse connection is required — Dataset Profiles can be reported for any ingested platform.
 
 Once these are in place, you're ready to create your Volume Assertions!
 
-You can also **Bulk Create Smart Assertions** via the [Data Health Page](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard#bulk-create-smart-assertions)
+You can also apply Volume Assertions with Anomaly Detection at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page.
 
 ### Steps
 
@@ -203,17 +219,126 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
 </p>
 
-## Anomaly Detection with Smart Assertions ⚡
+## Anomaly Detection ⚡
 
-As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
-dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
-requiring any manual setup.
+Volume Assertions support [Anomaly Detection](./anomaly-detection.md), which replaces a fixed row-count threshold with an AI-driven threshold that learns the table's normal volume pattern, including trend and seasonality (e.g. weekends are always smaller).
 
-You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
+You can enable Anomaly Detection by selecting the `Detect with AI` option in the UI:
 
 <p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/volume-smart-assertion.png"/>
 </p>
+
+## Time-Series Bucketing
+
+:::info
+Time-series bucketing is currently in **Public Beta** — available to all DataHub Cloud customers; we welcome feedback as we continue to iterate.
+:::
+
+Bucketing always requires an active warehouse query against a supported warehouse (Snowflake / Redshift / BigQuery / Databricks). The Information Schema and DataHub Dataset Profile sources cannot be bucketed.
+
+By default, volume assertions evaluate the **total row count** of a table at a point in time. With **time-series bucketing**, you can partition your data into time-based buckets (e.g., daily or weekly) and evaluate volume metrics within each bucket. This fundamentally changes what the assertion measures:
+
+|                      | Without Bucketing                          | With Bucketing                                              |
+| -------------------- | ------------------------------------------ | ----------------------------------------------------------- |
+| **Total row count**  | Total table row count                      | Rows matching the timestamp-in-bucket condition             |
+| Example              | "Total row count should stay above 10,000" | "Rows added per day should be above 500"                    |
+| **Row count change** | Row count change since previous evaluation | Row count compared to previous bucket                       |
+| Example              | "Row count should grow by at least 100"    | "Difference in rows added per week should not exceed 5,000" |
+
+Time-series bucketing is useful when:
+
+- Your table has a timestamp column that represents when rows were created or updated
+- You want to monitor data quality at a day or week granularity rather than the whole table
+- You want to detect issues like "no data arrived today" or "this week's volume is abnormally low"
+
+### Bucketing Configuration
+
+A time-series bucketing strategy consists of:
+
+- **Timestamp column**: The date/time column used to partition rows into buckets (e.g., `created_at`, `event_date`).
+- **Bucket interval**: The size of each time bucket. Currently supported intervals are **Daily** (1 DAY) and **Weekly** (1 WEEK).
+- **Timezone**: The IANA timezone for bucket boundaries (e.g., `America/Los_Angeles`, `UTC`). This should match your timestamp column's timezone. Defaults to UTC.
+- **Late arrival grace period** (optional): A buffer after the bucket end time before the bucket is considered complete. This accounts for late-arriving data. For example, a 2-day grace period on a daily bucket means the bucket for Monday won't be evaluated until Thursday at midnight (instead of Tuesday at midnight).
+
+:::note
+When time-series bucketing is enabled, the assertion's **evaluation schedule is automatically computed** based on the bucket interval and grace period. You do not need to (and cannot) manually set a cron schedule for bucketed assertions.
+:::
+
+### Limitations
+
+- Only **Query** source type supports bucketing. Information Schema and DataHub Dataset Profile sources cannot be bucketed.
+- Only single-unit bucket intervals are supported (1 DAY or 1 WEEK, not 2 DAYs).
+- Bucketing configuration (timestamp column, bucket interval, timezone) **cannot be changed after creation**. The late arrival grace period can be updated.
+- If a bucket is missed due to downtime, it will not be retroactively evaluated.
+
+### Configuring Bucketing in the UI
+
+When creating a volume assertion:
+
+<p align="left">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/bucketing/volume-timeseries-bucketing.png"/>
+</p>
+
+1. In the assertion builder, expand the **Time-Series Bucketing** section.
+2. Toggle bucketing **on**.
+3. Select the **timestamp column** from the dropdown (filtered to date/time fields).
+4. Choose the **bucket size** (Daily or Weekly).
+5. Select a **timezone** that matches your timestamp column's timezone.
+6. (Optional) Set a **grace period** to account for late-arriving data.
+
+### Configuring Bucketing via the Python SDK
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DatasetUrn
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+dataset_urn = DatasetUrn.from_string(
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
+)
+
+# Volume assertion with daily bucketing.
+# Bucketing always requires a query-based source; information_schema and DataHub
+# Dataset Profile cannot be bucketed.
+volume_assertion = client.assertions.sync_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Daily Row Count Check",
+    criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
+    criteria_parameters=100,
+    detection_mechanism="query",
+    time_bucketing_strategy={
+        "timestamp_field_path": "created_at",
+        "bucket_interval": {"unit": "DAY", "multiple": 1},
+        "timezone": "America/Los_Angeles",
+        "late_arrival_grace_period": {"unit": "DAY", "multiple": 2},
+    },
+    tags=["automated", "volume", "daily"],
+    enabled=True,
+)
+
+# Volume assertion with Anomaly Detection, weekly bucketing, and backfill.
+# Bucketing always requires a query-based source.
+smart_volume = client.assertions.sync_smart_volume_assertion(
+    dataset_urn=dataset_urn,
+    display_name="Weekly Volume Anomaly Monitor",
+    detection_mechanism="query",
+    sensitivity="medium",
+    time_bucketing_strategy={
+        "timestamp_field_path": "event_date",
+        "bucket_interval": {"unit": "WEEK", "multiple": 1},
+        "timezone": "UTC",
+    },
+    backfill_config={"backfill_start_date_ms": 1704067200000},
+    enabled=True,
+)
+```
+
+See the [Assertions SDK tutorial](/docs/api/tutorials/assertions.md) for more examples.
+
+:::info
+For Volume Assertions with Anomaly Detection and bucketing enabled, you can also configure **historical backfill** to populate the assertion's metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
+:::
 
 ## Stopping a Volume Assertion
 
@@ -280,7 +405,7 @@ mutation upsertDatasetVolumeAssertionMonitor {
 }
 ```
 
-To create an AI Smart Freshness Assertion that runs every 8 hours:
+To create a Volume Assertion with Anomaly Detection that runs every 8 hours:
 
 ```graphql
 mutation upsertDatasetFreshnessAssertionMonitor {

@@ -1,4 +1,7 @@
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import {
     ErrorMessage,
@@ -14,7 +17,7 @@ import {
 import { TextAreaProps } from '@components/components/TextArea/types';
 
 export const textAreaDefaults: TextAreaProps = {
-    label: 'Label',
+    label: '',
     placeholder: 'Placeholder',
     error: '',
     warning: '',
@@ -27,7 +30,7 @@ export const textAreaDefaults: TextAreaProps = {
 
 export const TextArea = ({
     label = textAreaDefaults.label,
-    placeholder = textAreaDefaults.placeholder,
+    placeholder: placeholderProp,
     icon, // default undefined
     error = textAreaDefaults.error,
     warning = textAreaDefaults.warning,
@@ -36,8 +39,11 @@ export const TextArea = ({
     isInvalid = textAreaDefaults.isInvalid,
     isReadOnly = textAreaDefaults.isReadOnly,
     isRequired = textAreaDefaults.isRequired,
+    inputTestId,
     ...props
 }: TextAreaProps) => {
+    const { t } = useTranslation('alchemy');
+    const placeholder = placeholderProp ?? t('textArea.placeholder');
     // Invalid state is always true if error is present
     let invalid = isInvalid;
     if (error) invalid = true;
@@ -55,9 +61,11 @@ export const TextArea = ({
 
     return (
         <TextAreaWrapper>
-            <Label>
-                {label} {isRequired && <Required>*</Required>}
-            </Label>
+            {label && (
+                <Label aria-label={label}>
+                    {label} {isRequired && <Required>*</Required>}
+                </Label>
+            )}
             <TextAreaContainer {...textAreaBaseProps}>
                 {icon && <StyledIcon icon={icon} size="lg" />}
                 <TextAreaField
@@ -66,11 +74,12 @@ export const TextArea = ({
                     readOnly={isReadOnly}
                     disabled={isDisabled}
                     required={isRequired}
+                    data-testid={inputTestId}
                     {...props}
                 />
-                {isSuccess && <StyledStatusIcon icon="CheckCircle" color="green" size="lg" />}
-                {invalid && <StyledStatusIcon icon="WarningAmber" color="red" size="lg" />}
-                {warning && <StyledStatusIcon icon="ErrorOutline" color="yellow" size="lg" />}
+                {isSuccess && <StyledStatusIcon icon={Check} color="green" size="lg" />}
+                {invalid && <StyledStatusIcon icon={Warning} color="red" size="lg" />}
+                {warning && <StyledStatusIcon icon={Warning} color="yellow" size="lg" />}
             </TextAreaContainer>
             {invalid && error && <ErrorMessage>{error}</ErrorMessage>}
             {warning && <WarningMessage>{warning}</WarningMessage>}

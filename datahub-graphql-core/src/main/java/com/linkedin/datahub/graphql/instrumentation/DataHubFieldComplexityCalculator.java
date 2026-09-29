@@ -42,7 +42,7 @@ public class DataHubFieldComplexityCalculator implements FieldComplexityCalculat
       }
     }
     if (GRAPHQL_QUERY_TYPE.equals(environment.getParentType().getName())) {
-      log.info(
+      log.debug(
           "Query complexity for query: {} is {}",
           environment.getField().getName(),
           complexity + childComplexity);

@@ -1,0 +1,9 @@
+{
+    "autoPropagatedDescription": "Esta descripción se propagó automáticamente desde una columna upstream. <learnMore>Más información</learnMore>",
+    "origin": "origen",
+    "originLabel": "Origen",
+    "propagated": "Propagada",
+    "propagatedDescriptionTitle": "Descripción propagada",
+    "via": "vía",
+    "viaLabel": "Vía"
+}

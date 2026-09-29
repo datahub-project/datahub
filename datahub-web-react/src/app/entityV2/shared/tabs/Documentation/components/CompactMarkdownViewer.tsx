@@ -1,9 +1,12 @@
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Button, Editor, Tooltip } from '@src/alchemy-components';
+import OptionalTooltip from '@app/sharedV2/ant/OptionalTooltip';
+import { Button, Editor } from '@src/alchemy-components';
 
 const LINE_HEIGHT = 1.5;
+const ELLIPSIS = '...';
 
 const ShowMoreWrapper = styled.div`
     align-items: start;
@@ -19,15 +22,12 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
     ${(props) =>
         props.lineLimit &&
         props.lineLimit <= 1 &&
-        ` 
+        `
         display: flex;
         align-items: center;
         gap: 4px;
     `}
-`;
-
-const CustomButton = styled(Button)`
-    padding: 8px 0px;
+    min-width: 0;
 `;
 
 const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
@@ -39,12 +39,15 @@ const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
     flex: 1;
 `;
 
+// Wrapper div that applies compact editor styles via CSS class selectors,
+// so the lazy-loaded Editor can be styled without a static component reference.
 const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React.CSSProperties }>`
     border: none;
 
     .remirror-theme {
         max-width: 100%;
     }
+
     .remirror-editor.ProseMirror {
         ${({ limit }) => limit && `max-height: ${limit * LINE_HEIGHT}em;`}
         h1 {
@@ -73,7 +76,7 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
             margin-bottom: 0;
         }
 
-        padding: 0;
+        padding: 0 !important;
     }
 `;
 
@@ -95,7 +98,7 @@ const MoreIndicator = styled.span`
     break-word: normal;
 `;
 
-export type Props = {
+type Props = {
     content: string;
     lineLimit?: number | null;
     fixedLineHeight?: boolean;
@@ -103,6 +106,7 @@ export type Props = {
     scrollableY?: boolean; // Whether the viewer is vertically scrollable.
     handleShowMore?: () => void;
     hideShowMore?: boolean;
+    hideTooltip?: boolean;
 };
 
 export default function CompactMarkdownViewer({
@@ -113,14 +117,16 @@ export default function CompactMarkdownViewer({
     scrollableY = true,
     handleShowMore,
     hideShowMore,
+    hideTooltip,
 }: Props) {
+    const { t: tc } = useTranslation('common.actions');
     const [isShowingMore, setIsShowingMore] = useState(false);
     const [isTruncated, setIsTruncated] = useState(false);
 
     const measuredRef = useCallback((node: HTMLDivElement | null) => {
         if (node !== null) {
             const resizeObserver = new ResizeObserver(() => {
-                setIsTruncated(node.scrollHeight > node.clientHeight + 1);
+                setIsTruncated(node.scrollHeight > node.clientHeight + 2);
             });
             resizeObserver.observe(node);
         }
@@ -130,7 +136,7 @@ export default function CompactMarkdownViewer({
 
     return (
         <MarkdownContainer lineLimit={lineLimit}>
-            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef}>
+            <MarkdownViewContainer scrollableY={scrollableY} ref={measuredRef} data-testid="compact-markdown-viewver">
                 <StyledEditor
                     customStyle={customStyle}
                     limit={isShowingMore ? null : lineLimit}
@@ -139,17 +145,21 @@ export default function CompactMarkdownViewer({
                 />
             </MarkdownViewContainer>
             {hideShowMore && isTruncated && (
-                <Tooltip title={content}>
-                    <MoreIndicator>...</MoreIndicator>
-                </Tooltip>
+                <OptionalTooltip title={content} enabled={!hideTooltip}>
+                    <MoreIndicator>{ELLIPSIS}</MoreIndicator>
+                </OptionalTooltip>
             )}
 
             {!hideShowMore &&
                 (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                     <ShowMoreWrapper>
-                        <CustomButton
+                        <Button
                             variant="text"
+                            color="gray"
                             size={lineLimit && lineLimit <= 1 ? 'sm' : undefined}
+                            // Drop the button's horizontal padding so the label left-aligns
+                            // with the content above it instead of sitting indented.
+                            style={{ paddingLeft: 0, paddingRight: 0 }}
                             onClick={(e) => {
                                 if (handleShowMore) {
                                     handleShowMore();
@@ -159,8 +169,8 @@ export default function CompactMarkdownViewer({
                                 e.stopPropagation();
                             }}
                         >
-                            {isShowingMore ? 'show less' : 'show more'}
-                        </CustomButton>
+                            {isShowingMore ? tc('showLess') : tc('showMoreCapitalized')}
+                        </Button>
                     </ShowMoreWrapper>
                 )}
         </MarkdownContainer>

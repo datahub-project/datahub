@@ -39,6 +39,7 @@ from datahub.emitter.mce_builder import (
     make_ts_millis,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -70,6 +71,7 @@ from datahub.metadata.schema_classes import (
     QueryStatementClass,
     QuerySubjectClass,
     QuerySubjectsClass,
+    StatusClass,
     SubTypesClass,
     TagAssociationClass,
     UpstreamClass,
@@ -211,6 +213,16 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         description="Whether to capture dataset from asset key",
     )
 
+    emit_mode: EmitMode = pydantic.Field(
+        default=EmitMode.ASYNC,
+        description=(
+            "Emit mode for writes to DataHub. Defaults to ASYNC so high-volume "
+            "runs don't block GMS on a synchronous commit per write. Use "
+            "SYNC_WAIT/SYNC_PRIMARY when read-after-write or raise-on-failure "
+            "guarantees are required."
+        ),
+    )
+
     asset_keys_to_dataset_urn_converter: Optional[
         Callable[
             [Sequence[str]],
@@ -253,6 +265,7 @@ class DagsterEnvironment:
     is_branch_deployment: bool = False
     branch: Optional[str] = "prod"
     module: Optional[str] = None
+    location_name: Optional[str] = None
 
 
 def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment) -> str:
@@ -261,8 +274,8 @@ def job_url_generator(dagster_url: str, dagster_environment: DagsterEnvironment)
     else:
         base_url = dagster_url
 
-    if dagster_environment.module:
-        base_url = f"{base_url}/locations/{dagster_environment.module}"
+    if dagster_environment.location_name:
+        base_url = f"{base_url}/locations/{dagster_environment.location_name}"
 
     return base_url
 
@@ -626,12 +639,14 @@ class DagsterGenerator:
         graph: DataHubGraph,
         datajob: DataJob,
         run_step_stats: RunStepKeyStatsSnapshot,
+        emit_template: bool = True,
     ) -> None:
         """
         Emit an op run
         :param graph: DataHubGraph
         :param datajob: DataJob - DataJob object
         :param run_step_stats: RunStepKeyStatsSnapshot - step(op) run stats
+        :param emit_template: Whether to emit the parent DataJob template from the process instance
         """
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
@@ -678,6 +693,7 @@ class DagsterGenerator:
             dpi.emit_process_start(
                 emitter=graph,
                 start_timestamp_millis=int(run_step_stats.start_time * 1000),
+                emit_template=emit_template,
             )
 
         if run_step_stats.end_time is not None:
@@ -804,6 +820,13 @@ class DagsterGenerator:
         )
         for mcp in dataset.generate_mcp():
             graph.emit_mcp(mcp)
+
+        graph.emit_mcp(
+            MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn.urn(),
+                aspect=StatusClass(removed=False),
+            )
+        )
 
         if schema:
             mcp = self.convert_table_schema_to_schema_metadata(

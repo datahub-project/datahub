@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka.elasticsearch;
 
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.DocWriteRequest;
@@ -24,14 +25,17 @@ public class ElasticsearchConnector {
   /*
     Be careful here, we are mixing `DataHub` change type semantics with `Elasticsearch` concepts.
   */
-  public void feedElasticEvent(@Nonnull ElasticEvent event) {
+  public void feedElasticEvent(@Nonnull OperationContext opContext, @Nonnull ElasticEvent event) {
     if (event.getActionType().equals(ChangeType.DELETE)) {
-      _bulkProcessor.add(createDeleteRequest(event));
+      // Route by event.getId() (the OpenSearch doc id) — same rationale as
+      // ESWriteDAO / ESGraphWriteDAO. Protects against future callers that emit
+      // UPDATE/DELETE for the same docId in a bulk window.
+      _bulkProcessor.add(opContext, event.getId(), createDeleteRequest(event));
     } else if (event.getActionType().equals(ChangeType.CREATE)
         || event.getActionType().equals(ChangeType.CREATE_ENTITY)) {
-      _bulkProcessor.add(createIndexRequest(event));
+      _bulkProcessor.add(opContext, event.getId(), createIndexRequest(event));
     } else if (event.getActionType().equals(ChangeType.UPDATE)) {
-      _bulkProcessor.add(createUpsertRequest(event));
+      _bulkProcessor.add(opContext, event.getId(), createUpsertRequest(event));
     }
   }
 

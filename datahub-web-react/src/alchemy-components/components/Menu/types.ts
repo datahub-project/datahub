@@ -1,7 +1,6 @@
 import React from 'react';
 
 import { DropdownProps } from '@components/components/Dropdown/types';
-import { IconNames } from '@components/components/Icon';
 
 export interface BaseItemType {
     type: string;
@@ -11,25 +10,27 @@ export interface BaseItemType {
 export interface MenuItemType extends BaseItemType {
     type: 'item';
     title: string;
-    icon?: IconNames;
+    icon?: React.ComponentType<any>;
     description?: string;
     tooltip?: string;
+    tooltipPlacement?: 'top' | 'bottom' | 'left' | 'right';
     disabled?: boolean;
     danger?: boolean;
     children?: ItemType[];
+    dataTestId?: string;
 
     onClick?: () => void;
     render?: (item: MenuItemType) => React.ReactNode;
 }
 
-export interface GroupItemType extends BaseItemType {
+interface GroupItemType extends BaseItemType {
     type: 'group';
     title: string;
     children?: ItemType[];
     render?: (item: GroupItemType) => React.ReactNode;
 }
 
-export interface DividerType extends BaseItemType {
+interface DividerType extends BaseItemType {
     type: 'divider';
 }
 

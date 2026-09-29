@@ -1,5 +1,4 @@
 import dataclasses
-import os
 import re
 from typing import Any, ClassVar, Dict, List, Optional, Tuple, Union
 
@@ -242,7 +241,9 @@ class LookerDashboardSourceConfig(
     StatefulIngestionConfigBase,
     EnvConfigMixin,
 ):
-    _removed_github_info = pydantic_removed_field("github_info")
+    _removed_github_info = pydantic_removed_field(
+        "github_info", month="June", year=2023
+    )
 
     dashboard_pattern: AllowDenyPattern = Field(
         AllowDenyPattern.allow_all(),
@@ -270,10 +271,6 @@ class LookerDashboardSourceConfig(
         False,
         description="Whether to skip ingestion of dashboards in personal folders. Setting this to True will only "
         "ingest dashboards in the Shared folder space.",
-    )
-    max_threads: int = Field(
-        default_factory=lambda: os.cpu_count() or 40,
-        description="Max parallelism for Looker API calls. Defaults to cpuCount or 40",
     )
     external_base_url: Optional[str] = Field(
         None,

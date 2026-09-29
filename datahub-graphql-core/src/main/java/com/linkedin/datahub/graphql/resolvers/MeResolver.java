@@ -83,11 +83,15 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageDocuments(AuthorizationUtils.canManageDocuments(context));
             platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
             platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
+            platformPrivileges.setCreateLogicalModels(
+                AuthorizationUtils.canCreateLogicalModels(context));
             platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));
             platformPrivileges.setManageTags(AuthorizationUtils.canManageTags(context));
             platformPrivileges.setViewManageTags(AuthorizationUtils.canViewManageTags(context));
             platformPrivileges.setManageGlobalViews(
                 AuthorizationUtils.canManageGlobalViews(context));
+            platformPrivileges.setManageGlobalSettings(
+                AuthorizationUtils.canManageGlobalSettings(context));
             platformPrivileges.setManageOwnershipTypes(
                 AuthorizationUtils.canManageOwnershipTypes(context));
             platformPrivileges.setManageGlobalAnnouncements(
@@ -105,6 +109,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageFeatures(AuthorizationUtils.canManageFeatures(context));
             platformPrivileges.setManageHomePageTemplates(
                 AuthorizationUtils.canManageHomePageTemplates(context));
+            platformPrivileges.setManageServiceAccounts(canManageServiceAccounts(context));
 
             // Construct and return authenticated user object.
             final AuthenticatedUser authUser = new AuthenticatedUser();
@@ -173,5 +178,11 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   private boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(
         context.getOperationContext(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+  }
+
+  /** Returns true if the authenticated user has privileges to manage service accounts */
+  private boolean canManageServiceAccounts(@Nonnull QueryContext context) {
+    return isAuthorized(
+        context.getOperationContext(), PoliciesConfig.MANAGE_SERVICE_ACCOUNTS_PRIVILEGE);
   }
 }

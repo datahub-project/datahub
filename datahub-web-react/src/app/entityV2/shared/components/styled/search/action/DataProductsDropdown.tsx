@@ -1,9 +1,11 @@
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useIsMultipleDataProductsEnabled } from '@app/shared/hooks/useIsMultipleDataProductsEnabled';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
@@ -16,8 +18,11 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DataProductsDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tcf } = useTranslation('common.feedback');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [isUnsetModalVisible, setIsUnsetModalVisible] = useState(false);
+    const isMultipleDataProductsEnabled = useIsMultipleDataProductsEnabled();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
 
     const batchUnsetDataProducts = () => {
@@ -30,9 +35,9 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.loading({ content: 'Loading...', duration: 2 });
+                    message.loading({ content: tcf('loading'), duration: 2 });
                     setTimeout(() => {
-                        message.success({ content: 'Removed Data Product!', duration: 2 });
+                        message.success({ content: t('searchActions.dataProduct.removedSuccess'), duration: 2 });
                         refetch?.();
                     }, 2000);
                 }
@@ -42,7 +47,7 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
                 message.destroy();
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to remove assets from Data Product: \n ${e.message || ''}`,
+                        content: t('searchActions.dataProduct.removeError', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -52,16 +57,24 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
     return (
         <>
             <ActionDropdown
-                name="Data Product"
+                name={
+                    isMultipleDataProductsEnabled
+                        ? t('searchActions.dataProduct.nameMultiple')
+                        : t('searchActions.dataProduct.nameSingle')
+                }
                 actions={[
                     {
-                        title: 'Set Data Product',
+                        title: isMultipleDataProductsEnabled
+                            ? t('searchActions.dataProduct.addMultiple')
+                            : t('searchActions.dataProduct.setSingle'),
                         onClick: () => {
                             setIsEditModalVisible(true);
                         },
                     },
                     {
-                        title: 'Unset Data Product',
+                        title: isMultipleDataProductsEnabled
+                            ? t('searchActions.dataProduct.unsetMultiple')
+                            : t('searchActions.dataProduct.unsetSingle'),
                         onClick: () => {
                             setIsUnsetModalVisible(true);
                         },
@@ -72,19 +85,26 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
             {isEditModalVisible && (
                 <SetDataProductModal
                     urns={urns}
-                    currentDataProduct={null}
+                    currentDataProducts={[]}
                     onModalClose={() => {
                         setIsEditModalVisible(false);
                     }}
-                    refetch={refetch}
                 />
             )}
             <ConfirmationModal
                 isOpen={isUnsetModalVisible}
                 handleClose={() => setIsUnsetModalVisible(false)}
                 handleConfirm={batchUnsetDataProducts}
-                modalTitle="Data Product will be removed for the selected assets"
-                modalText="Are you sure you want to unset Data Product for these assets?"
+                modalTitle={
+                    isMultipleDataProductsEnabled
+                        ? t('searchActions.dataProduct.removeConfirmTitleMultiple')
+                        : t('searchActions.dataProduct.removeConfirmTitleSingle')
+                }
+                modalText={
+                    isMultipleDataProductsEnabled
+                        ? t('searchActions.dataProduct.removeConfirmTextMultiple')
+                        : t('searchActions.dataProduct.removeConfirmTextSingle')
+                }
             />
         </>
     );

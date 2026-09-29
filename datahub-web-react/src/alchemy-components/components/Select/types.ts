@@ -1,6 +1,5 @@
+import { DropdownProps } from 'antd';
 import React from 'react';
-
-import { IconNames } from '@components/components/Icon';
 
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 export interface SelectOption {
@@ -20,6 +19,11 @@ type OptionPosition = 'start' | 'end' | 'center';
 
 export type CustomOptionRenderer<OptionType extends SelectOption> = (option: OptionType) => React.ReactNode;
 
+interface RenderSelectBaseProps {
+    isOpened: boolean;
+    onClick: () => void;
+}
+
 export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     options: OptionType[];
     label?: string;
@@ -28,16 +32,22 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     onCancel?: () => void;
     onClear?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
+    /** Label for the confirm button in the dropdown footer. Defaults to "Update". */
+    updateLabel?: string;
+    onOpenChange?: (isOpen: boolean) => void;
     size?: SelectSizeOptions;
-    icon?: IconNames;
+    icon?: React.ComponentType<any>;
     showSearch?: boolean;
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
     showClear?: boolean;
     width?: number | 'full' | 'fit-content';
+    minWidth?: string;
+    /** Caps the closed select's rendered width; the selected label truncates with an ellipsis past this width. */
+    maxWidth?: number;
     isMultiSelect?: boolean;
-    placeholder?: string;
+    placeholder?: string | React.ReactNode;
     disabledValues?: string[];
     showSelectAll?: boolean;
     selectAllLabel?: string;
@@ -50,6 +60,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     optionListStyle?: React.CSSProperties;
     selectedOptionListStyle?: React.CSSProperties;
     optionListTestId?: string;
+    optionDataTestId?: (option: OptionType) => string;
     optionSwitchable?: boolean;
     selectLabelProps?: SelectLabelProps;
     position?: OptionPosition;
@@ -59,6 +70,14 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     emptyState?: React.ReactElement;
     descriptionMaxWidth?: number;
     dataTestId?: string;
+    visibilityDeps?: React.DependencyList;
+    placement?: DropdownProps['placement'];
+    /** Open the dropdown on mount (e.g. after "+ Filter" promotes a control). */
+    defaultOpen?: boolean;
+    renderSelectBase?: (props: RenderSelectBaseProps) => React.ReactElement;
+    renderOptionsFooter?: () => React.ReactNode;
+    /** When true (default), selected items appear first in the dropdown. Set to false to maintain original option order. */
+    sortSelectedFirst?: boolean;
 }
 
 export interface SelectStyleProps {
@@ -68,6 +87,7 @@ export interface SelectStyleProps {
     isRequired?: boolean;
     isOpen?: boolean;
     width?: number | 'full' | 'fit-content';
+    maxWidth?: number;
     position?: OptionPosition;
 }
 
@@ -84,7 +104,7 @@ export interface ActionButtonsProps {
 export interface SelectLabelDisplayProps<OptionType extends SelectOption> {
     selectedValues: string[];
     options: OptionType[];
-    placeholder: string;
+    placeholder: string | React.ReactNode;
     isMultiSelect?: boolean;
     removeOption?: (option: OptionType) => void;
     disabledValues?: string[];
@@ -99,8 +119,4 @@ export interface SelectLabelDisplayProps<OptionType extends SelectOption> {
 export interface SelectLabelVariantProps<OptionType extends SelectOption>
     extends Omit<SelectLabelDisplayProps<OptionType>, 'variant'> {
     selectedOptions: OptionType[];
-}
-
-export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-    fontSize: SelectSizeOptions;
 }

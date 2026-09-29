@@ -1,6 +1,6 @@
-import { grey } from '@ant-design/colors';
 import { Divider, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import styled from 'styled-components';
 
@@ -23,7 +23,7 @@ type RolePageParams = {
 
 const TitleLabel = styled(Typography.Text)`
     &&& {
-        color: ${grey[2]};
+        color: ${(props) => props.theme.colors.textTertiary};
         font-size: 12px;
         display: block;
         line-height: 20px;
@@ -37,13 +37,13 @@ const DescriptionLabel = styled(Typography.Text)`
         font-weight: bold;
         font-size: 14px;
         line-height: 28px;
-        color: rgb(38, 38, 38);
+        color: ${(props) => props.theme.colors.text};
     }
 `;
 
 const TitleText = styled(Typography.Text)`
     &&& {
-        color: ${grey[10]};
+        color: ${(props) => props.theme.colors.text};
         font-weight: 700;
         font-size: 20px;
         line-height: 28px;
@@ -55,18 +55,20 @@ const TitleText = styled(Typography.Text)`
 const { Paragraph } = Typography;
 
 export default function RoleEntityProfile() {
+    const { t } = useTranslation('entity.types');
+    const { t: tf } = useTranslation('common.feedback');
     const { urn: encodedUrn } = useParams<RolePageParams>();
     const urn = decodeUrn(encodedUrn);
     const { data, loading } = useGetExternalRoleQuery({ variables: { urn } });
 
     return (
         <PageContainer>
-            {loading && <LoadingMessage type="loading" content="Loading..." />}
-            <TitleLabel>Role</TitleLabel>
+            {loading && <LoadingMessage type="loading" content={tf('loading')} />}
+            <TitleLabel>{t('role.name')}</TitleLabel>
             <TitleText>{data?.role?.properties?.name}</TitleText>
             <Divider />
             {/* Role Description */}
-            <DescriptionLabel>About</DescriptionLabel>
+            <DescriptionLabel>{t('tab.about')}</DescriptionLabel>
             <Paragraph style={{ fontSize: '12px', lineHeight: '15px', padding: '5px 0px' }}>
                 {data?.role?.properties?.description}
             </Paragraph>

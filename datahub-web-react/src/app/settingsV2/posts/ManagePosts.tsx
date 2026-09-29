@@ -1,5 +1,7 @@
-import { PageTitle } from '@components';
-import React from 'react';
+import { Button, PageTitle } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { PostList } from '@app/settingsV2/posts/PostsList';
@@ -13,6 +15,12 @@ const PageContainer = styled.div`
     gap: 16px;
 `;
 
+const PageHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
+
 const ListContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -20,14 +28,24 @@ const ListContainer = styled.div`
 `;
 
 export default function ManagePosts() {
+    const { t } = useTranslation('settings.posts');
+    const [isCreatingPost, setIsCreatingPost] = useState(false);
+
     return (
         <PageContainer data-testid="managePostsV2">
-            <PageTitle
-                title="Home Page"
-                subTitle="View and manage pinned announcements and links that appear to all users on the landing page."
-            />
+            <PageHeader>
+                <PageTitle title={t('pageTitle')} subTitle={t('pageSubTitle')} />
+                <Button
+                    variant="filled"
+                    data-testid="posts-create-post-v2"
+                    icon={{ icon: Plus }}
+                    onClick={() => setIsCreatingPost(true)}
+                >
+                    {t('createNewPost')}
+                </Button>
+            </PageHeader>
             <ListContainer>
-                <PostList />
+                <PostList isCreatingPost={isCreatingPost} setIsCreatingPost={setIsCreatingPost} />
             </ListContainer>
         </PageContainer>
     );

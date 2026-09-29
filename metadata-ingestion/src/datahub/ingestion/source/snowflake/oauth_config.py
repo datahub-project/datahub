@@ -1,9 +1,10 @@
 from enum import Enum
 from typing import List, Optional
 
-from pydantic import Field, SecretStr
+from pydantic import Field
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import TransparentSecretStr
 
 
 class OAuthIdentityProvider(Enum):
@@ -23,12 +24,12 @@ class OAuthConfiguration(ConfigModel):
         description="Do you want to use certificate and private key to authenticate using oauth",
         default=False,
     )
-    client_secret: Optional[SecretStr] = Field(
+    client_secret: Optional[TransparentSecretStr] = Field(
         None, description="client secret of the application if use_certificate = false"
     )
     encoded_oauth_public_key: Optional[str] = Field(
         None, description="base64 encoded certificate content if use_certificate = true"
     )
-    encoded_oauth_private_key: Optional[str] = Field(
+    encoded_oauth_private_key: Optional[TransparentSecretStr] = Field(
         None, description="base64 encoded private key content if use_certificate = true"
     )

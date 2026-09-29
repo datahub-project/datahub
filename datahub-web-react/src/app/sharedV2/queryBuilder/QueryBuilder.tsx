@@ -1,4 +1,4 @@
-import { Collapse } from 'antd';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo, useState } from 'react';
 
 import GroupHeader from '@app/sharedV2/queryBuilder/GroupHeader';
@@ -7,7 +7,7 @@ import Operands from '@app/sharedV2/queryBuilder/Operands';
 import { Property } from '@app/sharedV2/queryBuilder/builder/property/types/properties';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { convertToLogicalPredicate } from '@app/sharedV2/queryBuilder/builder/utils';
-import { CardIcons, StyledCollapse } from '@app/sharedV2/queryBuilder/styledComponents';
+import { ExpandButton, QueryGroup, QueryGroupHeader } from '@app/sharedV2/queryBuilder/styledComponents';
 import { Icon } from '@src/alchemy-components';
 
 const EMPTY_PROPERTY_PREDICATE: PropertyPredicate = {
@@ -24,9 +24,19 @@ interface Props {
     depth: number;
     index: number;
     clearFilters?: () => void;
+    /** When true, hides the "Add Group" button at every level. */
+    hideAddGroup?: boolean;
 }
 
-const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth, index, clearFilters }: Props) => {
+const QueryBuilder = ({
+    selectedPredicate,
+    onChangePredicate,
+    properties,
+    depth,
+    index,
+    clearFilters,
+    hideAddGroup,
+}: Props) => {
     const [isExpanded, setIsExpanded] = useState(true);
 
     const logicalPredicate = convertToLogicalPredicate(selectedPredicate);
@@ -83,44 +93,39 @@ const QueryBuilder = ({ selectedPredicate, onChangePredicate, properties, depth,
     };
 
     return (
-        <StyledCollapse
-            ghost
-            expandIcon={({ isActive }) => (
-                <CardIcons>
-                    <Icon icon="ChevronRight" rotate={isActive ? '90' : '0'} size="md" />
-                </CardIcons>
-            )}
-            defaultActiveKey={`panel-${depth}.${index}`}
-            onChange={() => setIsExpanded(!isExpanded)}
-            depth={depth}
-            hasChildren={operands.length > 0}
-            isExpanded={isExpanded}
-            collapsible="icon"
-        >
-            <Collapse.Panel
-                key={`panel-${depth}.${index}`}
-                header={
-                    <GroupHeader
-                        onAddLogicalPredicate={onAddLogicalPredicate}
-                        onAddPropertyPredicate={onAddPropertyPredicate}
-                        onDeletePredicate={onDeletePredicate}
-                        onChangeOperator={onChangeOperator}
-                        index={index}
-                        operator={logicalPredicate.operator}
-                        showDeleteButton={operands.length > 0 || depth > 0}
-                    />
-                }
-                showArrow={operands.length > 0}
-            >
+        <QueryGroup $depth={depth} $hasChildren={operands.length > 0} $isExpanded={isExpanded}>
+            <QueryGroupHeader $depth={depth} $hasChildren={operands.length > 0}>
+                {operands.length > 0 && (
+                    <ExpandButton
+                        type="button"
+                        onClick={() => setIsExpanded((expanded) => !expanded)}
+                        aria-expanded={isExpanded}
+                    >
+                        <Icon icon={CaretRight} rotate={isExpanded ? '90' : '0'} size="md" color="icon" />
+                    </ExpandButton>
+                )}
+                <GroupHeader
+                    onAddLogicalPredicate={onAddLogicalPredicate}
+                    onAddPropertyPredicate={onAddPropertyPredicate}
+                    onDeletePredicate={onDeletePredicate}
+                    onChangeOperator={onChangeOperator}
+                    index={index}
+                    operator={logicalPredicate.operator}
+                    showDeleteButton={operands.length > 0 || depth > 0}
+                    hideAddGroup={hideAddGroup}
+                />
+            </QueryGroupHeader>
+            {isExpanded && (
                 <Operands
                     operands={operands}
                     onChangeOperands={onChangeOperands}
                     properties={properties}
                     onDeletePredicate={onDeleteCondition}
                     depth={depth}
+                    hideAddGroup={hideAddGroup}
                 />
-            </Collapse.Panel>
-        </StyledCollapse>
+            )}
+        </QueryGroup>
     );
 };
 

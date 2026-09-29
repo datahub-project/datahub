@@ -1,0 +1,34 @@
+{
+  "definitions": {
+    "FINANCE_DATASALES_A": {
+      "kind": "entity",
+      "@EndUserText.label": "Sales (source object projected by Test_Analytic_Model)",
+      "elements": {
+        "BW_ORDERVALUE": {
+          "type": "cds.Decimal",
+          "@EndUserText.label": "BW_ORDERVALUE"
+        },
+        "BW_UNITSSOLD": {
+          "type": "cds.Decimal",
+          "@EndUserText.label": "BW_UNITSSOLD"
+        },
+        "BW_NOCUSTOMERMEETINGS": {
+          "type": "cds.Decimal",
+          "@EndUserText.label": "BW_NOCUSTOMERMEETINGS"
+        },
+        "Athena_Planned_ORDERVALUE": {
+          "type": "cds.Decimal",
+          "@EndUserText.label": "Athena_Planned_ORDERVALUE"
+        },
+        "Sales_Amount": {
+          "type": "cds.Decimal",
+          "@EndUserText.label": "Sales_Amount"
+        },
+        "Sales_ExpectedRevenue": {
+          "type": "cds.Decimal",
+          "@EndUserText.label": "Sales_ExpectedRevenue"
+        }
+      }
+    }
+  }
+}

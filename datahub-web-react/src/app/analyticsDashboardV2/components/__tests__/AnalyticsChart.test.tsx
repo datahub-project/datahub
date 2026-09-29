@@ -3,6 +3,7 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AnalyticsChart } from '@app/analyticsDashboardV2/components/AnalyticsChart';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 import { BarChart as BarChartType, DateInterval, TableChart, TimeSeriesChart } from '@types';
 
@@ -25,6 +26,8 @@ vi.mock('@visx/tooltip', () => ({
     }),
 }));
 
+const renderWithTheme = (ui: React.ReactElement) => render(<CustomThemeProvider>{ui}</CustomThemeProvider>);
+
 describe('AnalyticsChart', () => {
     describe('TimeSeriesChart', () => {
         it('renders time series chart with data', () => {
@@ -45,7 +48,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Daily Active Users')).toBeInTheDocument();
         });
 
@@ -63,7 +66,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Daily Active Users')).toBeInTheDocument();
         });
     });
@@ -85,7 +88,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Entity Views by Type')).toBeInTheDocument();
         });
     });
@@ -123,13 +126,13 @@ describe('AnalyticsChart', () => {
 
         it('renders stacked bar chart with multiple segments', () => {
             const chartData = createStackedChartData();
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Entity Actions by Type')).toBeInTheDocument();
         });
 
         it('shows legend with all segment labels', () => {
             const chartData = createStackedChartData();
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
 
             // Check that legend items are present
             expect(screen.getByText('VIEW')).toBeInTheDocument();
@@ -153,7 +156,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
 
             // The chart should render successfully with truncated labels
             expect(screen.getByText('Long Labels Test')).toBeInTheDocument();
@@ -166,7 +169,7 @@ describe('AnalyticsChart', () => {
                 bars: [],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Empty Chart')).toBeInTheDocument();
         });
 
@@ -185,7 +188,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Zero Values')).toBeInTheDocument();
         });
 
@@ -211,7 +214,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Sparse Data')).toBeInTheDocument();
         });
     });
@@ -240,7 +243,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Top Datasets')).toBeInTheDocument();
             expect(screen.getByText('dataset1')).toBeInTheDocument();
             expect(screen.getByText('100')).toBeInTheDocument();
@@ -263,7 +266,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={stackedChart} />);
+            renderWithTheme(<AnalyticsChart chartData={stackedChart} />);
             expect(screen.getByText('Stacked')).toBeInTheDocument();
         });
 
@@ -283,7 +286,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={simpleChart} />);
+            renderWithTheme(<AnalyticsChart chartData={simpleChart} />);
             expect(screen.getByText('Simple')).toBeInTheDocument();
         });
     });
@@ -306,7 +309,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Test')).toBeInTheDocument();
         });
 
@@ -326,7 +329,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Bar Test')).toBeInTheDocument();
         });
     });
@@ -344,7 +347,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Long Names')).toBeInTheDocument();
         });
 
@@ -363,7 +366,7 @@ describe('AnalyticsChart', () => {
                 bars,
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Many Bars')).toBeInTheDocument();
         });
 
@@ -384,7 +387,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Many Segments')).toBeInTheDocument();
         });
 
@@ -400,7 +403,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Large Values')).toBeInTheDocument();
         });
 
@@ -416,7 +419,7 @@ describe('AnalyticsChart', () => {
                 ],
             };
 
-            render(<AnalyticsChart chartData={chartData} />);
+            renderWithTheme(<AnalyticsChart chartData={chartData} />);
             expect(screen.getByText('Decimals')).toBeInTheDocument();
         });
     });

@@ -12,7 +12,6 @@ export enum ErrorCodes {
     BadRequest = 400,
     Unauthorized = 401,
     Forbidden = 403,
-    NotFound = 404,
     ServerError = 500,
 }
 
@@ -22,3 +21,16 @@ export const ANT_NOTIFICATION_Z_INDEX = 1010;
 
 // S3 folder to store product assets
 export const PRODUCT_ASSETS_FOLDER = 'product_assets';
+
+// Product update dismissal key
+export const DISMISSED_PRODUCT_UPDATES_KEY = 'dismissedProductUpdates';
+
+// Welcome modal key
+export const SKIP_WELCOME_MODAL_KEY = 'skipWelcomeModal';
+
+// Navigation sidebar
+export const NAV_SIDEBAR_ID = 'nav-sidebar';
+export const NAV_SIDEBAR_WIDTH_EXPANDED = 264;
+/** Collapsed nav is fully hidden (0px); expand/collapse togglers sit in the page chrome. */
+export const NAV_SIDEBAR_WIDTH_COLLAPSED = 0;
+export const NAV_SIDEBAR_COLLAPSE_TRANSITION_MS = 180;

@@ -1,25 +1,27 @@
-import { Avatar, CellHoverWrapper, Icon, Pill, Text, Tooltip, colors } from '@components';
-import { Image, Typography } from 'antd';
-import cronstrue from 'cronstrue';
+import { CellHoverWrapper, Icon, Pill, Text, Tooltip } from '@components';
+import { Play } from '@phosphor-icons/react/dist/csr/Play';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components/macro';
 
-import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
+import { ItemType } from '@components/components/Menu/types';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_LOADING, EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
-import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
+import BaseActionsColumn from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { Owner } from '@types';
 
-const PreviewImage = styled(Image)`
+const PreviewImage = styled.img`
     max-height: 20px;
     width: auto;
     max-width: 28px;
@@ -28,8 +30,11 @@ const PreviewImage = styled(Image)`
     background-color: transparent;
 `;
 
-const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
-    color: ${colors.gray[1700]};
+const TextContainer = styled(Text)<{ $shouldUnderline?: boolean }>`
+    color: ${(props) => props.theme.colors.textSecondary};
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     ${(props) =>
         props.$shouldUnderline &&
         `
@@ -39,10 +44,10 @@ const TextContainer = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
         `}
 `;
 
-const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
+const SourceNameText = styled.div<{ $shouldUnderline?: boolean }>`
     font-size: 14px;
     font-weight: 600;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     line-height: 1.3;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -52,14 +57,6 @@ const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
     white-space: normal;
     text-overflow: unset;
 
-    &.ant-typography {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        white-space: normal;
-    }
-
     ${(props) =>
         props.$shouldUnderline &&
         `
@@ -69,10 +66,10 @@ const SourceNameText = styled(Typography.Text)<{ $shouldUnderline?: boolean }>`
         `}
 `;
 
-const SourceTypeText = styled(Typography.Text)`
+const SourceTypeText = styled(Text)`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: normal;
 `;
 
@@ -96,6 +93,8 @@ interface NameColumnProps {
 }
 
 export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
+    const { t } = useTranslation('ingestion');
+    const theme = useTheme();
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
     const textRef = useRef<HTMLDivElement>(null);
@@ -129,17 +128,16 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
         <NameContainer>
             {iconUrl && !record.cliIngestion ? (
                 <Tooltip overlay={typeDisplayName}>
-                    <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
+                    <PreviewImage src={iconUrl} alt={type || ''} />
                 </Tooltip>
             ) : (
-                <Icon icon="Plugs" source="phosphor" size="2xl" color="gray" />
+                <Icon icon={Plugs} size="2xl" color="icon" />
             )}
             <DisplayNameContainer>
                 {showTooltip ? (
                     <Tooltip
                         title={record.name}
-                        color="white"
-                        overlayInnerStyle={{ color: colors.gray[1700] }}
+                        overlayInnerStyle={{ color: theme.colors.textSecondary }}
                         showArrow={false}
                     >
                         {textElement}
@@ -147,10 +145,12 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
                 ) : (
                     textElement
                 )}
-                {!iconUrl && typeDisplayName && <SourceTypeText color="gray">{typeDisplayName}</SourceTypeText>}
+                {!iconUrl && typeDisplayName && (
+                    <SourceTypeText color="textSecondary">{typeDisplayName}</SourceTypeText>
+                )}
             </DisplayNameContainer>
             {record.cliIngestion && (
-                <Tooltip title="This source is ingested from the command-line interface (CLI)">
+                <Tooltip title={t('source.cliTooltip')}>
                     <div data-testid="ingestion-source-cli-pill">
                         <Pill label="CLI" color="blue" size="xs" />
                     </div>
@@ -160,70 +160,37 @@ export function NameColumn({ type, record, onNameClick }: NameColumnProps) {
     );
 }
 
-export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
-    let scheduleText: string;
-
+/**
+ * The human-readable schedule shown in source lists ("Every day at 12:00 am (UTC)").
+ * Returns null when the cron doesn't parse so callers can render their own
+ * "invalid" copy; an empty schedule yields an empty string.
+ */
+export function formatScheduleText(schedule: string, timezone?: string): string | null {
     try {
-        const text = schedule && `${cronstrue.toString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
-        const cleanedText = text.replace(/^at /, '');
-        const finalText = capitalizeFirstLetterOnly(capitalizeMonthsAndDays(cleanedText));
-        scheduleText = finalText ?? '-';
+        const text = schedule && `${cronToString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
+        const cleanedText = removeTimePrefix(text);
+        return capitalizeFirstLetterOnly(capitalizeMonthsAndDays(cleanedText)) ?? '-';
     } catch (e) {
-        scheduleText = 'Invalid cron schedule';
         console.debug('Error parsing cron schedule', e);
+        return null;
     }
+}
+
+export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
+    const { t } = useTranslation('ingestion');
+    const theme = useTheme();
+    const scheduleText = formatScheduleText(schedule, timezone) ?? t('source.invalidCron');
     return (
-        <TextContainer
-            ellipsis={{
-                tooltip: {
-                    title: scheduleText,
-                    color: 'white',
-                    overlayInnerStyle: { color: colors.gray[1700] },
-                    showArrow: false,
-                },
-            }}
-            data-testid="schedule"
-        >
-            {scheduleText || '-'}
-        </TextContainer>
+        <Tooltip title={scheduleText} overlayInnerStyle={{ color: theme.colors.textSecondary }} showArrow={false}>
+            <TextContainer data-testid="schedule">{scheduleText || '-'}</TextContainer>
+        </Tooltip>
     );
 }
 
 export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entityRegistry: EntityRegistry }) {
-    const ownerAvatars = owners.map((owner) => {
-        return {
-            name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
-            imageUrl: owner.owner.editableProperties?.pictureLink,
-            type: mapEntityTypeToAvatarType(owner.owner.type),
-            urn: owner.owner.urn,
-        };
-    });
-    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
-
     if (owners.length === 0) return <>-</>;
 
-    return (
-        <>
-            {singleOwner && (
-                <Link
-                    to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                    }}
-                >
-                    <Avatar
-                        name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
-                        imageUrl={singleOwner.editableProperties?.pictureLink}
-                        showInPill
-                        type={mapEntityTypeToAvatarType(singleOwner.type)}
-                    />
-                </Link>
-            )}
-            {owners.length > 1 && (
-                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
-            )}
-        </>
-    );
+    return <OwnerAvatarGroup owners={owners} entityRegistry={entityRegistry} />;
 }
 
 export function wrapOwnerColumnWithHover(content: React.ReactNode, record: any): React.ReactNode {
@@ -240,7 +207,7 @@ export function wrapOwnerColumnWithHover(content: React.ReactNode, record: any):
     return content;
 }
 interface ActionsColumnProps {
-    record: any;
+    record: IngestionSourceTableData;
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
     onCancel: (executionUrn: string | undefined, ingestionSourceUrn: string) => void;
@@ -249,11 +216,6 @@ interface ActionsColumnProps {
     onDelete: (urn: string) => void;
     navigateToRunHistory: (record: IngestionSourceTableData) => void;
 }
-
-type MenuOption = {
-    key: string;
-    label: React.ReactNode;
-};
 
 export function ActionsColumn({
     record,
@@ -265,98 +227,72 @@ export function ActionsColumn({
     onDelete,
     navigateToRunHistory,
 }: ActionsColumnProps) {
-    const items: MenuOption[] = [];
+    const { t } = useTranslation('ingestion');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tl } = useTranslation('common.labels');
+    const items: ItemType[] = [];
 
     if (!record.cliIngestion)
         items.push({
-            key: '0',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        onEdit(record.urn);
-                    }}
-                >
-                    Edit
-                </MenuItem>
-            ),
+            type: 'item',
+            key: 'edit',
+            title: tc('edit'),
+            onClick: () => {
+                onEdit(record.urn);
+            },
         });
     else
         items.push({
-            key: '1',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        onView(record.urn);
-                    }}
-                >
-                    View
-                </MenuItem>
-            ),
+            type: 'item',
+            key: 'view',
+            title: tc('view'),
+            onClick: () => {
+                onView(record.urn);
+            },
         });
     if (record.lastExecUrn) {
         items.push({
-            key: '2',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        setFocusExecutionUrn(record.lastExecUrn);
-                    }}
-                >
-                    View Last Run Result
-                </MenuItem>
-            ),
+            type: 'item',
+            key: 'view-last-run',
+            title: t('source.viewLastRunResult'),
+            onClick: () => {
+                setFocusExecutionUrn(record.lastExecUrn || '');
+            },
         });
     }
     if (record.execCount)
         items.push({
-            key: '3',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        navigateToRunHistory(record);
-                    }}
-                >
-                    View Run History
-                </MenuItem>
-            ),
+            type: 'item',
+            key: 'run-history',
+            title: t('source.viewRunHistory'),
+            onClick: () => {
+                navigateToRunHistory(record);
+            },
         });
     if (navigator.clipboard)
         items.push({
-            key: '4',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        navigator.clipboard.writeText(record.urn);
-                    }}
-                >
-                    Copy Urn
-                </MenuItem>
-            ),
+            type: 'item',
+            key: 'copy-urn',
+            title: t('source.copyUrn'),
+            onClick: () => {
+                navigator.clipboard.writeText(record.urn);
+            },
         });
     if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
         items.push({
-            key: '5',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        setFocusExecutionUrn(record.lastExecUrn);
-                    }}
-                >
-                    Details
-                </MenuItem>
-            ),
+            type: 'item',
+            key: 'details',
+            title: tl('details'),
+            onClick: () => {
+                setFocusExecutionUrn(record.lastExecUrn || '');
+            },
         });
     items.push({
-        key: '6',
-        label: (
-            <MenuItem
-                onClick={() => {
-                    onDelete(record.urn);
-                }}
-            >
-                <Text color="red">Delete </Text>
-            </MenuItem>
-        ),
+        type: 'item',
+        key: 'delete',
+        title: tc('delete'),
+        danger: true,
+        onClick: () => onDelete(record.urn),
     });
 
     const renderRunStopButton = () => {
@@ -365,29 +301,27 @@ export function ActionsColumn({
         if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING) {
             return (
                 <Icon
-                    icon="Stop"
-                    source="phosphor"
+                    icon={Stop}
                     weight="fill"
-                    color="primary"
+                    color="iconBrand"
                     onClick={(e) => {
                         e.stopPropagation();
                         onCancel(record.lastExecUrn, record.urn);
                     }}
-                    tooltipText="Stop Execution"
+                    tooltipText={t('source.stopExecution')}
                 />
             );
         }
         return (
             <Icon
-                icon="Play"
-                source="phosphor"
+                icon={Play}
                 weight="fill"
-                color="violet"
+                color="iconBrand"
                 onClick={(e) => {
                     e.stopPropagation();
                     onExecute(record.urn);
                 }}
-                tooltipText="Execute"
+                tooltipText={t('source.execute')}
                 data-testid="run-ingestion-source-button"
             />
         );

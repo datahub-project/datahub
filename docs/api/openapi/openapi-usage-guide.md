@@ -1,3 +1,7 @@
+---
+description: "Usage guide for DataHub's OpenAPI v3 endpoints, covering authentication, common operations, and when to choose OpenAPI over Rest.li."
+---
+
 # DataHub OpenAPI Guide
 
 ## Why OpenAPI

@@ -63,7 +63,7 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
                 .description(
                     String.format(
                         TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
-                .tagUrn(baseTagAssociation.getTag())
+                .tagAssociation(baseTagAssociation)
                 .auditStamp(auditStamp)
                 .build());
         ++baseTagIdx;
@@ -79,7 +79,7 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
                 .description(
                     String.format(
                         TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
-                .tagUrn(targetTagAssociation.getTag())
+                .tagAssociation(targetTagAssociation)
                 .auditStamp(auditStamp)
                 .build());
         ++targetTagIdx;
@@ -98,7 +98,7 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
               .semVerChange(SemanticChangeType.MINOR)
               .description(
                   String.format(TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
-              .tagUrn(baseTagAssociation.getTag())
+              .tagAssociation(baseTagAssociation)
               .auditStamp(auditStamp)
               .build());
       ++baseTagIdx;
@@ -115,7 +115,7 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
               .semVerChange(SemanticChangeType.MINOR)
               .description(
                   String.format(TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
-              .tagUrn(targetTagAssociation.getTag())
+              .tagAssociation(targetTagAssociation)
               .auditStamp(auditStamp)
               .build());
       ++targetTagIdx;

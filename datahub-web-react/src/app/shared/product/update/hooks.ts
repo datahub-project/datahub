@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { checkShouldSkipWelcomeModal } from '@app/shared/localStorageUtils';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { useGetLatestProductUpdateQuery } from '@graphql/app.generated';
@@ -25,7 +27,9 @@ export function useIsProductAnnouncementEnabled() {
  * Hook to fetch the latest product announcement data from GraphQL.
  */
 export function useGetLatestProductAnnouncementData() {
+    const { i18n } = useTranslation();
     const { data, loading, error } = useGetLatestProductUpdateQuery({
+        variables: { locale: i18n.language },
         fetchPolicy: 'cache-first',
     });
 
@@ -57,6 +61,15 @@ export function useIsProductAnnouncementVisible(updateId: string | null | undefi
 
     // If userUrn is not loaded yet, don't show the announcement (wait for user context to load)
     if (!userUrn) {
+        return {
+            visible: false,
+            refetch,
+        };
+    }
+
+    // If welcome modal hasn't been seen/dismissed, don't show product update
+    const hasSeenWelcomeModal = checkShouldSkipWelcomeModal();
+    if (!hasSeenWelcomeModal) {
         return {
             visible: false,
             refetch,

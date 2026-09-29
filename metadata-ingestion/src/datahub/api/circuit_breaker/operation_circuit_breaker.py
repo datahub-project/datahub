@@ -32,11 +32,14 @@ class OperationCircuitBreaker(AbstractCircuitBreaker):
     operation_api: Operation
 
     def __init__(self, config: OperationCircuitBreakerConfig):
-        super().__init__(config.datahub_host, config.datahub_token, config.timeout)
+        _token = (
+            config.datahub_token.get_secret_value() if config.datahub_token else None
+        )
         self.config = config
         self.operation_api = Operation(
             datahub_host=config.datahub_host,
-            datahub_token=config.datahub_token,
+            datahub_token=_token,
+            datahub_auth=config.datahub_auth,
             timeout=config.timeout,
         )
 

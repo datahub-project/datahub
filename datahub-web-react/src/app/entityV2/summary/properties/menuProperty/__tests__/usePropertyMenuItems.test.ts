@@ -58,4 +58,23 @@ describe('usePropertyMenuItems', () => {
             currentElementType: SummaryElementType.Created,
         });
     });
+
+    it('should only show remove item when addPropertyMenuItems is empty', () => {
+        (useAddPropertyMenuItems as any).mockReturnValue([]);
+        const { result } = renderHook(() => usePropertyMenuItems(0, SummaryElementType.Created));
+        expect(result.current).toHaveLength(1);
+        const removeItem = result.current[0] as MenuItemType;
+        expect(removeItem.key).toBe('remove');
+        expect(result.current.some((item) => item.key === 'replace')).toBe(false);
+    });
+
+    it('should show replace item at the beginning when addPropertyMenuItems is not empty', () => {
+        (useAddPropertyMenuItems as any).mockReturnValue(mockAddPropertyMenuItems);
+        const { result } = renderHook(() => usePropertyMenuItems(0, SummaryElementType.Created));
+        expect(result.current).toHaveLength(2);
+        const replaceItem = result.current[0] as MenuItemType;
+        expect(replaceItem.key).toBe('replace');
+        const removeItem = result.current[1] as MenuItemType;
+        expect(removeItem.key).toBe('remove');
+    });
 });

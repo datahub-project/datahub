@@ -14,9 +14,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * Generic cache with common configuration for limited weight, per item expiry, and batch loading
@@ -43,6 +43,14 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
 
   public void refresh(@Nonnull K key) {
     cache.refresh(key);
+  }
+
+  public void invalidateAll(@Nonnull Iterable<? extends K> keys) {
+    cache.invalidateAll(keys);
+  }
+
+  public Set<K> keySet() {
+    return cache.asMap().keySet();
   }
 
   public static class ClientCacheBuilder<K, V, C extends ClientCacheConfig> {
@@ -103,6 +111,19 @@ public class ClientCache<K, V, C extends ClientCacheConfig> {
 
       if (config.isStatsEnabled()) {
         caffeine.recordStats();
+      }
+
+      try {
+        /*
+         Caffeine 2 and 3 are mostly API-compatible but differ in the signature of
+         'CacheLoader.loadAll'.
+         Caffeine 2 creeping into the classpath of code meant for Caffeine 3 leads to silent but
+         non-critical issues so we want a warning.
+        */
+        CacheLoader.class.getMethod("loadAll", Set.class);
+      } catch (NoSuchMethodException | SecurityException e) {
+        log.warn(
+            "Could not find CacheLoader.loadAll(Set<>). Please ensure classpath does not contain Caffeine 2");
       }
 
       LoadingCache<K, V> cache = caffeine.build(loader);

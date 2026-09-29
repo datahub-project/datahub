@@ -9,13 +9,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
 
-import com.datahub.authentication.group.GroupService;
+import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
+import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import graphql.schema.idl.RuntimeWiring;
 import java.util.List;
 import org.testng.annotations.BeforeMethod;
@@ -25,36 +28,43 @@ public class DocumentResolversTest {
 
   private DocumentService mockService;
   private DocumentType mockType;
+  private DataPlatformType mockDataPlatformType;
+  private DataPlatformInstanceType mockDataPlatformInstanceType;
   private EntityClient mockEntityClient;
   private EntityService mockEntityService;
   private GraphClient mockGraphClient;
   private EntityRegistry mockEntityRegistry;
   private com.linkedin.metadata.timeline.TimelineService mockTimelineService;
-  private GroupService mockGroupService;
+  private ViewService mockViewService;
   private DocumentResolvers resolvers;
 
   @BeforeMethod
   public void setUp() {
     mockService = mock(DocumentService.class);
     mockType = mock(DocumentType.class);
+    mockDataPlatformType = mock(DataPlatformType.class);
+    mockDataPlatformInstanceType = mock(DataPlatformInstanceType.class);
     mockEntityClient = mock(EntityClient.class);
     mockEntityService = mock(EntityService.class);
     mockGraphClient = mock(GraphClient.class);
     mockEntityRegistry = mock(EntityRegistry.class);
     mockTimelineService = mock(com.linkedin.metadata.timeline.TimelineService.class);
-    mockGroupService = mock(GroupService.class);
+    mockViewService = mock(ViewService.class);
 
     resolvers =
         new DocumentResolvers(
             mockService,
             (List) java.util.Collections.emptyList(),
             mockType,
+            mockDataPlatformType,
+            mockDataPlatformInstanceType,
             mockEntityClient,
             mockEntityService,
             mockGraphClient,
             mockEntityRegistry,
             mockTimelineService,
-            mockGroupService);
+            mockViewService,
+            mock(DocumentImportService.class));
   }
 
   @Test
@@ -78,5 +88,30 @@ public class DocumentResolversTest {
     verify(mockBuilder, times(1)).type(eq("DocumentRelatedAsset"), any());
     verify(mockBuilder, times(1)).type(eq("DocumentRelatedDocument"), any());
     verify(mockBuilder, times(1)).type(eq("DocumentParentDocument"), any());
+  }
+
+  @Test
+  public void testConfigureResolversWithoutImportService() {
+    DocumentResolvers resolversWithoutImport =
+        new DocumentResolvers(
+            mockService,
+            (List) java.util.Collections.emptyList(),
+            mockType,
+            mockDataPlatformType,
+            mockDataPlatformInstanceType,
+            mockEntityClient,
+            mockEntityService,
+            mockGraphClient,
+            mockEntityRegistry,
+            mockTimelineService,
+            mockViewService,
+            null);
+
+    RuntimeWiring.Builder mockBuilder = mock(RuntimeWiring.Builder.class);
+    when(mockBuilder.type(anyString(), any())).thenReturn(mockBuilder);
+
+    resolversWithoutImport.configureResolvers(mockBuilder);
+
+    verify(mockBuilder, times(1)).type(eq("Mutation"), any());
   }
 }

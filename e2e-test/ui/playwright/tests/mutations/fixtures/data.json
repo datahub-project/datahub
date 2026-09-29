@@ -1,0 +1,143 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightHiveDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hive dataset",
+              "customProperties": {
+                "prop1": "fakeprop",
+                "prop2": "pikachu"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                },
+                {
+                  "owner": "urn:li:corpuser:datahub",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SampleHiveSchema",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleHiveSchema\",\"namespace\":\"com.linkedin.dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "nullable": false,
+                  "description": "Foo field description has changed",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "varchar(100)",
+                  "recursive": false,
+                  "isPartOfKey": true
+                },
+                {
+                  "fieldPath": "field_bar",
+                  "nullable": false,
+                  "description": "Bar field description",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    }
+                  },
+                  "nativeDataType": "boolean",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "table for health",
+              "customProperties": {
+                "encoding": "utf-8"
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:playwright-mutations-health-assert-001",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+      "value": "{\"type\":\"DATASET\",\"datasetAssertion\":{\"dataset\":\"urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)\",\"scope\":\"DATASET_COLUMN\",\"fields\":[\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD),field_foo)\"],\"aggregation\":\"IDENTITY\",\"operator\":\"EQUAL_TO\",\"parameters\":{\"value\":{\"value\":\"true\",\"type\":\"UNKNOWN\"}},\"nativeType\":\"expect_column_values_to_equal\",\"nativeParameters\":{\"column\":\"field_foo\",\"value\":\"true\"}}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:playwright-mutations-health-assert-001",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+      "value": "{\"timestampMillis\":1675155843000,\"runId\":\"2021-12-28T12:00:00Z\",\"assertionUrn\":\"urn:li:assertion:playwright-mutations-health-assert-001\",\"asserteeUrn\":\"urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)\",\"status\":\"COMPLETE\",\"result\":{\"type\":\"FAILURE\",\"nativeResults\":{}}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "incident",
+    "entityUrn": "urn:li:incident:playwright-mutations-health-001",
+    "changeType": "UPSERT",
+    "aspectName": "incidentInfo",
+    "aspect": {
+      "value": "{\"type\":\"OPERATIONAL\",\"title\":\"playwright mutations health test\",\"description\":\"playwright mutations health test incident\",\"entities\":[\"urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)\"],\"status\":{\"state\":\"ACTIVE\",\"lastUpdated\":{\"time\":0,\"actor\":\"urn:li:corpuser:admin\"}},\"created\":{\"time\":0,\"actor\":\"urn:li:corpuser:admin\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,playwright_health_test,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "incidentsSummary",
+    "aspect": {
+      "value": "{\"resolvedIncidentDetails\":[],\"activeIncidentDetails\":[{\"urn\":\"urn:li:incident:playwright-mutations-health-001\",\"type\":\"OPERATIONAL\",\"createdAt\":0}]}",
+      "contentType": "application/json"
+    }
+  }
+]

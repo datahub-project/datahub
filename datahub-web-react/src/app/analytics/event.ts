@@ -6,7 +6,7 @@ import { Direction } from '@app/lineage/types';
 import { FilterMode } from '@app/search/utils/constants';
 
 import {
-    AllowedValue,
+    AllowedValueInput,
     DataHubPageModuleType,
     DataHubViewType,
     EntityType,
@@ -34,7 +34,6 @@ export enum EventType {
     HomePageSearchEvent,
     SearchResultsViewEvent,
     SearchResultClickEvent,
-    EntitySearchResultClickEvent,
     SearchFiltersClearAllEvent,
     SearchFiltersShowMoreEvent,
     BrowseResultClickEvent,
@@ -80,6 +79,7 @@ export enum EventType {
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
+    MoveDataProductEvent,
     IngestionTestConnectionEvent,
     IngestionExecutionResultViewedEvent,
     IngestionSourceConfigurationImpressionEvent,
@@ -173,6 +173,19 @@ export enum EventType {
     MoveDocumentEvent,
     EditDocumentEvent,
     DeleteDocumentEvent,
+    IngestionTestConnectionClickEvent,
+    IngestionTestConnectionCloseEvent,
+    EnterIngestionFlowEvent,
+    IngestionSelectSourceEvent,
+    IngestionEnterConfigurationEvent,
+    IngestionEnterSyncScheduleEvent,
+    IngestionExitConfigurationEvent,
+    CloseCreateSourceEducationModalEvent,
+    ImportDocumentsEvent,
+    GoToLogicalParentEvent,
+    GoToPhysicalChildEvent,
+    GoToLogicalParentColumnEvent,
+    GoToPhysicalChildColumnEvent,
 }
 
 /**
@@ -237,7 +250,7 @@ export interface HomePageViewEvent extends BaseEvent {
  */
 export interface SignUpEvent extends BaseEvent {
     type: EventType.SignUpEvent;
-    title: string;
+    title?: string;
 }
 
 /**
@@ -640,6 +653,12 @@ export interface MoveDomainEvent extends BaseEvent {
     parentDomainUrn?: string;
 }
 
+export interface MoveDataProductEvent extends BaseEvent {
+    type: EventType.MoveDataProductEvent;
+    oldParentDataProductUrn?: string;
+    parentDataProductUrn?: string;
+}
+
 // Managed Ingestion Events
 
 export interface IngestionTestConnectionEvent extends BaseEvent {
@@ -647,6 +666,24 @@ export interface IngestionTestConnectionEvent extends BaseEvent {
     sourceType: string;
     sourceUrn?: string;
     outcome?: string;
+}
+
+export interface IngestionTestConnectionClickEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionClickEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    ingestionOnboardingRedesignV1?: boolean;
+}
+
+export interface IngestionTestConnectionCloseEvent extends BaseEvent {
+    type: EventType.IngestionTestConnectionCloseEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    hasCompleted?: boolean;
+    status?: 'success' | 'failure' | 'partialSuccess' | 'running';
+    ingestionOnboardingRedesignV1?: boolean;
+    failedCapabilities?: string[];
+    durationMs?: number;
 }
 
 export interface IngestionViewAllClickEvent extends BaseEvent {
@@ -664,6 +701,7 @@ export interface IngestionExecutionResultViewedEvent extends BaseEvent {
     executionUrn: string;
     executionStatus: string;
     viewedSection: string;
+    sourceType?: string;
 }
 
 export interface IngestionSourceConfigurationImpressionEvent extends BaseEvent {
@@ -680,6 +718,7 @@ export interface CreateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface UpdateIngestionSourceEvent extends BaseEvent {
@@ -689,6 +728,7 @@ export interface UpdateIngestionSourceEvent extends BaseEvent {
     interval?: string;
     numOwners?: number;
     outcome?: string;
+    ingestionOnboardingRedesignV1?: boolean;
 }
 
 export interface DeleteIngestionSourceEvent extends BaseEvent {
@@ -699,6 +739,48 @@ export interface ExecuteIngestionSourceEvent extends BaseEvent {
     type: EventType.ExecuteIngestionSourceEvent;
     sourceType?: string;
     sourceUrn?: string;
+}
+
+// New ingestion flow events
+
+export interface EnterIngestionFlowEvent extends BaseEvent {
+    type: EventType.EnterIngestionFlowEvent;
+    entryPoint:
+        | 'demo_data_banner'
+        | 'get_started_checklist'
+        | 'sources_page_cta'
+        | 'intercept_toast'
+        | 'nav_menu'
+        | 'direct_url';
+}
+
+export interface IngestionSelectSourceEvent extends BaseEvent {
+    type: EventType.IngestionSelectSourceEvent;
+    sourceType: string;
+}
+
+export interface IngestionEnterConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionEnterConfigurationEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    configurationType: 'create_new' | 'edit_existing';
+}
+
+export interface IngestionEnterSyncScheduleEvent extends BaseEvent {
+    type: EventType.IngestionEnterSyncScheduleEvent;
+    sourceType: string;
+    sourceUrn?: string;
+    configurationType: 'create_new' | 'edit_existing';
+}
+
+export interface IngestionExitConfigurationEvent extends BaseEvent {
+    type: EventType.IngestionExitConfigurationEvent;
+    sourceType?: string;
+    exitType: 'save_draft' | 'save_and_run' | 'abandon' | 'cancel';
+}
+
+export interface CloseCreateSourceEducationModalEvent extends BaseEvent {
+    type: EventType.CloseCreateSourceEducationModalEvent;
 }
 
 // TODO: Find a way to use this event
@@ -833,7 +915,6 @@ export interface CreateBusinessAttributeEvent extends BaseEvent {
 }
 
 export enum DocRequestCTASource {
-    TaskCenter = 'TaskCenter',
     AssetPage = 'AssetPage',
 }
 
@@ -899,7 +980,7 @@ interface StructuredPropertyEvent extends BaseEvent {
     appliesTo: string[];
     qualifiedName?: string;
     allowedAssetTypes?: string[];
-    allowedValues?: AllowedValue[];
+    allowedValues?: AllowedValueInput[];
     cardinality?: PropertyCardinality;
     showInFilters?: boolean;
     isHidden: boolean;
@@ -989,7 +1070,6 @@ export enum HomePageModule {
     Discover = 'Discover',
     Announcements = 'Announcements',
     PersonalSidebar = 'PersonalSidebar',
-    SidebarAnnouncements = 'SidebarAnnouncements',
 }
 
 export interface HomePageClickEvent extends BaseEvent {
@@ -1014,6 +1094,7 @@ export interface NavBarExpandCollapseEvent extends BaseEvent {
 export interface NavBarItemClickEvent extends BaseEvent {
     type: EventType.NavBarItemClick;
     label: string; // the label of the item that is clicks from the nav sidebar
+    subLabel?: string;
 }
 
 export interface FilterStatsPageEvent extends BaseEvent {
@@ -1289,6 +1370,41 @@ export interface DeleteDocumentEvent extends BaseEvent {
 }
 
 /**
+ * Logged when a user imports documents from a source (file upload or GitHub).
+ */
+export interface ImportDocumentsEvent extends BaseEvent {
+    type: EventType.ImportDocumentsEvent;
+    source: 'FILE_UPLOAD' | 'GITHUB' | 'NOTION' | 'CONFLUENCE';
+    createdCount: number;
+    updatedCount: number;
+    failedCount: number;
+}
+
+interface GoToLogicalParentEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
+interface GoToLogicalParentColumnEvent extends BaseEvent {
+    type: EventType.GoToLogicalParentColumnEvent;
+    entityUrn: string;
+    parentUrn?: string;
+}
+
+interface GoToPhysicalChildColumnEvent extends BaseEvent {
+    type: EventType.GoToPhysicalChildColumnEvent;
+    entityUrn: string;
+    childUrn?: string;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -1346,6 +1462,7 @@ export type Event =
     | CreateGlossaryEntityEvent
     | CreateDomainEvent
     | MoveDomainEvent
+    | MoveDataProductEvent
     | CreateIngestionSourceEvent
     | UpdateIngestionSourceEvent
     | DeleteIngestionSourceEvent
@@ -1438,4 +1555,17 @@ export type Event =
     | CreateDocumentEvent
     | MoveDocumentEvent
     | EditDocumentEvent
-    | DeleteDocumentEvent;
+    | DeleteDocumentEvent
+    | IngestionTestConnectionClickEvent
+    | IngestionTestConnectionCloseEvent
+    | EnterIngestionFlowEvent
+    | IngestionSelectSourceEvent
+    | IngestionEnterConfigurationEvent
+    | IngestionEnterSyncScheduleEvent
+    | IngestionExitConfigurationEvent
+    | CloseCreateSourceEducationModalEvent
+    | ImportDocumentsEvent
+    | GoToLogicalParentEvent
+    | GoToPhysicalChildEvent
+    | GoToLogicalParentColumnEvent
+    | GoToPhysicalChildColumnEvent;

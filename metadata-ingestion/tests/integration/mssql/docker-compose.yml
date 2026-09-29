@@ -1,0 +1,16 @@
+version: "3"
+services:
+  testsqlserver:
+    image: "mcr.microsoft.com/mssql/server:2022-latest"
+    platform: linux/amd64
+    container_name: "testsqlserver"
+    environment:
+      ACCEPT_EULA: "Y"
+      SA_PASSWORD: "test!Password"
+    ports:
+      # Ephemeral: the fixed host port could be held forever by a leaked
+      # container from a prior CI run. Tests discover the real port via
+      # docker_services.port_for("testsqlserver", 1433).
+      - "1433"
+    volumes:
+      - ./setup:/setup

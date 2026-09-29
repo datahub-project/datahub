@@ -132,10 +132,11 @@ class DocPropagationAction(Action):
     def __init__(self, config: DocPropagationConfig, ctx: PipelineContext):
         super().__init__()
         self.action_urn: str
-        if not ctx.pipeline_name.startswith("urn:li:dataHubAction"):
-            self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
+        if "urn:li:dataHubAction:" in ctx.pipeline_name:
+            action_urn_part = ctx.pipeline_name.split("urn:li:dataHubAction:")[1]
+            self.action_urn = f"urn:li:dataHubAction:{action_urn_part}"
         else:
-            self.action_urn = ctx.pipeline_name
+            self.action_urn = f"urn:li:dataHubAction:{ctx.pipeline_name}"
 
         self.config: DocPropagationConfig = config
         self.last_config_refresh: float = 0

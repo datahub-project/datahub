@@ -29,7 +29,7 @@ function reduceFiltersIntoQueryStringDict(acc, filter, idx) {
     return acc;
 }
 
-// transform filters from [{ filter, value }, { filter, value }] to { filter: [value, value ] } that QueryString can parse
+// Serialize FacetFilterInput `values` arrays into query-string params that useFilters can parse
 export default function filtersToQueryStringParams(filters: Array<FacetFilterInput> = []) {
     return filters
         .reduce(reduceFiltersToCombineDegreeFilters, [])

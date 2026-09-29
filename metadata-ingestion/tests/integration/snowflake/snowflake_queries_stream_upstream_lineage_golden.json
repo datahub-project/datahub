@@ -1,0 +1,302 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.st_dw_jsonschemavalidation_error,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1777977739687,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1777549800000,
+                        "actor": "urn:li:corpuser:etl_user"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:8883cf921459fe73a34c3ba4c52cb16adf9632798a782446b31a4e229b0dc66d"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD),record_content)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.st_dw_jsonschemavalidation_error,PROD),error_message)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:8883cf921459fe73a34c3ba4c52cb16adf9632798a782446b31a4e229b0dc66d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739689,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:8883cf921459fe73a34c3ba4c52cb16adf9632798a782446b31a4e229b0dc66d",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "INSERT ALL WHEN 1 = 1 THEN INTO stage_dwh.st_dw_customer_profile (a) VALUES (a) WHEN 1 = 1 THEN INTO raw_betler.st_dw_jsonschemavalidation_error (b) VALUES (b) SELECT a, b FROM raw_betler.s_dw_customer_profile_2_stage",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1777549800000,
+                "actor": "urn:li:corpuser:etl_user"
+            },
+            "lastModified": {
+                "time": 1777549800000,
+                "actor": "urn:li:corpuser:etl_user"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739690,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:8883cf921459fe73a34c3ba4c52cb16adf9632798a782446b31a4e229b0dc66d",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.st_dw_jsonschemavalidation_error,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD),record_content)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.st_dw_jsonschemavalidation_error,PROD),error_message)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739691,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:8883cf921459fe73a34c3ba4c52cb16adf9632798a782446b31a4e229b0dc66d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739691,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.st_dw_customer_profile,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1777977739690,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1777549800000,
+                        "actor": "urn:li:corpuser:etl_user"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:b20e5ee6a65fe641c1c56688b2902d8fcd3d79df3a00d940b7e494437a657f2a"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD),record_content)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.st_dw_customer_profile,PROD),address)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:b20e5ee6a65fe641c1c56688b2902d8fcd3d79df3a00d940b7e494437a657f2a"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739692,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:b20e5ee6a65fe641c1c56688b2902d8fcd3d79df3a00d940b7e494437a657f2a",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "INSERT ALL WHEN 1 = 1 THEN INTO stage_dwh.st_dw_customer_profile (a) VALUES (a) WHEN 1 = 1 THEN INTO raw_betler.st_dw_jsonschemavalidation_error (b) VALUES (b) SELECT a, b FROM raw_betler.s_dw_customer_profile_2_stage",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1777549800000,
+                "actor": "urn:li:corpuser:etl_user"
+            },
+            "lastModified": {
+                "time": 1777549800000,
+                "actor": "urn:li:corpuser:etl_user"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739692,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:b20e5ee6a65fe641c1c56688b2902d8fcd3d79df3a00d940b7e494437a657f2a",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.st_dw_customer_profile,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.s_dw_customer_profile_2_stage,PROD),record_content)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.st_dw_customer_profile,PROD),address)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739693,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:b20e5ee6a65fe641c1c56688b2902d8fcd3d79df3a00d940b7e494437a657f2a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739693,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.st_dw_jsonschemavalidation_error,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739693,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.st_dw_customer_profile,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739693,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:8883cf921459fe73a34c3ba4c52cb16adf9632798a782446b31a4e229b0dc66d",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739693,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:b20e5ee6a65fe641c1c56688b2902d8fcd3d79df3a00d940b7e494437a657f2a",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977739694,
+        "runId": "snowflake-queries-2026_05_05-16_12_17-tmyffd",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

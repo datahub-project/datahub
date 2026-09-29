@@ -195,8 +195,7 @@ public class BackfillBrowsePathsV2Step implements UpgradeStep {
 
   private void ingestBrowsePathsV2(
       @Nonnull OperationContext opContext, Urn urn, AuditStamp auditStamp) throws Exception {
-    BrowsePathsV2 browsePathsV2 =
-        DefaultAspectsUtil.buildDefaultBrowsePathV2(opContext, urn, true, entityService);
+    BrowsePathsV2 browsePathsV2 = DefaultAspectsUtil.buildDefaultBrowsePathV2(opContext, urn, true);
     log.debug(String.format("Adding browse path v2 for urn %s with value %s", urn, browsePathsV2));
     MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(urn);

@@ -64,7 +64,7 @@ describe('useUploadFileHandler', () => {
             await result.current(mockFile);
         });
 
-        expect(validateFile).toHaveBeenCalledWith(mockFile);
+        expect(validateFile).toHaveBeenCalledWith(mockFile, undefined);
     });
 
     it('should return null and show error notification if file validation fails', async () => {

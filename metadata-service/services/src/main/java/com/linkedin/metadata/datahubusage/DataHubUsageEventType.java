@@ -55,7 +55,10 @@ public enum DataHubUsageEventType {
   CREATE_GLOSSARY_ENTITY_EVENT("CreateGlossaryEntityEvent"),
   CREATE_DOMAIN_EVENT("CreateDomainEvent"),
   MOVE_DOMAIN_EVENT("MoveDomainEvent"),
+  MOVE_DATA_PRODUCT_EVENT("MoveDataProductEvent"),
   INGESTION_TEST_CONNECTION_EVENT("IngestionTestConnectionEvent"),
+  INGESTION_TEST_CONNECTION_CLICK_EVENT("IngestionTestConnectionClickEvent"),
+  INGESTION_TEST_CONNECTION_CLOSE_EVENT("IngestionTestConnectionCloseEvent"),
   INGESTION_EXECUTION_RESULT_VIEWED_EVENT("IngestionExecutionResultViewedEvent"),
   INGESTION_SOURCE_CONFIGURATION_IMPRESSION_EVENT("IngestionSourceConfigurationImpressionEvent"),
   INGESTION_VIEW_ALL_CLICK_EVENT("IngestionViewAllClickEvent"),
@@ -162,7 +165,18 @@ public enum DataHubUsageEventType {
   CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
   MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
   EDIT_DOCUMENT_EVENT("EditDocumentEvent"),
-  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent");
+  DELETE_DOCUMENT_EVENT("DeleteDocumentEvent"),
+  ENTER_INGESTION_FLOW_EVENT("EnterIngestionFlowEvent"),
+  INGESTION_SELECT_SOURCE_EVENT("IngestionSelectSourceEvent"),
+  INGESTION_ENTER_CONFIGURATION_EVENT("IngestionEnterConfigurationEvent"),
+  INGESTION_ENTER_SYNC_SCHEDULE_EVENT("IngestionEnterSyncScheduleEvent"),
+  INGESTION_EXIT_CONFIGURATION_EVENT("IngestionExitConfigurationEvent"),
+  CLOSE_CREATE_SOURCE_EDUCATION_MODAL_EVENT("CloseCreateSourceEducationModalEvent"),
+  IMPORT_DOCUMENTS_EVENT("ImportDocumentsEvent"),
+  GO_TO_LOGICAL_PARENT_EVENT("GoToLogicalParentEvent"),
+  GO_TO_PHYSICAL_CHILD_EVENT("GoToPhysicalChildEvent"),
+  GO_TO_LOGICAL_PARENT_COLUMN_EVENT("GoToLogicalParentColumnEvent"),
+  GO_TO_PHYSICAL_CHILD_COLUMN_EVENT("GoToPhysicalChildColumnEvent");
 
   private final String type;
 

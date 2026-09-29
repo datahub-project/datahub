@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.application.Applications;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -447,6 +448,48 @@ public class DataProductMapperTest {
       assertNotNull(result.getProperties());
       assertEquals(result.getProperties().getName(), TEST_DATA_PRODUCT_NAME);
       assertNull(result.getProperties().getCreatedOn()); // Should be null when fallback is null
+    }
+  }
+
+  @Test
+  public void testMapDataProductWithDeprecation() throws URISyntaxException {
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    Deprecation deprecation = new Deprecation();
+    deprecation.setDeprecated(true);
+    deprecation.setNote("This data product is deprecated.");
+    deprecation.setActor(actorUrn);
+
+    addAspectToResponse(entityResponse, DEPRECATION_ASPECT_NAME, deprecation);
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canView(any(), eq(dataProductUrn)))
+          .thenReturn(true);
+
+      DataProduct result = DataProductMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result);
+      assertNotNull(result.getDeprecation());
+      assertTrue(result.getDeprecation().getDeprecated());
+      assertEquals(result.getDeprecation().getNote(), "This data product is deprecated.");
+      assertEquals(result.getDeprecation().getActor(), TEST_ACTOR_URN);
+    }
+  }
+
+  @Test
+  public void testMapDataProductWithoutDeprecation() {
+    EntityResponse entityResponse = createBasicEntityResponse();
+
+    try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
+      authUtilsMock
+          .when(() -> AuthorizationUtils.canView(any(), eq(dataProductUrn)))
+          .thenReturn(true);
+
+      DataProduct result = DataProductMapper.map(mockQueryContext, entityResponse);
+
+      assertNotNull(result);
+      assertNull(result.getDeprecation());
     }
   }
 

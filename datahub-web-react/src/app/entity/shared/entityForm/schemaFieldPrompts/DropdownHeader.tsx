@@ -1,13 +1,12 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import translateFieldPath from '@app/entity/dataset/profile/schema/utils/translateFieldPath';
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { getNumPromptsCompletedForField } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
 import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
-import { pluralize } from '@app/shared/textUtil';
 
 import { SchemaField } from '@types';
 
@@ -22,13 +21,13 @@ const HeaderWrapper = styled.div`
 
 const PromptsRemainingText = styled.span`
     font-size: 14px;
-    color: ${ANTD_GRAY_V2[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 400;
 `;
 
 const PromptsCompletedText = styled.span`
     font-size: 14px;
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
 `;
 
@@ -39,6 +38,7 @@ interface Props {
 }
 
 export default function DropdownHeader({ field, numPrompts, isExpanded }: Props) {
+    const { t } = useTranslation('entity.form');
     const { entityData } = useEntityData();
     const { formUrn } = useEntityFormContext();
     const numPromptsCompletedForField = useMemo(
@@ -49,15 +49,13 @@ export default function DropdownHeader({ field, numPrompts, isExpanded }: Props)
 
     return (
         <HeaderWrapper>
-            <span>Field: {translateFieldPath(field.fieldPath)}</span>
+            <span>{t('fieldLabel', { fieldPath: translateFieldPath(field.fieldPath) })}</span>
             {numPromptsRemaining > 0 && (
-                <PromptsRemainingText>
-                    {numPromptsRemaining} {pluralize(numPrompts, 'question')} remaining
-                </PromptsRemainingText>
+                <PromptsRemainingText>{t('promptsRemaining', { count: numPromptsRemaining })}</PromptsRemainingText>
             )}
             {numPromptsRemaining === 0 && !isExpanded && (
                 <PromptsCompletedText>
-                    <Icon component={GreenCircleIcon} /> {numPrompts} {pluralize(numPrompts, 'Question')} Completed
+                    <Icon component={GreenCircleIcon} /> {t('promptsCompleted', { count: numPrompts })}
                 </PromptsCompletedText>
             )}
         </HeaderWrapper>

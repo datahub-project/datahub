@@ -1,16 +1,15 @@
-import { colors } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
 
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
+import { hashString } from '@components/components/Avatar/utils';
+
 import { GenericEntityProperties } from '@app/entity/shared/types';
-import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
+import globalEntityRegistryV2 from '@app/globalEntityRegistryV2';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
-import { hashString } from '@app/shared/avatar/getAvatarColor';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -19,14 +18,31 @@ import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
+// Page size for fetching/displaying a bounding box's members, and the initial home member limit.
+export const BOUNDING_BOX_MEMBER_PAGE_SIZE = 20;
+
+/** Entity types rendered as a bounding-box lineage graph (DataProduct, SemanticModel). */
+export const BOUNDING_BOX_ENTITY_TYPES: ReadonlySet<EntityType> = new Set([
+    EntityType.DataProduct,
+    EntityType.SemanticModel,
+]);
+
+/**
+ * Root types whose non-home node membership is populated by a real bulk lookup hook
+ * (see useBulkBoundingBoxMemberships). Nodes are hidden by the shared bounding-box filter
+ * until their membership is known. Types not listed here treat unknown membership as
+ * "free" and render outside all boxes.
+ *
+ * To add neighbor SemanticModel boxes later: implement useBulkSemanticModelMemberships,
+ * call it from useBulkBoundingBoxMemberships, and add EntityType.SemanticModel here.
+ */
+export const BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES: ReadonlySet<EntityType> = new Set([EntityType.DataProduct]);
+
 export const LINEAGE_NODE_WIDTH = 320; // Fixed width
 export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
 export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
 
 export const VERTICAL_HANDLE = 'vertical';
-
-export const HOVER_COLOR = colors.violet[300];
-export const SELECT_COLOR = colors.violet[500];
 
 type Urn = string;
 
@@ -47,7 +63,7 @@ export interface Filters {
     searchUrns?: Set<string>;
 }
 
-export interface NodeBase {
+interface NodeBase {
     id: string;
     isExpanded: Record<LineageDirection, boolean>;
     direction?: LineageDirection; // Root node has no direction. One day can try to support cycles in the same way.
@@ -63,10 +79,46 @@ export interface LineageEntity extends NodeBase {
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters: Record<LineageDirection, Filters>;
     parentDataJob?: Urn;
+    /** Bounding boxes (DataProducts, SemanticModels) this entity belongs to, with whether it is
+     * an output port of each (DataProduct-only concept; SemanticModel members always set false).
+     * - `undefined` — membership not resolved yet (hidden for
+     *   {@link BOUNDING_BOX_MEMBERSHIP_RESOLVED_ROOT_TYPES}, shown as free otherwise)
+     * - `[]` — known free (not in any box)
+     * - populated — known member of those boxes
+     * Home members are stamped at init; for resolved root types, non-home membership is filled
+     * by `useBulkBoundingBoxMemberships`. Not fetched as part of `entity` because membership
+     * lookup requires querying the graph index. */
+    boundingBoxes?: { urn: Urn; isOutputPort: boolean }[];
+    /** For a DataProduct or SemanticModel rendered as a bounding box: how many of its members to
+     * fetch and display, raised a page at a time by the box header's "Show more" control.
+     * Currently set on the home box only; other boxes show all their connected members. */
+    boundingBoxLimit?: number;
+}
+
+/**
+ * Whether a node advertises that it may be hiding lineage in one direction, by rendering either an
+ * expand control -- its lineage is unfetched, loading, or contracted -- or a contract control that
+ * reports only some of its children as shown. A column's lineage can only be hidden if its node's
+ * is, so the column lineage controls follow this.
+ *
+ * Kept in sync with the controls `NodeContents` renders.
+ */
+export function mayHideLineage(
+    direction: LineageDirection,
+    { fetchStatus, isExpanded }: Pick<LineageEntity, 'fetchStatus' | 'isExpanded'>,
+    hasChildren: boolean,
+    hasFilteredChildren: boolean,
+): boolean {
+    if (!hasChildren) return false;
+    const isComplete = fetchStatus[direction] === FetchStatus.COMPLETE;
+    const showsExpandControl =
+        [FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[direction]) ||
+        (isComplete && !isExpanded[direction]);
+    return showsExpandControl || (isComplete && hasFilteredChildren);
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
-export const LINEAGE_FILTER_ID_PREFIX = 'lf:';
+const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 
 export function createLineageFilterNodeId(urn: Urn, direction: LineageDirection): string {
     const dir = direction === LineageDirection.Upstream ? 'u:' : 'd:';
@@ -90,9 +142,14 @@ export interface LineageBoundingBox {
     type: EntityType;
     entity?: FetchedEntityV2;
     dragged?: boolean;
+    colorHex?: string;
+    /** Number of this data product's members currently shown inside the box. Data-product graphs
+     * only; undefined for data-flow bounding boxes, which have no member counter. */
+    memberCount?: number;
 }
 
 export interface LineageAnnotationNode {
+    urn?: never;
     label: string;
     dragged?: boolean;
 }
@@ -162,14 +219,6 @@ export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, root
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
-export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return (
-        (type === EntityType.Dataset || type === EntityType.SchemaField) &&
-        getPlatformUrnFromEntityUrn(urn) === DBT_CLOUD_URN
-    );
-}
-
 export function isUrnQuery(urn: string): boolean {
     const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.Query;
@@ -178,11 +227,6 @@ export function isUrnQuery(urn: string): boolean {
 export function isUrnDataProcessInstance(urn: string): boolean {
     const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.DataProcessInstance;
-}
-
-export function isUrnDataJob(urn: string): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
-    return type === EntityType.DataJob;
 }
 
 export function isUrnTransformational(urn: string, rootType: EntityType): boolean {
@@ -200,6 +244,57 @@ export function createColumnRef(urn: Urn, field: string): ColumnRef {
 export function parseColumnRef(columnRef: ColumnRef): [Urn, string] {
     const [urn, field] = columnRef.split('::', 2);
     return [urn, field];
+}
+
+/**
+ * Field of a column ref that stands for an entity as a whole, for entities that read columns
+ * without having columns of their own, e.g. a metric reading a dataset column. Column lineage
+ * edges to such a ref attach to the entity's node rather than to a column.
+ */
+export const ENTITY_LEVEL_FIELD = '';
+
+export function createEntityRef(urn: Urn): ColumnRef {
+    return createColumnRef(urn, ENTITY_LEVEL_FIELD);
+}
+
+export function isEntityRef(columnRef: ColumnRef): boolean {
+    return parseColumnRef(columnRef)[1] === ENTITY_LEVEL_FIELD;
+}
+
+/**
+ * Whether the entity behaves as a single column within column lineage, e.g. a metric. Lineage
+ * between two such entities is modelled entity-to-entity rather than as fine-grained lineage, so
+ * column highlighting has to walk it through the entity-level adjacency list.
+ */
+export function isColumnLikeEntity(urn: Urn, nodes: NodeContext['nodes']): boolean {
+    return nodes.get(urn)?.type === EntityType.Metric;
+}
+
+/** Entity edges the current column highlight covers, mapped to the stroke to draw them with. */
+export type ColumnHighlightedEdges = Map<EdgeId, string>;
+
+/** What column lineage is highlighted from: a column or entity ref, and whether it is selected rather than hovered. */
+export interface ColumnHighlightSource {
+    ref: ColumnRef;
+    isSelected: boolean;
+}
+
+/**
+ * Picks the ref that drives column lineage highlights. A selected column always wins, so selecting
+ * or hovering an entity while a column is selected changes nothing; a selected entity then takes
+ * precedence over hovers, as a selected column does.
+ */
+export function resolveColumnHighlightSource(
+    selectedColumn: ColumnRef | null,
+    hoveredColumn: ColumnRef | null,
+    selectedEntityRef: ColumnRef | null,
+    hoveredEntityRef: ColumnRef | null,
+): ColumnHighlightSource | null {
+    if (selectedColumn) return { ref: selectedColumn, isSelected: true };
+    if (selectedEntityRef) return { ref: selectedEntityRef, isSelected: true };
+    if (hoveredColumn) return { ref: hoveredColumn, isSelected: false };
+    if (hoveredEntityRef) return { ref: hoveredEntityRef, isSelected: false };
+    return null;
 }
 
 export function createFineGrainedOperationRef(
@@ -278,12 +373,18 @@ export interface NodeContext {
     setDisplayVersion: Dispatch<SetStateAction<[number, Urn[]]>>;
     columnEdgeVersion: number; // Used to force recalculation of column->column edges
     setColumnEdgeVersion: Dispatch<SetStateAction<number>>;
+    collapseColumnsVersion: number; // Bumped to collapse every node's columns, e.g. on redraw
+    setCollapseColumnsVersion: Dispatch<SetStateAction<number>>;
     hideTransformations: boolean;
     setHideTransformations: (hide: boolean) => void;
     showDataProcessInstances: boolean;
     setShowDataProcessInstances: (hide: boolean) => void;
     showGhostEntities: boolean;
     setShowGhostEntities: (hide: boolean) => void;
+    /** Display entities (DataProduct or SemanticModel) keyed by urn, for rendering bounding boxes. */
+    boundingBoxEntities: Map<Urn, FetchedEntityV2>;
+    outputPortsOnly: boolean; // Restrict the graph to the home product's output ports and their adjacent nodes
+    setOutputPortsOnly: (only: boolean) => void;
 }
 
 export const LineageNodesContext = React.createContext<NodeContext>({
@@ -295,6 +396,7 @@ export const LineageNodesContext = React.createContext<NodeContext>({
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     },
+    boundingBoxEntities: new Map(),
     nodeVersion: 0,
     setNodeVersion: () => {},
     dataVersion: 0,
@@ -303,12 +405,16 @@ export const LineageNodesContext = React.createContext<NodeContext>({
     setDisplayVersion: () => {},
     columnEdgeVersion: 0,
     setColumnEdgeVersion: () => {},
+    collapseColumnsVersion: 0,
+    setCollapseColumnsVersion: () => {},
     hideTransformations: false,
     setHideTransformations: () => {},
     showDataProcessInstances: false,
     setShowDataProcessInstances: () => {},
     showGhostEntities: false,
     setShowGhostEntities: () => {},
+    outputPortsOnly: false,
+    setOutputPortsOnly: () => {},
 });
 
 export function getParents(node: LineageNode, adjacencyList: NodeContext['adjacencyList']): string[] {
@@ -337,14 +443,45 @@ export function removeFromAdjacencyList(
     adjacencyList[reverseDirection(direction)].get(child)?.delete(parent);
 }
 
-export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjacencyList'>): void {
-    const { edges, adjacencyList } = context;
-    adjacencyList[LineageDirection.Upstream].get(urn)?.forEach((upstream) => edges.delete(createEdgeId(upstream, urn)));
-    adjacencyList[LineageDirection.Downstream]
-        .get(urn)
-        ?.forEach((downstream) => edges.delete(createEdgeId(urn, downstream)));
-    adjacencyList[LineageDirection.Upstream].delete(urn);
-    adjacencyList[LineageDirection.Downstream].delete(urn);
+/** Deep copies an adjacency list, so that it can be modified without affecting the original. */
+export function cloneAdjacencyList(adjacencyList: NodeContext['adjacencyList']): NodeContext['adjacencyList'] {
+    return {
+        [LineageDirection.Upstream]: cloneNeighbors(adjacencyList[LineageDirection.Upstream]),
+        [LineageDirection.Downstream]: cloneNeighbors(adjacencyList[LineageDirection.Downstream]),
+    };
+}
+
+/** Deep copies one direction of an adjacency list. */
+export function cloneNeighbors(neighbors: NeighborMap): NeighborMap {
+    return new Map(Array.from(neighbors, ([urn, children]) => [urn, new Set(children)]));
+}
+
+/**
+ * Builds the adjacency list used for hover highlighting from `edges`, restricted to `keepIds` on
+ * both sides. Edges through a query/via node are routed *through* it (`upstream -> via -> downstream`)
+ * rather than as a direct hop, so hovering any upstream of a query that fans into a shared downstream
+ * lights up the shared query->downstream segment. A via node not in `keepIds` falls back to a direct
+ * hop. See `useNodeHighlighting`, which matches rendered edges against these entity-level hops.
+ */
+export function buildHighlightAdjacencyList(
+    edges: NodeContext['edges'],
+    keepIds: Set<Urn>,
+): NodeContext['adjacencyList'] {
+    const adjacencyList: NodeContext['adjacencyList'] = {
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
+    };
+    edges.forEach((edge, edgeId) => {
+        const [upstream, downstream] = parseEdgeId(edgeId);
+        if (!keepIds.has(upstream) || !keepIds.has(downstream)) return;
+        if (edge.via && keepIds.has(edge.via)) {
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, upstream, edge.via);
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, edge.via, downstream);
+        } else {
+            addToAdjacencyList(adjacencyList, LineageDirection.Downstream, upstream, downstream);
+        }
+    });
+    return adjacencyList;
 }
 
 // Mapping fromRef -> toRef -> operationRef represents a column-level edge (fromRef -> toRef)
@@ -352,21 +489,41 @@ export function clearEdges(urn: Urn, context: Pick<NodeContext, 'edges' | 'adjac
 export type FineGrainedLineageMap = Map<ColumnRef, Map<ColumnRef, FineGrainedOperationRef | null>>;
 export type FineGrainedLineage = { downstream: FineGrainedLineageMap; upstream: FineGrainedLineageMap };
 export type HighlightedColumns = Map<Urn, Set<string>>;
+/**
+ * How many of a column's related columns are rendered on the graph, per direction. A direction is
+ * absent when the column lineage traversal never went that way, i.e. nothing is known about that
+ * side of the column.
+ */
+export type ShownRelatedCounts = Partial<Record<LineageDirection, number>>;
+/** `ShownRelatedCounts` for the hovered / selected column and every column related to it. */
+export type ShownRelatedColumns = Map<ColumnRef, ShownRelatedCounts>;
 
 interface DisplayContext {
     // Params
     hoveredNode: Urn | null;
     setHoveredNode: Dispatch<SetStateAction<Urn | null>>;
+    /** Pagination state for each node and direction with filtered-out children, keyed by
+     * `createLineageFilterNodeId`. Used by the expand/contract controls when lineage filter
+     * nodes are not displayed. */
+    lineageFilters: Map<string, LineageFilter>;
     displayedMenuNode: Urn | null;
     setDisplayedMenuNode: Dispatch<SetStateAction<Urn | null>>;
     hoveredColumn: ColumnRef | null;
     setHoveredColumn: Dispatch<SetStateAction<ColumnRef | null>>;
+    /** The node selected on the graph, shown in the lineage sidebar. */
+    selectedNode: LineageEntity | null;
+    setSelectedNode: (v: LineageEntity | null) => void;
     selectedColumn: ColumnRef | null;
     setSelectedColumn: Dispatch<SetStateAction<ColumnRef | null>>;
     // Outputs
+    /** Resolved from the hovered / selected column and node; null when nothing highlights column lineage. */
+    columnHighlightSource: ColumnHighlightSource | null;
+    /** Entity edges covered by the column highlight, e.g. between two metrics; see `isColumnLikeEntity`. */
+    columnHighlightedEdges: ColumnHighlightedEdges;
     highlightedNodes: Set<Urn>; // TODO: Remove? Not currently used
     cllHighlightedNodes: Map<Urn, Set<FineGrainedOperationRef> | null>;
     highlightedColumns: HighlightedColumns;
+    shownRelatedColumns: ShownRelatedColumns;
     highlightedEdges: Set<string>;
     fineGrainedLineage: FineGrainedLineage;
     fineGrainedOperations: Map<FineGrainedOperationRef, FineGrainedOperation>;
@@ -377,15 +534,21 @@ interface DisplayContext {
 export const LineageDisplayContext = React.createContext<DisplayContext>({
     hoveredNode: null,
     setHoveredNode: () => {},
+    lineageFilters: new Map(),
     displayedMenuNode: null,
     setDisplayedMenuNode: () => {},
     hoveredColumn: null,
     setHoveredColumn: () => {},
+    selectedNode: null,
+    setSelectedNode: () => {},
     selectedColumn: null,
     setSelectedColumn: () => {},
+    columnHighlightSource: null,
+    columnHighlightedEdges: new Map(),
     highlightedNodes: new Set(),
     cllHighlightedNodes: new Map(),
     highlightedColumns: new Map(),
+    shownRelatedColumns: new Map(),
     highlightedEdges: new Set(),
     fineGrainedLineage: {
         downstream: new Map(),
@@ -411,28 +574,4 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
     event.preventDefault(); // Prevents selecting node in React Flow
     event.stopPropagation(); // Prevents focusing node
     return true;
-}
-
-const DATA_STORE_COLOR = '#ffd279';
-const BI_TOOL_COLOR = '#8682a2';
-const ML_COLOR = '#206de8';
-const DEFAULT_COLOR = '#ff7979';
-
-export function getNodeColor(type?: EntityType): [string, string] {
-    if (type === EntityType.Chart || type === EntityType.Dashboard) {
-        return [BI_TOOL_COLOR, 'Field'];
-    }
-    if (type === EntityType.Dataset) {
-        return [DATA_STORE_COLOR, 'Column'];
-    }
-    if (
-        type === EntityType.Mlmodel ||
-        type === EntityType.MlmodelGroup ||
-        type === EntityType.Mlfeature ||
-        type === EntityType.MlfeatureTable ||
-        type === EntityType.MlprimaryKey
-    ) {
-        return [ML_COLOR, ''];
-    }
-    return [DEFAULT_COLOR, ''];
 }

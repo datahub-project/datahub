@@ -1,9 +1,9 @@
 import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import { Input, InputRef } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DataPlatformCard } from '@app/ingestV2/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingestV2/source/builder/constants';
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
@@ -31,17 +31,17 @@ const SearchBarContainer = styled.div`
 `;
 
 const StyledSearchBar = styled(Input)`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
-    box-shadow: 0px 0px 30px 0px rgb(239 239 239);
-    border: 1px solid #e0e0e0;
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
+    border: 1px solid ${(props) => props.theme.colors.border};
     margin: 0 0 15px 0px;
     max-width: 300px;
     font-size: 16px;
 `;
 
 const StyledSearchOutlined = styled(SearchOutlined)`
-    color: #a9adbd;
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const PlatformListContainer = styled.div`
@@ -59,7 +59,7 @@ const NoResultsMessage = styled.div`
     justify-content: center;
     align-items: center;
     padding: 40px 20px;
-    color: #666;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 16px;
     text-align: center;
 `;
@@ -71,11 +71,12 @@ interface SourceOptionProps {
 
 function SourceOption({ source, onClick }: SourceOptionProps) {
     const { name, displayName, description } = source;
+    const theme = useTheme();
 
     const logoUrl = useGetSourceLogoUrl(name);
     let logoComponent;
     if (name === CUSTOM) {
-        logoComponent = <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
+        logoComponent = <FormOutlined style={{ color: theme.colors.textSecondary, fontSize: 28 }} />;
     }
 
     return (
@@ -85,6 +86,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
             logoUrl={logoUrl}
             description={description}
             logoComponent={logoComponent}
+            dataTestId={`source-option-${name}`}
         />
     );
 }
@@ -99,6 +101,7 @@ export const SelectTemplateStep = ({
     ingestionSources,
     setSelectedSourceType,
 }: StepProps) => {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const [searchFilter, setSearchFilter] = useState('');
 
     // Callback ref that focuses immediately when the element is attached
@@ -143,7 +146,8 @@ export const SelectTemplateStep = ({
                 <SearchBarContainer>
                     <StyledSearchBar
                         ref={searchInputCallbackRef}
-                        placeholder="Search data sources..."
+                        data-testid="source-type-search-input"
+                        placeholder={t('selectTemplate.searchPlaceholder')}
                         value={searchFilter}
                         onChange={(e) => setSearchFilter(e.target.value)}
                         allowClear
@@ -160,7 +164,7 @@ export const SelectTemplateStep = ({
                             />
                         ))
                     ) : (
-                        <NoResultsMessage>Data Source with name &quot;{searchFilter}&quot; not found.</NoResultsMessage>
+                        <NoResultsMessage>{t('selectTemplate.noResults', { searchFilter })}</NoResultsMessage>
                     )}
                 </PlatformListContainer>
             </Section>

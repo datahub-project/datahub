@@ -10,6 +10,10 @@ plugins {
 apply from: "../../../gradle/coverage/java-coverage.gradle"
 apply from: "../versioning.gradle"
 
+// Pin Java 17 bytecode: bundled into the acryl-spark-lineage agent shadow jar, which must run on
+// managed Spark whose default JVM is Java 17 (Amazon EMR 7.x, Databricks Runtime 16-17).
+ext.javaClassVersionOverride = 17
+
 dependencies {
   implementation project(':metadata-models')
   implementation project(path: ':metadata-models', configuration: "dataTemplate")
@@ -27,10 +31,13 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.httpClient
-  testRuntimeOnly externalDependency.logbackClassicJava8
+  testRuntimeOnly externalDependency.logbackClassic
 }
 
 task copyAvroSchemas {
+  onlyIf {
+    !gradle.startParameter.taskNames.any { it.contains('resolveAndLockAll') }
+  }
   dependsOn(':metadata-events:mxe-schemas:renameNamespace')
   copy {
     from file('../../../metadata-events/mxe-schemas/src/renamed/avro/com/linkedin/mxe/MetadataChangeProposal.avsc')

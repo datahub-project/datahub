@@ -1,3 +1,4 @@
+import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -21,8 +22,7 @@ function getIconProps(notificationType: NotificationType): IconProps | undefined
             color: 'red',
             colorLevel: 1200,
             weight: 'fill',
-            source: 'phosphor',
-            icon: 'ExclamationMark',
+            icon: ExclamationMark,
         };
     }
 

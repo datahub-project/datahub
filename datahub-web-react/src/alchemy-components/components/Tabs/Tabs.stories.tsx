@@ -1,6 +1,7 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
+import styled from 'styled-components';
 
 import { Tabs } from '@components/components/Tabs/Tabs';
 
@@ -111,6 +112,13 @@ const meta = {
             description: 'Whether to make the tab headers sticky when scrolling',
             control: { type: 'boolean' },
         },
+        tabBarExtraContent: {
+            description: 'Additional content to render on the right side of tab bar',
+        },
+        hideNavOperations: {
+            description: 'Hides the default dropdown with a list of not visible tabs',
+            control: { type: 'boolean' },
+        },
     },
     args: {
         tabs: exampleTabs,
@@ -160,6 +168,12 @@ export const urlAware: Story = {
     render: () => <UrlAwareTabsDemo />,
 };
 
+const StickyHeaderTab2Content = styled.div`
+    margin-bottom: 15px;
+    padding: 15px;
+    background-color: ${(props) => props.theme.colors.bgSurface};
+`;
+
 const StickyHeaderTabsDemo = () => {
     const [selectedTab, setSelectedTab] = React.useState('tab1');
 
@@ -187,10 +201,10 @@ const StickyHeaderTabsDemo = () => {
                 <div style={{ padding: '20px' }}>
                     <h3>Tab Two Content</h3>
                     {Array.from({ length: 35 }, (_, i) => (
-                        <div key={i} style={{ marginBottom: '15px', padding: '15px', backgroundColor: '#f0f0f0' }}>
+                        <StickyHeaderTab2Content key={i}>
                             Content block {i + 1} - Notice how the tab header remains visible at the top while
                             scrolling.
-                        </div>
+                        </StickyHeaderTab2Content>
                     ))}
                 </div>
             ),

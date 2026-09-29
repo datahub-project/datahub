@@ -7,6 +7,9 @@ const DEFAULT_CONTEXT: ReloadableContextType = {
     reloadByKeyType: () => {},
     markAsReloaded: () => {},
     shouldBeReloaded: () => false,
+    bypassCacheForUrn: () => {},
+    shouldBypassCache: () => false,
+    clearCacheBypass: () => {},
 };
 
 export const ReloadableContext = React.createContext<ReloadableContextType>(DEFAULT_CONTEXT);
@@ -17,6 +20,7 @@ interface Props {
 
 export function ReloadableProvider({ children }: Props) {
     const [reloadedKeys, setReloadedKeys] = useState<Set<string>>(new Set());
+    const [cacheBypassUrns, setCacheBypassUrns] = useState<Set<string>>(new Set());
 
     const reloadByKeyType = useCallback((keyTypes: string[], delayMs?: number) => {
         const removeKeys = () => {
@@ -48,8 +52,36 @@ export function ReloadableProvider({ children }: Props) {
         [reloadedKeys],
     );
 
+    const bypassCacheForUrn = useCallback((urn: string) => {
+        setCacheBypassUrns((prev) => new Set(prev).add(urn));
+    }, []);
+
+    const shouldBypassCache = useCallback(
+        (urn: string) => {
+            return cacheBypassUrns.has(urn);
+        },
+        [cacheBypassUrns],
+    );
+
+    const clearCacheBypass = useCallback((urn: string) => {
+        setCacheBypassUrns((prev) => {
+            const next = new Set(prev);
+            next.delete(urn);
+            return next;
+        });
+    }, []);
+
     return (
-        <ReloadableContext.Provider value={{ reloadByKeyType, markAsReloaded, shouldBeReloaded }}>
+        <ReloadableContext.Provider
+            value={{
+                reloadByKeyType,
+                markAsReloaded,
+                shouldBeReloaded,
+                bypassCacheForUrn,
+                shouldBypassCache,
+                clearCacheBypass,
+            }}
+        >
             {children}
         </ReloadableContext.Provider>
     );

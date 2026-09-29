@@ -1,12 +1,14 @@
 import styled from 'styled-components';
 
-import { colors, spacing } from '@src/alchemy-components/theme';
+import { spacing } from '@src/alchemy-components/theme';
 
 export const PaginationContainer = styled.div`
     display: flex;
+    align-items: center;
     justify-content: center;
+    gap: ${spacing.sm};
     margin: ${spacing.md};
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textTertiary};
 
     .ant-pagination {
         display: flex;
@@ -19,22 +21,27 @@ export const PaginationContainer = styled.div`
         }
     }
 
-    .ant-pagination-item {
+    /* The page-number pill is drawn on the inner anchor, so the list item itself stays
+       transparent — otherwise antd's square item background shows behind the circle. */
+    .ant-pagination-item,
+    .ant-pagination-item-active {
         border: none;
+        background: transparent;
+        box-shadow: none;
 
         a {
             border-radius: 200px;
-            color: ${colors.gray[1800]};
+            color: ${(props) => props.theme.colors.textTertiary};
 
             :hover {
-                color: ${({ theme }) => theme.styles?.['primary-color']};
+                color: ${(props) => props.theme.colors.textBrand};
             }
         }
     }
 
     .ant-pagination-item-active > a {
-        background: ${colors.violet[0]};
-        color: ${({ theme }) => theme.styles?.['primary-color']};
+        background: ${(props) => props.theme.colors.bgSurfaceBrand};
+        color: ${(props) => props.theme.colors.textBrand};
         font-weight: 700;
     }
 
@@ -44,59 +51,40 @@ export const PaginationContainer = styled.div`
         justify-content: center;
     }
 
-    button {
-        color: ${colors.gray[1800]};
-        border: 1px solid ${colors.gray[100]};
+    /* Matches the prev/next selectors in GlobalThemeStyles so the borderless treatment
+       wins over the legacy antd pagination theming applied to the same markup. */
+    .ant-pagination-prev .ant-pagination-item-link,
+    .ant-pagination-next .ant-pagination-item-link {
+        color: ${(props) => props.theme.colors.icon};
+        border: none;
+        background: ${(props) => props.theme.colors.bg};
+        box-shadow: ${(props) => props.theme.colors.shadowXs};
     }
 
-    .ant-pagination-options {
-        span,
-        .ant-select-item {
-            color: ${colors.gray[1800]};
-        }
+    .ant-pagination-prev:hover .ant-pagination-item-link,
+    .ant-pagination-next:hover .ant-pagination-item-link {
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
+        color: ${(props) => props.theme.colors.iconHover};
     }
 
-    .ant-pagination-options-size-changer {
-        .ant-select-selector {
-            border: 1px solid ${colors.gray[100]};
-        }
-
-        &:hover:not(.ant-select-disabled),
-        &.ant-select-focused:not(.ant-select-disabled) {
-            .ant-select-selector {
-                border: 1px solid ${colors.gray[100]};
-                box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
-
-                :hover {
-                    color: ${({ theme }) => theme.styles?.['primary-color']};
-                }
-            }
-        }
-    }
-
-    .ant-pagination-next,
-    .ant-pagination-prev {
-        :hover {
-            box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
-
-            button {
-                color: ${({ theme }) => theme.styles?.['primary-color']};
-            }
-        }
-    }
-
-    .ant-pagination-disabled:hover {
+    .ant-pagination-disabled .ant-pagination-item-link,
+    .ant-pagination-disabled:hover .ant-pagination-item-link {
+        background: ${(props) => props.theme.colors.bgSurfaceDisabled};
         box-shadow: none;
-        button {
-            color: rgba(0, 0, 0, 0.25);
-        }
+        color: ${(props) => props.theme.colors.iconDisabled};
     }
 
     .ant-pagination-jump-next,
     .ant-pagination-jump-prev {
+        /* Matches the page numbers either side of it rather than the icon tokens, which are a step
+           darker and lose legibility against the dark-mode surface. */
+        .ant-pagination-item-ellipsis {
+            color: ${(props) => props.theme.colors.textTertiary};
+        }
+
         :hover {
             .ant-pagination-item-link-icon {
-                color: ${({ theme }) => theme.styles?.['primary-color']};
+                color: ${(props) => props.theme.colors.iconHover};
             }
         }
     }

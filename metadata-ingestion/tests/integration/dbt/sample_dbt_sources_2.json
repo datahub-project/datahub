@@ -16,13 +16,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -53,13 +53,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -90,13 +90,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -127,13 +127,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -164,13 +164,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -201,13 +201,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -238,13 +238,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -275,13 +275,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -312,13 +312,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -349,13 +349,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -386,13 +386,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,
@@ -423,13 +423,13 @@
       },
       "criteria": {
         "error_after": {
-          "count": 999999999,
-          "period": "day"
+          "count": 24,
+          "period": "hour"
         },
         "filter": null,
         "warn_after": {
-          "count": 123456789,
-          "period": "day"
+          "count": 12,
+          "period": "hour"
         }
       },
       "execution_time": 0.023441791534423828,

@@ -12,9 +12,11 @@ import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchValidationConfiguration;
 import com.linkedin.metadata.config.search.WordGramConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchScoreFieldSpec;
@@ -30,10 +32,14 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -54,18 +60,49 @@ import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 @Slf4j
 public class SearchQueryBuilder {
   public static final String STRUCTURED_QUERY_PREFIX = "\\/q ";
+  // Search V3 keeps analyzed text only in the _search.tier_N copy_to targets. These names must
+  // match the effective V3 mapping: the bundled search_entity_mapping_config.yaml (tier_N with
+  // full, full_stemmed and full_removed_sep text subfields, urn copied to tier 4) as
+  // MultiEntityMappingsUtils.buildSearchSection extends it (_search.entityName)
+  private static final String V3_TIER_FIELD_PREFIX = "_search.tier_";
+  private static final String V3_ENTITY_NAME_FIELD = "_search.entityName";
+  // urn copies to _search.tier_4 in the V3 base mapping, not through a searchTier annotation
+  private static final int V3_URN_SEARCH_TIER = 4;
   private final ExactMatchConfiguration exactMatchConfiguration;
   private final PartialConfiguration partialConfiguration;
   private final WordGramConfiguration wordGramConfiguration;
+  private final SearchValidationConfiguration searchValidationConfiguration;
+  private final Pattern validationRegex;
 
   private final CustomizedQueryHandler customizedQueryHandler;
 
+  /**
+   * Search V3 entity indices have no per-field text subfields, so full-text queries target the
+   * {@code _search.tier_N} fields instead.
+   */
+  private final boolean v3KeywordReadEnabled;
+
+  /** V2 queries only; production passes the V3 read decision through the other constructor. */
+  @VisibleForTesting
   public SearchQueryBuilder(
       @Nonnull SearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration) {
+    this(searchConfiguration, customSearchConfiguration, false);
+  }
+
+  public SearchQueryBuilder(
+      @Nonnull SearchConfiguration searchConfiguration,
+      @Nullable CustomSearchConfiguration customSearchConfiguration,
+      final boolean v3KeywordReadEnabled) {
+    this.v3KeywordReadEnabled = v3KeywordReadEnabled;
     this.exactMatchConfiguration = searchConfiguration.getExactMatch();
     this.partialConfiguration = searchConfiguration.getPartial();
     this.wordGramConfiguration = searchConfiguration.getWordGram();
+    this.searchValidationConfiguration =
+        searchConfiguration.getValidation() != null
+            ? searchConfiguration.getValidation()
+            : new SearchValidationConfiguration();
+    this.validationRegex = Pattern.compile(this.searchValidationConfiguration.getRegex());
     this.customizedQueryHandler =
         CustomizedQueryHandler.builder(searchConfiguration.getCustom(), customSearchConfiguration)
             .build();
@@ -99,6 +136,9 @@ public class SearchQueryBuilder {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext) {
+    if (searchValidationConfiguration.isEnabled()) {
+      validateSearchQuery(query);
+    }
     final String sanitizedQuery = query.replaceFirst("^:+", "");
     final BoolQueryBuilder finalQuery =
         Optional.ofNullable(customQueryConfig)
@@ -112,6 +152,7 @@ public class SearchQueryBuilder {
       getSimpleQuery(opContext, customQueryConfig, entitySpecs, sanitizedQuery)
           .ifPresent(finalQuery::should);
       getPrefixAndExactMatchQuery(
+              opContext,
               opContext.getEntityRegistry(),
               customQueryConfig,
               entitySpecs,
@@ -128,6 +169,7 @@ public class SearchQueryBuilder {
           .ifPresent(finalQuery::should);
       if (exactMatchConfiguration.isEnableStructured()) {
         getPrefixAndExactMatchQuery(
+                opContext,
                 opContext.getEntityRegistry(),
                 customQueryConfig,
                 entitySpecs,
@@ -142,6 +184,30 @@ public class SearchQueryBuilder {
     }
 
     return finalQuery;
+  }
+
+  /**
+   * Validates search query input to block malicious payloads. Blocks Java deserialization attacks,
+   * JNDI injection, and other exploits.
+   *
+   * @param input The raw search query string
+   * @throws ValidationException if the query contains dangerous patterns
+   */
+  @Nonnull
+  public void validateSearchQuery(@Nonnull String input) throws ValidationException {
+    // Limit query length
+    if (searchValidationConfiguration.isMaxLengthEnabled()
+        && input.length() > searchValidationConfiguration.getMaxQueryLength()) {
+      log.warn("Blocked excessively long search query: {} characters", input.length());
+      throw new ValidationException(
+          "Search query exceeds maximum length of "
+              + searchValidationConfiguration.getMaxQueryLength()
+              + " characters");
+    }
+    if (validationRegex.matcher(input).matches()) {
+      log.warn("Blocked potentially malicious search query.");
+      throw new ValidationException("Query rejected due to potentially malicious structure.");
+    }
   }
 
   /**
@@ -337,7 +403,14 @@ public class SearchQueryBuilder {
       executeSimpleQuery = !(isQuoted(sanitizedQuery) && exactMatchConfiguration.isExclusive());
     }
 
-    if (executeSimpleQuery) {
+    if (executeSimpleQuery && v3KeywordReadEnabled) {
+      // No analyzer: each tier subfield applies its own search analyzer
+      SimpleQueryStringBuilder simpleBuilder =
+          QueryBuilders.simpleQueryStringQuery(sanitizedQuery).defaultOperator(Operator.AND);
+      getV3TierTextFields(entitySpecs).forEach(simpleBuilder::field);
+      // Grouped like V2's per-analyzer queries: the search config export reads this shape
+      result = Optional.of(QueryBuilders.boolQuery().should(simpleBuilder).minimumShouldMatch(1));
+    } else if (executeSimpleQuery) {
       BoolQueryBuilder simplePerField = QueryBuilders.boolQuery();
 
       // Get base fields
@@ -399,6 +472,7 @@ public class SearchQueryBuilder {
   }
 
   private Optional<QueryBuilder> getPrefixAndExactMatchQuery(
+      @Nonnull OperationContext opContext,
       @Nonnull EntityRegistry entityRegistry,
       @Nullable QueryConfiguration customQueryConfig,
       @Nonnull List<EntitySpec> entitySpecs,
@@ -410,6 +484,10 @@ public class SearchQueryBuilder {
             ? exactMatchConfiguration.isWithPrefix()
             : customQueryConfig.isPrefixMatchQuery();
     final boolean isExactQuery = customQueryConfig == null || customQueryConfig.isExactMatchQuery();
+
+    if (v3KeywordReadEnabled) {
+      return getV3PrefixAndExactMatchQuery(entitySpecs, query, isPrefixQuery, isExactQuery);
+    }
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
     String unquotedQuery = unquote(query);
@@ -443,7 +521,7 @@ public class SearchQueryBuilder {
                   finalQuery.should(
                       QueryBuilders.termQuery(
                               ESUtils.toKeywordField(
-                                  searchFieldConfig.fieldName(), false, aspectRetriever),
+                                  opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
                               unquotedQuery)
                           .caseInsensitive(false)
                           .boost(
@@ -455,7 +533,7 @@ public class SearchQueryBuilder {
                 finalQuery.should(
                     QueryBuilders.termQuery(
                             ESUtils.toKeywordField(
-                                searchFieldConfig.fieldName(), false, aspectRetriever),
+                                opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .caseInsensitive(true)
                         .boost(
@@ -469,7 +547,7 @@ public class SearchQueryBuilder {
                 finalQuery.should(
                     QueryBuilders.matchPhraseQuery(
                             ESUtils.toKeywordField(
-                                searchFieldConfig.fieldName(), false, aspectRetriever),
+                                opContext, searchFieldConfig.fieldName(), false, aspectRetriever),
                             unquotedQuery)
                         .boost(
                             searchFieldConfig.boost()
@@ -481,6 +559,85 @@ public class SearchQueryBuilder {
     return finalQuery.should().size() > 0
         ? Optional.of(finalQuery.minimumShouldMatch(1))
         : Optional.empty();
+  }
+
+  /**
+   * A phrase prefix on every tier's text, plus exact matches on the tier 1 keyword, entity name and
+   * urn. The tier keywords and the entity name are normalized, so only the urn, which keeps case,
+   * gets V2's case-sensitive exact boost.
+   */
+  private Optional<QueryBuilder> getV3PrefixAndExactMatchQuery(
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      String query,
+      boolean isPrefixQuery,
+      boolean isExactQuery) {
+    final boolean caseSensitivityEnabled =
+        exactMatchConfiguration.getCaseSensitivityFactor() > 0.0f;
+    final float caseSensitivityFactor =
+        caseSensitivityEnabled ? exactMatchConfiguration.getCaseSensitivityFactor() : 1.0f;
+    BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
+    if (isPrefixQuery) {
+      for (int tier : getV3Tiers(entitySpecs)) {
+        finalQuery.should(
+            QueryBuilders.matchPhrasePrefixQuery(V3_TIER_FIELD_PREFIX + tier + ".full", query)
+                .boost(
+                    getV3TierBoost(tier)
+                        * exactMatchConfiguration.getPrefixFactor()
+                        * caseSensitivityFactor));
+      }
+    }
+    if (isExactQuery) {
+      String unquotedQuery = unquote(query);
+      float exactBoost = getV3TierBoost(1) * exactMatchConfiguration.getExactFactor();
+      for (String field : List.of(V3_TIER_FIELD_PREFIX + "1", V3_ENTITY_NAME_FIELD)) {
+        finalQuery.should(
+            QueryBuilders.termQuery(field, unquotedQuery).caseInsensitive(true).boost(exactBoost));
+      }
+      // Named so an exact urn hit shows as matched on the urn
+      if (caseSensitivityEnabled) {
+        finalQuery.should(
+            QueryBuilders.termQuery("urn", unquotedQuery)
+                .caseInsensitive(false)
+                .boost(exactBoost)
+                .queryName("urn"));
+      }
+      finalQuery.should(
+          QueryBuilders.termQuery("urn", unquotedQuery)
+              .caseInsensitive(true)
+              .boost(exactBoost * caseSensitivityFactor)
+              .queryName("urn"));
+    }
+    return finalQuery.should().isEmpty()
+        ? Optional.empty()
+        : Optional.of(finalQuery.minimumShouldMatch(1));
+  }
+
+  /** Tiers the entities' {@code searchTier} annotations copy into, plus the urn's tier. */
+  private static SortedSet<Integer> getV3Tiers(@Nonnull Collection<EntitySpec> entitySpecs) {
+    SortedSet<Integer> tiers =
+        entitySpecs.stream()
+            .flatMap(spec -> spec.getSearchableFieldSpecs().stream())
+            .map(fieldSpec -> fieldSpec.getSearchableAnnotation().getSearchTier())
+            .flatMap(Optional::stream)
+            .collect(Collectors.toCollection(TreeSet::new));
+    tiers.add(V3_URN_SEARCH_TIER);
+    return tiers;
+  }
+
+  /** Text subfields of every V3 tier. Boost descends with the tier number (1/N). */
+  private static Map<String, Float> getV3TierTextFields(
+      @Nonnull Collection<EntitySpec> entitySpecs) {
+    Map<String, Float> fields = new LinkedHashMap<>();
+    for (int tier : getV3Tiers(entitySpecs)) {
+      for (String subfield : List.of("full", "full_stemmed", "full_removed_sep")) {
+        fields.put(V3_TIER_FIELD_PREFIX + tier + "." + subfield, getV3TierBoost(tier));
+      }
+    }
+    return fields;
+  }
+
+  private static float getV3TierBoost(int tier) {
+    return 1.0f / tier;
   }
 
   private Optional<QueryBuilder> getStructuredQuery(
@@ -500,8 +657,12 @@ public class SearchQueryBuilder {
     if (executeStructuredQuery) {
       QueryStringQueryBuilder queryBuilder = QueryBuilders.queryStringQuery(sanitizedQuery);
       queryBuilder.defaultOperator(Operator.AND);
-      getStandardFields(entityRegistry, entitySpecs)
-          .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
+      if (v3KeywordReadEnabled) {
+        getV3TierTextFields(entitySpecs).forEach(queryBuilder::field);
+      } else {
+        getStandardFields(entityRegistry, entitySpecs)
+            .forEach(entitySpec -> queryBuilder.field(entitySpec.fieldName(), entitySpec.boost()));
+      }
       result = Optional.of(queryBuilder);
     }
     return result;

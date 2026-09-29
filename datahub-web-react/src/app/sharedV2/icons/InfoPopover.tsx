@@ -1,25 +1,26 @@
-import { InfoCircleFilled, InfoCircleOutlined } from '@ant-design/icons';
-import { Popover } from '@components';
-import React, { useState } from 'react';
+import { Icon, Popover } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import React from 'react';
 import styled from 'styled-components';
 
 const InfoWrapper = styled.div<{ $iconColor?: string }>`
-    color: ${({ theme, $iconColor }) => $iconColor || theme.styles['primary-color']};
+    display: inline-flex;
+    align-items: center;
+    color: ${({ theme, $iconColor }) => $iconColor || theme.colors.iconBrand};
 `;
 
 interface Props {
     content: React.ReactNode;
     className?: string;
     iconColor?: string;
+    placement?: string;
 }
 
-export default function InfoPopover({ content, className, iconColor }: Props) {
-    const [showPopover, setShowPopover] = useState(false);
-
+export default function InfoPopover({ content, className, iconColor, placement = 'top' }: Props) {
     return (
         <InfoWrapper className={className} $iconColor={iconColor}>
-            <Popover placement="top" content={content} trigger="hover" open={showPopover} onOpenChange={setShowPopover}>
-                {showPopover ? <InfoCircleFilled /> : <InfoCircleOutlined />}
+            <Popover placement={placement as any} content={content} trigger="hover" showArrow={false}>
+                <Icon icon={Info} size="sm" weight="regular" color="inherit" />
             </Popover>
         </InfoWrapper>
     );

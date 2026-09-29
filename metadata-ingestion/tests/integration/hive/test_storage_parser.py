@@ -1,4 +1,7 @@
-from datahub.ingestion.source.sql.hive import StoragePathParser, StoragePlatform
+from datahub.ingestion.source.sql.hive.storage_lineage import (
+    StoragePathParser,
+    StoragePlatform,
+)
 
 
 # Mock logger

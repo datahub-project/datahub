@@ -6,22 +6,29 @@ import static org.testng.Assert.assertNotNull;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.KafkaSchemaRegistryFactory;
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolverFactory;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.lang.reflect.Field;
+import java.util.Collections;
+import java.util.Map;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
 @SpringBootTest(
     properties = {
+      "datahub.messaging.transport=kafka",
       "kafka.schemaRegistry.type=KAFKA",
       "spring.kafka.properties.security.protocol=SSL"
     },
@@ -30,7 +37,12 @@ import org.testng.annotations.Test;
       KafkaSchemaRegistryFactory.class,
       ConfigurationProvider.class,
       TopicConventionFactory.class,
-      DataHubKafkaEventProducerFactory.class
+      DataHubKafkaEventProducerFactory.class,
+      // Provides the OutboundContextResolver bean that DataHubKafkaEventProducerFactory now
+      // depends on. OSS registers no enrichers, so the resolver composes an empty chain and is
+      // effectively a no-op — but Spring still needs the bean to satisfy the @Autowired field.
+      OutboundContextResolverFactory.class,
+      UsageEventPublisherFactory.class
     })
 public class DataHubKafkaProducerFactoryTest extends AbstractTestNGSpringContextTests {
   @Autowired
@@ -39,11 +51,11 @@ public class DataHubKafkaProducerFactoryTest extends AbstractTestNGSpringContext
 
   @Autowired
   @Qualifier("dataHubUsageEventProducer")
-  GenericProducer<String> dataHubUsageEventProducer;
+  UsageEventPublisher dataHubUsageEventProducer;
 
-  @MockBean KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean KafkaHealthChecker kafkaHealthChecker;
 
-  @MockBean MetricUtils metricUtils;
+  @MockitoBean MetricUtils metricUtils;
 
   @Test
   void testInitialization() throws NoSuchFieldException, IllegalAccessException {
@@ -58,5 +70,124 @@ public class DataHubKafkaProducerFactoryTest extends AbstractTestNGSpringContext
     // Use the ProducerConfig.get() method to access specific properties
     String securityProtocol = producerConfig.getString("security.protocol");
     assertEquals("SSL", securityProtocol, "SSL security protocol should be set");
+  }
+
+  @Test
+  public void testBuildProducerPropertiesWithOverride() {
+    // Setup
+    KafkaProperties kafkaProperties = new KafkaProperties();
+
+    KafkaConfiguration kafkaConfig = new KafkaConfiguration();
+    kafkaConfig.setBootstrapServers("base-kafka:9092");
+
+    ProducerConfiguration producerConfig = new ProducerConfiguration();
+    producerConfig.setBootstrapServers("producer-kafka:9092");
+    producerConfig.setRetryCount(3);
+    producerConfig.setDeliveryTimeout(30000);
+    producerConfig.setRequestTimeout(3000);
+    producerConfig.setBackoffTimeout(100);
+    producerConfig.setMaxRequestSize(5242880);
+    producerConfig.setCompressionType("snappy");
+
+    KafkaConfiguration.SerDeConfig serDeConfig = new KafkaConfiguration.SerDeConfig();
+    KafkaConfiguration.SerDeKeyValueConfig eventConfig =
+        new KafkaConfiguration.SerDeKeyValueConfig();
+    KafkaConfiguration.SerDeProperties serDeProperties = new KafkaConfiguration.SerDeProperties();
+    serDeProperties.setSerializer("org.apache.kafka.common.serialization.StringSerializer");
+    serDeProperties.setDeserializer("org.apache.kafka.common.serialization.StringSerializer");
+    eventConfig.setKey(serDeProperties);
+    eventConfig.setValue(serDeProperties);
+    serDeConfig.setEvent(eventConfig);
+
+    kafkaConfig.setProducer(producerConfig);
+    kafkaConfig.setSerde(serDeConfig);
+
+    Map<String, Object> props =
+        DataHubKafkaProducerFactory.buildProducerProperties(null, kafkaConfig, kafkaProperties);
+
+    // Verify - Bootstrap servers list should contain the producer-specific override
+    assertEquals(
+        props.get(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG),
+        Collections.singletonList("producer-kafka:9092"));
+  }
+
+  @Test
+  public void testBuildProducerPropertiesWithSecurityProtocolOverride() {
+    // Setup
+    KafkaProperties kafkaProperties = new KafkaProperties();
+    kafkaProperties.getProducer().getSecurity().setProtocol("SASL_SSL");
+
+    KafkaConfiguration kafkaConfig = new KafkaConfiguration();
+    kafkaConfig.setBootstrapServers("base-kafka:9092");
+
+    ProducerConfiguration producerConfig = new ProducerConfiguration();
+    producerConfig.setBootstrapServers("producer-kafka:9092");
+    producerConfig.setSecurityProtocol("PLAINTEXT");
+    producerConfig.setRetryCount(3);
+    producerConfig.setDeliveryTimeout(30000);
+    producerConfig.setRequestTimeout(3000);
+    producerConfig.setBackoffTimeout(100);
+    producerConfig.setMaxRequestSize(5242880);
+    producerConfig.setCompressionType("snappy");
+
+    KafkaConfiguration.SerDeConfig serDeConfig = new KafkaConfiguration.SerDeConfig();
+    KafkaConfiguration.SerDeKeyValueConfig eventConfig =
+        new KafkaConfiguration.SerDeKeyValueConfig();
+    KafkaConfiguration.SerDeProperties serDeProperties = new KafkaConfiguration.SerDeProperties();
+    serDeProperties.setSerializer("org.apache.kafka.common.serialization.StringSerializer");
+    serDeProperties.setDeserializer("org.apache.kafka.common.serialization.StringSerializer");
+    eventConfig.setKey(serDeProperties);
+    eventConfig.setValue(serDeProperties);
+    serDeConfig.setEvent(eventConfig);
+
+    kafkaConfig.setProducer(producerConfig);
+    kafkaConfig.setSerde(serDeConfig);
+
+    Map<String, Object> props =
+        DataHubKafkaProducerFactory.buildProducerProperties(null, kafkaConfig, kafkaProperties);
+
+    // Verify - Security protocol should contain the producer-specific override (PLAINTEXT)
+    // not the base KafkaProperties value (SASL_SSL)
+    assertEquals(props.get("security.protocol"), "PLAINTEXT");
+  }
+
+  @Test
+  public void testBuildProducerPropertiesWithSchemaRegistryUrlOverride() {
+    KafkaProperties kafkaProperties = new KafkaProperties();
+
+    KafkaConfiguration kafkaConfig = new KafkaConfiguration();
+    kafkaConfig.setBootstrapServers("base-kafka:9092");
+
+    ProducerConfiguration producerConfig = new ProducerConfiguration();
+    producerConfig.setBootstrapServers("producer-kafka:9092");
+    producerConfig.setSchemaRegistryUrl("http://producer-registry:8081");
+    producerConfig.setRetryCount(3);
+    producerConfig.setDeliveryTimeout(30000);
+    producerConfig.setRequestTimeout(3000);
+    producerConfig.setBackoffTimeout(100);
+    producerConfig.setMaxRequestSize(5242880);
+    producerConfig.setCompressionType("snappy");
+
+    KafkaConfiguration.SerDeConfig serDeConfig = new KafkaConfiguration.SerDeConfig();
+    KafkaConfiguration.SerDeKeyValueConfig eventConfig =
+        new KafkaConfiguration.SerDeKeyValueConfig();
+    KafkaConfiguration.SerDeProperties serDeProperties = new KafkaConfiguration.SerDeProperties();
+    serDeProperties.setSerializer("org.apache.kafka.common.serialization.StringSerializer");
+    serDeProperties.setDeserializer("org.apache.kafka.common.serialization.StringSerializer");
+    eventConfig.setKey(serDeProperties);
+    eventConfig.setValue(serDeProperties);
+    // Simulate base schema registry URL as set by KafkaSchemaRegistryFactory
+    eventConfig.setProperties(Map.of("schema.registry.url", "http://base-registry:8081"));
+    serDeConfig.setEvent(eventConfig);
+
+    kafkaConfig.setProducer(producerConfig);
+    kafkaConfig.setSerde(serDeConfig);
+
+    Map<String, Object> props =
+        DataHubKafkaProducerFactory.buildProducerProperties(
+            eventConfig, kafkaConfig, kafkaProperties);
+
+    // Producer-specific URL should override the base schema registry URL
+    assertEquals(props.get("schema.registry.url"), "http://producer-registry:8081");
   }
 }
