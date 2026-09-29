@@ -32,6 +32,29 @@ most comfortable with.
 
 Languages marked _Beta_ are still being refined and may have untranslated strings.
 
+## What Is Translated
+
+Translation covers DataHub's own interface: navigation, buttons, labels, dialogs, empty states,
+and settings pages. Dates and times follow the selected language, and ingestion schedules are
+shown as human-readable descriptions in that language (for example, "Every day at 9:00 AM"
+becomes its equivalent in the chosen language). Menus in the documentation editor are translated
+as well.
+
+Some things stay in their original language:
+
+- **Your metadata.** Asset names, descriptions, tags, glossary terms, domains, column names, and
+  platform names are stored exactly as they were entered or ingested, so they appear unchanged.
+- **Server messages.** Errors and other messages returned by the DataHub server are in English.
+- **This documentation site.** docs.datahub.com is English only.
+
+Any string that has no translation yet falls back to English instead of showing a placeholder,
+which is why Beta languages often show a mix of both languages. The browser locale is matched to
+the closest supported language, so `de-AT` uses German, `pt-PT` uses Portuguese (Brazil), and
+`zh-HK` uses Traditional Chinese.
+
+When multi-language support is turned off, the language selector is hidden and everyone sees
+English, regardless of their browser locale or a previously saved preference.
+
 ## Enabling Multi-Language Support
 
 Multi-language support is on by default. On first visit, DataHub picks each user's language
