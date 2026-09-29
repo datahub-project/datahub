@@ -1,6 +1,5 @@
 import json
 import logging
-import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
@@ -656,7 +655,9 @@ def build_assertions_with_results(
         ds = datasets[0]
         # https://docs.greatexpectations.io/docs/reference/expectations/result_format/
         assertionResult = AssertionRunEvent(
-            timestampMillis=int(round(time.time() * 1000)),
+            # Use GX's run time, not wall-clock: timestampMillis is part of the run
+            # event's id, so re-emitting the same validation run must not duplicate it.
+            timestampMillis=int(run_time.timestamp() * 1000),
             assertionUrn=assertionUrn,
             asserteeUrn=ds["dataset_urn"],
             runId=run_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
