@@ -3188,7 +3188,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         "Invoked ingestEntity with entity {}, audit stamp {} systemMetadata {}",
         entity,
         auditStamp,
-        systemMetadata.toString());
+        systemMetadata);
     ingestSnapshotUnion(opContext, entity.getValue(), auditStamp, systemMetadata);
   }
 
@@ -3250,7 +3250,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<Pair<String, RecordTemplate>> aspectRecordsToIngest =
         NewModelUtils.getAspectsFromSnapshot(snapshotRecord);
 
-    log.debug("Ingesting entity urn {} with system metadata {}", urn, systemMetadata.toString());
+    log.debug("Ingesting entity urn {} with system metadata {}", urn, systemMetadata);
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()
