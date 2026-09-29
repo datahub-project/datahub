@@ -358,7 +358,7 @@ expandvars==1.1.2
     # via acryl-datahub
 faker==40.8.0
     # via acryl-datahub
-fastapi==0.128.8
+fastapi==0.141.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   feast
@@ -1405,9 +1405,11 @@ sqlparse==0.6.0
     #   mlflow-skinny
 sspilib==0.5.0 ; sys_platform == 'win32'
     # via pyspnego
-starlette==0.52.1
-    # via fastapi
-starrocks==1.3.3
+starlette==1.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   acryl-datahub
+    #   fastapi
+starrocks==1.3.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 strictyaml==1.7.3
     # via pyiceberg

@@ -578,8 +578,11 @@ plugins: Dict[str, Set[str]] = {
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
     "datahub-lite": {
-        "duckdb>=1.0.0,<2.0.0",
-        "fastapi<0.129.0",
+        # >=0.133.0: older fastapi caps starlette<1.0, blocking its CVE fixes.
+        "fastapi>=0.133.0,<0.142.0",
+        # CVE-2026-48710, CVE-2026-48817, CVE-2026-48818, CVE-2026-54282,
+        # CVE-2026-54283; fixed in 1.3.1.
+        "starlette>=1.3.1,<2.0.0",
         "uvicorn<0.41.0",
     },
     # Integrations.
@@ -685,6 +688,8 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         # Note: feast>=0.48 requires numpy>=2, so numpy<2 below constrains feast to <=0.47.0 automatically
         "feast>=0.34.0,<1",
+        # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
+        "starlette>=1.3.1,<2.0.0",
         "flask-openid>=1.3.0,<2.0.0",
         "dask[dataframe]<2024.7.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
