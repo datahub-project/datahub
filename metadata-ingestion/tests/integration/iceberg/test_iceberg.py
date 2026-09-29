@@ -34,59 +34,6 @@ PATHS_IN_GOLDEN_FILE_TO_IGNORE = [
 ]
 
 
-VIEWS_CATALOG_URI = "http://localhost:8183"
-VIEWS_NAMESPACE = "viewtest"
-
-
-def _create_iceberg_view(catalog_uri: str, namespace: str, view_name: str) -> None:
-    # pyiceberg does not expose a create_view() API yet, so the view is
-    # registered through the REST API directly.
-    payload = {
-        "name": view_name,
-        "schema": {
-            "type": "struct",
-            "schema-id": 0,
-            "fields": [
-                {"id": 1, "name": "event_type", "required": False, "type": "string"},
-                {"id": 2, "name": "event_count", "required": False, "type": "long"},
-            ],
-        },
-        "view-version": {
-            "version-id": 1,
-            "timestamp-ms": int(time.time() * 1000),
-            "schema-id": 0,
-            "summary": {"engine-name": "spark"},
-            "representations": [
-                {
-                    "type": "sql",
-                    "sql": f"SELECT event_type, count(*) AS event_count FROM {namespace}.events GROUP BY event_type",
-                    "dialect": "spark",
-                }
-            ],
-            "default-namespace": [namespace],
-        },
-        "properties": {},
-    }
-    resp = requests.post(
-        f"{catalog_uri}/v1/namespaces/{namespace}/views", json=payload, timeout=10
-    )
-    resp.raise_for_status()
-
-
-def _seed_catalog_with_table_and_view(catalog_uri: str) -> None:
-    catalog = RestCatalog(name="default", uri=catalog_uri)
-    catalog.create_namespace(VIEWS_NAMESPACE)
-    catalog.create_table(
-        (VIEWS_NAMESPACE, "events"),
-        schema=Schema(
-            NestedField(1, "event_id", LongType(), required=True),
-            NestedField(2, "event_type", StringType(), required=False),
-            NestedField(3, "event_ts", TimestampType(), required=False),
-        ),
-    )
-    _create_iceberg_view(catalog_uri, VIEWS_NAMESPACE, "events_summary")
-
-
 def spark_submit(file_path: str, args: str = "") -> None:
     docker = "docker"
     command = f"{docker} exec spark-iceberg spark-submit {file_path} {args}"
@@ -148,6 +95,59 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
             output_path=tmp_path / "iceberg_mcps.json",
             golden_path=test_resources_dir / "iceberg_ingest_mcps_golden.json",
         )
+
+
+VIEWS_CATALOG_URI = "http://localhost:8183"
+VIEWS_NAMESPACE = "viewtest"
+
+
+def _create_iceberg_view(catalog_uri: str, namespace: str, view_name: str) -> None:
+    # pyiceberg does not expose a create_view() API yet, so the view is
+    # registered through the REST API directly.
+    payload = {
+        "name": view_name,
+        "schema": {
+            "type": "struct",
+            "schema-id": 0,
+            "fields": [
+                {"id": 1, "name": "event_type", "required": False, "type": "string"},
+                {"id": 2, "name": "event_count", "required": False, "type": "long"},
+            ],
+        },
+        "view-version": {
+            "version-id": 1,
+            "timestamp-ms": int(time.time() * 1000),
+            "schema-id": 0,
+            "summary": {"engine-name": "spark"},
+            "representations": [
+                {
+                    "type": "sql",
+                    "sql": f"SELECT event_type, count(*) AS event_count FROM {namespace}.events GROUP BY event_type",
+                    "dialect": "spark",
+                }
+            ],
+            "default-namespace": [namespace],
+        },
+        "properties": {},
+    }
+    resp = requests.post(
+        f"{catalog_uri}/v1/namespaces/{namespace}/views", json=payload, timeout=10
+    )
+    resp.raise_for_status()
+
+
+def _seed_catalog_with_table_and_view(catalog_uri: str) -> None:
+    catalog = RestCatalog(name="default", uri=catalog_uri)
+    catalog.create_namespace(VIEWS_NAMESPACE)
+    catalog.create_table(
+        (VIEWS_NAMESPACE, "events"),
+        schema=Schema(
+            NestedField(1, "event_id", LongType(), required=True),
+            NestedField(2, "event_type", StringType(), required=False),
+            NestedField(3, "event_ts", TimestampType(), required=False),
+        ),
+    )
+    _create_iceberg_view(catalog_uri, VIEWS_NAMESPACE, "events_summary")
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
