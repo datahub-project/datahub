@@ -2,12 +2,16 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 
 from datahub.emitter.mce_builder import (
+    SYSTEM_ACTOR,
     datahub_guid,
     make_assertion_source,
     make_assertion_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
+    AssertionActionClass,
+    AssertionActionsClass,
+    AssertionActionTypeClass,
     AssertionInfoClass,
     AssertionResultClass,
     AssertionResultErrorClass,
@@ -22,6 +26,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    AuditStampClass,
     CustomAssertionInfoClass,
     StatusClass,
 )
@@ -65,6 +70,7 @@ def build_custom_assertion_info(
     native_parameters: Optional[Dict[str, str]] = None,
     external_url: Optional[str] = None,
     custom_properties: Optional[Dict[str, str]] = None,
+    last_updated_millis: Optional[int] = None,
 ) -> MetadataChangeProposalWrapper:
     fields = field_urns or []
     info = AssertionInfoClass(
@@ -74,6 +80,11 @@ def build_custom_assertion_info(
         externalUrl=external_url,
         customProperties=custom_properties or {},
         source=make_assertion_source(),
+        lastUpdated=(
+            AuditStampClass(time=last_updated_millis, actor=SYSTEM_ACTOR)
+            if last_updated_millis is not None
+            else None
+        ),
         customAssertion=CustomAssertionInfoClass(
             type=category,
             entity=entity_urn,
@@ -157,6 +168,26 @@ def build_assertion_run_event(
         messageId=run_id,
     )
     return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=run_event)
+
+
+def build_assertion_actions(
+    assertion_urn: str, raise_incident: bool
+) -> MetadataChangeProposalWrapper:
+    # Always emitted, empty when not eligible, so lowering a rule's severity
+    # removes its actions. DataHub Cloud acts on these; OSS stores them.
+    actions = AssertionActionsClass(
+        onFailure=(
+            [AssertionActionClass(type=AssertionActionTypeClass.RAISE_INCIDENT)]
+            if raise_incident
+            else []
+        ),
+        onSuccess=(
+            [AssertionActionClass(type=AssertionActionTypeClass.RESOLVE_INCIDENT)]
+            if raise_incident
+            else []
+        ),
+    )
+    return MetadataChangeProposalWrapper(entityUrn=assertion_urn, aspect=actions)
 
 
 def build_status(assertion_urn: str, active: bool) -> MetadataChangeProposalWrapper:

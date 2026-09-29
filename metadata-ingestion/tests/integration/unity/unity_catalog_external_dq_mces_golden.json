@@ -418,6 +418,10 @@
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
+            "lastUpdated": {
+                "time": 1638856800000,
+                "actor": "urn:li:corpuser:__datahub_system"
+            },
             "description": "orders_id_not_null rule"
         }
     },
@@ -436,6 +440,32 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:e89ee0d49f45b2a49e385150f0dbf1b7",
+    "changeType": "UPSERT",
+    "aspectName": "assertionActions",
+    "aspect": {
+        "json": {
+            "onSuccess": [
+                {
+                    "type": "RESOLVE_INCIDENT"
+                }
+            ],
+            "onFailure": [
+                {
+                    "type": "RAISE_INCIDENT"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -483,6 +513,10 @@
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
+            "lastUpdated": {
+                "time": 1638856800000,
+                "actor": "urn:li:corpuser:__datahub_system"
+            },
             "description": "orders_id_region_unique rule"
         }
     },
@@ -501,6 +535,24 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:0117e40873d4841770765ebd444f59ce",
+    "changeType": "UPSERT",
+    "aspectName": "assertionActions",
+    "aspect": {
+        "json": {
+            "onSuccess": [],
+            "onFailure": []
         }
     },
     "systemMetadata": {
@@ -543,6 +595,10 @@
                     "actor": "urn:li:corpuser:__datahub_system"
                 }
             },
+            "lastUpdated": {
+                "time": 1638856800000,
+                "actor": "urn:li:corpuser:__datahub_system"
+            },
             "description": "orders_retired rule"
         }
     },
@@ -561,6 +617,24 @@
     "aspect": {
         "json": {
             "removed": true
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "unity-catalog-external-dq-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "unity-catalog-external-dq-test-pipeline"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fdc262a7c2524653ca19a84d5716b0da",
+    "changeType": "UPSERT",
+    "aspectName": "assertionActions",
+    "aspect": {
+        "json": {
+            "onSuccess": [],
+            "onFailure": []
         }
     },
     "systemMetadata": {

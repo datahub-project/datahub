@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Sequence
+from typing import Any, FrozenSet, List, Optional, Sequence
 
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
 from datahub.ingestion.api.source import SourceReport
@@ -14,11 +14,13 @@ from datahub.ingestion.source.external_dq.mapper import ExternalDQMapper
 from datahub.ingestion.source.external_dq.report import ExternalDQReport
 from datahub.ingestion.source.external_dq.types import coerce_value
 from datahub.metadata.schema_classes import (
+    AssertionActionsClass,
+    AssertionActionTypeClass,
     AssertionInfoClass,
     AssertionRunEventClass,
     StatusClass,
 )
-from tests.unit.external_dq._fixtures import result_raw, rule_raw
+from tests.unit.external_dq._fixtures import T0, result_raw, rule_raw
 
 
 class FakeLocator:
@@ -46,13 +48,16 @@ def result(**overrides: Any) -> ResultRow:
 
 
 def make_mapper(
-    platform_instance: Optional[str] = None, env: str = "PROD"
+    platform_instance: Optional[str] = None,
+    env: str = "PROD",
+    incident_severities: FrozenSet[str] = frozenset({"HIGH"}),
 ) -> ExternalDQMapper:
     return ExternalDQMapper(
         platform="databricks",
         platform_instance=platform_instance,
         env=env,
         rule_namespace="default",
+        incident_severities=incident_severities,
         locator=FakeLocator(),
         report=ExternalDQReport(),
         source_report=SourceReport(),
@@ -79,8 +84,36 @@ def test_rule_maps_to_info_and_status() -> None:
     assert info.customAssertion is not None
     assert info.customAssertion.nativeType == "completeness"
     assert info.customAssertion.logic == "amount IS NOT NULL"
+    # updated_at is the rule definition's last change, shown as the assertion's.
+    assert info.lastUpdated is not None and info.lastUpdated.time == T0
     assert info.customProperties["severity"] == "HIGH"
     assert status.removed is False
+
+
+def test_severity_at_or_above_threshold_raises_incidents() -> None:
+    mcps = list(
+        make_mapper().map_rules(
+            [rule(severity="high"), rule(rule_id="r2", severity="low")]
+        )
+    )
+    actions = [m.aspect for m in mcps if isinstance(m.aspect, AssertionActionsClass)]
+    assert len(actions) == 2
+    assert [a.type for a in actions[0].onFailure] == [
+        AssertionActionTypeClass.RAISE_INCIDENT
+    ]
+    assert [a.type for a in actions[0].onSuccess] == [
+        AssertionActionTypeClass.RESOLVE_INCIDENT
+    ]
+    # Emitted empty so lowering a rule's severity removes its actions.
+    assert actions[1].onFailure == [] and actions[1].onSuccess == []
+    none = list(
+        make_mapper(incident_severities=frozenset()).map_rules([rule(severity="high")])
+    )
+    assert all(
+        a.aspect.onFailure == []
+        for a in none
+        if isinstance(a.aspect, AssertionActionsClass)
+    )
 
 
 def test_result_inherits_rule_severity_and_snapshots() -> None:

@@ -98,6 +98,7 @@ def run(
         platform_instance=None,
         env="PROD",
         rule_namespace="default",
+        incident_severities=frozenset(config.raise_incidents_for_severities),
         locator=Locator(),
         report=report,
         source_report=source_report,
@@ -129,6 +130,15 @@ def _handler(provider: FakeStateProvider) -> ExternalDQStateHandler:
     )
 
 
+def test_config_normalizes_incident_severities() -> None:
+    assert ExternalDQConfig(
+        enabled=False, raise_incidents_for_severities=["high", " medium"]
+    ).raise_incidents_for_severities == ["HIGH", "MEDIUM"]
+    assert ExternalDQConfig(enabled=False).raise_incidents_for_severities == ["HIGH"]
+    with pytest.raises(pydantic.ValidationError):
+        ExternalDQConfig(enabled=False, raise_incidents_for_severities=["urgent"])
+
+
 def test_config_requires_both_tables_when_enabled() -> None:
     with pytest.raises(pydantic.ValidationError):
         ExternalDQConfig(enabled=True, rules_table=RULES)
@@ -137,7 +147,7 @@ def test_config_requires_both_tables_when_enabled() -> None:
 def test_emits_definitions_and_run_events_and_warns_without_state() -> None:
     reader = FakeReader([result_raw(), result_raw(run_id="run-2", executed_at=T0 + 1)])
     workunits, run_events, source_report, report = run(reader)
-    assert len(workunits) == 4  # info + status + 2 run events
+    assert len(workunits) == 5  # info + status + actions + 2 run events
     assert len(run_events) == 2
     assert report.run_events_emitted == 2
     assert any(w.title and "re-read" in w.title for w in source_report.warnings)

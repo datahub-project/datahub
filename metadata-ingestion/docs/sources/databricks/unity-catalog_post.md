@@ -138,11 +138,11 @@ CREATE TABLE main.governance.dq_rules (
   threshold_max DOUBLE,
   threshold_value DOUBLE,             -- GREATER_THAN, LESS_THAN, EQUAL_TO need a value
   logic STRING,                       -- e.g. the SQL the rule evaluates
-  severity STRING,                    -- LOW, MEDIUM, HIGH; default for results without one
+  severity STRING,                    -- LOW, MEDIUM, HIGH; default for results without one; drives incident actions
   is_active BOOLEAN NOT NULL,         -- false retires the assertion
   rule_version STRING,
   external_url STRING,
-  updated_at TIMESTAMP NOT NULL       -- when the rule definition last changed (not read by DataHub yet)
+  updated_at TIMESTAMP NOT NULL       -- when the rule definition last changed; shown as the assertion's last update
 );
 
 CREATE TABLE main.governance.dq_results (
@@ -189,7 +189,9 @@ CREATE TABLE main.governance.dq_results (
 - After a `dataset_path` change, results published later attach to the new dataset; run events published earlier keep the dataset they were published against.
 - `column_paths` should name top-level columns. Casing is matched to the ingested schema; nested (struct) fields are passed through as written and may not link to the column in DataHub.
 
-**Assertion.** Each active rule becomes a `CUSTOM` assertion of category `Databricks Data Quality` whose name is `rule_name`, native type is `rule_type` and logic is `logic`; `rule_id`, `rule_namespace`, `rule_description`, `dimension`, `rule_version` and `severity` are custom properties. `operator` is mapped to a standard operator when the parameters allow it: `NOT_NULL`; `UNIQUE` (as a uniqueness ratio of 1); `BETWEEN` with `threshold_min` and `threshold_max`; `GREATER_THAN`, `LESS_THAN` and `EQUAL_TO` with `threshold_value`. Anything else, including a standard operator without its parameters, stays native and is described by `rule_type` and `logic`. The scope is column-level when `column_paths` is set, otherwise row-level.
+**Assertion.** Each active rule becomes a `CUSTOM` assertion of category `Databricks Data Quality` whose name is `rule_name`, native type is `rule_type` and logic is `logic`; `rule_id`, `rule_namespace`, `rule_description`, `dimension`, `rule_version` and `severity` are custom properties. `operator` is mapped to a standard operator when the parameters allow it: `NOT_NULL`; `UNIQUE` (as a uniqueness ratio of 1); `BETWEEN` with `threshold_min` and `threshold_max`; `GREATER_THAN`, `LESS_THAN` and `EQUAL_TO` with `threshold_value`. Anything else, including a standard operator without its parameters, stays native and is described by `rule_type` and `logic`. The scope is column-level when `column_paths` is set, otherwise row-level. `updated_at` becomes the assertion's last-updated time.
+
+**Incidents.** Rules whose `severity` is in `raise_incidents_for_severities` (default `HIGH`) get assertion actions that raise an incident when a result fails and resolve it when one succeeds. DataHub Cloud acts on these; DataHub Core stores them. The actions are emitted for every rule, empty when the severity does not qualify, so lowering a rule's severity removes them. Set the list empty to disable.
 
 **Run event.** Each result becomes one run event on its assertion, with `run_id` as the run id and as the event's message id, `executed_at` as the timestamp, and the dataset above as the assertee:
 

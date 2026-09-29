@@ -1301,6 +1301,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.platform_instance_name,
             env=self.config.env,
             rule_namespace=self.config.external_dq.rule_namespace,
+            incident_severities=frozenset(
+                self.config.external_dq.raise_incidents_for_severities
+            ),
             locator=UnityDatasetLocator(
                 self.table_refs | self.view_refs,
                 self.gen_dataset_urn,

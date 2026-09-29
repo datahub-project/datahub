@@ -1,9 +1,10 @@
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 import pydantic
 from pydantic import Field, NonNegativeInt, PositiveInt
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.source.external_dq.contract import SEVERITIES
 
 
 class ExternalDQConfig(ConfigModel):
@@ -51,6 +52,22 @@ class ExternalDQConfig(ConfigModel):
         "window never moves backward, so raising this only applies to results newer "
         "than the previous run's window start.",
     )
+
+    raise_incidents_for_severities: List[str] = Field(
+        default=["HIGH"],
+        description="Rules with one of these severities (LOW, MEDIUM, HIGH) get "
+        "assertion actions that raise an incident when a result fails and resolve "
+        "it when one succeeds (acted on by DataHub Cloud). Empty disables this.",
+    )
+
+    @pydantic.field_validator("raise_incidents_for_severities")
+    @classmethod
+    def _known_severities(cls, values: List[str]) -> List[str]:
+        normalized = [v.strip().upper() for v in values]
+        unknown = sorted(set(normalized) - SEVERITIES)
+        if unknown:
+            raise ValueError(f"must be one of {sorted(SEVERITIES)}, got {unknown}")
+        return normalized
 
     @pydantic.model_validator(mode="after")
     def _tables_required_when_enabled(self) -> "ExternalDQConfig":

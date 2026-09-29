@@ -1,18 +1,23 @@
 from collections import Counter
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Protocol, Sequence, Set
+from typing import Dict, FrozenSet, Iterable, Optional, Protocol, Sequence, Set
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.external_dq.builders import (
     StdAssertion,
+    build_assertion_actions,
     build_assertion_run_event,
     build_custom_assertion_info,
     build_status,
     make_external_assertion_urn,
     map_operator,
 )
-from datahub.ingestion.source.external_dq.contract import ResultRow, RuleRow
+from datahub.ingestion.source.external_dq.contract import (
+    ResultRow,
+    RuleRow,
+    datetime_to_millis,
+)
 from datahub.ingestion.source.external_dq.report import ExternalDQReport
 from datahub.metadata.schema_classes import DatasetAssertionScopeClass
 
@@ -46,6 +51,7 @@ class ExternalDQMapper:
         platform_instance: Optional[str],
         env: str,
         rule_namespace: str,
+        incident_severities: FrozenSet[str],
         locator: DatasetLocator,
         report: ExternalDQReport,
         source_report: SourceReport,
@@ -55,6 +61,7 @@ class ExternalDQMapper:
         self.platform_instance = platform_instance
         self.env = env
         self.rule_namespace = rule_namespace
+        self.incident_severities = incident_severities
         self.locator = locator
         self.report = report
         self.source_report = source_report
@@ -159,8 +166,13 @@ class ExternalDQMapper:
                 native_parameters=dict(rule.extras) or None,
                 external_url=rule.external_url,
                 custom_properties=properties,
+                last_updated_millis=datetime_to_millis(rule.updated_at),
             )
             yield build_status(assertion_urn, active=rule.is_active)
+            yield build_assertion_actions(
+                assertion_urn,
+                raise_incident=rule.severity in self.incident_severities,
+            )
             self.report.assertions_emitted += 1
 
     def is_known_rule(self, rule_id: str) -> bool:
