@@ -73,6 +73,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessInfo,
     DBTTest,
     DBTTestResult,
+    is_passing_test_result,
     make_assertion_from_freshness,
     make_assertion_from_test,
     make_assertion_result_from_freshness,
@@ -2174,6 +2175,12 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     environment=self.config.env,
                 )
 
+                results_to_emit = select_test_results_to_emit(
+                    node.test_results,
+                    latest_only=self.config.only_emit_latest_test_result,
+                )
+                if self.config.entities_enabled.can_emit_test_results:
+                    self._report_superseded_non_passing_results(node, results_to_emit)
                 # In case a dbt test depends on multiple tables, we create separate assertions for each.
                 for upstream_node_name, upstream_urn in upstreams.items():
                     guid_upstream_part = {}
@@ -2235,10 +2242,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         if ownership_mcp:
                             yield ownership_mcp
 
-                    for test_result in select_test_results_to_emit(
-                        node.test_results,
-                        latest_only=self.config.only_emit_latest_test_result,
-                    ):
+                    for test_result in results_to_emit:
                         if self.config.entities_enabled.can_emit_test_results:
                             yield make_assertion_result_from_test(
                                 node,
@@ -2259,6 +2263,26 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     message="Failed to emit test assertion metadata for this node; some or all of its workunits may be missing.",
                     kind="emission",
                 )
+
+    def _report_superseded_non_passing_results(
+        self, node: DBTNode, results_to_emit: List[DBTTestResult]
+    ) -> None:
+        # Without a record of what earlier ingestions already emitted we cannot tell
+        # a superseded failure that was ingested before from one that never was, so
+        # surface it rather than dropping it silently.
+        for test_result in node.test_results:
+            if test_result in results_to_emit or is_passing_test_result(
+                test_result, self.config.test_warnings_are_errors
+            ):
+                continue
+            self.report.info(
+                title="Superseded dbt test failures not emitted",
+                message="A newer result exists for these dbt tests, so older non-passing "
+                "results from other run_results files were not emitted. Set "
+                "`only_emit_latest_test_result: false` to emit every result.",
+                context=f"{node.dbt_name} ({test_result.invocation_id}: {test_result.status})",
+                log=False,
+            )
 
     def create_freshness_assertion_mcps(
         self,

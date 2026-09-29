@@ -763,3 +763,69 @@ def test_dbt_convert_urns_to_lowercase(
         assert dataset_name == dataset_name.lower(), (
             f"dbt URN dataset name should be lowercase: {urn}"
         )
+
+
+def _write_run_results(
+    base: Dict[str, Any], path: PathLike, invocation_id: str, day: str, status: str
+) -> None:
+    run_results = json.loads(json.dumps(base))
+    run_results["metadata"]["invocation_id"] = invocation_id
+    # Results without "execute" timing fall back to generated_at.
+    run_results["metadata"]["generated_at"] = f"{day}T06:00:00.000000Z"
+    for result in run_results["results"]:
+        for timing in result["timing"]:
+            timing["started_at"] = f"{day}T06:00:00.000000Z"
+            timing["completed_at"] = f"{day}T06:00:01.000000Z"
+        if result["unique_id"].startswith("test."):
+            result["status"] = status
+    with open(path, "w") as f:
+        json.dump(run_results, f)
+
+
+def test_dbt_superseded_test_results_are_not_replayed(test_resources_dir, tmp_path):
+    base = json.loads(
+        (test_resources_dir / "jaffle_shop_test_results.json").read_text()
+    )
+    # Newest file listed first, so file order alone would emit the stale failure last.
+    current_path = tmp_path / "run_results_current.json"
+    previous_path = tmp_path / "run_results_previous.json"
+    _write_run_results(base, current_path, "inv-current", "2026-01-02", "pass")
+    _write_run_results(base, previous_path, "inv-previous", "2026-01-01", "fail")
+    output_file = tmp_path / "output.json"
+
+    pipeline = Pipeline(
+        config=PipelineConfig(
+            source=SourceConfig(
+                type="dbt",
+                config=DBTCoreConfig(
+                    **_default_dbt_source_args,
+                    manifest_path=str(test_resources_dir / "jaffle_shop_manifest.json"),
+                    catalog_path=str(test_resources_dir / "jaffle_shop_catalog.json"),
+                    target_platform="postgres",
+                    run_results_paths=[str(current_path), str(previous_path)],
+                ),
+            ),
+            sink=DynamicTypedConfig(type="file", config={"filename": str(output_file)}),
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    run_events: Dict[str, List[Any]] = {}
+    for mcp in json.loads(output_file.read_text()):
+        if mcp.get("aspectName") == "assertionRunEvent":
+            event = mcp["aspect"]["json"]
+            run_events.setdefault(mcp["entityUrn"], []).append(
+                (event["runId"], event["result"]["type"])
+            )
+    assert run_events
+    assert all(events == [("inv-current", "SUCCESS")] for events in run_events.values())
+
+    # The dropped failures are surfaced in the report rather than lost silently.
+    superseded = [
+        info
+        for info in pipeline.source.get_report().infos
+        if info.title == "Superseded dbt test failures not emitted"
+    ]
+    assert len(superseded) == 1
+    assert all("inv-previous: fail" in context for context in superseded[0].context)

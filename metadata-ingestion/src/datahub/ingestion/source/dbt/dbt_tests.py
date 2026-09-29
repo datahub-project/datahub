@@ -371,6 +371,13 @@ def select_test_results_to_emit(
     return ordered[-1:] if latest_only else ordered
 
 
+def is_passing_test_result(
+    test_result: DBTTestResult, test_warnings_are_errors: bool
+) -> bool:
+    result_type, _ = _map_dbt_test_status(test_result.status, test_warnings_are_errors)
+    return result_type == AssertionResultTypeClass.SUCCESS
+
+
 def make_assertion_result_from_test(
     node: "DBTNode",
     test_result: DBTTestResult,
