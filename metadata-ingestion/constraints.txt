@@ -1040,7 +1040,7 @@ pyiceberg==0.11.1
     # via acryl-datahub
 pyiceberg-core==0.6.0
     # via pyiceberg
-pyjwt==2.13.0
+pyjwt==2.15.1
     # via
     #   feast
     #   msal
@@ -1630,7 +1630,7 @@ unstructured-client==0.42.10
     # via unstructured
 unstructured-ingest==0.7.2
     # via acryl-datahub
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   acryl-datahub
     #   botocore
