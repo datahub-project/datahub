@@ -272,8 +272,7 @@ def test_describe_failure_on_rules_carries_forward_watermark() -> None:
     workunits, _, source_report, _ = run(reader, _handler(second))
     assert workunits == []
     assert source_report.failures
-    assert second.current is not None
-    assert second.current.state.watermarks == {RESULTS: T0}  # type: ignore[attr-defined]
+    assert second.committed_state().watermarks == {RESULTS: T0}
 
 
 def test_rules_read_failure_carries_forward_watermark() -> None:
@@ -291,8 +290,7 @@ def test_rules_read_failure_carries_forward_watermark() -> None:
     _, run_events, source_report, _ = run(reader, _handler(second))
     assert run_events == []
     assert source_report.failures
-    assert second.current is not None
-    assert second.current.state.watermarks == {RESULTS: T0}  # type: ignore[attr-defined]
+    assert second.committed_state().watermarks == {RESULTS: T0}
 
 
 OVERLAP_MS = ExternalDQConfig(enabled=False).late_arrival_minutes * 60_000
@@ -357,6 +355,33 @@ def test_unresolved_rule_results_hold_the_window_until_the_rule_resolves() -> No
     reader.rules = [rule_raw(), rule_raw(rule_id="gone")]
     _, run_events, _, _ = run(reader, _handler(second))
     assert _run_ids(run_events) == ["g1"]
+
+
+def test_results_for_invalid_or_duplicated_rule_rows_do_not_hold_the_window() -> None:
+    # A rule row that is duplicated or fails validation is a producer error that
+    # will not resolve on its own, unlike a table that was not listed this run.
+    reader = FakeReader(
+        [
+            result_raw(rule_id="dup", run_id="d1", executed_at=T0 - 3 * HOUR),
+            result_raw(rule_id="bad", run_id="b1", executed_at=T0 - 3 * HOUR),
+            result_raw(),
+        ]
+    )
+    reader.rules = [
+        rule_raw(),
+        rule_raw(rule_id="dup"),
+        rule_raw(rule_id="dup", rule_name="copy"),
+        rule_raw(rule_id="bad", rule_name="  "),
+    ]
+    first = FakeStateProvider()
+    _, run_events, source_report, report = run(reader, _handler(first))
+    assert _run_ids(run_events) == ["run-1"]
+    assert report.results_skipped_invalid_rule == 2
+    assert _state(first).next_starts == {RESULTS: T0 - 60 * 60_000}
+    assert (
+        "External DQ results skipped because their rule row is invalid or duplicated"
+        in [w.title for w in source_report.warnings]
+    )
 
 
 def test_unresolved_hold_is_released_after_initial_lookback() -> None:

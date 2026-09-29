@@ -100,3 +100,9 @@ class FakeStateProvider:
         if self.current is None:
             self.current = self.handler.create_checkpoint()
         return self.current
+
+    def committed_state(self) -> Any:
+        """What the next run loads: the checkpoint created this run if there is
+        one, otherwise the previous one stays the latest."""
+        checkpoint = self.current or self.last
+        return checkpoint.state if checkpoint else None

@@ -126,11 +126,22 @@ class ExternalDQStateHandler(
         if not self.is_checkpointing_enabled():
             return None
         assert self.pipeline_name is not None
+        last = self.state_provider.get_last_checkpoint(
+            self.job_id, ExternalDQCheckpointState
+        )
+        # Start from the previous state, so a run that never reaches the DQ stage
+        # or fails before save() commits it unchanged instead of an empty
+        # checkpoint that would re-read the initial lookback.
+        state = (
+            last.state.model_copy(deep=True)
+            if last is not None and isinstance(last.state, ExternalDQCheckpointState)
+            else ExternalDQCheckpointState()
+        )
         return Checkpoint(
             job_name=self.job_id,
             pipeline_name=self.pipeline_name,
             run_id=self.run_id,
-            state=ExternalDQCheckpointState(),
+            state=state,
         )
 
     def load(self, table: str) -> LoadedState:
@@ -141,23 +152,12 @@ class ExternalDQStateHandler(
             return LoadedState(None, {}, None)
         assert isinstance(last.state, ExternalDQCheckpointState)
         state = last.state
-        loaded = LoadedState(
+        return LoadedState(
             watermark=state.watermarks.get(table),
             recent=dict(state.recent_keys.get(table, {})),
             late_baseline=state.late_baselines.get(table),
             next_start=state.next_starts.get(table),
         )
-        if loaded.watermark is not None:
-            # Carry forward now, so a run that fails before save() keeps the
-            # previous watermark instead of re-reading the initial lookback.
-            self.save(
-                table,
-                loaded.watermark,
-                loaded.recent,
-                loaded.late_baseline,
-                next_start=loaded.next_start,
-            )
-        return loaded
 
     def save(
         self,

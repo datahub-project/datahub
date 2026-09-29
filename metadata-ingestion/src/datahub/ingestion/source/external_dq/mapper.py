@@ -1,6 +1,6 @@
 from collections import Counter
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Protocol, Sequence
+from typing import Dict, Iterable, Optional, Protocol, Sequence, Set
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import SourceReport
@@ -60,6 +60,7 @@ class ExternalDQMapper:
         self.source_report = source_report
         self.category = category
         self._rules: Dict[str, _BoundRule] = {}
+        self._unpublishable: Set[str] = set()
 
     def assertion_urn(self, rule_id: str) -> str:
         # The dataset is deliberately not part of the key: a table rename re-points
@@ -101,6 +102,7 @@ class ExternalDQMapper:
             for rule_id, count in Counter(r.rule_id for r in rules).items()
             if count > 1
         }
+        self._unpublishable.update(duplicates)
         for rule_id in sorted(duplicates):
             self.source_report.warning(
                 title="Duplicate external DQ rule_id",
@@ -163,6 +165,10 @@ class ExternalDQMapper:
 
     def is_known_rule(self, rule_id: str) -> bool:
         return rule_id in self._rules
+
+    def is_unpublishable(self, rule_id: str) -> bool:
+        """The rules table has this rule_id, but every row for it was skipped."""
+        return rule_id in self._unpublishable
 
     def map_result(self, result: ResultRow) -> Optional[MetadataChangeProposalWrapper]:
         bound = self._rules.get(result.rule_id)

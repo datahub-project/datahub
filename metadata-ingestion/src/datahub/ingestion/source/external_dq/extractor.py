@@ -86,10 +86,11 @@ class ExternalDQExtractor:
     starts late_arrival_minutes before the newest executed_at published so far,
     keys published inside it are remembered so nothing is emitted twice, the
     window start never moves backward, the watermark is capped at the host clock,
-    and results whose rule is not published yet hold the window for up to
-    initial_lookback_days. Failures reported here keep the checkpoint at the last
-    published result; an uncaught error elsewhere in the run skips the commit and
-    replays this run. Contract and semantics: Unity Catalog connector docs,
+    and results whose rule is missing or unresolved hold the window for up to
+    initial_lookback_days (results whose rule row is invalid or duplicated do
+    not). Failures reported here keep the checkpoint at the last published
+    result; an uncaught error elsewhere in the run skips the commit and replays
+    this run. Contract and semantics: Unity Catalog connector docs,
     "External data quality tables".
     """
 
@@ -142,6 +143,7 @@ class ExternalDQExtractor:
             )
 
         rules: List[RuleRow] = []
+        invalid_rule_ids: Set[str] = set()
         for raw in self._read(
             partial(self.reader.read_rules, rules_table, rule_columns), rules_table
         ):
@@ -151,6 +153,8 @@ class ExternalDQExtractor:
             )
             if rule is None:
                 self.report.rules_skipped_invalid += 1
+                if isinstance(raw.get("rule_id"), str):
+                    invalid_rule_ids.add(raw["rule_id"].strip())
             else:
                 rules.append(rule)
         if self._read_failed:
@@ -158,13 +162,16 @@ class ExternalDQExtractor:
         for mcp in self.mapper.map_rules(rules):
             yield mcp.as_workunit()
 
-        yield from self._result_workunits(results_table, result_columns, loaded)
+        yield from self._result_workunits(
+            results_table, result_columns, loaded, invalid_rule_ids
+        )
 
     def _result_workunits(
         self,
         table: str,
         columns: Sequence[SelectColumn],
         loaded: LoadedState,
+        invalid_rule_ids: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         last_watermark, last_recent = loaded.watermark, loaded.recent
         overlap_ms = self.config.late_arrival_minutes * 60_000
@@ -186,6 +193,7 @@ class ExternalDQExtractor:
         # One int64 per row read; memory is O(rows read per run).
         read_timestamps = array("q")
         unknown_rules: Set[str] = set()
+        invalid_rules: Set[str] = set()
         expired_rules: Set[str] = set()
         hold: Optional[int] = None
         observed: Dict[str, int] = {}
@@ -228,14 +236,31 @@ class ExternalDQExtractor:
                 if self.mapper.is_known_rule(result.rule_id):
                     # Retired rule: record it so it is not re-processed, emit nothing.
                     observed[key] = result.executed_at_millis
+                elif (
+                    self.mapper.is_unpublishable(result.rule_id)
+                    or result.rule_id in invalid_rule_ids
+                ):
+                    # The rule row exists but is invalid or duplicated: a producer
+                    # error that will not resolve on its own, so it must not hold
+                    # the window. Retried while inside it, then dropped.
+                    self.report.results_skipped_invalid_rule += 1
+                    if result.rule_id not in invalid_rules:
+                        invalid_rules.add(result.rule_id)
+                        self.source_report.warning(
+                            title="External DQ results skipped because their rule row is invalid or duplicated",
+                            message="Fix the rule row. These results are retried "
+                            "while inside late_arrival_minutes and then dropped.",
+                            context=f"{table}: rule_id={result.rule_id}",
+                        )
                 elif now - result.executed_at_millis > hold_limit_ms:
                     # The rule stayed unpublished for the whole hold period.
                     self.report.results_unresolved_expired += 1
                     expired_rules.add(result.rule_id)
                 else:
-                    # Unresolved rule: not recorded. The window is held at the
-                    # oldest such result so it is published once the rule resolves
-                    # (e.g. after a transient table-listing failure).
+                    # Rule missing from the table or its dataset not ingested this
+                    # run: not recorded. The window is held at the oldest such
+                    # result so it is published once the rule resolves (e.g. after
+                    # a transient table-listing failure).
                     ts = result.executed_at_millis
                     hold = ts if hold is None else min(hold, ts)
                     if result.rule_id not in unknown_rules:

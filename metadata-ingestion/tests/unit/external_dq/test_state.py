@@ -116,13 +116,16 @@ def test_save_then_load_round_trips() -> None:
     assert handler_for(second).load("t") == LoadedState(5, {"k": 5}, [4, 2], 4)
 
 
-def test_load_carries_forward() -> None:
+def test_new_checkpoint_starts_from_the_previous_state() -> None:
+    # A run that never reaches the DQ stage (or fails before save()) must not be
+    # able to commit an empty checkpoint over the previous watermark.
     first = FakeStateProvider()
     handler_for(first).save("t", 5, {"k": 5}, [4, 2], next_start=4)
     second = FakeStateProvider(last=first.current)
-    handler_for(second).load("t")  # run fails before save()
-    assert second.current is not None
-    state = cast(ExternalDQCheckpointState, second.current.state)
+    handler = handler_for(second)
+    current = second.get_current_checkpoint(handler.job_id)  # no load()
+    assert current is not None
+    state = cast(ExternalDQCheckpointState, current.state)
     assert state.watermarks == {"t": 5}
     assert state.recent_keys == {"t": {"k": 5}}
     assert state.late_baselines == {"t": [4, 2]}
