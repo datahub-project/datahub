@@ -168,14 +168,11 @@ export default function computeBoundingBoxGraph(
           })()
         : displayedNodes;
 
-    // Hide nodes with no lineage
-    const shownFilteredNodes = hideOrphanedNodes(
-        shownNodes,
-        urn,
-        groups.get(urn)?.memberUrns ?? new Set(),
-        nodes,
-        graphStore.adjacencyList,
-    );
+    // Hide nodes with no lineage for data products
+    const shownFilteredNodes =
+        rootType === EntityType.DataProduct
+            ? hideOrphanedNodes(shownNodes, urn, groups.get(urn)?.memberUrns ?? new Set(), nodes, adjacencyList)
+            : shownNodes;
 
     const displayedIds = new Set(shownFilteredNodes.map((node) => node.id));
 

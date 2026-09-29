@@ -9,6 +9,7 @@ const A = 'urn:li:dataset:A';
 const B = 'urn:li:dataset:B';
 const C = 'urn:li:dataset:C';
 const D = 'urn:li:dataset:D';
+const N = 'urn:li:dataset:N';
 
 function node(urn: string, type: EntityType, fetched: boolean, isMember: boolean): LineageEntity {
     return {
@@ -29,18 +30,27 @@ function node(urn: string, type: EntityType, fetched: boolean, isMember: boolean
     };
 }
 
-/** Returns the members rendered for DP; `fetched` lists members whose bulk lineage fetch has completed. */
+type Options = { collapsed?: string[]; unresolvedNeighbors?: string[] };
+
+/**
+ * Returns the members rendered for the home box DP; `fetched` lists members whose bulk lineage fetch
+ * has completed. `unresolvedNeighbors` are non-member nodes whose membership hasn't been fetched yet.
+ */
 function renderedUrns(
     members: string[],
     fetched: string[],
     lineage: [string, string][],
-    collapsed: string[] = [],
+    { collapsed = [], unresolvedNeighbors = [] }: Options = {},
 ): string[] {
     const nodes: NodeContext['nodes'] = new Map([
         [DP, node(DP, EntityType.DataProduct, true, false)],
         ...members.map((urn): [string, LineageEntity] => [
             urn,
             node(urn, EntityType.Dataset, fetched.includes(urn), true),
+        ]),
+        ...unresolvedNeighbors.map((urn): [string, LineageEntity] => [
+            urn,
+            node(urn, EntityType.Dataset, false, false),
         ]),
     ]);
     collapsed.forEach((urn) => {
@@ -97,9 +107,23 @@ describe('computeBoundingBoxGraph orphaned members', () => {
                     [A, B],
                     [C, D],
                 ],
-                [A, B],
+                { collapsed: [A, B] },
             ).sort(),
         ).toEqual([A, B, C, D]);
+    });
+
+    it('keeps members whose only lineage is to neighbors with unresolved membership', () => {
+        expect(
+            renderedUrns(
+                [A, B, C],
+                [A, B, C],
+                [
+                    [A, B],
+                    [C, N],
+                ],
+                { unresolvedNeighbors: [N] },
+            ).sort(),
+        ).toEqual([A, B, C]);
     });
 
     it('shows all members when none of them has lineage, so the home box stays visible', () => {

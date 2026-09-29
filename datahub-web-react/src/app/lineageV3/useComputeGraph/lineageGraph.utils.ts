@@ -1,36 +1,10 @@
-import { LINEAGE_FILTER_TYPE, LineageNode, NodeContext } from '@app/lineageV3/common';
+import { FetchStatus, LINEAGE_FILTER_TYPE, LineageEntity, LineageNode, NodeContext } from '@app/lineageV3/common';
 
 import { LineageDirection } from '@types';
 
 /**
- * Returns a set of node IDs that have at least one lineage edge (either upstream or downstream)
- * to another node. Nodes without any connections are considered orphaned.
- */
-export function getNodesWithLineage(
-    nodeIds: (string | undefined)[],
-    adjacencyList: NodeContext['adjacencyList'],
-): Set<string> {
-    const nodesWithLineage = new Set<string>();
-
-    nodeIds.forEach((nodeId) => {
-        if (!nodeId) return;
-
-        const hasUpstream = (adjacencyList[LineageDirection.Upstream].get(nodeId)?.size ?? 0) > 0;
-        const hasDownstream = (adjacencyList[LineageDirection.Downstream].get(nodeId)?.size ?? 0) > 0;
-
-        if (hasUpstream || hasDownstream) {
-            nodesWithLineage.add(nodeId);
-        }
-    });
-
-    return nodesWithLineage;
-}
-
-/**
- * Hides nodes known to have no lineage. A node's lineage is known once its bulk lineage fetch has set
- * `entity`; unfetched nodes stay shown, since the bulk fetch only requests displayed nodes. Nothing is
- * hidden until a home member is known to have lineage, so the home box and its "Show more" control stay
- * visible, and orphans aren't hidden then re-shown while a page of members loads.
+ * Hides nodes known to have no lineage: fetched, with no lineage update in flight, and no edges.
+ * Hides nothing until a home member has lineage, so the home box and "Show more" stay visible.
  */
 export function hideOrphanedNodes(
     shownNodes: LineageNode[],
@@ -39,18 +13,27 @@ export function hideOrphanedNodes(
     nodes: NodeContext['nodes'],
     adjacencyList: NodeContext['adjacencyList'],
 ): LineageNode[] {
-    const nodesWithLineage = getNodesWithLineage(
-        shownNodes.map((node) => node.id),
-        adjacencyList,
-    );
-    if (!shownNodes.some((node) => homeMemberUrns.has(node.id) && nodesWithLineage.has(node.id))) {
+    const hasLineage = (id: string) =>
+        !!adjacencyList[LineageDirection.Upstream].get(id)?.size ||
+        !!adjacencyList[LineageDirection.Downstream].get(id)?.size;
+
+    if (!shownNodes.some((node) => homeMemberUrns.has(node.id) && hasLineage(node.id))) {
         return shownNodes;
     }
     return shownNodes.filter(
         (node) =>
             node.id === rootUrn ||
             node.type === LINEAGE_FILTER_TYPE ||
-            !nodes.get(node.id)?.entity ||
-            nodesWithLineage.has(node.id),
+            !isLineageKnown(nodes.get(node.id)) ||
+            hasLineage(node.id),
+    );
+}
+
+/** Whether a node's lineage has been fetched and no lineage update is in flight. */
+export function isLineageKnown(node: LineageEntity | undefined): boolean {
+    return (
+        !!node?.entity &&
+        node.fetchStatus[LineageDirection.Upstream] !== FetchStatus.LOADING &&
+        node.fetchStatus[LineageDirection.Downstream] !== FetchStatus.LOADING
     );
 }
