@@ -72,8 +72,7 @@ python-multipart>=0.0.22
 # quadratic-CPU DoS in format(reindent=...); all fixed in 0.6.0. Global floor here
 # also covers transitive consumers (mlflow-skinny); setup.py only bounds extras.
 sqlparse>=0.6.0
-# starlette: CVE fixes in 1.0.1. Transitive via fastapi; Docker-only floor (plus
-# lock-time [tool.uv] constraint) because Airflow constraints pin starlette below 1.0.
+# starlette: CVE-2026-48710 (BadHost), fixed in 1.0.1. Not in setup.py: Airflow pins <1.0.
 starlette>=1.0.1
 PyNaCl>=1.6.2
 google-cloud-aiplatform>=1.133.0
