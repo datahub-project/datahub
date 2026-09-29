@@ -130,7 +130,6 @@ class DatabricksAdapter(PlatformAdapter):
         """
         Databricks uses approx_count_distinct for fast unique counts.
 
-        This matches GE profiler behavior (ge_data_profiler.py:233-239).
         Note: Databricks uses lowercase function name.
 
         Args:
@@ -145,7 +144,6 @@ class DatabricksAdapter(PlatformAdapter):
         """
         Databricks uses approx_percentile for median.
 
-        This matches GE profiler behavior (ge_data_profiler.py:684-693).
         approx_percentile(column, 0.5) computes the approximate median.
 
         Args:

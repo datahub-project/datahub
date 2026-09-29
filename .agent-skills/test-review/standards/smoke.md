@@ -15,8 +15,8 @@ the symbols below; do not invent rules.
 
 **Source:** `smoke-test/AGENTS.md` (Isolation),
 `unique_suffix` / `unique_dataset_urn` / `materialize_with_unique_name` /
-`materialize_unique_dataset` in `smoke-test/tests/utils.py`,
-`_ingest_cleanup_unique_dataset_impl` in `smoke-test/conftest.py`.
+`materialize_unique_dataset` in `smoke-test/tests/e2e/utils.py`,
+`_ingest_cleanup_unique_dataset_impl` in `smoke-test/tests/e2e/conftest.py`.
 
 Smoke tests share one GMS. Under xdist `--dist=loadscope`, modules run in
 parallel, so a hardcoded URN in two modules races.
@@ -53,7 +53,7 @@ ingested_dataset_run_id = ""
 
 **Source:** `smoke-test/AGENTS.md` (Isolation),
 `auth_session` / `graph_client` / `openapi_graph_client` / `clear_graph_cache`
-in `smoke-test/conftest.py`.
+in `smoke-test/tests/e2e/conftest.py`.
 
 **Session-scoped:** `auth_session`, `graph_client`, `openapi_graph_client`.
 **Function-scoped autouse:** `clear_graph_cache`.
@@ -94,8 +94,8 @@ Fallback when fixture keys are **already unique** to the module:
 ## 3. Authentication and HTTP
 
 **Source:** `smoke-test/AGENTS.md` (Rules), `TestSessionWrapper` in
-`smoke-test/tests/utils.py`, `make_step_actor_user` in
-`smoke-test/tests/utilities/multi_user.py`.
+`smoke-test/tests/e2e/utils.py`, `make_step_actor_user` in
+`smoke-test/utilities/multi_user.py`.
 
 `TestSessionWrapper` injects a Bearer token, clones header dicts, waits on
 POST/PUT, and revokes the token on destroy.
@@ -115,7 +115,7 @@ POST/PUT, and revokes the token on destroy.
 ## 4. Retry and consistency
 
 **Source:** `smoke-test/AGENTS.md` (Rules), `with_test_retry` in
-`smoke-test/tests/utils.py`, `wait_for_writes_to_sync` in
+`smoke-test/tests/e2e/utils.py`, `wait_for_writes_to_sync` in
 `smoke-test/tests/consistency_utils.py`.
 
 Never use `time.sleep()` to wait for GMS, search, or Kafka.
@@ -141,7 +141,7 @@ Never use `time.sleep()` to wait for GMS, search, or Kafka.
 ## 5. GraphQL and REST
 
 **Source:** `execute_graphql` / `ingest_file_via_rest` in
-`smoke-test/tests/utils.py`; per-module `restli_default_headers` (e.g.
+`smoke-test/tests/e2e/utils.py`; per-module `restli_default_headers` (e.g.
 `smoke-test/test_e2e.py`); `smoke-test/AGENTS.md` (Rules).
 
 `execute_graphql()` already asserts a non-empty body, `data` is not `None`,
@@ -157,15 +157,15 @@ and no `errors` key.
 - SUGGESTION: OpenAPI v3 multi-step tests use `concurrent_openapi.run_tests()`.
   Do not add fixtures that only re-check a GraphQL path already covered.
 - SUGGESTION: Tags, terms, and descriptions via
-  `tests/utilities/metadata_operations.py`, not copied GraphQL mutations.
+  `utilities/metadata_operations.py`, not copied GraphQL mutations.
 
 ---
 
 ## 6. Markers
 
 **Source:** `smoke-test/pyproject.toml` (`[tool.pytest.ini_options] markers`),
-`Domain` in `smoke-test/tests/utilities/domains.py`, `smoke-test/AGENTS.md`
-(Markers), `global_policy_mutator` handling in `smoke-test/conftest.py`.
+`Domain` in `smoke-test/utilities/domains.py`, `smoke-test/AGENTS.md`
+(Markers), `global_policy_mutator` handling in `smoke-test/tests/e2e/conftest.py`.
 
 | Marker                  | When to use                                                                                                        |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -189,7 +189,7 @@ and no `errors` key.
 
 ## 7. Environment variables
 
-**Source:** `smoke-test/tests/utilities/env_vars.py`, `smoke-test/AGENTS.md`
+**Source:** `smoke-test/utilities/env_vars.py`, `smoke-test/AGENTS.md`
 (Rules).
 
 **Rules:**
@@ -206,7 +206,7 @@ and no `errors` key.
 ## 8. Guaranteed cleanup
 
 **Source:** `smoke-test/AGENTS.md` (Rules, Isolation), `_ingest_cleanup_*` in
-`smoke-test/conftest.py`.
+`smoke-test/tests/e2e/conftest.py`.
 
 | Where created  | Teardown                                                                                    |
 | -------------- | ------------------------------------------------------------------------------------------- |
@@ -224,7 +224,7 @@ and no `errors` key.
 
 ## 9. Multi-environment configuration
 
-**Source:** `smoke-test/tests/utilities/env_vars.py`,
+**Source:** `smoke-test/utilities/env_vars.py`,
 `smoke-test/tests/consistency_utils.py` (`USE_STATIC_SLEEP`).
 
 **Rules:**
@@ -237,7 +237,7 @@ and no `errors` key.
 
 ## 10. Concurrent testing
 
-**Source:** `smoke-test/tests/utilities/concurrent_test_runner.py`,
+**Source:** `smoke-test/utilities/concurrent_test_runner.py`,
 `concurrent_openapi.py`, `smoke-test/AGENTS.md`.
 
 **Rules:**

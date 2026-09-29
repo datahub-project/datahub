@@ -450,7 +450,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
           MultiEntityMappingsUtils.mergeMappings(combinedMappings, mappingBaseConfiguration);
     }
 
-    applyMappingContributors(combinedMappings);
+    applyMappingContributors(combinedMappings, searchGroup);
 
     // Build _search section with all copy_to destination fields
     Map<String, Object> searchSection =
@@ -466,7 +466,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     return combinedMappings;
   }
 
-  private void applyMappingContributors(@Nonnull Map<String, Object> combinedMappings) {
+  private void applyMappingContributors(
+      @Nonnull Map<String, Object> combinedMappings, @Nonnull String searchGroup) {
     if (mappingContributors.isEmpty()) {
       return;
     }
@@ -477,7 +478,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       combinedMappings.put("properties", properties);
     }
     for (V3MappingContributor contributor : mappingContributors) {
-      Map<String, Object> extras = contributor.extraRootProperties();
+      Map<String, Object> extras = contributor.extraRootProperties(searchGroup);
       for (Map.Entry<String, Object> extra : extras.entrySet()) {
         if (properties.containsKey(extra.getKey())
             || MappingConstants.STRATEGY_OWNED_ROOT_FIELDS.contains(extra.getKey())) {

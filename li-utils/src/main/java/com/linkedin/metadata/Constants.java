@@ -135,6 +135,7 @@ public class Constants {
   public static final String METRIC_INFO_ASPECT_NAME = "metricInfo";
   public static final String METRIC_RELATIONSHIPS_ASPECT_NAME = "metricRelationships";
   public static final String METRIC_UPSTREAMS_ASPECT_NAME = "metricUpstreams";
+  public static final String UPSTREAM_METRICS_ASPECT_NAME = "upstreamMetrics";
   public static final String SEMANTIC_MODEL_ENTITY_NAME = "semanticModel";
   public static final String SEMANTIC_MODEL_KEY_ASPECT_NAME = "semanticModelKey";
   public static final String SEMANTIC_MODEL_INFO_ASPECT_NAME = "semanticModelInfo";
@@ -629,6 +630,8 @@ public class Constants {
 
   // Index names
   public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
+  public static final String GRAPH_SERVICE_INDEX = "graph_service_v1";
+  public static final String SYSTEM_METADATA_SERVICE_INDEX = "system_metadata_service_v1";
 
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";

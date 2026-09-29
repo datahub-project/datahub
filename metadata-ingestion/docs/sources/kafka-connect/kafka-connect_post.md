@@ -125,7 +125,7 @@ source:
 - `include_business_metadata` — catalog business metadata attributes on a connector become custom properties on the same pipeline.
 - `include_lineage` — for **source** connectors, lineage is taken from the catalog's topic list instead of being predicted by the transform pipeline. Off by default; see the trade-off below.
 
-This source only writes the Kafka Connect pipelines it owns. Catalog tags and business metadata on the **topics** are ingested by the [`kafka`](/docs/generated/ingestion/sources/kafka) source, which owns those datasets — enable `confluent_catalog` there to pick them up.
+This source only writes the Kafka Connect pipelines it owns. Catalog tags and business metadata on the **topics** are ingested by the [`kafka`](kafka.md) source, which owns those datasets — enable `confluent_catalog` there to pick them up.
 
 ##### The `include_lineage` trade-off
 

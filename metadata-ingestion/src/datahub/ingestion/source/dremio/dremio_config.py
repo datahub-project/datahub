@@ -19,7 +19,7 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -111,7 +111,7 @@ class DremioConnectionConfig(ConfigModel):
         return value
 
 
-class ProfileConfig(GEProfilingConfig):
+class ProfileConfig(ProfilingConfig):
     query_timeout: int = Field(
         default=300, description="Time before cancelling Dremio profiling query"
     )

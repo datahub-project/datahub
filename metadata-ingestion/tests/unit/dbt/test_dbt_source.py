@@ -3637,7 +3637,10 @@ def test_extract_semantic_models_basic():
                 {"name": "revenue", "agg": "sum", "description": "Total revenue"}
             ],
             "tags": ["metrics", "orders"],
-            "meta": {"team": "analytics"},
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@data-team"},
+            },
             "original_file_path": "models/semantic_models/order_metrics.yml",
         }
     }
@@ -3679,6 +3682,61 @@ def test_extract_semantic_models_basic():
     # Check tags have prefix
     assert "dbt:metrics" in node.tags
     assert "dbt:orders" in node.tags
+
+    # Check meta is read from config.meta
+    assert node.meta == {"team": "analytics", "owner": "@data-team"}
+    assert node.owner == "@data-team"
+
+
+def test_extract_semantic_models_config_meta():
+    """Test that meta is read from config.meta (not top-level) matching real dbt manifests."""
+    manifest_semantic_models: Dict[str, Any] = {
+        "semantic_model.my_project.revenue_metrics": {
+            "name": "revenue_metrics",
+            "description": "Revenue metrics",
+            "node_relation": {
+                "database": "analytics",
+                "schema": "public",
+                "alias": "revenue_metrics",
+            },
+            "depends_on": {"nodes": ["model.my_project.fct_revenue"]},
+            "entities": [
+                {"name": "order_id", "type": "primary", "description": "Primary key"}
+            ],
+            "dimensions": [],
+            "measures": [
+                {"name": "total_revenue", "agg": "sum", "description": "Total revenue"}
+            ],
+            "config": {
+                "enabled": True,
+                "meta": {"team": "analytics", "owner": "@alice"},
+            },
+            "original_file_path": "models/semantic_models/revenue_metrics.yml",
+            "package_name": "my_project",
+        }
+    }
+
+    manifest_nodes: Dict[str, Any] = {
+        "model.my_project.fct_revenue": {
+            "database": "analytics",
+            "schema": "public",
+            "name": "fct_revenue",
+        }
+    }
+
+    nodes = extract_semantic_models(
+        manifest_semantic_models=manifest_semantic_models,
+        manifest_nodes=manifest_nodes,
+        manifest_adapter="snowflake",
+        tag_prefix="dbt:",
+    )
+
+    assert len(nodes) == 1
+    node = nodes[0]
+
+    assert node.meta == {"team": "analytics", "owner": "@alice"}
+    assert node.owner == "@alice"
+    assert node.tags == []
 
 
 def test_extract_semantic_models_fallback_to_depends_on():

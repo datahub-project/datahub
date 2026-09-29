@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entityV2/Entity';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { usePreviewData } from '@app/entityV2/shared/PreviewContext';
 import NoMarkdownViewer from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
+import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -65,11 +67,13 @@ const MemberCountContainer = styled.span`
 
 export const Preview = ({
     urn,
+    previewType,
     name,
     description,
     membersCount,
 }: {
     urn: string;
+    previewType: PreviewType;
     name: string;
     description?: string | null;
     membersCount?: number;
@@ -77,26 +81,25 @@ export const Preview = ({
     const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     const url = entityRegistry.getEntityUrl(EntityType.CorpGroup, urn);
+    const { propagationDetails } = usePreviewData();
 
     return (
         <PreviewContainer>
             <div>
-                <Link to={url}>
-                    <TitleContainer>
-                        <PlatformInfo>
-                            <PreviewImage>
-                                {entityRegistry.getIcon(EntityType.CorpGroup, 20, IconStyleType.HIGHLIGHT)}
-                            </PreviewImage>
-                            <PlatformText>{entityRegistry.getEntityName(EntityType.CorpGroup)}</PlatformText>
-                        </PlatformInfo>
-                        <Link to={url}>
-                            <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
-                            <MemberCountContainer>
-                                <Tag>{t('shared.membersCount', { count: membersCount || 0 })}</Tag>
-                            </MemberCountContainer>
-                        </Link>
-                    </TitleContainer>
-                </Link>
+                <TitleContainer>
+                    <PlatformInfo>
+                        <PreviewImage>
+                            {entityRegistry.getIcon(EntityType.CorpGroup, 20, IconStyleType.HIGHLIGHT)}
+                        </PreviewImage>
+                        <PlatformText>{entityRegistry.getEntityName(EntityType.CorpGroup)}</PlatformText>
+                    </PlatformInfo>
+                    <Link to={url}>
+                        <EntityTitle>{name ? <SearchTextHighlighter field="name" text={name} /> : urn}</EntityTitle>
+                        <MemberCountContainer>
+                            <Tag>{t('shared.membersCount', { count: membersCount || 0 })}</Tag>
+                        </MemberCountContainer>
+                    </Link>
+                </TitleContainer>
                 {description && description.length > 0 && (
                     <DescriptionContainer>
                         <NoMarkdownViewer
@@ -106,6 +109,9 @@ export const Preview = ({
                             {description}
                         </NoMarkdownViewer>
                     </DescriptionContainer>
+                )}
+                {previewType === PreviewType.HOVER_CARD && (
+                    <HoverCardAttributionDetails propagationDetails={propagationDetails} addMargin />
                 )}
             </div>
         </PreviewContainer>

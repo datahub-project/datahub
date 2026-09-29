@@ -57,7 +57,7 @@ const CronFormat = styled.div`
 
 interface Props {
     scheduleCronInterval: string;
-    setScheduleCronInterval: React.Dispatch<React.SetStateAction<string>>;
+    setScheduleCronInterval: (interval: string) => void;
     cronAsText: {
         text: string | undefined;
         error: boolean;

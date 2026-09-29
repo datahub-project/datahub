@@ -74,7 +74,7 @@ class RedshiftAdapter(PlatformAdapter):
         Redshift mean (AVG) with CAST to preserve precision.
 
         Redshift's AVG on INTEGER columns returns integer (rounded).
-        To match GE behavior which shows full precision, we cast to float.
+        Cast to float to preserve full precision.
 
         Args:
             column: Column name
@@ -83,7 +83,7 @@ class RedshiftAdapter(PlatformAdapter):
             SQLAlchemy expression for AVG(CAST(column AS FLOAT))
         """
         # Cast column to float to ensure AVG returns float with full precision
-        # This matches GE behavior (e.g., '8.478238501903489')
+        # e.g., '8.478238501903489' instead of '8'
         return sa.func.avg(sa.cast(sa.column(column), sa.Float))
 
     def get_stdev_null_value(self) -> Optional[float]:

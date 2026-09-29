@@ -155,6 +155,7 @@
     "searchBar.sections.bestMatches": "Best Matches",
     "searchBar.sections.recentlySearched": "You Recently Searched",
     "searchBar.sections.recentlyViewed": "You Recently Viewed",
+    "searchBar.viewAll": "View all →",
     "searchBar.viewAllResults": "View all results for <bold>{{query}}</bold>",
     "searchHeader.discover": "Discover",
     "sidebar.loadingError": "The sidebar failed to load.",

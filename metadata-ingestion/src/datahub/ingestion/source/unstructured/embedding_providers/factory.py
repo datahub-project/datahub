@@ -18,7 +18,13 @@ SUPPORTED_PROVIDERS: tuple[str, ...] = (
     "local",
     "vertex_ai",
     "onnx",
+    "classical",
 )
+
+# Providers that embed in-process with no external API behind them ("local" is not one:
+# it calls an OpenAI-compatible server over HTTP). Callers use this to skip API
+# protections such as the documents-per-minute limiter.
+IN_PROCESS_PROVIDERS: frozenset[str] = frozenset({"classical", "onnx"})
 
 
 def resolve_local_base_url(endpoint: Optional[str]) -> str:
@@ -144,5 +150,13 @@ def create_embedding_provider(config: "EmbeddingConfig") -> EmbeddingProvider:
             model_dir=model_dir,
             pooling=config.onnx_pooling,
         )
+
+    if provider == "classical":
+        from datahub.ingestion.source.unstructured.embedding_providers.classical import (
+            ClassicalEmbeddingProvider,
+        )
+
+        # Stateless and stdlib-only: the model name alone fixes the algorithm.
+        return ClassicalEmbeddingProvider(model=model)
 
     raise ValueError(f"Unsupported embedding provider: {provider}")

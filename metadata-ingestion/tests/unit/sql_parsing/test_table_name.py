@@ -95,14 +95,14 @@ class TestRestoreMssqlTempTablePrefix:
 
 
 class TestTableNameFromSqlglotTable:
-    """Tests for _TableName.from_sqlglot_table() method (basic functionality)."""
+    """Basic table name extraction."""
 
     def test_basic_table_extraction(self):
         """Basic table name extraction should work."""
         table = sqlglot.exp.Table(
             this=sqlglot.exp.Identifier(this="my_table"),
         )
-        result = _TableName.from_sqlglot_table(table)
+        result = _table_name_from_sqlglot_table(table, None)
         assert result.table == "my_table"
         assert result.database is None
         assert result.db_schema is None
@@ -114,7 +114,7 @@ class TestTableNameFromSqlglotTable:
             db=sqlglot.exp.Identifier(this="my_schema"),
             this=sqlglot.exp.Identifier(this="my_table"),
         )
-        result = _TableName.from_sqlglot_table(table)
+        result = _table_name_from_sqlglot_table(table, None)
         assert result.table == "my_table"
         assert result.database == "my_db"
         assert result.db_schema == "my_schema"
@@ -124,8 +124,8 @@ class TestTableNameFromSqlglotTable:
         table = sqlglot.exp.Table(
             this=sqlglot.exp.Identifier(this="my_table"),
         )
-        result = _TableName.from_sqlglot_table(
-            table, default_db="default_db", default_schema="default_schema"
+        result = _table_name_from_sqlglot_table(
+            table, None, default_db="default_db", default_schema="default_schema"
         )
         assert result.table == "my_table"
         assert result.database == "default_db"
@@ -138,8 +138,8 @@ class TestTableNameFromSqlglotTable:
             db=sqlglot.exp.Identifier(this="explicit_schema"),
             this=sqlglot.exp.Identifier(this="my_table"),
         )
-        result = _TableName.from_sqlglot_table(
-            table, default_db="default_db", default_schema="default_schema"
+        result = _table_name_from_sqlglot_table(
+            table, None, default_db="default_db", default_schema="default_schema"
         )
         assert result.database == "explicit_db"
         assert result.db_schema == "explicit_schema"
@@ -883,22 +883,9 @@ class TestTableNameQualified:
         """qualified() should add default db/schema if not present."""
         table = _TableName(table="my_table")
         qualified = table.qualified(
-            dialect=get_dialect("mssql"),
             default_db="default_db",
             default_schema="default_schema",
         )
         assert qualified.database == "default_db"
         assert qualified.db_schema == "default_schema"
         assert qualified.table == "my_table"
-
-    def test_qualified_preserves_temp_prefix(self):
-        """qualified() should preserve # prefix on temp tables."""
-        table = _TableName(table="#temptable")
-        qualified = table.qualified(
-            dialect=get_dialect("mssql"),
-            default_db="mydb",
-            default_schema="dbo",
-        )
-        assert qualified.table == "#temptable"
-        assert qualified.database == "mydb"
-        assert qualified.db_schema == "dbo"

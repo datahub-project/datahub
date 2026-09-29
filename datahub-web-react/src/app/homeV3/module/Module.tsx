@@ -74,4 +74,7 @@ function Module(props: ModuleProps) {
 }
 
 // Export memoized component to prevent unnecessary re-renders
-export default memo(Module);
+const MemoizedModule = memo(Module);
+MemoizedModule.displayName = 'Module';
+
+export default MemoizedModule;

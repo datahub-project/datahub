@@ -895,6 +895,11 @@ type FeatureFlagsConfig {
   glossaryBasedPoliciesEnabled: Boolean!
 
   """
+  Whether structured properties are enabled as criteria in policies.
+  """
+  structuredPropertiesInPoliciesEnabled: Boolean!
+
+  """
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!

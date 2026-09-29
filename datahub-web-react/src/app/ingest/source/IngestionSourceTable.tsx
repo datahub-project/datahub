@@ -144,7 +144,7 @@ function IngestionSourceTable({
             columns={tableColumns}
             onChange={handleTableChange}
             dataSource={tableData}
-            scroll={isShowNavBarRedesign ? { y: 'max-content', x: 'max-content' } : {}}
+            scroll={{ x: 'max-content' }}
             rowKey="urn"
             rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
             locale={{

@@ -30,7 +30,10 @@ export default function ConditionSelectDropdown({
     const { t } = useTranslation('settings.permissions');
 
     // Privileges derive from the selected types, so a prefix leaves none selectable.
-    const supportsStartsWith = fieldType !== FIELD_TYPES.RESOURCE_TYPE || condition === PolicyMatchCondition.StartsWith;
+    // Structured properties don't support StartsWith condition.
+    const supportsStartsWith =
+        (fieldType !== FIELD_TYPES.RESOURCE_TYPE && fieldType !== FIELD_TYPES.STRUCTURED_PROPERTY) ||
+        condition === PolicyMatchCondition.StartsWith;
 
     const options = [
         { value: PolicyMatchCondition.Equals, label: t('policyForm.condition.equals') },

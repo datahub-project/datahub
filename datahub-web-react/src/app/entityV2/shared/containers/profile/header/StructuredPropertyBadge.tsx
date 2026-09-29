@@ -10,7 +10,7 @@ import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { StructuredProperties } from '@src/types.generated';
 
-const MAX_PROP_BADGE_WIDTH = 150;
+export const MAX_PROP_BADGE_WIDTH = 150;
 
 const StyledTooltip = styled(Tooltip)`
     .ant-tooltip-inner {

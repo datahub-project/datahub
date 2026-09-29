@@ -17,6 +17,7 @@
     "executions.cancelError": "Det gick inte att avbryta körningen!: \n {{errorMessage}}",
     "executions.cancelSuccess": "Avbrytandebegäran har skickats!",
     "executions.cliExecution": "CLI-körning",
+    "executions.cliExecutionBy": "CLI-körning av <user></user>",
     "executions.colDuration": "Varaktighet",
     "executions.colExecutedBy": "Körd av",
     "executions.colStartedAt": "Startad",

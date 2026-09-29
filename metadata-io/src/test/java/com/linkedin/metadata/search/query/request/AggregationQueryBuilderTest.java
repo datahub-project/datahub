@@ -34,6 +34,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,6 +46,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.opensearch.search.aggregations.AggregationBuilder;
+import org.opensearch.search.aggregations.bucket.terms.IncludeExclude;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
@@ -655,6 +659,61 @@ public class AggregationQueryBuilderTest {
             DEFAULT_FILTER));
   }
 
+  /** V3 entity indices keep keyword fields at the root, so facets skip the .keyword subfield. */
+  @Test
+  public void testV3KeywordReadFacetsUseRootFields() {
+    SearchableAnnotation annotation =
+        new SearchableAnnotation(
+            "test1",
+            SearchableAnnotation.FieldType.KEYWORD,
+            true,
+            true,
+            false,
+            false,
+            Optional.empty(),
+            Optional.of("Has Test"),
+            1.0,
+            Optional.of("hasTest1"),
+            Optional.empty(),
+            Collections.<Object, Double>emptyMap(),
+            Collections.<String>emptyList(),
+            false,
+            false,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            false);
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(entitySpec.getName()).thenReturn("dataset");
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(entitySpec, ImmutableList.of(annotation)), true);
+
+    List<TermsAggregationBuilder> aggs =
+        builder
+            .getAggregations(
+                TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
+                ImmutableList.of("test1", "hasTest1", "structuredProperties.hello"))
+            .stream()
+            .map(TermsAggregationBuilder.class::cast)
+            .collect(Collectors.toList());
+    // V3 documents store their entity type, so the type facet does not read _index
+    Assert.assertEquals(
+        aggs.stream().map(TermsAggregationBuilder::field).collect(Collectors.toSet()),
+        ImmutableSet.of("test1", "hasTest1", "structuredProperties.hello", INDEX_VIRTUAL_FIELD));
+    // A V3 index can hold other entity types; only the requested ones are reported
+    TermsAggregationBuilder entityTypeAgg =
+        aggs.stream().filter(agg -> agg.field().equals(INDEX_VIRTUAL_FIELD)).findFirst().get();
+    Assert.assertEquals(
+        entityTypeAgg.includeExclude(), new IncludeExclude(new String[] {"dataset"}, null));
+  }
+
   @Test
   public void testAggregateOverFieldsAndStructPropV1() {
     SearchableAnnotation annotation1 =
@@ -823,6 +882,65 @@ public class AggregationQueryBuilderTest {
 
     builder.updateAggregationEntity(aggregationMetadata);
     Assert.assertNull(aggregationMetadata.getEntity());
+  }
+
+  @Test
+  public void testProcessTermAggregationsConvertsDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final Terms.Bucket nonDateBucket = mock(Terms.Bucket.class);
+    final String nonDateKey = "not-a-date";
+    when(nonDateBucket.getKeyAsString()).thenReturn(nonDateKey);
+    when(nonDateBucket.getDocCount()).thenReturn(3L);
+    when(nonDateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket, nonDateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
+    Assert.assertEquals(aggregations.get(nonDateKey), Long.valueOf(3));
+  }
+
+  @Test
+  public void testProcessTermAggregationsConvertsMinutePrecisionDateStringKeysToEpochMillis() {
+    final Terms.Bucket dateBucket = mock(Terms.Bucket.class);
+    final String dateKey = "2023-01-01T00:00Z";
+    when(dateBucket.getKeyAsString()).thenReturn(dateKey);
+    when(dateBucket.getDocCount()).thenReturn(5L);
+    when(dateBucket.getAggregations()).thenReturn(null);
+
+    final ParsedTerms terms = mock(ParsedTerms.class);
+    Mockito.doReturn(ImmutableList.of(dateBucket)).when(terms).getBuckets();
+
+    SearchConfiguration config = TEST_OS_SEARCH_CONFIG.getSearch();
+    config.setMaxTermBucketSize(25);
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.processTermAggregations(Map.entry("myDateField", terms), aggregationMetadataList);
+
+    Map<String, Long> aggregations = aggregationMetadataList.get(0).getAggregations();
+    String expectedEpochMillisKey =
+        String.valueOf(OffsetDateTime.parse(dateKey).toEpochSecond() * 1000);
+    Assert.assertEquals(aggregations.get(expectedEpochMillisKey), Long.valueOf(5));
   }
 
   @Test

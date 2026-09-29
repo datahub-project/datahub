@@ -43,7 +43,8 @@ export const AssetsSection = () => {
                 types: [],
                 query: '',
                 orFilters: [{ and: [{ field: 'applications', values: [urn] }] }],
-                count: 1000,
+                // Facets/total only — do not fetch result cards (avoids per-result lineage/health/stats fan-out).
+                count: 0,
             },
         },
         fetchPolicy: 'cache-first',

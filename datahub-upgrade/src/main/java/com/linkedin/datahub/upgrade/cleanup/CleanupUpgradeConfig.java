@@ -9,12 +9,14 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
 import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.ebean.Database;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -78,6 +80,10 @@ public class CleanupUpgradeConfig {
   @Qualifier("sqlSetupArgs")
   private SqlSetupArgs sqlSetupArgs;
 
+  @Autowired(required = false)
+  @Nullable
+  private SearchClusterRegistry searchClusterRegistry;
+
   @Bean(name = "cleanup")
   @Nonnull
   public Cleanup createCleanup() {
@@ -89,7 +95,7 @@ public class CleanupUpgradeConfig {
 
     // Order: ES first (so indices aren't queried during DB drop), then Kafka, then SQL
     if (esEnabled && esComponents != null) {
-      steps.add(new DeleteElasticsearchIndicesStep(esComponents));
+      steps.add(new DeleteElasticsearchIndicesStep(esComponents, searchClusterRegistry));
       log.info("Elasticsearch cleanup step enabled");
     } else if (esEnabled) {
       log.warn("Elasticsearch cleanup requested but ES components not available — skipping");

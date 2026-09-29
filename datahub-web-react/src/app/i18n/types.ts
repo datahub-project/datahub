@@ -1,19 +1,8 @@
 import { Locale } from 'antd/lib/locale-provider';
 
-export type SupportedLanguage =
-    | 'en'
-    | 'de'
-    | 'es'
-    | 'pt-BR'
-    | 'fr'
-    | 'it'
-    | 'nb'
-    | 'sv'
-    | 'hu'
-    | 'fi'
-    | 'ja'
-    | 'zh-CN'
-    | 'ru';
+import type { SupportedLanguage } from '@src/i18n/supportedLanguages';
+
+export type { SupportedLanguage };
 
 export type LocaleConfig = {
     lang: SupportedLanguage;

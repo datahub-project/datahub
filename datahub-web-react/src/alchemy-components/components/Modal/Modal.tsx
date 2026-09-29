@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { ModalContext } from '@app/sharedV2/modals/ModalContext';
 
-const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
+const StyledModal = styled(AntModal)<{ hasChildren: boolean; hasFooter: boolean }>`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
@@ -23,6 +23,9 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
 
     .ant-modal-body {
         padding: ${({ hasChildren }) => (hasChildren ? '24px 20px' : '8px 20px')};
+        /* GlobalThemeStyles gives the body its own opaque background, so when it is the last
+           child it paints a square over the content's rounded bottom corners. */
+        border-radius: ${({ hasFooter }) => (hasFooter ? '0' : '0 0 12px 12px')};
     }
 
     .ant-modal-footer {
@@ -32,6 +35,7 @@ const StyledModal = styled(AntModal)<{ hasChildren: boolean }>`
     .ant-modal-close {
         top: 16px;
         right: 16px;
+        color: ${(props) => props.theme.colors.icon};
 
         .ant-modal-close-x {
             height: 24px;
@@ -102,8 +106,31 @@ export function Modal({
     onCancel,
     dataTestId,
     closable = true,
+    footer,
     ...props
 }: ModalProps & AntModalProps) {
+    const hasFooter = footer !== undefined ? footer !== null && footer !== false : Boolean(buttons?.length);
+    const resolvedFooter =
+        footer !== undefined
+            ? footer
+            : !!buttons?.length && (
+                  <ButtonsContainer>
+                      {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
+                          <Button
+                              key={key || text}
+                              data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
+                              variant={variant}
+                              onClick={onClick}
+                              {...buttonProps}
+                          >
+                              <Text type="span" weight="bold" lineHeight="none">
+                                  {text}
+                              </Text>
+                          </Button>
+                      ))}
+                  </ButtonsContainer>
+              );
+
     return (
         <StyledModal
             open
@@ -112,6 +139,7 @@ export function Modal({
             onCancel={onCancel}
             closeIcon={closable ? <Icon icon={X} data-testid="modal-close-icon" /> : null}
             hasChildren={!!children}
+            hasFooter={hasFooter}
             data-testid={dataTestId}
             title={
                 typeof title === 'string' ? (
@@ -126,25 +154,7 @@ export function Modal({
                     <div style={{ marginRight: closable ? '20px' : '0' }}>{title}</div>
                 )
             }
-            footer={
-                !!buttons?.length && (
-                    <ButtonsContainer>
-                        {buttons.map(({ text, variant, onClick, key, buttonDataTestId, ...buttonProps }, index) => (
-                            <Button
-                                key={key || text}
-                                data-testid={buttonDataTestId ?? (dataTestId && `${dataTestId}-${variant}-${index}`)}
-                                variant={variant}
-                                onClick={onClick}
-                                {...buttonProps}
-                            >
-                                <Text type="span" weight="bold" lineHeight="none">
-                                    {text}
-                                </Text>
-                            </Button>
-                        ))}
-                    </ButtonsContainer>
-                )
-            }
+            footer={resolvedFooter}
             {...props}
         >
             <ModalContext.Provider value={{ isInsideModal: true }}>{children}</ModalContext.Provider>
