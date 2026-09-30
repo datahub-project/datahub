@@ -370,8 +370,6 @@ public class MultiEntityMappingsBuilderTest {
             "structured property attribution is kept with the structuredProperties aspect",
             "structuredPropertyAttributionDates",
             "structured property attribution is kept with the structuredProperties aspect",
-            "businessAttributeRef",
-            "no _entityName alias inside the referenced fields, which no query reads",
             "browsePaths",
             "legacy browse is not served from V3 yet");
     when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
@@ -395,6 +393,8 @@ public class MultiEntityMappingsBuilderTest {
           .forEach(
               (field, v2Field) -> {
                 Object v3Field = withoutCopyTo(v3Properties.get(field));
+                // V2 also aliases _entityName inside reference fields, which no query reads
+                v2Field = withoutNestedEntityNameAlias(v2Field);
                 if (!expectedDifferences.containsKey(field)
                     && !sorted(v2Field).equals(sorted(v3Field))) {
                   differences.add(v3Index + "." + field + ": V2 " + v2Field + ", V3 " + v3Field);
@@ -402,6 +402,20 @@ public class MultiEntityMappingsBuilderTest {
               });
     }
     assertTrue(differences.isEmpty(), String.join("\n", differences));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Object withoutNestedEntityNameAlias(Object mapping) {
+    if (!(mapping instanceof Map)
+        || !(((Map<String, Object>) mapping).get("properties") instanceof Map)) {
+      return mapping;
+    }
+    Map<String, Object> properties =
+        new HashMap<>((Map<String, Object>) ((Map<String, Object>) mapping).get("properties"));
+    properties.remove("_entityName");
+    Map<String, Object> copy = new HashMap<>((Map<String, Object>) mapping);
+    copy.put("properties", properties);
+    return copy;
   }
 
   @SuppressWarnings("unchecked")
@@ -424,7 +438,16 @@ public class MultiEntityMappingsBuilderTest {
       return "integer".equals(mapping) ? "long" : mapping;
     }
     Map<String, Object> sorted = new java.util.TreeMap<>();
-    ((Map<String, Object>) mapping).forEach((key, value) -> sorted.put(key, sorted(value)));
+    ((Map<String, Object>) mapping)
+        .forEach(
+            (key, value) -> {
+              // An object without declared properties maps the same as one with none
+              if (!("properties".equals(key)
+                  && value instanceof Map
+                  && ((Map<?, ?>) value).isEmpty())) {
+                sorted.put(key, sorted(value));
+              }
+            });
     return sorted;
   }
 

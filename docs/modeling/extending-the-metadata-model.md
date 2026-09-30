@@ -456,7 +456,7 @@ It takes the following parameters:
 
 - **includeQueryEmptyAggregation**: boolean (optional) - Whether to create a missing field aggregation when querying the corresponding field. Only affects query time, not mapping. Useful for analytics and reporting.
 
-- **searchTier**: integer (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (an integer >= 1 on `KEYWORD`, `TEXT`, `TEXT_PARTIAL`, `WORD_GRAM` or `URN` fields) so existing models keep loading, but it no longer changes the index mapping or the search queries, and no `_search.tier_{tier}` field is created. Use `queryByDefault`, `enableAutocomplete` and `boostScore` to control full-text search and autocomplete.
+- **searchTier**: integer (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (an integer >= 1 on `KEYWORD`, `TEXT`, `TEXT_PARTIAL`, `WORD_GRAM` or `URN` fields) so existing models keep loading, but it no longer changes the index mapping or the search queries, and no `_search.tier_{tier}` field is created. Use `queryByDefault` and `enableAutocomplete` to control full-text search and autocomplete.
 
 - **searchLabel**: string (optional) - Unified label for search operations. Copies the field value into `_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. The field stays indexed under its own name too.
 
