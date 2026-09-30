@@ -2196,6 +2196,19 @@ SELECT a.id, g.n FROM s.a CROSS JOIN generate_series(1, 10) AS g(n)
     )
 
 
+def test_postgres_qualified_table_function() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO public.target
+SELECT a.id, f.v FROM public.a a JOIN public.my_fn(1) f ON a.id = f.id
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="public",
+        expected_file=RESOURCE_DIR / "test_postgres_qualified_table_function.json",
+    )
+
+
 def test_bigquery_table_inside_table_function() -> None:
     assert_sql_result(
         """\
