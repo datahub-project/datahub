@@ -1,4 +1,4 @@
-"""Live-stack check that Play serves Vite .br/.gz sidecars without double-gzip."""
+"""Live-stack check that Play serves Vite .br/.gz sidecars as a single encoding."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ from urllib.parse import urljoin
 import pytest
 import requests
 
-from tests.utilities.domains import Domain
-from tests.utils import get_frontend_url
+from tests.e2e.utils import get_frontend_url
+from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,9 @@ def test_hashed_js_asset_encodings_prefer_brotli_then_gzip() -> None:
 
         for response in (br_response, gzip_response, identity_response):
             vary = response.headers.get("Vary", "")
-            assert "accept-encoding" in vary.lower(), f"Vary missing Accept-Encoding: {vary!r}"
+            assert "accept-encoding" in vary.lower(), (
+                f"Vary missing Accept-Encoding: {vary!r}"
+            )
 
         br_len = _content_length(br_response)
         gzip_len = _content_length(gzip_response)
@@ -101,9 +103,11 @@ def test_hashed_js_asset_encodings_prefer_brotli_then_gzip() -> None:
         br_magic = br_response.raw.read(4)
         gzip_magic = gzip_response.raw.read(4)
         identity_magic = identity_response.raw.read(4)
-        assert gzip_magic.startswith(_GZIP_MAGIC), f"gzip body missing gzip magic: {gzip_magic!r}"
+        assert gzip_magic.startswith(_GZIP_MAGIC), (
+            f"gzip body missing gzip magic: {gzip_magic!r}"
+        )
         assert not br_magic.startswith(_GZIP_MAGIC), (
-            f"br response body looks like gzip (header stripped?): {br_magic!r}"
+            f"brotli body is a gzip payload: {br_magic!r}"
         )
         assert not identity_magic.startswith(_GZIP_MAGIC), (
             f"identity body looks gzip-compressed: {identity_magic!r}"
