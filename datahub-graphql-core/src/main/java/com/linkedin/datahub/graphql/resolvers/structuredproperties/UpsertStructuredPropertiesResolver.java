@@ -80,7 +80,9 @@ public class UpsertStructuredPropertiesResolver
 
             // schemaField entities often don't exist, create it if upserting on a schema field
             if (!assetUrn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
-                && !_entityClient.exists(context.getOperationContext(), assetUrn)) {
+                && !_entityClient.exists(
+                    context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
+                    assetUrn)) {
               throw new RuntimeException(
                   String.format("Asset with provided urn %s does not exist", assetUrn));
             }
