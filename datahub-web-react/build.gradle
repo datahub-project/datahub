@@ -312,7 +312,7 @@ externalPrettierConfigs.each { config ->
   }
 
   tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
-    // Get the list of changed Markdown files using Git
+    // Get the list of changed files using Git
     def changedFiles = new ByteArrayOutputStream()
     execOps.exec {
       commandLine 'git', 'diff', '--name-only', '--diff-filter=ACMRT', 'HEAD'
@@ -324,6 +324,7 @@ externalPrettierConfigs.each { config ->
 
     if (matchingFiles.isEmpty()) {
       logger.lifecycle("No changed files found matching ${config.pattern}.")
+      enabled = false
       return
     }
 
