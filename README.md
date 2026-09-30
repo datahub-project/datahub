@@ -44,6 +44,8 @@ Self-host on your own infrastructure. Apache 2.0 licensed. Full access to the me
 
 [Run it locally ↓](#quick-start) · [Quickstart guide →](https://docs.datahub.com/docs/quickstart) · [Deploy on Kubernetes →](https://docs.datahub.com/docs/deploy/kubernetes)
 
+<p align="center">⎯⎯⎯⎯⎯⎯⎯⎯</p>
+
 ### DataHub Cloud
 
 Managed, SLA-backed, enterprise-ready. Access data observability and the full Context Platform: Context Intelligence, Context Hub, and native agent integrations out of the box. No infrastructure to run.
