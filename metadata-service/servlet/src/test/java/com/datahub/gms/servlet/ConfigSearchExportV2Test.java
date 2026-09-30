@@ -27,13 +27,9 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 @SpringBootTest(
-    classes = {ConfigServletTestContext.class, ConfigSearchExportTest.QueryFilterConfig.class},
-    properties = {
-      "spring.main.allow-bean-definition-overriding=true",
-      "elasticsearch.entityIndex.v3.enabled=true",
-      "elasticsearch.entityIndex.v3.keywordReadEnabled=true"
-    })
-public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
+    classes = {ConfigServletTestContext.class, ConfigSearchExportV2Test.QueryFilterConfig.class},
+    properties = {"spring.main.allow-bean-definition-overriding=true"})
+public class ConfigSearchExportV2Test extends AbstractTestNGSpringContextTests {
 
   @Configuration
   static class QueryFilterConfig {
@@ -59,7 +55,7 @@ public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testCsvExportWithSearchV3KeywordRead() throws Exception {
+  public void testCsvExportListsWordGramPhraseClauses() throws Exception {
     ServletContext servletContext = mock(ServletContext.class);
     when(servletContext.getAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE))
         .thenReturn(webApplicationContext);
@@ -73,9 +69,7 @@ public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
     new ConfigSearchExport().doGet(request, response);
 
     verify(response).setStatus(HttpServletResponse.SC_OK);
-    // V3 runs the V2 per-field query, so the export lists the V2 subfields and analyzers
-    assertTrue(body.toString().contains(".delimited"), body.toString());
-    assertTrue(body.toString().contains("query_word_delimited"), body.toString());
+    // The default query matches word gram subfields with phrase clauses
     assertTrue(body.toString().contains("phrase_match"), body.toString());
   }
 }

@@ -1,8 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
+import static org.testng.Assert.assertNotNull;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,7 +27,9 @@ import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -342,6 +346,85 @@ public class MultiEntityMappingsBuilderTest {
     assertEquals(
         ((Map<String, Object>) aspectBusinessAttributeRef.get("properties")).get("urn"),
         Map.of("type", "keyword", "ignore_above", 255));
+  }
+
+  /**
+   * V2 and V3 run the same query code, so every root field of a V2 entity index is mapped the same
+   * way on the matching V3 index, apart from the fields listed with their reason.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testRegistryMappingsMatchV2RootFields() throws IOException {
+    Map<String, String> expectedDifferences =
+        Map.of(
+            "_entityName",
+            "aliases _search.entityName, which the name fields labeled entityName copy into",
+            "urn",
+            "ignore_above 512 from the base configuration; URNs are at most 512 bytes",
+            "ownerTypes",
+            "object fields are mapped under _aspects only; no query reads them at the root",
+            "structuredPropertyAttributionSources",
+            "structured property attribution is kept with the structuredProperties aspect",
+            "structuredPropertyAttributionActors",
+            "structured property attribution is kept with the structuredProperties aspect",
+            "structuredPropertyAttributionDates",
+            "structured property attribution is kept with the structuredProperties aspect",
+            "businessAttributeRef",
+            "no _entityName alias inside the referenced fields, which no query reads",
+            "browsePaths",
+            "legacy browse is not served from V3 yet");
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Map<String, Object>> v3PropertiesByIndex = new HashMap<>();
+    for (IndexMapping mapping :
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+      v3PropertiesByIndex.put(mapping.getIndexName(), getProperties(mapping.getMappings()));
+    }
+
+    List<String> differences = new ArrayList<>();
+    for (IndexMapping v2Mapping :
+        new V2MappingsBuilder(
+                TEST_ES_SEARCH_CONFIG.getEntityIndex(),
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG)
+            .getIndexMappings(registryContext)) {
+      String v3Index = v2Mapping.getIndexName().replace("index_v2", "index_v3");
+      Map<String, Object> v3Properties = v3PropertiesByIndex.get(v3Index);
+      assertNotNull(v3Properties, v3Index);
+      getProperties(v2Mapping.getMappings())
+          .forEach(
+              (field, v2Field) -> {
+                Object v3Field = withoutCopyTo(v3Properties.get(field));
+                if (!expectedDifferences.containsKey(field)
+                    && !sorted(v2Field).equals(sorted(v3Field))) {
+                  differences.add(v3Index + "." + field + ": V2 " + v2Field + ", V3 " + v3Field);
+                }
+              });
+    }
+    assertTrue(differences.isEmpty(), String.join("\n", differences));
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Object withoutCopyTo(Object mapping) {
+    if (!(mapping instanceof Map)) {
+      return mapping;
+    }
+    Map<String, Object> copy = new HashMap<>((Map<String, Object>) mapping);
+    copy.remove("copy_to");
+    return copy;
+  }
+
+  /**
+   * Sorted for comparison. V3 types a COUNT field from the model, so an int is {@code integer}
+   * where V2 maps {@code long}; both take the same queries.
+   */
+  @SuppressWarnings("unchecked")
+  private static Object sorted(Object mapping) {
+    if (!(mapping instanceof Map)) {
+      return "integer".equals(mapping) ? "long" : mapping;
+    }
+    Map<String, Object> sorted = new java.util.TreeMap<>();
+    ((Map<String, Object>) mapping).forEach((key, value) -> sorted.put(key, sorted(value)));
+    return sorted;
   }
 
   /** The engine rejects a mapping whose alias points at a field it does not map. */

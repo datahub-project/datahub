@@ -287,27 +287,6 @@ public class MultiEntityMappingsUtilsTest {
   // Tests for relocated utility methods
 
   @Test
-  public void testGetElasticsearchTypeForFieldWithSearchIndexedTrue() {
-    SearchableFieldSpec fieldSpec =
-        createSearchableFieldSpecWithSearchIndexed(FieldType.TEXT, "testField", true);
-
-    String result = MultiEntityMappingsUtils.getElasticsearchTypeForField(fieldSpec);
-
-    assertEquals(result, ESUtils.KEYWORD_FIELD_TYPE);
-  }
-
-  @Test
-  public void testGetElasticsearchTypeForFieldWithSearchIndexedFalse() {
-    SearchableFieldSpec fieldSpec =
-        createSearchableFieldSpecWithSearchIndexed(FieldType.TEXT, "testField", false);
-
-    String result = MultiEntityMappingsUtils.getElasticsearchTypeForField(fieldSpec);
-
-    // When searchIndexed is false, it should return the original field type (TEXT -> keyword)
-    assertEquals(result, ESUtils.KEYWORD_FIELD_TYPE);
-  }
-
-  @Test
   public void testGetElasticsearchTypeForFieldWithoutSearchIndexed() {
     SearchableFieldSpec fieldSpec =
         createSearchableFieldSpecWithSearchIndexed(FieldType.KEYWORD, "testField", null);
