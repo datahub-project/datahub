@@ -90,9 +90,6 @@ export type GenericEntityProperties = {
     domain?: Maybe<DomainAssociation>;
     applications?: Maybe<ApplicationAssociation[]>;
     dataProduct?: Maybe<EntityRelationshipsResult>;
-    // Logical models
-    logicalParent?: Maybe<Entity>;
-    physicalChildren?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;
@@ -143,6 +140,10 @@ export type GenericEntityProperties = {
     // Data job / data process instance
     lastRun?: Maybe<DataProcessInstance>;
     lastRunEvent?: Maybe<DataProcessRunEvent>;
+
+    // Logical models
+    logicalParent?: Maybe<Entity>;
+    physicalChildren?: Maybe<EntityRelationshipsResult>;
 };
 
 export type GenericEntityUpdate = {

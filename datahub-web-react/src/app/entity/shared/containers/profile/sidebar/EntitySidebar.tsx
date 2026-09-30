@@ -1,4 +1,4 @@
-// eslint-disable-next-line rulesdir/no-antd-imports -- no alchemy Skeleton exists; keeps this file textually identical to the fork
+// eslint-disable-next-line rulesdir/no-antd-imports -- no alchemy Skeleton exists
 import { Divider, Skeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
