@@ -180,7 +180,6 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
         ESUtils.buildFilterQuery(
             v3KeywordReadEnabled ? ESUtils.toV3EntityFilter(opContext, filter) : filter,
             false,
-            v3KeywordReadEnabled,
             searchableFieldTypes,
             opContext,
             queryFilterRewriteChain);
