@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
@@ -44,6 +45,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.DatasetProperties;
@@ -63,6 +65,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -126,6 +129,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -175,6 +179,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static final String CUSTOMERS_DESCRIPTION =
       "Customer master data joined from the billing, support and marketing systems, refreshed"
           + " nightly and kept for seven years";
+  // Dashboards holding the same words, one in its title (boostScore 10) and one in its
+  // description (boostScore 1). The urn tie-break alone would put the description match first
+  private static final Urn TITLE_MATCH = UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_title)");
+  private static final Urn DESCRIPTION_MATCH =
+      UrnUtils.getUrn("urn:li:dashboard:(looker,revenue_description)");
 
   private final List<String> createdIndices = new ArrayList<>();
   // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
@@ -292,7 +301,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     MappingsBuilder.IndexMapping::getIndexName,
                     MappingsBuilder.IndexMapping::getMappings));
     for (String entityType :
-        Stream.of(ENTITY_TYPES, List.of(EMPTY_ENTITY_TYPE), EXTRA_ENTITY_TYPES)
+        Stream.of(
+                ENTITY_TYPES,
+                List.of(EMPTY_ENTITY_TYPE),
+                EXTRA_ENTITY_TYPES,
+                List.of(DASHBOARD_ENTITY_NAME))
             .flatMap(List::stream)
             .collect(Collectors.toList())) {
       List<String> indexNames = new ArrayList<>();
@@ -370,7 +383,21 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                                 new TagAssociation().setTag(new TagUrn("Confidential")))),
                     browsePaths("prod", "sales")),
                 NIGHTLY_JOB,
-                events(NIGHTLY_JOB)),
+                events(NIGHTLY_JOB),
+                TITLE_MATCH,
+                events(
+                    TITLE_MATCH,
+                    new DashboardInfo()
+                        .setTitle("Quarterly revenue archive")
+                        .setDescription("Revenue totals")
+                        .setLastModified(new ChangeAuditStamps())),
+                DESCRIPTION_MATCH,
+                events(
+                    DESCRIPTION_MATCH,
+                    new DashboardInfo()
+                        .setTitle("Revenue totals")
+                        .setDescription("Quarterly revenue archive")
+                        .setLastModified(new ChangeAuditStamps()))),
             false);
     syncAfterWrite(getBulkProcessor());
   }
@@ -915,6 +942,91 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertTrue(
         explain.getExplanation().toString().contains("description.keyword"),
         explain.getExplanation().toString());
+  }
+
+  /** A match in a field with a higher @Searchable boostScore ranks first, as on V2. */
+  @Test
+  public void testSearchableBoostsRankResults() {
+    assertEquals(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DASHBOARD_ENTITY_NAME),
+                "archive",
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList()),
+        List.of(TITLE_MATCH, DESCRIPTION_MATCH));
+  }
+
+  /** The function scores of the custom search configuration rank an explore-all query. */
+  @Test
+  public void testCustomSearchConfigRanksResults() {
+    // CUSTOMERS has a description and an owner, which the production configuration boosts. ORDERS
+    // matches no scoring function, and the urn tie-break alone would put it first
+    assertEquals(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(DATASET_ENTITY_NAME),
+                "*",
+                null,
+                null,
+                0,
+                10)
+            .getEntities()
+            .stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList()),
+        List.of(CUSTOMERS, ORDERS));
+  }
+
+  /** The fieldConfiguration search flag picks the fields a custom search configuration queries. */
+  @Test
+  public void testFieldConfigurationSelectsSearchedFields() throws IOException {
+    // Only the simple query runs, so the field configuration decides which fields can match
+    CustomSearchConfiguration nameOnlyConfiguration =
+        new YAMLMapper()
+            .readValue(
+                """
+                fieldConfigurations:
+                  nameOnly:
+                    searchFields:
+                      replace:
+                        - name
+                queryConfigurations:
+                  - queryRegex: .*
+                    simpleQuery: true
+                    prefixMatchQuery: false
+                    exactMatchQuery: false
+                """,
+                CustomSearchConfiguration.class);
+    ESSearchDAO searchDAO =
+        new ESSearchDAO(
+            false,
+            config,
+            nameOnlyConfiguration,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    BiFunction<OperationContext, String, SearchEntityArray> search =
+        (context, query) ->
+            searchDAO
+                .search(
+                    context, List.of(DATASET_ENTITY_NAME), query, null, List.of(), 0, 10, List.of())
+                .getEntities();
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    OperationContext nameOnly =
+        fulltext.withSearchFlags(flags -> flags.setFieldConfiguration("nameOnly"));
+
+    // Only the CUSTOMERS description holds "billing"
+    assertUrns(search.apply(fulltext, "billing"), CUSTOMERS);
+    assertUrns(search.apply(nameOnly, "billing"));
+    assertUrns(search.apply(nameOnly, "orders"), ORDERS);
   }
 
   @Test
