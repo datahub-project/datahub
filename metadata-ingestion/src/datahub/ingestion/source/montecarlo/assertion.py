@@ -315,9 +315,13 @@ def _schema_change_native_results(
 class MonteCarloAssertionKey(DatahubKey):
     """Key for deterministic, stable assertion GUIDs across ingestion runs.
 
-    ``asset_mcon`` is omitted (exclude_none) for single-asset monitors so existing
-    assertion URNs stay stable. Pattern-scoped TABLE monitors that cover multiple
-    tables include it so each dataset gets its own assertion URN.
+    Coverage resolved via evaluateAssetSelection always includes
+    ``asset_mcon``, even when only one table resolved this run. Otherwise a
+    1-table TABLE monitor would use the historical monitor-only GUID, then
+    flip on the next run that resolves a second table.
+
+    Definitions whose entity_mcons came from getMonitors/getCustomRules omit
+    ``asset_mcon`` (exclude_none) so existing master URNs do not move.
     """
 
     platform: str = PLATFORM
@@ -339,9 +343,9 @@ class MonteCarloAssertionBuilder:
         self.report = report
         self.resolver = resolver
         # Maps a monitor/rule uuid to the assertion(s) we emitted for it.
-        # Single-asset monitors have one entry; pattern-scoped TABLE monitors
-        # that cover multiple tables have one entry per resolved dataset so
-        # alerts can attach to the table that actually fired.
+        # Pattern-scoped TABLE monitors have one entry per covered table so
+        # alerts attach to the table that fired. getMonitors/getCustomRules
+        # definitions keep a single entry (first resolved table).
         self._ingested_by_monitor: Dict[str, List[_IngestedAssertion]] = {}
 
     def _assertion_urn(
@@ -363,9 +367,9 @@ class MonteCarloAssertionBuilder:
 
         # Resolve monitored assets. A monitor without a resolvable asset is
         # skipped with a warning. Pattern-scoped TABLE monitors cover many
-        # tables; CustomAssertionInfo.entity is a single URN, so we emit one
-        # assertion per resolved dataset. Single-asset monitors keep the
-        # historical assertion URN (asset_mcon omitted from the key).
+        # tables; CustomAssertionInfo.entity is a single URN, so those fan
+        # out one assertion per table. getMonitors/getCustomRules lists keep
+        # master's one-assertion, monitor_uuid-only URN.
         if not definition.entity_mcons:
             self.report.warning(
                 title="Monitor has no monitored entities",
@@ -384,9 +388,10 @@ class MonteCarloAssertionBuilder:
             self.report.report_monitor_dropped_unresolved()
             return
 
-        multi_asset = len(resolved) > 1
-        for mcon, dataset_urn in resolved:
-            asset_mcon = mcon if multi_asset else None
+        fan_out = definition.scope_from_asset_selection
+        targets = resolved if fan_out else resolved[:1]
+        for mcon, dataset_urn in targets:
+            asset_mcon = mcon if fan_out else None
             assertion_urn = self._assertion_urn(definition.uuid, asset_mcon=asset_mcon)
 
             # customProperties keeps only the DataHub-side correlation key; native MC
@@ -507,14 +512,19 @@ class MonteCarloAssertionBuilder:
             self.report.report_alert_skipped_no_monitor()
             return
 
-        # Prefer the assertion whose dataset matches the alert's assets so a
-        # schema-change (or other per-table) alert lands on the table that
-        # fired, not the first table in a pattern-scoped TABLE monitor.
-        # Alerts with no asset_mcons keep the historical first-candidate bind.
+        # Pattern-scoped TABLE monitors need per-table matching so an alert lands
+        # on the table that fired. getMonitors/getCustomRules definitions keep
+        # master's single assertion and bind even when asset_mcons name another
+        # resolved table on the same monitor.
         alert_mcons = set(alert.asset_mcons)
         if alert_mcons:
-            matched = [c for c in candidates if c.mcon in alert_mcons]
-            if not matched:
+            fan_out = [c for c in candidates if c.definition.scope_from_asset_selection]
+            non_fan_out = [
+                c for c in candidates if not c.definition.scope_from_asset_selection
+            ]
+            matched_fan_out = [c for c in fan_out if c.mcon in alert_mcons]
+            targets = matched_fan_out + non_fan_out
+            if not targets:
                 self.report.warning(
                     title="Alert skipped: no ingested monitor",
                     message="Alert references a monitor that was ingested but none "
@@ -526,7 +536,6 @@ class MonteCarloAssertionBuilder:
                 )
                 self.report.report_alert_skipped_no_monitor()
                 return
-            targets = matched
         else:
             targets = candidates[:1]
 

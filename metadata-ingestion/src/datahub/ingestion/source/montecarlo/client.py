@@ -190,6 +190,10 @@ class MonteCarloAssertionDef(BaseModel):
     # monitors, NOT the monitor's SQL body (customSql was removed from Monitor).
     where_condition: Optional[str] = None
     entity_mcons: List[str] = Field(default_factory=list)
+    # True when entity_mcons came from evaluateAssetSelection. Assertion
+    # URNs then always include asset_mcon so a 1-table TABLE monitor does
+    # not flip GUID when a later run resolves more tables.
+    scope_from_asset_selection: bool = False
     resource_id: Optional[str] = None
     severity: Optional[str] = None
     # priority is the renamed severity (removed from Monitor/CustomRule);
@@ -449,6 +453,16 @@ class MonteCarloClient:
             context=f"kind={kind}, raw={raw!r}",
         )
 
+    def _mark_table_scope_unresolved(self) -> None:
+        """Trip the stale-removal lock on a transient TABLE-scope miss.
+
+        Returning [] without this increment looks like a genuinely empty
+        monitor, so stateful ingestion would soft-delete every assertion
+        previously emitted for it.
+        """
+        if self.report is not None:
+            self.report.report_build_failure()
+
     def _safe_call(
         self,
         query: str,
@@ -615,10 +629,12 @@ class MonteCarloClient:
                 continue
             entity_mcons = raw.get("entity_mcons") or []
             resource_id = raw.get("resource_id")
+            scope_from_asset_selection = False
             if not entity_mcons and (monitor_type or "").upper() == "TABLE":
                 entity_mcons = self._resolve_table_monitor_entity_mcons(
                     uuid, resource_id
                 )
+                scope_from_asset_selection = True
             try:
                 yield MonteCarloAssertionDef(
                     uuid=uuid,
@@ -628,6 +644,7 @@ class MonteCarloClient:
                     custom_sql=raw.get("custom_sql"),
                     where_condition=raw.get("where_condition"),
                     entity_mcons=entity_mcons,
+                    scope_from_asset_selection=scope_from_asset_selection,
                     resource_id=resource_id,
                     severity=raw.get("severity"),
                     priority=raw.get("priority"),
@@ -670,6 +687,7 @@ class MonteCarloClient:
             context=f"monitor_uuid={monitor_uuid}",
         )
         if response is None:
+            self._mark_table_scope_unresolved()
             return []
         monitor = response.get("get_table_monitor") or {}
         warehouse_uuid = resource_id or monitor.get("warehouse_uuid")
@@ -800,6 +818,7 @@ class MonteCarloClient:
             )
             if response is None:
                 if not mcons:
+                    self._mark_table_scope_unresolved()
                     return []
                 incomplete = True
                 break
@@ -814,6 +833,7 @@ class MonteCarloClient:
                 if mcons:
                     incomplete = True
                 else:
+                    self._mark_table_scope_unresolved()
                     return []
                 break
             if not page:

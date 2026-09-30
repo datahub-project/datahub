@@ -1484,6 +1484,7 @@ def test_client_get_monitors_parses_list() -> None:
     assert len(monitors) == 1
     assert monitors[0].uuid == "m1"
     assert monitors[0].native_type == "FRESHNESS"
+    assert monitors[0].scope_from_asset_selection is False
 
 
 def test_parse_comparisons_flattens_custom_metric_object() -> None:
@@ -1669,6 +1670,7 @@ def test_client_get_monitors_resolves_table_monitor_entity_mcons() -> None:
     monitors = list(client.get_monitors())
     assert len(monitors) == 1
     assert monitors[0].entity_mcons == ["MCON++a++wh-1++table++db.sch.tbl"]
+    assert monitors[0].scope_from_asset_selection is True
     assert calls == ["getTableMonitor", "evaluateAssetSelection"]
 
 
@@ -1741,6 +1743,7 @@ def test_client_get_monitors_resolves_pattern_scoped_table_monitor() -> None:
         "MCON++a++wh-1++table++alert_test_db:public.customers",
         "MCON++a++wh-1++table++alert_test_db:public.payments",
     ]
+    assert monitors[0].scope_from_asset_selection is True
     assert calls == ["getMonitors", "getTableMonitor", "evaluateAssetSelection"]
 
 
@@ -1785,6 +1788,167 @@ def test_client_get_monitors_skips_empty_table_monitor_selection() -> None:
     assert monitors[0].entity_mcons == []
     assert calls == ["getTableMonitor"]
     assert report.warnings_count >= 1
+    assert report.build_failures == 0
+
+
+def test_client_table_monitor_missing_warehouse_is_not_build_failure() -> None:
+    """No warehouse UUID is a permanent skip, not a transient scope miss."""
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            return {
+                "get_table_monitor": {
+                    "asset_selection": {
+                        "filters": [{"type": "TABLE_TAG", "table_tags": ["t"]}],
+                        "exclusions": [],
+                        "databases": [],
+                    }
+                }
+            }
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 0
+
+
+def test_client_get_table_monitor_null_is_not_build_failure() -> None:
+    """A deleted TABLE monitor (null getTableMonitor) is not a fetch failure."""
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            return {"get_table_monitor": None}
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 0
+
+
+def test_client_evaluate_asset_selection_empty_first_page_is_not_build_failure() -> (
+    None
+):
+    """A successful evaluateAssetSelection page with no selected tables is not
+    a transient miss — stale removal may legitimately drop prior assertions."""
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                        "resource_id": "wh-1",
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            return {
+                "get_table_monitor": {
+                    "warehouse_uuid": "wh-1",
+                    "asset_selection": {
+                        "filters": [{"type": "TABLE_TAG", "table_tags": ["t"]}],
+                        "exclusions": [],
+                        "databases": [],
+                    },
+                }
+            }
+        if "evaluateAssetSelection" in query:
+            return {"evaluate_asset_selection": []}
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 0
+
+
+def test_get_workunits_get_table_monitor_failure_trips_stale_removal_interlock() -> (
+    None
+):
+    """TABLE-scope build_failures from getTableMonitor must reach the source
+    interlock that skips stale entity removal."""
+    source = MonteCarloSource.__new__(MonteCarloSource)
+    source.config = make_config(include_assertions=True, include_alerts=False)
+    source.report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                        "resource_id": "wh-1",
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            raise RuntimeError("getTableMonitor unavailable")
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = source.config
+    client.page_size = 100
+    client.report = source.report
+    client._call = fake_call  # type: ignore[method-assign]
+    client.set_query_builder(StaticQueryBuilder())
+    client.check_schema_drift = lambda strict=False: SchemaDrift()  # type: ignore[method-assign]
+    client.get_custom_rules = lambda: iter(())  # type: ignore[method-assign]
+    source.client = client
+
+    source.builder = MonteCarloAssertionBuilder(
+        source.config,
+        source.report,
+        MconResolver(source.config, client, source.report),
+    )
+
+    list(source.get_workunits_internal())
+
+    assert source.report.build_failures == 1
+    assert any(
+        f.title is not None and "Partial build failures" in f.title
+        for f in source.report.failures
+    )
 
 
 def test_client_get_monitors_truncates_table_monitor_to_max_assets() -> None:
@@ -1943,6 +2107,98 @@ def test_client_evaluate_asset_selection_mid_page_failure_keeps_partial() -> Non
 
 
 @pytest.mark.parametrize("failing_query", ["getTableMonitor", "evaluateAssetSelection"])
+def test_client_table_scope_first_call_failure_is_build_failure(
+    failing_query: str,
+) -> None:
+    """A transient miss on getTableMonitor or the first evaluateAssetSelection
+    page must increment build_failures so stale-entity removal is skipped.
+    Returning [] without that increment looks like a genuinely empty monitor."""
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                        "resource_id": "wh-1",
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            if failing_query == "getTableMonitor":
+                raise RuntimeError("getTableMonitor unavailable")
+            return {
+                "get_table_monitor": {
+                    "warehouse_uuid": "wh-1",
+                    "asset_selection": {
+                        "filters": [{"type": "TABLE_TAG", "table_tags": ["t"]}],
+                        "exclusions": [],
+                        "databases": [],
+                    },
+                }
+            }
+        if "evaluateAssetSelection" in query:
+            raise RuntimeError("evaluateAssetSelection unavailable")
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 1
+
+
+def test_client_evaluate_asset_selection_malformed_first_page_is_build_failure() -> (
+    None
+):
+    """A non-list first evaluateAssetSelection page is a fetch miss, not an
+    empty selection — increment build_failures so stale removal is skipped."""
+    report = MonteCarloSourceReport()
+
+    def fake_call(query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
+        if "getMonitors" in query:
+            return {
+                "get_monitors": [
+                    {
+                        "uuid": "m1",
+                        "monitor_type": "TABLE",
+                        "entity_mcons": [],
+                        "resource_id": "wh-1",
+                    }
+                ]
+            }
+        if "getTableMonitor" in query:
+            return {
+                "get_table_monitor": {
+                    "warehouse_uuid": "wh-1",
+                    "asset_selection": {
+                        "filters": [{"type": "TABLE_TAG", "table_tags": ["t"]}],
+                        "exclusions": [],
+                        "databases": [],
+                    },
+                }
+            }
+        if "evaluateAssetSelection" in query:
+            return {"evaluate_asset_selection": {"not": "a list"}}
+        raise AssertionError(f"unexpected query: {query}")
+
+    client = MonteCarloClient.__new__(MonteCarloClient)
+    client.config = make_config()
+    client.page_size = 100
+    client.report = report
+    client._call = fake_call  # type: ignore[method-assign]
+    monitors = list(client.get_monitors())
+    assert monitors[0].entity_mcons == []
+    assert report.build_failures == 1
+
+
+@pytest.mark.parametrize("failing_query", ["getTableMonitor", "evaluateAssetSelection"])
 def test_client_get_monitors_table_monitor_auth_error_is_fatal(
     failing_query: str,
 ) -> None:
@@ -1994,18 +2250,18 @@ def test_build_run_event_matches_alert_asset_mcon() -> None:
     """A per-table alert on a multi-asset TABLE monitor attaches to the
     matching dataset, not the first covered table."""
     report = MonteCarloSourceReport()
-    mcon_a = "MCON++acct++wh-2++table++db.sch.customers"
-    mcon_b = "MCON++acct++wh-2++table++db.sch.payments"
+    mcon_a = "MCON++acct++wh-2++table++db.sch.table_a"
+    mcon_b = "MCON++acct++wh-2++table++db.sch.table_b"
     client = FakeResolverClient(
         {
             mcon_a: ResolvedTable(
                 mcon=mcon_a,
-                full_table_id="db.sch.customers",
+                full_table_id="db.sch.table_a",
                 connection_type="snowflake",
             ),
             mcon_b: ResolvedTable(
                 mcon=mcon_b,
-                full_table_id="db.sch.payments",
+                full_table_id="db.sch.table_b",
                 connection_type="snowflake",
             ),
         }
@@ -2019,6 +2275,7 @@ def test_build_run_event_matches_alert_asset_mcon() -> None:
             uuid="mon-tbl",
             monitor_type="TABLE",
             entity_mcons=[mcon_a, mcon_b],
+            scope_from_asset_selection=True,
         ),
     )
     alert = MonteCarloAlert(
@@ -2037,22 +2294,164 @@ def test_build_run_event_matches_alert_asset_mcon() -> None:
     assert run_event.asserteeUrn == resolver.dataset_urn_for_mcon(mcon_b)
 
 
-def test_build_run_event_includes_joined_schema_change_fields() -> None:
-    """SCHEMA_CHANGES alerts carry fieldsAdded/Removed from the joined
-    getSchemaChanges event on nativeResults for the matching table."""
+def test_build_assertion_table_scope_keeps_urn_when_coverage_grows() -> None:
+    """A TABLE monitor resolved to one table, then two, must keep the same
+    assertion URN for the shared table. Keying on resolved-count would flip
+    the GUID and drop run history under stale-entity removal."""
+    mcon_a = "MCON++acct++wh-2++table++db.sch.table_a"
+    mcon_b = "MCON++acct++wh-2++table++db.sch.table_b"
+    tables = {
+        mcon_a: ResolvedTable(
+            mcon=mcon_a,
+            full_table_id="db.sch.table_a",
+            connection_type="snowflake",
+        ),
+        mcon_b: ResolvedTable(
+            mcon=mcon_b,
+            full_table_id="db.sch.table_b",
+            connection_type="snowflake",
+        ),
+    }
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+
+    builder_one = MonteCarloAssertionBuilder(
+        cfg,
+        MonteCarloSourceReport(),
+        MconResolver(
+            cfg, FakeResolverClient({mcon_a: tables[mcon_a]}), MonteCarloSourceReport()
+        ),
+    )
+    _build_assertion_workunits(
+        builder_one,
+        MonteCarloAssertionDef(
+            uuid="mon-tbl",
+            monitor_type="TABLE",
+            entity_mcons=[mcon_a],
+            scope_from_asset_selection=True,
+        ),
+    )
+    urn_a_run1 = builder_one._ingested_by_monitor["mon-tbl"][0].assertion_urn
+
+    builder_two = MonteCarloAssertionBuilder(
+        cfg,
+        MonteCarloSourceReport(),
+        MconResolver(cfg, FakeResolverClient(tables), MonteCarloSourceReport()),
+    )
+    _build_assertion_workunits(
+        builder_two,
+        MonteCarloAssertionDef(
+            uuid="mon-tbl",
+            monitor_type="TABLE",
+            entity_mcons=[mcon_a, mcon_b],
+            scope_from_asset_selection=True,
+        ),
+    )
+    ingested = builder_two._ingested_by_monitor["mon-tbl"]
+    assert len(ingested) == 2
+    urn_a_run2 = next(item.assertion_urn for item in ingested if item.mcon == mcon_a)
+    assert urn_a_run1 == urn_a_run2
+    assert urn_a_run1 != builder_two._assertion_urn("mon-tbl")
+
+
+def test_build_assertion_getmonitors_multi_entity_keeps_master_urn() -> None:
+    """A getMonitors-provided multi-entity monitor keeps master's single
+    assertion, keyed by monitor_uuid only, bound to the first resolved table."""
     report = MonteCarloSourceReport()
-    mcon_a = "MCON++acct++wh-2++table++db.sch.customers"
-    mcon_b = "MCON++acct++wh-2++table++db.sch.payments"
+    mcon_a = "MCON++acct++wh-2++table++db.sch.table_a"
+    mcon_b = "MCON++acct++wh-2++table++db.sch.table_b"
     client = FakeResolverClient(
         {
             mcon_a: ResolvedTable(
                 mcon=mcon_a,
-                full_table_id="db.sch.customers",
+                full_table_id="db.sch.table_a",
                 connection_type="snowflake",
             ),
             mcon_b: ResolvedTable(
                 mcon=mcon_b,
-                full_table_id="db.sch.payments",
+                full_table_id="db.sch.table_b",
+                connection_type="snowflake",
+            ),
+        }
+    )
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    builder = MonteCarloAssertionBuilder(cfg, report, MconResolver(cfg, client, report))
+    _build_assertion_workunits(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-metric",
+            monitor_type="METRIC",
+            entity_mcons=[mcon_a, mcon_b],
+        ),
+    )
+    ingested = builder._ingested_by_monitor["mon-metric"]
+    assert len(ingested) == 1
+    assert ingested[0].mcon == mcon_a
+    assert ingested[0].assertion_urn == builder._assertion_urn("mon-metric")
+    assert report.assertions_emitted == 1
+
+
+def test_build_run_event_getmonitors_alert_on_non_first_table() -> None:
+    """A getMonitors multi-entity monitor keeps master's alert bind: one
+    assertion on the first resolved table receives alerts whose asset_mcons
+    name a different entity on the same monitor."""
+    report = MonteCarloSourceReport()
+    mcon_a = "MCON++acct++wh-2++table++db.sch.table_a"
+    mcon_b = "MCON++acct++wh-2++table++db.sch.table_b"
+    client = FakeResolverClient(
+        {
+            mcon_a: ResolvedTable(
+                mcon=mcon_a,
+                full_table_id="db.sch.table_a",
+                connection_type="snowflake",
+            ),
+            mcon_b: ResolvedTable(
+                mcon=mcon_b,
+                full_table_id="db.sch.table_b",
+                connection_type="snowflake",
+            ),
+        }
+    )
+    cfg = make_config(connection_to_platform_map={"wh-2": {"platform": "snowflake"}})
+    resolver = MconResolver(cfg, client, report)
+    builder = MonteCarloAssertionBuilder(cfg, report, resolver)
+    _build_assertion_workunits(
+        builder,
+        MonteCarloAssertionDef(
+            uuid="mon-metric",
+            monitor_type="METRIC",
+            entity_mcons=[mcon_a, mcon_b],
+        ),
+    )
+    alert = MonteCarloAlert(
+        uuid="alert-2",
+        monitor_uuids=["mon-metric"],
+        asset_mcons=[mcon_b],
+        created_time="2026-05-01T00:00:00+00:00",
+    )
+    wus = list(builder.build_run_event(alert))
+    assert len(wus) == 1
+    run_event = _aspect(wus[0])
+    assert isinstance(run_event, AssertionRunEventClass)
+    assert run_event.assertionUrn == builder._assertion_urn("mon-metric")
+    assert run_event.asserteeUrn == resolver.dataset_urn_for_mcon(mcon_a)
+
+
+def test_build_run_event_includes_joined_schema_change_fields() -> None:
+    """SCHEMA_CHANGES alerts carry fieldsAdded/Removed from the joined
+    getSchemaChanges event on nativeResults for the matching table."""
+    report = MonteCarloSourceReport()
+    mcon_a = "MCON++acct++wh-2++table++db.sch.table_a"
+    mcon_b = "MCON++acct++wh-2++table++db.sch.table_b"
+    client = FakeResolverClient(
+        {
+            mcon_a: ResolvedTable(
+                mcon=mcon_a,
+                full_table_id="db.sch.table_a",
+                connection_type="snowflake",
+            ),
+            mcon_b: ResolvedTable(
+                mcon=mcon_b,
+                full_table_id="db.sch.table_b",
                 connection_type="snowflake",
             ),
         }
@@ -2069,6 +2468,7 @@ def test_build_run_event_includes_joined_schema_change_fields() -> None:
             uuid="mon-tbl",
             monitor_type="TABLE",
             entity_mcons=[mcon_a, mcon_b],
+            scope_from_asset_selection=True,
         ),
     )
     alert = MonteCarloAlert(
@@ -2117,7 +2517,7 @@ def test_build_run_event_includes_joined_schema_change_fields() -> None:
 
 
 def test_closest_schema_change_picks_nearest_event_inside_window() -> None:
-    mcon = "MCON++a++wh++table++db.sch.customers"
+    mcon = "MCON++a++wh++table++db.sch.table_a"
     older = MonteCarloSchemaChange(
         mcon=mcon,
         start_time="2026-09-28T10:00:00+00:00",
@@ -2141,7 +2541,7 @@ def test_closest_schema_change_picks_nearest_event_inside_window() -> None:
 
 def test_closest_schema_change_returns_none_outside_window() -> None:
     event = MonteCarloSchemaChange(
-        mcon="MCON++a++wh++table++db.sch.orders",
+        mcon="MCON++a++wh++table++db.sch.table_c",
         start_time="2026-09-01T00:00:00+00:00",
         fields_added=["col"],
     )
@@ -2318,18 +2718,18 @@ def test_emit_run_events_fetches_job_executions_once_per_table_monitor() -> None
     from unittest.mock import MagicMock
 
     report = MonteCarloSourceReport()
-    mcon_a = "MCON++acct++wh-2++table++db.sch.customers"
-    mcon_b = "MCON++acct++wh-2++table++db.sch.payments"
+    mcon_a = "MCON++acct++wh-2++table++db.sch.table_a"
+    mcon_b = "MCON++acct++wh-2++table++db.sch.table_b"
     resolver_client = FakeResolverClient(
         {
             mcon_a: ResolvedTable(
                 mcon=mcon_a,
-                full_table_id="db.sch.customers",
+                full_table_id="db.sch.table_a",
                 connection_type="snowflake",
             ),
             mcon_b: ResolvedTable(
                 mcon=mcon_b,
-                full_table_id="db.sch.payments",
+                full_table_id="db.sch.table_b",
                 connection_type="snowflake",
             ),
         }
@@ -2347,6 +2747,7 @@ def test_emit_run_events_fetches_job_executions_once_per_table_monitor() -> None
             uuid="mon-tbl",
             monitor_type="TABLE",
             entity_mcons=[mcon_a, mcon_b],
+            scope_from_asset_selection=True,
         ),
     )
     job_calls: List[str] = []

@@ -35,7 +35,9 @@ any remaining comparisons into `customAssertion.logic` as JSON, so a compound ru
 represented. Single-asset monitors keep one assertion URN per monitor. Pattern-scoped TABLE
 monitors that cover several tables emit one assertion per covered dataset (the assertion URN
 includes the table MCON), and an alert attaches to the assertion whose dataset matches the
-alert's assets.
+alert's assets. TABLE monitors already ingested with an explicit table list get a new
+per-table assertion URN once on upgrade; the old URN is soft-deleted under stateful ingestion,
+while METRIC monitors and custom rules keep their existing URNs.
 
 Monitors for which no `comparisons` are returned (or the comparisons are malformed) fall back to
 `scope = DATASET_ROWS` with `_NATIVE_` operator/aggregation, so they still render through the
