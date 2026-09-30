@@ -6,11 +6,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
+import com.linkedin.api.ApiProperties;
 import com.linkedin.common.Documentation;
 import com.linkedin.common.DocumentationAssociation;
 import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.common.MetadataAttribution;
-import com.linkedin.api.ApiProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -434,6 +434,7 @@ public class UpdateDescriptionResolverTest {
     verifySingleIngestProposal(
         mockEntityService,
         1,
-        MutationUtils.buildMetadataChangeProposalWithUrn(urn, API_PROPERTIES_ASPECT_NAME, expected));
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            urn, API_PROPERTIES_ASPECT_NAME, expected));
   }
 }
