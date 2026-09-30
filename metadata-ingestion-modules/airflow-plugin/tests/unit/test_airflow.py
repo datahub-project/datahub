@@ -1,11 +1,14 @@
 import json
 from contextlib import contextmanager
-from typing import Iterator
+from datetime import datetime, timedelta
+from typing import Iterator, List, Optional, Union
 from unittest import mock
 
 import airflow.configuration
 import pytest
+from airflow import DAG
 from airflow.models import Connection, DagBag
+from airflow.sdk import Asset
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.graph.config import ClientMode
@@ -13,6 +16,14 @@ from datahub_airflow_plugin import get_provider_info
 from datahub_airflow_plugin.entities import Dataset, Urn
 from datahub_airflow_plugin.hooks.datahub import DatahubKafkaHook, DatahubRestHook
 from datahub_airflow_plugin.operators.datahub import DatahubEmitterOperator
+
+try:
+    # Airflow 3.2+ split Task SDK timetables (no `summary`) out of core.
+    from airflow.sdk.definitions.timetables.trigger import DeltaTriggerTimetable
+except ImportError:
+    from airflow.timetables.trigger import (  # type: ignore[assignment]
+        DeltaTriggerTimetable,
+    )
 
 lineage_mce = builder.make_lineage_mce(
     [
@@ -270,6 +281,52 @@ def test_get_base_url_prefers_api_over_webserver():
             side_effect=conf_get(values),
         ):
             assert _get_base_url() == expected
+
+
+@pytest.mark.parametrize(
+    ["schedule", "expected"],
+    [
+        pytest.param("0 6 * * *", "0 6 * * *", id="cron"),
+        pytest.param("@daily", "0 0 * * *", id="cron-preset"),
+        pytest.param(timedelta(hours=2), "2:00:00", id="timedelta"),
+        pytest.param(
+            DeltaTriggerTimetable(timedelta(hours=1)), "1:00:00", id="timetable"
+        ),
+        pytest.param(None, "None", id="none"),
+        pytest.param([Asset("s3://bucket/key")], "Asset", id="assets"),
+    ],
+)
+def test_generate_dataflow_captures_schedule(
+    schedule: Optional[Union[str, timedelta, List[Asset], DeltaTriggerTimetable]],
+    expected: str,
+) -> None:
+    """The DAG-run hooks emit the DataFlow from a SerializedDAG, which has no
+    `schedule` attribute, while the task hooks emit it from a Task SDK DAG, whose
+    timetable has no `summary` on Airflow 3.2+. Both must produce the same
+    `schedule` property, or the value flips depending on which hook ran last."""
+    from datahub_airflow_plugin._config import get_lineage_config
+    from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
+
+    dag = DAG(
+        dag_id="test_dag_schedule",
+        schedule=schedule,
+        start_date=datetime(2024, 1, 1),
+    )
+    try:
+        # Airflow 3.2+
+        from airflow.serialization.serialized_objects import DagSerialization
+
+        serialized_dag = DagSerialization.from_dict(DagSerialization.to_dict(dag))
+    except ImportError:
+        # Airflow 3.0 and 3.1 keep the (de)serializers on SerializedDAG itself.
+        from airflow.serialization.serialized_objects import SerializedDAG
+
+        serialized_dag = SerializedDAG.from_dict(SerializedDAG.to_dict(dag))  # type: ignore[attr-defined]
+
+    config = get_lineage_config()
+    for dag_object in (dag, serialized_dag):
+        properties = AirflowGenerator.generate_dataflow(config, dag_object).properties
+        assert properties["schedule"] == expected
 
 
 def test_entities():
