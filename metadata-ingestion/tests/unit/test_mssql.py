@@ -517,3 +517,37 @@ def test_use_odbc_removed_field_warning(mock_pipeline_context):
 
     # is_odbc is determined by source type, stored on instance
     assert source._is_odbc is True
+
+
+@pytest.mark.parametrize("convert_column_urns_to_lowercase", [True, False])
+def test_profiler_field_path_follows_column_lowercase_flag(
+    convert_column_urns_to_lowercase,
+):
+    """Profile field paths must match the (possibly lowercased) schemaMetadata
+    fieldPath, otherwise column profiles and assertions reading them fail to resolve."""
+    config = SQLServerConfig(
+        host_port="localhost:1433",
+        username="test",
+        password="test",
+        database="test_db",
+        include_descriptions=False,
+        convert_column_urns_to_lowercase=convert_column_urns_to_lowercase,
+    )
+
+    with patch("datahub.ingestion.source.sql.sql_common.SQLAlchemySource.__init__"):
+        source = SQLServerSource(config, MagicMock())
+        source.report = MagicMock()
+        source.platform = "mssql"
+
+    with patch(
+        "datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler.SQLAlchemyProfiler.__init__",
+        return_value=None,
+    ) as mock_profiler_init:
+        source.get_profiler_instance(MagicMock())
+
+    transform = mock_profiler_init.call_args.kwargs["field_path_transform"]
+    if convert_column_urns_to_lowercase:
+        assert transform is not None
+        assert transform("AccountID") == "accountid"
+    else:
+        assert transform is None

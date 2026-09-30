@@ -2,6 +2,7 @@ import logging
 import re
 import urllib.parse
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
@@ -102,6 +103,11 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -694,6 +700,31 @@ class SQLServerSource(SQLAlchemySource):
             for field in schema_fields:
                 field.fieldPath = field.fieldPath.lower()
         return schema_fields
+
+    def get_profiler_instance(self, inspector: Inspector) -> "SQLAlchemyProfiler":
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
+        # Profiles attach to schemaMetadata by exact fieldPath match. The schema
+        # is lowercased in get_schema_fields when convert_column_urns_to_lowercase
+        # is on, so the profiler must emit the same casing or every column
+        # profile (and any assertion evaluated against it) fails to resolve.
+        field_path_transform: Optional[Callable[[str], str]] = (
+            str.lower if self.config.convert_column_urns_to_lowercase else None
+        )
+
+        logger.info(
+            f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+        )
+        return SQLAlchemyProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+            field_path_transform=field_path_transform,
+        )
 
     def get_database_level_workunits(
         self,
