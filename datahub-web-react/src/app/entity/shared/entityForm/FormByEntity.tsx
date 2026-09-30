@@ -65,6 +65,7 @@ export default function FormByEntity({ formUrn }: Props) {
                             sidebarSections={loading ? [] : sections}
                             topSection={{ component: () => <EntityInfo formUrn={formUrn} /> }}
                             backgroundColor="white"
+                            loading={loading}
                         />
                     )}
                 </FlexWrapper>

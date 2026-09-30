@@ -1,6 +1,6 @@
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -52,9 +52,13 @@ export const SidebarAboutSection = ({ properties, readOnly }: Props) => {
         entityProperties: entityData,
     });
 
-    const links = entityData?.institutionalMemory?.elements || [];
+    const hasContent = useMemo(() => {
+        // Do not take into account links that shown in entity profile's header as they will not be shown
+        const links =
+            entityData?.institutionalMemory?.elements?.filter((link) => !link.settings?.showInAssetPreview) || [];
 
-    const hasContent = !!displayedDescription || links.length > 0;
+        return !!displayedDescription || links.length > 0;
+    }, [displayedDescription, entityData]);
 
     const canEditDescription = useDocumentationPermission();
 
