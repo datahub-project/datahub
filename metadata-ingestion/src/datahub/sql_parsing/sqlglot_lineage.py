@@ -122,6 +122,12 @@ def _restore_mssql_temp_table_prefix(
     if not hasattr(identifier, "args"):
         return table.name
 
+    # TODO: MSSQL table-valued functions still resolve to the function name
+    # here (ghost URNs). sqlglot's Table.name is "" when Table.this is a Func,
+    # but this reads the name off the function node. Once sqlglot parses bare
+    # hints like `dbo.t (NOLOCK)` as table hints
+    # (https://github.com/tobymao/sqlglot/issues/8468), return "" for a Func
+    # here and in the Dot branch of _table_name_from_sqlglot_table.
     table_name = identifier.name if hasattr(identifier, "name") else table.name
 
     # Note: sqlglot v28+ uses "global_" instead of "global"
