@@ -1570,6 +1570,45 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testProcessBatch_SkipsDeleteThenRecreateWithSameValue() throws Exception {
+    MCLItem delete = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem recreate = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status value = new Status().setRemoved(false);
+    when(delete.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(delete.getPreviousRecordTemplate()).thenReturn(value);
+    when(recreate.getRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    stubTransform(value, Map.of("removed", "false"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(delete, recreate)), false);
+
+    // The index ends the batch holding what it held before it
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_UpdateThenDeleteNullsFieldsHeldBeforeBatch() throws Exception {
+    MCLItem update = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem delete = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate before = mock(RecordTemplate.class);
+    RecordTemplate updated = update.getRecordTemplate();
+    when(update.getPreviousRecordTemplate()).thenReturn(before);
+    when(delete.getChangeType()).thenReturn(ChangeType.DELETE);
+    when(delete.getPreviousRecordTemplate()).thenReturn(updated);
+    RecordTemplate deleted = delete.getRecordTemplate();
+    stubTransform(before, Map.of("name", "a"));
+    stubTransform(deleted, Map.of());
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(update, delete)), false);
+
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertTrue(written.get("name").isNull());
+    assertTrue(written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).get("name").isNull());
+  }
+
+  @Test
   public void testProcessBatch_AppliesAspectsInFirstAppearanceOrder() throws Exception {
     MCLItem first = aspectEvent("dataPlatformInstance");
     MCLItem other = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);

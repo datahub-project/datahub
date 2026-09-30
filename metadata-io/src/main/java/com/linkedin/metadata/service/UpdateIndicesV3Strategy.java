@@ -511,8 +511,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   /**
-   * The event that writes an aspect, the aspect value the index held before the batch, and whether
-   * the aspect must be written even when that value equals the last one.
+   * The event that writes an aspect, the aspect value to diff it against, and whether the aspect
+   * must be written even when that value equals the last one.
    */
   private record CoalescedAspectEvent(
       @Nonnull MCLItem event, @Nullable RecordTemplate baseline, boolean mustWrite) {}
@@ -530,10 +530,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
   /**
    * One event per aspect, in order of first appearance: the last event in the batch, diffed against
-   * the first event's previous value, as V2 does when it coalesces a batch. That value is what the
-   * index held before the batch, so removal nulls cover every field the batch dropped; diffing each
+   * the first previous value of the batch, as V2 does when it coalesces a batch. That value is what
+   * the index held before the batch, or, when the batch created or restated the aspect, the value
+   * it held right after that, so removal nulls cover every field the batch dropped; diffing each
    * event against its own predecessor would lose the nulls of all but the last event under {@code
-   * _aspects.<aspect>}, which each event replaces.
+   * _aspects.<aspect>}, which each event replaces. An aspect the batch created or forced is always
+   * written.
    *
    * <p>Two aspects can project the same root field (e.g. corpuser displayName from CorpUserInfo and
    * CorpUserEditableInfo). Root fields are last-write-wins, so user-edited override aspects are
