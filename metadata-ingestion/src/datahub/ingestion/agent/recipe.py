@@ -1,6 +1,7 @@
 import re
 from typing import Dict, List, Optional, Set
 
+from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.redact import (
@@ -169,7 +170,7 @@ def validate_recipe(
         resolved = None
     if resolved is not None:
         try:
-            config_cls.model_validate(resolved)
+            validate_source_config(config_cls, source_type, resolved)
         except (ValueError, TypeError, AssertionError) as exc:
             errors.append(str(exc))
 

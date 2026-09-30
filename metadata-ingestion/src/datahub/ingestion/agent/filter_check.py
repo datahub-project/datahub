@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
+from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.introspect import (
     declared_qualifier,
     pattern_field_for_config,
@@ -485,7 +486,7 @@ def check_filters(
     config_cls = config_class_for(source_type)
     if config_cls is None:
         raise ValueError(f"unknown source type '{source_type}'")
-    config = config_cls.model_validate(config_dict)
+    config = validate_source_config(config_cls, source_type, config_dict)
 
     warnings: List[str] = []
     seen: Set[str] = set()

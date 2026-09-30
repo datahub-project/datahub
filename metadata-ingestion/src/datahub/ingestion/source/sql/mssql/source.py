@@ -338,6 +338,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             )
         return v
 
+    @classmethod
+    def probe_validation_context(cls, source_type: str) -> Optional[Dict[str, object]]:
+        # Mirrors SQLServerSource.create: the registered name is the only thing
+        # that tells an ODBC recipe from a pytds one, and validate_uri_args
+        # reads it from the context.
+        return {"is_odbc": source_type == "mssql-odbc"}
+
     @field_validator("max_queries_to_extract")
     @classmethod
     def validate_max_queries_to_extract(cls, value: int) -> int:

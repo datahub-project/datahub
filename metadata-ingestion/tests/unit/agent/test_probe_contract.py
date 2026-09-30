@@ -243,6 +243,9 @@ def test_a_provider_taking_sql_declares_the_dialect_it_will_be_parsed_as():
 _CONFIG_HOOKS = frozenset(
     {
         "probe_provider_class",
+        # Read by agent.config_validation: the pydantic context a source type
+        # validates with (mssql-odbc).
+        "probe_validation_context",
         "probe_catalog_scope",
         "probe_container_kind",
         "probe_match_target",
@@ -677,6 +680,7 @@ def test_every_config_hook_matches_the_signature_the_framework_calls():
     # Keyword arguments the framework passes, per hook. A hook must accept
     # every one of these -- by name, since every call site uses keywords.
     required_kwargs = {
+        "probe_validation_context": {"source_type"},
         "probe_schema_verdict_override": {"schema", "parent_path"},
         # Widened with `database` when Snowflake and BigQuery turned out to
         # be judging tables on `schema.entity` while ingestion matched three

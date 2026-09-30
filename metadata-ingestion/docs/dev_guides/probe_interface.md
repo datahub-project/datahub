@@ -97,6 +97,12 @@ implement exactly this one hook and nothing else in this guide. Everything below
 | `warnings: List[str]`          | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                             |
 | `probe_report`                 | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand |
 
+**A source type that validates differently from its config class.** Some registered
+names share one config class and differ only in the pydantic context their `create()`
+passes (`mssql-odbc` vs `mssql`). Declare
+`probe_validation_context(cls, source_type: str) -> Optional[Dict[str, object]]` and
+every probe command validates the recipe with the same context ingestion uses.
+
 ### `@probe_method` options
 
 | Option              | Effect                                                                                                                                                                                                                                                                                             |

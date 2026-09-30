@@ -23,6 +23,7 @@ from datahub.configuration.env_vars import (
     get_probe_disabled,
 )
 from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
+from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.verdicts import (
     ProbeConnectionError,
     ProbeInternalError,
@@ -443,7 +444,7 @@ def list_probe_methods(
     if config_cls is None:
         return specs
     try:
-        config = config_cls.model_validate(config_dict)
+        config = validate_source_config(config_cls, source_type, config_dict)
     except Exception:
         # Discovery is connection-free AND recipe-incomplete-free. The config
         # is built only to ask a classmethod which kind a per-recipe command
@@ -760,7 +761,9 @@ def run_probe_method(
     # the operator's switch, and it must not depend on the source being
     # reachable.
     _refuse_withheld_passthrough(specs[command], source_type)
-    config = config_class_for(source_type).model_validate(config_dict)
+    config = validate_source_config(
+        config_class_for(source_type), source_type, config_dict
+    )
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):
         raise ValueError(
