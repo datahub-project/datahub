@@ -317,7 +317,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     }
 
     searchRequest.source(searchSourceBuilder);
-    log.debug("Search request is: " + searchRequest);
+    log.debug("Search request is: {}", searchRequest);
     return searchRequest;
   }
 
@@ -373,7 +373,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     }
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
-    log.debug("Search request is: " + searchRequest);
+    log.debug("Search request is: {}", searchRequest);
     searchRequest.indicesOptions(null);
 
     return searchRequest;

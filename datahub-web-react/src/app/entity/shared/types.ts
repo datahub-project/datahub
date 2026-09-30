@@ -71,6 +71,9 @@ export type GenericEntityProperties = {
     urn?: string;
     type?: EntityType;
     name?: Maybe<string>;
+    // Deprecated in the schema in favour of `properties.description`, but still the only
+    // description some types (notably Tag) expose and select in their fragments.
+    description?: Maybe<string>;
     properties?: Maybe<{
         name?: Maybe<string>;
         description?: Maybe<string>;
