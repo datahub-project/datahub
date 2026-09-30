@@ -151,10 +151,11 @@ public final class HealthComputationUtils {
   }
 
   /**
-   * Drops soft-deleted (status.removed == true) urns from {@code assertionUrns} via one batched
-   * status lookup, mirroring the filter {@link
-   * com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver} applies to {@code
-   * dataset.assertions}. Shared by {@link EntityHealthResolver} and {@link
+   * Keeps only the urns in {@code assertionUrns} that {@link
+   * com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver} would list in {@code
+   * dataset.assertions}: the assertion exists, has an {@code assertionInfo} aspect, and is not
+   * soft-deleted (status.removed == true). Uses one batched lookup of those two aspects. Shared by
+   * {@link EntityHealthResolver} and {@link
    * com.linkedin.datahub.graphql.resolvers.load.EntityHealthBatchLoader}. On any lookup failure —
    * including a {@link RuntimeException}, since {@code JavaEntityClient.batchGetV2} wraps its
    * checked exceptions and DB errors in one — falls back to returning every input urn unchanged
@@ -173,9 +174,9 @@ public final class HealthComputationUtils {
               opContext,
               Constants.ASSERTION_ENTITY_NAME,
               new HashSet<>(assertionUrns),
-              ImmutableSet.of(Constants.STATUS_ASPECT_NAME));
+              ImmutableSet.of(Constants.STATUS_ASPECT_NAME, Constants.ASSERTION_INFO_ASPECT_NAME));
       return assertionUrns.stream()
-          .filter(urn -> !isRemoved(entities.get(urn)))
+          .filter(urn -> isActive(entities.get(urn)))
           .collect(Collectors.toSet());
     } catch (RemoteInvocationException | URISyntaxException | RuntimeException e) {
       log.warn(
@@ -186,11 +187,17 @@ public final class HealthComputationUtils {
     }
   }
 
-  private static boolean isRemoved(@Nullable final EntityResponse response) {
-    if (response == null || !response.getAspects().containsKey(Constants.STATUS_ASPECT_NAME)) {
+  private static boolean isActive(@Nullable final EntityResponse response) {
+    // A missing response (hard-deleted) or missing assertionInfo is dropped, matching the
+    // null/info checks in EntityAssertionsResolver.
+    if (response == null
+        || !response.getAspects().containsKey(Constants.ASSERTION_INFO_ASPECT_NAME)) {
       return false;
     }
-    return new Status(response.getAspects().get(Constants.STATUS_ASPECT_NAME).getValue().data())
+    if (!response.getAspects().containsKey(Constants.STATUS_ASPECT_NAME)) {
+      return true;
+    }
+    return !new Status(response.getAspects().get(Constants.STATUS_ASPECT_NAME).getValue().data())
         .isRemoved();
   }
 

@@ -119,7 +119,8 @@ public class EntityHealthBatchLoader {
   public List<List<Health>> batchLoad(final List<HealthQueryKey> keys, final QueryContext context) {
     final OperationContext opContext = context.getOperationContext();
 
-    final List<Urn> assertionUrns = distinctUrns(keys, HealthQueryKey::isAssertionsEnabled);
+    final List<Urn> assertionEnabledAssetUrns =
+        distinctUrns(keys, HealthQueryKey::isAssertionsEnabled);
     final List<Urn> incidentUrns = distinctUrns(keys, HealthQueryKey::isIncidentsEnabled);
 
     // Fire the independent batches concurrently. Each dimension is isolated: a failure degrades to
@@ -127,7 +128,7 @@ public class EntityHealthBatchLoader {
     // A: batched assertion-run aggregation (asserteeUrn outer bucket) — the headline N+1 fix.
     final CompletableFuture<Map<Urn, GenericTable>> assertionRunsFuture =
         GraphQLConcurrencyUtils.supplyAsync(
-                () -> batchAssertionRuns(opContext, assertionUrns),
+                () -> batchAssertionRuns(opContext, assertionEnabledAssetUrns),
                 LOADER_NAME,
                 "batchGetAggregatedStats:assertionRuns")
             .exceptionally(
@@ -139,7 +140,7 @@ public class EntityHealthBatchLoader {
     // B: active (non-deleted) assertion URNs — per-URN graph lookup, run concurrently.
     final CompletableFuture<Map<Urn, Set<String>>> activeAssertionsFuture =
         GraphQLConcurrencyUtils.supplyAsync(
-                () -> fetchActiveAssertions(assertionUrns, context),
+                () -> fetchActiveAssertions(assertionEnabledAssetUrns, context),
                 LOADER_NAME,
                 "fetchActiveAssertions")
             .exceptionally(
@@ -237,8 +238,8 @@ public class EntityHealthBatchLoader {
   // ---------------------------------------------------------------------------
 
   private Map<Urn, GenericTable> batchAssertionRuns(
-      final OperationContext opContext, final List<Urn> assertionUrns) {
-    if (assertionUrns.isEmpty()) {
+      final OperationContext opContext, final List<Urn> assetUrns) {
+    if (assetUrns.isEmpty()) {
       return Collections.emptyMap();
     }
     return timeseriesAspectService.batchGetAggregatedStats(
@@ -246,7 +247,7 @@ public class EntityHealthBatchLoader {
         Constants.ASSERTION_ENTITY_NAME,
         Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
         HealthComputationUtils.assertionAggregationSpecs(),
-        assertionUrns,
+        assetUrns,
         HealthComputationUtils.sharedAssertionsFilter(),
         HealthComputationUtils.assertionGroupingBuckets(),
         HealthComputationUtils.ASSERTEE_URN_FIELD);
@@ -283,7 +284,8 @@ public class EntityHealthBatchLoader {
               // health, not every entity's.
               .exceptionally(
                   ex -> {
-                    log.warn("Active-assertion lookup failed for {}; skipping", assetUrn, ex);
+                    log.warn(
+                        "Related-assertion lookup failed for asset {}; skipping", assetUrn, ex);
                     return Collections.<Urn>emptySet();
                   }));
     }

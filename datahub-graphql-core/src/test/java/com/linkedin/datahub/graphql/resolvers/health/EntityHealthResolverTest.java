@@ -6,6 +6,8 @@ import static org.testng.Assert.*;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
@@ -826,6 +828,10 @@ public class EntityHealthResolverTest {
                         ImmutableList.of(
                             new StringArray(
                                 ImmutableList.of(TEST_ASSERTION_URN, "FAILURE", "0"))))));
+    Mockito.when(
+            mockEntityClient.batchGetV2(
+                any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
+        .thenReturn(Map.of(Urn.createFromString(TEST_ASSERTION_URN), activeAssertion()));
 
     final EntityHealthResolver resolver =
         new EntityHealthResolver(
@@ -880,9 +886,7 @@ public class EntityHealthResolverTest {
     // TEST_ASSERTION_URN_2 is soft-deleted.
     final Map<Urn, EntityResponse> statusResponses = new HashMap<>();
     statusResponses.put(Urn.createFromString(TEST_ASSERTION_URN_2), removedStatus());
-    statusResponses.put(
-        Urn.createFromString(TEST_ASSERTION_URN),
-        new EntityResponse().setAspects(new EnvelopedAspectMap()));
+    statusResponses.put(Urn.createFromString(TEST_ASSERTION_URN), activeAssertion());
     Mockito.when(
             mockEntityClient.batchGetV2(
                 any(), Mockito.eq(Constants.ASSERTION_ENTITY_NAME), any(), any()))
@@ -1071,10 +1075,23 @@ public class EntityHealthResolverTest {
   /** A batchGetV2 EntityResponse for a soft-deleted (status.removed = true) assertion. */
   private static EntityResponse removedStatus() {
     final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, assertionInfoAspect());
     aspects.put(
         Constants.STATUS_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
     return new EntityResponse().setAspects(aspects);
+  }
+
+  /** A batchGetV2 EntityResponse for an existing, non-removed assertion. */
+  private static EntityResponse activeAssertion() {
+    final EnvelopedAspectMap aspects = new EnvelopedAspectMap();
+    aspects.put(Constants.ASSERTION_INFO_ASPECT_NAME, assertionInfoAspect());
+    return new EntityResponse().setAspects(aspects);
+  }
+
+  private static EnvelopedAspect assertionInfoAspect() {
+    return new EnvelopedAspect()
+        .setValue(new Aspect(new AssertionInfo().setType(AssertionType.DATASET).data()));
   }
 
   /** Builds a DataFetchingEnvironment for the legacy (non-batch) resolver path. */
