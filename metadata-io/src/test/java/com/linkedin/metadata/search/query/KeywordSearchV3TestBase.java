@@ -112,6 +112,8 @@ import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -127,6 +129,7 @@ import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -177,6 +180,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private SettingsBuilder settingsBuilder;
   private IndexConfiguration indexConfiguration;
   private OperationContext opContext;
+  private ElasticSearchConfiguration config;
   private ElasticSearchService searchService;
 
   @Nonnull
@@ -200,8 +204,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .keywordReadEnabled(true)
                     .build())
             .build();
-    ElasticSearchConfiguration config =
-        TEST_ES_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build();
+    config = TEST_ES_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build();
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -516,6 +519,47 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         searchService.aggregateByValue(
             opContext, List.of(DATASET_ENTITY_NAME), "typeNames", null, 10),
         Map.of("Table", 1L));
+  }
+
+  /**
+   * With V2 and V3 both written and keyword reads off, an aggregation without an entity list reads
+   * V2 only, so an entity held by both counts once.
+   */
+  @Test
+  public void testAggregateAcrossEntitiesWhileDualWriting() throws Exception {
+    if (!isV2Enabled()) {
+      throw new SkipException("Needs the V2 entity indices");
+    }
+    EntityIndexConfiguration dualWrite =
+        config.getEntityIndex().toBuilder()
+            .v3(config.getEntityIndex().getV3().toBuilder().keywordReadEnabled(false).build())
+            .build();
+    ESSearchDAO dualWriteSearchDAO =
+        new ESSearchDAO(
+            false,
+            config.toBuilder().entityIndex(dualWrite).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    // ORDERS as V2 holds it, next to its V3 document
+    String v2DocId = URLEncoder.encode(ORDERS.toString(), StandardCharsets.UTF_8);
+    searchService.upsertDocument(
+        opContext,
+        DATASET_ENTITY_NAME,
+        String.format("{\"urn\":\"%s\",\"platform\":\"%s\"}", ORDERS, HIVE),
+        v2DocId);
+    syncAfterWrite(getBulkProcessor());
+    try {
+      Map<String, Long> v2Counts =
+          dualWriteSearchDAO.aggregateByValue(
+              opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10);
+      assertEquals(v2Counts, Map.of(HIVE.toString(), 1L));
+      assertEquals(
+          dualWriteSearchDAO.aggregateByValue(opContext, null, "platform", null, 10), v2Counts);
+    } finally {
+      searchService.deleteDocument(opContext, DATASET_ENTITY_NAME, v2DocId);
+      syncAfterWrite(getBulkProcessor());
+    }
   }
 
   @Test
