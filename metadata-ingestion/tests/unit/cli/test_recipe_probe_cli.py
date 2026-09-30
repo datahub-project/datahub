@@ -1438,6 +1438,32 @@ def test_a_kind_contradicting_the_listing_is_a_bad_argument(monkeypatch, tmp_pat
     assert res.exit_code == 2, res.output
 
 
+def test_a_listing_from_another_source_is_a_bad_argument(monkeypatch, tmp_path):
+    seen = _capturing_check_filters(monkeypatch)
+    run = _run_file(
+        tmp_path, {"source_type": "mysql", "kind": "Table", "result": ["t1"]}
+    )
+    res = CliRunner().invoke(
+        recipe,
+        ["probe", "filter", "--recipe", _recipe_file(tmp_path), "--from-run", run],
+    )
+    assert res.exit_code == 2, res.output
+    assert seen == {}
+
+
+def test_a_listing_from_the_recipes_source_is_judged(monkeypatch, tmp_path):
+    seen = _capturing_check_filters(monkeypatch)
+    run = _run_file(
+        tmp_path, {"source_type": "postgres", "kind": "Table", "result": ["t1"]}
+    )
+    res = CliRunner().invoke(
+        recipe,
+        ["probe", "filter", "--recipe", _recipe_file(tmp_path), "--from-run", run],
+    )
+    assert res.exit_code == 0, res.output
+    assert seen["names"] == ["t1"]
+
+
 def test_neither_names_nor_a_run_is_a_bad_argument(tmp_path):
     res = CliRunner().invoke(
         recipe,

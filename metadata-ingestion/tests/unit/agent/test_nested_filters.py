@@ -5,7 +5,7 @@ that filters a kind is a dotted path from the top-level config. Everything
 here must behave for a dotted path exactly as it already does for a bare one.
 """
 
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 
 import pytest
 from pydantic import Field
@@ -50,6 +50,16 @@ class _Twice(ConfigModel):
     )
 
 
+class _Inner(ConfigModel):
+    pattern: Annotated[AllowDenyPattern, Filters("Widget")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+
+
+class _OptOuter(ConfigModel):
+    block: Optional[_Inner] = None
+
+
 def _outer(deny: List[str]) -> _Outer:
     return _Outer.model_validate({"filters": {"widgets": {"pattern": {"deny": deny}}}})
 
@@ -89,6 +99,7 @@ def test_copy_with_pattern_at_does_not_touch_the_source() -> None:
     )
     assert isinstance(copied, _Outer)
     assert copied.filters is not config.filters
+    assert copied.filters.widgets is not config.filters.widgets
 
 
 def test_a_missing_segment_reads_as_no_pattern() -> None:
@@ -130,3 +141,51 @@ def test_try_deny_reaches_a_nested_pattern() -> None:
     )
     assert [r.included for r in result.results] == [True, False]
     assert result.tried == {"allow": [".*"], "deny": ["^good$"]}
+
+
+@pytest.fixture
+def _registered_opt_outer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: _OptOuter)
+    monkeypatch.setattr(filter_check, "list_probe_methods", lambda _st: [])
+
+
+@pytest.mark.usefixtures("_registered_opt_outer")
+def test_an_unset_optional_block_filters_nothing() -> None:
+    result = check_filters(
+        source_type="fake",
+        config_dict={},
+        kind="Widget",
+        parent_path=[],
+        names=["a", "b"],
+    )
+    assert result.pattern_field == "block.pattern"
+    assert [r.included for r in result.results] == [True, True]
+    assert any("`block` is unset" in w for w in result.warnings)
+
+
+@pytest.mark.usefixtures("_registered_opt_outer")
+def test_try_on_an_unset_optional_block_is_skipped_with_a_warning() -> None:
+    result = check_filters(
+        source_type="fake",
+        config_dict={},
+        kind="Widget",
+        parent_path=[],
+        names=["a"],
+        try_deny=[".*"],
+    )
+    assert result.tried is None
+    assert result.results[0].included is True
+    assert any("--try-allow and --try-deny were ignored" in w for w in result.warnings)
+
+
+@pytest.mark.usefixtures("_registered_opt_outer")
+def test_a_set_optional_block_still_filters() -> None:
+    result = check_filters(
+        source_type="fake",
+        config_dict={"block": {"pattern": {"deny": ["^a$"]}}},
+        kind="Widget",
+        parent_path=[],
+        names=["a", "b"],
+    )
+    assert [r.included for r in result.results] == [False, True]
+    assert result.warnings == []

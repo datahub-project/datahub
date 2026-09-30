@@ -14,12 +14,12 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
-from typing import Dict, Iterator, List, Mapping, Optional, Set, Tuple
+from typing import Annotated, Dict, Iterator, List, Mapping, Optional, Set, Tuple
 
 import pytest
 from pydantic import Field
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
     ProbeProvider,
@@ -28,6 +28,7 @@ from datahub.ingestion.agent.probe_methods import (
     config_class_for,
     probe_method,
 )
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.source.source_registry import source_registry
 
 # Parameter names that carry something a connector hands to an interpreter, a
@@ -1090,6 +1091,7 @@ def _rule_kind_problems(config_cls: type) -> List[str]:
     """A rule-filtered kind is only answerable when the config has the rule
     field, an override to judge it, and does not also call it unfiltered."""
     from datahub.ingestion.agent.introspect import (
+        _pattern_field_for_config_class,
         declared_rule_filtered_kinds,
         declared_unfiltered_kinds,
     )
@@ -1097,7 +1099,7 @@ def _rule_kind_problems(config_cls: type) -> List[str]:
     rules = declared_rule_filtered_kinds(config_cls)
     if not rules:
         return []
-    problems = []
+    problems: List[str] = []
     fields = getattr(config_cls, "model_fields", {})
     if not callable(getattr(config_cls, "probe_verdict_override", None)):
         problems.append(
@@ -1115,6 +1117,15 @@ def _rule_kind_problems(config_cls: type) -> List[str]:
             f"{config_cls.__name__}: '{kind}' is declared both rule-filtered "
             f"and unfiltered"
         )
+    for kind in sorted(rules):
+        # probe filter judges a rule kind by its rules and ignores the
+        # pattern, so a pattern declared for it filters nothing the probe sees.
+        pattern_field = _pattern_field_for_config_class(config_cls, kind)
+        if pattern_field is not None:
+            problems.append(
+                f"{config_cls.__name__}: '{kind}' is declared rule-filtered "
+                f"but also resolves to the pattern field '{pattern_field}'"
+            )
     return problems
 
 
@@ -1136,3 +1147,34 @@ def test_the_rule_kind_check_catches_a_missing_override():
             return {"Table": "path_specs"}
 
     assert len(_rule_kind_problems(_NoJudge)) == 1
+
+
+class _RulesAndPattern(ConfigModel):
+    path_specs: List[str] = Field(default_factory=list)
+    table_pattern: Annotated[AllowDenyPattern, Filters("Table")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+
+    @classmethod
+    def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
+        return {"Table": "path_specs"}
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        return Verdict.include()
+
+
+def test_a_rule_kind_that_also_resolves_to_a_pattern_is_refused():
+    problems = _rule_kind_problems(_RulesAndPattern)
+    assert len(problems) == 1
+    assert "table_pattern" in problems[0]
+
+
+def test_describe_maps_a_rule_kind_to_its_rule_field_only(monkeypatch):
+    from datahub.ingestion.agent import introspect
+
+    monkeypatch.setattr(
+        introspect, "declared_kinds_for_class", lambda _st, _cls: {"Table"}
+    )
+    assert introspect._filter_kinds_by_field("fake-source", _RulesAndPattern) == {
+        "path_specs": "Table"
+    }

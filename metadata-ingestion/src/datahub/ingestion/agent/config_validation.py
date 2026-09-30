@@ -18,5 +18,8 @@ def validate_source_config(
     hook = getattr(config_cls, "probe_validation_context", None)
     context = hook(source_type=source_type) if callable(hook) else None
     if context is None:
+        # Omitted rather than passed as None: pydantic's default is None, so
+        # this is identical, and a config (or test fake) whose model_validate
+        # takes no context keeps working.
         return config_cls.model_validate(config_dict)
     return config_cls.model_validate(config_dict, context=context)

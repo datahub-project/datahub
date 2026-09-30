@@ -32,7 +32,10 @@ connector id. `probe filter --from-run r.json` judges the listing a
 `probe run ... --report-to r.json` wrote, and hands the connector each record's scalar
 fields as `ctx.attributes`. Judging stays connection-free: the ids came from the
 fetch. A connector reading an attribute must warn and degrade when it is absent,
-since a caller may still pass bare `--name`s.
+since a caller may still pass bare `--name`s. Parent containers are always judged
+without attributes, even with `--from-run`: the listing's records describe the
+children, not the `--parent` above them. A parent-level override that needs an id
+therefore warns on every `--from-run` call that names a parent.
 
 `probe methods` lists what a connector offers, connection-free. It is the discovery surface:
 a command's parameters imply the nesting (`columns(schema, table)` sits under `tables(schema)`),
@@ -139,6 +142,9 @@ connectors, so implement a hook only when the default gives the wrong answer.
 | 5    | match the pattern against the target, if steps 3–4 gave no verdict                                                      | —                                                                                                                                                              |
 | 6    | judge the immediate `--parent` container the same way, recursively                                                      | `probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]`                                                                                             |
 
+An object inside an excluded container is reported excluded, with `excluded_by` naming
+the container's field rather than its own: ingestion never reaches anything inside it.
+
 **Step 4 is the escape hatch, and there is exactly one.** Use it when ingestion's
 decision is not one pattern's answer: a view must pass `table_pattern` as well as
 `view_pattern`; a child project is re-admitted under a selected parent; a pinned
@@ -157,8 +163,8 @@ sources — declares `probe_rule_filtered_kinds()` (classmethod: kind → the ru
 field) and judges each name in `probe_verdict_override`, which must return a
 `Verdict` for those kinds. `probe filter` reports `filtering: "by_rule"` with
 `pattern_field` naming the rule field; put the exact sub-rule in `excluded_by`
-(`path_specs[0].exclude`). `--try-allow`/`--try-deny` are refused with a warning,
-since there is no list to replace. Declaring such a kind unfiltered instead would
+(`path_specs[0].exclude`). `--try-allow`/`--try-deny` are ignored, with a warning
+(exit 0), since there is no list to replace. Declaring such a kind unfiltered instead would
 report everything included — the contract test refuses both at once.
 
 **A recipe switch that turns a whole kind off** (`extract_lakehouses: false`,
@@ -183,10 +189,16 @@ field itself; the framework finds it by walking nested `ConfigModel` fields and
 reports it as `pattern_field: "filter_config.entries.pattern"`, and `describe` lists
 it under that dotted name. `--try-allow`/`--try-deny` replace the nested pattern and
 rerun the validators of the block that owns it — not of its parents, so normalize a
-nested pattern in its own block.
+nested pattern in its own block. An `Optional` block the recipe leaves unset filters
+nothing: every name is reported included, with a warning, and `--try-*` is skipped
+with a warning because there is no pattern to replace. One nested block type reused
+under two sibling fields that both declare `Filters` for the same kind is refused
+("more than one field"), since the framework cannot tell which of the two decides.
 
-Be aware how narrow the rest is. Step 3 only runs for `Schema` and `Database` kinds, so a source
-with neither (Mode's Space/Report/Query, Kafka's Topic) can never reach it. And step 2's hook has
+Be aware how narrow the rest is. Step 3's kind switches (`probe_kind_switches()`) apply to every
+kind, but the rest of it — `default_databases()`, `default_schemas()` and
+`probe_schema_verdict_override` — runs only for `Database` and `Schema` kinds, so a source with
+neither (Mode's Space/Report/Query, Kafka's Topic) never reaches those. And step 2's hook has
 exactly one implementor in the tree — `SQLCommonConfig` — because the SQL family is where display
 identity and addressing identity come apart. Implement it if your source filters on a qualified
 identifier; otherwise the default, the bare name, is already right.

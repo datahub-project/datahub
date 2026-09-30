@@ -484,16 +484,19 @@ def _filter_kinds_by_field(source_type: str, config_cls: type) -> Dict[str, str]
     contradiction, one door along.
     """
     unfiltered = declared_unfiltered_kinds(config_cls)
+    rule_kinds = declared_rule_filtered_kinds(config_cls)
     resolved: Dict[str, str] = {}
     for kind in sorted(declared_kinds_for_class(source_type, config_cls)):
-        if str(kind) in unfiltered:
+        # A rule kind too: probe filter judges it by its rule field and never
+        # reads a same-kind pattern, so describe must not advertise one.
+        if str(kind) in unfiltered or str(kind) in rule_kinds:
             continue
         field = _pattern_field_for_config_class(config_cls, kind)
         # First kind wins, and sorted() makes that deterministic rather than
         # dependent on set iteration order.
         if field is not None and field not in resolved:
             resolved[field] = kind
-    for kind, field in sorted(declared_rule_filtered_kinds(config_cls).items()):
+    for kind, field in sorted(rule_kinds.items()):
         resolved.setdefault(field, kind)
     return resolved
 

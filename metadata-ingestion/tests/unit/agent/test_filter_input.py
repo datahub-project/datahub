@@ -41,3 +41,15 @@ def test_a_run_whose_result_is_not_a_listing_is_refused() -> None:
 def test_a_record_without_a_name_is_refused() -> None:
     with pytest.raises(ValueError, match="entry 1"):
         listing_from_run({"kind": "Thing", "result": ["a", {"id": "x"}]})
+
+
+@pytest.mark.parametrize("envelope", [["a", "b"], "a", 3])
+def test_a_file_that_is_not_an_envelope_is_refused(envelope: object) -> None:
+    with pytest.raises(ValueError, match="not a `probe run` output"):
+        listing_from_run(envelope)
+
+
+def test_the_source_type_travels_with_the_listing() -> None:
+    listing = listing_from_run({"source_type": "mysql", "result": ["a"]})
+    assert listing.source_type == "mysql"
+    assert listing_from_run({"result": ["a"]}).source_type is None

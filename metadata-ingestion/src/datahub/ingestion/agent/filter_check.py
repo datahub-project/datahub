@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import is_schema_allowed
@@ -15,6 +15,7 @@ from datahub.ingestion.agent.pattern_path import (
     copy_with_pattern_at,
     pattern_at,
     require_pattern_at,
+    unset_block_on,
     validate_pattern_at,
 )
 from datahub.ingestion.agent.probe_methods import config_class_for, list_probe_methods
@@ -485,7 +486,7 @@ def _declared_kinds(source_type: str, config: object) -> Set[str]:
 def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
     """The connector's own verdict for one name, when no pattern states it.
 
-    Checked for type because Python's truthiness would otherwise let a
+    Checked for type and for consistency because Python's truthiness would otherwise let a
     returned bool or tuple decide silently -- `False` reads as "no opinion"
     and the pattern answers instead of the connector.
     """
@@ -497,6 +498,16 @@ def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
         raise ProbeInternalError(
             f"{type(config).__name__}.probe_verdict_override returned "
             f"{type(verdict).__name__}; it must return a Verdict or None"
+        )
+    if verdict is not None and verdict.included == (verdict.excluded_by is not None):
+        # Reported as-is, an included name with a reason, or an excluded one
+        # without, contradicts itself in the output and a caller cannot tell
+        # which half to believe.
+        raise ProbeInternalError(
+            f"{type(config).__name__}.probe_verdict_override returned "
+            f"included={verdict.included} with excluded_by="
+            f"{verdict.excluded_by!r}; an included verdict has no excluded_by "
+            f"and an excluded one must name it"
         )
     return verdict
 
@@ -527,6 +538,164 @@ def _resolve_filtering(config: object, kind: str) -> _Resolution:
     if resolved is None:
         return _Resolution(None, None, "unresolved")
     return _Resolution(resolved, resolved, "by_pattern")
+
+
+@dataclass(frozen=True)
+class _Judged:
+    """The config and pattern the names are judged against, and what was tried."""
+
+    config: BaseModel
+    pattern: AllowDenyPattern
+    tried: Optional[Dict[str, List[str]]] = None
+
+
+def _pattern_to_judge(
+    config: BaseModel,
+    pattern_field: Optional[str],
+    filtering: str,
+    try_allow: Optional[Sequence[str]],
+    try_deny: Optional[Sequence[str]],
+    warn: Callable[[str], None],
+) -> _Judged:
+    """The recipe's pattern, or the --try-* hypothetical applied to a copy."""
+    if filtering == "by_rule":
+        if try_allow or try_deny:
+            warn(
+                f"'{pattern_field}' holds rules, not an allow/deny pattern, so "
+                f"--try-allow and --try-deny have nothing to replace and were "
+                f"ignored; edit {pattern_field} in the recipe to test a change"
+            )
+        return _Judged(config, AllowDenyPattern.allow_all())
+    unset = unset_block_on(config, pattern_field) if pattern_field is not None else None
+    if unset is not None:
+        # A valid recipe that leaves an Optional block out: ingestion applies
+        # no filter from it. require_pattern_at would call that a resolution
+        # bug and exit 2 on a recipe nothing is wrong with.
+        warn(
+            f"`{unset}` is unset in this recipe, so nothing at "
+            f"`{pattern_field}` filters these"
+        )
+        if try_allow or try_deny:
+            # No block to copy the hypothetical into, and inventing one would
+            # judge a recipe the caller did not write.
+            warn(
+                f"--try-allow and --try-deny were ignored: `{unset}` is unset, "
+                f"so there is no pattern at `{pattern_field}` to replace; set "
+                f"`{unset}` in the recipe to test a change"
+            )
+        return _Judged(config, AllowDenyPattern.allow_all())
+    recipe_pattern = (
+        AllowDenyPattern.allow_all()
+        if pattern_field is None
+        else require_pattern_at(config, pattern_field)
+    )
+    if not (try_allow or try_deny):
+        return _Judged(config, recipe_pattern)
+    # Each half replaces only its own half. `allow=[".*"] if not try_allow`
+    # threw the recipe's allow list away whenever only --try-deny was
+    # given, so "what if I added this deny" was answered against an
+    # allow-all nobody asked for: on a recipe with allow ['^analytics$'],
+    # a --try-deny matching nothing flipped every other database from
+    # excluded to included, and the caller reads that as "the deny I am
+    # testing is harmless". The CLI documents --try-allow as replacing
+    # allow and --try-deny as "as --try-allow, for deny"; this is what
+    # that says.
+    pattern = AllowDenyPattern(
+        allow=list(try_allow) if try_allow else list(recipe_pattern.allow),
+        deny=list(try_deny) if try_deny else list(recipe_pattern.deny),
+    )
+    tried = {"allow": list(pattern.allow), "deny": list(pattern.deny)}
+    # Snapshotted before the connector's validators can touch `pattern`:
+    # they may rewrite it in place, and this is what "as the caller wrote
+    # it" has to mean when we compare afterwards.
+    requested_allow = list(pattern.allow)
+    requested_deny = list(pattern.deny)
+    if pattern_field is not None:
+        # The hypothetical has to reach the STRUCTURAL rules too, not just
+        # the pattern comparison below. Redshift's and BigQuery's
+        # probe_schema_verdict_override read the pattern off the config
+        # themselves (they call is_schema_allowed with it), and the
+        # verdict they return short-circuits the pattern branch -- so
+        # --try-allow was silently ignored for every source that declares
+        # one, which on BigQuery is every schema query, since
+        # match_fully_qualified_names defaults True. `tried` still echoed
+        # the hypothetical, so the result claimed to have applied it.
+        #
+        # A shallow copy on purpose: model_copy(deep=True) would clone the
+        # cached RDS IAM token manager along with its minted token.
+        config = copy_with_pattern_at(config, pattern_field, pattern)
+        # ...and then re-validated, because model_copy does NOT rerun
+        # validators and some connectors normalize the pattern there.
+        # BigQuery's after-validator rewrites an unqualified
+        # `dataset_pattern` entry to match `project.dataset`, so the
+        # recipe's own `^analytics$` becomes `^.*\.analytics$` and
+        # includes `analytics`, while the same string given to --try-allow
+        # stayed raw and excluded it. The command answered the opposite of
+        # the edit it exists to simulate, on BigQuery's default config.
+        #
+        # validate_assignment rather than a full model_validate: it reruns
+        # the model's after-validators against the instance we already
+        # have, so nothing is reconstructed and the token manager above is
+        # still shared rather than cloned.
+        try:
+            validate_pattern_at(config, pattern_field, pattern)
+        except ValidationError:
+            # A connector whose validator REJECTS the hypothetical is
+            # answering the question: the caller cannot write that in the
+            # recipe either. Reported rather than silently judged against
+            # the un-normalized pattern.
+            warn(
+                "this source could not accept that pattern as written, so "
+                "the verdicts below judge it exactly as given; the recipe "
+                "may normalize it differently"
+            )
+        except Exception as exc:
+            # A validator that CRASHED is a different answer, and the
+            # message above is the wrong one for it: it tells the caller
+            # their pattern was rejected when nothing judged it. Same
+            # degrade -- this is a diagnostic command and a hard failure
+            # would be worse than a caveated answer -- but named for what
+            # happened, so the caller is not sent to fix a pattern that
+            # was never the problem.
+            warn(
+                f"this source's validator failed while checking that "
+                f"pattern ({type(exc).__name__}: {exc}), so the verdicts "
+                f"below judge it exactly as given; this is a defect in "
+                f"the connector, not in the pattern"
+            )
+        else:
+            # Re-read the pattern the config actually ended up with.
+            # Pydantic passes the same AllowDenyPattern instance through,
+            # so an after-validator that rewrites it IN PLACE is already
+            # visible on `pattern` -- but one that ASSIGNS a new pattern
+            # would leave `pattern` stale, and the verdicts below are
+            # computed from `pattern` rather than from the config.
+            effective = pattern_at(config, pattern_field)
+            if effective is not None:
+                pattern = effective
+                if (list(effective.allow), list(effective.deny)) != (
+                    requested_allow,
+                    requested_deny,
+                ):
+                    # `tried` deliberately keeps echoing what the caller
+                    # asked for: that is the string to put in the recipe,
+                    # which would be normalized the same way. But without
+                    # saying so the result is unreadable -- BigQuery
+                    # reports target `proj.analytics`, allow
+                    # `['^analytics$']` and verdict INCLUDED, three facts
+                    # that cannot all be true of the pattern as printed.
+                    # Only the connector's log said a rewrite happened,
+                    # and an agent reads `warnings`, not the log.
+                    warn(
+                        f"this source normalized that pattern before "
+                        f"matching: allow "
+                        f"{list(effective.allow)}, deny "
+                        f"{list(effective.deny)}. The verdicts below use "
+                        f"the normalized form, and `tried` shows what to "
+                        f"write in the recipe -- which this source would "
+                        f"normalize the same way."
+                    )
+    return _Judged(config, pattern, tried)
 
 
 def check_filters(
@@ -587,126 +756,12 @@ def check_filters(
                 f"{', '.join(sorted(declared))}"
             )
 
-    tried: Optional[Dict[str, List[str]]] = None
-    recipe_pattern = (
-        AllowDenyPattern.allow_all()
-        if pattern_field is None or filtering == "by_rule"
-        else require_pattern_at(config, pattern_field)
+    judged = _pattern_to_judge(
+        config, pattern_field, filtering, try_allow, try_deny, warn
     )
-    if (try_allow or try_deny) and filtering == "by_rule":
-        warn(
-            f"'{pattern_field}' holds rules, not an allow/deny pattern, so "
-            f"--try-allow and --try-deny have nothing to replace and were "
-            f"ignored; edit {pattern_field} in the recipe to test a change"
-        )
-        pattern = recipe_pattern
-    elif try_allow or try_deny:
-        # Each half replaces only its own half. `allow=[".*"] if not try_allow`
-        # threw the recipe's allow list away whenever only --try-deny was
-        # given, so "what if I added this deny" was answered against an
-        # allow-all nobody asked for: on a recipe with allow ['^analytics$'],
-        # a --try-deny matching nothing flipped every other database from
-        # excluded to included, and the caller reads that as "the deny I am
-        # testing is harmless". The CLI documents --try-allow as replacing
-        # allow and --try-deny as "as --try-allow, for deny"; this is what
-        # that says.
-        pattern = AllowDenyPattern(
-            allow=list(try_allow) if try_allow else list(recipe_pattern.allow),
-            deny=list(try_deny) if try_deny else list(recipe_pattern.deny),
-        )
-        tried = {"allow": list(pattern.allow), "deny": list(pattern.deny)}
-        # Snapshotted before the connector's validators can touch `pattern`:
-        # they may rewrite it in place, and this is what "as the caller wrote
-        # it" has to mean when we compare afterwards.
-        requested_allow = list(pattern.allow)
-        requested_deny = list(pattern.deny)
-        if pattern_field is not None:
-            # The hypothetical has to reach the STRUCTURAL rules too, not just
-            # the pattern comparison below. Redshift's and BigQuery's
-            # probe_schema_verdict_override read the pattern off the config
-            # themselves (they call is_schema_allowed with it), and the
-            # verdict they return short-circuits the pattern branch -- so
-            # --try-allow was silently ignored for every source that declares
-            # one, which on BigQuery is every schema query, since
-            # match_fully_qualified_names defaults True. `tried` still echoed
-            # the hypothetical, so the result claimed to have applied it.
-            #
-            # A shallow copy on purpose: model_copy(deep=True) would clone the
-            # cached RDS IAM token manager along with its minted token.
-            config = copy_with_pattern_at(config, pattern_field, pattern)
-            # ...and then re-validated, because model_copy does NOT rerun
-            # validators and some connectors normalize the pattern there.
-            # BigQuery's after-validator rewrites an unqualified
-            # `dataset_pattern` entry to match `project.dataset`, so the
-            # recipe's own `^analytics$` becomes `^.*\.analytics$` and
-            # includes `analytics`, while the same string given to --try-allow
-            # stayed raw and excluded it. The command answered the opposite of
-            # the edit it exists to simulate, on BigQuery's default config.
-            #
-            # validate_assignment rather than a full model_validate: it reruns
-            # the model's after-validators against the instance we already
-            # have, so nothing is reconstructed and the token manager above is
-            # still shared rather than cloned.
-            try:
-                validate_pattern_at(config, pattern_field, pattern)
-            except ValidationError:
-                # A connector whose validator REJECTS the hypothetical is
-                # answering the question: the caller cannot write that in the
-                # recipe either. Reported rather than silently judged against
-                # the un-normalized pattern.
-                warn(
-                    "this source could not accept that pattern as written, so "
-                    "the verdicts below judge it exactly as given; the recipe "
-                    "may normalize it differently"
-                )
-            except Exception as exc:
-                # A validator that CRASHED is a different answer, and the
-                # message above is the wrong one for it: it tells the caller
-                # their pattern was rejected when nothing judged it. Same
-                # degrade -- this is a diagnostic command and a hard failure
-                # would be worse than a caveated answer -- but named for what
-                # happened, so the caller is not sent to fix a pattern that
-                # was never the problem.
-                warn(
-                    f"this source's validator failed while checking that "
-                    f"pattern ({type(exc).__name__}: {exc}), so the verdicts "
-                    f"below judge it exactly as given; this is a defect in "
-                    f"the connector, not in the pattern"
-                )
-            else:
-                # Re-read the pattern the config actually ended up with.
-                # Pydantic passes the same AllowDenyPattern instance through,
-                # so an after-validator that rewrites it IN PLACE is already
-                # visible on `pattern` -- but one that ASSIGNS a new pattern
-                # would leave `pattern` stale, and the verdicts below are
-                # computed from `pattern` rather than from the config.
-                effective = pattern_at(config, pattern_field)
-                if effective is not None:
-                    pattern = effective
-                    if (list(effective.allow), list(effective.deny)) != (
-                        requested_allow,
-                        requested_deny,
-                    ):
-                        # `tried` deliberately keeps echoing what the caller
-                        # asked for: that is the string to put in the recipe,
-                        # which would be normalized the same way. But without
-                        # saying so the result is unreadable -- BigQuery
-                        # reports target `proj.analytics`, allow
-                        # `['^analytics$']` and verdict INCLUDED, three facts
-                        # that cannot all be true of the pattern as printed.
-                        # Only the connector's log said a rewrite happened,
-                        # and an agent reads `warnings`, not the log.
-                        warn(
-                            f"this source normalized that pattern before "
-                            f"matching: allow "
-                            f"{list(effective.allow)}, deny "
-                            f"{list(effective.deny)}. The verdicts below use "
-                            f"the normalized form, and `tried` shows what to "
-                            f"write in the recipe -- which this source would "
-                            f"normalize the same way."
-                        )
-    else:
-        pattern = recipe_pattern
+    config = judged.config
+    pattern = judged.pattern
+    tried = judged.tried
 
     prefix = ".".join(parent_path)
     results: List[FilterVerdict] = []

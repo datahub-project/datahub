@@ -726,6 +726,11 @@ def probe_filter_cmd(
             listing = listing_from_run(
                 json.loads(pathlib.Path(from_run).read_text(encoding="utf-8"))
             )
+            if listing.source_type and listing.source_type != source_type:
+                raise ValueError(
+                    f"this listing came from {listing.source_type}, the recipe "
+                    f"is {source_type}"
+                )
             if kind and listing.kind and kind.lower() != listing.kind.lower():
                 raise ValueError(
                     f"--kind {kind} contradicts the listing, which holds "

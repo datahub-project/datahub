@@ -26,6 +26,29 @@ def pattern_at(config: object, path: str) -> Optional[AllowDenyPattern]:
     return node if isinstance(node, AllowDenyPattern) else None
 
 
+def unset_block_on(config: object, path: str) -> Optional[str]:
+    """The dotted prefix of the first block on the way to `path` that is None.
+
+    An Optional block left out of a recipe (`block: Optional[Inner] = None`)
+    still resolves its nested Filters(...) field, because introspection
+    unwraps the Optional. That recipe is valid and filters nothing there, so
+    callers read it as allow-all -- unlike a leaf that is not a pattern, which
+    is a resolution bug. None when every block along the path is set, and
+    also when a block is absent altogether: a path through a field the model
+    does not have is a resolution bug too, left for require_pattern_at to
+    raise on.
+    """
+    node: object = config
+    parents = path.split(".")[:-1]
+    for depth, segment in enumerate(parents, start=1):
+        if not hasattr(node, segment):
+            return None
+        node = getattr(node, segment)
+        if node is None:
+            return ".".join(parents[:depth])
+    return None
+
+
 def require_pattern_at(config: object, path: str) -> AllowDenyPattern:
     """As pattern_at, for callers that already resolved `path` as a pattern
     field: anything else is a resolution bug, so it raises rather than

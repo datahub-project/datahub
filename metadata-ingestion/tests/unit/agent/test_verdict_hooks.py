@@ -222,7 +222,9 @@ class _Pinned(ConfigModel):
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         if ctx.kind == DatasetContainerSubTypes.DATABASE and self.database:
-            return Verdict(ctx.name.lower() == self.database.lower(), "database")
+            if ctx.name.lower() == self.database.lower():
+                return Verdict(True)
+            return Verdict(False, "database")
         return None
 
 
@@ -377,3 +379,16 @@ def test_a_rule_kind_without_a_verdict_is_a_connector_defect(
     _register(monkeypatch, _Silent)
     with pytest.raises(ProbeInternalError):
         _judge("Table", ["gs://b/data/t1"])
+
+
+@pytest.mark.parametrize("inconsistent", [Verdict(True, "x"), Verdict(False, None)])
+def test_an_inconsistent_override_verdict_is_a_connector_defect(
+    monkeypatch: pytest.MonkeyPatch, inconsistent: Verdict
+) -> None:
+    class _Contradicts(_Pinned):
+        def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+            return inconsistent
+
+    _register(monkeypatch, _Contradicts)
+    with pytest.raises(ProbeInternalError):
+        _judge(str(DatasetContainerSubTypes.DATABASE), ["db"])
