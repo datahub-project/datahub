@@ -1,7 +1,6 @@
 /* eslint-disable import/no-cycle */
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Popover } from '@components';
-import { Dropdown, Menu } from 'antd';
+import { Button, Dropdown, Popover } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
@@ -15,13 +14,7 @@ import { PARENT_DOCUMENT_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 12px;
-    }
-`;
-
-const FieldMenu = styled(Menu)`
+const FieldMenu = styled.div`
     max-height: 400px;
     overflow: auto;
     border-radius: 8px;
@@ -103,7 +96,7 @@ export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAd
             dropdownRender={(menu) => <FieldMenu>{menu}</FieldMenu>}
         >
             <AddFilterButton variant="text">
-                <StyledPlusOutlined />
+                <Plus size={12} />
                 {t('filters.addFilter')}
             </AddFilterButton>
         </Dropdown>

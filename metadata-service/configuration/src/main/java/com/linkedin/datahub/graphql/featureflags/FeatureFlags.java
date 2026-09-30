@@ -79,6 +79,9 @@ public class FeatureFlags {
   private boolean hideLineageInSearchCards = false;
   private boolean dataProductLineageEnabled = false;
   private boolean contextDocumentsEnabled = false;
+  // When true, document body edits stay local until the user saves. When false, the editor
+  // auto-saves. Default OFF so existing editors keep the current behavior.
+  private boolean documentExplicitSaveEnabled = false;
   private boolean glossaryBasedPoliciesEnabled = false;
   private boolean structuredPropertiesInPoliciesEnabled = false;
   private boolean showTestsInHealthIcon = false;

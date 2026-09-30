@@ -325,7 +325,11 @@ snowflake_common = {
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    # >=1.11.0 for CVE-2026-15736: SQL injection via MERGE INTO column keys and via
+    # literal-rendered DDL bound params, plus a local file read from connection params
+    # forwarded out of the URL query string. 1.11.x still requires only sqlalchemy>=1.4.19,
+    # so this does not disturb the sqlalchemy<2 pin.
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
@@ -1200,9 +1204,11 @@ full_test_dev_requirements = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.token_provider.plugins": [
+        "pat = datahub.ingestion.auth.pat:PatTokenProvider",
         "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
         "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
         "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",
+        "oauth_session = datahub.ingestion.auth.oauth_session:OAuthSessionTokenProvider",
     ],
     "sqlalchemy.dialects": [
         "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",

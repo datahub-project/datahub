@@ -1,6 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
-import { Tooltip } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
