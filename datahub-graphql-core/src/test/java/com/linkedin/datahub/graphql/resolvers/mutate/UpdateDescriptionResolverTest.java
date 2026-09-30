@@ -10,6 +10,7 @@ import com.linkedin.common.Documentation;
 import com.linkedin.common.DocumentationAssociation;
 import com.linkedin.common.DocumentationAssociationArray;
 import com.linkedin.common.MetadataAttribution;
+import com.linkedin.api.ApiProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -409,5 +410,30 @@ public class UpdateDescriptionResolverTest {
                 }),
             any(),
             eq(false));
+  }
+
+  @Test
+  public void testUpdateApiDescription() throws Exception {
+    // APIs have no editable-properties aspect: the description is written onto apiProperties.
+    Urn urn = Urn.createFromString("urn:li:api:test-api");
+    Mockito.when(mockEntityService.exists(any(), eq(urn), eq(true))).thenReturn(true);
+
+    QueryContext mockContext = getMockAllowContext(TEST_ACTOR_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(urn.toString());
+    input.setDescription(TEST_DESCRIPTION);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+
+    ApiProperties expected = new ApiProperties();
+    expected.setDescription(TEST_DESCRIPTION);
+    verifySingleIngestProposal(
+        mockEntityService,
+        1,
+        MutationUtils.buildMetadataChangeProposalWithUrn(urn, API_PROPERTIES_ASPECT_NAME, expected));
   }
 }

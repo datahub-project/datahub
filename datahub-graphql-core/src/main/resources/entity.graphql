@@ -1406,6 +1406,11 @@ enum EntityType {
   APPLICATION
 
   """
+  An API — a named callable with a typed input and output schema (MCP tool, REST endpoint, gRPC method, function, etc.)
+  """
+  API
+
+  """
   A Knowledge Article
   """
   DOCUMENT
