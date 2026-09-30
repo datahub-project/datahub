@@ -302,6 +302,22 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     }
   }
 
+  @Test
+  public void testLegacyBrowseReadsV3WhenV2IsOff() throws Exception {
+    ElasticSearchConfiguration v3Only =
+        TEST_OS_SEARCH_CONFIG.toBuilder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+                    .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                    .build())
+            .build();
+    for (SearchRequest request : legacyBrowseRequests(v3Only)) {
+      assertTrue(request.indices()[0].endsWith("datasetindex_v3"), request.indices()[0]);
+      assertTrue(request.source().query().toString().contains("_entityType"));
+    }
+  }
+
   /** The requests of one legacy browse (groups, then entities) and one getBrowsePaths. */
   private List<SearchRequest> legacyBrowseRequests(ElasticSearchConfiguration config)
       throws Exception {
