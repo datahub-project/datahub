@@ -1,4 +1,4 @@
-import { Editor } from '@components';
+import { Button, Editor } from '@components';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -14,6 +14,8 @@ import { useRefetch } from '@app/entity/shared/EntityContext';
 import { RelatedSection } from '@app/entityV2/document/summary/RelatedSection';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+import { useDiscardUnsavedChangesConfirmationContext } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
+import { useIsDocumentExplicitSaveEnabled } from '@app/useAppConfig';
 
 import { DocumentRelatedAsset, DocumentRelatedDocument, UploadDownloadScenario } from '@types';
 
@@ -77,21 +79,52 @@ const StyledEditor = styled(Editor)<{ $hideToolbar?: boolean; $isEmpty?: boolean
     }
 `;
 
+const SaveActions = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+`;
+
+/** State passed to SaaS-only actions on the explicit-save bar, such as Propose. */
+export type DocumentExplicitSaveState = {
+    content: string;
+    isDirty: boolean;
+    isSaving: boolean;
+};
+
+export type DocumentEditorAcrylProps = {
+    renderSaveBarActions?: (state: DocumentExplicitSaveState) => React.ReactNode;
+};
+
 interface EditableContentProps {
     documentUrn: string;
     initialContent: string;
     relatedAssets?: DocumentRelatedAsset[];
     relatedDocuments?: DocumentRelatedDocument[];
+    /** SaaS-only inputs. OSS leaves this unset. */
+    acrylProps?: DocumentEditorAcrylProps;
 }
 
+/**
+ * With explicit save enabled, unsaved edits are reported to the nearest
+ * DiscardUnsavedChangesConfirmationProvider so the owning surface (document profile page or
+ * DocumentModal) can prompt before navigating away or closing.
+ */
 export const EditableContent: React.FC<EditableContentProps> = ({
     documentUrn,
     initialContent,
     relatedAssets,
     relatedDocuments,
+    acrylProps,
 }) => {
     const { t } = useTranslation('entity.types');
+    const { t: tActions } = useTranslation('common.actions');
+    const explicitSaveEnabled = useIsDocumentExplicitSaveEnabled();
+    const { setIsDirty } = useDiscardUnsavedChangesConfirmationContext();
     const [content, setContent] = useState(initialContent || '');
+    const [savedContent, setSavedContent] = useState(initialContent || '');
     const [isSaving, setIsSaving] = useState(false);
     const [isEditorFocused, setIsEditorFocused] = useState(false);
     const [editorVersion, setEditorVersion] = useState(0);
@@ -135,6 +168,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         // If content changed and it's NOT from our own save, increment version to remount editor
         if (newContent !== lastSavedContentRef.current && newContent !== content) {
             setContent(newContent);
+            setSavedContent(newContent);
             setEditorVersion((v) => v + 1);
         }
 
@@ -180,6 +214,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                     relatedDocuments: finalDocumentUrns,
                 });
                 lastSavedContentRef.current = contentToSave;
+                setSavedContent(contentToSave);
                 await refetch();
             } catch (error) {
                 console.error('[EditableContent] Failed to save document:', error);
@@ -200,9 +235,16 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         ],
     );
 
-    // Auto-save after 2 seconds of no typing
+    const isDirty = explicitSaveEnabled && canEditContents && content !== savedContent;
+
     useEffect(() => {
-        if (content !== initialContent && canEditContents && !isSaving) {
+        setIsDirty(isDirty);
+        return () => setIsDirty(false);
+    }, [isDirty, setIsDirty]);
+
+    // Auto-save after 3 seconds of no typing, unless explicit save is on.
+    useEffect(() => {
+        if (!explicitSaveEnabled && content !== initialContent && canEditContents && !isSaving) {
             const timer = setTimeout(() => {
                 saveDocument(content);
             }, 3000);
@@ -210,14 +252,17 @@ export const EditableContent: React.FC<EditableContentProps> = ({
             return () => clearTimeout(timer);
         }
         return undefined;
-    }, [content, initialContent, canEditContents, isSaving, saveDocument]);
+    }, [content, initialContent, canEditContents, isSaving, saveDocument, explicitSaveEnabled]);
 
-    // Save on blur (clicking away from the editor)
+    // Save on blur (clicking away from the editor) when the editor auto-saves.
     const handleBlur = useCallback(() => {
+        if (explicitSaveEnabled) {
+            return;
+        }
         if (content !== initialContent) {
             saveDocument(content);
         }
-    }, [content, initialContent, saveDocument]);
+    }, [content, initialContent, saveDocument, explicitSaveEnabled]);
 
     const handleClickOutside = useCallback(() => {
         setIsEditorFocused(false);
@@ -234,8 +279,12 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 
     useClickOutside(handleClickOutside, clickOutsideOptions);
 
-    // Save before navigating away
+    // Save before navigating away. Explicit save uses the discard confirmation instead.
     useEffect(() => {
+        if (explicitSaveEnabled) {
+            return undefined;
+        }
+
         const handleBeforeUnload = (e: BeforeUnloadEvent) => {
             if (content !== initialContent && canEditContents && !isSaving) {
                 // Attempt to save synchronously
@@ -249,7 +298,7 @@ export const EditableContent: React.FC<EditableContentProps> = ({
 
         window.addEventListener('beforeunload', handleBeforeUnload);
         return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [content, initialContent, canEditContents, isSaving, saveDocument]);
+    }, [content, initialContent, canEditContents, isSaving, saveDocument, explicitSaveEnabled]);
 
     // Handle updating related entities (supports both adding and removing)
     // The passed URNs represent the final desired list after user selections/deselections
@@ -297,6 +346,40 @@ export const EditableContent: React.FC<EditableContentProps> = ({
         [documentUrn, updateRelatedEntities, refetch, relatedAssets, relatedDocuments],
     );
 
+    // Unsaved edits keep the toolbar open so Save stays reachable after the editor loses focus.
+    const showToolbar = isEditorFocused || isDirty;
+
+    const handleCancel = () => {
+        setContent(savedContent);
+        setEditorVersion((v) => v + 1);
+        setIsEditorFocused(false);
+    };
+
+    const saveActions = isDirty ? (
+        <SaveActions data-testid="document-save-bar">
+            <Button
+                variant="text"
+                color="gray"
+                size="sm"
+                disabled={isSaving}
+                onClick={handleCancel}
+                data-testid="document-cancel-button"
+            >
+                {tActions('cancel')}
+            </Button>
+            {acrylProps?.renderSaveBarActions?.({ content, isDirty, isSaving })}
+            <Button
+                size="sm"
+                isLoading={isSaving}
+                disabled={isSaving}
+                onClick={() => saveDocument(content)}
+                data-testid="document-save-button"
+            >
+                {tActions('save')}
+            </Button>
+        </SaveActions>
+    ) : undefined;
+
     return (
         <ContentWrapper>
             <EditorSection
@@ -313,10 +396,11 @@ export const EditableContent: React.FC<EditableContentProps> = ({
                         placeholder={t('document.writeAboutAnythingPlaceholder')}
                         hideBorder
                         doNotFocus
-                        $hideToolbar={!isEditorFocused}
+                        $hideToolbar={!showToolbar}
                         $isEmpty={!content.trim()}
-                        fixedBottomToolbar={isEditorFocused}
+                        fixedBottomToolbar={showToolbar}
                         toolbarStyles={toolbarStyles}
+                        belowToolbar={saveActions}
                         uploadFileProps={{
                             onFileUpload: uploadFile,
                             ...uploadFileAnalyticsCallbacks,

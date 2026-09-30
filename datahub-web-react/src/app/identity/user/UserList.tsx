@@ -1,5 +1,5 @@
-import { UsergroupAddOutlined } from '@ant-design/icons';
-import { Button, Empty, List, Pagination } from 'antd';
+import { Button, EmptyState, Pagination } from '@components';
+import { UserPlus } from '@phosphor-icons/react/dist/csr/UserPlus';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -34,23 +34,17 @@ const UserContainer = styled.div`
     overflow: auto;
 `;
 
-const UserStyledList = styled(List)`
+const UserStyledList = styled.div`
     display: flex;
     flex-direction: column;
     overflow: auto;
-    &&& {
-        width: 100%;
-        border-color: ${(props) => props.theme.colors.border};
-    }
+    width: 100%;
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const UserPaginationContainer = styled.div`
     display: flex;
     justify-content: center;
-`;
-
-const StyledPagination = styled(Pagination)`
-    margin: 8px 0;
 `;
 
 export const UserList = () => {
@@ -128,10 +122,11 @@ export const UserList = () => {
                         <Button
                             id={USERS_INVITE_LINK_ID}
                             disabled={!canManageUserCredentials}
-                            type="text"
+                            variant="text"
+                            icon={{ icon: UserPlus }}
                             onClick={() => setIsViewingInviteToken(true)}
                         >
-                            <UsergroupAddOutlined /> {t('users.inviteButton')}
+                            {t('users.inviteButton')}
                         </Button>
                     </div>
                     <SearchBar
@@ -156,14 +151,11 @@ export const UserList = () => {
                         hideRecommendations
                     />
                 </TabToolbar>
-                <UserStyledList
-                    bordered
-                    locale={{
-                        emptyText: <Empty description={t('users.emptyTitle')} image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                    }}
-                    dataSource={usersList}
-                    renderItem={(item: any) => (
+                <UserStyledList>
+                    {usersList.length === 0 && <EmptyState title={t('users.emptyTitle')} size="sm" />}
+                    {usersList.map((item: any) => (
                         <UserListItem
+                            key={item.urn}
                             onDelete={() => handleDelete(item.urn as string)}
                             user={item as CorpUser}
                             canManageUserCredentials={canManageUserCredentials}
@@ -175,15 +167,15 @@ export const UserList = () => {
                             setRolesSearchQuery={setRolesSearchQuery}
                             refetch={usersRefetch}
                         />
-                    )}
-                />
+                    ))}
+                </UserStyledList>
                 <UserPaginationContainer>
-                    <StyledPagination
-                        current={page}
-                        pageSize={pageSize}
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
                         total={totalUsers}
                         showLessItems
-                        onChange={onChangePage}
+                        onPageChange={onChangePage}
                         showSizeChanger={false}
                     />
                 </UserPaginationContainer>

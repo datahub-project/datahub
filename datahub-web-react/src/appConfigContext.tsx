@@ -109,6 +109,7 @@ export const DEFAULT_APP_CONFIG = {
         metricsEnabled: false,
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
+        documentExplicitSaveEnabled: false,
         hideLineageInSearchCards: false,
         dataProductLineageEnabled: false,
         glossaryBasedPoliciesEnabled: false,

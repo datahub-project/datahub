@@ -76,6 +76,16 @@ fragment applicationSearchFields on Application {
     domain {
         ...entityDomain
     }
+    parentApplications {
+        count
+        applications {
+            urn
+            type
+            properties {
+                name
+            }
+        }
+    }
     children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
         total
     }

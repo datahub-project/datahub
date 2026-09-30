@@ -32,6 +32,10 @@ BLOCK_SAMPLE_MIN_ROWS = 50_000_000
 # How much larger the BLOCK pre-sample is than the final target sample size.
 BLOCK_OVERGENERATION_FACTOR = 1000
 
+# Snowflake rejects a fixed-size TABLESAMPLE asking for more than this:
+# https://docs.snowflake.com/en/sql-reference/constructs/sample
+MAX_FIXED_SIZE_SAMPLE_ROWS = 1_000_000
+
 
 class SnowflakeAdapter(PlatformAdapter):
     """
@@ -72,24 +76,12 @@ class SnowflakeAdapter(PlatformAdapter):
                     schema=context.schema,
                     table=context.table,
                 )
+            elif row_count is None:
+                # A sampling fraction needs a denominator. Rather than invent
+                # one, hand Snowflake a row count and let it size the sample.
+                context = self._create_fixed_size_sampled_temp_table(context, conn)
             else:
-                # Either the table is confirmed large, or we couldn't get the
-                # row count. Be conservative and sample in both cases.
-                if row_count is None:
-                    self.report.warning(
-                        title="Row count unknown, conservative sampling applied",
-                        message="Could not determine row count; sampling with assumed row count. "
-                        "This can happen for views or when INFORMATION_SCHEMA is inaccessible.",
-                        context=f"{context.pretty_name} (assumed {self.config.sample_size * 10:,} rows)",
-                    )
-                effective_row_count = (
-                    row_count
-                    if row_count is not None
-                    else (self.config.sample_size * 10)
-                )
-                context = self._create_sampled_temp_table(
-                    context, conn, effective_row_count
-                )
+                context = self._create_sampled_temp_table(context, conn, row_count)
         else:
             context.sql_table = self._create_sqlalchemy_table(
                 schema=context.schema,
@@ -227,6 +219,71 @@ class SnowflakeAdapter(PlatformAdapter):
             else:
                 raise
 
+        return self._reflect_sample_into_context(
+            context, conn, temp_name, sample_percentage=bernoulli_pc
+        )
+
+    def _create_fixed_size_sampled_temp_table(
+        self, context: ProfilingContext, conn: Connection
+    ) -> ProfilingContext:
+        """
+        Materialize a fixed-size TABLESAMPLE into a session-scoped temp table.
+
+        This is the path taken when the row count is unavailable -- external
+        tables carry no ROW_COUNT, and INFORMATION_SCHEMA may be inaccessible.
+        Fixed-size sampling needs no denominator, so it replaces what would
+        otherwise be a guess at the size of the table.
+
+        It is single-tier by necessity: Snowflake rejects `<n> ROWS` together
+        with BLOCK/SYSTEM and with SEED. It does work on views and subqueries.
+        Fixed-size sampling also "prevents some query optimization", which is
+        why the known-row-count path stays fraction-based:
+        https://docs.snowflake.com/en/sql-reference/constructs/sample#performance-considerations
+        """
+        sample_rows = min(self.config.sample_size, MAX_FIXED_SIZE_SAMPLE_ROWS)
+        if sample_rows < self.config.sample_size:
+            self.report.warning(
+                title="Sample size reduced to Snowflake's fixed-size sampling limit",
+                message="The row count for this table was unavailable, so it is sampled by "
+                "row count rather than by fraction. Snowflake caps that at "
+                f"{MAX_FIXED_SIZE_SAMPLE_ROWS:,} rows, below the configured sample_size.",
+                context=f"{context.pretty_name} "
+                f"({self.config.sample_size:,} -> {sample_rows:,} rows)",
+            )
+
+        assert context.schema is not None, (
+            f"schema is required for sampling {context.pretty_name}"
+        )
+        tablename = SnowflakeIdentifierBuilder.get_quoted_identifier_for_table(
+            db_name=None, schema_name=context.schema, table_name=context.table
+        )
+        # Temp table name is unquoted so Snowflake stores it as uppercase,
+        # matching SQLAlchemy's unquoted references in generated SQL.
+        temp_name = f"dh_sample_{uuid.uuid4().hex[:8]}"
+        create_sql = (
+            f"CREATE OR REPLACE TEMPORARY TABLE {temp_name} AS"
+            f" SELECT * FROM {tablename} TABLESAMPLE BERNOULLI ({sample_rows} ROWS)"
+        )
+
+        logger.info(
+            f"Creating fixed-size sampled temp table for {context.pretty_name} "
+            f"(row count unavailable, sample: {sample_rows:,} rows)"
+        )
+        logger.debug(f"SQL: {create_sql}")
+        conn.execute(sa.text(create_sql))
+
+        # A fixed row count out of an unknown total is an unknown fraction.
+        return self._reflect_sample_into_context(
+            context, conn, temp_name, sample_percentage=None
+        )
+
+    def _reflect_sample_into_context(
+        self,
+        context: ProfilingContext,
+        conn: Connection,
+        temp_name: str,
+        sample_percentage: Optional[float],
+    ) -> ProfilingContext:
         # Reflect the temp table as a real sa.Table. CTAS carries case-only
         # duplicate columns through to the sample, so this needs the same
         # case-folding repair as a directly reflected table.
@@ -235,7 +292,7 @@ class SnowflakeAdapter(PlatformAdapter):
             sa.Table(temp_name, metadata, autoload_with=conn), conn
         )
         context.is_sampled = True
-        context.sample_percentage = bernoulli_pc
+        context.sample_percentage = sample_percentage
         context.temp_table = temp_name
 
         logger.info(f"Created temp table {temp_name} for {context.pretty_name}")

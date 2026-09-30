@@ -16,8 +16,9 @@ const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
     margin-top: 4px;
     &&& {
-        .remirror-editor {
+        .remirror-editor.ProseMirror {
             padding: 0;
+            color: ${(props) => props.theme.colors.text};
         }
         p:last-of-type {
             margin-bottom: 0;
@@ -103,7 +104,7 @@ export default function AboutSection({ hideLinksButton, hideEditDescription }: P
     return (
         <div data-testid="about-section">
             <SectionHeaderWrapper>
-                <Text weight="bold" color="gray" colorLevel={600} size="sm">
+                <Text weight="bold" color="text" size="sm">
                     {t('documentation.aboutTitle')}
                 </Text>
                 <ButtonsWrapper>

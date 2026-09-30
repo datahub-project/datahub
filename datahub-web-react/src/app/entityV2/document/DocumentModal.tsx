@@ -6,6 +6,10 @@ import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
 import EntityContext from '@app/entity/shared/EntityContext';
 import { DocumentSummaryTab } from '@app/entityV2/document/summary/DocumentSummaryTab';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
+import {
+    DiscardUnsavedChangesConfirmationProvider,
+    useDiscardUnsavedChangesConfirmationContext,
+} from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 import { Modal } from '@src/alchemy-components';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
@@ -102,15 +106,12 @@ interface DocumentViewModalProps {
     onDocumentDeleted?: () => void;
 }
 
-/**
- * Modal component for viewing a document in-place without navigating away.
- * Loads document data lazily when the modal opens.
- */
-export const DocumentModal: React.FC<DocumentViewModalProps> = ({
+const DocumentModalContent: React.FC<DocumentViewModalProps> = ({
     documentUrn: initialDocumentUrn,
     onClose,
     onDocumentDeleted,
 }) => {
+    const { isDirty, showConfirmation } = useDiscardUnsavedChangesConfirmationContext();
     // Use state to allow breadcrumb navigation within the modal
     const [currentDocumentUrn, setCurrentDocumentUrn] = React.useState(initialDocumentUrn);
 
@@ -142,10 +143,20 @@ export const DocumentModal: React.FC<DocumentViewModalProps> = ({
         [onClose, onDocumentDeleted],
     );
 
+    // Closing the modal (X, ESC, backdrop) bypasses router navigation, so unsaved explicit-save
+    // edits in the body need their own discard confirmation here.
+    const handleClose = React.useCallback(() => {
+        if (isDirty) {
+            showConfirmation({ onConfirm: onClose });
+        } else {
+            onClose();
+        }
+    }, [isDirty, showConfirmation, onClose]);
+
     return (
         <StyledModal
             title="" // Empty title, header will be hidden via CSS
-            onCancel={onClose}
+            onCancel={handleClose}
             buttons={[]}
             width="90%"
             style={{ maxWidth: '1200px' }}
@@ -181,3 +192,13 @@ export const DocumentModal: React.FC<DocumentViewModalProps> = ({
         </StyledModal>
     );
 };
+
+/**
+ * Modal component for viewing a document in-place without navigating away.
+ * Loads document data lazily when the modal opens.
+ */
+export const DocumentModal: React.FC<DocumentViewModalProps> = (props) => (
+    <DiscardUnsavedChangesConfirmationProvider>
+        <DocumentModalContent {...props} />
+    </DiscardUnsavedChangesConfirmationProvider>
+);
