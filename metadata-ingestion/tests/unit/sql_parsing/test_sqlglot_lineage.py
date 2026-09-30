@@ -2196,29 +2196,6 @@ SELECT a.id, g.n FROM s.a CROSS JOIN generate_series(1, 10) AS g(n)
     )
 
 
-def test_mssql_table_valued_functions_are_not_tables() -> None:
-    assert_sql_result(
-        """\
-INSERT INTO dbo.target
-SELECT o.id, j.value
-FROM dbo.ufn_orders(1) o
-JOIN dbo.customers c ON o.id = c.id
-JOIN srv.db1.dbo.ufn_regions(1) r ON c.region_id = r.id
-JOIN dbo.accounts (NOLOCK) ON c.account_id = accounts.id
-JOIN srv.db1.dbo.branches (NOLOCK) ON c.branch_id = branches.id
-JOIN dbo.managers (HOLDLOCK) ON c.manager_id = managers.id
-JOIN dbo.ufn_flag('NOLOCK') fl ON c.id = fl.id
-JOIN dbo.regions (FASTFIRSTROW) ON c.region_id = regions.id
-CROSS JOIN dbo.ufn_all()
-CROSS APPLY OPENJSON(c.payload) j
-""",
-        dialect="tsql",
-        default_db="db1",
-        default_schema="dbo",
-        expected_file=RESOURCE_DIR / "test_mssql_table_valued_functions.json",
-    )
-
-
 def test_bigquery_table_inside_table_function() -> None:
     assert_sql_result(
         """\
