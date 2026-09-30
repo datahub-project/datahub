@@ -201,7 +201,9 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
 
   @Test(dependsOnMethods = "testIndexOperations")
   public void testDfsSearch() throws IOException {
-    // The engine rejects the request if the shim sends an invalid search_type
+    // Checks that the engine accepts the search_type the shim sends.
+    // Es8SearchClientShimSearchTypeTest
+    // checks that the shim sends it; a one-shard index runs DFS as QUERY_THEN_FETCH anyway.
     SearchRequest searchRequest =
         new SearchRequest(TEST_INDEX)
             .searchType(SearchType.DFS_QUERY_THEN_FETCH)
