@@ -37,27 +37,10 @@ const StyledTable = styled(Table)`
     }
 ` as typeof Table;
 
-/**
- * Styled component for empty access state display
- */
-const EmptyAccessSection = styled.section`
-    background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.text};
-    width: 83px;
-    text-align: center;
-    border-radius: 3px;
-    border: none;
-    font-weight: bold;
-`;
-
-/**
- * Renders the access button or empty state based on role data
- */
 const renderAccessCell = (hasAccess: boolean, record: RoleAccessData) => {
     const roleData = { hasAccess, url: record.url, name: record.name };
     const button = renderAccessButton(roleData);
-
-    return button || <EmptyAccessSection />;
+    return button;
 };
 
 /**

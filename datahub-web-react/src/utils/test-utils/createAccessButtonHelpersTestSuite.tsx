@@ -72,7 +72,7 @@ export function createAccessButtonHelpersTestSuite(
                 expect(button).toHaveTextContent('Request');
             });
 
-            it('should return null when user does not have access and no URL is provided', () => {
+            it('should render a disabled "Not granted" button when user does not have access and no URL is provided', () => {
                 const roleData = {
                     hasAccess: false,
                     url: undefined,
@@ -81,7 +81,11 @@ export function createAccessButtonHelpersTestSuite(
 
                 const result = AccessButtonHelpers.renderAccessButton(roleData);
 
-                expect(result).toBeNull();
+                render(<TestWrapper>{result}</TestWrapper>);
+
+                const button = screen.getByRole('button', { name: /access not granted/i });
+                expect(button).toBeDisabled();
+                expect(button).toHaveTextContent('Not granted');
             });
 
             it('should show tooltip when user has access', async () => {
@@ -160,8 +164,12 @@ export function createAccessButtonHelpersTestSuite(
                 expect(AccessButtonHelpers.getAccessButtonText(true)).toBe('Granted');
             });
 
-            it('should return "Request" when user does not have access', () => {
-                expect(AccessButtonHelpers.getAccessButtonText(false)).toBe('Request');
+            it('should return "Request" when user does not have access and URL is provided', () => {
+                expect(AccessButtonHelpers.getAccessButtonText(false, 'https://example.com/request')).toBe('Request');
+            });
+
+            it('should return "Not granted" when user does not have access and no URL is provided', () => {
+                expect(AccessButtonHelpers.getAccessButtonText(false)).toBe('Not granted');
             });
         });
 
@@ -170,8 +178,12 @@ export function createAccessButtonHelpersTestSuite(
                 expect(AccessButtonHelpers.isAccessButtonDisabled(true)).toBe(true);
             });
 
-            it('should return false when user does not have access', () => {
-                expect(AccessButtonHelpers.isAccessButtonDisabled(false)).toBe(false);
+            it('should return false when user does not have access and URL is provided', () => {
+                expect(AccessButtonHelpers.isAccessButtonDisabled(false, 'https://example.com/request')).toBe(false);
+            });
+
+            it('should return true when user does not have access and no URL is provided', () => {
+                expect(AccessButtonHelpers.isAccessButtonDisabled(false)).toBe(true);
             });
         });
 
@@ -267,7 +279,11 @@ export function createAccessButtonHelpersTestSuite(
                 };
 
                 const result = AccessButtonHelpers.renderAccessButton(roleData);
-                expect(result).toBeNull();
+                render(<TestWrapper>{result}</TestWrapper>);
+
+                const button = screen.getByRole('button');
+                expect(button).toBeDisabled();
+                expect(button).toHaveTextContent('Not granted');
             });
 
             it('should handle roleData with whitespace-only URL', () => {
