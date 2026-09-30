@@ -167,14 +167,16 @@ class TestMSSQLLineageIntegration:
 
     def test_query_store_enabled(self, mssql_connection):
         """Test that Query Store is properly enabled."""
-        result = mssql_connection.execute(MSSQLQuery.check_query_store_enabled())
+        result = mssql_connection.execute(
+            MSSQLQuery.check_query_store_enabled()
+        ).mappings()
         row = result.fetchone()
         assert row is not None
         assert row["is_enabled"] == 1, "Query Store should be enabled"
 
     def test_sql_server_version_detection(self, mssql_connection):
         """Test SQL Server version detection."""
-        result = mssql_connection.execute(MSSQLQuery.get_mssql_version())
+        result = mssql_connection.execute(MSSQLQuery.get_mssql_version()).mappings()
         row = result.fetchone()
         assert row is not None
         assert "version" in row
@@ -200,7 +202,7 @@ class TestMSSQLLineageIntegration:
         query, params = MSSQLQuery.get_query_history_from_query_store(
             limit=100, min_calls=1, exclude_patterns=None
         )
-        result = mssql_connection.execute(query, params)
+        result = mssql_connection.execute(query, params).mappings()
 
         queries = list(result)
         assert len(queries) > 0, "Should extract at least some queries"
@@ -242,7 +244,7 @@ class TestMSSQLLineageIntegration:
         query, params = MSSQLQuery.get_query_history_from_query_store(
             limit=100, min_calls=1, exclude_patterns=None
         )
-        result = mssql_connection.execute(query, params)
+        result = mssql_connection.execute(query, params).mappings()
 
         queries = list(result)
 
@@ -273,7 +275,7 @@ class TestMSSQLLineageIntegration:
             min_calls=1,
             exclude_patterns=["%sys.%", "%@@%"],
         )
-        result = mssql_connection.execute(query, params)
+        result = mssql_connection.execute(query, params).mappings()
 
         queries = [q["query_text"] for q in result]
 
@@ -293,7 +295,7 @@ class TestMSSQLLineageIntegration:
             exclude_patterns=[malicious_pattern],
         )
 
-        result = mssql_connection.execute(query, params)
+        result = mssql_connection.execute(query, params).mappings()
         list(result)
 
         # Verify table still exists
@@ -312,7 +314,7 @@ class TestMSSQLLineageIntegration:
 
     def test_dmv_permissions_check(self, mssql_connection):
         """Test DMV permissions check query."""
-        result = mssql_connection.execute(MSSQLQuery.check_dmv_permissions())
+        result = mssql_connection.execute(MSSQLQuery.check_dmv_permissions()).mappings()
         row = result.fetchone()
         assert row is not None
         assert "has_view_server_state" in row
@@ -374,7 +376,7 @@ class TestMSSQLLineageIntegration:
         query, params = MSSQLQuery.get_query_history_from_query_store(
             limit=100, min_calls=3, exclude_patterns=None
         )
-        result = mssql_connection.execute(query, params)
+        result = mssql_connection.execute(query, params).mappings()
 
         queries = list(result)
 
@@ -458,7 +460,7 @@ class TestMSSQLLineageIntegration:
         query, params = MSSQLQuery.get_query_history_from_query_store(
             limit=100, min_calls=1, exclude_patterns=None
         )
-        result = mssql_connection.execute(query, params)
+        result = mssql_connection.execute(query, params).mappings()
 
         queries = list(result)
 
@@ -486,7 +488,7 @@ class TestMSSQLLineageIntegration:
         query, params = MSSQLQuery.get_query_history_from_dmv(
             limit=100, min_calls=1, exclude_patterns=None
         )
-        result = mssql_connection.execute(query, params)
+        result = mssql_connection.execute(query, params).mappings()
         queries = list(result)
 
         assert isinstance(queries, list)
@@ -663,14 +665,15 @@ class TestMSSQLLineageIntegration:
 
         mock_conn = MagicMock()
 
+        # The extractor reads these via result.mappings().fetchone() on SQLAlchemy 2.0.
         version_result = Mock()
-        version_result.fetchone.return_value = {
+        version_result.mappings.return_value.fetchone.return_value = {
             "version": "Microsoft SQL Server 2019 (RTM) - 15.0.2000.5",
             "major_version": 15,
         }
 
         qs_result = Mock()
-        qs_result.fetchone.return_value = {"is_enabled": 1}
+        qs_result.mappings.return_value.fetchone.return_value = {"is_enabled": 1}
 
         call_count = [0]
 
@@ -682,7 +685,9 @@ class TestMSSQLLineageIntegration:
                 return qs_result
             else:
                 # Simulate connection loss during actual query extraction
-                raise OperationalError("connection lost", None, None)
+                raise OperationalError(
+                    "connection lost", None, Exception("connection lost")
+                )
 
         mock_conn.execute.side_effect = execute_side_effect
 

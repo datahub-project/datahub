@@ -28,8 +28,12 @@ _self_pin = (
 # .github/scripts/dep-analyzer.py report a different bound run to run.
 common_requirements = {
     # Actual dependencies.
-    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
-    "sqlalchemy>=1.4.39, <2",
+    # The plugin only touches version-stable APIs (make_url, Engine/Connection
+    # isinstance checks, engine.url), so both 1.4 and 2.0 work. The 1.4 floor keeps
+    # GX 0.x dialect extras that still pin sqlalchemy<2 installable; the <2.1 cap
+    # matches acryl-datahub, since 2.1 is untested (e.g. its default postgresql://
+    # driver is psycopg 3, not psycopg2).
+    "sqlalchemy>=1.4.39, <2.1",
     "pydantic>=2.1.0",
     # datahub does not depend on traitlets directly but great expectations does.
     # https://github.com/ipython/traitlets/issues/741
@@ -51,7 +55,8 @@ base_requirements = {
 
 mypy_stubs = {
     "types-dataclasses",
-    "sqlalchemy-stubs",
+    # No sqlalchemy-stubs: they describe the 1.3 API and shadow SQLAlchemy 2.0's
+    # inline (PEP 561) types.
     "types-setuptools",
     "types-six",
     "types-python-dateutil",
