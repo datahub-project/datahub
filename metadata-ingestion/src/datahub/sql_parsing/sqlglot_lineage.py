@@ -1500,6 +1500,20 @@ def _get_column_transformation(
         )
 
 
+def _is_unnamed_table(table: _TableName) -> bool:
+    # e.g. a table function such as generate_series(), which sqlglot parses as a
+    # table with an empty name.
+    return not table.table
+
+
+def _has_only_unnamed_tables(tables: OrderedSet[_TableName]) -> bool:
+    return bool(tables) and all(_is_unnamed_table(t) for t in tables)
+
+
+def _drop_unnamed_tables(tables: OrderedSet[_TableName]) -> OrderedSet[_TableName]:
+    return OrderedSet(t for t in tables if not _is_unnamed_table(t))
+
+
 def _collect_tables_from_scope(
     scope: sqlglot.optimizer.Scope,
     dialect: sqlglot.Dialect,
@@ -1672,6 +1686,19 @@ def _list_joins(
                         )
                     continue
 
+            # An unnamed table has no URN, so the URN lookup would discard the whole
+            # join. Drop unnamed tables here instead, and skip the join if nothing else
+            # is left on a side, e.g. `a JOIN generate_series(...)`.
+            if _has_only_unnamed_tables(left_side_tables) or _has_only_unnamed_tables(
+                right_side_tables
+            ):
+                continue
+            left_side_tables = _drop_unnamed_tables(left_side_tables)
+            right_side_tables = _drop_unnamed_tables(right_side_tables)
+            joined_columns = OrderedSet(
+                col for col in joined_columns if not _is_unnamed_table(col.table)
+            )
+
             joins.append(
                 _JoinInfo(
                     join_type=_get_join_type(join),
@@ -1700,6 +1727,8 @@ def _list_joins(
                     for t in lateral.this.find_all(sqlglot.exp.Table)
                 )
             qualified_right.update(qualified_left)
+            qualified_left = _drop_unnamed_tables(qualified_left)
+            qualified_right = _drop_unnamed_tables(qualified_right)
 
             if qualified_left and qualified_right:
                 joins.append(

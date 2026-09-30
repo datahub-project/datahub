@@ -2209,6 +2209,21 @@ SELECT a.id, f.v FROM public.a a JOIN public.my_fn(1) f ON a.id = f.id
     )
 
 
+def test_postgres_join_through_subquery_with_table_function() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id FROM s.a a
+JOIN (SELECT b.id, b.v, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) s2
+  ON a.id = s2.id AND a.n = s2.x
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_join_through_subquery_with_table_function.json",
+    )
+
+
 def test_bigquery_table_inside_table_function() -> None:
     assert_sql_result(
         """\
