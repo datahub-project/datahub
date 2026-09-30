@@ -206,6 +206,24 @@ public class FieldTypeMapperTest {
   }
 
   @Test
+  public void testRichestMappingForUrnKeywordCollisionKeepsSortableBaseEitherOrder() {
+    SearchableFieldSpec urnSpec = fieldSpec(FieldType.URN, "aspectA/field");
+    SearchableFieldSpec keywordSpec = fieldSpec(FieldType.KEYWORD, "aspectB/field");
+
+    for (List<SearchableFieldSpec> order :
+        List.of(List.of(urnSpec, keywordSpec), List.of(keywordSpec, urnSpec))) {
+      Map<String, Object> mapping = FieldTypeMapper.getRichestCompatibleMapping(order, Map.of());
+      assertEquals(
+          mapping.get("type"),
+          "keyword",
+          "URN+KEYWORD collision must emit an exact-match-safe base regardless of spec order");
+      assertEquals(
+          ((Map<String, Object>) getFields(mapping).get("delimited")).get("analyzer"),
+          "urn_component");
+    }
+  }
+
+  @Test
   public void testRichnessTieBreaksDeterministicallyAcrossInputOrder() {
     // TEXT and URN share richness 40 - the representative must not depend on list order.
     SearchableFieldSpec textSpec = fieldSpec(FieldType.TEXT, "aspectA/field");

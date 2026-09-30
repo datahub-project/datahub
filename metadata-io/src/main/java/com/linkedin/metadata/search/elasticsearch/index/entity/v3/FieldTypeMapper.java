@@ -46,6 +46,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,6 +59,9 @@ import lombok.extern.slf4j.Slf4j;
 public class FieldTypeMapper {
   static final Map<String, String> DEFAULT_PARTIAL_NGRAM_CONFIG =
       OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG;
+
+  private static final Set<FieldType> URN_FIELD_TYPES =
+      Set.of(FieldType.URN, FieldType.URN_PARTIAL);
 
   private FieldTypeMapper() {
     // Utility class - prevent instantiation
@@ -378,10 +383,23 @@ public class FieldTypeMapper {
                     .thenComparing(spec -> spec.getSearchableAnnotation().getFieldType().name())
                     .thenComparing(spec -> String.valueOf(spec.getPath())))
             .orElseThrow(() -> new IllegalArgumentException("sourceFieldSpecs must not be empty"));
-    return getMappingsForFieldType(
-        representative.getSearchableAnnotation().getFieldType(),
-        representative,
-        partialNgramConfig);
+    FieldType representativeType = representative.getSearchableAnnotation().getFieldType();
+    Set<FieldType> fieldTypes =
+        sourceFieldSpecs.stream()
+            .map(spec -> spec.getSearchableAnnotation().getFieldType())
+            .collect(Collectors.toSet());
+    if (fieldTypes.stream().anyMatch(URN_FIELD_TYPES::contains)
+        && !URN_FIELD_TYPES.containsAll(fieldTypes)) {
+      log.warn(
+          "Root field {} is {} across the entities of one index; URN search on it is weaker than on"
+              + " V2",
+          representative.getSearchableAnnotation().getFieldName(),
+          fieldTypes);
+      if (URN_FIELD_TYPES.contains(representativeType)) {
+        return getMappingsForUrnSharedWithKeyword(representativeType, partialNgramConfig);
+      }
+    }
+    return getMappingsForFieldType(representativeType, representative, partialNgramConfig);
   }
 
   /**
@@ -553,7 +571,8 @@ public class FieldTypeMapper {
     // The V2 shape: V2 and V3 share one query builder, which runs analyzed URN search on the field
     // itself. DataHub Cloud gives URN fields a keyword base with the analyzed text in a delimited
     // subfield, because its consolidated indices can map one root field name as KEYWORD for one
-    // entity and URN for another; each OSS index holds a single entity.
+    // entity and URN for another; each OSS index holds a single entity, and a shared name falls
+    // back to that shape (getMappingsForUrnSharedWithKeyword).
     mapping.put("type", ESUtils.TEXT_FIELD_TYPE);
     mapping.put(ANALYZER, URN_ANALYZER);
     mapping.put(SEARCH_ANALYZER, URN_SEARCH_ANALYZER);
@@ -566,6 +585,41 @@ public class FieldTypeMapper {
           partialNgramConfigWithOverrides(
               partialNgramConfig, Map.of(ANALYZER, PARTIAL_URN_COMPONENT)));
     }
+    fields.put(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE));
+    mapping.put(FIELDS, fields);
+    return mapping;
+  }
+
+  /**
+   * DataHub Cloud's URN mapping, for a root field name that is a keyword or text field for another
+   * entity of the index: a keyword base keeps exact match, sorting and aggregations working for
+   * that entity, and analyzed URN search moves to the delimited subfield.
+   */
+  @Nonnull
+  private static Map<String, Object> getMappingsForUrnSharedWithKeyword(
+      @Nonnull FieldType fieldType, @Nonnull Map<String, String> partialNgramConfig) {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", KEYWORD_FIELD_TYPE);
+    mapping.put(IGNORE_ABOVE, KEYWORD_MAXLENGTH);
+
+    Map<String, Object> fields = new HashMap<>();
+    if (fieldType == FieldType.URN_PARTIAL) {
+      fields.put(
+          NGRAM,
+          partialNgramConfigWithOverrides(
+              partialNgramConfig, Map.of(ANALYZER, PARTIAL_URN_COMPONENT)));
+    }
+    fields.put(
+        DELIMITED,
+        Map.of(
+            "type",
+            ESUtils.TEXT_FIELD_TYPE,
+            ANALYZER,
+            URN_ANALYZER,
+            SEARCH_ANALYZER,
+            URN_SEARCH_ANALYZER,
+            SEARCH_QUOTE_ANALYZER,
+            CUSTOM_QUOTE_ANALYZER));
     fields.put(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE));
     mapping.put(FIELDS, fields);
     return mapping;

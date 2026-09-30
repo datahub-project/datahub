@@ -456,13 +456,13 @@ It takes the following parameters:
 
 - **includeQueryEmptyAggregation**: boolean (optional) - Whether to create a missing field aggregation when querying the corresponding field. Only affects query time, not mapping. Useful for analytics and reporting.
 
-- **searchTier**: integer (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (an integer >= 1 on KEYWORD, TEXT, TEXT*PARTIAL, WORD_GRAM or URN fields) so existing models keep loading, but it no longer changes the index mapping or the search queries, and no `\_search.tier*{tier}`field is created. Use`queryByDefault`, `enableAutocomplete`and`boostScore` to control full-text search and autocomplete.
+- **searchTier**: integer (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (an integer >= 1 on `KEYWORD`, `TEXT`, `TEXT_PARTIAL`, `WORD_GRAM` or `URN` fields) so existing models keep loading, but it no longer changes the index mapping or the search queries, and no `_search.tier_{tier}` field is created. Use `queryByDefault`, `enableAutocomplete` and `boostScore` to control full-text search and autocomplete.
 
-- **searchLabel**: string (optional) - Unified label for search operations. Creates a copy\*to field that copies the field value to `\_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. Fields with searchLabel are automatically set to `index: false`.
+- **searchLabel**: string (optional) - Unified label for search operations. Copies the field value into `_search.{label}` (without prefixes). Replaces the previous `sortLabel` and `boostLabel` annotations. The field stays indexed under its own name too.
 
-- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (it can only be true together with `searchTier`, on KEYWORD or TEXT fields), but every searchable field is indexed under its own name regardless.
+- **searchIndexed**: boolean (optional) - **⚠️ DEPRECATED, no-op**: Still accepted and validated (it can only be true together with `searchTier`, on `KEYWORD` or `TEXT` fields), but every searchable field is indexed under its own name regardless.
 
-- **entityFieldName**: string (optional) - If set, this field will be copied to `_search.{entityFieldName}` and the root alias will point there. This allows multiple aspects to consolidate into a single entity-level field.
+- **entityFieldName**: string (optional) - If set, this field is copied into `_search.{entityFieldName}`, so several aspects can fill one entity-level field. `_entityName` aliases `_search.entityName` when a field of the entity sets `entityName`.
 
 - **eagerGlobalOrdinals**: boolean (optional) - Whether to set `eager_global_ordinals` to true for this field. This improves aggregation performance for frequently aggregated keyword fields by pre-building ordinals at index time. **Note**: eagerGlobalOrdinals can only be true for KEYWORD, URN, or URN_PARTIAL field types. Defaults to false.
 
@@ -566,21 +566,18 @@ Earlier versions copied fields with `searchTier` into `_search.tier_{tier}` fiel
 - Fields with `searchLabel` are copied to `_search.{label}` fields (without prefixes)
 - Replaces the previous `sortLabel` and `boostLabel` annotations for a unified approach
 - Useful for creating specialized search, sorting, and ranking operations across multiple aspects
-- Automatically sets `index: false` to optimize storage
 
 **Entity Field Consolidation (`entityFieldName`):**
 
 - Allows multiple aspects to consolidate into a single entity-level field
 - Useful for creating unified search experiences across different aspect types
-- Fields are copied to `_search.{entityFieldName}` with root-level aliases
+- Fields are copied to `_search.{entityFieldName}`
 
 **Benefits of the New System:**
 
 1. **Organized Search Fields**: All search-related fields are grouped under `_search.*`
-2. **Efficient Indexing**: Original fields are not indexed (index: false) but copied to search fields
-3. **Easy Access**: Aliases provide convenient access to fields at the root level
-4. **Flexible Querying**: Search queries can target specific sort or ranking fields
-5. **Performance**: Optimized storage and query patterns for complex search scenarios
+2. **Flexible Querying**: Search queries can target specific sort or ranking fields
+3. **Performance**: Optimized storage and query patterns for complex search scenarios
 
 #### Migration Guide for Deprecated Features
 
