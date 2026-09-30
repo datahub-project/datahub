@@ -104,6 +104,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class MultiEntityMappingsBuilder implements MappingsBuilder {
+  private static final String ENTITY_NAME_SEARCH_FIELD = "entityName";
+
   /** Configuration for entity indexing behavior and v3 search settings. */
   private final EntityIndexConfiguration entityIndexConfiguration;
 
@@ -520,10 +522,10 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     }
     // The projector writes _entityType into every V3 document; without an explicit mapping,
     // dynamic mapping makes it analyzed text and the entity-type facet aggregation (and exact
-    // filters on camelCase entity names) fail on the consolidated index.
+    // filters on camelCase entity names) fail on the consolidated index. No normalizer: the
+    // entity-type facet includes the registry names case-sensitively.
     properties.putIfAbsent(
-        V3SearchDocumentProjector.ENTITY_TYPE_FIELD,
-        new HashMap<>(FieldTypeMapper.getMappingsForKeyword()));
+        V3SearchDocumentProjector.ENTITY_TYPE_FIELD, new HashMap<>(Map.of(TYPE, "keyword")));
   }
 
   private void applyMappingContributors(
@@ -866,18 +868,55 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       }
 
       if (MultiEntityMappingsUtils.isEntityNameField(alias)) {
-        // _entityName must stay an Elasticsearch field alias to the populated _search.entityName so
-        // the term suggester (ESUtils.buildNameSuggestions) resolves it. A concrete projected root
-        // field here is never populated (nothing copies into it and the projector does not write
-        // it), which silently breaks V3 name suggestions. Parity with V2, which maps _entityName as
-        // an alias to the name field.
-        rootFields.put(alias, MultiEntityMappingsUtils.createEntityNameAliasMapping());
+        // _entityName must stay an Elasticsearch field alias to a populated field so the term
+        // suggester (ESUtils.buildNameSuggestions) resolves it. A concrete projected root field
+        // here is never populated (nothing copies into it and the projector does not write it),
+        // which silently breaks V3 name suggestions.
+        rootFields.put(alias, createEntityNameAliasMapping(alias, allPaths, entitySpecs));
         continue;
       }
 
       createProjectedRootFieldMapping(
           rootFields, alias, allPaths, entitySpecs, false, partialNgramConfig);
     }
+  }
+
+  /**
+   * Aliases {@code _entityName} to {@code _search.entityName} when an aspect in the index labels a
+   * field {@code entityName}. Otherwise the alias points at the root field it names, as on V2: with
+   * one index per entity, {@code _search.entityName} is only mapped when such a label exists, and
+   * an alias to an unmapped field makes the index mapping invalid.
+   */
+  private static Map<String, Object> createEntityNameAliasMapping(
+      @Nonnull String alias,
+      @Nonnull Set<String> allPaths,
+      @Nonnull Collection<EntitySpec> entitySpecs) {
+    final boolean labeled =
+        entitySpecs.stream()
+            .flatMap(entitySpec -> entitySpec.getAspectSpecs().stream())
+            .flatMap(aspectSpec -> aspectSpec.getSearchableFieldSpecs().stream())
+            .map(SearchableFieldSpec::getSearchableAnnotation)
+            .anyMatch(
+                annotation ->
+                    ENTITY_NAME_SEARCH_FIELD.equals(annotation.getSearchLabel().orElse(null))
+                        || ENTITY_NAME_SEARCH_FIELD.equals(
+                            annotation.getEntityFieldName().orElse(null)));
+    if (labeled) {
+      return MultiEntityMappingsUtils.createEntityNameAliasMapping();
+    }
+    final Set<String> fieldNames =
+        allPaths.stream()
+            .map(path -> path.split("\\.", 3))
+            .filter(pathParts -> pathParts.length == 3)
+            .map(pathParts -> pathParts[2])
+            .collect(Collectors.toSet());
+    if (fieldNames.size() != 1) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Cannot map '%s': it names the fields %s and no aspect labels a field '%s'",
+              alias, fieldNames, ENTITY_NAME_SEARCH_FIELD));
+    }
+    return MultiEntityMappingsUtils.createAliasMapping(fieldNames.iterator().next());
   }
 
   private static void createDerivedRootProjectionFields(

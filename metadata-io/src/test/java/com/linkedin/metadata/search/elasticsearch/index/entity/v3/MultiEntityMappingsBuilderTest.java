@@ -162,6 +162,24 @@ public class MultiEntityMappingsBuilderTest {
     }
   }
 
+  /** The engine rejects a mapping whose alias points at a field it does not map. */
+  @Test
+  public void testRegistryMappingAliasesPointAtMappedFields() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    for (IndexMapping mapping :
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+      Map<String, Object> root = mapping.getMappings();
+      forEachAlias(
+          root,
+          (field, path) ->
+              assertTrue(
+                  isMappedField(root, path),
+                  mapping.getIndexName() + ": " + field + " aliases unmapped " + path));
+    }
+  }
+
   @Test
   public void testGetIndexMappingsRejectsReservedSearchField() throws IOException {
     V3MappingContributor contributor =
@@ -919,6 +937,38 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> aspect = (Map<String, Object>) aspectProperties.get(aspectName);
     Map<String, Object> fields = (Map<String, Object>) aspect.get("properties");
     return (Map<String, Object>) fields.get(fieldName);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void forEachAlias(
+      Map<String, Object> mapping, java.util.function.BiConsumer<String, String> consumer) {
+    Object properties = mapping.get("properties");
+    if (!(properties instanceof Map)) {
+      return;
+    }
+    ((Map<String, Object>) properties)
+        .forEach(
+            (name, child) -> {
+              Map<String, Object> field = (Map<String, Object>) child;
+              if ("alias".equals(field.get("type"))) {
+                consumer.accept(name, (String) field.get("path"));
+              } else {
+                forEachAlias(field, consumer);
+              }
+            });
+  }
+
+  @SuppressWarnings("unchecked")
+  private static boolean isMappedField(Map<String, Object> root, String path) {
+    Map<String, Object> node = root;
+    for (String part : path.split("\\.")) {
+      Object properties = node.get("properties");
+      if (!(properties instanceof Map) || !((Map<String, Object>) properties).containsKey(part)) {
+        return false;
+      }
+      node = (Map<String, Object>) ((Map<String, Object>) properties).get(part);
+    }
+    return !"alias".equals(node.get("type"));
   }
 
   /** Counts fields as index.mapping.total_fields.limit does: objects, leaves and multi-fields. */
