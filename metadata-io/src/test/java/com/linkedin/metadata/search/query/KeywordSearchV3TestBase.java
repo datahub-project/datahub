@@ -30,13 +30,17 @@ import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.ChangeAuditStamps;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -353,6 +357,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                         .setTitle("Orders by region")
                         .setDescription("Monthly orders")
                         .setLastModified(new ChangeAuditStamps()),
+                    // tags is a URN field queried by default
+                    new GlobalTags()
+                        .setTags(
+                            new TagAssociationArray(
+                                new TagAssociation().setTag(new TagUrn("Confidential")))),
                     browsePaths("prod", "sales")),
                 NIGHTLY_JOB,
                 events(NIGHTLY_JOB)),
@@ -758,6 +767,23 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         CUSTOMERS);
+  }
+
+  /** A URN field queried by default matches a component of its value, as on V2. */
+  @Test
+  public void testSearchMatchesUrnFieldComponent() {
+    assertUrns(
+        searchService
+            .search(
+                opContext.withSearchFlags(flags -> flags.setFulltext(true)),
+                List.of(CHART_ENTITY_NAME),
+                "confidential",
+                null,
+                null,
+                0,
+                10)
+            .getEntities(),
+        ORDERS_CHART);
   }
 
   /** A queryByDefault: false field is filterable but a plain full-text query skips it. */

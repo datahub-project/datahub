@@ -10,7 +10,9 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNotSame;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
@@ -684,7 +686,52 @@ public class AutocompleteRequestHandlerTest {
     assertFalse(v3Query.contains("DATA_PRODUCT"), v3Query);
   }
 
-  // Built directly: getBuilder caches one handler per entity, whatever configuration built it
+  /** A handler built for V2 first must not be reused when V3 keyword read is requested. */
+  @Test
+  public void testGetBuilderKeepsV2AndV3HandlersApart() {
+    AutocompleteRequestHandler v2Handler = getCachedDatasetHandler(testQueryConfig);
+    AutocompleteRequestHandler v3Handler = getCachedDatasetHandler(TEST_V3_QUERY_CONFIG);
+    assertNotSame(v3Handler, v2Handler);
+    assertSame(getCachedDatasetHandler(TEST_V3_QUERY_CONFIG), v3Handler);
+
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("_entityType", Condition.EQUAL, "DATA_PRODUCT")))));
+    String v3Query =
+        v3Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", null, filter, 10)
+            .source()
+            .query()
+            .toString();
+    String v2Query =
+        v2Handler
+            .getSearchRequest(nonMockOpContext, DATASET_ENTITY_NAME, "ord", null, filter, 10)
+            .source()
+            .query()
+            .toString();
+    // Only the V3 handler maps entity type values to registry names and scopes to its entity
+    assertTrue(v3Query.contains("\"dataProduct\""), v3Query);
+    assertTrue(v3Query.contains("\"dataset\""), v3Query);
+    assertTrue(v2Query.contains("\"DATA_PRODUCT\""), v2Query);
+    assertFalse(v2Query.contains("\"dataset\""), v2Query);
+  }
+
+  private AutocompleteRequestHandler getCachedDatasetHandler(
+      ElasticSearchConfiguration searchConfiguration) {
+    return AutocompleteRequestHandler.getBuilder(
+        nonMockOpContext,
+        nonMockOpContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+        CustomSearchConfiguration.builder().build(),
+        QueryFilterRewriteChain.EMPTY,
+        searchConfiguration,
+        TEST_SEARCH_SERVICE_CONFIG);
+  }
+
   private SearchSourceBuilder getDatasetAutocompleteSource(
       ElasticSearchConfiguration searchConfiguration, Filter filter) {
     return new AutocompleteRequestHandler(

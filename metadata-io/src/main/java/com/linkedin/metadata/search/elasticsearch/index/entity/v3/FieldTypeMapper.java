@@ -550,12 +550,14 @@ public class FieldTypeMapper {
   private static Map<String, Object> getMappingsForSearchableUrn(
       @Nonnull FieldType fieldType, @Nonnull Map<String, String> partialNgramConfig) {
     Map<String, Object> mapping = new HashMap<>();
-    // Keyword base like the TEXT family above: on a consolidated index the same root field name
-    // can be KEYWORD on one entity and URN on another, and an analyzed-text base silently breaks
-    // exact match, sorting and aggregations for the keyword entities. Analyzed URN search stays
-    // available through the delimited/ngram subfields, mirroring the root urn mapping.
-    mapping.put("type", KEYWORD_FIELD_TYPE);
-    mapping.put(IGNORE_ABOVE, KEYWORD_MAXLENGTH);
+    // The V2 shape: V2 and V3 share one query builder, which runs analyzed URN search on the field
+    // itself. DataHub Cloud gives URN fields a keyword base with the analyzed text in a delimited
+    // subfield, because its consolidated indices can map one root field name as KEYWORD for one
+    // entity and URN for another; each OSS index holds a single entity.
+    mapping.put("type", ESUtils.TEXT_FIELD_TYPE);
+    mapping.put(ANALYZER, URN_ANALYZER);
+    mapping.put(SEARCH_ANALYZER, URN_SEARCH_ANALYZER);
+    mapping.put(SEARCH_QUOTE_ANALYZER, CUSTOM_QUOTE_ANALYZER);
 
     Map<String, Object> fields = new HashMap<>();
     if (fieldType == FieldType.URN_PARTIAL) {
@@ -564,17 +566,6 @@ public class FieldTypeMapper {
           partialNgramConfigWithOverrides(
               partialNgramConfig, Map.of(ANALYZER, PARTIAL_URN_COMPONENT)));
     }
-    fields.put(
-        DELIMITED,
-        Map.of(
-            "type",
-            ESUtils.TEXT_FIELD_TYPE,
-            ANALYZER,
-            URN_ANALYZER,
-            SEARCH_ANALYZER,
-            URN_SEARCH_ANALYZER,
-            SEARCH_QUOTE_ANALYZER,
-            CUSTOM_QUOTE_ANALYZER));
     fields.put(KEYWORD, Map.of("type", KEYWORD_FIELD_TYPE));
     mapping.put(FIELDS, fields);
     return mapping;
