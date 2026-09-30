@@ -2,7 +2,9 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.BROWSE_PATH_HIERARCHY_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.CUSTOM_QUOTE_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.FIELDDATA;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_NORMALIZER;
@@ -12,6 +14,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.PARTIAL_URN_COMPONENT;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SEARCH_QUOTE_ANALYZER;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.SLASH_PATTERN_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.URN_ANALYZER;
@@ -20,6 +23,7 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Legac
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.WORD_GRAM_3_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.WORD_GRAM_4_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.DELIMITED;
+import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.LENGTH;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.WORD_GRAMS_LENGTH_2;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.WORD_GRAMS_LENGTH_3;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder.WORD_GRAMS_LENGTH_4;
@@ -93,8 +97,9 @@ public class FieldTypeMapper {
         return KEYWORD_FIELD_TYPE; // URN fields are treated as keyword
       case MAP_ARRAY:
         return OBJECT_FIELD_TYPE; // MAP_ARRAY fields are stored as dynamic objects
+      case BROWSE_PATH:
       case BROWSE_PATH_V2:
-        return "text"; // BROWSE_PATH_V2 fields use text type with special analyzer
+        return "text"; // Browse path fields use text type with special analyzer
       default:
         if (OBJECT_FIELD_TYPES.contains(fieldType)) {
           return OBJECT_FIELD_TYPE;
@@ -300,6 +305,8 @@ public class FieldTypeMapper {
       case URN:
       case URN_PARTIAL:
         return getMappingsForSearchableUrn(fieldType, partialNgramConfig);
+      case BROWSE_PATH:
+        return getMappingsForBrowsePath();
       case BROWSE_PATH_V2:
         return getMappingsForBrowsePathV2();
       default:
@@ -497,6 +504,24 @@ public class FieldTypeMapper {
         log.debug("LogicalValueType {} not supported, defaulting to keyword", valueType);
         return getMappingsForKeywordWithIgnoreAbove(keywordMaxLength);
     }
+  }
+
+  /**
+   * Creates the V2 mapping for BROWSE_PATH fields: legacy browse aggregates on the path prefixes
+   * and filters on the path depth ({@code length}).
+   */
+  @Nonnull
+  private static Map<String, Object> getMappingsForBrowsePath() {
+    Map<String, Object> mapping = new HashMap<>();
+    mapping.put("type", ESUtils.TEXT_FIELD_TYPE);
+    mapping.put(ANALYZER, BROWSE_PATH_HIERARCHY_ANALYZER);
+    mapping.put(FIELDDATA, true);
+    mapping.put(
+        FIELDS,
+        Map.of(
+            LENGTH,
+            Map.of("type", ESUtils.TOKEN_COUNT_FIELD_TYPE, ANALYZER, SLASH_PATTERN_ANALYZER)));
+    return mapping;
   }
 
   /**

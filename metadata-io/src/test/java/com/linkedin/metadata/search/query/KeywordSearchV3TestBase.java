@@ -28,6 +28,7 @@ import com.linkedin.chart.ChartInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.BrowsePathEntry;
 import com.linkedin.common.BrowsePathEntryArray;
+import com.linkedin.common.BrowsePaths;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.GlobalTags;
@@ -50,6 +51,9 @@ import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.browse.BrowseResult;
+import com.linkedin.metadata.browse.BrowseResultEntity;
+import com.linkedin.metadata.browse.BrowseResultGroup;
 import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
@@ -141,9 +145,6 @@ import org.testng.annotations.Test;
  * would fail with index_not_found, or come back empty through a V2 wildcard. With V2 enabled (see
  * {@link #isV2Enabled()}) the V2 indices exist but stay empty, so a read routed to V2 finds
  * nothing.
- *
- * <p>Legacy browse ({@code browse}, {@code getBrowsePaths}) is not covered: it reads browsePaths
- * fields that only exist on V2 mappings.
  */
 public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContextTests {
 
@@ -324,6 +325,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     // Mixed case: keyword roots are normalized, so facets must read .keyword
                     new SubTypes().setTypeNames(new StringArray("Table")),
                     browsePaths("prod", "sales"),
+                    legacyBrowsePaths("/prod/sales"),
                     new StructuredProperties()
                         .setProperties(
                             new StructuredPropertyValueAssignmentArray(
@@ -347,7 +349,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                                 new Owner()
                                     .setOwner(CUSTOMERS_OWNER)
                                     .setType(OwnershipType.DATAOWNER))),
-                    browsePaths("prod", "marketing")),
+                    browsePaths("prod", "marketing"),
+                    legacyBrowsePaths("/prod/marketing", "/shared/crm")),
                 ORDERS_CHART,
                 events(
                     ORDERS_CHART,
@@ -1014,6 +1017,40 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(groups(acrossEntities), Map.of("sales", 2L, "marketing", 1L));
   }
 
+  /** Legacy browse on the browsePaths aspect returns what V2 returns for the same paths. */
+  @Test
+  public void testBrowse() {
+    BrowseResult root = searchService.browse(opContext, DATASET_ENTITY_NAME, "", null, 0, 10);
+    assertEquals(root.getMetadata().getTotalNumEntities().longValue(), 2L);
+    assertEquals(groups(root), Map.of("prod", 2L, "shared", 1L));
+    assertEquals(root.getNumEntities().intValue(), 0);
+
+    assertEquals(
+        groups(searchService.browse(opContext, DATASET_ENTITY_NAME, "/prod", null, 0, 10)),
+        Map.of("sales", 1L, "marketing", 1L));
+
+    // An entity is listed at the full depth of its path
+    BrowseResult sales =
+        searchService.browse(opContext, DATASET_ENTITY_NAME, "/prod/sales", null, 0, 10);
+    assertEquals(groups(sales), Map.of());
+    assertEquals(
+        sales.getEntities().stream().map(BrowseResultEntity::getUrn).collect(Collectors.toList()),
+        List.of(ORDERS));
+  }
+
+  @Test
+  public void testGetBrowsePaths() {
+    assertEquals(
+        searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, ORDERS),
+        List.of("/prod/sales"));
+    assertEquals(
+        searchService.getBrowsePaths(opContext, DATASET_ENTITY_NAME, CUSTOMERS),
+        List.of("/prod/marketing", "/shared/crm"));
+    // No browsePaths aspect
+    assertEquals(
+        searchService.getBrowsePaths(opContext, DATA_JOB_ENTITY_NAME, NIGHTLY_JOB), List.of());
+  }
+
   private List<MCLItem> events(Urn urn, RecordTemplate... aspects) {
     EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(urn.getEntityType());
     AuditStamp auditStamp =
@@ -1049,6 +1086,10 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     .collect(Collectors.toList())));
   }
 
+  private static BrowsePaths legacyBrowsePaths(String... paths) {
+    return new BrowsePaths().setPaths(new StringArray(Arrays.asList(paths)));
+  }
+
   private static List<Urn> urns(AutoCompleteResult result) {
     return result.getEntities().stream()
         .map(AutoCompleteEntity::getUrn)
@@ -1058,6 +1099,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   private static Map<String, Long> groups(BrowseResultV2 result) {
     return result.getGroups().stream()
         .collect(Collectors.toMap(BrowseResultGroupV2::getName, BrowseResultGroupV2::getCount));
+  }
+
+  private static Map<String, Long> groups(BrowseResult result) {
+    return result.getGroups().stream()
+        .collect(Collectors.toMap(BrowseResultGroup::getName, BrowseResultGroup::getCount));
   }
 
   @SuppressWarnings("unchecked")

@@ -1241,7 +1241,12 @@ public class MultiEntityMappingsBuilderTest {
     }
     assertTrue(
         allReferencedAnalyzers.containsAll(
-            List.of("urn_component", "word_delimited", "browse_path_v2_hierarchy")),
+            List.of(
+                "urn_component",
+                "word_delimited",
+                "browse_path_hierarchy",
+                "slash_pattern",
+                "browse_path_v2_hierarchy")),
         allReferencedAnalyzers.toString());
     assertTrue(allReferencedNormalizers.contains("keyword_normalizer"));
   }
