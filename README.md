@@ -38,11 +38,18 @@ Trusted in production by teams at Netflix, Visa, Etsy, Slack, Apple, FIS, Miro, 
 
 ## Pick your path
 
+<table>
+<tr>
+<td width="50%" valign="top">
+
 ### DataHub OSS
 
 Self-host on your own infrastructure. Apache 2.0 licensed. Full access to the metadata graph, 150+ integrations, column-level lineage, governance, and discovery. Best for teams that want full control and are comfortable running their own stack.
 
-[Quickstart guide →](https://docs.datahub.com/docs/quickstart) · [Deploy on Kubernetes →](https://docs.datahub.com/docs/deploy/kubernetes)
+[Run it locally ↓](#quick-start) · [Quickstart guide →](https://docs.datahub.com/docs/quickstart) · [Deploy on Kubernetes →](https://docs.datahub.com/docs/deploy/kubernetes)
+
+</td>
+<td width="50%" valign="top">
 
 ### DataHub Cloud
 
@@ -50,31 +57,11 @@ Managed, SLA-backed, enterprise-ready. Access data observability and the full Co
 
 [Start a free trial →](https://datahub.com/free-trial/) · [Compare OSS vs Cloud →](https://docs.datahub.com/docs/managed-datahub/managed-datahub-overview)
 
-## Quick start
-
-- [**Try the live demo →**](https://demo.datahub.com) No installation required.
-
-- **Run locally.** Requires Docker (8GB RAM) and Python 3.10+.
-
-  ```sh
-  pip install acryl-datahub
-  datahub docker quickstart
-  # → http://localhost:9002 (username: datahub, password: datahub)
-  ```
-
-  [Full quickstart guide →](https://docs.datahub.com/docs/quickstart)
-
-- **Connect your AI assistant via MCP.** Add the DataHub MCP server to your MCP client (Claude Desktop, Cursor, and more).
-
-  ```sh
-  uvx mcp-server-datahub@latest
-  ```
-
-  [MCP server setup →](https://docs.datahub.com/docs/features/feature-guides/mcp)
+</td>
+</tr>
+</table>
 
 ## Core capabilities
-
-Some capabilities below are available only in DataHub Cloud. [Compare OSS vs Cloud →](https://docs.datahub.com/docs/managed-datahub/managed-datahub-overview)
 
 ### Context Platform
 
@@ -119,6 +106,28 @@ Know when something breaks before your users do.
 
 [→ See the full product tour at datahub.com](https://datahub.com/product-tour/)
 
+## Quick start
+
+- [**Try the live demo →**](https://demo.datahub.com) No installation required.
+
+- **Run locally.** Requires Docker (8GB RAM) and Python 3.10+.
+
+  ```sh
+  pip install acryl-datahub
+  datahub docker quickstart
+  # → http://localhost:9002 (username: datahub, password: datahub)
+  ```
+
+  [Full quickstart guide →](https://docs.datahub.com/docs/quickstart)
+
+- **Connect your AI assistant via MCP.** Add the DataHub MCP server to your MCP client (Claude Desktop, Cursor, and more).
+
+  ```sh
+  uvx mcp-server-datahub@latest
+  ```
+
+  [MCP server setup →](https://docs.datahub.com/docs/features/feature-guides/mcp)
+
 ## Why DataHub
 
 - **Cross-platform by design.** DataHub started at LinkedIn in 2019 to manage metadata at hyperscale. That foundation with column-level lineage across 150+ integrations, spanning your entire data estate is what makes trusted context possible. Context is only as good as the lineage underneath it, and lineage is only as good as its coverage.
@@ -137,9 +146,26 @@ Know when something breaks before your users do.
 
 150+ production-grade integrations across your full data stack.
 
-[See all integrations →](https://docs.datahub.com/integrations)
+<p align="center">
+  <img src="docs-website/static/img/logos/platforms/snowflake.svg" alt="Snowflake" title="Snowflake" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/bigquery.svg" alt="BigQuery" title="BigQuery" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/databricks.png" alt="Databricks" title="Databricks" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/redshift.svg" alt="Redshift" title="Redshift" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/dbt.svg" alt="dbt" title="dbt" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/looker.svg" alt="Looker" title="Looker" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/tableau.png" alt="Tableau" title="Tableau" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/powerbi.png" alt="Power BI" title="Power BI" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/airflow.svg" alt="Airflow" title="Airflow" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/spark.svg" alt="Spark" title="Spark" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/s3.svg" alt="Amazon S3" title="Amazon S3" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/fivetran.png" alt="Fivetran" title="Fivetran" height="40" />&nbsp;&nbsp;
+</p>
 
-## Community & support
+<p align="center">
+  <a href="https://docs.datahub.com/integrations"><b>+ 140 more integrations →</b></a>
+</p>
+
+## Built by the community
 
 DataHub has 16,000+ community members and 750+ contributors across 3,600+ organizations. Every connector, integration, and improvement you use was built by people like you.
 
@@ -151,7 +177,7 @@ DataHub has 16,000+ community members and 750+ contributors across 3,600+ organi
 
 Ready to contribute? See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup and guidelines.
 
-## Resources
+## Explore DataHub Now
 
 [Live Demo](https://demo.datahub.com) · [Docs](https://docs.datahub.com) · [Slack](https://datahub.com/slack) · [LinkedIn](https://www.linkedin.com/company/datahub-cloud/) · [X](https://x.com/DataHubCloud) · [Security](https://docs.datahub.com/docs/security) · [Feature Requests](https://datahubspace.slack.com/archives/C02FWNS2F08)
 
