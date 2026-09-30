@@ -138,11 +138,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             .collect(Collectors.toList());
     defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     highlights = getDefaultHighlights(opContext);
-    searchQueryBuilder =
-        new SearchQueryBuilder(
-            configs.getSearch(),
-            customSearchConfiguration,
-            EntitySearchIndexResolver.shouldReadV3(configs.getEntityIndex()));
+    searchQueryBuilder = new SearchQueryBuilder(configs.getSearch(), customSearchConfiguration);
     aggregationQueryBuilder =
         new AggregationQueryBuilder(
             configs.getSearch(),

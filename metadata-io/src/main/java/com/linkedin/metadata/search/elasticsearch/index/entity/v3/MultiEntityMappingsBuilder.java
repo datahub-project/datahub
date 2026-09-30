@@ -7,7 +7,6 @@ import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalVal
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.models.annotation.SearchableAnnotation.OBJECT_FIELD_TYPES;
 import static com.linkedin.metadata.search.utils.ESUtils.COPY_TO;
-import static com.linkedin.metadata.search.utils.ESUtils.INDEX;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
@@ -59,7 +58,7 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Real root-level projected fields for the V2.5-compatible search surface
  *   <li>Root-level projected fields own copy_to into the {@code _search} aggregate fields
  *   <li>Structured properties support under {@code structuredProperties} field
- *   <li>Search tier and label organization under {@code _search} object
+ *   <li>Search label organization under {@code _search} object
  * </ul>
  *
  * <p>Key features:
@@ -69,7 +68,7 @@ import lombok.extern.slf4j.Slf4j;
  *   <li>Type conflict resolution using configurable strategies
  *   <li>Support for field name aliases
  *   <li>Dynamic structured properties handling
- *   <li>Search tier and label organization
+ *   <li>Search label organization
  *   <li>Eager global ordinals optimization
  * </ul>
  *
@@ -87,10 +86,9 @@ import lombok.extern.slf4j.Slf4j;
  *         }
  *       }
  *     },
- *     "owners": { "type": "keyword", "copy_to": "_search.tier_2" },
+ *     "owners": { "type": "keyword" },
  *     "_search": {
  *       "properties": {
- *         "tier_1": { "type": "keyword" },
  *         "entityName": { "type": "keyword" }
  *       }
  *     }
@@ -382,7 +380,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    *   <li>Merges all mappings into a unified structure
    *   <li>Creates real root-level projected fields
    *   <li>Merges with base configuration if available
-   *   <li>Builds the _search section for tier and label organization
+   *   <li>Builds the _search section for label organization
    * </ul>
    *
    * @param entityRegistry entity registry containing all entity specifications
@@ -1110,24 +1108,6 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     if (hasEagerGlobalOrdinals) {
       rootFieldMapping.put("eager_global_ordinals", true);
     }
-
-    final boolean hasSearchIndexedTrue =
-        sourceFieldSpecs.stream()
-            .anyMatch(
-                fieldSpec -> fieldSpec.getSearchableAnnotation().getSearchIndexed().orElse(false));
-    final boolean hasSearchIndexedFalse =
-        sourceFieldSpecs.stream()
-            .anyMatch(
-                fieldSpec ->
-                    fieldSpec.getSearchableAnnotation().getSearchIndexed().isPresent()
-                        && !fieldSpec.getSearchableAnnotation().getSearchIndexed().get());
-
-    if (hasSearchIndexedTrue) {
-      rootFieldMapping.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
-      rootFieldMapping.put(INDEX, true);
-    } else if (hasSearchIndexedFalse) {
-      rootFieldMapping.put(INDEX, false);
-    }
   }
 
   private static boolean isEagerGlobalOrdinalsSupported(@Nonnull final FieldType fieldType) {
@@ -1143,15 +1123,6 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     final Set<String> copyToDestinations = new LinkedHashSet<>();
 
     for (SearchableFieldSpec fieldSpec : sourceFieldSpecs) {
-      fieldSpec
-          .getSearchableAnnotation()
-          .getSearchTier()
-          .ifPresent(
-              tier -> {
-                if (tier >= 1) {
-                  copyToDestinations.add("_search.tier_" + tier);
-                }
-              });
       fieldSpec
           .getSearchableAnnotation()
           .getSearchLabel()
@@ -1204,7 +1175,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    * <ul>
    *   <li>Field type mapping based on annotations
    *   <li>Eager global ordinals configuration
-   *   <li>Optional search tier, label, and entity field name copy_to fields
+   *   <li>Optional search label and entity field name copy_to fields
    *   <li>HasValues and numValues field creation
    *   <li>SystemModifiedAt field creation
    * </ul>

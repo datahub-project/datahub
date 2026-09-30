@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.config.search.EntityTypeListConfig.DEFAULT_SEARCH_ENTITY_TYPES;
 import static com.linkedin.metadata.config.search.EntityTypeListConfig.parseCsv;
+import static com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder.STRUCTURED_QUERY_PREFIX;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
@@ -834,6 +835,40 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertFalse(v3Filter.contains("DATA_PRODUCT"), v3Filter);
     // The caller's filter is left as given
     assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
+  }
+
+  /** V3 root fields carry the V2 subfields, so V3 runs the V2 full-text query and highlights. */
+  @Test
+  public void testV3FullTextQueryMatchesV2() {
+    ElasticSearchConfiguration v3Config =
+        testQueryConfig.toBuilder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+                    .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                    .build())
+            .build();
+    OperationContext fulltext = operationContext.withSearchFlags(flags -> flags.setFulltext(true));
+    for (String query :
+        List.of("test query", "\"test query\"", STRUCTURED_QUERY_PREFIX + "name:test")) {
+      SearchSourceBuilder v2 = getDatasetSearchSource(fulltext, testQueryConfig, query);
+      SearchSourceBuilder v3 = getDatasetSearchSource(fulltext, v3Config, query);
+      assertEquals(((BoolQueryBuilder) v3.query()).must(), ((BoolQueryBuilder) v2.query()).must());
+      assertEquals(v3.highlighter(), v2.highlighter(), query);
+    }
+  }
+
+  private SearchSourceBuilder getDatasetSearchSource(
+      OperationContext opContext, ElasticSearchConfiguration config, String query) {
+    return SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            config,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(opContext, query, null, null, 0, 10, List.of())
+        .source();
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
