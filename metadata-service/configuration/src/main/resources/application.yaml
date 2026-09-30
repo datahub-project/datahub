@@ -2067,7 +2067,7 @@ graphQL:
     # Maximum cache weight in bytes, approximated as 5x the cached queries' UTF-8 byte length.
     maximumWeightBytes: ${GRAPHQL_DOCUMENT_CACHE_MAX_BYTES:26214400}
   query:
-    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
+    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2010}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
     # Parent chain traversal (glossary, domains, containers, documents)
