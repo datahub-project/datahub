@@ -2439,7 +2439,9 @@ def get_default_graph(
     client_mode: Optional[ClientMode] = None,
     datahub_component: Optional[str] = None,
 ) -> DataHubGraph:
-    graph_config = config_utils.load_client_config()
+    # This graph is cached for the life of the process, so an OAuth session's
+    # token must be refreshed per request rather than once here.
+    graph_config = config_utils.load_client_config(refresh_per_request=True)
     graph_config.client_mode = client_mode
     graph_config.datahub_component = datahub_component
     graph = DataHubGraph(graph_config)
