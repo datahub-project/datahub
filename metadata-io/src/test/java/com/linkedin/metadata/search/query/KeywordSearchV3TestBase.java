@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.query;
 
 import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
@@ -142,6 +143,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   // Its indices get no documents, so the dynamic _search.tier_N fields stay unmapped in its V3
   // index
   private static final String EMPTY_ENTITY_TYPE = GLOSSARY_TERM_ENTITY_NAME;
+  // A camelCase entity type, and an entity whose _entityName aliases its own name field because
+  // no aspect labels a field entityName
+  private static final Urn NIGHTLY_JOB =
+      UrnUtils.getUrn("urn:li:dataJob:(urn:li:dataFlow:(airflow,nightly,PROD),refresh)");
+  private static final List<String> EXTRA_ENTITY_TYPES = List.of(DATA_JOB_ENTITY_NAME, "service");
   private static final String BROWSE_DELIMITER = "␟";
   private static final Urn RETENTION_POLICY =
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
@@ -253,7 +259,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                     MappingsBuilder.IndexMapping::getIndexName,
                     MappingsBuilder.IndexMapping::getMappings));
     for (String entityType :
-        Stream.concat(ENTITY_TYPES.stream(), Stream.of(EMPTY_ENTITY_TYPE))
+        Stream.of(ENTITY_TYPES, List.of(EMPTY_ENTITY_TYPE), EXTRA_ENTITY_TYPES)
+            .flatMap(List::stream)
             .collect(Collectors.toList())) {
       List<String> indexNames = new ArrayList<>();
       indexNames.add(
@@ -310,7 +317,9 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                         .setTitle("Orders by region")
                         .setDescription("Monthly orders")
                         .setLastModified(new ChangeAuditStamps()),
-                    browsePaths("prod", "sales"))),
+                    browsePaths("prod", "sales")),
+                NIGHTLY_JOB,
+                events(NIGHTLY_JOB)),
             false);
     syncAfterWrite(getBulkProcessor());
   }
@@ -619,6 +628,34 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
     assertEquals(
         urns(searchService.autoComplete(opContext, EMPTY_ENTITY_TYPE, "ord", null, null, 10)),
         List.of());
+  }
+
+  @Test
+  public void testCamelCaseEntityType() {
+    OperationContext fulltext = opContext.withSearchFlags(flags -> flags.setFulltext(true));
+    List<String> entityTypes = List.of(DATA_JOB_ENTITY_NAME, DATASET_ENTITY_NAME);
+    SearchResult result =
+        searchService.search(fulltext, entityTypes, "*", null, null, 0, 10, List.of("_entityType"));
+    assertEquals(
+        result.getMetadata().getAggregations().stream()
+            .filter(agg -> agg.getName().equals("_entityType"))
+            .findFirst()
+            .get()
+            .getAggregations(),
+        Map.of(DATA_JOB_ENTITY_NAME, 1L, DATASET_ENTITY_NAME, 2L));
+    // The UI sends the entity type enum name
+    assertUrns(
+        searchService
+            .search(
+                fulltext,
+                entityTypes,
+                "*",
+                QueryUtils.newFilter("_entityType", "DATA_JOB"),
+                null,
+                0,
+                10)
+            .getEntities(),
+        NIGHTLY_JOB);
   }
 
   @Test

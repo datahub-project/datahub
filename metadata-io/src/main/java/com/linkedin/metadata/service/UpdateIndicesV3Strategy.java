@@ -25,10 +25,12 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocume
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -410,6 +412,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     for (CoalescedAspectEvent coalesced : coalesceAspectEvents(events)) {
       MCLItem event = coalesced.event();
       try {
+        if (isUnchanged(coalesced)) {
+          continue;
+        }
         AspectSpec aspectSpec = event.getAspectSpec();
         String aspectName = aspectSpec.getName();
 
@@ -440,7 +445,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         Optional<V3SearchDocumentProjector.ProjectedAspect> projectedAspect =
             searchDocumentProjector.projectAspect(opContext, event, coalesced.baseline());
         if (projectedAspect.isPresent()) {
-          searchDocumentProjector.applyProjection(combinedDocument, projectedAspect.get());
+          searchDocumentProjector.applyProjection(
+              combinedDocument, keepBatchRootValues(combinedDocument, projectedAspect.get()));
           hasAnyAspects = true;
 
           // recordWrite is handled by UpdateIndicesService after all strategies have processed
@@ -485,10 +491,11 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private record CoalescedAspectEvent(@Nonnull MCLItem event, @Nullable RecordTemplate baseline) {}
 
   /**
-   * One event per aspect, as V2 does: the last event in the batch, diffed against the first event's
-   * previous value. That value is what the index held before the batch, so removal nulls cover
-   * every field the batch dropped; diffing each event against its own predecessor would lose the
-   * nulls of all but the last event under {@code _aspects.<aspect>}, which each event replaces.
+   * One event per aspect, in order of first appearance: the last event in the batch, diffed against
+   * the first event's previous value, as V2 does when it coalesces a batch. That value is what the
+   * index held before the batch, so removal nulls cover every field the batch dropped; diffing each
+   * event against its own predecessor would lose the nulls of all but the last event under {@code
+   * _aspects.<aspect>}, which each event replaces.
    *
    * <p>Two aspects can project the same root field (e.g. corpuser displayName from CorpUserInfo and
    * CorpUserEditableInfo). Root fields are last-write-wins, so user-edited override aspects are
@@ -503,7 +510,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       if (!baselineByAspect.containsKey(aspectName)) {
         baselineByAspect.put(aspectName, event.getPreviousRecordTemplate());
       }
-      lastEventByAspect.remove(aspectName);
       lastEventByAspect.put(aspectName, event);
     }
     return lastEventByAspect.entrySet().stream()
@@ -512,6 +518,48 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             entry ->
                 new CoalescedAspectEvent(entry.getValue(), baselineByAspect.get(entry.getKey())))
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Skips an aspect whose value did not change, as V2 does outside forced indexing. Rewriting it
+   * would let an unchanged base aspect overwrite the root value of its user-edited override.
+   */
+  private static boolean isUnchanged(@Nonnull CoalescedAspectEvent coalesced) {
+    MCLItem event = coalesced.event();
+    SystemMetadata systemMetadata = event.getSystemMetadata();
+    boolean forceIndexing =
+        systemMetadata != null
+            && systemMetadata.getProperties() != null
+            && Boolean.parseBoolean(systemMetadata.getProperties().get("FORCE_INDEXING"));
+    return !forceIndexing
+        && event.getChangeType() != ChangeType.DELETE
+        && coalesced.baseline() != null
+        && event.getRecordTemplate() != null
+        && coalesced.baseline().data() != null
+        && coalesced.baseline().data().equals(event.getRecordTemplate().data());
+  }
+
+  /**
+   * A null root value means the aspect dropped the field. When an aspect applied earlier in the
+   * batch still sets it, as when a user-edited displayName is removed while the ingested one stays,
+   * the earlier value is kept; the null still clears the field under {@code _aspects.<aspect>}.
+   */
+  @Nonnull
+  private static V3SearchDocumentProjector.ProjectedAspect keepBatchRootValues(
+      @Nonnull ObjectNode document, @Nonnull V3SearchDocumentProjector.ProjectedAspect projected) {
+    ObjectNode rootFields = projected.rootFields().deepCopy();
+    List<String> setEarlier = new ArrayList<>();
+    rootFields
+        .fieldNames()
+        .forEachRemaining(
+            name -> {
+              if (rootFields.get(name).isNull() && document.hasNonNull(name)) {
+                setEarlier.add(name);
+              }
+            });
+    rootFields.remove(setEarlier);
+    return new V3SearchDocumentProjector.ProjectedAspect(
+        projected.aspectName(), rootFields, projected.aspectFields(), projected.rootOnly());
   }
 
   // DataHub names user-override aspects with "editable"/"Editable" (corpUserEditableInfo,

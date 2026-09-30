@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -1427,6 +1428,63 @@ public class UpdateIndicesV3StrategyTest {
     JsonNode aspect = written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME);
     assertEquals(aspect.get("name").asText(), "c");
     assertTrue(aspect.get("description").isNull());
+  }
+
+  @Test
+  public void testProcessBatch_RemovedOverrideKeepsBaseRootValue() throws Exception {
+    MCLItem baseEvent = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem editableEvent = aspectEvent("editableDatasetProperties");
+    RecordTemplate baseRecord = baseEvent.getRecordTemplate();
+    RecordTemplate editableRecord = editableEvent.getRecordTemplate();
+    RecordTemplate previousOverride = mock(RecordTemplate.class);
+    when(editableEvent.getPreviousRecordTemplate()).thenReturn(previousOverride);
+    stubTransform(baseRecord, Map.of("displayName", "ingested"));
+    stubTransform(editableRecord, Map.of());
+    stubTransform(previousOverride, Map.of("displayName", "edited"));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(baseEvent, editableEvent)),
+        false);
+
+    // The override was removed, so the root falls back to the ingested value
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("displayName").asText(), "ingested");
+    assertTrue(
+        written.get("_aspects").get("editableDatasetProperties").get("displayName").isNull());
+  }
+
+  @Test
+  public void testProcessBatch_AppliesAspectsInFirstAppearanceOrder() throws Exception {
+    MCLItem first = aspectEvent("dataPlatformInstance");
+    MCLItem other = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem last = aspectEvent("dataPlatformInstance");
+    RecordTemplate otherRecord = other.getRecordTemplate();
+    RecordTemplate lastRecord = last.getRecordTemplate();
+    stubTransform(otherRecord, Map.of("platform", "from datasetProperties"));
+    stubTransform(lastRecord, Map.of("platform", "from dataPlatformInstance"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(first, other, last)), false);
+
+    // As on V2, an aspect is written at its first position with its last value
+    assertEquals(
+        capturedDocument(DATASET_ENTITY_NAME).get("platform").asText(), "from datasetProperties");
+  }
+
+  @Test
+  public void testProcessBatch_SkipsUnchangedAspect() throws Exception {
+    MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status status = new Status().setRemoved(false);
+    when(event.getRecordTemplate()).thenReturn(status);
+    when(event.getPreviousRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    stubTransform(status, Map.of("removed", "false"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(event)), false);
+
+    verify(elasticSearchService, never())
+        .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
   }
 
   private MCLItem aspectEvent(String aspectName) {

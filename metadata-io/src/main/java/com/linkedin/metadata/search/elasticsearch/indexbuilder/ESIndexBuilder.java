@@ -828,6 +828,18 @@ public class ESIndexBuilder {
           indexState.name(),
           indexState.requiresReindex(),
           indexState.enableIndexMappingsReindex());
+      if (opContext
+          .getSearchContext()
+          .getIndexConvention()
+          .isV3EntityIndexType(indexState.name())) {
+        // Search V3 writes values for root fields an older V3 mapping may declare as aliases, and
+        // the engine rejects writes to an alias, so this index stops taking V3 writes.
+        log.error(
+            "Search V3 index {} keeps its previous mapping, so V3 writes to it can be rejected and"
+                + " V3 reads can miss fields. Rebuild it: run system-update with"
+                + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true, then RestoreIndices.",
+            indexState.name());
+      }
       if (!suppressError) {
         log.error(
             "Attempted to apply invalid mappings. Current: {} Target: {}",
