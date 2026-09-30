@@ -29,6 +29,7 @@ _CONNECTION_ID = "connectionId"
 _PATH = "path"
 _JOIN_KIND = "join"
 _UNION_KIND = "union"
+_WAREHOUSE_TABLE_KIND = "warehouse-table"
 # Every source kind in Sigma's create-spec schema and published examples is one
 # of these. Single-source kinds are ones /columns formulas already reach; a
 # `data-model` source is an element of another Data Model. A transpose is valid
@@ -298,8 +299,14 @@ def _owner(descriptor: Any, own_data_model_id: Optional[str]) -> Optional[_Owner
     """
     if not isinstance(descriptor, dict):
         return None
+    # A `kind` that contradicts the keys is drift, not a tiebreak. An absent
+    # kind falls back to the keys.
+    kind = descriptor.get(_KIND)
+    warehouse_kind = kind == _WAREHOUSE_TABLE_KIND
     element_id = _str_or_none(descriptor.get(_ELEMENT_ID))
     if element_id:
+        if warehouse_kind:
+            return None
         data_model_id = _str_or_none(descriptor.get(_DATA_MODEL_ID))
         # Present but unusable is drift: falling back to this model would attach
         # the key to whatever local element shares the id.
@@ -309,6 +316,8 @@ def _owner(descriptor: Any, own_data_model_id: Optional[str]) -> Optional[_Owner
         if data_model_id == own_data_model_id:
             data_model_id = None
         return _Owner(element_id=element_id, data_model_id=data_model_id)
+    if kind is not None and not warehouse_kind:
+        return None
     # A warehouse table needs both: the consumer builds its URN from them, so a
     # side with only one, or a malformed path, is drift.
     connection_id = _str_or_none(descriptor.get(_CONNECTION_ID))

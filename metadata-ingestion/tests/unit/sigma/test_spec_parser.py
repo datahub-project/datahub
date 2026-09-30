@@ -391,6 +391,31 @@ def test_an_incomplete_warehouse_side_is_drift(side: Dict[str, Any]) -> None:
 
 
 @pytest.mark.parametrize(
+    "side",
+    [
+        {"elementId": "el-left", "kind": "warehouse-table"},
+        {**_WAREHOUSE_SIDE, "elementId": "el-left"},
+        {**_WAREHOUSE_SIDE, "kind": "table"},
+    ],
+    ids=[
+        "warehouse-kind-element-keys",
+        "warehouse-kind-both-keys",
+        "table-kind-warehouse-keys",
+    ],
+)
+def test_a_side_whose_kind_contradicts_its_keys_is_drift(side: Dict[str, Any]) -> None:
+    """Reading it by its keys alone would attach the key to the wrong owner."""
+    join_index = _parse_join(
+        _one_join([{"left": "[X]", "right": _RIGHT_EXPR}], left=side)
+    )
+    assert join_index.pairs == []
+    assert join_index.unreadable_join_element_ids == ["el-x"]
+    union_index = _parse_union(_union([side, _el("el-b")], ["[X]", "[Y]"]))
+    assert _branches(union_index.unions[0]) == [("el-b", "Y")]
+    assert union_index.unreadable_union_element_ids == ["el-union"]
+
+
+@pytest.mark.parametrize(
     ("side", "recorded"),
     [("[T/Rel/K]", True), ("[Other/K]", True), ("[A] = [B]", False), ("42", False)],
 )
