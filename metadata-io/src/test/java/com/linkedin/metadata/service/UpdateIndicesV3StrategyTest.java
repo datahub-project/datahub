@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
 import static com.linkedin.metadata.Constants.SEMANTIC_TEXT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
@@ -32,6 +33,7 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
@@ -1455,6 +1457,34 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testProcessBatch_RemovedOverrideFallsBackToUnchangedBaseAspect() throws Exception {
+    MCLItem baseEvent = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem editableEvent = aspectEvent("editableDatasetProperties");
+    Status baseRecord = new Status().setRemoved(false);
+    Status basePrevious = new Status().setRemoved(false);
+    when(baseEvent.getRecordTemplate()).thenReturn(baseRecord);
+    when(baseEvent.getPreviousRecordTemplate()).thenReturn(basePrevious);
+    RecordTemplate editableRecord = editableEvent.getRecordTemplate();
+    RecordTemplate previousOverride = mock(RecordTemplate.class);
+    when(editableEvent.getPreviousRecordTemplate()).thenReturn(previousOverride);
+    stubTransform(baseRecord, Map.of("displayName", "ingested"));
+    stubTransform(editableRecord, Map.of());
+    stubTransform(previousOverride, Map.of("displayName", "edited"));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(baseEvent, editableEvent)),
+        false);
+
+    // The unchanged base aspect is not rewritten, but the root still falls back to its value
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("displayName").asText(), "ingested");
+    assertFalse(written.get("_aspects").has(DATASET_PROPERTIES_ASPECT_NAME));
+    assertTrue(
+        written.get("_aspects").get("editableDatasetProperties").get("displayName").isNull());
+  }
+
+  @Test
   public void testProcessBatch_AppliesAspectsInFirstAppearanceOrder() throws Exception {
     MCLItem first = aspectEvent("dataPlatformInstance");
     MCLItem other = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
@@ -1485,6 +1515,23 @@ public class UpdateIndicesV3StrategyTest {
 
     verify(elasticSearchService, never())
         .upsertDocumentBySearchGroup(any(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testProcessBatch_ForceIndexingWritesUnchangedAspect() throws Exception {
+    MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status status = new Status().setRemoved(false);
+    SystemMetadata systemMetadata =
+        new SystemMetadata().setProperties(new StringMap(Map.of(FORCE_INDEXING_KEY, "true")));
+    when(event.getRecordTemplate()).thenReturn(status);
+    when(event.getPreviousRecordTemplate()).thenReturn(new Status().setRemoved(false));
+    when(event.getSystemMetadata()).thenReturn(systemMetadata);
+    stubTransform(status, Map.of("removed", "false"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(event)), false);
+
+    assertEquals(capturedDocument(DATASET_ENTITY_NAME).get("removed").asText(), "false");
   }
 
   private MCLItem aspectEvent(String aspectName) {

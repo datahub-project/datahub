@@ -408,11 +408,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     ObjectNode combinedDocument = searchDocumentProjector.newEntityDocument(urn, entitySpec);
 
     boolean hasAnyAspects = false;
+    // Root values of the aspects the batch left unchanged. They are not rewritten, but an aspect
+    // applied later that drops a shared root field falls back to them
+    ObjectNode unchangedRootValues = JsonNodeFactory.instance.objectNode();
 
     for (CoalescedAspectEvent coalesced : coalesceAspectEvents(events)) {
       MCLItem event = coalesced.event();
       try {
         if (isUnchanged(coalesced)) {
+          searchDocumentProjector
+              .projectAspect(opContext, event, coalesced.baseline())
+              .ifPresent(unchanged -> unchangedRootValues.setAll(unchanged.rootFields()));
           continue;
         }
         AspectSpec aspectSpec = event.getAspectSpec();
@@ -446,7 +452,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             searchDocumentProjector.projectAspect(opContext, event, coalesced.baseline());
         if (projectedAspect.isPresent()) {
           searchDocumentProjector.applyProjection(
-              combinedDocument, keepBatchRootValues(combinedDocument, projectedAspect.get()));
+              combinedDocument,
+              keepBatchRootValues(combinedDocument, unchangedRootValues, projectedAspect.get()));
           hasAnyAspects = true;
 
           // recordWrite is handled by UpdateIndicesService after all strategies have processed
@@ -530,7 +537,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     boolean forceIndexing =
         systemMetadata != null
             && systemMetadata.getProperties() != null
-            && Boolean.parseBoolean(systemMetadata.getProperties().get("FORCE_INDEXING"));
+            && Boolean.parseBoolean(
+                systemMetadata.getProperties().get(Constants.FORCE_INDEXING_KEY));
     return !forceIndexing
         && event.getChangeType() != ChangeType.DELETE
         && coalesced.baseline() != null
@@ -540,24 +548,33 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   /**
-   * A null root value means the aspect dropped the field. When an aspect applied earlier in the
-   * batch still sets it, as when a user-edited displayName is removed while the ingested one stays,
-   * the earlier value is kept; the null still clears the field under {@code _aspects.<aspect>}.
+   * A null root value means the aspect dropped the field. When another aspect of the batch still
+   * sets it, as when a user-edited displayName is removed while the ingested one stays, the root
+   * keeps that value: the one applied earlier in the batch, else the one of an aspect the batch
+   * left unchanged. The null still clears the field under {@code _aspects.<aspect>}.
    */
   @Nonnull
   private static V3SearchDocumentProjector.ProjectedAspect keepBatchRootValues(
-      @Nonnull ObjectNode document, @Nonnull V3SearchDocumentProjector.ProjectedAspect projected) {
+      @Nonnull ObjectNode document,
+      @Nonnull ObjectNode unchangedRootValues,
+      @Nonnull V3SearchDocumentProjector.ProjectedAspect projected) {
     ObjectNode rootFields = projected.rootFields().deepCopy();
-    List<String> setEarlier = new ArrayList<>();
+    List<String> dropped = new ArrayList<>();
     rootFields
         .fieldNames()
         .forEachRemaining(
             name -> {
-              if (rootFields.get(name).isNull() && document.hasNonNull(name)) {
-                setEarlier.add(name);
+              if (rootFields.get(name).isNull()) {
+                dropped.add(name);
               }
             });
-    rootFields.remove(setEarlier);
+    for (String name : dropped) {
+      if (document.hasNonNull(name)) {
+        rootFields.remove(name);
+      } else if (unchangedRootValues.hasNonNull(name)) {
+        rootFields.set(name, unchangedRootValues.get(name));
+      }
+    }
     return new V3SearchDocumentProjector.ProjectedAspect(
         projected.aspectName(), rootFields, projected.aspectFields(), projected.rootOnly());
   }
