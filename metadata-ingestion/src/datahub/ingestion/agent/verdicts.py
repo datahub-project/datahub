@@ -1,6 +1,15 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Any, Callable, Collection, Iterator, Optional, Sequence, Tuple
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Iterator,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+)
 
 from datahub.ingestion.agent.pattern_path import require_pattern_at
 
@@ -67,6 +76,39 @@ class ClassifyContext:
     # on a less-precise stand-in instead). Feeds the same ProbeMethodResult.warnings
     # list ProbeSoftError does, deduplicated by check_filters so a single
     # connector-wide reason isn't appended once per node it's classified for.
+    warn: Callable[[str], None]
+
+
+@dataclass(frozen=True)
+class VerdictContext:
+    """What a connector's probe_verdict_override is told about one name.
+
+    A context object rather than keyword arguments, unlike the older hooks:
+    four connector plans proposed four signatures for this one hook, each a
+    superset of the last, and every new field would otherwise break every
+    implementer. Read only what you need.
+    """
+
+    kind: str
+    name: str
+    # The string the pattern would be matched against -- already qualified
+    # the way the connector's other hooks say, so an override re-checking a
+    # second pattern (table_pattern on a view) matches the same string.
+    target: str
+    parent_path: Tuple[str, ...]
+    # The field that filters this kind, possibly a dotted path. None when the
+    # kind is unfiltered or unresolved.
+    pattern_field: Optional[str]
+    # The framework's built-in verdict -- a kind switch, a default database,
+    # a qualified schema match -- or None when none applied. Passed so an
+    # override can keep it or overrule it: a pinned SQL Server database is
+    # read even when it is `master`.
+    structural: Optional[Verdict]
+    # Per-name facts the caller supplied with the name, such as the id a
+    # workspace pattern matches (see `probe filter --from-run`). Empty when
+    # only names were given, so an override must degrade, with a warning,
+    # when a fact it needs is missing.
+    attributes: Mapping[str, str]
     warn: Callable[[str], None]
 
 

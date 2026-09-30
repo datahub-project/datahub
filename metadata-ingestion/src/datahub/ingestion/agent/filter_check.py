@@ -20,8 +20,10 @@ from datahub.ingestion.agent.probe_methods import config_class_for, list_probe_m
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
+    ProbeInternalError,
     SchemaMatch,
     Verdict,
+    VerdictContext,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -479,6 +481,25 @@ def _declared_kinds(source_type: str, config: object) -> Set[str]:
     return kinds
 
 
+def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
+    """The connector's own verdict for one name, when no pattern states it.
+
+    Checked for type because Python's truthiness would otherwise let a
+    returned bool or tuple decide silently -- `False` reads as "no opinion"
+    and the pattern answers instead of the connector.
+    """
+    override = getattr(config, "probe_verdict_override", None)
+    if not callable(override):
+        return None
+    verdict = override(ctx=ctx)
+    if verdict is not None and not isinstance(verdict, Verdict):
+        raise ProbeInternalError(
+            f"{type(config).__name__}.probe_verdict_override returned "
+            f"{type(verdict).__name__}; it must return a Verdict or None"
+        )
+    return verdict
+
+
 def check_filters(
     source_type: str,
     config_dict: Dict[str, object],
@@ -686,15 +707,36 @@ def check_filters(
             if (structural and structural.matched_target)
             else _match_target(config, kind, ctx)
         )
-        verdict = structural or (
-            Verdict.include()
-            if pattern.allowed(target)
-            else Verdict(False, pattern_field)
+        # The connector's word on what no single pattern states -- Tableau's
+        # project re-admission, a view that must also pass table_pattern, a
+        # pinned SQL Server database. Told the structural verdict so it can
+        # keep or overrule it; None leaves the built-in rules in charge.
+        override = _override_verdict(
+            config,
+            VerdictContext(
+                kind=kind,
+                name=name,
+                target=target,
+                parent_path=tuple(parent_path),
+                pattern_field=pattern_field,
+                structural=structural,
+                attributes={},
+                warn=warn,
+            ),
+        )
+        verdict = (
+            override
+            or structural
+            or (
+                Verdict.include()
+                if pattern.allowed(target)
+                else Verdict(False, pattern_field)
+            )
         )
         results.append(
             FilterVerdict(
                 name=name,
-                target=target,
+                target=verdict.matched_target or target,
                 included=verdict.included,
                 excluded_by=verdict.excluded_by,
             )

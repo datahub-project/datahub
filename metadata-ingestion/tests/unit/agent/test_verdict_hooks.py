@@ -4,7 +4,7 @@ Each fake is registered through the same two seams test_filter_check's
 fixtures use, so nothing here depends on a real connector.
 """
 
-from typing import Annotated, Dict, List, Mapping, Optional, Sequence, Type
+from typing import Annotated, Dict, List, Mapping, Optional, Sequence, Set, Type
 
 import pytest
 from pydantic import Field
@@ -12,6 +12,12 @@ from pydantic import Field
 from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.agent import filter_check
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
+from datahub.ingestion.agent.verdicts import (
+    ProbeInternalError,
+    Verdict,
+    VerdictContext,
+    pattern_verdict,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -94,3 +100,173 @@ def test_the_sql_default_switches_still_apply_without_a_declaration() -> None:
         names=["v"],
     )
     assert result.results[0].excluded_by == "include_views"
+
+
+class _Overriding(ConfigModel):
+    """Things live in Boxes. The override drops anything named `drop*`
+    unless it sits in box `a`, and re-checks table_pattern the way Unity
+    and Redshift do for views."""
+
+    box_pattern: Annotated[AllowDenyPattern, Filters("Box")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+    thing_pattern: Annotated[AllowDenyPattern, Filters("Thing")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+    table_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all())
+
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        return {"Box": (), "Thing": ("Box",)}.get(kind)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if ctx.kind != "Thing":
+            return None
+        if not self.table_pattern.allowed(ctx.target):
+            return Verdict(False, "table_pattern")
+        if ctx.name.startswith("drop"):
+            ctx.warn("judged by the override")
+            keep = ctx.parent_path == ("a",)
+            return Verdict(keep, None if keep else "thing_pattern")
+        if ctx.name == "renamed":
+            return Verdict(True, None, matched_target="a.renamed")
+        # Delegate to the pattern the framework would read, so --try-allow
+        # reaches it (Review Focus 1).
+        if ctx.name.startswith("pat"):
+            assert ctx.pattern_field is not None
+            return pattern_verdict(self, ctx.pattern_field, ctx.target)
+        return None
+
+
+def test_an_override_decides_with_the_parent_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Overriding)
+    kept = _judge("Thing", ["drop_x"], parent_path=["a"])
+    dropped = _judge("Thing", ["drop_x"], parent_path=["b"])
+    assert (kept.results[0].included, dropped.results[0].included) == (True, False)
+    assert dropped.results[0].excluded_by == "thing_pattern"
+    assert "judged by the override" in dropped.warnings
+
+
+def test_an_override_returning_none_leaves_the_pattern_in_charge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Overriding)
+    result = _judge(
+        "Thing",
+        ["plain", "denied"],
+        config_dict={"thing_pattern": {"deny": ["^denied$"]}},
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (True, None),
+        (False, "thing_pattern"),
+    ]
+
+
+def test_an_override_can_apply_a_second_pattern(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Overriding)
+    result = _judge(
+        "Thing", ["plain"], config_dict={"table_pattern": {"deny": ["^plain$"]}}
+    )
+    assert result.results[0].excluded_by == "table_pattern"
+
+
+def test_an_overrides_matched_target_is_the_reported_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Overriding)
+    assert _judge("Thing", ["renamed"]).results[0].target == "a.renamed"
+
+
+def test_an_override_sees_the_try_allow_pattern(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Overriding)
+    result = _judge("Thing", ["pat_a", "pat_b"], try_allow=["^pat_a$"])
+    assert [r.included for r in result.results] == [True, False]
+
+
+def test_the_parent_walk_still_applies_after_an_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Overriding)
+    result = _judge(
+        "Thing",
+        ["drop_x"],
+        parent_path=["a"],
+        config_dict={"box_pattern": {"deny": ["^a$"]}},
+    )
+    assert (result.results[0].included, result.results[0].excluded_by) == (
+        False,
+        "box_pattern",
+    )
+
+
+class _Pinned(ConfigModel):
+    """MSSQL's case: a pinned database is read whatever database_pattern and
+    the system-database list say."""
+
+    database: Optional[str] = None
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(default=AllowDenyPattern.allow_all())
+
+    @classmethod
+    def default_databases(cls) -> Set[str]:
+        return {"master"}
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if ctx.kind == DatasetContainerSubTypes.DATABASE and self.database:
+            return Verdict(ctx.name.lower() == self.database.lower(), "database")
+        return None
+
+
+def test_an_override_can_overrule_the_structural_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Pinned)
+    pinned = _judge(
+        str(DatasetContainerSubTypes.DATABASE),
+        ["master"],
+        config_dict={"database": "master"},
+    )
+    unpinned = _judge(str(DatasetContainerSubTypes.DATABASE), ["master"])
+    assert pinned.results[0].included is True
+    assert (unpinned.results[0].included, unpinned.results[0].excluded_by) == (
+        False,
+        "default_database",
+    )
+
+
+def test_the_override_is_told_the_structural_verdict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen = []
+
+    class _Recording(_Switched):
+        def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+            seen.append(ctx.structural)
+            return None
+
+    _register(monkeypatch, _Recording)
+    _judge(
+        str(DatasetContainerSubTypes.FABRIC_LAKEHOUSE),
+        ["lh"],
+        config_dict={"extract_lakehouses": False},
+    )
+    assert seen == [Verdict(False, "extract_lakehouses")]
+
+
+def test_an_override_returning_a_non_verdict_is_a_connector_defect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Wrong(ConfigModel):
+        def probe_verdict_override(self, ctx: VerdictContext) -> object:
+            return False
+
+    _register(monkeypatch, _Wrong)
+    with pytest.raises(ProbeInternalError):
+        _judge("Thing", ["x"])
