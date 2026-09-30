@@ -142,6 +142,7 @@ task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
   def test_sentinel = "${buildDir}/.yarn-test-sentinel"
   outputs.file(test_sentinel)
   inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  inputs.files(project.fileTree(dir: 'vite-plugins'))
   doLast {
     // touch a file with name yarn-lint.txt in the build directory
     def file = file(test_sentinel)
@@ -160,6 +161,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
   if (targetFile.isEmpty()) {
     // Run on all files
     inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
+    inputs.files(project.fileTree(dir: 'vite-plugins'))
     args = ['run', 'lint']
   } else {
     // Run on specific file - run lint, format-check, and type-check
