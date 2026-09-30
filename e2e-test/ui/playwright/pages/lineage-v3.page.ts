@@ -58,22 +58,26 @@ export class LineageV3Page extends LineageBasePage {
   }
 
   /**
-   * Result card in a lineage results list, matched by the exact entity name. Scoped to the
+   * Result card in a lineage results list, matched by the exact displayed name. Scoped to the
    * results list so graph nodes, headers and sidebar sections showing the same text do not match.
+   * Data jobs without a display name in the results show their URN.
    */
-  private getLineageListResult(scope: Page | Locator, name: string): Locator {
-    return scope
-      .getByTestId('embedded-list-search-results')
-      .getByTestId('entity-title')
-      .and(this.page.getByTitle(name, { exact: true }));
+  private getLineageListResult(list: Locator, name: string): Locator {
+    return list.getByTestId('entity-title').and(this.page.getByTitle(name, { exact: true }));
   }
 
+  /** The main Lineage tab list; the sidebar Lineage tab renders the same list but ignores the time range. */
   private getImpactAnalysisResult(name: string): Locator {
-    return this.getLineageListResult(this.page, name);
+    const mainTabListSelector =
+      '[data-testid="embedded-list-search-results"]:not([data-testid="entity-profile-sidebar"] *)';
+    // eslint-disable-next-line playwright/no-raw-locators -- No test id wraps the main-tab list; exclude the sidebar copy by ancestry
+    const mainTabList = this.page.locator(mainTabListSelector);
+    return this.getLineageListResult(mainTabList, name);
   }
 
   private getSidebarLineageResult(name: string): Locator {
-    return this.getLineageListResult(this.page.getByTestId('entity-profile-sidebar'), name);
+    const sidebarList = this.page.getByTestId('entity-profile-sidebar').getByTestId('embedded-list-search-results');
+    return this.getLineageListResult(sidebarList, name);
   }
 
   // ── Advanced Search and Filtering ───────────────────────────────────────────

@@ -37,6 +37,9 @@ const USER_PROFILE_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transacti
 const AGGREGATED_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.aggregated_transactions,PROD)';
 const MONTHLY_TEMPERATURE_DATASET_URN =
   'urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)';
+// Impact Analysis results show these data jobs by URN, so the URN is also their displayed name
+const TEMPERATURE_ETL_1_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,snowflake_etl,PROD),temperature_etl_1)';
+const TEMPERATURE_ETL_2_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,snowflake_etl,PROD),temperature_etl_2)';
 
 const TIMESTAMP_MILLIS_14_DAYS_AGO = getTimestampMillisNumDaysAgo(14);
 const TIMESTAMP_MILLIS_7_DAYS_AGO = getTimestampMillisNumDaysAgo(7);
@@ -60,8 +63,6 @@ const UI_TEXT = {
   AGGREGATED: 'transactions.aggregated_transactions',
   TRANSACTIONS: 'transactions.transactions',
   USER_PROFILE: 'transactions.user_profile',
-  TEMPERATURE_ETL_1: 'temperature_etl_1',
-  TEMPERATURE_ETL_2: 'temperature_etl_2',
 } as const;
 
 // ── Test Suite ──────────────────────────────────────────────────────────────
@@ -210,16 +211,16 @@ test.describe('impact analysis', () => {
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&lineageView=impact&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_14_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}`,
     );
     await lineagePage.clickUpstreamOption();
-    await lineagePage.expectImpactAnalysisResultVisible(UI_TEXT.TEMPERATURE_ETL_1);
-    await lineagePage.expectImpactAnalysisResultAbsent(UI_TEXT.TEMPERATURE_ETL_2);
+    await lineagePage.expectImpactAnalysisResultVisible(TEMPERATURE_ETL_1_URN);
+    await lineagePage.expectImpactAnalysisResultAbsent(TEMPERATURE_ETL_2_URN);
 
     // Since 7 days ago, temperature_etl_1 has been replaced by temperature_etl_2
     await page.goto(
       `/dataset/${MONTHLY_TEMPERATURE_DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&lineageView=impact&page=1&unionType=0&start_time_millis=${TIMESTAMP_MILLIS_7_DAYS_AGO}&end_time_millis=${TIMESTAMP_MILLIS_NOW}`,
     );
     await lineagePage.clickUpstreamOption();
-    await lineagePage.expectImpactAnalysisResultVisible(UI_TEXT.TEMPERATURE_ETL_2);
-    await lineagePage.expectImpactAnalysisResultAbsent(UI_TEXT.TEMPERATURE_ETL_1);
+    await lineagePage.expectImpactAnalysisResultVisible(TEMPERATURE_ETL_2_URN);
+    await lineagePage.expectImpactAnalysisResultAbsent(TEMPERATURE_ETL_1_URN);
   });
 
   // The sidebar Lineage tab lists direct lineage for the default time range and ignores
