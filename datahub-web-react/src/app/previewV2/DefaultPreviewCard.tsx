@@ -24,12 +24,14 @@ import DefaultPreviewCardFooter from '@app/previewV2/DefaultPreviewCardFooter';
 import EntityHeader from '@app/previewV2/EntityHeader';
 import { ActionsAndStatusSection } from '@app/previewV2/shared';
 import {
+    RemoveConfirmState,
     useRemoveApplicationAssets,
     useRemoveDataProductAssets,
     useRemoveDomainAssets,
     useRemoveGlossaryTermAssets,
 } from '@app/previewV2/utils';
 import { useSearchContext } from '@app/search/context/SearchContext';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
@@ -253,7 +255,7 @@ export default function DefaultPreviewCard({
 
     const { isFullViewCard } = useSearchContext();
 
-    const { removeRelationship, removeButtonText } = useRemoveRelationship(entityType);
+    const { removeRelationship, removeButtonText, confirmationModals } = useRemoveRelationship(entityType);
 
     // When a caller passes a live `deprecation` (e.g. Preview using local optimistic state),
     // merge it into the entityData handed to the row's actions menu so the menu reflects the
@@ -387,6 +389,7 @@ export default function DefaultPreviewCard({
                 paths={paths}
                 isFullViewCard={isFullViewCard}
             />
+            {confirmationModals}
         </PreviewContainer>
     );
 }
@@ -395,10 +398,37 @@ function useRemoveRelationship(entityType: EntityType) {
     const { t } = useTranslation('entity.preview');
     const { setShouldRefetchEmbeddedListSearch } = useEntityContext();
     const { showRemovalFromList, onRemove, removeText } = useSearchCardContext();
-    const { removeDomain } = useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch);
-    const { removeTerm } = useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch);
-    const { removeDataProduct } = useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch);
-    const { removeApplication } = useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch);
+    const { removeDomain, confirmState: domainConfirmState } = useRemoveDomainAssets(
+        setShouldRefetchEmbeddedListSearch,
+    );
+    const { removeTerm, confirmState: termConfirmState } = useRemoveGlossaryTermAssets(
+        setShouldRefetchEmbeddedListSearch,
+    );
+    const { removeDataProduct, confirmState: dataProductConfirmState } = useRemoveDataProductAssets(
+        setShouldRefetchEmbeddedListSearch,
+    );
+    const { removeApplication, confirmState: applicationConfirmState } = useRemoveApplicationAssets(
+        setShouldRefetchEmbeddedListSearch,
+    );
+
+    const renderConfirmModal = (state: RemoveConfirmState) => (
+        <ConfirmationModal
+            isOpen={state.isOpen}
+            handleClose={state.handleClose}
+            handleConfirm={state.handleConfirm}
+            modalTitle={state.modalTitle}
+            modalText={state.modalText}
+        />
+    );
+
+    const confirmationModals = (
+        <>
+            {renderConfirmModal(domainConfirmState)}
+            {renderConfirmModal(termConfirmState)}
+            {renderConfirmModal(dataProductConfirmState)}
+            {renderConfirmModal(applicationConfirmState)}
+        </>
+    );
 
     const { previewData } = usePreviewData();
     const entityData = useEntityData();
@@ -411,29 +441,34 @@ function useRemoveRelationship(entityType: EntityType) {
                 showRemovalFromList && entityType !== EntityType.DataProduct
                     ? removeText || t('removeFromDomain')
                     : null,
+            confirmationModals,
         };
     }
     if (pageEntityType === EntityType.GlossaryTerm) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeTerm(previewData, entityData.urn)),
             removeButtonText: showRemovalFromList ? removeText || t('removeGlossaryTerm') : null,
+            confirmationModals,
         };
     }
     if (pageEntityType === EntityType.DataProduct) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeDataProduct(previewData?.urn)),
             removeButtonText: showRemovalFromList ? removeText || t('removeFromDataProduct') : null,
+            confirmationModals,
         };
     }
     if (pageEntityType === EntityType.Application) {
         return {
             removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
             removeButtonText: showRemovalFromList ? removeText || t('removeFromApplication') : null,
+            confirmationModals,
         };
     }
 
     return {
         removeRelationship: () => {},
         removeButtonText: null,
+        confirmationModals,
     };
 }

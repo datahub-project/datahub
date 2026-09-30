@@ -1,4 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
+import { toast } from '@components';
 import { waitFor } from '@testing-library/react';
 import { act, renderHook } from '@testing-library/react-hooks';
 import React from 'react';
@@ -20,6 +21,22 @@ import { DataHubRole, DataHubViewType, EntityType } from '@types';
 
 // Mock the generated mutation that requires codegen
 const mockUpdateDefaultViewMutation = vi.fn();
+// Mock alchemy toast
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return {
+        ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            warning: vi.fn(),
+            info: vi.fn(),
+            loading: vi.fn(),
+            destroy: vi.fn(),
+        },
+    };
+});
+
 vi.mock('@graphql/auth.generated', async () => {
     const actual = await vi.importActual('@graphql/auth.generated');
     return {
@@ -45,17 +62,6 @@ vi.mock('@app/shared/searchUtils', () => ({
 }));
 
 // Mock message
-vi.mock('antd', async () => {
-    const actual = await vi.importActual('antd');
-    return {
-        ...actual,
-        message: {
-            success: vi.fn(),
-            error: vi.fn(),
-        },
-    };
-});
-
 const mockServiceAccounts = [
     {
         __typename: 'ServiceAccount',
@@ -470,7 +476,7 @@ describe('useServiceAccountDefaultView', () => {
     });
 
     it('should call mutation and show success message when setting a view', async () => {
-        const { message } = await import('antd');
+        const { toast } = await import('@components');
         mockUpdateDefaultViewMutation.mockResolvedValue({ data: { updateServiceAccountDefaultView: true } });
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
@@ -487,12 +493,12 @@ describe('useServiceAccountDefaultView', () => {
                 },
             },
         });
-        expect(message.success).toHaveBeenCalledWith('Default view updated');
+        expect(toast.success).toHaveBeenCalledWith('Default view updated');
         expect(mockRefetch).toHaveBeenCalled();
     });
 
     it('should call mutation and show success message when clearing a view', async () => {
-        const { message } = await import('antd');
+        const { toast } = await import('@components');
         mockUpdateDefaultViewMutation.mockResolvedValue({ data: { updateServiceAccountDefaultView: true } });
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
@@ -509,12 +515,12 @@ describe('useServiceAccountDefaultView', () => {
                 },
             },
         });
-        expect(message.success).toHaveBeenCalledWith('Default view removed');
+        expect(toast.success).toHaveBeenCalledWith('Default view removed');
         expect(mockRefetch).toHaveBeenCalled();
     });
 
     it('should show error message when mutation fails', async () => {
-        const { message } = await import('antd');
+        const { toast } = await import('@components');
         mockUpdateDefaultViewMutation.mockRejectedValue(new Error('Unauthorized'));
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
@@ -523,7 +529,7 @@ describe('useServiceAccountDefaultView', () => {
             await result.current.handleDefaultViewChange('urn:li:corpuser:service_test', 'urn:li:dataHubView:global-1');
         });
 
-        expect(message.error).toHaveBeenCalledWith(expect.stringContaining('Failed to update default view'));
+        expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Failed to update default view'));
         expect(mockRefetch).not.toHaveBeenCalled();
     });
 });

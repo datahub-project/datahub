@@ -121,7 +121,7 @@ const EntityDropdown = (props: Props) => {
     const { handleDeprecateDomainComplete } = useHandleDeprecateDomain(urn);
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
-    const { onDeleteEntity, hasBeenDeleted } = useDeleteEntity(
+    const { onDeleteEntity, hasBeenDeleted, DeleteConfirmationModal } = useDeleteEntity(
         urn,
         entityType,
         entityData,
@@ -568,6 +568,7 @@ const EntityDropdown = (props: Props) => {
                     onClose={() => setIsMoveModalVisible(false)}
                 />
             )}
+            {DeleteConfirmationModal}
             {hasBeenDeleted && !onDelete && deleteRedirectPath && <Redirect to={deleteRedirectPath} />}
             {isRaiseIncidentModalVisible && (
                 <IncidentDetailDrawer

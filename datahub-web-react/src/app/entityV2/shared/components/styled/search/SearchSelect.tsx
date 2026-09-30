@@ -1,5 +1,5 @@
-import { FilterOutlined } from '@ant-design/icons';
-import { Button, Typography, message } from 'antd';
+import { Button, Text, toast } from '@components';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import debounce from 'lodash/debounce';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -167,11 +167,16 @@ export const SearchSelect = ({
 
     return (
         <Container>
-            {error && message.error(t('embeddedSearch.searchError', { message: error?.message }))}
+            {error && toast.error(t('embeddedSearch.searchError', { message: error?.message }))}
             <SearchBarContainer>
-                <Button type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
-                    <FilterOutlined />
-                    <Typography.Text>{t('embeddedSearch.filters')}</Typography.Text>
+                <Button
+                    variant="text"
+                    color="gray"
+                    onClick={onToggleFilters}
+                    data-testid="toggle-filters-button"
+                    icon={{ icon: Funnel }}
+                >
+                    <Text type="span">{t('embeddedSearch.filters')}</Text>
                 </Button>
                 <SearchBar
                     initialQuery=""
