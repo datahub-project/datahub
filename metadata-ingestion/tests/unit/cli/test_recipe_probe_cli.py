@@ -1352,3 +1352,95 @@ def test_the_report_file_masks_before_serializing(tmp_path: pathlib.Path) -> Non
     written = out.read_text()
     assert secret not in json.loads(written)["error"]
     assert "slash-secret" not in written
+
+
+def _run_file(tmp_path, envelope):
+    p = tmp_path / "run.json"
+    p.write_text(json.dumps(envelope))
+    return str(p)
+
+
+def _capturing_check_filters(monkeypatch):
+    seen = {}
+
+    def fake(**kwargs):
+        seen.update(kwargs)
+        return FilterCheckResult(
+            source_type="mysql",
+            kind=kwargs["kind"],
+            parent_path=list(kwargs["parent_path"]),
+            pattern_field=None,
+            results=[],
+        )
+
+    monkeypatch.setattr(rc, "check_filters", fake)
+    return seen
+
+
+def test_from_run_takes_names_attributes_kind_and_parent_from_the_listing(
+    monkeypatch, tmp_path
+):
+    seen = _capturing_check_filters(monkeypatch)
+    run = _run_file(
+        tmp_path,
+        {
+            "kind": "Table",
+            "parent_path": ["db"],
+            "result": [{"name": "t1", "rows_hint": 3}, "t2"],
+        },
+    )
+    res = CliRunner().invoke(
+        recipe,
+        ["probe", "filter", "--recipe", _recipe_file(tmp_path), "--from-run", run],
+    )
+    assert res.exit_code == 0, res.output
+    assert seen["kind"] == "Table"
+    assert seen["parent_path"] == ["db"]
+    assert seen["names"] == ["t1", "t2"]
+    assert seen["attributes"] == [{"rows_hint": "3"}, {}]
+
+
+def test_from_run_and_name_together_are_a_bad_argument(monkeypatch, tmp_path):
+    _capturing_check_filters(monkeypatch)
+    run = _run_file(tmp_path, {"kind": "Table", "result": ["t1"]})
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--from-run",
+            run,
+            "--name",
+            "t2",
+        ],
+    )
+    assert res.exit_code == 2, res.output
+
+
+def test_a_kind_contradicting_the_listing_is_a_bad_argument(monkeypatch, tmp_path):
+    _capturing_check_filters(monkeypatch)
+    run = _run_file(tmp_path, {"kind": "Table", "result": ["t1"]})
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--from-run",
+            run,
+            "--kind",
+            "View",
+        ],
+    )
+    assert res.exit_code == 2, res.output
+
+
+def test_neither_names_nor_a_run_is_a_bad_argument(tmp_path):
+    res = CliRunner().invoke(
+        recipe,
+        ["probe", "filter", "--recipe", _recipe_file(tmp_path), "--kind", "Table"],
+    )
+    assert res.exit_code == 2, res.output

@@ -27,6 +27,13 @@ Splitting them is what keeps both simple. Fetching stops needing to know about f
 filtering becomes a pure function over names the caller already has — so a caller can try a
 dozen candidate patterns against one listing without touching the source again.
 
+**Some sources filter on more than the name** — a Power BI workspace id, a Fivetran
+connector id. `probe filter --from-run r.json` judges the listing a
+`probe run ... --report-to r.json` wrote, and hands the connector each record's scalar
+fields as `ctx.attributes`. Judging stays connection-free: the ids came from the
+fetch. A connector reading an attribute must warn and degrade when it is absent,
+since a caller may still pass bare `--name`s.
+
 `probe methods` lists what a connector offers, connection-free. It is the discovery surface:
 a command's parameters imply the nesting (`columns(schema, table)` sits under `tables(schema)`),
 and its docstring is the help text. Nothing is declared twice.

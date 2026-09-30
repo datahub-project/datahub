@@ -36,6 +36,7 @@ def _judge(
     parent_path: Sequence[str] = (),
     try_allow: Optional[Sequence[str]] = None,
     try_deny: Optional[Sequence[str]] = None,
+    attributes: Optional[Sequence[Mapping[str, str]]] = None,
 ) -> FilterCheckResult:
     return check_filters(
         source_type="fake",
@@ -45,6 +46,7 @@ def _judge(
         names=names,
         try_allow=try_allow,
         try_deny=try_deny,
+        attributes=attributes,
     )
 
 
@@ -270,3 +272,53 @@ def test_an_override_returning_a_non_verdict_is_a_connector_defect(
     _register(monkeypatch, _Wrong)
     with pytest.raises(ProbeInternalError):
         _judge("Thing", ["x"])
+
+
+class _ById(ConfigModel):
+    """PowerBI's shape: a workspace must pass the name pattern AND the id
+    pattern, and the id only arrives as an attribute."""
+
+    workspace_pattern: Annotated[AllowDenyPattern, Filters("Workspace")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+    workspace_id_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        workspace_id = ctx.attributes.get("id")
+        if workspace_id is None:
+            ctx.warn("no workspace id given, so workspace_id_pattern was not applied")
+            return None
+        if not self.workspace_id_pattern.allowed(workspace_id):
+            return Verdict(False, "workspace_id_pattern")
+        return None
+
+
+def test_an_attribute_reaches_the_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    _register(monkeypatch, _ById)
+    result = _judge(
+        "Workspace",
+        ["Sales", "Ops"],
+        attributes=[{"id": "ws-1"}, {"id": "ws-2"}],
+        config_dict={"workspace_id_pattern": {"deny": ["^ws-2$"]}},
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (True, None),
+        (False, "workspace_id_pattern"),
+    ]
+
+
+def test_without_attributes_the_override_degrades_with_a_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _ById)
+    result = _judge("Workspace", ["Sales"])
+    assert result.results[0].included is True
+    assert any("workspace_id_pattern" in w for w in result.warnings)
+
+
+def test_attributes_must_align_with_names(monkeypatch: pytest.MonkeyPatch) -> None:
+    _register(monkeypatch, _ById)
+    with pytest.raises(ValueError):
+        _judge("Workspace", ["Sales", "Ops"], attributes=[{"id": "ws-1"}])

@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Sequence, Set
+from typing import Callable, Dict, List, Mapping, Optional, Sequence, Set
 
 from pydantic import ValidationError
 
@@ -508,6 +508,7 @@ def check_filters(
     names: Sequence[str],
     try_allow: Optional[Sequence[str]] = None,
     try_deny: Optional[Sequence[str]] = None,
+    attributes: Optional[Sequence[Mapping[str, str]]] = None,
 ) -> FilterCheckResult:
     """Would the recipe's filters keep these names, and what decided?
 
@@ -519,6 +520,14 @@ def check_filters(
     if config_cls is None:
         raise ValueError(f"unknown source type '{source_type}'")
     config = validate_source_config(config_cls, source_type, config_dict)
+    if attributes is not None and len(attributes) != len(names):
+        raise ValueError(
+            f"{len(attributes)} attribute sets for {len(names)} names; each "
+            f"name needs exactly one, even if empty"
+        )
+    per_name: List[Mapping[str, str]] = (
+        list(attributes) if attributes is not None else [{} for _ in names]
+    )
 
     warnings: List[str] = []
     seen: Set[str] = set()
@@ -676,7 +685,7 @@ def check_filters(
 
     prefix = ".".join(parent_path)
     results: List[FilterVerdict] = []
-    for name in names:
+    for name, name_attributes in zip(names, per_name, strict=True):
         ctx = ClassifyContext(
             config=config,
             name=name,
@@ -720,7 +729,7 @@ def check_filters(
                 parent_path=tuple(parent_path),
                 pattern_field=pattern_field,
                 structural=structural,
-                attributes={},
+                attributes=dict(name_attributes),
                 warn=warn,
             ),
         )

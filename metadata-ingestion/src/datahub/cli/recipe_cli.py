@@ -1,5 +1,6 @@
 import importlib.resources
 import json
+import pathlib
 import re
 import sys
 from contextlib import contextmanager
@@ -14,6 +15,7 @@ from datahub.configuration.config_loader import (
     parse_recipe_envelope,
 )
 from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe_methods import (
@@ -648,9 +650,9 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
 @click.option("--recipe", "recipe_path", required=True)
 @click.option(
     "--kind",
-    required=True,
+    default=None,
     help="The subtype being judged, e.g. Table, View, Schema, Topic. Selects "
-    "which *_pattern field applies.",
+    "which *_pattern field applies. Taken from --from-run when omitted.",
 )
 @click.option(
     "--parent",
@@ -665,11 +667,19 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
     "--name",
     "names",
     multiple=True,
-    required=True,
     help="An object name to judge, exactly as the source reports it. Repeat for "
     "each name. Not comma-separated: a Mode collection or a quoted SQL "
     "identifier may legitimately contain a comma, and splitting on it would "
     "judge names that do not exist.",
+)
+@click.option(
+    "--from-run",
+    "from_run",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Judge the listing a `probe run --report-to` wrote: its names, the "
+    "facts listed with each (an id, a type) that some sources filter on, and "
+    "its kind and parent unless --kind/--parent are given. Instead of --name.",
 )
 @click.option(
     "--try-allow",
@@ -688,9 +698,10 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
 )
 def probe_filter_cmd(
     recipe_path: str,
-    kind: str,
+    kind: Optional[str],
     parents: Tuple[str, ...],
     names: Tuple[str, ...],
+    from_run: Optional[str],
     try_allow: Tuple[str, ...],
     try_deny: Tuple[str, ...],
     report_to: Optional[str],
@@ -706,6 +717,30 @@ def probe_filter_cmd(
     with _exit_codes(secret_values, fallback=EXIT_INTERNAL):
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
+        attributes = None
+        if from_run is not None:
+            if names:
+                raise ValueError(
+                    "--name and --from-run both name the objects to judge; pass one"
+                )
+            listing = listing_from_run(
+                json.loads(pathlib.Path(from_run).read_text(encoding="utf-8"))
+            )
+            if kind and listing.kind and kind.lower() != listing.kind.lower():
+                raise ValueError(
+                    f"--kind {kind} contradicts the listing, which holds "
+                    f"{listing.kind} names"
+                )
+            kind = kind or listing.kind
+            parents = parents or tuple(listing.parent_path)
+            names = tuple(listing.names)
+            attributes = listing.attributes
+        elif not names:
+            raise ValueError(
+                "nothing to judge: pass --name, or --from-run with a `probe run` output"
+            )
+        if not kind:
+            raise ValueError("pass --kind: the listing does not say what kind it holds")
         _ping_probe("filter", source_type, kind=kind)
         result = check_filters(
             source_type=source_type,
@@ -715,6 +750,7 @@ def probe_filter_cmd(
             names=list(names),
             try_allow=list(try_allow),
             try_deny=list(try_deny),
+            attributes=attributes,
         )
         payload = _redacted_payload(result.to_dict(), secret_values)
         _write_report(report_to, payload)
