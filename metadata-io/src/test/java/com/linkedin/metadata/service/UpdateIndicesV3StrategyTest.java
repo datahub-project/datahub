@@ -1511,6 +1511,26 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testProcessBatch_RestateThenUpdateNullsDroppedField() throws Exception {
+    MCLItem restate = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem update = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate restated = restate.getRecordTemplate();
+    RecordTemplate updated = update.getRecordTemplate();
+    when(restate.getChangeType()).thenReturn(ChangeType.RESTATE);
+    when(update.getPreviousRecordTemplate()).thenReturn(restated);
+    stubTransform(restated, Map.of("name", "a", "description", "dropped by the update"));
+    stubTransform(updated, Map.of("name", "b"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(restate, update)), false);
+
+    // The restate has no previous value, so the update's previous value is the baseline
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("name").asText(), "b");
+    assertTrue(written.get("description").isNull());
+  }
+
+  @Test
   public void testProcessBatch_AppliesAspectsInFirstAppearanceOrder() throws Exception {
     MCLItem first = aspectEvent("dataPlatformInstance");
     MCLItem other = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);

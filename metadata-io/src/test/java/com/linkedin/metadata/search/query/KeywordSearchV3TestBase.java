@@ -48,6 +48,7 @@ import com.linkedin.metadata.config.search.CustomConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -153,6 +154,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
       UrnUtils.getUrn("urn:li:structuredProperty:retentionPolicy");
 
   private final List<String> createdIndices = new ArrayList<>();
+  // Kept to create every registry index in testEngineAcceptsEveryRegistryIndex
+  private MappingsBuilder mappingsBuilder;
+  private ESIndexBuilder indexBuilder;
+  private SettingsBuilder settingsBuilder;
+  private IndexConfiguration indexConfiguration;
   private OperationContext opContext;
   private ElasticSearchService searchService;
 
@@ -185,7 +191,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             new ConfiguredIndexPrefixResolver(isV2Enabled() ? "keywordv3dual" : "keywordv3"),
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
-    MappingsBuilder mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
+    mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
     // Both the document transformer and the filter resolver look the definition up
     StructuredPropertyDefinition retentionPolicy =
         new StructuredPropertyDefinition()
@@ -214,15 +220,16 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 .searchableFieldPaths(ESUtils.buildSearchableFieldPaths(entityRegistry))
                 .build());
 
-    ESIndexBuilder indexBuilder =
+    indexBuilder =
         new ESIndexBuilder(
             getSearchClient(),
             config,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
             new GitVersion("0.0.0-test", "123456", Optional.empty()));
-    SettingsBuilder settingsBuilder =
-        createDelegatingSettingsBuilder(entityIndex, config.getIndex(), indexConvention);
+    indexConfiguration = config.getIndex();
+    settingsBuilder =
+        createDelegatingSettingsBuilder(entityIndex, indexConfiguration, indexConvention);
     // The production query configurations, e.g. quoted queries skip the simple query
     CustomConfiguration customConfiguration = new CustomConfiguration();
     customConfiguration.setEnabled(true);
@@ -331,6 +338,34 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
           .deleteIndex(
               OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
     }
+  }
+
+  /**
+   * The engine accepts the mapping and settings of every V3 entity index of the registry, not only
+   * the ones the other tests seed.
+   */
+  @Test
+  public void testEngineAcceptsEveryRegistryIndex() throws IOException {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    int created = 0;
+    for (MappingsBuilder.IndexMapping mapping : mappingsBuilder.getIndexMappings(opContext)) {
+      if (!indexConvention.isV3EntityIndexType(mapping.getIndexName())) {
+        continue;
+      }
+      String index = "accepted_" + mapping.getIndexName();
+      indexBuilder.buildIndex(
+          opContext,
+          indexBuilder.buildReindexState(
+              opContext,
+              index,
+              mapping.getMappings(),
+              settingsBuilder.getSettings(indexConfiguration, mapping.getIndexName())));
+      getSearchClient()
+          .deleteIndex(
+              OperationFingerprint.EMPTY, new DeleteIndexRequest(index), RequestOptions.DEFAULT);
+      created++;
+    }
+    assertTrue(created > 20, "Only " + created + " V3 indices");
   }
 
   @Test

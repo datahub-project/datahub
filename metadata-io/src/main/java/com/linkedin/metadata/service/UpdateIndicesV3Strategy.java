@@ -534,7 +534,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     Map<String, RecordTemplate> baselineByAspect = new HashMap<>();
     for (MCLItem event : events) {
       String aspectName = event.getAspectName();
-      if (!baselineByAspect.containsKey(aspectName)) {
+      // A restate carries no previous value, so a later event's previous value is the baseline
+      if (baselineByAspect.get(aspectName) == null) {
         baselineByAspect.put(aspectName, event.getPreviousRecordTemplate());
       }
       lastEventByAspect.put(aspectName, event);
