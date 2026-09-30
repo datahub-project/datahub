@@ -83,10 +83,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   @Nonnull private final HighlightBuilder highlights;
   @Nonnull private final SearchServiceConfiguration searchServiceConfig;
 
-  /**
-   * Search V3 entity indices keep analyzed text only in the {@code _search.tier_N} fields, and
-   * their root fields have no subfields.
-   */
+  /** Search V3 autocomplete still reads the {@code _search.tier_N} fields. */
   private final boolean v3KeywordReadEnabled;
 
   public AutocompleteRequestHandler(

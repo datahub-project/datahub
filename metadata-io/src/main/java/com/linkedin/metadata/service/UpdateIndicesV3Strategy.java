@@ -35,6 +35,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -408,17 +409,21 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     ObjectNode combinedDocument = searchDocumentProjector.newEntityDocument(urn, entitySpec);
 
     boolean hasAnyAspects = false;
-    // Root values of the aspects the batch left unchanged. They are not rewritten, but an aspect
-    // applied later that drops a shared root field falls back to them
-    ObjectNode unchangedRootValues = JsonNodeFactory.instance.objectNode();
+    List<BatchProjection> projections = new ArrayList<>();
+    Set<String> changedRootFields = new HashSet<>();
 
     for (CoalescedAspectEvent coalesced : coalesceAspectEvents(events)) {
       MCLItem event = coalesced.event();
       try {
         if (isUnchanged(coalesced)) {
+          opContext
+              .getMetricUtils()
+              .ifPresent(
+                  metricUtils ->
+                      metricUtils.increment(this.getClass(), "search_diff_no_changes_detected", 1));
           searchDocumentProjector
               .projectAspect(opContext, event, coalesced.baseline())
-              .ifPresent(unchanged -> unchangedRootValues.setAll(unchanged.rootFields()));
+              .ifPresent(unchanged -> projections.add(new BatchProjection(unchanged, true)));
           continue;
         }
         AspectSpec aspectSpec = event.getAspectSpec();
@@ -451,9 +456,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         Optional<V3SearchDocumentProjector.ProjectedAspect> projectedAspect =
             searchDocumentProjector.projectAspect(opContext, event, coalesced.baseline());
         if (projectedAspect.isPresent()) {
-          searchDocumentProjector.applyProjection(
-              combinedDocument,
-              keepBatchRootValues(combinedDocument, unchangedRootValues, projectedAspect.get()));
+          projections.add(new BatchProjection(projectedAspect.get(), false));
+          projectedAspect.get().rootFields().fieldNames().forEachRemaining(changedRootFields::add);
           hasAnyAspects = true;
 
           // recordWrite is handled by UpdateIndicesService after all strategies have processed
@@ -488,6 +492,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       return null;
     }
 
+    // Aspects the batch left unchanged are not rewritten, but they keep their place in the order
+    // for the root fields a changed aspect writes, so a shared root field ends with the value of
+    // the last aspect in the batch that sets it
+    for (BatchProjection projection : projections) {
+      searchDocumentProjector.applyProjection(
+          combinedDocument,
+          projection.unchanged()
+              ? sharedRootValues(projection.projected(), changedRootFields)
+              : keepBatchRootValues(combinedDocument, projection.projected()));
+    }
+
     liftSemanticEmbeddingsToRoot(opContext, urn, entityType, events, combinedDocument);
 
     applyDocumentContributors(opContext, urn, combinedDocument);
@@ -496,6 +511,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
   /** The event that writes an aspect, and the aspect value the index held before the batch. */
   private record CoalescedAspectEvent(@Nonnull MCLItem event, @Nullable RecordTemplate baseline) {}
+
+  /** An aspect's projection, and whether the batch left the aspect unchanged. */
+  private record BatchProjection(
+      @Nonnull V3SearchDocumentProjector.ProjectedAspect projected, boolean unchanged) {}
 
   /**
    * One event per aspect, in order of first appearance: the last event in the batch, diffed against
@@ -548,35 +567,49 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   }
 
   /**
-   * A null root value means the aspect dropped the field. When another aspect of the batch still
-   * sets it, as when a user-edited displayName is removed while the ingested one stays, the root
-   * keeps that value: the one applied earlier in the batch, else the one of an aspect the batch
-   * left unchanged. The null still clears the field under {@code _aspects.<aspect>}.
+   * A null root value means the aspect dropped the field. When an aspect applied earlier in the
+   * batch still sets it, as when a user-edited displayName is removed while the ingested one stays,
+   * the earlier value is kept; the null still clears the field under {@code _aspects.<aspect>}.
    */
   @Nonnull
   private static V3SearchDocumentProjector.ProjectedAspect keepBatchRootValues(
-      @Nonnull ObjectNode document,
-      @Nonnull ObjectNode unchangedRootValues,
-      @Nonnull V3SearchDocumentProjector.ProjectedAspect projected) {
+      @Nonnull ObjectNode document, @Nonnull V3SearchDocumentProjector.ProjectedAspect projected) {
     ObjectNode rootFields = projected.rootFields().deepCopy();
-    List<String> dropped = new ArrayList<>();
+    List<String> setEarlier = new ArrayList<>();
     rootFields
         .fieldNames()
         .forEachRemaining(
             name -> {
-              if (rootFields.get(name).isNull()) {
-                dropped.add(name);
+              if (rootFields.get(name).isNull() && document.hasNonNull(name)) {
+                setEarlier.add(name);
               }
             });
-    for (String name : dropped) {
-      if (document.hasNonNull(name)) {
-        rootFields.remove(name);
-      } else if (unchangedRootValues.hasNonNull(name)) {
-        rootFields.set(name, unchangedRootValues.get(name));
-      }
-    }
+    rootFields.remove(setEarlier);
     return new V3SearchDocumentProjector.ProjectedAspect(
         projected.aspectName(), rootFields, projected.aspectFields(), projected.rootOnly());
+  }
+
+  /**
+   * The root values of an unchanged aspect, limited to the root fields a changed aspect of the
+   * batch writes. Its other root fields and its {@code _aspects.<aspect>} entry are not rewritten,
+   * so an unchanged aspect cannot overwrite a value another aspect set in an earlier batch.
+   */
+  @Nonnull
+  private static V3SearchDocumentProjector.ProjectedAspect sharedRootValues(
+      @Nonnull V3SearchDocumentProjector.ProjectedAspect unchanged,
+      @Nonnull Set<String> changedRootFields) {
+    ObjectNode rootFields = JsonNodeFactory.instance.objectNode();
+    unchanged
+        .rootFields()
+        .fieldNames()
+        .forEachRemaining(
+            name -> {
+              if (changedRootFields.contains(name) && unchanged.rootFields().hasNonNull(name)) {
+                rootFields.set(name, unchanged.rootFields().get(name).deepCopy());
+              }
+            });
+    return new V3SearchDocumentProjector.ProjectedAspect(
+        unchanged.aspectName(), rootFields, JsonNodeFactory.instance.objectNode(), true);
   }
 
   // DataHub names user-override aspects with "editable"/"Editable" (corpUserEditableInfo,

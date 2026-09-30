@@ -620,7 +620,7 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
-  public void testV3SemanticReadFiltersKeywordFieldsWithoutKeywordSuffix() throws IOException {
+  public void testV3SemanticReadFiltersKeywordSubfields() throws IOException {
     SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
     stubSearchV3Cluster();
     stubEntitySpec("document", null);
@@ -641,14 +641,13 @@ public class SemanticEntitySearchServiceTest {
     ArgumentCaptor<KnnSearchRequest> requestCaptor =
         ArgumentCaptor.forClass(KnnSearchRequest.class);
     verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
-    // V3 maps keyword and URN fields without the .keyword subfield V2 filters target
+    // V3 root fields carry the .keyword subfields V2 filters target
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
-    assertTrue(filter.contains("domains=[urn:li:domain:engineering]"), filter);
-    assertFalse(filter.contains("domains.keyword"), filter);
+    assertTrue(filter.contains("domains.keyword=[urn:li:domain:engineering]"), filter);
   }
 
   @Test
-  public void testV3SemanticReadDropsExplicitKeywordSuffix() throws IOException {
+  public void testV3SemanticReadKeepsExplicitKeywordSuffix() throws IOException {
     SemanticEntitySearchService v3Service = serviceWith(entityIndex(true, true));
     stubSearchV3Cluster();
     stubEntitySpec("document", null);
@@ -671,8 +670,7 @@ public class SemanticEntitySearchServiceTest {
         ArgumentCaptor.forClass(KnnSearchRequest.class);
     verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
-    assertTrue(filter.contains("platform=[urn:li:dataPlatform:notion]"), filter);
-    assertFalse(filter.contains("platform.keyword"), filter);
+    assertTrue(filter.contains("platform.keyword=[urn:li:dataPlatform:notion]"), filter);
   }
 
   @Test
@@ -703,7 +701,7 @@ public class SemanticEntitySearchServiceTest {
         ArgumentCaptor.forClass(KnnSearchRequest.class);
     verify(v3SearchClientShim).searchKnn(any(OperationContext.class), requestCaptor.capture());
     String filter = requestCaptor.getValue().filter().orElseThrow().toString();
-    assertTrue(filter.contains("platform=[urn:li:dataPlatform:notion]"), filter);
+    assertTrue(filter.contains("platform.keyword=[urn:li:dataPlatform:notion]"), filter);
   }
 
   @Test
