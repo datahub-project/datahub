@@ -472,6 +472,9 @@ jobs:
         with:
           header: i18n-parity
           delete: true
+      - name: Check i18n locale files use flat keys
+        run: |
+          ./gradlew :datahub-web-react:yarnI18nFlatKeysCheck
 
   playwright-e2e-lint:
     name: playwright-e2e-lint

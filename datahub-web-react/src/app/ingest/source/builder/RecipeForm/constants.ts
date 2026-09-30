@@ -160,12 +160,12 @@ import {
 } from '@app/ingest/source/builder/RecipeForm/looker';
 import {
     CONNECTION_TO_PLATFORM_MAP,
-    DEPLOY_KEY,
     LOOKML,
     LOOKML_BASE_URL,
     LOOKML_CLIENT_ID,
     LOOKML_CLIENT_SECRET,
-    LOOKML_GITHUB_INFO_REPO,
+    LOOKML_GIT_INFO_DEPLOY_KEY,
+    LOOKML_GIT_INFO_REPO,
     PARSE_TABLE_NAMES_FROM_SQL,
     PROJECT_NAME,
 } from '@app/ingest/source/builder/RecipeForm/lookml';
@@ -540,8 +540,8 @@ export const RECIPE_FIELDS: RecipeFields = {
     },
     [LOOKML]: {
         fields: [
-            LOOKML_GITHUB_INFO_REPO,
-            DEPLOY_KEY,
+            LOOKML_GIT_INFO_REPO,
+            LOOKML_GIT_INFO_DEPLOY_KEY,
             PROJECT_NAME,
             LOOKML_BASE_URL,
             LOOKML_CLIENT_ID,

@@ -1,24 +1,53 @@
 import get from 'lodash/get';
+import omit from 'lodash/omit';
 import React from 'react';
 
 import { FieldType, RecipeField, setFieldValueOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const LOOKML = 'lookml';
 
-export const LOOKML_GITHUB_INFO_REPO: RecipeField = {
-    name: 'github_info.repo',
+// The LookML Python connector renamed `github_info` to `git_info` and
+// `pydantic_renamed_field("github_info", "git_info")` keeps the old name working at
+// load with a deprecation warning. Two requirements here:
+//   1. When editing an existing recipe whose YAML still uses `github_info`, the form
+//      must hydrate from that legacy block (read fallback below).
+//   2. When the user saves, the YAML must contain ONLY the modern `git_info` block.
+//      Leaving both keys around makes the rename shim ambiguous, and stripping
+//      `github_info` field-by-field would drop sibling keys (branch, etc.) that the
+//      form never touches. The migrator below merges everything in one shot.
+const repoFieldPath = 'source.config.git_info.repo';
+const legacyRepoFieldPath = 'source.config.github_info.repo';
+const deployKeyFieldPath = 'source.config.git_info.deploy_key';
+const legacyDeployKeyFieldPath = 'source.config.github_info.deploy_key';
+const gitInfoFieldPath = 'source.config.git_info';
+const legacyGitInfoFieldPath = 'source.config.github_info';
+
+function migrateLegacyGithubInfo(recipe: any): any {
+    const legacy = get(recipe, legacyGitInfoFieldPath);
+    if (!legacy || typeof legacy !== 'object') return recipe;
+
+    // Modern `git_info` wins on collision so we never undo a value the user just typed.
+    const existing = get(recipe, gitInfoFieldPath) || {};
+    const merged = { ...legacy, ...existing };
+    return omit(setFieldValueOnRecipe(recipe, merged, gitInfoFieldPath), [legacyGitInfoFieldPath]);
+}
+
+export const LOOKML_GIT_INFO_REPO: RecipeField = {
+    name: 'git_info.repo',
     label: 'GitHub Repo',
     tooltip: 'The name of the GitHub repository where your LookML is defined.',
     type: FieldType.TEXT,
-    fieldPath: 'source.config.github_info.repo',
+    fieldPath: repoFieldPath,
     placeholder: 'datahub-project/datahub',
     rules: [{ required: true, message: 'Github Repo is required' }],
     required: true,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, repoFieldPath) ?? get(recipe, legacyRepoFieldPath),
+    setValueOnRecipeOverride: (recipe: any, value: string) =>
+        migrateLegacyGithubInfo(setFieldValueOnRecipe(recipe, value, repoFieldPath)),
 };
 
-const deployKeyFieldPath = 'source.config.github_info.deploy_key';
-export const DEPLOY_KEY: RecipeField = {
-    name: 'github_info.deploy_key',
+export const LOOKML_GIT_INFO_DEPLOY_KEY: RecipeField = {
+    name: 'git_info.deploy_key',
     label: 'GitHub Deploy Key',
     tooltip: (
         <>
@@ -38,12 +67,14 @@ export const DEPLOY_KEY: RecipeField = {
         </>
     ),
     type: FieldType.TEXTAREA,
-    fieldPath: 'source.config.github_info.deploy_key',
+    fieldPath: deployKeyFieldPath,
     placeholder: '-----BEGIN OPENSSH PRIVATE KEY-----\n...',
     rules: [{ required: true, message: 'Github Deploy Key is required' }],
+    getValueFromRecipeOverride: (recipe: any) =>
+        get(recipe, deployKeyFieldPath) ?? get(recipe, legacyDeployKeyFieldPath),
     setValueOnRecipeOverride: (recipe: any, value: string) => {
         const valueWithNewLine = `${value}\n`;
-        return setFieldValueOnRecipe(recipe, valueWithNewLine, deployKeyFieldPath);
+        return migrateLegacyGithubInfo(setFieldValueOnRecipe(recipe, valueWithNewLine, deployKeyFieldPath));
     },
     required: true,
 };

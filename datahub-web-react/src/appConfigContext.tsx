@@ -29,8 +29,10 @@ export const DEFAULT_APP_CONFIG = {
         queriesTab: {
             queriesTabResultSize: 5,
         },
-        entityProfile: {
-            domainDefaultTab: null,
+        entityProfiles: {
+            domain: {
+                defaultTab: null,
+            },
         },
         searchResult: {
             enableNameHighlight: false,

@@ -47,6 +47,7 @@
     "executions.someHidden": "Einige Ausführungen sind möglicherweise ausgeblendet",
     "executions.summaryAborted": "Ingestion-Job wurde aufgrund eines Worker-Neustarts abgebrochen.",
     "executions.summaryCancelled": "Ingestion wurde abgebrochen.",
+    "executions.summaryDuplicate": "Der Ingestion-Job wurde abgebrochen, weil bereits eine oder mehrere andere Instanzen dieses Jobs existieren.",
     "executions.summaryFailure": "Ingestion konnte nicht abgeschlossen werden oder wurde mit Fehlern abgeschlossen.",
     "executions.summaryRollbackFailed": "Ingestion-Rollback fehlgeschlagen.",
     "executions.summaryRolledBack": "Ingestion wurde zurückgerollt.",
