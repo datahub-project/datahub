@@ -38,28 +38,17 @@ Trusted in production by teams at Netflix, Visa, Etsy, Slack, Apple, FIS, Miro, 
 
 ## Pick your path
 
-<table>
-<tr>
-<td width="50%" valign="top">
-
 ### DataHub OSS
 
 Self-host on your own infrastructure. Apache 2.0 licensed. Full access to the metadata graph, 150+ integrations, column-level lineage, governance, and discovery. Best for teams that want full control and are comfortable running their own stack.
 
 [Run it locally ↓](#quick-start) · [Quickstart guide →](https://docs.datahub.com/docs/quickstart) · [Deploy on Kubernetes →](https://docs.datahub.com/docs/deploy/kubernetes)
 
-</td>
-<td width="50%" valign="top">
-
 ### DataHub Cloud
 
 Managed, SLA-backed, enterprise-ready. Access data observability and the full Context Platform: Context Intelligence, Context Hub, and native agent integrations out of the box. No infrastructure to run.
 
 [Start a free trial →](https://datahub.com/free-trial/) · [Compare OSS vs Cloud →](https://docs.datahub.com/docs/managed-datahub/managed-datahub-overview)
-
-</td>
-</tr>
-</table>
 
 ## Core capabilities
 
