@@ -391,7 +391,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
   private RecordTemplate convertRawEventToChangeEvent(final ChangeEvent rawChangeEvent) {
     com.linkedin.platform.event.v1.EntityChangeEvent changeEvent =
         new com.linkedin.platform.event.v1.EntityChangeEvent();
-    log.debug(String.format("Attempting to convert %s", rawChangeEvent));
+    log.debug("Attempting to convert {}", rawChangeEvent);
     try {
       Urn entityUrn = Urn.createFromString(rawChangeEvent.getEntityUrn());
       changeEvent.setEntityType(entityUrn.getEntityType());

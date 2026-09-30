@@ -39,6 +39,7 @@ on:
       - ".github/scripts/parse_failed_pytest_tests.py"
       - ".github/scripts/docker_logs.sh"
       - ".github/actions/smoke-test-retry"
+      - ".github/actions/report-test-results/**"
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
@@ -61,6 +62,7 @@ on:
       - ".github/scripts/parse_failed_pytest_tests.py"
       - ".github/scripts/docker_logs.sh"
       - ".github/actions/smoke-test-retry"
+      - ".github/actions/report-test-results/**"
   release:
     types: [published]
 
@@ -255,15 +257,20 @@ jobs:
             exit 0
           fi
           echo "Found smoke label config key: $CONFIG_KEY"
-          PROFILE_NAME=$(./gradlew :docker:resolveQuickstartProfile -PconfigKey="$CONFIG_KEY" -q 2>&1 | tail -1)
-          if [[ -z "$PROFILE_NAME" ]]; then
-            echo "::error::Failed to resolve profile for config key: $CONFIG_KEY"
+          # One line: "<profile>|<space-separated modules>". tail -1 drops Gradle noise.
+          RESOLVED=$(./gradlew :docker:resolveQuickstartProfile -PconfigKey="$CONFIG_KEY" -q 2>&1 | tail -1)
+          PROFILE_NAME="${RESOLVED%%|*}"
+          SMOKE_MODULES="${RESOLVED#*|}"
+          if [[ -z "$PROFILE_NAME" || "$PROFILE_NAME" == "$RESOLVED" ]]; then
+            echo "::error::Failed to resolve profile for config key: $CONFIG_KEY (got: ${RESOLVED})"
             exit 1
           fi
           echo "Resolved compose profile: $PROFILE_NAME"
+          echo "Resolved image modules: ${SMOKE_MODULES:-<none>}"
           {
             echo "smoke_build_task=:docker:buildImages${CONFIG_KEY}"
             echo "smoke_profile_name=${PROFILE_NAME}"
+            echo "smoke_build_modules=${SMOKE_MODULES}"
           } >> "$GITHUB_OUTPUT"
 
       - uses: ./.github/actions/ci-optimization
@@ -285,6 +292,7 @@ jobs:
           IS_FORK: ${{ env.IS_FORK }}
           PR_PUBLISH: ${{ steps.pr-publish.outputs.publish }}
           SMOKE_BUILD_TASK: ${{ steps.smoke-profile.outputs.smoke_build_task }}
+          SMOKE_MODULES: ${{ steps.smoke-profile.outputs.smoke_build_modules }}
           CHANGED_FILES: ${{ steps.ci-optimize.outputs.changed-files }}
         run: .github/scripts/resolve_image_builds.sh
 
@@ -487,11 +495,11 @@ jobs:
         env:
           SMOKE_BUILD_TASK: ${{ needs.setup.outputs.smoke_build_task }}
         run: |
-          # -PbuildModules narrows the bake to the images this PR can affect, and
-          # only applies to the default quickstart set. The other two tasks are
-          # reached only on paths that always build everything (workflow_dispatch,
-          # or a smoke: label picking a different profile), and their module sets
-          # do not match the one the plan was computed against.
+          # -PbuildModules narrows the default quickstart bake to the images this
+          # PR can affect. A smoke: label instead runs that config's buildImages
+          # task, which bakes the selected config's modules. The image plan marks
+          # those modules build and pins the rest, so -PbuildModules is not
+          # passed. workflow_dispatch publishes the full set via buildImagesAll.
           build_modules_flag=()
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             BUILD_TASK=":docker:buildImagesAll"
@@ -614,12 +622,12 @@ jobs:
             echo "python_batch_count=3" >> "$GITHUB_OUTPUT"
           elif [[ "${{ needs.setup.outputs.smoke_tier }}" == "p0" ]]; then
             # The p0 tier is 357 of 1209 collected tests, so 4 batches carry a
-            # lighter per-batch load than the full suite's 7 while cutting the
+            # lighter per-batch load than the full suite's 9 while cutting the
             # per-batch fixed cost (caches, image pull, quickstart) that dominates
             # a short run. Revisit once p0 batch durations have been measured.
             echo "python_batch_count=4" >> "$GITHUB_OUTPUT"
           else
-            echo "python_batch_count=7" >> "$GITHUB_OUTPUT"
+            echo "python_batch_count=9" >> "$GITHUB_OUTPUT"
           fi
 
       - id: set-matrix
@@ -836,6 +844,57 @@ jobs:
         with:
           name: docker-logs-java-integration
           path: "docker_logs/*.log"
+          retention-days: 5
+
+  stack_free_smoke_tests:
+    name: Stack-free smoke pytest
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: setup
+    if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.smoke_test_change == 'true' || needs.setup.outputs.publish == 'true' || (needs.setup.outputs.ingestion_only == 'true' && needs.setup.outputs.connector_source_only != 'true') }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Run stack-free pytest
+        run: ./gradlew :smoke-test:stackFreePytest
+
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: Test Results (stack-free smoke pytest)
+          test-results-paths: |
+            smoke-test/test-results/junit.stack-free.xml
+            !**/binary/**
+          junit-file-globs: |
+            smoke-test/test-results/junit.stack-free.xml
+
+      - name: Upload pytest logs
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: pytest-smoke-logs-stack-free
+          path: "smoke-test/test-results/pytest-smoke.log"
           retention-days: 5
 
   pytest_tests:
@@ -1253,17 +1312,27 @@ jobs:
             "SEARCH_SERVICE_SEMANTIC_SEARCH_ENABLED=true" \
             > /tmp/ai-gms.env
 
-      # Activates two profiles simultaneously:
-      #   quickstart-consumers — core DataHub services (GMS, ES, MySQL, Kafka, …)
-      #   quickstart-ai        — Ollama server + one-shot model-pull + warmup
-      # Only the local leg needs the Ollama server; classical embeds in-process.
-      - name: Start DataHub (quickstart-consumers, plus quickstart-ai Ollama on the local leg)
+      # Boots the compose profile the smoke label selected (quickstart-consumers
+      # when there is no label). That profile may or may not run separate MAE/MCE
+      # containers. The local leg also activates quickstart-ai (Ollama); classical
+      # embeds in-process and does not.
+      - name: Start DataHub (selected smoke profile, plus quickstart-ai on the local leg)
         run: |
           SIGNING_KEY=$(openssl rand -base64 32)
           SIGNING_SALT=$(openssl rand -base64 32)
-          AI_PROFILE=()
+          PROFILE_NAME="${{ needs.setup.outputs.smoke_profile_name || 'quickstart-consumers' }}"
+          echo "Using compose profile: ${PROFILE_NAME}"
+          COMPOSE_PROFILES=()
+          IFS=',' read -ra PROFILE_PARTS <<<"${PROFILE_NAME}"
+          for part in "${PROFILE_PARTS[@]}"; do
+            [[ -n "${part}" ]] || continue
+            COMPOSE_PROFILES+=(--profile "${part}")
+          done
           if [ "${{ matrix.provider }}" = "local" ]; then
-            AI_PROFILE=(--profile quickstart-ai)
+            case ",${PROFILE_NAME}," in
+              *,quickstart-ai,*) ;;
+              *) COMPOSE_PROFILES+=(--profile quickstart-ai) ;;
+            esac
           fi
 
           DATAHUB_VERSION=${{ needs.setup.outputs.tag }} \
@@ -1284,8 +1353,7 @@ jobs:
           docker compose \
             -p datahub \
             --project-directory docker/profiles \
-            --profile quickstart-consumers \
-            "${AI_PROFILE[@]}" \
+            "${COMPOSE_PROFILES[@]}" \
             up -d --quiet-pull
 
       # Wait for GMS to be reachable before tuning OpenSearch.
@@ -1360,7 +1428,7 @@ jobs:
         working-directory: smoke-test
         run: |
           source venv/bin/activate
-          pytest tests/semantic/test_local_embedding_provider.py \
+          pytest tests/e2e/semantic/test_local_embedding_provider.py \
             -v \
             --junit-xml=junit.smoke-ai.xml \
             --timeout=120
@@ -1376,7 +1444,7 @@ jobs:
         working-directory: smoke-test
         run: |
           source venv/bin/activate
-          pytest tests/semantic/test_classical_embedding_provider.py \
+          pytest tests/e2e/semantic/test_classical_embedding_provider.py \
             -v \
             --junit-xml=junit.smoke-ai.xml \
             --timeout=120
@@ -1449,7 +1517,14 @@ jobs:
     name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs:
-      [setup, base_build, java_integration_tests, pytest_tests, playwright_test]
+      [
+        setup,
+        base_build,
+        java_integration_tests,
+        pytest_tests,
+        playwright_test,
+        stack_free_smoke_tests,
+      ]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Set up Depot CLI

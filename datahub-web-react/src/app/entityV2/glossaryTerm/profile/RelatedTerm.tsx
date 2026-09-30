@@ -1,4 +1,3 @@
-import { Button } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -11,32 +10,11 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '@types';
 
-const TransparentButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textBrand};
-    font-size: 12px;
-    box-shadow: none;
-    border: none;
-    padding: 0px 10px;
-    position: absolute;
-    top: 19px;
-    right: 50px;
-    display: none;
-
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        color: ${(props) => props.theme.colors.textHover};
-    }
-`;
-
 const ListItem = styled.div`
     position: relative;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 11px;
 
-    &:hover ${TransparentButton} {
-        display: inline-block;
-    }
     &:hover {
         border: 1px solid ${(props) => props.theme.colors.borderBrand};
     }

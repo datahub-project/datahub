@@ -1,4 +1,5 @@
 import filters.BasePathRedirectFilter
+import filters.InFlightRequestsFilter
 import filters.StaticAssetPaths
 import javax.inject.Inject
 import org.apache.pekko.stream.Materializer
@@ -15,18 +16,20 @@ import play.filters.headers.SecurityHeadersFilter
 
 /**
  * Custom filter chain: CSPFilter outermost, then SecurityHeadersFilter, then
- * BasePathRedirectFilter, then Play's enabled filters (GzipFilter from play.filters.enabled in
- * application.conf, with static-asset paths excluded so Vite `.br`/`.gz` sidecars are the only
- * compression layer for `/assets` and `/node_modules`).
+ * InFlightRequestsFilter, then BasePathRedirectFilter, then Play's enabled filters (GzipFilter
+ * from play.filters.enabled in application.conf, with static-asset paths excluded so Vite
+ * `.br`/`.gz` sidecars are the only compression layer for `/assets` and `/node_modules`).
  *
  * CSP and security headers wrap the base-path filter so when BasePathRedirectFilter short-circuits
  * with a redirect (without calling inner filters), the response still gets CSP and optional
- * X-Frame-Options / X-Content-Type-Options / Referrer-Policy. Base-path logic is unchanged: it
- * still runs before gzip and the router on the request path.
+ * X-Frame-Options / X-Content-Type-Options / Referrer-Policy. InFlightRequestsFilter sits inside
+ * those security filters and outside gzip so /admin probes are counted even when the base-path
+ * filter returns without calling the rest of the chain.
  */
 class Filters @Inject()(
     cspFilter: CSPFilter,
     securityHeadersFilter: SecurityHeadersFilter,
+    inFlightRequestsFilter: InFlightRequestsFilter,
     basePathRedirectFilter: BasePathRedirectFilter,
     gzipFilterConfig: GzipFilterConfig,
     materializer: Materializer,
@@ -35,6 +38,7 @@ class Filters @Inject()(
       Filters.buildChain(
         cspFilter,
         securityHeadersFilter,
+        inFlightRequestsFilter,
         basePathRedirectFilter,
         gzipFilterConfig,
         enabledFilters
@@ -59,11 +63,12 @@ object Filters {
   def buildChain(
       cspFilter: CSPFilter,
       securityHeadersFilter: SecurityHeadersFilter,
+      inFlightRequestsFilter: InFlightRequestsFilter,
       basePathRedirectFilter: BasePathRedirectFilter,
       gzipFilterConfig: GzipFilterConfig,
       enabledFilters: EnabledFilters
   )(implicit mat: Materializer): Seq[EssentialFilter] = {
-    cspFilter +: securityHeadersFilter +: basePathRedirectFilter +:
+    cspFilter +: securityHeadersFilter +: inFlightRequestsFilter +: basePathRedirectFilter +:
       buildGzipFilter(gzipFilterConfig) +:
       enabledFilters.filters.filterNot(_.isInstanceOf[GzipFilter])
   }

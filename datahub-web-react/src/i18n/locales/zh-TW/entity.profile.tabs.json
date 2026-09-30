@@ -53,6 +53,7 @@
     "properties.save.error": "無法儲存結構化屬性。發生錯誤。",
     "properties.search.placeholder": "搜尋...",
     "properties.searchInProperties.placeholder": "在屬性中搜尋...",
+    "properties.showCountMoreValues": "顯示另外 {{count}} 個值（共 {{total, number}} 個）",
     "properties.structuredProperty.title": "結構化屬性",
     "properties.updated.success": "已成功更新結構化屬性！"
 }

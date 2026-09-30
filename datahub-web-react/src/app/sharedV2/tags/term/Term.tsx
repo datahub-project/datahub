@@ -63,7 +63,7 @@ export default function Term(props: Props) {
     }
 
     return (
-        <HoverEntityTooltip canOpen={!isDeleteModalOpen} entity={term.term} width={250} previewContext={previewContext}>
+        <HoverEntityTooltip canOpen={!isDeleteModalOpen} entity={term.term} previewContext={previewContext}>
             <TermLink
                 to={entityRegistry.getEntityUrl(EntityType.GlossaryTerm, term.term.urn)}
                 key={term.term.urn}

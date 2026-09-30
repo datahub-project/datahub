@@ -214,6 +214,9 @@ export default defineConfig(async ({ mode }) => {
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
+            // Emit dist/.vite/manifest.json so the Play server can map entrypoints to
+            // hashed filenames. Distinct from the PWA file at dist/manifest.json.
+            manifest: true,
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
@@ -291,21 +294,26 @@ export default defineConfig(async ({ mode }) => {
             },
         },
         resolve: {
-            alias: {
+            alias: [
+                {
+                    // Storybook's Vite builder pre-bundles `lodash/<fn>.js`; the optional group
+                    // keeps that from becoming `lodash-es/<fn>.js.js`, which fails dep scanning.
+                    find: /^lodash\/(.+?)(?:\.js)?$/,
+                    replacement: 'lodash-es/$1.js',
+                },
                 // Root Directories
-                '@src': path.resolve(__dirname, '/src'),
-                '@app': path.resolve(__dirname, '/src/app'),
-                '@conf': path.resolve(__dirname, '/src/conf'),
-                '@components': path.resolve(__dirname, 'src/alchemy-components'),
-                '@graphql': path.resolve(__dirname, 'src/graphql'),
-                '@graphql-mock': path.resolve(__dirname, 'src/graphql-mock'),
-                '@images': path.resolve(__dirname, 'src/images'),
-                '@providers': path.resolve(__dirname, 'src/providers'),
-                '@utils': path.resolve(__dirname, 'src/utils'),
-
+                { find: '@src', replacement: path.resolve(__dirname, '/src') },
+                { find: '@app', replacement: path.resolve(__dirname, '/src/app') },
+                { find: '@conf', replacement: path.resolve(__dirname, '/src/conf') },
+                { find: '@components', replacement: path.resolve(__dirname, 'src/alchemy-components') },
+                { find: '@graphql', replacement: path.resolve(__dirname, 'src/graphql') },
+                { find: '@graphql-mock', replacement: path.resolve(__dirname, 'src/graphql-mock') },
+                { find: '@images', replacement: path.resolve(__dirname, 'src/images') },
+                { find: '@providers', replacement: path.resolve(__dirname, 'src/providers') },
+                { find: '@utils', replacement: path.resolve(__dirname, 'src/utils') },
                 // Specific Files
-                '@types': path.resolve(__dirname, 'src/types.generated.ts'),
-            },
+                { find: '@types', replacement: path.resolve(__dirname, 'src/types.generated.ts') },
+            ],
         },
     };
 });

@@ -396,4 +396,8 @@ export class ChartEntity implements Entity<Chart> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
         />
     );
+
+    getPlatformProperties = (data: Chart) => {
+        return data?.platform;
+    };
 }

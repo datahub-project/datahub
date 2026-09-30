@@ -1,6 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockContextDenyingSubResource;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
@@ -229,6 +231,48 @@ public class UpsertStructuredPropertiesResolverTest {
     // Verify the result has the expected structure
     assertEquals(result.getProperties().get(0).getValues().size(), 1);
     assertEquals(result.getProperties().get(1).getValues().size(), 1);
+  }
+
+  @Test
+  public void testGetUnauthorized() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true, null);
+    UpsertStructuredPropertiesResolver resolver =
+        new UpsertStructuredPropertiesResolver(mockEntityClient);
+
+    // Execute resolver with a context that denies all privileges
+    QueryContext mockContext = getMockDenyContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we never attempted to ingest the change
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+  }
+
+  // getMockDenyContext (used by testGetUnauthorized) denies every privilege outright, so it
+  // would pass even if the resolver never forwarded the structured property urns for scoped
+  // authorization. This proves a per-property constraint - entity edit allowed, one property
+  // denied - actually blocks the write.
+  @Test
+  public void testGetDeniedWhenStructuredPropertyConstrained() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true, null);
+    UpsertStructuredPropertiesResolver resolver =
+        new UpsertStructuredPropertiesResolver(mockEntityClient);
+
+    QueryContext mockContext =
+        getMockContextDenyingSubResource("urn:li:corpuser:test", UrnUtils.getUrn(PROPERTY_URN_1));
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate that we never attempted to ingest the change
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
   }
 
   @Test
