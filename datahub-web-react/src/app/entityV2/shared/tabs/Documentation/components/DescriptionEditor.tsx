@@ -1,5 +1,4 @@
-import { Editor } from '@components';
-import { Modal, message } from 'antd';
+import { Editor, toast } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -13,6 +12,7 @@ import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentat
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
 import useFileUpload from '@app/shared/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 import { UploadDownloadScenario } from '@types';
@@ -34,7 +34,6 @@ type DescriptionEditorProps = {
 
 export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const { t } = useTranslation('entity.profile.documentation');
-    const { t: tc } = useTranslation('common.actions');
     const { t: tf } = useTranslation('common.feedback');
     const mutationUrn = useMutationUrn();
     const { entityType, entityData, loading } = useEntityData();
@@ -72,6 +71,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     const [isDescriptionUpdated, setIsDescriptionUpdated] = useState(
         editedDescriptions.hasOwnProperty(mutationUrn) || isUsingDocumentationAspect,
     );
+    const [showDiscardModal, setShowDiscardModal] = useState(false);
     const hasUnsavedChangesRef = useRef(isDescriptionUpdated);
     hasUnsavedChangesRef.current = isDescriptionUpdated;
 
@@ -125,7 +125,7 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
     };
 
     const handleSave = async () => {
-        message.loading({ content: tf('saving') });
+        toast.loading(tf('saving'));
         try {
             if (updateEntity) {
                 // Use the legacy update description path.
@@ -134,14 +134,14 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 // Use the new update description path.
                 await updateDescription();
             }
-            message.destroy();
+            toast.destroy();
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateDescription,
                 entityType,
                 entityUrn: mutationUrn,
             });
-            message.success({ content: t('descriptionUpdated'), duration: 2 });
+            toast.success(t('descriptionUpdated'), { duration: 2 });
             // Updating the localStorage after save
             delete editedDescriptions[mutationUrn];
             if (Object.keys(editedDescriptions).length === 0) {
@@ -151,16 +151,16 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             }
             if (onComplete) onComplete();
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('failedToUpdateDescription', { message: e.message || '' }), duration: 2 });
+                toast.error(t('failedToUpdateDescription', { message: e.message || '' }), { duration: 2 });
             }
         }
         refetch?.();
     };
 
     function handleCancel() {
-        const onCancel = () => {
+        const discardChanges = () => {
             delete editedDescriptions[mutationUrn];
             if (Object.keys(editedDescriptions).length === 0) {
                 localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
@@ -170,18 +170,21 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
             if (onComplete) onComplete();
         };
         if (!hasUnsavedChangesRef.current) {
-            onCancel();
+            discardChanges();
         } else {
-            Modal.confirm({
-                title: t('discardChanges.title'),
-                content: t('discardChanges.description'),
-                onOk: onCancel,
-                onCancel() {},
-                okText: tc('yes'),
-                maskClosable: true,
-                closable: true,
-            });
+            setShowDiscardModal(true);
         }
+    }
+
+    function confirmDiscardChanges() {
+        delete editedDescriptions[mutationUrn];
+        if (Object.keys(editedDescriptions).length === 0) {
+            localStorage.removeItem(EDITED_DESCRIPTIONS_CACHE_NAME);
+        } else {
+            localStorage.setItem(EDITED_DESCRIPTIONS_CACHE_NAME, JSON.stringify(editedDescriptions || description));
+        }
+        setShowDiscardModal(false);
+        if (onComplete) onComplete();
     }
 
     // Prevent closing tab by mistake
@@ -228,6 +231,13 @@ export const DescriptionEditor = ({ onComplete }: DescriptionEditorProps) => {
                 <SourceDescription />
             </EditorSourceWrapper>
             <DescriptionEditorToolbar onSave={handleSave} onCancel={handleCancel} disableSave={!isDescriptionUpdated} />
+            <ConfirmationModal
+                isOpen={showDiscardModal}
+                handleClose={() => setShowDiscardModal(false)}
+                handleConfirm={confirmDiscardChanges}
+                modalTitle={t('discardChanges.title')}
+                modalText={t('discardChanges.description')}
+            />
         </>
     ) : null;
 };

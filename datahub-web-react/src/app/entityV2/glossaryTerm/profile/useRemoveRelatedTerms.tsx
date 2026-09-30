@@ -1,7 +1,9 @@
-import { Modal, message } from 'antd';
+import { toast } from '@components';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -12,11 +14,11 @@ import { DataHubPageModuleType, TermRelationshipType } from '@types';
 
 function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationshipType, displayName: string) {
     const { t } = useTranslation('entity.types');
-    const { t: tc } = useTranslation('common.actions');
     const { urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
     const refetch = useRefetch();
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     const [removeRelatedTerms] = useRemoveRelatedTermsMutation();
 
@@ -31,20 +33,14 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
             },
         })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('glossaryTerm.removeError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('glossaryTerm.removeError', { error: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
-                message.loading({
-                    content: t('glossaryTerm.removing'),
-                    duration: 2,
-                });
+                toast.loading(t('glossaryTerm.removing'), { duration: 2 });
                 setTimeout(() => {
                     refetch();
-                    message.success({
-                        content: t('glossaryTerm.removedSuccess'),
-                        duration: 2,
-                    });
+                    toast.success(t('glossaryTerm.removedSuccess'), { duration: 2 });
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
                     reloadByKeyType([
@@ -52,25 +48,26 @@ function useRemoveRelatedTerms(termUrn: string, relationshipType: TermRelationsh
                     ]);
                 }, 2000);
             });
+        setShowConfirmModal(false);
     }
 
     function onRemove() {
-        Modal.confirm({
-            title: t('glossaryTerm.removeConfirmTitle', { name: displayName }),
-            content: t('glossaryTerm.removeConfirmBody', {
-                entityType: entityRegistry.getEntityName(entityType),
-            }),
-            onOk() {
-                handleRemoveRelatedTerms();
-            },
-            onCancel() {},
-            okText: tc('yes'),
-            maskClosable: true,
-            closable: true,
-        });
+        setShowConfirmModal(true);
     }
 
-    return { onRemove };
+    const removeConfirmationModal = (
+        <ConfirmationModal
+            isOpen={showConfirmModal}
+            handleClose={() => setShowConfirmModal(false)}
+            handleConfirm={handleRemoveRelatedTerms}
+            modalTitle={t('glossaryTerm.removeConfirmTitle', { name: displayName })}
+            modalText={t('glossaryTerm.removeConfirmBody', {
+                entityType: entityRegistry.getEntityName(entityType),
+            })}
+        />
+    );
+
+    return { onRemove, removeConfirmationModal };
 }
 
 export default useRemoveRelatedTerms;

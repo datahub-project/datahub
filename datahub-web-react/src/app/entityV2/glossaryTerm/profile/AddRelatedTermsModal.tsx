@@ -1,8 +1,9 @@
-import { Modal } from '@components';
-import { Select, Tag, message } from 'antd';
-import React, { useState } from 'react';
+import { Modal, SimpleSelect, toast } from '@components';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components/macro';
+import styled from 'styled-components/macro';
+
+import { SelectOption } from '@components/components/Select/types';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
@@ -10,8 +11,6 @@ import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { getParentEntities } from '@app/searchV2/filters/utils';
-import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -21,10 +20,6 @@ import { useAddRelatedTermsMutation } from '@graphql/glossaryTerm.generated';
 import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import { DataHubPageModuleType, EntityType, SearchResult, TermRelationshipType } from '@types';
 
-const StyledSelect = styled(Select)`
-    width: 480px;
-`;
-
 const SearchResultContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -32,9 +27,18 @@ const SearchResultContainer = styled.div`
     font-size: 12px;
 `;
 
+const BrowserEmptyState = styled.div`
+    max-height: 320px;
+    overflow: auto;
+`;
+
 interface Props {
     onClose: () => void;
     relationshipType: TermRelationshipType;
+}
+
+interface TermOption extends SelectOption {
+    entity?: SearchResult['entity'];
 }
 
 function AddRelatedTermsModal(props: Props) {
@@ -42,11 +46,9 @@ function AddRelatedTermsModal(props: Props) {
 
     const { t } = useTranslation('entity.types');
     const { t: tc } = useTranslation('common.actions');
-    const theme = useTheme();
     const [inputValue, setInputValue] = useState('');
-    const [selectedUrns, setSelectedUrns] = useState<any[]>([]);
-    const [selectedTerms, setSelectedTerms] = useState<any[]>([]);
-    const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
+    const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
+    const [selectedTerms, setSelectedTerms] = useState<{ urn: string; displayName: string }[]>([]);
     const entityRegistry = useEntityRegistry();
     const { urn: entityDataUrn } = useEntityData();
     const refetch = useRefetch();
@@ -66,16 +68,13 @@ function AddRelatedTermsModal(props: Props) {
             },
         })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('glossaryTerm.moveError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('glossaryTerm.moveError', { error: e.message || '' }), { duration: 3 });
             })
             .finally(() => {
-                message.loading({ content: t('glossaryTerm.adding'), duration: 2 });
+                toast.loading(t('glossaryTerm.adding'), { duration: 2 });
                 setTimeout(() => {
-                    message.success({
-                        content: t('glossaryTerm.addedRelatedTermsSuccess'),
-                        duration: 2,
-                    });
+                    toast.success(t('glossaryTerm.addedRelatedTermsSuccess'), { duration: 2 });
                     refetch();
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
@@ -90,32 +89,15 @@ function AddRelatedTermsModal(props: Props) {
     const [termSearch, { data: termSearchData }] = useGetSearchResultsLazyQuery();
     const termSearchResults = termSearchData?.search?.searchResults || [];
 
-    const tagSearchOptions = termSearchResults
-        .filter((result) => result?.entity?.urn !== entityDataUrn)
-        .map((result: SearchResult) => {
-            const displayName = entityRegistry.getDisplayName(result.entity.type, result.entity);
-
-            return (
-                <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
-                    <SearchResultContainer>
-                        <ParentEntities parentEntities={getParentEntities(result.entity) || []} />
-                        <GlossaryTermPill
-                            name={displayName}
-                            color={generateTermColor(result.entity.urn)}
-                            variant="borderless"
-                        />
-                    </SearchResultContainer>
-                </Select.Option>
-            );
-        });
-
     const handleSearch = (text: string) => {
-        if (text.length > 0) {
+        const trimmed = text.trim();
+        setInputValue(trimmed);
+        if (trimmed.length > 0) {
             termSearch({
                 variables: {
                     input: {
                         type: EntityType.GlossaryTerm,
-                        query: text,
+                        query: trimmed,
                         start: 0,
                         count: 20,
                     },
@@ -124,88 +106,80 @@ function AddRelatedTermsModal(props: Props) {
         }
     };
 
-    // When a Tag or term search result is selected, add the urn to the Urns
-    const onSelectValue = (urn: string) => {
-        const newUrns = [...selectedUrns, urn];
-        setSelectedUrns(newUrns);
-        const selectedSearchOption = tagSearchOptions.find((option) => option.props.value === urn);
-        setSelectedTerms([
-            ...selectedTerms,
-            {
-                urn,
-                component: (
-                    <GlossaryTermPill
-                        name={selectedSearchOption?.props.name}
-                        color={generateTermColor(urn)}
-                        variant="borderless"
-                    />
-                ),
-            },
-        ]);
-    };
+    const options: TermOption[] = useMemo(
+        () =>
+            termSearchResults
+                .filter((result) => result?.entity?.urn !== entityDataUrn)
+                .map((result: SearchResult) => ({
+                    value: result.entity.urn,
+                    label: entityRegistry.getDisplayName(result.entity.type, result.entity),
+                    entity: result.entity,
+                })),
+        [termSearchResults, entityDataUrn, entityRegistry],
+    );
 
-    // When a Tag or term search result is deselected, remove the urn from the Owners
-    const onDeselectValue = (urn: string) => {
-        const newUrns = selectedUrns.filter((u) => u !== urn);
-        setSelectedUrns(newUrns);
-        setInputValue('');
-        setIsFocusedOnInput(true);
-        setSelectedTerms(selectedTerms.filter((term) => term.urn !== urn));
-    };
+    const combinedOptions: TermOption[] = useMemo(() => {
+        const byUrn = new Map(options.map((option) => [option.value, option]));
+        selectedTerms.forEach((term) => {
+            if (!byUrn.has(term.urn)) {
+                byUrn.set(term.urn, { value: term.urn, label: term.displayName });
+            }
+        });
+        return Array.from(byUrn.values());
+    }, [options, selectedTerms]);
+
+    const onUpdate = useCallback(
+        (urns: string[]) => {
+            setSelectedUrns(urns);
+            setSelectedTerms((prev) => {
+                const prevByUrn = new Map(prev.map((term) => [term.urn, term]));
+                return urns.map((urn) => {
+                    const existing = prevByUrn.get(urn);
+                    if (existing) return existing;
+                    const fromOptions = combinedOptions.find((option) => option.value === urn);
+                    return {
+                        urn,
+                        displayName: fromOptions?.label || urn,
+                    };
+                });
+            });
+        },
+        [combinedOptions],
+    );
 
     function selectTermFromBrowser(urn: string, displayName: string) {
-        setIsFocusedOnInput(false);
-        const newUrns = [...selectedUrns, urn];
-        setSelectedUrns(newUrns);
-        setSelectedTerms([
-            ...selectedTerms,
-            {
-                urn,
-                component: <GlossaryTermPill name={displayName} color={generateTermColor(urn)} variant="borderless" />,
-            },
-        ]);
+        if (selectedUrns.includes(urn)) return;
+        setSelectedUrns((prev) => [...prev, urn]);
+        setSelectedTerms((prev) => [...prev, { urn, displayName }]);
     }
 
-    function clearInput() {
-        setInputValue('');
-        setTimeout(() => setIsFocusedOnInput(true), 0); // call after click outside
-    }
+    const renderOption = useCallback(
+        (option: TermOption) => (
+            <SearchResultContainer>
+                {option.entity && <ParentEntities parentEntities={getParentEntities(option.entity) || []} />}
+                <GlossaryTermPill
+                    name={option.label}
+                    color={generateTermColor(option.value)}
+                    variant="borderless"
+                />
+            </SearchResultContainer>
+        ),
+        [generateTermColor],
+    );
 
-    function handleBlur() {
-        setInputValue('');
-    }
+    const renderSelectedValue = useCallback(
+        (option: TermOption) => (
+            <GlossaryTermPill
+                key={option.value}
+                name={option.label}
+                color={generateTermColor(option.value)}
+                variant="borderless"
+            />
+        ),
+        [generateTermColor],
+    );
 
-    const tagRender = (properties) => {
-        // eslint-disable-next-line react/prop-types
-        const { closable, onClose: close, value } = properties;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        const selectedItem = selectedTerms.find((term) => term.urn === value).component;
-
-        return (
-            <Tag
-                onMouseDown={onPreventMouseDown}
-                closable={closable}
-                onClose={close}
-                style={{
-                    marginRight: 3,
-                    display: 'flex',
-                    justifyContent: 'start',
-                    alignItems: 'center',
-                    whiteSpace: 'nowrap',
-                    opacity: 1,
-                    color: theme.colors.text,
-                    lineHeight: '16px',
-                }}
-            >
-                {selectedItem}
-            </Tag>
-        );
-    };
-
-    const isShowingGlossaryBrowser = !inputValue && isFocusedOnInput;
+    const isShowingGlossaryBrowser = !inputValue;
 
     return (
         <Modal
@@ -227,36 +201,40 @@ function AddRelatedTermsModal(props: Props) {
                 },
             ]}
         >
-            <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
-                <StyledSelect
-                    autoFocus
-                    mode="multiple"
-                    filterOption={false}
-                    placeholder={t('glossaryTerm.searchForTermsPlaceholder')}
-                    showSearch
-                    defaultActiveFirstOption={false}
-                    onSelect={(asset: any) => onSelectValue(asset)}
-                    onDeselect={(asset: any) => onDeselectValue(asset)}
-                    onSearch={(value: string) => {
-                        // eslint-disable-next-line react/prop-types
-                        handleSearch(value.trim());
-                        // eslint-disable-next-line react/prop-types
-                        setInputValue(value.trim());
-                    }}
-                    tagRender={tagRender}
-                    value={selectedUrns}
-                    onClear={clearInput}
-                    onFocus={() => setIsFocusedOnInput(true)}
-                    onBlur={handleBlur}
-                    dropdownStyle={isShowingGlossaryBrowser || !inputValue ? { display: 'none' } : {}}
-                    data-testid="related-terms-select"
-                >
-                    {tagSearchOptions}
-                </StyledSelect>
-                <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
-                    <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} termUrnToHide={entityDataUrn} />
-                </BrowserWrapper>
-            </ClickOutside>
+            <SimpleSelect
+                showSearch
+                isMultiSelect
+                filterResultsByQuery={false}
+                placeholder={t('glossaryTerm.searchForTermsPlaceholder')}
+                values={selectedUrns}
+                onUpdate={onUpdate}
+                onSearchChange={handleSearch}
+                onClear={() => {
+                    setInputValue('');
+                    setSelectedUrns([]);
+                    setSelectedTerms([]);
+                }}
+                options={isShowingGlossaryBrowser ? [] : options}
+                combinedSelectedAndSearchOptions={combinedOptions}
+                width="full"
+                showClear
+                ignoreMaxHeight={isShowingGlossaryBrowser}
+                dataTestId="related-terms-select"
+                selectLabelProps={{ variant: 'custom' }}
+                renderCustomOptionText={renderOption}
+                renderCustomSelectedValue={renderSelectedValue}
+                emptyState={
+                    isShowingGlossaryBrowser ? (
+                        <BrowserEmptyState>
+                            <GlossaryBrowser
+                                isSelecting
+                                selectTerm={selectTermFromBrowser}
+                                termUrnToHide={entityDataUrn}
+                            />
+                        </BrowserEmptyState>
+                    ) : undefined
+                }
+            />
         </Modal>
     );
 }

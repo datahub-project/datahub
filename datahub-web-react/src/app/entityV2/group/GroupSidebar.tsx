@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -50,15 +50,12 @@ export default function GroupSidebar({ sidebarData, refetch }: Props) {
             },
         })
             .then(() => {
-                message.success({
-                    content: tf('changesSaved'),
-                    duration: 3,
-                });
+                toast.success(tf('changesSaved'), { duration: 3 });
                 refetch();
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('shared.saveChangesError', { error: e.message || '' }), duration: 3 });
+                toast.destroy();
+                toast.error(t('shared.saveChangesError', { error: e.message || '' }), { duration: 3 });
             });
     };
 

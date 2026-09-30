@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useCallback, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
@@ -142,10 +142,10 @@ export const useIncidentURNCopyLink = (incidentUrn: string) => {
         });
         navigator.clipboard.writeText(incidentUrl).then(
             () => {
-                message.success(t('toast.linkCopied'));
+                toast.success(t('toast.linkCopied'));
             },
             () => {
-                message.error(t('toast.linkCopyFailed'));
+                toast.error(t('toast.linkCopyFailed'));
             },
         );
     };
