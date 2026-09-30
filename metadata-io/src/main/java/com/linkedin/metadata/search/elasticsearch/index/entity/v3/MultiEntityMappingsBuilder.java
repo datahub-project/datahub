@@ -40,6 +40,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -494,11 +496,31 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @SuppressWarnings("unchecked")
       Map<String, Object> properties = (Map<String, Object>) combinedMappings.get("properties");
       if (properties != null) {
+        keepBaseSearchFields(properties.get("_search"), searchSection);
         properties.put("_search", searchSection);
       }
     }
 
     return combinedMappings;
+  }
+
+  /**
+   * The base configuration types the {@code _search._system_*} fields that per-aspect system
+   * metadata copies into; without them the engine maps those copies dynamically. Fields built from
+   * the models' search labels take precedence.
+   */
+  @SuppressWarnings("unchecked")
+  private static void keepBaseSearchFields(
+      @Nullable final Object baseSearchSection, @Nonnull final Map<String, Object> searchSection) {
+    if (!(baseSearchSection instanceof Map)
+        || !(((Map<String, Object>) baseSearchSection).get(PROPERTIES) instanceof Map)) {
+      return;
+    }
+    final Map<String, Object> merged =
+        new HashMap<>(
+            (Map<String, Object>) ((Map<String, Object>) baseSearchSection).get(PROPERTIES));
+    merged.putAll((Map<String, Object>) searchSection.get(PROPERTIES));
+    searchSection.put(PROPERTIES, merged);
   }
 
   @SuppressWarnings("unchecked")
@@ -613,17 +635,21 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     final Map<String, Object> finalAspectsMappings = aspectMappings;
 
     // Process searchable ref fields - they will be grouped under _aspects
+    final Map<String, Object> refFieldMappings = new HashMap<>();
     entitySpec
         .getSearchableRefFieldSpecs()
         .forEach(
             searchableRefFieldSpec -> {
-              finalAspectsMappings.putAll(
+              refFieldMappings.putAll(
                   getMappingForSearchableRefField(
                       entityRegistry,
                       searchableRefFieldSpec,
                       searchableRefFieldSpec.getSearchableRefAnnotation().getDepth(),
                       partialNgramConfig));
             });
+    finalAspectsMappings.putAll(refFieldMappings);
+    // The projector writes reference fields at the root too, where V2 queries and filters read them
+    mappings.putAll(refFieldMappings);
 
     // Add _aspects object to root mappings
     if (!finalAspectsMappings.isEmpty()) {
@@ -904,19 +930,22 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     if (labeled) {
       return MultiEntityMappingsUtils.createEntityNameAliasMapping();
     }
-    final Set<String> fieldNames =
+    final SortedSet<String> fieldNames =
         allPaths.stream()
             .map(path -> path.split("\\.", 3))
             .filter(pathParts -> pathParts.length == 3)
             .map(pathParts -> pathParts[2])
-            .collect(Collectors.toSet());
-    if (fieldNames.size() != 1) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Cannot map '%s': it names the fields %s and no aspect labels a field '%s'",
-              alias, fieldNames, ENTITY_NAME_SEARCH_FIELD));
+            .collect(Collectors.toCollection(TreeSet::new));
+    if (fieldNames.size() > 1) {
+      // V2 keeps one of the aliased fields too, rather than failing every index build
+      log.warn(
+          "'{}' names the fields {} and no aspect labels a field '{}'; aliasing '{}'",
+          alias,
+          fieldNames,
+          ENTITY_NAME_SEARCH_FIELD,
+          fieldNames.first());
     }
-    return MultiEntityMappingsUtils.createAliasMapping(fieldNames.iterator().next());
+    return MultiEntityMappingsUtils.createAliasMapping(fieldNames.first());
   }
 
   private static void createDerivedRootProjectionFields(

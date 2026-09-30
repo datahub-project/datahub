@@ -1485,6 +1485,32 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testProcessBatch_UnchangedOverrideKeepsSharedRootField() throws Exception {
+    MCLItem baseEvent = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem editableEvent = aspectEvent("editableDatasetProperties");
+    Status baseRecord = new Status().setRemoved(true);
+    when(baseEvent.getRecordTemplate()).thenReturn(baseRecord);
+    Status editableRecord = new Status().setRemoved(false);
+    Status editablePrevious = new Status().setRemoved(false);
+    when(editableEvent.getRecordTemplate()).thenReturn(editableRecord);
+    when(editableEvent.getPreviousRecordTemplate()).thenReturn(editablePrevious);
+    stubTransform(baseRecord, Map.of("displayName", "ingested"));
+    stubTransform(editableRecord, Map.of("displayName", "edited", "editedDescription", "kept"));
+
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(baseEvent, editableEvent)),
+        false);
+
+    // The unchanged override still wins the root field its base aspect rewrote; nothing else of
+    // it is rewritten
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("displayName").asText(), "edited");
+    assertFalse(written.has("editedDescription"));
+    assertFalse(written.get("_aspects").has("editableDatasetProperties"));
+  }
+
+  @Test
   public void testProcessBatch_AppliesAspectsInFirstAppearanceOrder() throws Exception {
     MCLItem first = aspectEvent("dataPlatformInstance");
     MCLItem other = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);

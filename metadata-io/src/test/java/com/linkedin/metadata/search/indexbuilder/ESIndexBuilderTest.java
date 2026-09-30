@@ -389,6 +389,42 @@ public class ESIndexBuilderTest {
             any(RequestOptions.class));
   }
 
+  /** A V3 index whose root alias is now a field cannot take V3 writes until it is rebuilt. */
+  @Test
+  void testApplyMappings_ReportsV3IndexThatNeedsRebuild() throws IOException {
+    assertEquals(
+        v3RebuildErrors(
+            Map.of("type", "alias", "path", "_aspects.datasetProperties.name"),
+            Map.of("type", "keyword")),
+        1);
+    // Other changes put-mapping cannot apply only warn, as for every index
+    assertEquals(v3RebuildErrors(Map.of("type", "keyword"), Map.of("type", "text")), 0);
+  }
+
+  private long v3RebuildErrors(Object currentName, Object targetName) throws IOException {
+    ReindexConfig indexState = mock(ReindexConfig.class);
+    when(indexState.name()).thenReturn("datasetindex_v3");
+    when(indexState.currentMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", currentName)));
+    when(indexState.targetMappings())
+        .thenReturn(Map.<String, Object>of("properties", Map.of("name", targetName)));
+    ch.qos.logback.classic.Logger builderLogger =
+        (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(ESIndexBuilder.class);
+    ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> logAppender =
+        new ch.qos.logback.core.read.ListAppender<>();
+    logAppender.start();
+    builderLogger.addAppender(logAppender);
+    try {
+      indexBuilder.applyMappings(opContext, indexState, true);
+    } finally {
+      builderLogger.detachAppender(logAppender);
+    }
+    return logAppender.list.stream()
+        .filter(event -> event.getLevel() == ch.qos.logback.classic.Level.ERROR)
+        .filter(event -> event.getFormattedMessage().contains("datasetindex_v3"))
+        .count();
+  }
+
   @Test
   void testGetCount() throws IOException {
     CountResponse countResponse = mock(CountResponse.class);

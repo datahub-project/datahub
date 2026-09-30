@@ -35,6 +35,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -160,6 +161,45 @@ public class MultiEntityMappingsBuilderTest {
       int fields = countMappedFields(mapping.getMappings());
       assertTrue(fields < 5000, mapping.getIndexName() + " maps " + fields + " fields");
     }
+  }
+
+  /**
+   * The base configuration types the _search fields system metadata copies into, and fields built
+   * from search labels keep their own mapping. Reference fields are mapped at the root, where V2
+   * queries and filters read them.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testRegistryMappingsKeepBaseSearchFieldsAndRootRefFields() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Map<String, Map<String, Object>> propertiesByIndex = new HashMap<>();
+    for (IndexMapping mapping :
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext)) {
+      Map<String, Object> properties = getProperties(mapping.getMappings());
+      propertiesByIndex.put(mapping.getIndexName(), properties);
+      Map<String, Object> searchFields =
+          (Map<String, Object>) ((Map<String, Object>) properties.get("_search")).get("properties");
+      assertEquals(
+          ((Map<String, Object>) searchFields.get("_system_aspectModified_time")).get("type"),
+          "date",
+          mapping.getIndexName());
+    }
+
+    Map<String, Object> datasetSearchFields =
+        (Map<String, Object>)
+            ((Map<String, Object>) propertiesByIndex.get("datasetindex_v3").get("_search"))
+                .get("properties");
+    assertEquals(
+        ((Map<String, Object>) datasetSearchFields.get("entityName")).get("normalizer"),
+        "keyword_normalizer");
+    Map<String, Object> businessAttributeRef =
+        (Map<String, Object>)
+            propertiesByIndex.get("schemafieldindex_v3").get("businessAttributeRef");
+    assertTrue(
+        ((Map<String, Object>) businessAttributeRef.get("properties")).containsKey("urn"),
+        businessAttributeRef.toString());
   }
 
   /** The engine rejects a mapping whose alias points at a field it does not map. */
@@ -508,6 +548,46 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(
         searchProperties.containsKey("entityName"),
         "alias target _search.entityName must be present for the suggester to resolve");
+  }
+
+  /** Without an entityName label, two aliased name fields still give one valid mapping. */
+  @Test
+  public void testUnlabeledEntityNameAliasOnTwoFieldsPicksOne() {
+    EntitySpec titled =
+        createMockEntitySpecWithSearchMetadata(
+            "entity1",
+            "title",
+            FieldType.KEYWORD,
+            "_entityName",
+            "dashboardInfo",
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+    EntitySpec named =
+        createMockEntitySpecWithSearchMetadata(
+            "entity2",
+            "name",
+            FieldType.KEYWORD,
+            "_entityName",
+            "chartInfo",
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+    when(titled.getSearchGroup()).thenReturn("default");
+    when(named.getSearchGroup()).thenReturn("default");
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(ImmutableMap.of("entity1", titled, "entity2", named));
+    stubEntitySpecs(titled, named);
+
+    Map<String, Object> properties =
+        getProperties(
+            mappingsBuilder.getIndexMappings(operationContext).iterator().next().getMappings());
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> entityNameAlias = (Map<String, Object>) properties.get("_entityName");
+    assertEquals(entityNameAlias.get("type"), "alias");
+    assertEquals(entityNameAlias.get("path"), "name");
   }
 
   @Test

@@ -90,8 +90,8 @@ public class ESBrowseDAO {
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
   private static final String BROWSE_PATH_V2 = "browsePathV2";
   private static final String BROWSE_PATH_V2_DEPTH = "browsePathV2.length";
-  // V3 reaches browsePathV2 through a root alias, and an alias cannot expose the length token
-  // count, so V3 filters depth on the aspect field itself.
+  // Search V3 filters depth on the aspect field, as it did while its root browsePathV2 was an alias
+  // that could not expose the length token count.
   private static final String V3_BROWSE_PATH_V2_DEPTH =
       MappingConstants.ASPECTS_FIELD_NAME
           + "."
