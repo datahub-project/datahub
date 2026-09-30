@@ -510,8 +510,19 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     return combinedDocument;
   }
 
-  /** The event that writes an aspect, and the aspect value the index held before the batch. */
-  private record CoalescedAspectEvent(@Nonnull MCLItem event, @Nullable RecordTemplate baseline) {}
+  /**
+   * The event that writes an aspect, the aspect value the index held before the batch, and whether
+   * the aspect must be written even when that value equals the last one.
+   */
+  private record CoalescedAspectEvent(
+      @Nonnull MCLItem event, @Nullable RecordTemplate baseline, boolean mustWrite) {}
+
+  private static boolean isForceIndexing(@Nonnull MCLItem event) {
+    SystemMetadata systemMetadata = event.getSystemMetadata();
+    return systemMetadata != null
+        && systemMetadata.getProperties() != null
+        && Boolean.parseBoolean(systemMetadata.getProperties().get(Constants.FORCE_INDEXING_KEY));
+  }
 
   /** An aspect's projection, and whether the batch left the aspect unchanged. */
   private record BatchProjection(
@@ -532,8 +543,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   private static List<CoalescedAspectEvent> coalesceAspectEvents(@Nonnull List<MCLItem> events) {
     Map<String, MCLItem> lastEventByAspect = new LinkedHashMap<>();
     Map<String, RecordTemplate> baselineByAspect = new HashMap<>();
+    // Aspects the batch must write even if their value looks unchanged: the index may not hold the
+    // first event's value (it had no previous value), or an event forces indexing
+    Set<String> mustWrite = new HashSet<>();
     for (MCLItem event : events) {
       String aspectName = event.getAspectName();
+      if (!lastEventByAspect.containsKey(aspectName) && event.getPreviousRecordTemplate() == null) {
+        mustWrite.add(aspectName);
+      }
+      if (isForceIndexing(event)) {
+        mustWrite.add(aspectName);
+      }
       // A restate carries no previous value, so a later event's previous value is the baseline
       if (baselineByAspect.get(aspectName) == null) {
         baselineByAspect.put(aspectName, event.getPreviousRecordTemplate());
@@ -544,7 +564,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         .sorted(Comparator.comparing(entry -> isEditableOverrideAspect(entry.getKey())))
         .map(
             entry ->
-                new CoalescedAspectEvent(entry.getValue(), baselineByAspect.get(entry.getKey())))
+                new CoalescedAspectEvent(
+                    entry.getValue(),
+                    baselineByAspect.get(entry.getKey()),
+                    mustWrite.contains(entry.getKey())))
         .collect(Collectors.toList());
   }
 
@@ -554,13 +577,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    */
   private static boolean isUnchanged(@Nonnull CoalescedAspectEvent coalesced) {
     MCLItem event = coalesced.event();
-    SystemMetadata systemMetadata = event.getSystemMetadata();
-    boolean forceIndexing =
-        systemMetadata != null
-            && systemMetadata.getProperties() != null
-            && Boolean.parseBoolean(
-                systemMetadata.getProperties().get(Constants.FORCE_INDEXING_KEY));
-    return !forceIndexing
+    return !coalesced.mustWrite()
         && event.getChangeType() != ChangeType.DELETE
         && coalesced.baseline() != null
         && event.getRecordTemplate() != null
