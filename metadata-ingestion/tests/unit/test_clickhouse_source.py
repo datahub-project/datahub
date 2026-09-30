@@ -1,14 +1,20 @@
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pytest
 from sqlalchemy.engine.url import make_url
 
 import datahub.ingestion.source.sql.clickhouse as clickhouse
+import datahub.sql_parsing.sqlglot_lineage as sqlglot_lineage
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig, ClickHouseSource
 from datahub.ingestion.source.sql.clickhouse_connection import CLICKHOUSE_CLIENT_NAME
-from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.metadata.schema_classes import (
+    DatasetUsageStatisticsClass,
+    OperationClass,
+    UpstreamLineageClass,
+)
 
 
 def test_clickhouse_uri_https():
@@ -320,3 +326,627 @@ def test_query_log_lineage_does_not_over_qualify(monkeypatch):
     assert [u.dataset for u in aspect.upstreams] == [
         "urn:li:dataset:(urn:li:dataPlatform:clickhouse,analytics_raw.raw_events,PROD)"
     ]
+
+
+def test_query_log_query_only_fetches_columns_it_reads():
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-15T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+
+    sql = source._build_query_log_query()
+
+    for unused in ("query_duration_ms", "read_rows", "written_rows"):
+        assert unused not in sql
+
+    for needed in (
+        "query_id",
+        "query_kind",
+        "current_database",
+        "normalized_query_hash",
+    ):
+        assert needed in sql
+
+    assert "event_time >= '2020-04-14 00:00:00'" in sql
+    assert "event_time < '2020-04-15 00:00:00'" in sql
+
+
+def test_query_log_row_without_hash_is_skipped_and_reported():
+    # normalized_query_hash is a non-nullable UInt64, so this only happens if our
+    # own SELECT loses the column. Skipping loudly beats grouping every row
+    # together under a missing key.
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-15T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+
+    row: Dict[str, Any] = {
+        "query_id": "q1",
+        "query": "INSERT INTO daily_agg SELECT col_a FROM raw_events",
+        "query_kind": "Insert",
+        "user": "alice",
+        "event_time": datetime(2020, 4, 14, 6, 0, 0, tzinfo=timezone.utc),
+        "current_database": "my_db",
+    }
+
+    assert source._parse_query_log_row(row) is None
+    assert len(source.report.warnings) == 1
+
+    row["normalized_query_hash"] = 12345
+    observed = source._parse_query_log_row(row)
+    assert observed is not None
+    assert observed.query_hash == "12345"
+
+
+def _query_log_source() -> ClickHouseSource:
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "include_usage_statistics": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-16T00:00:00Z",
+        }
+    )
+    return ClickHouseSource(config, PipelineContext(run_id="test"))
+
+
+def _insert_row(
+    *,
+    query_id: str,
+    user: str = "alice",
+    database: str = "my_db",
+    hash_value: Optional[int] = 12345,
+    day: int = 14,
+    hour: int = 6,
+    literal: str = "a",
+) -> _FakeRow:
+    # Same shape every time; only the literal changes, as in a real query log.
+    return _FakeRow(
+        {
+            "query_id": query_id,
+            "query": (
+                "INSERT INTO daily_agg SELECT col_a FROM raw_events "
+                f"WHERE col_b = '{literal}'"
+            ),
+            "query_kind": "Insert",
+            "user": user,
+            "event_time": datetime(2020, 4, day, hour, 0, 0, tzinfo=timezone.utc),
+            "current_database": database,
+            "normalized_query_hash": hash_value,
+        }
+    )
+
+
+def _usage_for(source: ClickHouseSource, urn: str) -> List[DatasetUsageStatisticsClass]:
+    return [
+        wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+        and wu.metadata.entityUrn == urn
+    ]
+
+
+def _lineage_urns(source: ClickHouseSource) -> Set[Optional[str]]:
+    return {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, UpstreamLineageClass)
+    }
+
+
+_RAW_EVENTS = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.raw_events,PROD)"
+
+
+def test_query_log_fetch_failing_mid_stream_is_reported(monkeypatch):
+    # Rows are streamed, so a timeout on a large query_log lands on the cursor and
+    # not on execute(). It must fail the query log, not the whole ClickHouse run.
+    source = _query_log_source()
+
+    def rows():
+        yield _insert_row(query_id="q1")
+        raise RuntimeError("connection reset by peer")
+
+    monkeypatch.setattr(
+        clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows())
+    )
+
+    assert list(source._extract_query_log()) == []
+    assert len(source.report.failures) == 1
+
+
+def test_grouping_preserves_usage_counts(monkeypatch):
+    # If grouping drops the occurrence count, totalSqlQueries silently collapses.
+    source = _query_log_source()
+    rows = [_insert_row(query_id=f"q{i}", literal=str(i)) for i in range(20)]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert len(usage) == 1
+    assert usage[0].totalSqlQueries == 20
+
+
+def test_grouping_separates_databases(monkeypatch):
+    # Identical text under two databases shares a hash but resolves to different
+    # tables; merging them would lose one side's lineage entirely.
+    source = _query_log_source()
+    rows = [
+        _insert_row(query_id="q1", database="db_a"),
+        _insert_row(query_id="q2", database="db_b"),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    assert _lineage_urns(source) == {
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db_a.daily_agg,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db_b.daily_agg,PROD)",
+    }
+
+
+def test_grouping_separates_users(monkeypatch):
+    source = _query_log_source()
+    rows = [_insert_row(query_id=f"a{i}", user="alice") for i in range(3)] + [
+        _insert_row(query_id=f"b{i}", user="bob") for i in range(2)
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert len(usage) == 1
+    aspect = usage[0]
+    assert aspect.totalSqlQueries == 5
+    assert aspect.uniqueUserCount == 2
+    assert aspect.userCounts is not None
+    assert {c.user.split(":")[-1]: c.count for c in aspect.userCounts} == {
+        "alice": 3,
+        "bob": 2,
+    }
+
+
+def test_grouping_separates_time_buckets(monkeypatch):
+    # datasetUsageStatistics is a timeseries aspect: one per bucket.
+    source = _query_log_source()
+    rows = [_insert_row(query_id=f"d14-{i}", day=14) for i in range(4)] + [
+        _insert_row(query_id=f"d15-{i}", day=15) for i in range(6)
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert sorted(u.totalSqlQueries or 0 for u in usage) == [4, 6]
+
+
+def test_one_parse_per_shape_across_users_and_buckets(monkeypatch):
+    # Handing every batch of a shape the same SQL text is a performance property,
+    # not a correctness one - no output changes if it regresses - so assert the
+    # parse count directly.
+    source = _query_log_source()
+    rows = [
+        # The literal is unique per row, so each batch's first row - the one that
+        # would be parsed without the substitution - carries a different string.
+        _insert_row(
+            query_id=f"{user}-{day}-{i}",
+            user=user,
+            day=day,
+            literal=f"{user}-{day}-{i}",
+        )
+        for user in ("alice", "bob")
+        for day in (14, 15)
+        for i in range(3)
+    ]  # one shape x 2 users x 2 buckets x 3 executions = 12 rows, 4 batches
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    sqlglot_lineage._sqlglot_lineage_cached.cache_clear()
+    list(source._extract_query_log())
+
+    assert sqlglot_lineage._sqlglot_lineage_cached.cache_info().misses == 1
+
+
+def test_query_log_query_skips_rows_that_touch_no_real_table():
+    # ClickHouse resolves SELECT 1 to system.one and numbers() to
+    # _table_function.numbers, so the fetch drops them without matching query text.
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-15T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+
+    sql = source._build_query_log_query()
+
+    for prefix in (
+        "system.",
+        "_table_function.",
+        "information_schema.",
+        "INFORMATION_SCHEMA.",
+    ):
+        assert f"NOT startsWith(t, '{prefix}')" in sql
+
+
+def _select_row(
+    *,
+    query_id: str = "s1",
+    user: str = "alice",
+    database: str = "my_db",
+    hash_value: Optional[int] = 54321,
+    day: int = 14,
+    tables: Tuple[str, ...] = ("my_db.raw_events",),
+    columns: Tuple[str, ...] = ("my_db.raw_events.col_a",),
+) -> _FakeRow:
+    return _FakeRow(
+        {
+            "query_id": query_id,
+            "query": "SELECT col_a FROM raw_events WHERE col_b = 'x'",
+            "query_kind": "Select",
+            "user": user,
+            "event_time": datetime(2020, 4, day, 6, 0, 0, tzinfo=timezone.utc),
+            "current_database": database,
+            "normalized_query_hash": hash_value,
+            # Joined, as the fetch asks ClickHouse to return them - the HTTP
+            # driver does not hand arrays back as lists.
+            "tables_joined": "\n".join(tables),
+            "columns_joined": "\n".join(columns),
+        }
+    )
+
+
+def test_usage_credits_every_table_clickhouse_resolved(monkeypatch):
+    # ClickHouse already resolved the read down to tables and columns, so usage
+    # comes straight off the row. A query spanning two tables credits both.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            tables=("my_db.raw_events", "my_db.dim_users"),
+            columns=(
+                "my_db.raw_events.col_a",
+                "my_db.raw_events.col_b",
+                "my_db.dim_users.col_c",
+            ),
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    by_urn = {
+        wu.metadata.entityUrn: wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    }
+
+    dim_users = "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_db.dim_users,PROD)"
+    assert set(by_urn) == {_RAW_EVENTS, dim_users}
+    assert _field_counts(by_urn[_RAW_EVENTS]) == {"col_a": 1, "col_b": 1}
+    assert _field_counts(by_urn[dim_users]) == {"col_c": 1}
+
+
+def test_usage_counts_nested_and_map_subcolumns(monkeypatch):
+    # ClickHouse stores Nested(a UInt8) on column n as a physical column named
+    # n.a, and reports it backtick-quoted, so the column name is itself dotted.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            columns=(
+                "my_db.raw_events.plain",
+                "my_db.raw_events.`n.a`",
+                "my_db.raw_events.`m.key_k`",
+            )
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert _field_counts(usage[0]) == {"plain": 1, "n.a": 1, "m.key_k": 1}
+
+
+def test_usage_counts_columns_the_parser_would_miss(monkeypatch):
+    # ClickHouse's column list covers a filter-only column and the expansion of
+    # a star; a parsed SELECT's column lineage covers neither.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            columns=(
+                "my_db.raw_events.col_a",
+                "my_db.raw_events.col_filtered_on",
+            )
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert _field_counts(usage[0]) == {"col_a": 1, "col_filtered_on": 1}
+
+
+def test_usage_does_not_parse_selects(monkeypatch):
+    # Skipping the parse is the reason this path exists, and nothing in the
+    # output would change if it regressed - so assert the parse count directly.
+    source = _query_log_source()
+    rows = [_select_row(query_id=f"s{i}", day=14 + i % 2) for i in range(6)]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    sqlglot_lineage._sqlglot_lineage_cached.cache_clear()
+    list(source._extract_query_log())
+
+    assert sqlglot_lineage._sqlglot_lineage_cached.cache_info().misses == 0
+
+
+def test_usage_produces_no_lineage(monkeypatch):
+    source = _query_log_source()
+    monkeypatch.setattr(
+        clickhouse, "create_engine", lambda *a, **kw: _FakeEngine([_select_row()])
+    )
+
+    assert _lineage_urns(source) == set()
+
+
+def test_usage_skips_system_tables_within_a_kept_row(monkeypatch):
+    # The fetch keeps a row if ANY table is a real one, so a row can still carry
+    # system entries alongside the table we care about.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            tables=("my_db.raw_events", "system.one"),
+            columns=("my_db.raw_events.col_a", "system.one.dummy"),
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    urns = {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    }
+
+    assert urns == {_RAW_EVENTS}
+
+
+def test_usage_skips_clickhouse_temporary_tables(monkeypatch):
+    # ClickHouse reports temporary tables under a pseudo-database. Minting URNs
+    # for those would put usage on datasets that were never ingested.
+    source = _query_log_source()
+    rows = [
+        _select_row(
+            tables=("my_db.raw_events", "_temporary_and_external_tables.scratch"),
+            columns=(
+                "my_db.raw_events.col_a",
+                "_temporary_and_external_tables.scratch.col_x",
+            ),
+        )
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    urns = {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    }
+
+    assert urns == {_RAW_EVENTS}
+
+
+def test_operation_reports_the_newest_execution(monkeypatch):
+    # The aggregator overwrites timestamp and actor on every add, so the last
+    # split emitted decides both. Splitting one shape across users orders the
+    # splits by their first execution, not their last.
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "include_query_log_operations": True,
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-16T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    rows = [
+        _insert_row(query_id="a6", user="alice", hour=6),
+        _insert_row(query_id="b7", user="bob", hour=7),
+        _insert_row(query_id="a8", user="alice", hour=8),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    ops = [
+        wu.metadata.aspect
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, OperationClass)
+    ]
+
+    assert len(ops) == 1
+    assert ops[0].actor == "urn:li:corpuser:alice"
+    assert ops[0].lastUpdatedTimestamp == int(
+        datetime(2020, 4, 14, 8, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
+    )
+
+
+def test_report_subclass_stays_wired_to_subsystems():
+    # The base class wires classification_handler and sql_aggregator to the
+    # report it builds in __init__. Swapping in a subclass afterwards sends
+    # their stats to a discarded object unless they are re-pointed.
+    source = ClickHouseSource(
+        ClickHouseConfig.model_validate({"host_port": "localhost:8123"}),
+        PipelineContext(run_id="test"),
+    )
+
+    assert source.report.sql_aggregator is source.aggregator.report
+    assert source.classification_handler.report is source.report
+
+
+def test_query_log_aggregator_report_is_attached():
+    # The base report's sql_aggregator holds the view-lineage aggregator. The
+    # query-log path runs a second one, whose parse failures and observed-query
+    # counts otherwise surface nowhere.
+    source = ClickHouseSource(
+        ClickHouseConfig.model_validate(
+            {"host_port": "localhost:8123", "include_query_log_lineage": True}
+        ),
+        PipelineContext(run_id="test"),
+    )
+
+    assert source._query_log_aggregator is not None
+    assert source.report.query_log_aggregator is source._query_log_aggregator.report
+
+
+def test_query_log_respects_database_pattern(monkeypatch):
+    # The query log names every database on the instance, not just the ones this
+    # recipe ingests. Without the filter, excluded databases become datasets.
+    config = ClickHouseConfig.model_validate(
+        {
+            "host_port": "localhost:8123",
+            "include_query_log_lineage": True,
+            "include_usage_statistics": True,
+            "database_pattern": {"allow": ["my_db"]},
+            "start_time": "2020-04-14T00:00:00Z",
+            "end_time": "2020-04-16T00:00:00Z",
+        }
+    )
+    source = ClickHouseSource(config, PipelineContext(run_id="test"))
+    rows = [
+        _select_row(
+            tables=("my_db.raw_events", "other_db.secret"),
+            columns=("my_db.raw_events.col_a", "other_db.secret.col_s"),
+        ),
+        _insert_row(query_id="i1", database="other_db"),
+    ]
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    urns = {
+        wu.metadata.entityUrn
+        for wu in source._extract_query_log()
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    }
+
+    assert not [u for u in urns if u and "other_db" in u]
+    assert _RAW_EVENTS in urns
+
+
+def test_usage_rows_are_deduplicated_before_the_aggregator(monkeypatch):
+    # Selects skip the parser but not the aggregator, and each add() there costs
+    # FileBackedDict writes plus a usage event per table. Nothing in the emitted
+    # aspects would reveal a regression, so assert the record count directly.
+    source = _query_log_source()
+    rows = (
+        [_select_row(query_id=f"a{i}", user="alice") for i in range(5)]
+        + [_select_row(query_id=f"b{i}", user="bob") for i in range(3)]
+        + [_select_row(query_id=f"c{i}", day=15) for i in range(4)]
+    )  # one shape x (alice, bob, day-15) = 12 rows, 3 records
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    list(source._extract_query_log())
+
+    assert source.report.query_log_usage_reads == 12
+    assert source.report.query_log_usage_records == 3
+
+
+def test_usage_aggregates_users_and_buckets(monkeypatch):
+    source = _query_log_source()
+    rows = (
+        [_select_row(query_id=f"a{i}", user="alice") for i in range(3)]
+        + [_select_row(query_id=f"b{i}", user="bob") for i in range(2)]
+        + [_select_row(query_id=f"c{i}", day=15) for i in range(4)]
+    )
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    by_total = {u.totalSqlQueries or 0: u for u in usage}
+    assert sorted(by_total) == [4, 5]
+    day14 = by_total[5]
+    assert day14.uniqueUserCount == 2
+    assert day14.userCounts is not None
+    assert {c.user.split(":")[-1]: c.count for c in day14.userCounts} == {
+        "alice": 3,
+        "bob": 2,
+    }
+
+
+def test_usage_collapses_repeated_selects(monkeypatch):
+    # Selects skip the parser, but each add() still costs the aggregator two
+    # FileBackedDict round-trips and a usage event per table - so the count of
+    # records added is the thing to assert. The usage totals below look the same
+    # whether or not the collapse happens.
+    source = _query_log_source()
+    rows = (
+        [_select_row(query_id=f"s{i}") for i in range(10)]
+        + [_select_row(query_id="bob1", user="bob")]
+        + [
+            _select_row(
+                query_id="dbb",
+                database="db_b",
+                tables=("db_b.raw_events",),
+                columns=("db_b.raw_events.col_a",),
+            )
+        ]
+    )
+    monkeypatch.setattr(clickhouse, "create_engine", lambda *a, **kw: _FakeEngine(rows))
+
+    usage = _usage_for(source, _RAW_EVENTS)
+
+    assert source.report.query_log_usage_reads == 12
+    # One per (query, database, user, bucket): alice/my_db, bob/my_db, alice/db_b.
+    assert source.report.query_log_usage_records == 3
+    assert len(usage) == 1
+    assert usage[0].totalSqlQueries == 11
+
+
+def test_usage_row_without_hash_is_skipped_and_reported(monkeypatch):
+    source = _query_log_source()
+    row = _select_row()
+    del row._mapping["normalized_query_hash"]
+    monkeypatch.setattr(
+        clickhouse, "create_engine", lambda *a, **kw: _FakeEngine([row])
+    )
+
+    assert _usage_for(source, _RAW_EVENTS) == []
+    assert len(source.report.warnings) == 1
+
+
+def _field_counts(aspect: DatasetUsageStatisticsClass) -> Dict[str, int]:
+    assert aspect.fieldCounts is not None
+    return {f.fieldPath: f.count for f in aspect.fieldCounts}
+
+
+def test_query_log_query_fetches_selects_only_for_usage():
+    # A Select writes no table, so it reaches neither the lineage map nor an
+    # operation. With usage off it would be fetched and parsed to produce nothing.
+    base = {
+        "host_port": "localhost:8123",
+        "start_time": "2020-04-14T00:00:00Z",
+        "end_time": "2020-04-15T00:00:00Z",
+    }
+
+    lineage_only = ClickHouseSource(
+        ClickHouseConfig.model_validate({**base, "include_query_log_lineage": True}),
+        PipelineContext(run_id="test"),
+    )
+    assert "'Select'" not in lineage_only._build_query_log_query()
+
+    assert "tables" in lineage_only._build_query_log_query()  # used by the filter
+    assert "columns" not in lineage_only._build_query_log_query()
+
+    with_usage = ClickHouseSource(
+        ClickHouseConfig.model_validate({**base, "include_usage_statistics": True}),
+        PipelineContext(run_id="test"),
+    )
+    sql = with_usage._build_query_log_query()
+    assert "'Select'" in sql
+    # Joined server-side: the HTTP driver returns arrays as their printed form.
+    assert "arrayStringConcat(columns" in sql
