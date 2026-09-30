@@ -1,7 +1,8 @@
+import { Tooltip } from '@components';
 import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
 import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
 import i18next from 'i18next';
 import React from 'react';
 import { useTranslation } from 'react-i18next';

@@ -2,7 +2,6 @@ package com.linkedin.datahub.upgrade;
 
 import static com.linkedin.metadata.EventUtils.RENAMED_MCL_AVRO_SCHEMA;
 import static com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer.topicToSubjectName;
-import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -14,15 +13,10 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.mxe.Topics;
-import com.linkedin.upgrade.DataHubUpgradeState;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
-import io.datahubproject.metadata.context.OperationContext;
 import jakarta.inject.Named;
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -33,7 +27,6 @@ import org.testng.annotations.Test;
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     properties = {
-      "DATAHUB_UPGRADE_HISTORY_TOPIC_NAME=" + Topics.DATAHUB_UPGRADE_HISTORY_TOPIC_NAME,
       "METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=" + Topics.METADATA_CHANGE_LOG_VERSIONED,
     },
     args = {"-u", "SystemUpdate"})
@@ -87,49 +80,5 @@ public class DatahubUpgradeNoSchemaRegistryTest extends AbstractTestNGSpringCont
     assertTrue(
         actualSchemaId == 18 || actualSchemaId == 19,
         "Expected schema ID 18 or 19, but got: " + actualSchemaId);
-  }
-
-  @Test
-  public void testSystemUpdateSend() {
-    DataHubUpgradeState result =
-        systemUpdate.steps().stream()
-            .filter(s -> s.id().equals("DataHubStartupStep"))
-            .findFirst()
-            .get()
-            .executable()
-            .apply(
-                new UpgradeContext() {
-                  @Override
-                  public Upgrade upgrade() {
-                    return null;
-                  }
-
-                  @Override
-                  public List<UpgradeStepResult> stepResults() {
-                    return null;
-                  }
-
-                  @Override
-                  public UpgradeReport report() {
-                    return null;
-                  }
-
-                  @Override
-                  public List<String> args() {
-                    return null;
-                  }
-
-                  @Override
-                  public Map<String, Optional<String>> parsedArgs() {
-                    return null;
-                  }
-
-                  @Override
-                  public OperationContext opContext() {
-                    return mock(OperationContext.class);
-                  }
-                })
-            .result();
-    assertEquals("SUCCEEDED", result.toString());
   }
 }

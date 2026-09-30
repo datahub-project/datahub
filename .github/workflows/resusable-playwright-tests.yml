@@ -236,8 +236,15 @@ jobs:
           # once reusable-playwright-report.yml flattens blobs into one directory to merge
           # them -- set this explicitly instead.
           PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.shard }}.zip
+          TEST_RUNNER_TYPE: ${{ inputs.test_runner_type }}
         run: |
           mapfile -t ARGS < shard-files.txt
+          # *-scale specs assert wall-clock budgets tuned for Depot runners; GitHub-hosted
+          # runners (fork PRs without the "depot" label) are ~1.5-2x slower and fail them.
+          if [[ "$TEST_RUNNER_TYPE" != depot-* ]]; then
+            mapfile -t ARGS < <(printf '%s\n' "${ARGS[@]}" | grep -v -- '^[^/]*-scale/')
+            echo "Skipping *-scale specs on non-Depot runner $TEST_RUNNER_TYPE"
+          fi
           if [ "${#ARGS[@]}" -eq 0 ]; then
             echo "No spec files assigned to shard ${{ inputs.shard }}/${{ inputs.shard_count }} — skipping."
             exit 0

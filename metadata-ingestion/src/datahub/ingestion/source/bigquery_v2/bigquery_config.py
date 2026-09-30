@@ -2,7 +2,16 @@ import logging
 import re
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import (
+    Annotated,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 from pydantic import (
     Field,
@@ -13,7 +22,13 @@ from pydantic import (
     model_validator,
 )
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    Filters,
+    HiddenFromDocs,
+    Qualifier,
+)
 from datahub.configuration.env_vars import get_bigquery_schema_parallelism
 from datahub.configuration.source_common import (
     EnvConfigMixin,
@@ -25,14 +40,23 @@ from datahub.configuration.time_window_config import (
     BucketDuration,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.agent.verdicts import ancestors_in
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.sql.sql_config import (
+    SQLCommonConfig,
+    SQLFilterConfig,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
@@ -85,6 +109,48 @@ LINKED_DATASET_LINEAGE_NEEDS_TABLE_LINEAGE_MESSAGE = (
 _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
     "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
+
+
+class BigQueryProfilingConfig(ProfilingConfig):
+    fallback_partition_values: Dict[str, Union[str, int, float]] = Field(
+        default_factory=dict,
+        description="Fallback values for partition columns when partition discovery fails. Keys are column "
+        "names, values are the fallback values to use (string, int, or float). For non-date columns, the "
+        "values are used directly. Example: {'batch': 'default', 'region': 'us-east-1'}",
+    )
+
+    partition_fetch_timeout: PositiveInt = Field(
+        default=30,
+        description="Timeout in seconds for each partition value fetch query. On timeout the "
+        "table is treated as having no discoverable partition, so it is either skipped or "
+        "(for require_partition_filter=false tables) profiled without a partition filter.",
+    )
+
+    partition_fetch_max_bytes_billed: Optional[PositiveInt] = Field(
+        default=None,
+        description="Optional ceiling (in bytes) on the data scanned by each partition-value "
+        "fetch query. These probes group by a partition column across the table, so on a very "
+        "large table they can scan a lot of data. Set this to fail such a probe fast instead "
+        "of billing for a full-column scan; on failure the table is treated as having no "
+        "discoverable partition. Left unset (no cap) by default because a low ceiling would "
+        "spuriously fail discovery on legitimately large tables; `partition_fetch_timeout` "
+        "already bounds runaway probes by time.",
+    )
+
+    @field_validator("fallback_partition_values", mode="before")
+    @classmethod
+    def reject_bool_fallback_values(cls, v: object) -> object:
+        # Must run in mode="before": a YAML `true`/`false` is otherwise coerced to 1/0 by
+        # the Union[str, int, float] field before an after-validator sees it (bool is an
+        # int subclass), so the wrong partition could be selected silently. Inspect the
+        # raw mapping here and reject bools; leave other shapes for normal validation.
+        if isinstance(v, dict):
+            for col, val in v.items():
+                if isinstance(val, bool):
+                    raise ValueError(
+                        f"fallback_partition_values[{col!r}] must be a string, int, or float, not bool"
+                    )
+        return v
 
 
 class BigQueryBaseConfig(ConfigModel):
@@ -222,7 +288,7 @@ class GcsDatasetLineageProviderConfigBase(ConfigModel):
 
 
 class BigQueryFilterConfig(SQLFilterConfig):
-    project_ids: List[str] = Field(
+    project_ids: Annotated[List[str], Qualifier()] = Field(
         default_factory=list,
         description=(
             "Ingests specified project_ids. Use this property if you want to specify what projects to ingest or "
@@ -240,12 +306,23 @@ class BigQueryFilterConfig(SQLFilterConfig):
         ),
     )
 
-    project_id_pattern: AllowDenyPattern = Field(
+    project_id_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.BIGQUERY_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for project_id to filter in ingestion.",
     )
 
-    dataset_pattern: AllowDenyPattern = Field(
+    # Annotated so the probe resolves Schema to *this* field. Without the hint it
+    # falls back to the `<kind>_pattern` name convention, which finds the
+    # schema_pattern alias below -- and that alias is allow-all unless the recipe
+    # sets it, so `probe filter --kind Schema` reported every dataset included
+    # while ingestion filtered on dataset_pattern and excluded most of them. A
+    # verdict that says "this will be ingested" about something that will not is
+    # the failure the command exists to prevent.
+    dataset_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for dataset to filter in ingestion. Specify regex to only match the schema name. "
         "e.g. to match all tables in schema analytics, use the regex 'analytics'",
@@ -265,6 +342,10 @@ class BigQueryFilterConfig(SQLFilterConfig):
     )
 
     # NOTE: `schema_pattern` is added here only to hide it from docs.
+    # Deliberately not annotated with Filters(...): it is a deprecated alias that
+    # the validator below folds into dataset_pattern, and only when
+    # dataset_pattern is unset. Labelling it would point an agent at a field that
+    # is ignored whenever the canonical one is set.
     schema_pattern: HiddenFromDocs[AllowDenyPattern] = Field(
         default=AllowDenyPattern.allow_all(),
     )
@@ -465,6 +546,18 @@ class BigQueryV2Config(
     def have_table_data_read_permission(self) -> bool:
         return self.use_tables_list_query_v2 or self.is_profiling_enabled()
 
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # Datasets sit in projects, not databases: the SQL default would judge
+        # the project against a database_pattern BigQuery does not have.
+        return ancestors_in(
+            (
+                DatasetContainerSubTypes.BIGQUERY_PROJECT,
+                DatasetContainerSubTypes.SCHEMA,
+            ),
+            kind,
+            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
+        )
+
     column_limit: int = Field(
         default=300,
         description="Maximum number of columns to process in a table. This is a low level config property which "
@@ -620,6 +713,22 @@ class BigQueryV2Config(
         "Defaults to False to avoid unexpected query cost increases. "
         "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
     )
+
+    profiling: BigQueryProfilingConfig = Field(
+        default_factory=BigQueryProfilingConfig,
+        description="Profiling related configs",
+    )
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def coerce_profiling_config(cls, v: object) -> object:
+        # A code caller may pass a ProfilingConfig instance rather than a YAML dict.
+        # Re-validating it as the BigQueryProfilingConfig subclass runs ProfilingConfig's
+        # inherited before-validators, which assume a dict and raise on a model instance;
+        # dump it back to a dict so re-validation runs on plain data.
+        if isinstance(v, ProfilingConfig):
+            return v.dict()
+        return v
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],

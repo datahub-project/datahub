@@ -16,7 +16,7 @@ aiofiles==25.1.0 ; python_full_version >= '3.11' and python_full_version < '3.14
     # via unstructured-client
 aiohappyeyeballs==2.6.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via aiohttp
-aiohttp==3.13.5 ; python_full_version >= '3.11' and python_full_version < '3.14'
+aiohttp==3.14.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   aiobotocore
@@ -364,7 +364,7 @@ expandvars==1.1.2 ; python_full_version >= '3.11' and python_full_version < '3.1
     # via acryl-datahub
 faker==40.8.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-fastapi==0.128.8 ; python_full_version >= '3.11' and python_full_version < '3.14'
+fastapi==0.141.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   feast
@@ -1069,7 +1069,7 @@ pyiceberg==0.11.1 ; python_full_version >= '3.11' and python_full_version < '3.1
     # via acryl-datahub
 pyiceberg-core==0.6.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via pyiceberg
-pyjwt==2.13.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+pyjwt==2.15.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   feast
     #   msal
@@ -1384,7 +1384,7 @@ snowflake-connector-python==4.7.5 ; python_full_version >= '3.11' and python_ful
     # via
     #   acryl-datahub
     #   snowflake-sqlalchemy
-snowflake-sqlalchemy==1.9.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+snowflake-sqlalchemy==1.11.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 sortedcontainers==2.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
@@ -1452,8 +1452,10 @@ srsly==2.5.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     #   weasel
 sspilib==0.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14' and sys_platform == 'win32'
     # via pyspnego
-starlette==0.52.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
-    # via fastapi
+starlette==1.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+    # via
+    #   acryl-datahub
+    #   fastapi
 starrocks==1.3.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 strictyaml==1.7.3 ; python_full_version >= '3.11' and python_full_version < '3.14'
@@ -1580,6 +1582,7 @@ types-urllib3==1.26.25.14 ; python_full_version >= '3.11' and python_full_versio
 typing-extensions==4.16.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
+    #   aiohttp
     #   aiosignal
     #   alembic
     #   anyio
@@ -1668,7 +1671,7 @@ unstructured-client==0.42.10 ; python_full_version >= '3.11' and python_full_ver
     # via unstructured
 unstructured-ingest==1.4.28 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-urllib3==2.7.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
+urllib3==2.8.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   acryl-datahub
     #   botocore
@@ -1690,7 +1693,7 @@ uvicorn-worker==0.4.0 ; python_full_version >= '3.11' and python_full_version < 
     # via feast
 uvloop==0.22.1 ; python_full_version >= '3.11' and python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
-vcrpy==8.1.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+vcrpy==8.3.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
 vertica-python==1.4.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via vertica-sqlalchemy-dialect

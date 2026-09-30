@@ -1,7 +1,5 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
-import static com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener.TOPIC_NAME;
-
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateDeserializer;
 import com.linkedin.metadata.boot.kafka.MockSystemUpdateSerializer;
@@ -23,14 +21,9 @@ public class SystemUpdateSchemaRegistryFactory {
   public static final String SYSTEM_UPDATE_TOPIC_KEY_PREFIX = "data-hub.system-update.topic-key.";
   public static final String SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX = ".id";
 
-  public static final String DUHE_SCHEMA_REGISTRY_TOPIC_KEY =
-      SYSTEM_UPDATE_TOPIC_KEY_PREFIX + "duhe";
   public static final String MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY =
       SYSTEM_UPDATE_TOPIC_KEY_PREFIX + "mcl-versioned";
   public static final String MCP_SCHEMA_REGISTRY_TOPIC_KEY = SYSTEM_UPDATE_TOPIC_KEY_PREFIX + "mcp";
-
-  @Value(TOPIC_NAME)
-  private String duheTopicName;
 
   @Value("${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_VERSIONED + "}")
   private String mclTopicName;
@@ -49,18 +42,13 @@ public class SystemUpdateSchemaRegistryFactory {
         AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG,
         kafkaConfiguration.getSchemaRegistry().getUrl());
 
-    // topic names
     props.putAll(
         Map.of(
-            DUHE_SCHEMA_REGISTRY_TOPIC_KEY, duheTopicName,
             MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY, mclTopicName,
             MCP_SCHEMA_REGISTRY_TOPIC_KEY, mcpTopicName));
 
-    // topic ordinals
     props.putAll(
         Map.of(
-            DUHE_SCHEMA_REGISTRY_TOPIC_KEY + SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX,
-            schemaRegistryService.getSchemaIdForTopic(duheTopicName).get().toString(),
             MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY + SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX,
             schemaRegistryService.getSchemaIdForTopic(mclTopicName).get().toString(),
             MCP_SCHEMA_REGISTRY_TOPIC_KEY + SYSTEM_UPDATE_TOPIC_KEY_ID_SUFFIX,

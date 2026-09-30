@@ -200,6 +200,25 @@ task yarnI18nParityCheck(type: YarnTask, dependsOn: [yarnInstall]) {
   outputs.cacheIf { true }
 }
 
+// Fails when any locale JSON file (`en` included) stores a key as a nested object instead of a
+// flat dotted key.
+task yarnI18nFlatKeysCheck(type: YarnTask, dependsOn: [yarnInstall]) {
+  args = ['run', 'check-i18n-flat-keys']
+  inputs.files(project.fileTree(dir: 'src/i18n/locales', include: ['**/*.json']))
+  inputs.file('scripts/check-i18n-flat-keys.mjs')
+  def flat_keys_sentinel = "${buildDir}/.yarn-i18n-flat-keys-sentinel"
+  outputs.file(flat_keys_sentinel)
+  doLast {
+    def file = file(flat_keys_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
+}
+
 test.dependsOn([yarnInstall, yarnTest])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {

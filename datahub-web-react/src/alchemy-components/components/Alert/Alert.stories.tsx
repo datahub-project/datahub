@@ -2,13 +2,10 @@ import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Sparkle } from '@phosphor-icons/react/dist/csr/Sparkle';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { ThemeProvider } from 'styled-components';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { Alert } from '@components/components/Alert/Alert';
 import { AlertVariant } from '@components/components/Alert/types';
-
-import themes from '@conf/theme/themes';
 
 const VARIANTS: AlertVariant[] = ['success', 'error', 'warning', 'info', 'brand', 'gray'];
 
@@ -24,15 +21,6 @@ const meta = {
                 'Inline status banner for surfacing success, error, warning, info, brand, or gray messages within a page or panel. Colors come from semantic theme tokens — never pass hex values. Action button color is derived from the alert variant automatically.',
         },
     },
-
-    decorators: [
-        (Story) => (
-            <ThemeProvider theme={themes.themeV2}>
-                <Story />
-            </ThemeProvider>
-        ),
-    ],
-
     argTypes: {
         variant: {
             description: 'Visual style determining colors and the default icon.',
