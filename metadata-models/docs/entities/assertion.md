@@ -314,7 +314,7 @@ The `DATASET` assertion type is a **deprecated** legacy format for externally ma
 
 **New external integrations must use `AssertionType.CUSTOM` with `CustomAssertionInfo`**, which now supports the same structured display fields (scope, aggregation, operator, parameters, fields, nativeType). Prefer the GraphQL `upsertCustomAssertion` / `reportAssertionResult` APIs, or the Python helpers documented in [Custom Assertions](/docs/api/tutorials/custom-assertions.md).
 
-Native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) are intended for assertions DataHub evaluates or schedules natively and should not be used for external self-reporting. 
+Native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) are intended for assertions DataHub evaluates or schedules natively and should not be used for external self-reporting.
 
 ### Assertion Results vs. Assertion Metrics
 
