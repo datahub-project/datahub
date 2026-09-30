@@ -280,6 +280,7 @@ cryptography==50.0.0 ; python_full_version >= '3.11' and python_full_version < '
     #   msal
     #   oracledb
     #   pyjwt
+    #   pymysql
     #   pyopenssl
     #   pyspnego
     #   requests-ntlm
