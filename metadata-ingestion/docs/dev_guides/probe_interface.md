@@ -127,9 +127,15 @@ connectors, so implement a hook only when the default gives the wrong answer.
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | find the field that filters this kind — by convention from the subtype (`Table` → `table_pattern`)                                                              | `Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)]` on the field                                                                                                              |
 | 2    | decide the string the pattern is matched against — bare name for container kinds, bare name (with a warning) when no parent was given, otherwise ask the config | `probe_match_target(self, ctx: ClassifyContext) -> str`; for a container matched on a composed id, `probe_container_match_target(self, kind, name, parent_path, warn) -> Optional[str]` |
-| 3    | apply exclusions the user's pattern does not express, before the pattern                                                                                        | `default_databases()` / `default_schemas()` (classmethods returning `FrozenSet[str]`), `probe_schema_verdict_override(self, schema: str) -> Optional[bool]`                             |
+| 3    | apply exclusions the user's pattern does not express, before the pattern                                                                                        | `probe_kind_switches()` (classmethod: kind → bool field that switches it off; the SQL family's `include_tables`/`include_views` are the default), `default_databases()` / `default_schemas()` (classmethods returning `FrozenSet[str]`), `probe_schema_verdict_override(self, schema: str) -> Optional[bool]`                             |
 | 4    | match the pattern against the target                                                                                                                            | —                                                                                                                                                                                       |
 | 5    | judge the immediate `--parent` container the same way, recursively; an object inside an excluded container is reported excluded by that container's field       | `probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]`                                                                                                                      |
+
+**A recipe switch that turns a whole kind off** (`extract_lakehouses: false`,
+`include_notebooks: false`) is declared with `probe_kind_switches()`, a classmethod
+mapping the kind to the bool field. `probe filter` then reports that kind
+`excluded_by` the switch, as ingestion never lists it. A contract test checks every
+field you name is a real bool field.
 
 **Step 5 needs the kinds above each kind**, outermost first, because `--parent` carries names
 only. The SQL family declares `Database` → `Schema` (or `Database` alone on a two-tier source);

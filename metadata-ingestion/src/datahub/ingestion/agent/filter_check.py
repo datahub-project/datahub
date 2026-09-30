@@ -28,20 +28,9 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 
-# Kinds a recipe can switch off wholesale, and the flag that does it. When one
-# is false ingestion emits nothing of that kind, whatever the pattern says --
-# so reporting a pattern verdict for it is a verdict ingestion does not make,
-# and `probe filter --kind View` answered "included: true" for a view that
-# `include_views: false` guarantees will never appear.
-#
-# Only these two. The other include_* flags on these configs
-# (include_view_lineage, include_usage_stats, include_table_location_lineage)
-# govern what ELSE is emitted about an object, not whether the object itself
-# is -- a verdict about a name has nothing to say about them.
 # The kinds this module compares by identity -- the structural rules read
-# them straight off the enums. Kept beside _INCLUDE_FLAG_FOR_KIND because
-# both are the reason --kind has to be canonicalised before anything reads
-# it (see _canonical_kind).
+# them straight off the enums. They are the reason --kind has to be
+# canonicalised before anything reads it (see _canonical_kind).
 _STRUCTURAL_KINDS = frozenset(
     {
         str(DatasetSubTypes.TABLE),
@@ -51,10 +40,29 @@ _STRUCTURAL_KINDS = frozenset(
     }
 )
 
-_INCLUDE_FLAG_FOR_KIND = {
+# The SQL family's switches, applied to any config that has the field.
+# Only these two: the other include_* flags on these configs
+# (include_view_lineage, include_usage_stats, include_table_location_lineage)
+# govern what ELSE is emitted about an object, not whether the object itself
+# is -- a verdict about a name has nothing to say about them. A source with
+# switches of its own declares probe_kind_switches.
+_DEFAULT_KIND_SWITCHES = {
     str(DatasetSubTypes.TABLE): "include_tables",
     str(DatasetSubTypes.VIEW): "include_views",
 }
+
+
+def _kind_switches(config: object) -> Dict[str, str]:
+    """kind -> the bool field that, when False, stops ingestion emitting it.
+
+    When one is off ingestion emits nothing of that kind, whatever the pattern
+    says, so a pattern verdict for it is a verdict ingestion does not make.
+    """
+    switches = dict(_DEFAULT_KIND_SWITCHES)
+    declared = getattr(config, "probe_kind_switches", None)
+    if callable(declared):
+        switches.update({str(kind): field for kind, field in declared().items()})
+    return switches
 
 
 @dataclass
@@ -250,6 +258,12 @@ def _structural_verdict(
     verdict ingestion does not make. None means "no structural rule applies --
     fall through to the pattern".
     """
+    flag = _kind_switches(config).get(kind)
+    # getattr, not a hard read: a config without the field never switches the
+    # kind off, and a kind it never emits falls through to the pattern.
+    if flag is not None and getattr(config, flag, True) is False:
+        return Verdict(False, flag)
+
     if kind == DatasetContainerSubTypes.DATABASE:
         default_databases = getattr(config, "default_databases", None)
         if callable(default_databases) and name.lower() in {
@@ -258,15 +272,6 @@ def _structural_verdict(
             # Postgres templates, SQL Server's system databases: dropped
             # whatever database_pattern says.
             return Verdict(False, "default_database")
-        return None
-
-    flag = _INCLUDE_FLAG_FOR_KIND.get(kind)
-    if flag is not None:
-        # getattr, not a hard read: a non-SQL config has no such field, and a
-        # kind it never emits should fall through to the pattern rather than
-        # be reported excluded by a flag that does not exist.
-        if getattr(config, flag, True) is False:
-            return Verdict(False, flag)
         return None
 
     if kind != DatasetContainerSubTypes.SCHEMA:

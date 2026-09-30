@@ -14,10 +14,11 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Dict, Iterator, List, Mapping, Optional, Set, Tuple
 
 import pytest
 
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
     ProbeProvider,
@@ -264,6 +265,9 @@ _CONFIG_HOOKS = frozenset(
         # Read by sqlalchemy_probe.for_config: the URL the probe dials when
         # it differs from get_sql_alchemy_url().
         "probe_sql_alchemy_url",
+        # Read by filter_check._kind_switches: the bool field that switches a
+        # kind off (Fabric's extract_lakehouses, Unity's include_notebooks).
+        "probe_kind_switches",
     }
 )
 
@@ -1029,3 +1033,42 @@ def test_methods_declares_every_recipe_dependent_kind_that_run_reports():
         "agent reading methods cannot pick the right --kind:\n  "
         + "\n  ".join(f"{k}: {v}" for k, v in disagreed.items())
     )
+
+
+def _kind_switch_problems(config_cls: type) -> List[str]:
+    """Every field a probe_kind_switches map names must be a bool on the
+    config: a misspelled one reads as "never switched off", which reports
+    included a kind ingestion never emits."""
+    declared = getattr(config_cls, "probe_kind_switches", None)
+    if not callable(declared):
+        return []
+    fields = getattr(config_cls, "model_fields", {})
+    problems = []
+    for kind, field_name in declared().items():
+        info = fields.get(field_name)
+        if info is None or info.annotation is not bool:
+            problems.append(
+                f"{config_cls.__name__}: switch for '{kind}' names "
+                f"'{field_name}', which is not a bool field"
+            )
+    return problems
+
+
+def test_every_kind_switch_names_a_bool_field():
+    problems = [
+        problem
+        for _source_type, config_cls in _probe_capable_configs()
+        for problem in _kind_switch_problems(config_cls)
+    ]
+    assert problems == []
+
+
+def test_the_kind_switch_check_catches_a_misspelled_field():
+    class _Typo(ConfigModel):
+        include_notebooks: bool = True
+
+        @classmethod
+        def probe_kind_switches(cls) -> Mapping[str, str]:
+            return {"Notebook": "include_notebook"}
+
+    assert len(_kind_switch_problems(_Typo)) == 1
