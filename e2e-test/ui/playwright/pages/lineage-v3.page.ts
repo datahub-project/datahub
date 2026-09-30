@@ -58,26 +58,26 @@ export class LineageV3Page extends LineageBasePage {
   }
 
   /**
-   * Result card in a lineage results list, matched by the exact displayed name. Scoped to the
-   * results list so graph nodes, headers and sidebar sections showing the same text do not match.
-   * Data jobs without a display name in the results show their URN.
+   * Result card in a lineage results list, matched by entity URN. Scoped to the results list so
+   * graph nodes, headers and sidebar sections showing the same entity do not match. Titles are not
+   * reliable here: data jobs without a name render their URN with an empty title attribute.
    */
-  private getLineageListResult(list: Locator, name: string): Locator {
-    return list.getByTestId('entity-title').and(this.page.getByTitle(name, { exact: true }));
+  private getLineageListResult(list: Locator, urn: string): Locator {
+    return list.getByTestId(`search-result-row-${urn}`);
   }
 
   /** The main Lineage tab list; the sidebar Lineage tab renders the same list but ignores the time range. */
-  private getImpactAnalysisResult(name: string): Locator {
+  private getImpactAnalysisResult(urn: string): Locator {
     const mainTabListSelector =
       '[data-testid="embedded-list-search-results"]:not([data-testid="entity-profile-sidebar"] *)';
     // eslint-disable-next-line playwright/no-raw-locators -- No test id wraps the main-tab list; exclude the sidebar copy by ancestry
     const mainTabList = this.page.locator(mainTabListSelector);
-    return this.getLineageListResult(mainTabList, name);
+    return this.getLineageListResult(mainTabList, urn);
   }
 
-  private getSidebarLineageResult(name: string): Locator {
+  private getSidebarLineageResult(urn: string): Locator {
     const sidebarList = this.page.getByTestId('entity-profile-sidebar').getByTestId('embedded-list-search-results');
-    return this.getLineageListResult(sidebarList, name);
+    return this.getLineageListResult(sidebarList, urn);
   }
 
   // ── Advanced Search and Filtering ───────────────────────────────────────────
@@ -412,16 +412,16 @@ export class LineageV3Page extends LineageBasePage {
     await expect(this.getFirstResultText(text)).not.toBeVisible({ timeout });
   }
 
-  async expectImpactAnalysisResultVisible(name: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
-    await expect(this.getImpactAnalysisResult(name)).toBeVisible({ timeout });
+  async expectImpactAnalysisResultVisible(urn: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
+    await expect(this.getImpactAnalysisResult(urn)).toBeVisible({ timeout });
   }
 
   /**
    * An absence check passes at once against a list that has not loaded yet, so call this only
    * after expectImpactAnalysisResultVisible has matched an entity from the same response.
    */
-  async expectImpactAnalysisResultAbsent(name: string): Promise<void> {
-    await expect(this.getImpactAnalysisResult(name)).toHaveCount(0);
+  async expectImpactAnalysisResultAbsent(urn: string): Promise<void> {
+    await expect(this.getImpactAnalysisResult(urn)).toHaveCount(0);
   }
 
   async expectGraphNodeVisible(urn: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
@@ -433,13 +433,13 @@ export class LineageV3Page extends LineageBasePage {
     await expect(this.getReactFlowNodeByUrn(urn)).toHaveCount(0);
   }
 
-  async expectSidebarLineageResultVisible(name: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
-    await expect(this.getSidebarLineageResult(name)).toBeVisible({ timeout });
+  async expectSidebarLineageResultVisible(urn: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
+    await expect(this.getSidebarLineageResult(urn)).toBeVisible({ timeout });
   }
 
   /** Same precondition as expectImpactAnalysisResultAbsent. */
-  async expectSidebarLineageResultAbsent(name: string): Promise<void> {
-    await expect(this.getSidebarLineageResult(name)).toHaveCount(0);
+  async expectSidebarLineageResultAbsent(urn: string): Promise<void> {
+    await expect(this.getSidebarLineageResult(urn)).toHaveCount(0);
   }
 
   /**

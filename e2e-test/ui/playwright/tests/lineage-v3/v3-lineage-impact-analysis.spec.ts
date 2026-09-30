@@ -37,7 +37,6 @@ const USER_PROFILE_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transacti
 const AGGREGATED_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,transactions.aggregated_transactions,PROD)';
 const MONTHLY_TEMPERATURE_DATASET_URN =
   'urn:li:dataset:(urn:li:dataPlatform:snowflake,climate.monthly_temperature,PROD)';
-// Impact Analysis results show these data jobs by URN, so the URN is also their displayed name
 const TEMPERATURE_ETL_1_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,snowflake_etl,PROD),temperature_etl_1)';
 const TEMPERATURE_ETL_2_URN = 'urn:li:dataJob:(urn:li:dataFlow:(airflow,snowflake_etl,PROD),temperature_etl_2)';
 
@@ -59,10 +58,6 @@ const UI_TEXT = {
   FEATURE_1: 'some-playwright-feature-1',
   BAZ_CHART: 'Baz Chart 1',
   DOWNSTREAM_COLUMN: 'Downstream column: shipment_info',
-  // Exact entity names, matched against the Impact Analysis result titles
-  AGGREGATED: 'transactions.aggregated_transactions',
-  TRANSACTIONS: 'transactions.transactions',
-  USER_PROFILE: 'transactions.user_profile',
 } as const;
 
 // ── Test Suite ──────────────────────────────────────────────────────────────
@@ -230,12 +225,12 @@ test.describe('impact analysis', () => {
     await lineagePage.clickSidebarLineageTab();
 
     // Downstream is the default direction
-    await lineagePage.expectSidebarLineageResultVisible(UI_TEXT.AGGREGATED);
+    await lineagePage.expectSidebarLineageResultVisible(AGGREGATED_URN);
 
     await lineagePage.clickUpstreamDirection();
-    await lineagePage.expectSidebarLineageResultVisible(UI_TEXT.TRANSACTIONS);
-    await lineagePage.expectSidebarLineageResultVisible(UI_TEXT.USER_PROFILE);
-    await lineagePage.expectSidebarLineageResultAbsent(UI_TEXT.AGGREGATED);
+    await lineagePage.expectSidebarLineageResultVisible(TRANSACTIONS_URN);
+    await lineagePage.expectSidebarLineageResultVisible(USER_PROFILE_URN);
+    await lineagePage.expectSidebarLineageResultAbsent(AGGREGATED_URN);
   });
 
   test('editing upstream lineage will redirect to visual view with edit modal open', async ({ page }) => {
