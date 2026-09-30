@@ -3038,6 +3038,36 @@ def test_load_run_results_failed_test():
     assert tr.native_results["failures"] == "3"
 
 
+def test_load_run_results_skipped_test_has_no_result():
+    # A skipped test (e.g. an upstream model failed in `dbt build`) never ran,
+    # so it must not be reported as an assertion failure. Matches dbt Cloud.
+    run_results_json = {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v5.json",
+            "dbt_version": "1.7.0",
+            "generated_at": "2024-01-01T00:00:00Z",
+            "invocation_id": "inv-004",
+        },
+        "results": [
+            {
+                "unique_id": "test.project.skipped_test",
+                "status": "skipped",
+                "message": None,
+                "failures": None,
+                "timing": [],
+            },
+        ],
+    }
+    test_node = _make_dbt_node("test.project.skipped_test", node_type="test")
+    test_node.test_info = DBTTest(
+        qualified_test_name="dbt_utils.skipped_test", column_name=None, kw_args={}
+    )
+
+    load_run_results(mock.MagicMock(), run_results_json, [test_node])
+
+    assert test_node.test_results == []
+
+
 def test_load_run_results_unknown_node_skipped():
     run_results_json = {
         "metadata": {
