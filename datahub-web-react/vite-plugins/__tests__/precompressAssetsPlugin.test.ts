@@ -15,7 +15,7 @@ describe('precompressAssetsPlugin', () => {
 
     afterEach(() => {
         tmpDirs.forEach((dir) => {
-            fs.rmSync(dir, { recursive: true, force: true });
+            fs.rmdirSync(dir, { recursive: true });
         });
         tmpDirs.length = 0;
     });
