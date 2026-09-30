@@ -372,7 +372,7 @@ public abstract class SearchServiceTestBase extends AbstractTestNGSpringContextT
     assertTrue(explanation.get("value").floatValue() > 0);
     assertFalse(explanation.get("description").asText().isEmpty());
 
-    // A scroll over a point in time takes both flags too
+    // A scroll over a point in time returns explanations too
     ScrollResult scrollResult =
         pitSearchService.scrollAcrossEntities(
             explainContext,
