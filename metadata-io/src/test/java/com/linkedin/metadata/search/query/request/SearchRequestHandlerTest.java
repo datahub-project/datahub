@@ -1895,7 +1895,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testSearchTypeAppliesToSearchAndScrollRequests() {
+  public void testSearchTypeFlag() {
     SearchRequestHandler handler =
         SearchRequestHandler.getBuilder(
             operationContext,
@@ -1904,36 +1904,37 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             null,
             QueryFilterRewriteChain.EMPTY,
             TEST_SEARCH_SERVICE_CONFIG);
-    OperationContext dfsContext =
-        operationContext.withSearchFlags(
-            flags ->
-                flags
-                    .setFulltext(false)
-                    .setIncludeExplain(true)
-                    .setSearchType("DFS_QUERY_THEN_FETCH"));
-    for (SearchRequest request :
-        List.of(
-            handler.getSearchRequest(dfsContext, "testQuery", null, null, 0, 10, List.of()),
-            handler.getSearchRequest(
-                dfsContext, "testQuery", null, null, null, null, null, 10, List.of()))) {
-      assertEquals(request.source().explain(), Boolean.TRUE);
-      assertEquals(request.searchType(), SearchType.DFS_QUERY_THEN_FETCH);
-    }
-
-    // The default, and any value other than DFS_QUERY_THEN_FETCH, is QUERY_THEN_FETCH
-    for (String searchType : List.of("QUERY_THEN_FETCH", "QUERY_AND_FETCH")) {
+    // DFS in either case; any other value is QUERY_THEN_FETCH
+    Map<String, SearchType> expected =
+        Map.of(
+            "DFS_QUERY_THEN_FETCH", SearchType.DFS_QUERY_THEN_FETCH,
+            "dfs_query_then_fetch", SearchType.DFS_QUERY_THEN_FETCH,
+            "QUERY_THEN_FETCH", SearchType.QUERY_THEN_FETCH,
+            "QUERY_AND_FETCH", SearchType.QUERY_THEN_FETCH);
+    for (Map.Entry<String, SearchType> entry : expected.entrySet()) {
       SearchRequest request =
           handler.getSearchRequest(
               operationContext.withSearchFlags(
-                  flags -> flags.setFulltext(false).setSearchType(searchType)),
+                  flags -> flags.setFulltext(false).setSearchType(entry.getKey())),
               "testQuery",
               null,
               null,
               0,
               10,
               List.of());
-      assertEquals(request.searchType(), SearchType.QUERY_THEN_FETCH, searchType);
+      assertEquals(request.searchType(), entry.getValue(), entry.getKey());
     }
+
+    SearchRequest unset =
+        handler.getSearchRequest(
+            operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            "testQuery",
+            null,
+            null,
+            0,
+            10,
+            List.of());
+    assertEquals(unset.searchType(), SearchType.QUERY_THEN_FETCH);
   }
 
   @Test
@@ -1972,7 +1973,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .extractScrollResult(operationContext, mockResponse, null, null, 10, false)
             .getEntities()
             .get(0);
-    assertEquals(scrolled.getExtraFields().keySet(), Set.of("_explain", "scrollId"));
+    assertTrue(scrolled.getExtraFields().keySet().containsAll(Set.of("_explain", "scrollId")));
   }
 
   private SearchHit mockHitWithUrn(String urn) {

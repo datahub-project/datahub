@@ -322,8 +322,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
     }
 
     // Enable Elasticsearch explain if requested (use searchFlags parameter directly)
-    // Every fetched hit is explained, and searchAcrossEntities fetches whole resultBatchSize
-    // batches (CacheableSearcher), so a small page still pays for a batch of explanations.
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
       searchSourceBuilder.explain(true);
     }
@@ -396,6 +394,22 @@ public class SearchRequestHandler extends BaseRequestHandler {
     searchRequest.indicesOptions(null);
 
     return searchRequest;
+  }
+
+  /**
+   * Applies search type from SearchFlags to the SearchRequest.
+   *
+   * @param searchRequest the search request to configure
+   * @param opContext operation context holding the search flags
+   */
+  private void applySearchType(SearchRequest searchRequest, OperationContext opContext) {
+    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
+    String searchType = searchFlags.getSearchType();
+    if (SearchType.DFS_QUERY_THEN_FETCH.name().equalsIgnoreCase(searchType)) {
+      searchRequest.searchType(SearchType.DFS_QUERY_THEN_FETCH);
+    } else {
+      searchRequest.searchType(SearchType.QUERY_THEN_FETCH);
+    }
   }
 
   /**
@@ -475,22 +489,6 @@ public class SearchRequestHandler extends BaseRequestHandler {
                 SearchDocFieldFetchConfig.DEFAULT_FIELDS_TO_FETCH_ON_SCROLL, searchFlags)
             .toArray(String[]::new);
     searchSourceBuilder.fetchSource(includes, null);
-  }
-
-  /**
-   * Applies search type from SearchFlags to the SearchRequest.
-   *
-   * @param searchRequest the search request to configure
-   * @param opContext operation context holding the search flags
-   */
-  private void applySearchType(SearchRequest searchRequest, OperationContext opContext) {
-    SearchFlags searchFlags = opContext.getSearchContext().getSearchFlags();
-    String searchType = searchFlags.getSearchType();
-    if (SearchType.DFS_QUERY_THEN_FETCH.name().equals(searchType)) {
-      searchRequest.searchType(SearchType.DFS_QUERY_THEN_FETCH);
-    } else {
-      searchRequest.searchType(SearchType.QUERY_THEN_FETCH);
-    }
   }
 
   @Override

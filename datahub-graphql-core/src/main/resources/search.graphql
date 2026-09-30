@@ -200,17 +200,6 @@ input SearchFlags {
   filterNonLatestVersions: Boolean
 
   """
-  Minimum relevance score (inclusive) for the semantic (kNN) search path. Hits scoring below this
-  floor are dropped, letting an agent abstain instead of returning weak matches. Currently honored
-  only by the semantic search path.
-
-  The value is compared against the engine's raw kNN relevance score (cosine-derived), which is not
-  a normalized 0..1 value; its scale depends on the embedding model and search engine, so a suitable
-  floor must be calibrated per deployment rather than assumed.
-  """
-  minScore: Float
-
-  """
   Include Elasticsearch scoring explanation in search results.
   Explanations appear in SearchResult.extraProperties with key '_explain'.
   Note: Adds computational overhead - use for debugging only.
@@ -224,6 +213,17 @@ input SearchFlags {
   Note: DFS mode adds 20-50% latency overhead - use for debugging only.
   """
   searchType: String
+
+  """
+  Minimum relevance score (inclusive) for the semantic (kNN) search path. Hits scoring below this
+  floor are dropped, letting an agent abstain instead of returning weak matches. Currently honored
+  only by the semantic search path.
+
+  The value is compared against the engine's raw kNN relevance score (cosine-derived), which is not
+  a normalized 0..1 value; its scale depends on the embedding model and search engine, so a suitable
+  floor must be calibrated per deployment rather than assumed.
+  """
+  minScore: Float
 }
 
 """

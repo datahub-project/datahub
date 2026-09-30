@@ -32,10 +32,10 @@ public class SearchFlagsInputMapperTest {
     assertEquals(result.isIncludeExplain(), Boolean.TRUE);
     assertEquals(result.getSearchType(), "DFS_QUERY_THEN_FETCH");
 
-    // Unset flags keep the PDL defaults
+    // Unset flags stay unset, so the schema defaults apply
     com.linkedin.metadata.query.SearchFlags defaults =
         SearchFlagsInputMapper.map(null, new SearchFlags());
-    assertEquals(defaults.isIncludeExplain(), Boolean.FALSE);
-    assertEquals(defaults.getSearchType(), "QUERY_THEN_FETCH");
+    assertFalse(defaults.hasIncludeExplain());
+    assertFalse(defaults.hasSearchType());
   }
 }

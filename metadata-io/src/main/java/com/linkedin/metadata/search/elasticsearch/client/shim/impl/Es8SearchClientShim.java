@@ -11,7 +11,6 @@ import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.Retries;
 import co.elastic.clients.elasticsearch._types.Script;
-import co.elastic.clients.elasticsearch._types.SearchType;
 import co.elastic.clients.elasticsearch._types.ShardStatistics;
 import co.elastic.clients.elasticsearch._types.SlicedScroll;
 import co.elastic.clients.elasticsearch._types.Slices;
@@ -494,12 +493,6 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .aggregations(aggregationMap)
             .allowPartialSearchResults(searchRequest.allowPartialSearchResults())
             .explain(searchSourceBuilder.explain())
-            // query_then_fetch is the engine default, so only DFS needs sending
-            .searchType(
-                searchRequest.searchType()
-                        == org.opensearch.action.search.SearchType.DFS_QUERY_THEN_FETCH
-                    ? SearchType.DfsQueryThenFetch
-                    : null)
             .from(Math.max(searchSourceBuilder.from(), 0))
             .timeout(
                 searchSourceBuilder.timeout() == null
