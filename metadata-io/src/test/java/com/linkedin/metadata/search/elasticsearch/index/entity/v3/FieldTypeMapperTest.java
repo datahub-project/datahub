@@ -7,10 +7,14 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.linkedin.data.schema.PathSpec;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.models.LogicalValueType;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
+import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -179,6 +183,24 @@ public class FieldTypeMapperTest {
     assertEquals(mapping.get("type"), "keyword");
     assertEquals(mapping.get("ignore_above"), keywordIgnoreAboveForMaxBytes(KEYWORD_MAXLENGTH));
     assertKeywordSubfieldPresent(mapping);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBrowsePathFieldUsesV2Mapping() {
+    // Legacy browse aggregates on the path prefixes and filters on the path depth
+    EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
+    Map<String, Object> v2Properties =
+        (Map<String, Object>)
+            new V2MappingsBuilder(
+                    EntityIndexConfiguration.builder().build(),
+                    FieldTypeMapper.DEFAULT_PARTIAL_NGRAM_CONFIG)
+                .getIndexMappings(registry, registry.getEntitySpec("dataset"))
+                .get("properties");
+
+    assertEquals(
+        FieldTypeMapper.getMappingsForFieldType(FieldType.BROWSE_PATH),
+        v2Properties.get("browsePaths"));
   }
 
   @Test
