@@ -1,7 +1,6 @@
-import { Icon, Pagination, SearchBar, Table } from '@components';
+import { Icon, Pagination, SearchBar, Table, Text, toast } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -80,7 +79,7 @@ const TableContainer = styled.div`
     overflow: auto;
 `;
 
-const TextContainer = styled(Typography.Text)`
+const TextContainer = styled(Text)`
     color: ${(props) => props.theme.colors.textSecondary};
 `;
 
@@ -135,16 +134,13 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             variables: { urn },
         })
             .then(() => {
-                message.success({ content: t('secret.removeSuccess'), duration: 2 });
+                toast.success(t('secret.removeSuccess'), { duration: 2 });
                 removeSecretFromListSecretsCache(urn, client, page, pageSize);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: t('secret.removeError', { errorMessage: e.message || '' }),
-                        duration: 3,
-                    });
+                    toast.error(t('secret.removeError', { errorMessage: e.message || '' }), { duration: 3 });
                 }
             });
         setSecretUrnToDelete(null);
@@ -172,10 +168,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             },
         })
             .then((res) => {
-                message.success({
-                    content: t('secret.createSuccess'),
-                    duration: 3,
-                });
+                toast.success(t('secret.createSuccess'), { duration: 3 });
                 resetBuilderState();
                 setIsCreatingSecret(false);
                 addSecretToListSecretsCache(
@@ -189,11 +182,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 );
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('secret.updateErrorLower', { errorMessage: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('secret.updateErrorLower', { errorMessage: e.message || '' }), { duration: 3 });
             });
     };
     const onUpdate = (state: SecretBuilderState, resetBuilderState: () => void) => {
@@ -208,10 +198,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             },
         })
             .then(() => {
-                message.success({
-                    content: t('secret.updateSuccess'),
-                    duration: 3,
-                });
+                toast.success(t('secret.updateSuccess'), { duration: 3 });
                 resetBuilderState();
                 setIsCreatingSecret(false);
                 setEditSecret(undefined);
@@ -230,11 +217,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 }, 3000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({
-                    content: t('secret.updateError', { errorMessage: e.message || '' }),
-                    duration: 3,
-                });
+                toast.destroy();
+                toast.error(t('secret.updateError', { errorMessage: e.message || '' }), { duration: 3 });
             });
     };
 
@@ -330,11 +314,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
 
     return (
         <>
-            {error &&
-                message.error({
-                    content: t('secret.loadError', { errorMessage: error.message || '' }),
-                    duration: 3,
-                })}
+            {error && toast.error(t('secret.loadError', { errorMessage: error.message || '' }), { duration: 3 })}
             <SecretsContainer>
                 <StyledTabToolbar>
                     <SearchContainer>

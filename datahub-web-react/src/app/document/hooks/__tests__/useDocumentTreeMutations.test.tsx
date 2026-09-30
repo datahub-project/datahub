@@ -1,7 +1,7 @@
 import { MockedProvider } from '@apollo/client/testing';
+import { toast } from '@components';
 import { waitFor } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -22,11 +22,15 @@ import {
 } from '@graphql/document.generated';
 import { DocumentState } from '@types';
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(),
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
         success: vi.fn(),
+        error: vi.fn(),
+        warning: vi.fn(),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 
@@ -215,7 +219,7 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(newUrn).toBe(null);
-                expect(message.error).toHaveBeenCalledWith('Failed to create document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to create document');
                 // Verify no nodes remain in tree (temp node was rolled back)
                 const rootNodes = result.current.tree.getRootNodes();
                 expect(rootNodes).toHaveLength(0);
@@ -265,7 +269,7 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(newUrn).toBe(null);
-                expect(message.error).toHaveBeenCalledWith('Failed to create document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to create document');
             });
         });
     });
@@ -373,7 +377,7 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(success).toBe(false);
-                expect(message.error).toHaveBeenCalledWith('Failed to update title');
+                expect(toast.error).toHaveBeenCalledWith('Failed to update title');
                 // Verify title was rolled back
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node?.title).toBe(oldTitle);
@@ -464,7 +468,7 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(success).toBe(true);
-                expect(message.success).toHaveBeenCalledWith('Document moved successfully');
+                expect(toast.success).toHaveBeenCalledWith('Document moved successfully');
                 expect(analytics.event).toHaveBeenCalledWith({
                     type: EventType.MoveDocumentEvent,
                     documentUrn: mockUrn,
@@ -571,7 +575,7 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(success).toBe(false);
-                expect(message.error).toHaveBeenCalledWith('Failed to move document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to move document');
                 // Verify parent was rolled back
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node?.parentUrn).toBe(oldParentUrn);
@@ -709,7 +713,7 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(success).toBe(false);
-                expect(message.error).toHaveBeenCalledWith('Failed to delete document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to delete document');
                 // Verify node was restored in tree
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node).toBeTruthy();
@@ -757,7 +761,7 @@ describe('useDocumentTreeMutations', () => {
 
             await waitFor(() => {
                 expect(success).toBe(false);
-                expect(message.error).toHaveBeenCalledWith('Failed to delete document');
+                expect(toast.error).toHaveBeenCalledWith('Failed to delete document');
                 // Verify node was restored
                 const node = result.current.tree.getNode(mockUrn);
                 expect(node).toBeTruthy();

@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import i18next from 'i18next';
 import { useCallback } from 'react';
 
@@ -11,18 +11,18 @@ export default function useRollbackExecution(refetch: () => void) {
 
     const rollbackExecution = useCallback(
         (runId: string) => {
-            message.loading(i18next.t('ingestion:executions.rollbackLoading'));
+            toast.loading(i18next.t('ingestion:executions.rollbackLoading'));
 
             rollbackIngestion({ variables: { input: { runId } } })
                 .then(() => {
                     setTimeout(() => {
-                        message.destroy();
+                        toast.destroy();
                         refetch();
-                        message.success(i18next.t('ingestion:executions.rollbackSuccess'));
+                        toast.success(i18next.t('ingestion:executions.rollbackSuccess'));
                     }, REFETCH_TIMEOUT_MS);
                 })
                 .catch(() => {
-                    message.error(i18next.t('ingestion:executions.rollbackError'));
+                    toast.error(i18next.t('ingestion:executions.rollbackError'));
                 });
         },
         [refetch, rollbackIngestion],

@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -305,7 +305,7 @@ export function useModuleOperations(
                     const moduleUrn = moduleResult.data?.upsertPageModule?.urn;
                     if (!moduleUrn) {
                         console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module - no URN returned`);
-                        message.error(t(isEditingModule ? 'error.failedToUpdateModule' : 'error.failedToCreateModule'));
+                        toast.error(t(isEditingModule ? 'error.failedToUpdateModule' : 'error.failedToCreateModule'));
                         return;
                     }
 
@@ -337,7 +337,7 @@ export function useModuleOperations(
                     if (shouldCreateNewModule && originalModuleData) {
                         if (!templateToUpdate) {
                             console.error('No template provided to update');
-                            message.error(t('error.noTemplateAvailable'));
+                            toast.error(t('error.noTemplateAvailable'));
                             return;
                         }
 
@@ -376,7 +376,7 @@ export function useModuleOperations(
                 })
                 .catch((error) => {
                     console.error(`Failed to ${isEditingModule ? 'update' : 'create'} module:`, error);
-                    message.error(t(isEditingModule ? 'error.failedToUpdateModule' : 'error.failedToCreateModule'));
+                    toast.error(t(isEditingModule ? 'error.failedToUpdateModule' : 'error.failedToCreateModule'));
                 });
         },
         [
@@ -409,7 +409,7 @@ export function useModuleOperations(
             const constraintError = validateModuleMoveConstraints(templateToUpdate, fromPosition, toPosition);
             if (constraintError) {
                 console.warn(`Move validation failed: ${constraintError}`);
-                message.warning(constraintError);
+                toast.warning(constraintError);
                 return;
             }
 
@@ -424,7 +424,7 @@ export function useModuleOperations(
 
             if (!updatedTemplate) {
                 console.error('Failed to update template during move operation');
-                message.error(t('error.failedToMoveModule'));
+                toast.error(t('error.failedToMoveModule'));
                 return;
             }
 

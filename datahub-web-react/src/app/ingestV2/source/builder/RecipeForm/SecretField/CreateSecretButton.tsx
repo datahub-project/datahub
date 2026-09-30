@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, message } from 'antd';
+import { Button, toast } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
@@ -18,10 +18,6 @@ const CreateButton = styled(Button)`
 
     &:hover {
         color: ${(props) => props.theme.colors.textHover};
-    }
-
-    .anticon-plus {
-        margin-right: 5px;
     }
 `;
 
@@ -50,19 +46,23 @@ function CreateSecretButton({ initialState, onSubmit, refetchSecrets }: Props) {
                 onSubmit?.(state);
                 setIsCreateModalVisible(false);
                 resetBuilderState();
-                message.success({ content: t('secret.createSuccess') });
+                toast.success(t('secret.createSuccess'));
                 setTimeout(() => refetchSecrets(), 3000);
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: t('secret.createError', { error: e.message || '' }) });
+                toast.destroy();
+                toast.error(t('secret.createError', { error: e.message || '' }));
             });
     };
 
     return (
         <>
-            <CreateButton onClick={() => setIsCreateModalVisible(true)} type="text">
-                <PlusOutlined /> {t('secret.createButton')}
+            <CreateButton
+                onClick={() => setIsCreateModalVisible(true)}
+                variant="text"
+                icon={{ icon: Plus }}
+            >
+                {t('secret.createButton')}
             </CreateButton>
             {isCreateModalVisible && (
                 <SecretBuilderModal

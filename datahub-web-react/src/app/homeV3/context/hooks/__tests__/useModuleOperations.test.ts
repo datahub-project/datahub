@@ -1,5 +1,4 @@
 import { act, renderHook } from '@testing-library/react-hooks';
-import { message } from 'antd';
 import { vi } from 'vitest';
 
 import { useModuleOperations } from '@app/homeV3/context/hooks/useModuleOperations';
@@ -17,11 +16,15 @@ import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateScope, 
 // Mock GraphQL hooks
 vi.mock('@graphql/template.generated');
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(() => ({ key: 'test-message' })),
-        warning: vi.fn(() => ({ key: 'test-message' })),
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(() => undefined),
+        warning: vi.fn(() => undefined),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 

@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import i18next from 'i18next';
 import { useCallback } from 'react';
 
@@ -20,15 +20,11 @@ export default function useCancelExecution(refetch?: () => void) {
                 },
             })
                 .then(() => {
-                    message.success({
-                        content: i18next.t('ingestion:executions.cancelSuccess'),
-                        duration: 3,
-                    });
+                    toast.success(i18next.t('ingestion:executions.cancelSuccess'), { duration: 3 });
                 })
                 .catch((e) => {
-                    message.destroy();
-                    message.error({
-                        content: i18next.t('ingestion:executions.cancelError', { errorMessage: e.message || '' }),
+                    toast.destroy();
+                    toast.error(i18next.t('ingestion:executions.cancelError', { errorMessage: e.message || '' }), {
                         duration: 3,
                     });
                 })

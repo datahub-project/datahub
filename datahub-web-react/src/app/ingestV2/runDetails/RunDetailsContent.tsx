@@ -1,7 +1,5 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { ApolloError } from '@apollo/client';
-import { Icon, Pill } from '@components';
-import { message } from 'antd';
+import { Icon, Loader, Pill, toast } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
@@ -81,7 +79,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                 <Pill
                     customIconRenderer={() =>
                         status === EXECUTION_REQUEST_STATUS_LOADING || status === EXECUTION_REQUEST_STATUS_RUNNING ? (
-                            <LoadingOutlined />
+                            <Loader size="sm" />
                         ) : (
                             <Icon icon={ResultIcon} size="lg" />
                         )
@@ -141,7 +139,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
     return (
         <ContentWrapper>
             {!data && loading && <Message type="loading" content={t('runDetails.loading')} />}
-            {error && message.error(t('runDetails.loadError'))}
+            {error && toast.error(t('runDetails.loadError'))}
             <Tabs
                 tabs={tabs}
                 selectedTab={selectedTab}

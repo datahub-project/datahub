@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -94,7 +94,7 @@ export function useCreateDocumentTreeMutation() {
                 return newUrn;
             } catch (error) {
                 console.error('Failed to create document:', error);
-                message.error(t('document.createError'));
+                toast.error(t('document.createError'));
 
                 // 4. Rollback - remove optimistic node
                 deleteNode(tempUrn);
@@ -147,7 +147,7 @@ export function useUpdateDocumentTitleMutation() {
                 return true;
             } catch (error) {
                 console.error('Failed to update title:', error);
-                message.error(t('document.updateTitleError'));
+                toast.error(t('document.updateTitleError'));
 
                 // 3. Rollback on error
                 if (oldTitle) {
@@ -208,11 +208,11 @@ export function useMoveDocumentTreeMutation() {
                     newParentDocumentUrn: newParentUrn || undefined,
                 });
 
-                message.success(t('document.moveSuccess'));
+                toast.success(t('document.moveSuccess'));
                 return true;
             } catch (error) {
                 console.error('Failed to move document:', error);
-                message.error(t('document.moveError'));
+                toast.error(t('document.moveError'));
 
                 // 3. Rollback on error
                 moveNode(urn, oldParentUrn);
@@ -263,7 +263,7 @@ export function useDeleteDocumentTreeMutation() {
                 return true;
             } catch (error) {
                 console.error('Failed to delete document:', error);
-                message.error(t('document.deleteError'));
+                toast.error(t('document.deleteError'));
 
                 // 3. Rollback on error (only if node was in tree)
                 if (node) {
