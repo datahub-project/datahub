@@ -37,6 +37,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchType;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.action.update.UpdateRequest;
@@ -196,6 +197,18 @@ public class SearchClientShimElasticsearchIntegrationTest extends AbstractTestNG
     log.info(
         "Search completed successfully, found {} hits",
         searchResponse.getHits().getTotalHits().value);
+  }
+
+  @Test(dependsOnMethods = "testIndexOperations")
+  public void testDfsSearch() throws IOException {
+    // The engine rejects the request if the shim sends an invalid search_type
+    SearchRequest searchRequest =
+        new SearchRequest(TEST_INDEX)
+            .searchType(SearchType.DFS_QUERY_THEN_FETCH)
+            .source(new SearchSourceBuilder().query(QueryBuilders.matchAllQuery()));
+    SearchResponse searchResponse =
+        searchClientShim.search(OP_CONTEXT, searchRequest, RequestOptions.DEFAULT);
+    assertNotNull(searchResponse.getHits());
   }
 
   @Test
