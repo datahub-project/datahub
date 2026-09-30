@@ -2104,11 +2104,16 @@ def _sqlglot_lineage_inner(
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
 
-    if isinstance(statement, sqlglot.exp.Command):
+    if isinstance(statement, (sqlglot.exp.Command, sqlglot.exp.Execute)):
         # For unsupported syntax, sqlglot will usually fallback to parsing as a Command.
         # This is effectively a parsing error, and we won't get any lineage from it.
         # See https://github.com/tobymao/sqlglot/commit/3a13fdf4e597a2f0a3f9fc126a129183fe98262f
         # and https://github.com/tobymao/sqlglot/pull/2874
+        #
+        # Execute is rejected for a different reason: it parses, but the callee is an
+        # `exp.Table`, so table-level lineage would report a procedure call as an
+        # upstream dataset that does not exist. Procedure-call lineage is built from
+        # the parsed call elsewhere and does not come through here.
         raise UnsupportedStatementTypeError(
             f"Got unsupported syntax for statement: {sql}"
         )

@@ -1910,6 +1910,7 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  documentExplicitSaveEnabled: ${DOCUMENT_EXPLICIT_SAVE_ENABLED:false} # If turned on, document body edits stay local until the user saves instead of auto-saving
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
@@ -2066,7 +2067,7 @@ graphQL:
     # Maximum cache weight in bytes, approximated as 5x the cached queries' UTF-8 byte length.
     maximumWeightBytes: ${GRAPHQL_DOCUMENT_CACHE_MAX_BYTES:26214400}
   query:
-    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
+    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2010}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
     # Parent chain traversal (glossary, domains, containers, documents)

@@ -1233,17 +1233,18 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
 
     // Log progress
-    log.debug(
-        "Current entity counts per input urn: {}",
-        entitiesPerInputUrn.entrySet().stream()
-            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().size())));
-
-    log.debug(
-        "Input urns that reached their limits: {}",
-        inputUrnLimitReached.entrySet().stream()
-            .filter(Map.Entry::getValue)
-            .map(e -> e.getKey().toString())
-            .collect(Collectors.toList()));
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Current entity counts per input urn: {}",
+          entitiesPerInputUrn.entrySet().stream()
+              .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().size())));
+      log.debug(
+          "Input urns that reached their limits: {}",
+          inputUrnLimitReached.entrySet().stream()
+              .filter(Map.Entry::getValue)
+              .map(e -> e.getKey().toString())
+              .collect(Collectors.toList()));
+    }
   }
 
   /**

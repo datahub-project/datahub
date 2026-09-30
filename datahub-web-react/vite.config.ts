@@ -209,6 +209,9 @@ export default defineConfig(async ({ mode }) => {
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
+            // Emit dist/.vite/manifest.json so the Play server can map entrypoints to
+            // hashed filenames. Distinct from the PWA file at dist/manifest.json.
+            manifest: true,
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
@@ -288,7 +291,9 @@ export default defineConfig(async ({ mode }) => {
         resolve: {
             alias: [
                 {
-                    find: /^lodash\/(.+)$/,
+                    // Storybook's Vite builder pre-bundles `lodash/<fn>.js`; the optional group
+                    // keeps that from becoming `lodash-es/<fn>.js.js`, which fails dep scanning.
+                    find: /^lodash\/(.+?)(?:\.js)?$/,
                     replacement: 'lodash-es/$1.js',
                 },
                 // Root Directories
