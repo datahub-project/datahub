@@ -200,6 +200,11 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(
         ((Map<String, Object>) businessAttributeRef.get("properties")).containsKey("urn"),
         businessAttributeRef.toString());
+    // The referenced entity's fields do not copy into the referencing entity's _search fields
+    Map<String, Object> referencedName =
+        (Map<String, Object>)
+            ((Map<String, Object>) businessAttributeRef.get("properties")).get("name");
+    assertFalse(referencedName.containsKey("copy_to"), referencedName.toString());
   }
 
   /** The engine rejects a mapping whose alias points at a field it does not map. */
@@ -548,6 +553,31 @@ public class MultiEntityMappingsBuilderTest {
     assertTrue(
         searchProperties.containsKey("entityName"),
         "alias target _search.entityName must be present for the suggester to resolve");
+  }
+
+  /** As on V2, a field name alias points at the root field documents hold the value under. */
+  @Test
+  public void testFieldNameAliasPointsAtRootField() {
+    EntitySpec entitySpec =
+        createMockEntitySpecWithSearchMetadata(
+            "entity1",
+            "title",
+            FieldType.KEYWORD,
+            "headline",
+            "dashboardInfo",
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty());
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(ImmutableMap.of("entity1", entitySpec));
+    stubEntitySpecs(entitySpec);
+
+    Map<String, Object> properties =
+        getProperties(
+            mappingsBuilder.getIndexMappings(operationContext).iterator().next().getMappings());
+
+    assertEquals(properties.get("headline"), Map.of("type", "alias", "path", "title"));
   }
 
   /** Without an entityName label, two aliased name fields still give one valid mapping. */

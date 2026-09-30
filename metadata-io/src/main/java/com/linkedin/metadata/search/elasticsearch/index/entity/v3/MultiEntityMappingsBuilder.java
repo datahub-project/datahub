@@ -902,6 +902,14 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         continue;
       }
 
+      // As on V2, an alias points at the root field it names: documents hold each value under the
+      // field's own name, so a separate root field under the alias would stay empty
+      final String aliasedField = aliasedFieldName(alias, allPaths);
+      if (rootFields.containsKey(aliasedField)) {
+        rootFields.put(alias, MultiEntityMappingsUtils.createAliasMapping(aliasedField));
+        continue;
+      }
+
       createProjectedRootFieldMapping(
           rootFields, alias, allPaths, entitySpecs, false, partialNgramConfig);
     }
@@ -930,6 +938,15 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     if (labeled) {
       return MultiEntityMappingsUtils.createEntityNameAliasMapping();
     }
+    return MultiEntityMappingsUtils.createAliasMapping(aliasedFieldName(alias, allPaths));
+  }
+
+  /**
+   * The field an alias names, from its {@code _aspects.<aspect>.<field>} paths. When entities of
+   * the index alias different fields, the first in order is used, as V2 keeps one of them too
+   * rather than failing every index build.
+   */
+  private static String aliasedFieldName(@Nonnull String alias, @Nonnull Set<String> allPaths) {
     final SortedSet<String> fieldNames =
         allPaths.stream()
             .map(path -> path.split("\\.", 3))
@@ -937,15 +954,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
             .map(pathParts -> pathParts[2])
             .collect(Collectors.toCollection(TreeSet::new));
     if (fieldNames.size() > 1) {
-      // V2 keeps one of the aliased fields too, rather than failing every index build
-      log.warn(
-          "'{}' names the fields {} and no aspect labels a field '{}'; aliasing '{}'",
-          alias,
-          fieldNames,
-          ENTITY_NAME_SEARCH_FIELD,
-          fieldNames.first());
+      log.warn("'{}' aliases the fields {}; aliasing '{}'", alias, fieldNames, fieldNames.first());
     }
-    return MultiEntityMappingsUtils.createAliasMapping(fieldNames.first());
+    return fieldNames.first();
   }
 
   private static void createDerivedRootProjectionFields(
@@ -1336,7 +1347,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
             searchableFieldSpec ->
                 mappingForField.putAll(
                     getMappingsForField(
-                        searchableFieldSpec, "ref_" + entityType, true, partialNgramConfig)));
+                        // Referenced fields must not copy into this entity's _search fields
+                        searchableFieldSpec, "ref_" + entityType, false, partialNgramConfig)));
     // Process searchable reference fields recursively
     for (SearchableRefFieldSpec refFieldSpec : entitySpec.getSearchableRefFieldSpecs()) {
       int configuredDepth = refFieldSpec.getSearchableRefAnnotation().getDepth();
