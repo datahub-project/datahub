@@ -275,6 +275,21 @@ def declared_unfiltered_kinds(config: object) -> Set[str]:
     return {str(kind) for kind in declared()}
 
 
+def declared_rule_filtered_kinds(config: object) -> Dict[str, str]:
+    """kind -> the config field whose rules (not an AllowDenyPattern) decide it.
+
+    The third answer to "what filters this level", beside a pattern field and
+    UNFILTERED: GCS's path_specs decide which folders become tables, and
+    calling that level unfiltered would report every folder included.
+    Unguarded for the reason declared_unfiltered_kinds is: a hook that raises
+    is a connector defect, not a silent "no rules".
+    """
+    declared = getattr(config, "probe_rule_filtered_kinds", None)
+    if not callable(declared):
+        return {}
+    return {str(kind): field for kind, field in declared().items()}
+
+
 def pattern_field_for_config(config: object, kind: ProbeNodeKind) -> Optional[str]:
     """Find the *live config object's* AllowDenyPattern field that filters `kind`.
 
@@ -478,6 +493,8 @@ def _filter_kinds_by_field(source_type: str, config_cls: type) -> Dict[str, str]
         # dependent on set iteration order.
         if field is not None and field not in resolved:
             resolved[field] = kind
+    for kind, field in sorted(declared_rule_filtered_kinds(config_cls).items()):
+        resolved.setdefault(field, kind)
     return resolved
 
 

@@ -17,6 +17,7 @@ lint whose failure path is never exercised is a lint nobody can trust.
 from typing import Dict, Iterator, List, Mapping, Optional, Set, Tuple
 
 import pytest
+from pydantic import Field
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent.probe_methods import (
@@ -272,6 +273,10 @@ _CONFIG_HOOKS = frozenset(
         # Read by filter_check._kind_switches: the bool field that switches a
         # kind off (Fabric's extract_lakehouses, Unity's include_notebooks).
         "probe_kind_switches",
+        # Read by introspect.declared_rule_filtered_kinds: kinds decided by
+        # rules that are not an AllowDenyPattern (GCS/S3 path_specs), judged
+        # through probe_verdict_override.
+        "probe_rule_filtered_kinds",
     }
 )
 
@@ -465,6 +470,7 @@ def test_every_declared_kind_either_filters_or_says_it_does_not():
     from datahub.ingestion.agent.introspect import (
         _pattern_field_for_config_class,
         declared_kinds_for_class,
+        declared_rule_filtered_kinds,
         declared_unfiltered_kinds,
     )
 
@@ -472,9 +478,10 @@ def test_every_declared_kind_either_filters_or_says_it_does_not():
     checked = 0
     for source_type, config_cls in _probe_capable_configs():
         unfiltered = declared_unfiltered_kinds(config_cls)
+        rule_kinds = declared_rule_filtered_kinds(config_cls)
         for kind in sorted(declared_kinds_for_class(source_type, config_cls)):
             checked += 1
-            if kind in unfiltered:
+            if kind in unfiltered or kind in rule_kinds:
                 continue
             if _pattern_field_for_config_class(config_cls, kind) is None:
                 silent.setdefault(source_type, []).append(kind)
@@ -1077,3 +1084,55 @@ def test_the_kind_switch_check_catches_a_misspelled_field():
             return {"Notebook": "include_notebook"}
 
     assert len(_kind_switch_problems(_Typo)) == 1
+
+
+def _rule_kind_problems(config_cls: type) -> List[str]:
+    """A rule-filtered kind is only answerable when the config has the rule
+    field, an override to judge it, and does not also call it unfiltered."""
+    from datahub.ingestion.agent.introspect import (
+        declared_rule_filtered_kinds,
+        declared_unfiltered_kinds,
+    )
+
+    rules = declared_rule_filtered_kinds(config_cls)
+    if not rules:
+        return []
+    problems = []
+    fields = getattr(config_cls, "model_fields", {})
+    if not callable(getattr(config_cls, "probe_verdict_override", None)):
+        problems.append(
+            f"{config_cls.__name__} declares rule-filtered kinds but no "
+            f"probe_verdict_override to judge them"
+        )
+    for kind, field_name in rules.items():
+        if field_name not in fields:
+            problems.append(
+                f"{config_cls.__name__}: '{kind}' is filtered by "
+                f"'{field_name}', which is not a field"
+            )
+    for kind in sorted(set(rules) & declared_unfiltered_kinds(config_cls)):
+        problems.append(
+            f"{config_cls.__name__}: '{kind}' is declared both rule-filtered "
+            f"and unfiltered"
+        )
+    return problems
+
+
+def test_every_rule_filtered_kind_is_answerable():
+    problems = [
+        problem
+        for _source_type, config_cls in _probe_capable_configs()
+        for problem in _rule_kind_problems(config_cls)
+    ]
+    assert problems == []
+
+
+def test_the_rule_kind_check_catches_a_missing_override():
+    class _NoJudge(ConfigModel):
+        path_specs: List[str] = Field(default_factory=list)
+
+        @classmethod
+        def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
+            return {"Table": "path_specs"}
+
+    assert len(_rule_kind_problems(_NoJudge)) == 1

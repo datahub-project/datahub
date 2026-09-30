@@ -322,3 +322,60 @@ def test_attributes_must_align_with_names(monkeypatch: pytest.MonkeyPatch) -> No
     _register(monkeypatch, _ById)
     with pytest.raises(ValueError):
         _judge("Workspace", ["Sales", "Ops"], attributes=[{"id": "ws-1"}])
+
+
+class _Rules(ConfigModel):
+    """GCS's shape: path_specs decide Tables, and they are not a pattern."""
+
+    path_specs: List[str] = Field(default_factory=lambda: ["gs://b/data/*"])
+
+    @classmethod
+    def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
+        return {"Table": "path_specs"}
+
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        return () if kind == "Table" else None
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if ctx.kind != "Table":
+            return None
+        if ctx.name.startswith("gs://b/data/"):
+            return Verdict.include()
+        return Verdict(False, "path_specs[0].include")
+
+
+def test_a_rule_kind_is_judged_by_the_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Rules)
+    result = _judge("Table", ["gs://b/data/t1", "gs://b/other/t2"])
+    assert result.filtering == "by_rule"
+    assert result.pattern_field == "path_specs"
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (True, None),
+        (False, "path_specs[0].include"),
+    ]
+    assert result.results[1].target == "gs://b/other/t2"
+
+
+def test_try_patterns_on_a_rule_kind_warn_and_are_ignored(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _register(monkeypatch, _Rules)
+    result = _judge("Table", ["gs://b/data/t1"], try_deny=[".*"])
+    assert result.results[0].included is True
+    assert result.tried is None
+    assert any("--try-allow" in w for w in result.warnings)
+
+
+def test_a_rule_kind_without_a_verdict_is_a_connector_defect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Silent(_Rules):
+        def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+            return None
+
+    _register(monkeypatch, _Silent)
+    with pytest.raises(ProbeInternalError):
+        _judge("Table", ["gs://b/data/t1"])

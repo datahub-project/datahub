@@ -8,6 +8,7 @@ from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.introspect import (
     declared_qualifier,
+    declared_rule_filtered_kinds,
     pattern_field_for_config,
 )
 from datahub.ingestion.agent.pattern_path import (
@@ -413,9 +414,9 @@ def _parent_exclusion(
         parent_path=parent_path[:-1],
         names=[parent_path[-1]],
     )
-    if parent.filtering != "by_pattern":
+    if parent.filtering not in ("by_pattern", "by_rule"):
         # Nothing filters that level. Its warnings would be about a kind this
-        # source has no pattern for, which is noise on this verdict.
+        # source has no filter for, which is noise on this verdict.
         return None
     for message in parent.warnings:
         warn(message)
@@ -500,6 +501,34 @@ def _override_verdict(config: object, ctx: VerdictContext) -> Optional[Verdict]:
     return verdict
 
 
+@dataclass(frozen=True)
+class _Resolution:
+    resolved: Optional[str]
+    pattern_field: Optional[str]
+    filtering: str
+
+
+def _resolve_filtering(config: object, kind: str) -> _Resolution:
+    rule_field = declared_rule_filtered_kinds(config).get(kind)
+    if rule_field is not None:
+        # Rules, not a pattern: the connector's override judges each name,
+        # and there is no allow/deny list for --try-* to replace.
+        return _Resolution(rule_field, rule_field, "by_rule")
+    resolved = pattern_field_for_config(config, kind)
+    # Both of these report every name included, and the answer is right either
+    # way -- the question is "would these be ingested", and where nothing
+    # filters them the answer is yes. What differs is whether that is the
+    # source's design or a gap, and `filtering` is what says which. They were
+    # indistinguishable until a source could declare the first: a level whose
+    # annotation had been dropped looked exactly like a level with no filter,
+    # which is how Teradata's database_pattern went unnoticed.
+    if resolved == UNFILTERED:
+        return _Resolution(resolved, None, "unfiltered")
+    if resolved is None:
+        return _Resolution(None, None, "unresolved")
+    return _Resolution(resolved, resolved, "by_pattern")
+
+
 def check_filters(
     source_type: str,
     config_dict: Dict[str, object],
@@ -538,21 +567,10 @@ def check_filters(
             warnings.append(message)
 
     kind = _canonical_kind(source_type, config, kind)
-    resolved = pattern_field_for_config(config, kind)
-    # Both of these report every name included, and the answer is right either
-    # way -- the question is "would these be ingested", and where nothing
-    # filters them the answer is yes. What differs is whether that is the
-    # source's design or a gap, and `filtering` is what says which. They were
-    # indistinguishable until a source could declare the first: a level whose
-    # annotation had been dropped looked exactly like a level with no filter,
-    # which is how Teradata's database_pattern went unnoticed.
-    pattern_field = None if resolved == UNFILTERED else resolved
-    if resolved == UNFILTERED:
-        filtering = "unfiltered"
-    elif resolved is None:
-        filtering = "unresolved"
-    else:
-        filtering = "by_pattern"
+    resolution = _resolve_filtering(config, kind)
+    resolved = resolution.resolved
+    pattern_field = resolution.pattern_field
+    filtering = resolution.filtering
 
     if resolved is None:
         # A kind the source never declares is more likely a typo than a level
@@ -572,10 +590,17 @@ def check_filters(
     tried: Optional[Dict[str, List[str]]] = None
     recipe_pattern = (
         AllowDenyPattern.allow_all()
-        if pattern_field is None
+        if pattern_field is None or filtering == "by_rule"
         else require_pattern_at(config, pattern_field)
     )
-    if try_allow or try_deny:
+    if (try_allow or try_deny) and filtering == "by_rule":
+        warn(
+            f"'{pattern_field}' holds rules, not an allow/deny pattern, so "
+            f"--try-allow and --try-deny have nothing to replace and were "
+            f"ignored; edit {pattern_field} in the recipe to test a change"
+        )
+        pattern = recipe_pattern
+    elif try_allow or try_deny:
         # Each half replaces only its own half. `allow=[".*"] if not try_allow`
         # threw the recipe's allow list away whenever only --try-deny was
         # given, so "what if I added this deny" was answered against an
@@ -712,7 +737,9 @@ def check_filters(
         # A structural verdict that matched on its own string reports that string;
         # otherwise the target is resolved the usual way and the pattern decides.
         target = (
-            structural.matched_target
+            name
+            if filtering == "by_rule"
+            else structural.matched_target
             if (structural and structural.matched_target)
             else _match_target(config, kind, ctx)
         )
@@ -733,6 +760,12 @@ def check_filters(
                 warn=warn,
             ),
         )
+        if filtering == "by_rule" and override is None and structural is None:
+            raise ProbeInternalError(
+                f"{type(config).__name__} declares '{kind}' decided by "
+                f"{pattern_field}, but its probe_verdict_override gave no verdict "
+                f"for '{name}'"
+            )
         verdict = (
             override
             or structural

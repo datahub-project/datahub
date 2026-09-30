@@ -151,6 +151,16 @@ than `self.field.allowed(...)` directly, so `--try-allow` reaches it when `field
 a connector whose children do not follow their parent returns `()` from
 `probe_ancestor_kinds` for that kind.
 
+**When no pattern decides a kind at all.** A source whose inclusion is decided by
+rules that are not an `AllowDenyPattern` — `path_specs` on the object-store
+sources — declares `probe_rule_filtered_kinds()` (classmethod: kind → the rule
+field) and judges each name in `probe_verdict_override`, which must return a
+`Verdict` for those kinds. `probe filter` reports `filtering: "by_rule"` with
+`pattern_field` naming the rule field; put the exact sub-rule in `excluded_by`
+(`path_specs[0].exclude`). `--try-allow`/`--try-deny` are refused with a warning,
+since there is no list to replace. Declaring such a kind unfiltered instead would
+report everything included — the contract test refuses both at once.
+
 **A recipe switch that turns a whole kind off** (`extract_lakehouses: false`,
 `include_notebooks: false`) is declared with `probe_kind_switches()`, a classmethod
 mapping the kind to the bool field. `probe filter` then reports that kind
