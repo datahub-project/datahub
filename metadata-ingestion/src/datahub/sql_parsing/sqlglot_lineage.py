@@ -1510,7 +1510,7 @@ def _has_only_unnamed_tables(tables: OrderedSet[_TableName]) -> bool:
     return bool(tables) and all(_is_unnamed_table(t) for t in tables)
 
 
-def _drop_unnamed_tables(tables: OrderedSet[_TableName]) -> OrderedSet[_TableName]:
+def _drop_unnamed_tables(tables: Iterable[_TableName]) -> OrderedSet[_TableName]:
     return OrderedSet(t for t in tables if not _is_unnamed_table(t))
 
 
