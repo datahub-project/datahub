@@ -56,6 +56,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -1528,6 +1529,44 @@ public class UpdateIndicesV3StrategyTest {
     ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
     assertEquals(written.get("name").asText(), "b");
     assertTrue(written.get("description").isNull());
+  }
+
+  @Test
+  public void testProcessBatch_WritesCreatedAspectFollowedByNoOp() throws Exception {
+    MCLItem create = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem noOp = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    Status created = new Status().setRemoved(false);
+    Status unchanged = new Status().setRemoved(false);
+    when(create.getRecordTemplate()).thenReturn(created);
+    when(noOp.getRecordTemplate()).thenReturn(unchanged);
+    when(noOp.getPreviousRecordTemplate()).thenReturn(created);
+    stubTransform(unchanged, Map.of("removed", "false"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(create, noOp)), false);
+
+    // The index did not hold the aspect before the batch, so it is written
+    assertEquals(capturedDocument(DATASET_ENTITY_NAME).get("removed").asText(), "false");
+  }
+
+  @Test
+  public void testProcessBatch_WritesAspectForcedInsideBatch() throws Exception {
+    Status value = new Status().setRemoved(false);
+    List<MCLItem> batch = new ArrayList<>();
+    for (int i = 0; i < 3; i++) {
+      MCLItem event = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+      when(event.getRecordTemplate()).thenReturn(value);
+      when(event.getPreviousRecordTemplate()).thenReturn(value);
+      batch.add(event);
+    }
+    when(batch.get(1).getSystemMetadata())
+        .thenReturn(
+            new SystemMetadata().setProperties(new StringMap(Map.of(FORCE_INDEXING_KEY, "true"))));
+    stubTransform(value, Map.of("removed", "false"));
+
+    strategy.processBatch(operationContext, Collections.singletonMap(testUrn, batch), false);
+
+    assertEquals(capturedDocument(DATASET_ENTITY_NAME).get("removed").asText(), "false");
   }
 
   @Test
