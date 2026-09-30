@@ -57,6 +57,25 @@ export class LineageV3Page extends LineageBasePage {
     return this.page.getByText(text).first();
   }
 
+  /**
+   * Result card in a lineage results list, matched by the exact entity name. Scoped to the
+   * results list so graph nodes, headers and sidebar sections showing the same text do not match.
+   */
+  private getLineageListResult(scope: Page | Locator, name: string): Locator {
+    return scope
+      .getByTestId('embedded-list-search-results')
+      .getByTestId('entity-title')
+      .and(this.page.getByTitle(name, { exact: true }));
+  }
+
+  private getImpactAnalysisResult(name: string): Locator {
+    return this.getLineageListResult(this.page, name);
+  }
+
+  private getSidebarLineageResult(name: string): Locator {
+    return this.getLineageListResult(this.page.getByTestId('entity-profile-sidebar'), name);
+  }
+
   // ── Advanced Search and Filtering ───────────────────────────────────────────
 
   /**
@@ -387,6 +406,36 @@ export class LineageV3Page extends LineageBasePage {
    */
   async expectResultTextNotVisible(text: string, timeout: number = TIMEOUTS.SHORT): Promise<void> {
     await expect(this.getFirstResultText(text)).not.toBeVisible({ timeout });
+  }
+
+  async expectImpactAnalysisResultVisible(name: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
+    await expect(this.getImpactAnalysisResult(name)).toBeVisible({ timeout });
+  }
+
+  /**
+   * An absence check passes at once against a list that has not loaded yet, so call this only
+   * after expectImpactAnalysisResultVisible has matched an entity from the same response.
+   */
+  async expectImpactAnalysisResultAbsent(name: string): Promise<void> {
+    await expect(this.getImpactAnalysisResult(name)).toHaveCount(0);
+  }
+
+  async expectGraphNodeVisible(urn: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
+    await expect(this.getReactFlowNodeByUrn(urn)).toBeVisible({ timeout });
+  }
+
+  /** Same precondition as expectImpactAnalysisResultAbsent. */
+  async expectGraphNodeAbsent(urn: string): Promise<void> {
+    await expect(this.getReactFlowNodeByUrn(urn)).toHaveCount(0);
+  }
+
+  async expectSidebarLineageResultVisible(name: string, timeout: number = TIMEOUTS.EXTRA_LONG): Promise<void> {
+    await expect(this.getSidebarLineageResult(name)).toBeVisible({ timeout });
+  }
+
+  /** Same precondition as expectImpactAnalysisResultAbsent. */
+  async expectSidebarLineageResultAbsent(name: string): Promise<void> {
+    await expect(this.getSidebarLineageResult(name)).toHaveCount(0);
   }
 
   /**
