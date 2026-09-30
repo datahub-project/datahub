@@ -29,6 +29,7 @@ import graphql.com.google.common.collect.ImmutableSet;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -119,7 +120,7 @@ public class UpsertStructuredPropertiesResolver
       @Nonnull OperationContext opContext, Urn assetUrn) throws Exception {
     EntityResponse response =
         _entityClient.getV2(
-            opContext,
+            opContext.withReadPreference(ReadPreference.PRIMARY),
             assetUrn.getEntityType(),
             assetUrn,
             ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME));

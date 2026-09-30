@@ -1,7 +1,9 @@
 package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.token.StatefulTokenService;
+import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapCondition;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.annotation.PostConstruct;
@@ -9,6 +11,7 @@ import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
@@ -23,17 +26,20 @@ public class DataHubTokenServiceFactory {
   private EntityService<?> _entityService;
 
   @Bean(name = "dataHubTokenService")
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
   @Scope("singleton")
   @Nonnull
   protected StatefulTokenService getInstance(
-      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      @Qualifier("hazelcastInstance") final HazelcastInstance hazelcastInstance) {
     return new StatefulTokenService(
         systemOpContext,
         configurationProvider.getAuthentication().getTokenService().getSigningKey(),
         configurationProvider.getAuthentication().getTokenService().getSigningAlgorithm(),
         configurationProvider.getAuthentication().getTokenService().getIssuer(),
         _entityService,
-        configurationProvider.getAuthentication().getTokenService().getSalt());
+        configurationProvider.getAuthentication().getTokenService().getSalt(),
+        hazelcastInstance);
   }
 
   @PostConstruct
