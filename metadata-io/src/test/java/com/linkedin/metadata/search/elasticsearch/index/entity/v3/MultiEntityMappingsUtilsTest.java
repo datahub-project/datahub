@@ -415,7 +415,8 @@ public class MultiEntityMappingsUtilsTest {
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
     assertTrue(properties.containsKey("name"));
     assertTrue(properties.containsKey("score"));
-    // Note: tier_1 field is no longer explicitly created - it will be created dynamically
+    // searchTier is ignored: no tier field is created
+    assertFalse(properties.containsKey("tier_1"));
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
