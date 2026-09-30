@@ -2,7 +2,6 @@ package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
 import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.map.IMap;
 import com.linkedin.access.token.DataHubAccessTokenInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -34,7 +33,7 @@ public class StatefulTokenService extends StatelessTokenService {
 
   private final OperationContext systemOperationContext;
   private final EntityService<?> _entityService;
-  private final IMap<String, Boolean> revokedTokens;
+  private final TokenRevocationMap.State revokedTokens;
   private final String salt;
 
   public StatefulTokenService(
@@ -44,11 +43,13 @@ public class StatefulTokenService extends StatelessTokenService {
       @Nullable final String iss,
       @Nonnull final EntityService<?> entityService,
       @Nonnull final String salt,
-      @Nonnull final HazelcastInstance hazelcast) {
+      @Nullable final HazelcastInstance hazelcast) {
     super(systemOperationContext, signingKey, signingAlgorithm, iss);
     this.systemOperationContext = systemOperationContext;
     this._entityService = entityService;
-    this.revokedTokens = TokenRevocationMap.get(Objects.requireNonNull(hazelcast));
+    // MCE and partial Spring tests have no embedded node. GMS always does.
+    this.revokedTokens =
+        hazelcast == null ? TokenRevocationMap.local() : TokenRevocationMap.cluster(hazelcast);
     this.salt = Objects.requireNonNull(salt);
   }
 
