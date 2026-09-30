@@ -421,8 +421,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
               .ifPresent(
                   metricUtils ->
                       metricUtils.increment(this.getClass(), "search_diff_no_changes_detected", 1));
+          // Unchanged, so there is nothing to diff against
           searchDocumentProjector
-              .projectAspect(opContext, event, coalesced.baseline())
+              .projectAspect(opContext, event, null)
               .ifPresent(unchanged -> projections.add(new BatchProjection(unchanged, true)));
           continue;
         }
