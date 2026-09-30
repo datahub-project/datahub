@@ -1,0 +1,129 @@
+"""Filters(...) on a field inside a nested config block.
+
+Dataplex keeps its entry filters under `filter_config.entries`, so the field
+that filters a kind is a dotted path from the top-level config. Everything
+here must behave for a dotted path exactly as it already does for a bare one.
+"""
+
+from typing import Annotated, List
+
+import pytest
+from pydantic import Field
+
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.ingestion.agent import filter_check
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.introspect import (
+    _hinted_pattern_field,
+    _pattern_field_for_config_class,
+    iter_config_fields,
+)
+from datahub.ingestion.agent.pattern_path import (
+    copy_with_pattern_at,
+    pattern_at,
+    require_pattern_at,
+)
+from datahub.ingestion.agent.verdicts import pattern_verdict
+
+
+class _Widgets(ConfigModel):
+    pattern: Annotated[AllowDenyPattern, Filters("Widget")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+
+
+class _Block(ConfigModel):
+    widgets: _Widgets = Field(default_factory=_Widgets)
+
+
+class _Outer(ConfigModel):
+    filters: _Block = Field(default_factory=_Block)
+    gadget_pattern: Annotated[AllowDenyPattern, Filters("Gadget")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+
+
+class _Twice(ConfigModel):
+    filters: _Block = Field(default_factory=_Block)
+    widget_pattern: Annotated[AllowDenyPattern, Filters("Widget")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+
+
+def _outer(deny: List[str]) -> _Outer:
+    return _Outer.model_validate({"filters": {"widgets": {"pattern": {"deny": deny}}}})
+
+
+def test_a_nested_declaration_resolves_to_its_dotted_path() -> None:
+    assert _pattern_field_for_config_class(_Outer, "Widget") == "filters.widgets.pattern"
+    assert _pattern_field_for_config_class(_Outer, "Gadget") == "gadget_pattern"
+
+
+def test_one_kind_declared_at_two_depths_is_refused() -> None:
+    _hinted_pattern_field.cache_clear()
+    with pytest.raises(ValueError):
+        _hinted_pattern_field(_Twice, "Widget")
+
+
+def test_the_walk_does_not_descend_into_a_pattern() -> None:
+    paths = [path for path, _ in iter_config_fields(_Outer)]
+    assert "filters.widgets.pattern" in paths
+    assert not any(p.startswith("filters.widgets.pattern.") for p in paths)
+
+
+def test_pattern_verdict_reads_the_nested_pattern() -> None:
+    config = _outer(deny=["^bad$"])
+    assert pattern_verdict(config, "filters.widgets.pattern", "bad").included is False
+    assert pattern_verdict(config, "filters.widgets.pattern", "good").included is True
+
+
+def test_copy_with_pattern_at_does_not_touch_the_source() -> None:
+    config = _outer(deny=["^bad$"])
+    replacement = AllowDenyPattern(deny=["^good$"])
+    copied = copy_with_pattern_at(config, "filters.widgets.pattern", replacement)
+    assert require_pattern_at(copied, "filters.widgets.pattern") is replacement
+    assert pattern_at(config, "filters.widgets.pattern") == AllowDenyPattern(
+        deny=["^bad$"]
+    )
+    assert copied.filters is not config.filters
+
+
+def test_a_missing_segment_reads_as_no_pattern() -> None:
+    assert pattern_at(_outer(deny=[]), "filters.nope.pattern") is None
+    with pytest.raises(TypeError):
+        require_pattern_at(_outer(deny=[]), "filters.nope.pattern")
+
+
+@pytest.fixture
+def _registered_outer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(filter_check, "config_class_for", lambda _st: _Outer)
+    monkeypatch.setattr(filter_check, "list_probe_methods", lambda _st: [])
+
+
+@pytest.mark.usefixtures("_registered_outer")
+def test_check_filters_judges_on_the_nested_pattern() -> None:
+    result = check_filters(
+        source_type="fake",
+        config_dict={"filters": {"widgets": {"pattern": {"deny": ["^bad$"]}}}},
+        kind="Widget",
+        parent_path=[],
+        names=["bad", "good"],
+    )
+    assert result.pattern_field == "filters.widgets.pattern"
+    assert result.filtering == "by_pattern"
+    assert [r.included for r in result.results] == [False, True]
+    assert result.results[0].excluded_by == "filters.widgets.pattern"
+
+
+@pytest.mark.usefixtures("_registered_outer")
+def test_try_deny_reaches_a_nested_pattern() -> None:
+    result = check_filters(
+        source_type="fake",
+        config_dict={},
+        kind="Widget",
+        parent_path=[],
+        names=["bad", "good"],
+        try_deny=["^good$"],
+    )
+    assert [r.included for r in result.results] == [True, False]
+    assert result.tried == {"allow": [".*"], "deny": ["^good$"]}

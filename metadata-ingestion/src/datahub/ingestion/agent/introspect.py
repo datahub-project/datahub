@@ -74,6 +74,42 @@ def is_pattern_field(annotation: object) -> bool:
     return _kind_for(annotation) == FieldKind.PATTERN
 
 
+# Deep enough for filter_config.entries.pattern with room to spare. A bound
+# rather than a visited-set because a self-referencing config would otherwise
+# walk forever, and no real config nests patterns deeper than three.
+_MAX_NESTING = 4
+
+
+def _model_members(annotation: object) -> List[type]:
+    """The ConfigModel types a field holds directly, Optional unwrapped.
+
+    AllowDenyPattern is itself a ConfigModel, and its allow/deny lists are not a
+    place a Filters declaration can live, so it is not descended into.
+    """
+    return [
+        member
+        for member in _unwrap_optional(annotation)
+        if isinstance(member, type)
+        and issubclass(member, ConfigModel)
+        and not issubclass(member, AllowDenyPattern)
+    ]
+
+
+def iter_config_fields(
+    config_cls: type, _prefix: str = "", _depth: int = 0
+) -> Iterator[Tuple[str, FieldInfo]]:
+    """Every field on this config and its nested config blocks, as
+    (dotted path, FieldInfo). Top-level fields keep their bare names."""
+    fields = getattr(config_cls, "model_fields", None) or {}
+    for name, info in fields.items():
+        path = f"{_prefix}{name}"
+        yield path, info
+        if _depth + 1 >= _MAX_NESTING:
+            continue
+        for member in _model_members(info.annotation):
+            yield from iter_config_fields(member, f"{path}.", _depth + 1)
+
+
 # A pattern field is conventionally named after the kind it filters:
 # Schema -> schema_pattern, Topic -> topic_patterns.
 #
@@ -152,10 +188,10 @@ def _hinted_pattern_field(config_cls: type, kind: ProbeNodeKind) -> Optional[str
     raised rather than guessed around.
     """
     wanted = str(kind)
-    fields = getattr(config_cls, "model_fields", {})
+    fields = dict(iter_config_fields(config_cls))
     matches = sorted(
-        name
-        for name, field in fields.items()
+        path
+        for path, field in fields.items()
         if any(
             isinstance(meta, Filters) and str(meta.kind) == wanted
             for meta in field.metadata
@@ -481,6 +517,17 @@ def describe_source(source_type: str) -> SourceSpec:
         _classify(name, info, filter_kinds)
         for name, info in config_cls.model_fields.items()
     ]
+    # A declared pattern inside a nested block is described under its dotted
+    # path, so `describe` names every field `probe filter` can report as
+    # pattern_field -- the two commands must agree. Declared ones only: every
+    # nested field would flood describe with blocks a recipe sets whole.
+    # scaffold() skips PATTERN fields, so a dotted name never reaches a
+    # scaffolded recipe as a literal key.
+    fields.extend(
+        _classify(path, info, filter_kinds)
+        for path, info in iter_config_fields(config_cls)
+        if "." in path and _declared_filter_kind(info) is not None
+    )
     capabilities: List[Dict[str, object]] = []
     get_caps = getattr(source_cls, "get_capabilities", None)
     if callable(get_caps):

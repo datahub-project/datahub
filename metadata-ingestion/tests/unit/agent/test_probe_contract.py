@@ -590,6 +590,7 @@ def test_no_connector_leans_on_the_name_convention():
     from datahub.ingestion.agent.introspect import (
         _declared_filter_kind,
         _filter_kinds_by_field,
+        iter_config_fields,
     )
 
     leaning = {}
@@ -597,8 +598,8 @@ def test_no_connector_leans_on_the_name_convention():
     for source_type, config_cls in _probe_capable_configs():
         checked += 1
         explicit = {
-            name
-            for name, info in config_cls.model_fields.items()
+            path
+            for path, info in iter_config_fields(config_cls)
             if _declared_filter_kind(info) is not None
         }
         by_convention = sorted(

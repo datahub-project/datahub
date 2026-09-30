@@ -2,6 +2,8 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Collection, Iterator, Optional, Sequence, Tuple
 
+from datahub.ingestion.agent.pattern_path import require_pattern_at
+
 
 @dataclass(frozen=True)
 class Verdict:
@@ -81,7 +83,7 @@ def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> V
         # filter_check guards this before calling, but the sentinel and this
         # function are exported from the same module and read as composable.
         return _INCLUDED
-    pattern = getattr(config, pattern_field)
+    pattern = require_pattern_at(config, pattern_field)
     return _INCLUDED if pattern.allowed(target) else Verdict(False, pattern_field)
 
 

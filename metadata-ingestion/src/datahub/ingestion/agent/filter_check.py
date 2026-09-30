@@ -10,6 +10,12 @@ from datahub.ingestion.agent.introspect import (
     declared_qualifier,
     pattern_field_for_config,
 )
+from datahub.ingestion.agent.pattern_path import (
+    copy_with_pattern_at,
+    pattern_at,
+    require_pattern_at,
+    validate_pattern_at,
+)
 from datahub.ingestion.agent.probe_methods import config_class_for, list_probe_methods
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
@@ -353,8 +359,8 @@ def _qualified_schema_match(
     container = _qualified_container(config, parent_path)
     if container is None:
         return None
-    pattern = getattr(config, pattern_field, None)
-    if not isinstance(pattern, AllowDenyPattern):
+    pattern = pattern_at(config, pattern_field)
+    if pattern is None:
         return None
     return SchemaMatch(
         included=is_schema_allowed(pattern, name, container, True),
@@ -532,7 +538,7 @@ def check_filters(
     recipe_pattern = (
         AllowDenyPattern.allow_all()
         if pattern_field is None
-        else getattr(config, pattern_field)
+        else require_pattern_at(config, pattern_field)
     )
     if try_allow or try_deny:
         # Each half replaces only its own half. `allow=[".*"] if not try_allow`
@@ -567,7 +573,7 @@ def check_filters(
             #
             # A shallow copy on purpose: model_copy(deep=True) would clone the
             # cached RDS IAM token manager along with its minted token.
-            config = config.model_copy(update={pattern_field: pattern})
+            config = copy_with_pattern_at(config, pattern_field, pattern)
             # ...and then re-validated, because model_copy does NOT rerun
             # validators and some connectors normalize the pattern there.
             # BigQuery's after-validator rewrites an unqualified
@@ -582,9 +588,7 @@ def check_filters(
             # have, so nothing is reconstructed and the token manager above is
             # still shared rather than cloned.
             try:
-                type(config).__pydantic_validator__.validate_assignment(
-                    config, pattern_field, pattern
-                )
+                validate_pattern_at(config, pattern_field, pattern)
             except ValidationError:
                 # A connector whose validator REJECTS the hypothetical is
                 # answering the question: the caller cannot write that in the
@@ -616,8 +620,8 @@ def check_filters(
                 # visible on `pattern` -- but one that ASSIGNS a new pattern
                 # would leave `pattern` stale, and the verdicts below are
                 # computed from `pattern` rather than from the config.
-                effective = getattr(config, pattern_field)
-                if isinstance(effective, AllowDenyPattern):
+                effective = pattern_at(config, pattern_field)
+                if effective is not None:
                     pattern = effective
                     if (list(effective.allow), list(effective.deny)) != (
                         requested_allow,

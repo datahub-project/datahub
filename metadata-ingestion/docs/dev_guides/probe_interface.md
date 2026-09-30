@@ -141,6 +141,14 @@ that the parents were not judged, rather than a verdict that silently ignores th
 `object_pattern`) rather than DataHub's subtype name. A connector whose display name **is** its
 filter target — Kafka topics, Mode spaces — needs nothing here at all.
 
+**A filter inside a nested block is declared where it lives.** Some configs group
+their filters (`filter_config.entries.pattern`). Put `Filters(...)` on the nested
+field itself; the framework finds it by walking nested `ConfigModel` fields and
+reports it as `pattern_field: "filter_config.entries.pattern"`, and `describe` lists
+it under that dotted name. `--try-allow`/`--try-deny` replace the nested pattern and
+rerun the validators of the block that owns it — not of its parents, so normalize a
+nested pattern in its own block.
+
 Be aware how narrow the rest is. Step 3 only runs for `Schema` and `Database` kinds, so a source
 with neither (Mode's Space/Report/Query, Kafka's Topic) can never reach it. And step 2's hook has
 exactly one implementor in the tree — `SQLCommonConfig` — because the SQL family is where display
