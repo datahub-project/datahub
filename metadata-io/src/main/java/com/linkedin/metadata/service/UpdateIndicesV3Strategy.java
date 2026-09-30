@@ -1,8 +1,6 @@
 package com.linkedin.metadata.service;
 
-import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
@@ -23,18 +21,21 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstan
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntityMappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.V3IndexKeys;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -52,7 +53,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
   private final EntityIndexVersionConfiguration v3Config;
   private final ElasticSearchService elasticSearchService;
-  private final SearchDocumentTransformer searchDocumentTransformer;
+  private final V3SearchDocumentProjector searchDocumentProjector;
   private final TimeseriesAspectService timeseriesAspectService;
   private final MultiEntityMappingsBuilder mappingsBuilder;
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
@@ -133,7 +134,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nullable SemanticSearchConfiguration semanticSearchConfiguration) {
     this.v3Config = v3Config;
     this.elasticSearchService = elasticSearchService;
-    this.searchDocumentTransformer = searchDocumentTransformer;
+    this.searchDocumentProjector = new V3SearchDocumentProjector(searchDocumentTransformer);
     this.timeseriesAspectService = timeseriesAspectService;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
     this.entityDocumentIdHasher = entityDocumentIdHasher;
@@ -400,29 +401,17 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull List<MCLItem> events,
       @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
 
-    ObjectNode combinedDocument = JsonNodeFactory.instance.objectNode();
-    combinedDocument.put("urn", urn.toString());
-
-    // Add _entityType field
-    String entityType = events.get(0).getEntitySpec().getName();
-    combinedDocument.put("_entityType", entityType);
-
-    // Create _aspects object to hold all aspects
-    ObjectNode aspectsNode = JsonNodeFactory.instance.objectNode();
+    EntitySpec entitySpec = events.get(0).getEntitySpec();
+    String entityType = entitySpec.getName();
+    ObjectNode combinedDocument = searchDocumentProjector.newEntityDocument(urn, entitySpec);
 
     boolean hasAnyAspects = false;
 
-    for (MCLItem event : events) {
+    for (CoalescedAspectEvent coalesced : coalesceAspectEvents(events)) {
+      MCLItem event = coalesced.event();
       try {
         AspectSpec aspectSpec = event.getAspectSpec();
         String aspectName = aspectSpec.getName();
-
-        // Handle structured properties specially - they go at root level, not under _aspects
-        if (Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectName)) {
-          processStructuredPropertiesAspect(opContext, urn, event, combinedDocument);
-          hasAnyAspects = true;
-          continue;
-        }
 
         // Throttle timeseries aspects for entity index writes
         if (aspectSpec.isTimeseries() && timeseriesThrottleCache != null) {
@@ -445,11 +434,13 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           }
         }
 
-        // Process ALL other aspects (including timeseries) under _aspects
-        // In V3, timeseries aspects are treated the same as other versioned aspects
-        ObjectNode aspectDocument = processAspectForV3(opContext, urn, event);
-        if (aspectDocument != null) {
-          aspectsNode.set(aspectName, aspectDocument);
+        // Each aspect's fields go to the document root and under _aspects.<aspect>; structured
+        // properties go to the root only. In V3, timeseries aspects are treated the same as other
+        // versioned aspects.
+        Optional<V3SearchDocumentProjector.ProjectedAspect> projectedAspect =
+            searchDocumentProjector.projectAspect(opContext, event, coalesced.baseline());
+        if (projectedAspect.isPresent()) {
+          searchDocumentProjector.applyProjection(combinedDocument, projectedAspect.get());
           hasAnyAspects = true;
 
           // recordWrite is handled by UpdateIndicesService after all strategies have processed
@@ -480,11 +471,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       }
     }
 
-    // Only add _aspects if we have any aspects
-    if (hasAnyAspects && aspectsNode.size() > 0) {
-      combinedDocument.set(MappingConstants.ASPECTS_FIELD_NAME, aspectsNode);
-    }
-
     if (!hasAnyAspects) {
       return null;
     }
@@ -493,6 +479,47 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
     applyDocumentContributors(opContext, urn, combinedDocument);
     return combinedDocument;
+  }
+
+  /** The event that writes an aspect, and the aspect value the index held before the batch. */
+  private record CoalescedAspectEvent(@Nonnull MCLItem event, @Nullable RecordTemplate baseline) {}
+
+  /**
+   * One event per aspect, as V2 does: the last event in the batch, diffed against the first event's
+   * previous value. That value is what the index held before the batch, so removal nulls cover
+   * every field the batch dropped; diffing each event against its own predecessor would lose the
+   * nulls of all but the last event under {@code _aspects.<aspect>}, which each event replaces.
+   *
+   * <p>Two aspects can project the same root field (e.g. corpuser displayName from CorpUserInfo and
+   * CorpUserEditableInfo). Root fields are last-write-wins, so user-edited override aspects are
+   * applied after their ingested base aspect, as the fork does when it rebuilds a document.
+   */
+  @Nonnull
+  private static List<CoalescedAspectEvent> coalesceAspectEvents(@Nonnull List<MCLItem> events) {
+    Map<String, MCLItem> lastEventByAspect = new LinkedHashMap<>();
+    Map<String, RecordTemplate> baselineByAspect = new HashMap<>();
+    for (MCLItem event : events) {
+      String aspectName = event.getAspectName();
+      if (!baselineByAspect.containsKey(aspectName)) {
+        baselineByAspect.put(aspectName, event.getPreviousRecordTemplate());
+      }
+      lastEventByAspect.remove(aspectName);
+      lastEventByAspect.put(aspectName, event);
+    }
+    return lastEventByAspect.entrySet().stream()
+        .sorted(Comparator.comparing(entry -> isEditableOverrideAspect(entry.getKey())))
+        .map(
+            entry ->
+                new CoalescedAspectEvent(entry.getValue(), baselineByAspect.get(entry.getKey())))
+        .collect(Collectors.toList());
+  }
+
+  // DataHub names user-override aspects with "editable"/"Editable" (corpUserEditableInfo,
+  // corpGroupEditableInfo, editableDatasetProperties, editableSchemaMetadata, ...). These overrides
+  // conventionally take precedence over their ingested base aspect, so they are applied last when
+  // resolving a shared root convenience field.
+  private static boolean isEditableOverrideAspect(@Nullable final String aspectName) {
+    return aspectName != null && aspectName.toLowerCase(Locale.ROOT).contains("editable");
   }
 
   private void liftSemanticEmbeddingsToRoot(
@@ -552,111 +579,6 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 }
                 document.set(fieldName, entry.getValue());
               });
-    }
-  }
-
-  /**
-   * Processes a single aspect for V3 document structure.
-   *
-   * @param opContext the operation context
-   * @param urn the URN of the entity
-   * @param event the MCLItem event
-   * @return the aspect document or null if no searchable fields
-   */
-  private ObjectNode processAspectForV3(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull MCLItem event) {
-
-    AspectSpec aspectSpec = event.getAspectSpec();
-    RecordTemplate aspect = event.getRecordTemplate();
-    SystemMetadata systemMetadata = event.getSystemMetadata();
-
-    try {
-      // Transform the aspect using the existing transformer
-      // For DELETE events, pass isDelete=true to match V2 behavior
-      boolean isDelete = event.getChangeType() == ChangeType.DELETE;
-      Optional<ObjectNode> searchDocument =
-          searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, isDelete, event.getAuditStamp())
-              .map(
-                  objectNode ->
-                      SearchDocumentTransformer.withSystemCreated(
-                          objectNode,
-                          event.getChangeType(),
-                          event.getEntitySpec(),
-                          aspectSpec,
-                          event.getAuditStamp()));
-
-      if (searchDocument.isEmpty()) {
-        return null;
-      }
-
-      ObjectNode aspectNode = searchDocument.get();
-
-      // Remove the urn field as it's already at the root level
-      aspectNode.remove("urn");
-
-      // Add _systemmetadata if present
-      if (systemMetadata != null) {
-        // Use RecordUtils.toJsonString() for proper serialization, then convert to JsonNode
-        String systemMetadataJson = RecordUtils.toJsonString(systemMetadata);
-        ObjectMapper mapper = opContext.getObjectMapper();
-        JsonNode systemMetadataNode = mapper.readTree(systemMetadataJson);
-        aspectNode.set("_systemmetadata", systemMetadataNode);
-      }
-
-      return aspectNode;
-
-    } catch (Exception e) {
-      log.error(
-          "Error transforming aspect {} for URN {}: {}",
-          aspectSpec.getName(),
-          urn,
-          e.getMessage(),
-          e);
-      return null;
-    }
-  }
-
-  /**
-   * Processes structured properties aspect for V3 (keeps at root level, not under _aspects).
-   *
-   * @param opContext the operation context
-   * @param urn the URN of the entity
-   * @param event the MCLItem event
-   * @param combinedDocument the combined document to add structured properties to
-   */
-  private void processStructuredPropertiesAspect(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull MCLItem event,
-      @Nonnull ObjectNode combinedDocument) {
-
-    try {
-      AspectSpec aspectSpec = event.getAspectSpec();
-      RecordTemplate aspect = event.getRecordTemplate();
-
-      // Transform structured properties using existing logic
-      Optional<ObjectNode> searchDocument =
-          searchDocumentTransformer.transformAspect(
-              opContext, urn, aspect, aspectSpec, false, event.getAuditStamp());
-
-      if (searchDocument.isPresent()) {
-        ObjectNode structuredPropsDoc = searchDocument.get();
-
-        // Copy structured properties fields to root level (excluding urn)
-        Iterator<String> fieldNames = structuredPropsDoc.fieldNames();
-        if (fieldNames != null) {
-          fieldNames.forEachRemaining(
-              fieldName -> {
-                if (!"urn".equals(fieldName)) {
-                  combinedDocument.set(fieldName, structuredPropsDoc.get(fieldName));
-                }
-              });
-        }
-      }
-
-    } catch (Exception e) {
-      log.error("Error processing structured properties for URN {}: {}", urn, e.getMessage(), e);
     }
   }
 

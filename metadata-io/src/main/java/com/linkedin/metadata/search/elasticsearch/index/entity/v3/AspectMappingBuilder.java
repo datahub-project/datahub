@@ -36,6 +36,18 @@ public class AspectMappingBuilder {
       @Nonnull EntitySpec entitySpec,
       @Nullable Map<String, Set<String>> fieldNameConflicts,
       @Nullable Map<String, Set<String>> fieldNameAliasConflicts) {
+    return createAspectMappings(
+        entitySpec,
+        fieldNameConflicts,
+        fieldNameAliasConflicts,
+        FieldTypeMapper.DEFAULT_PARTIAL_NGRAM_CONFIG);
+  }
+
+  public static Map<String, Object> createAspectMappings(
+      @Nonnull EntitySpec entitySpec,
+      @Nullable Map<String, Set<String>> fieldNameConflicts,
+      @Nullable Map<String, Set<String>> fieldNameAliasConflicts,
+      @Nonnull Map<String, String> partialNgramConfig) {
 
     Map<String, Object> aspectsMappings = new HashMap<>();
 
@@ -56,14 +68,12 @@ public class AspectMappingBuilder {
                       searchableFieldSpec -> {
                         aspectFields.putAll(
                             MultiEntityMappingsBuilder.getMappingsForField(
-                                searchableFieldSpec,
-                                aspectName,
-                                fieldNameConflicts,
-                                fieldNameAliasConflicts));
+                                searchableFieldSpec, aspectName, false, partialNgramConfig));
                       });
 
-              // Add _systemMetadata field to each aspect
-              aspectFields.put("_systemMetadata", createSystemMetadataMapping());
+              // Add system metadata to each aspect using the projector's serialized field name.
+              aspectFields.put(
+                  V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
 
               if (!aspectFields.isEmpty()) {
                 aspectsMappings.put(aspectName, ImmutableMap.of(PROPERTIES, aspectFields));
@@ -160,8 +170,8 @@ public class AspectMappingBuilder {
 
                                       rootAliases.put(alias, aliasMapping);
                                     }
-                                    // Conflicted field name aliases are handled in
-                                    // createRootFieldsWithCopyTo
+                                    // Conflicted field name aliases are handled by the group-level
+                                    // root projection.
                                   });
                         }
 

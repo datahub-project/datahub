@@ -23,6 +23,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
@@ -1356,6 +1357,104 @@ public class UpdateIndicesV3StrategyTest {
         written.get("resolvedTextSha256").asText(),
         com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance
             .sha256Hex("the body"));
+  }
+
+  @Test
+  public void testProcessBatch_ProjectsAspectFieldsToRootAndAspects() throws Exception {
+    RecordTemplate previousAspect = mock(RecordTemplate.class);
+    when(mockEvent.getAspectName()).thenReturn(DATASET_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(previousAspect);
+    when(mockEvent.getSystemMetadata()).thenReturn(new SystemMetadata().setRunId("run-1"));
+    stubTransform(mockAspect, Map.of("name", "orders"));
+    stubTransform(previousAspect, Map.of("name", "old", "description", "dropped"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(mockEvent)), false);
+
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("name").asText(), "orders");
+    // A partial update keeps whatever it does not overwrite, so removed values are nulled
+    assertTrue(written.get("description").isNull());
+    assertFalse(written.has("_systemMetadata"));
+    JsonNode aspect = written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME);
+    assertEquals(aspect.get("name").asText(), "orders");
+    assertTrue(aspect.get("description").isNull());
+    assertEquals(aspect.get("_systemMetadata").get("runId").asText(), "run-1");
+  }
+
+  @Test
+  public void testProcessBatch_EditableAspectWinsSharedRootField() throws Exception {
+    MCLItem editableEvent = aspectEvent("editableDatasetProperties");
+    MCLItem baseEvent = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate editableRecord = editableEvent.getRecordTemplate();
+    RecordTemplate baseRecord = baseEvent.getRecordTemplate();
+    stubTransform(editableRecord, Map.of("displayName", "edited"));
+    stubTransform(baseRecord, Map.of("displayName", "ingested"));
+
+    // The base aspect arrives last, but the user-edited override still wins the root field
+    strategy.processBatch(
+        operationContext,
+        Collections.singletonMap(testUrn, List.of(editableEvent, baseEvent)),
+        false);
+
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("displayName").asText(), "edited");
+    assertEquals(
+        written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME).get("displayName").asText(),
+        "ingested");
+  }
+
+  @Test
+  public void testProcessBatch_CoalescesAspectEventsAgainstBatchBaseline() throws Exception {
+    RecordTemplate before = mock(RecordTemplate.class);
+    MCLItem first = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    MCLItem second = aspectEvent(DATASET_PROPERTIES_ASPECT_NAME);
+    RecordTemplate firstRecord = first.getRecordTemplate();
+    RecordTemplate secondRecord = second.getRecordTemplate();
+    when(first.getPreviousRecordTemplate()).thenReturn(before);
+    when(second.getPreviousRecordTemplate()).thenReturn(firstRecord);
+    stubTransform(before, Map.of("name", "a", "description", "kept by the first event"));
+    stubTransform(firstRecord, Map.of("name", "b", "description", "kept by the first event"));
+    stubTransform(secondRecord, Map.of("name", "c"));
+
+    strategy.processBatch(
+        operationContext, Collections.singletonMap(testUrn, List.of(first, second)), false);
+
+    // Diffed against the value before the batch, so the removal reaches _aspects too
+    ObjectNode written = capturedDocument(DATASET_ENTITY_NAME);
+    assertEquals(written.get("name").asText(), "c");
+    assertTrue(written.get("description").isNull());
+    JsonNode aspect = written.get("_aspects").get(DATASET_PROPERTIES_ASPECT_NAME);
+    assertEquals(aspect.get("name").asText(), "c");
+    assertTrue(aspect.get("description").isNull());
+  }
+
+  private MCLItem aspectEvent(String aspectName) {
+    AspectSpec aspectSpec = mock(AspectSpec.class);
+    when(aspectSpec.getName()).thenReturn(aspectName);
+    MCLItem event = mock(MCLItem.class);
+    when(event.getUrn()).thenReturn(testUrn);
+    when(event.getEntitySpec()).thenReturn(mockEntitySpec);
+    when(event.getAspectSpec()).thenReturn(aspectSpec);
+    when(event.getAspectName()).thenReturn(aspectName);
+    when(event.getRecordTemplate()).thenReturn(mock(RecordTemplate.class));
+    when(event.getAuditStamp()).thenReturn(mockAuditStamp);
+    when(event.getChangeType()).thenReturn(ChangeType.UPSERT);
+    return event;
+  }
+
+  private void stubTransform(RecordTemplate record, Map<String, String> fields) throws Exception {
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.put("urn", testUrn.toString());
+    fields.forEach(document::put);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            eq(record),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any()))
+        .thenReturn(Optional.of(document));
   }
 
   private void enableDocumentSemanticStrategy() {

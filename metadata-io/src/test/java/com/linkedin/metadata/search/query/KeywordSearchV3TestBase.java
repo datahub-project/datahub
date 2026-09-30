@@ -29,10 +29,12 @@ import com.linkedin.common.BrowsePathEntryArray;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.ChangeAuditStamps;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.GraphRetriever;
@@ -285,6 +287,8 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 events(
                     ORDERS,
                     new DatasetProperties().setName("orders"),
+                    // Mixed case: keyword roots are normalized, so facets must read .keyword
+                    new SubTypes().setTypeNames(new StringArray("Table")),
                     browsePaths("prod", "sales"),
                     new StructuredProperties()
                         .setProperties(
@@ -345,7 +349,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 10)
             .getEntities(),
         ORDERS);
-    // Callers that name the V2 .keyword subfield read the root field
+    // Callers that name the V2 .keyword subfield read the same subfield
     assertUrns(
         searchService
             .filter(
@@ -430,6 +434,11 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
         searchService.aggregateByValue(
             opContext, List.of(DATASET_ENTITY_NAME), "platform", null, 10),
         Map.of(HIVE.toString(), 1L, POSTGRES.toString(), 1L));
+    // The raw value, not the lower-cased root keyword
+    assertEquals(
+        searchService.aggregateByValue(
+            opContext, List.of(DATASET_ENTITY_NAME), "typeNames", null, 10),
+        Map.of("Table", 1L));
   }
 
   @Test
@@ -442,12 +451,18 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   public void testRawEntity() {
     Map<Urn, Map<String, Object>> raw = searchService.raw(opContext, Set.of(ORDERS, ORDERS_CHART));
     assertEquals(raw.keySet(), Set.of(ORDERS, ORDERS_CHART));
     // _entityType is only stored on V3 documents
     assertEquals(raw.get(ORDERS).get("_entityType"), DATASET_ENTITY_NAME);
     assertEquals(raw.get(ORDERS_CHART).get("_entityType"), CHART_ENTITY_NAME);
+    // Each aspect's fields sit at the root, as on V2, and under _aspects.<aspect>
+    assertEquals(raw.get(ORDERS).get("name"), "orders");
+    Map<String, Object> aspects = (Map<String, Object>) raw.get(ORDERS).get("_aspects");
+    assertEquals(((Map<String, Object>) aspects.get("datasetProperties")).get("name"), "orders");
+    assertEquals(raw.get(ORDERS_CHART).get("title"), "Orders by region");
   }
 
   @Test
@@ -492,7 +507,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             null,
             0,
             10,
-            List.of("platform", "_entityType"));
+            List.of("platform", "_entityType", "typeNames"));
     assertUrns(acrossEntities.getEntities(), ORDERS, ORDERS_CHART);
     Map<String, Map<String, Long>> facets =
         acrossEntities.getMetadata().getAggregations().stream()
@@ -500,6 +515,7 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
                 Collectors.toMap(
                     AggregationMetadata::getName, AggregationMetadata::getAggregations));
     assertEquals(facets.get("platform"), Map.of(HIVE.toString(), 1L));
+    assertEquals(facets.get("typeNames"), Map.of("Table", 1L));
     assertEquals(facets.get("_entityType"), Map.of(DATASET_ENTITY_NAME, 1L, CHART_ENTITY_NAME, 1L));
     // Each returned Type value filters back to its entities
     for (Map.Entry<String, Urn> type :
@@ -525,12 +541,12 @@ public abstract class KeywordSearchV3TestBase extends AbstractTestNGSpringContex
             .getEntities(),
         ORDERS_CHART);
 
-    // _entityName aliases the raw name, so the chart title's capital sorts first ascending. The urn
-    // tie-break gives that order too; only a working name sort reverses it descending
+    // _entityName sorts ignoring case, as on V2, so "orders" comes before "Orders by region"
+    // ascending. The urn tie-break alone would put the chart first
     for (Map.Entry<SortOrder, List<Urn>> sort :
         Map.of(
-                SortOrder.ASCENDING, List.of(ORDERS_CHART, ORDERS),
-                SortOrder.DESCENDING, List.of(ORDERS, ORDERS_CHART))
+                SortOrder.ASCENDING, List.of(ORDERS, ORDERS_CHART),
+                SortOrder.DESCENDING, List.of(ORDERS_CHART, ORDERS))
             .entrySet()) {
       assertEquals(
           searchService
