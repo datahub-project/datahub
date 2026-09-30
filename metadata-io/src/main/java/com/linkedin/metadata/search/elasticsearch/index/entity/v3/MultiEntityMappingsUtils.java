@@ -90,7 +90,7 @@ public class MultiEntityMappingsUtils {
   }
 
   /**
-   * Checks if a field has other copy_to destinations besides tier fields.
+   * Checks if a field has copy_to destinations.
    *
    * @param searchableFieldSpec the field specification to check
    * @return true if the field has other copy_to destinations

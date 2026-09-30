@@ -391,7 +391,8 @@ public class FieldTypeMapper {
     if (fieldTypes.stream().anyMatch(URN_FIELD_TYPES::contains)
         && !URN_FIELD_TYPES.containsAll(fieldTypes)) {
       log.warn(
-          "Root field {} is {} across the entities of one index, so search on it differs from V2",
+          "Root field {} is {} across the entities of one index; full-text search skips it for the"
+              + " URN entities",
           representative.getSearchableAnnotation().getFieldName(),
           fieldTypes);
       if (URN_FIELD_TYPES.contains(representativeType)) {
