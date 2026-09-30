@@ -148,10 +148,10 @@ def mock_trino_engine() -> Any:
 @pytest.fixture
 def mock_athena_engine() -> Any:
     """Mock Athena engine with correct dialect."""
-    from pyathena import sqlalchemy_athena
+    from pyathena.sqlalchemy.rest import AthenaRestDialect
 
     engine = MagicMock()
-    engine.dialect = sqlalchemy_athena.AthenaDialect()
+    engine.dialect = AthenaRestDialect()
     return engine
 
 
@@ -780,8 +780,10 @@ class TestSnowflakeAdapter:
         assert result.temp_table == "dh_sample_abc123"
         mock_sample.assert_called_once_with(context, mock_conn, 1_000_000)
 
-    def test_setup_profiling_no_row_count_conservative_sampling(self, adapter, config):
-        """When INFORMATION_SCHEMA row count is unavailable, be conservative and sample."""
+    def test_setup_profiling_no_row_count_uses_fixed_size_sampling(
+        self, adapter, config
+    ):
+        """When the row count is unavailable, sample by row count, not by fraction."""
         config.use_sampling = True
         config.sample_size = 10000
         adapter.config = config
@@ -793,14 +795,15 @@ class TestSnowflakeAdapter:
 
         with (
             patch.object(adapter, "_get_row_count_from_metadata", return_value=None),
+            patch.object(adapter, "_create_sampled_temp_table") as mock_fraction,
             patch.object(
-                adapter, "_create_sampled_temp_table", return_value=context
-            ) as mock_sample,
+                adapter, "_create_fixed_size_sampled_temp_table", return_value=context
+            ) as mock_fixed_size,
         ):
             adapter.setup_profiling(context, mock_conn)
 
-        # Should use sample_size * 10 as effective row count
-        mock_sample.assert_called_once_with(context, mock_conn, 100_000)
+        mock_fraction.assert_not_called()
+        mock_fixed_size.assert_called_once_with(context, mock_conn)
 
     def test_setup_profiling_sampling_disabled(self, adapter, config):
         """When use_sampling=False, profile the original table directly."""
@@ -1002,6 +1005,51 @@ class TestSnowflakeAdapter:
         # Temp name should NOT be quoted (no double quotes around dh_sample_...)
         assert '"dh_sample_' not in executed_sql
         assert "dh_sample_" in executed_sql
+
+    def test_fixed_size_sampled_temp_table_sql(self, adapter, config):
+        """An unknown row count samples a fixed number of rows, not a percentage."""
+        config.sample_size = 10000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="UNKNOWN_SIZE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_fixed_size_sampled_temp_table(context, mock_conn)
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "CREATE OR REPLACE TEMPORARY TABLE" in executed_sql
+        assert "TABLESAMPLE BERNOULLI (10000 ROWS)" in executed_sql
+        # Fixed-size sampling is incompatible with both of these.
+        assert "BLOCK" not in executed_sql
+        assert "SEED" not in executed_sql
+        assert context.is_sampled
+        assert context.temp_table is not None
+        # The fraction of the table sampled is unknowable without a row count.
+        assert context.sample_percentage is None
+
+    def test_fixed_size_sample_clamped_to_snowflake_limit(
+        self, adapter, config, report
+    ):
+        """sample_size above Snowflake's fixed-size cap is clamped and reported."""
+        config.sample_size = 5_000_000
+        adapter.config = config
+
+        context = ProfilingContext(
+            schema="MY_SCHEMA", table="UNKNOWN_SIZE", pretty_name="test"
+        )
+        mock_conn = MagicMock()
+
+        with patch("sqlalchemy.Table") as mock_table_class:
+            mock_table_class.return_value = MagicMock()
+            adapter._create_fixed_size_sampled_temp_table(context, mock_conn)
+
+        executed_sql = str(mock_conn.execute.call_args[0][0])
+        assert "TABLESAMPLE BERNOULLI (1000000 ROWS)" in executed_sql
+        assert any("sample size reduced" in w.title.lower() for w in report.warnings)
 
     # =========================================================================
     # _get_row_count_from_metadata tests
@@ -1379,7 +1427,7 @@ class TestDatabricksAdapter:
         assert_sql_matches_pattern(sql, pattern)
 
     def test_map_databricks_column_type_variant(self, adapter):
-        from databricks.sqlalchemy.dialect import DatabricksDecimal, DatabricksTimestamp
+        from databricks.sqlalchemy._types import TIMESTAMP, TIMESTAMP_NTZ
         from sqlalchemy.sql import sqltypes
 
         from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
@@ -1389,16 +1437,18 @@ class TestDatabricksAdapter:
         assert map_databricks_column_type("variant") is sqltypes.NullType
         assert map_databricks_column_type("VARIANT") is sqltypes.NullType
         # ^\w+ strips the precision suffix so "decimal(10,2)" still resolves to decimal.
-        assert map_databricks_column_type("decimal(10,2)") is DatabricksDecimal
+        assert map_databricks_column_type("decimal(10,2)") is sqltypes.Numeric
         assert map_databricks_column_type("int") is sqltypes.Integer
-        assert map_databricks_column_type("timestamp_ntz") is DatabricksTimestamp
-        assert map_databricks_column_type("timestamp_ltz") is DatabricksTimestamp
+        assert map_databricks_column_type("timestamp_ntz") is TIMESTAMP_NTZ
+        # Missing from the vendor map, which would otherwise raise KeyError.
+        assert map_databricks_column_type("timestamp_ltz") is TIMESTAMP
+        assert map_databricks_column_type("geography") is sqltypes.NullType
         # Unparseable / missing type names fall back to NULL instead of raising.
         assert map_databricks_column_type("") is sqltypes.NullType
         assert map_databricks_column_type(None) is sqltypes.NullType
 
     def test_get_columns_tolerates_variant(self, adapter, mock_databricks_engine):
-        from databricks.sqlalchemy.dialect import DatabricksTimestamp
+        from databricks.sqlalchemy._types import TIMESTAMP
         from sqlalchemy.sql import sqltypes
 
         dialect = mock_databricks_engine.dialect
@@ -1411,7 +1461,7 @@ class TestDatabricksAdapter:
                 self.TYPE_NAME = type_name
                 self.NULLABLE = 1
                 self.COLUMN_DEF = None
-                self.IS_AUTO_INCREMENT = "NO"
+                self.REMARKS = None
 
         class _Cursor:
             def __init__(self) -> None:
@@ -1427,7 +1477,8 @@ class TestDatabricksAdapter:
                 return [
                     _Col("id", "int"),
                     _Col("payload", "variant"),
-                    _Col("event_time", "timestamp_ntz"),
+                    _Col("event_time", "timestamp_ltz"),
+                    _Col("amount", "DECIMAL(10,2)"),
                 ]
 
             def __enter__(self) -> "_Cursor":
@@ -1440,16 +1491,108 @@ class TestDatabricksAdapter:
         dialect.get_connection_cursor = lambda connection: cursor
         columns = dialect.get_columns(None, "events_with_variant")
         assert cursor.calls == 1
-        # The patched reflection resolves catalog/schema off the dialect.
+        # Reflection resolves catalog/schema off the dialect.
         assert cursor.captured_kwargs == {
             "catalog_name": "my_catalog",
             "schema_name": "my_schema",
             "table_name": "events_with_variant",
         }
-        assert [col["name"] for col in columns] == ["id", "payload", "event_time"]
+        assert [col["name"] for col in columns] == [
+            "id",
+            "payload",
+            "event_time",
+            "amount",
+        ]
         assert columns[0]["type"] is sqltypes.Integer
         assert columns[1]["type"] is sqltypes.NullType
-        assert columns[2]["type"] is DatabricksTimestamp
+        assert columns[2]["type"] is TIMESTAMP
+        # Known types still go through the vendor parser, which keeps precision.
+        assert (columns[3]["type"].precision, columns[3]["type"].scale) == (10, 2)
+
+    def test_vendor_get_columns_calls_our_parser(self, mock_databricks_engine):
+        # The patch replaces a private vendor module global. If databricks-
+        # sqlalchemy renames it or stops resolving through it, the patch is a
+        # silent no-op; this fails instead. patch.object also raises if the
+        # attribute is gone.
+        import databricks.sqlalchemy.base as databricks_dialect_base
+
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            _tolerant_parse_column_info,
+        )
+
+        parser_attr = "parse_column_info_from_tgetcolumnsresponse"
+        assert getattr(databricks_dialect_base, parser_attr) is (
+            _tolerant_parse_column_info
+        )
+
+        dialect = mock_databricks_engine.dialect
+        dialect.catalog = "my_catalog"
+        dialect.schema = "my_schema"
+        row = Mock(
+            COLUMN_NAME="payload",
+            TYPE_NAME="variant",
+            NULLABLE=1,
+            COLUMN_DEF=None,
+            REMARKS=None,
+        )
+        cursor = MagicMock()
+        cursor.__enter__.return_value = cursor
+        cursor.columns.return_value.fetchall.return_value = [row]
+        dialect.get_connection_cursor = lambda connection: cursor
+
+        with patch.object(
+            databricks_dialect_base, parser_attr, wraps=_tolerant_parse_column_info
+        ) as spy:
+            dialect.get_columns(None, "events")
+        spy.assert_called_once_with(row)
+
+    def test_unmapped_type_reported_once_per_type(self, adapter, report):
+        from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
+            _tolerant_parse_column_info,
+        )
+
+        def _table(name: str) -> sa.Table:
+            # Mirrors what reflection builds: SQLAlchemy copies the parsed
+            # column's "info" onto Column.info.
+            parsed = [
+                _tolerant_parse_column_info(
+                    Mock(
+                        COLUMN_NAME=col,
+                        TYPE_NAME=type_name,
+                        NULLABLE=1,
+                        COLUMN_DEF=None,
+                        REMARKS=None,
+                    )
+                )
+                for col, type_name in [
+                    ("geo", "geography"),
+                    ("payload", "variant"),
+                    ("ts", "timestamp_ltz"),
+                ]
+            ]
+            return sa.Table(
+                name,
+                sa.MetaData(),
+                *[
+                    sa.Column(p["name"], p["type"], info=p.get("info", {}))
+                    for p in parsed
+                ],
+            )
+
+        with patch(
+            "datahub.ingestion.source.sqlalchemy_profiler.base_adapter."
+            "PlatformAdapter._create_sqlalchemy_table",
+            side_effect=[_table("t1"), _table("t2")],
+        ):
+            adapter._create_sqlalchemy_table("s", "t1")
+            adapter._create_sqlalchemy_table("s", "t2")
+
+        # VARIANT is deliberately NULL and TIMESTAMP_LTZ is mapped, so only the
+        # genuinely unknown type is reported -- once, despite two tables.
+        warnings = list(report.warnings)
+        assert len(warnings) == 1
+        assert len(warnings[0].context) == 1
+        assert "geography" in warnings[0].context[0]
 
 
 class TestTrinoAdapter:
@@ -1577,7 +1720,7 @@ class TestClickHouseAdapter:
         assert_sql_matches_pattern(sql, r'quantile\(0\.5\)\(\s*"score"\s*\)')
         # Verify the label renders inside a SELECT — query combiner extracts by name.
         select_sql = compile_expr_to_sql(
-            sa.select([expr]), mock_clickhouse_engine.dialect
+            sa.select(expr), mock_clickhouse_engine.dialect
         )
         assert_sql_matches_pattern(select_sql, r"\bAS\s+median\b")
 
@@ -1970,7 +2113,8 @@ class TestExecuteAggregateGuard:
             FLATTENABLE_EXECUTION_OPTION,
         )
 
-        for expr in (sa.column("v"), sa.column("v").label("x")):
+        exprs: Any = (sa.column("v"), sa.column("v").label("x"))
+        for expr in exprs:
             raw = MagicMock()
             ProfilingConnection(raw).execute_aggregate(table, expr)
             opts = raw.execute.call_args.args[0].get_execution_options()

@@ -208,14 +208,14 @@ public class UpdateIndicesService implements SearchIndicesService {
     if (!specPair.getSecond().isTimeseries()) {
       if (isDeletingKey) {
         // Delete all aspects
-        log.debug(String.format("Deleting all system metadata for urn: %s", urn));
+        log.debug("Deleting all system metadata for urn: {}", urn);
         systemMetadataService.deleteUrn(opContext, urn.toString());
       } else {
         // Delete all aspects from system metadata service
         log.debug(
-            String.format(
-                "Deleting system metadata for urn: %s, aspect: %s",
-                urn, specPair.getSecond().getName()));
+            "Deleting system metadata for urn: {}, aspect: {}",
+            urn,
+            specPair.getSecond().getName());
         systemMetadataService.deleteAspect(
             opContext, urn.toString(), specPair.getSecond().getName());
       }
