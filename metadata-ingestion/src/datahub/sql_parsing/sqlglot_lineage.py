@@ -1675,7 +1675,9 @@ def _list_joins(
                             join.sql(dialect=dialect),
                         )
                     continue
-                elif len(left_side_tables | right_side_tables) == 1:
+                elif (
+                    len(_drop_unnamed_tables(left_side_tables | right_side_tables)) == 1
+                ):
                     # When we don't have an ON clause, we're more strict about the
                     # minimum number of tables we need to resolve to avoid false positives.
                     # On the off chance someone is doing a self-cross-join, we'll miss it.
@@ -1722,13 +1724,18 @@ def _list_joins(
             # Get tables from lateral subquery
             qualified_right: OrderedSet[_TableName] = OrderedSet()
             if lateral.this and isinstance(lateral.this, sqlglot.exp.Subquery):
-                qualified_right.update(
+                lateral_tables: OrderedSet[_TableName] = OrderedSet(
                     _table_name_from_sqlglot_table(t, dialect)
                     for t in lateral.this.find_all(sqlglot.exp.Table)
                 )
-            qualified_right.update(qualified_left)
+                # A body of only unnamed tables, e.g. `LATERAL (SELECT n FROM
+                # generate_series(...))`, would leave just the merged-in left side
+                # below and report a self-join.
+                if _has_only_unnamed_tables(lateral_tables):
+                    continue
+                qualified_right.update(_drop_unnamed_tables(lateral_tables))
             qualified_left = _drop_unnamed_tables(qualified_left)
-            qualified_right = _drop_unnamed_tables(qualified_right)
+            qualified_right.update(qualified_left)
 
             if qualified_left and qualified_right:
                 joins.append(

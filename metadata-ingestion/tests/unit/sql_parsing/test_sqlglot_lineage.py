@@ -2224,6 +2224,34 @@ JOIN (SELECT b.id, b.v, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) s2
     )
 
 
+def test_postgres_cross_join_table_function_is_not_a_self_join() -> None:
+    assert_sql_result(
+        """\
+SELECT 1
+FROM (SELECT b.id, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) t
+CROSS JOIN s.b
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_cross_join_table_function_is_not_a_self_join.json",
+    )
+
+
+def test_postgres_lateral_table_function_is_not_a_self_join() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id, l.n FROM s.a a, LATERAL (SELECT n FROM generate_series(1, 3) AS g(n)) l
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_lateral_table_function_is_not_a_self_join.json",
+    )
+
+
 def test_bigquery_table_inside_table_function() -> None:
     assert_sql_result(
         """\
