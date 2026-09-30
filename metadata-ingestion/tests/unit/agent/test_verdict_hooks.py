@@ -246,7 +246,7 @@ def test_an_override_can_overrule_the_structural_verdict(
 def test_the_override_is_told_the_structural_verdict(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    seen = []
+    seen: List[Optional[Verdict]] = []
 
     class _Recording(_Switched):
         def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
@@ -281,9 +281,7 @@ class _ById(ConfigModel):
     workspace_pattern: Annotated[AllowDenyPattern, Filters("Workspace")] = Field(
         default=AllowDenyPattern.allow_all()
     )
-    workspace_id_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all()
-    )
+    workspace_id_pattern: AllowDenyPattern = Field(default=AllowDenyPattern.allow_all())
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         workspace_id = ctx.attributes.get("id")

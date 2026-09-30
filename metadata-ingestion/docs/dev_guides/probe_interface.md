@@ -130,14 +130,14 @@ required — it is the help text the agent reads.
 `probe filter` resolves a verdict in this order. Every step has a default that is right for most
 connectors, so implement a hook only when the default gives the wrong answer.
 
-| Step | What it does | Hook to override it |
-| ---- | ------------ | ------------------- |
-| 1 | find the field that filters this kind — by convention from the subtype (`Table` → `table_pattern`), which may be nested | `Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)]` on the field; for non-pattern rules, `probe_rule_filtered_kinds()` |
-| 2 | decide the string the pattern is matched against | `probe_match_target(self, ctx: ClassifyContext) -> str`; for a container, `probe_container_match_target(self, kind, name, parent_path, warn) -> Optional[str]` |
-| 3 | the framework's built-in exclusions: kind switches, default databases and schemas, qualified schema matches | `probe_kind_switches()`, `default_databases()` / `default_schemas()`, `probe_schema_verdict_override(self, schema, parent_path)` |
-| 4 | the connector's own verdict, for anything no single pattern states; told step 3's verdict | `probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]` |
-| 5 | match the pattern against the target, if steps 3–4 gave no verdict | — |
-| 6 | judge the immediate `--parent` container the same way, recursively | `probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]` |
+| Step | What it does                                                                                                            | Hook to override it                                                                                                                                            |
+| ---- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | find the field that filters this kind — by convention from the subtype (`Table` → `table_pattern`), which may be nested | `Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)]` on the field; for non-pattern rules, `probe_rule_filtered_kinds()`                               |
+| 2    | decide the string the pattern is matched against                                                                        | `probe_match_target(self, ctx: ClassifyContext) -> str`; for a container, `probe_container_match_target(self, kind, name, parent_path, warn) -> Optional[str]` |
+| 3    | the framework's built-in exclusions: kind switches, default databases and schemas, qualified schema matches             | `probe_kind_switches()`, `default_databases()` / `default_schemas()`, `probe_schema_verdict_override(self, schema, parent_path)`                               |
+| 4    | the connector's own verdict, for anything no single pattern states; told step 3's verdict                               | `probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]`                                                                                       |
+| 5    | match the pattern against the target, if steps 3–4 gave no verdict                                                      | —                                                                                                                                                              |
+| 6    | judge the immediate `--parent` container the same way, recursively                                                      | `probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]`                                                                                             |
 
 **Step 4 is the escape hatch, and there is exactly one.** Use it when ingestion's
 decision is not one pattern's answer: a view must pass `table_pattern` as well as

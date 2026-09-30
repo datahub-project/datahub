@@ -65,7 +65,7 @@ _MSSQL_BASE: Dict[str, object] = {
 
 
 def test_an_odbc_recipe_with_uri_args_is_valid_on_mssql_odbc() -> None:
-    recipe = {
+    recipe: Dict[str, object] = {
         "source": {
             "type": "mssql-odbc",
             "config": {
@@ -79,7 +79,7 @@ def test_an_odbc_recipe_with_uri_args_is_valid_on_mssql_odbc() -> None:
 
 
 def test_uri_args_stay_refused_on_plain_mssql() -> None:
-    recipe = {
+    recipe: Dict[str, object] = {
         "source": {
             "type": "mssql",
             "config": {**_MSSQL_BASE, "uri_args": {"driver": "x"}},

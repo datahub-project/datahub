@@ -58,9 +58,7 @@ def copy_with_pattern_at(
             f"'{head}' on {type(config).__name__} is not a config block, so "
             f"'{path}' cannot address a pattern inside it"
         )
-    return config.model_copy(
-        update={head: copy_with_pattern_at(child, rest, pattern)}
-    )
+    return config.model_copy(update={head: copy_with_pattern_at(child, rest, pattern)})
 
 
 def validate_pattern_at(

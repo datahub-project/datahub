@@ -55,7 +55,9 @@ def _outer(deny: List[str]) -> _Outer:
 
 
 def test_a_nested_declaration_resolves_to_its_dotted_path() -> None:
-    assert _pattern_field_for_config_class(_Outer, "Widget") == "filters.widgets.pattern"
+    assert (
+        _pattern_field_for_config_class(_Outer, "Widget") == "filters.widgets.pattern"
+    )
     assert _pattern_field_for_config_class(_Outer, "Gadget") == "gadget_pattern"
 
 
@@ -85,6 +87,7 @@ def test_copy_with_pattern_at_does_not_touch_the_source() -> None:
     assert pattern_at(config, "filters.widgets.pattern") == AllowDenyPattern(
         deny=["^bad$"]
     )
+    assert isinstance(copied, _Outer)
     assert copied.filters is not config.filters
 
 
