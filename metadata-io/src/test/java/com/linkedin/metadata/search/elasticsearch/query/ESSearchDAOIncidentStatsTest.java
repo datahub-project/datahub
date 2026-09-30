@@ -11,6 +11,8 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.search.IncidentStats;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -75,6 +77,33 @@ public class ESSearchDAOIncidentStatsTest {
     assertTrue(source.contains("\"top_hits\""), "expected top_hits sub-agg for latest incident");
     assertTrue(source.contains("lastUpdated"), "expected sort by lastUpdated");
     assertTrue(source.contains("ACTIVE"), "expected active-state filter");
+  }
+
+  /** V3 entity indices keep entities at the root, without a .keyword subfield. */
+  @Test
+  public void testBuildActiveIncidentStatsRequestUsesRootEntitiesFieldOnV3() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    ESSearchDAO v3SearchDAO =
+        new ESSearchDAO(
+            false,
+            TEST_OS_SEARCH_CONFIG.toBuilder().entityIndex(entityIndex).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    String source =
+        v3SearchDAO
+            .buildActiveIncidentStatsRequest(opContext, Set.of(UrnUtils.getUrn(TEST_DATASET_URN)))
+            .source()
+            .toString();
+
+    assertFalse(source.contains("entities.keyword"), source);
+    assertTrue(source.contains("\"field\":\"entities\""), source);
+    assertTrue(source.contains("{\"entities\":["), source);
   }
 
   @Test

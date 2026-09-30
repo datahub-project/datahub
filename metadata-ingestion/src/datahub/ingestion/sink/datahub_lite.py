@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 class DataHubLiteSinkConfig(LiteLocalConfig):
-    type: str = "duckdb"
-    config: dict = {"file": os.path.expanduser("~/.datahub/lite/datahub.duckdb")}
+    type: str = "sqlite"
+    config: dict = {"file": os.path.expanduser("~/.datahub/lite/datahub.db")}
 
 
 class DataHubLiteSink(Sink[DataHubLiteSinkConfig, SinkReport]):

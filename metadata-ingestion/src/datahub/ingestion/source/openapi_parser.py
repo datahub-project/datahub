@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from typing import Any, Dict, Generator, List, Optional, Tuple
+from typing import Any, Dict, Generator, List, Literal, Optional, Tuple
 
 import requests
 import yaml
@@ -76,18 +76,29 @@ def request_call(
     verify_ssl: bool = True,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
+    timeout = _REQUEST_TIMEOUT_SECONDS
     if username is not None and password is not None:
         return requests.get(
             url,
             headers=headers,
             auth=HTTPBasicAuth(username, password),
+            proxies=proxies,
             verify=verify_ssl,
+            timeout=timeout,
         )
     elif token is not None:
         headers["Authorization"] = f"{token}"
-        return requests.get(url, proxies=proxies, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url,
+            proxies=proxies,
+            headers=headers,
+            verify=verify_ssl,
+            timeout=timeout,
+        )
     else:
-        return requests.get(url, headers=headers, verify=verify_ssl)
+        return requests.get(
+            url, headers=headers, proxies=proxies, verify=verify_ssl, timeout=timeout
+        )
 
 
 def get_swag_json(
@@ -99,7 +110,7 @@ def get_swag_json(
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> Dict:
-    tot_url = url + swagger_file
+    tot_url = _join_url(url, swagger_file)
     response = request_call(
         url=tot_url,
         token=token,
@@ -112,10 +123,29 @@ def get_swag_json(
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
     try:
-        dict_data = json.loads(response.content)
-    except json.JSONDecodeError:  # it's not a JSON!
-        dict_data = yaml.safe_load(response.content)
-    return dict_data
+        parsed = json.loads(response.content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # UnicodeDecodeError alongside JSONDecodeError: json.loads on non-UTF-8
+        # bytes raises the former, which isn't a JSONDecodeError subclass, and
+        # would otherwise skip the YAML fallback and this function's own
+        # clear error message in favor of a raw decode error propagating up.
+        try:
+            parsed = yaml.safe_load(response.content)
+        except (yaml.YAMLError, UnicodeDecodeError) as e:
+            raise ValueError(
+                f"Unable to parse OpenAPI spec from {tot_url} as JSON or YAML"
+            ) from e
+    if not isinstance(parsed, dict):
+        # A valid JSON/YAML document (e.g. a bare list, string, or number) is
+        # not a valid OpenAPI/Swagger spec -- every downstream parsing
+        # function this feeds (get_endpoints, get_url_basepath, ...) assumes
+        # a dict, so fail clearly here instead of a confusing TypeError/
+        # KeyError deep in one of them.
+        raise ValueError(
+            f"OpenAPI spec at {tot_url} did not parse to a JSON/YAML object "
+            f"(got {type(parsed).__name__})"
+        )
+    return parsed
 
 
 def get_url_basepath(sw_dict: dict) -> str:
@@ -401,12 +431,27 @@ def extract_fields(
             return [], {}
 
 
+_REQUEST_TIMEOUT_SECONDS = 30
+
+
+def _join_url(base: str, path: str) -> str:
+    # Docs/recipes often omit a trailing slash on url and a leading slash on
+    # swagger_file; naive concatenation would produce a broken host+path join.
+    if not path:
+        return base
+    if base.endswith("/") and path.startswith("/"):
+        return f"{base}{path[1:]}"
+    if not base.endswith("/") and not path.startswith("/"):
+        return f"{base}/{path}"
+    return f"{base}{path}"
+
+
 def get_tok(
     url: str,
     username: str = "",
     password: str = "",
     tok_url: str = "",
-    method: str = "post",
+    method: Literal["get", "post"] = "post",
     proxies: Optional[dict] = None,
     verify_ssl: bool = True,
 ) -> str:
@@ -414,30 +459,74 @@ def get_tok(
     Trying to post username/password to get auth.
     """
     token = ""
-    url4req = url + tok_url
+    url4req = _join_url(url, tok_url)
+    timeout = _REQUEST_TIMEOUT_SECONDS
+    # NOTE: for method="get" the caller substitutes the raw username/password into
+    # url4req before calling get_tok. Any exception raised below must not embed
+    # url4req/response body (e.g. via a raw `requests` exception), since report.failure
+    # renders exception messages verbatim in the ingestion report UI.
     if method == "post":
         # this will make a POST call with username and password
         data = {"username": username, "password": password, "maxDuration": True}
-        # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, proxies=proxies, json=data, verify=verify_ssl)
+        try:
+            response = requests.post(
+                url4req,
+                proxies=proxies,
+                json=data,
+                verify=verify_ssl,
+                timeout=timeout,
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            if "token" in cont:  # other authentication scheme
-                token = cont["token"]
-            else:  # works only for bearer authentication scheme
-                token = f"Bearer {cont['tokens']['access']}"
+            try:
+                cont = json.loads(response.content)
+                if "token" in cont:  # other authentication scheme
+                    token = cont["token"]
+                else:  # works only for bearer authentication scheme
+                    token = f"Bearer {cont['tokens']['access']}"
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape (status {response.status_code})"
+                ) from e
     elif method == "get":
         # this will make a GET call with username and password
-        response = requests.get(url4req, verify=verify_ssl)
+        try:
+            response = requests.get(
+                url4req, proxies=proxies, verify=verify_ssl, timeout=timeout
+            )
+        except requests.exceptions.RequestException as e:
+            # from None (not from e): the requests exception message often
+            # embeds the request URL, which for method="get" carries the
+            # substituted password; chaining it as __cause__ would still leak
+            # through exc_info-based DEBUG logging even though report.failure
+            # only renders str(exc) for the top-level exception.
+            raise ValueError(
+                f"Failed to request token from OpenAPI endpoint ({type(e).__name__})"
+            ) from None
         if response.status_code == 200:
-            cont = json.loads(response.content)
-            token = cont["token"]
+            try:
+                cont = json.loads(response.content)
+                token = cont["token"]
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected token response shape (status {response.status_code})"
+                ) from e
     else:
         raise ValueError(f"Method unrecognised: {method}")
     if token != "":
         return token
     else:
-        raise Exception(f"Unable to get a valid token: {response.text}")
+        raise Exception(
+            f"Unable to get a valid token: received status {response.status_code}"
+        )
 
 
 def set_metadata(
@@ -846,7 +935,7 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
                 return resolved_referenced
 
     # Recursively resolve references in properties
-    if "properties" in resolved_schema:
+    if isinstance(resolved_schema.get("properties"), dict):
         for prop_name, prop_schema in resolved_schema["properties"].items():
             resolved_schema["properties"][prop_name] = resolve_schema_references(
                 prop_schema, sw_dict, max_depth=max_depth - 1
@@ -887,9 +976,12 @@ def resolve_schema_references(schema: Dict, sw_dict: Dict, max_depth: int = 10) 
             resolved_schema, sw_dict, resolving_refs=True, max_depth=max_depth
         )
 
-    # Handle union types (oneOf, anyOf) - allOf is already handled above
+    # Handle union types (oneOf, anyOf) - allOf is already handled above.
+    # Guard on list-ness: a malformed spec may set oneOf/anyOf to a non-list
+    # (e.g. a single inline schema object), which would otherwise iterate its
+    # keys and raise deep in resolution instead of being left untouched.
     for union_key in ["oneOf", "anyOf"]:
-        if union_key in resolved_schema:
+        if isinstance(resolved_schema.get(union_key), list):
             resolved_schema[union_key] = [
                 resolve_schema_references(
                     union_schema, sw_dict, max_depth=max_depth - 1

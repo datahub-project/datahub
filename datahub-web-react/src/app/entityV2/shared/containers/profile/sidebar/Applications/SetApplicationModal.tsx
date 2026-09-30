@@ -1,5 +1,5 @@
 import { Modal, Select, Typography, message } from 'antd';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 

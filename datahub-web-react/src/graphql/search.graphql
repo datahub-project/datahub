@@ -59,30 +59,6 @@ fragment searchResultCardFields on Entity {
         }
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    exists
-                    platform {
-                        ...platformFields
-                    }
-                    parentContainers {
-                        ...parentContainersFields
-                    }
-                    name
-                    properties {
-                        name
-                        description
-                        qualifiedName
-                        externalUrl
-                        lastModified {
-                            time
-                            actor
-                        }
-                    }
-                }
-            }
         }
         siblingsSearch(input: { query: "*", count: 1, searchFlags: { skipHighlighting: true, skipAggregates: true } })
             @skip(if: $skipSiblingsSearch) {
@@ -709,18 +685,6 @@ fragment searchResultsWithoutSchemaField on Entity {
         ...nonSiblingsDatasetSearchFields
         siblings {
             isPrimary
-            siblings {
-                urn
-                type
-                ... on Dataset {
-                    ...siblingSearchDatasetFields
-                    structuredProperties {
-                        properties {
-                            ...structuredPropertiesFields
-                        }
-                    }
-                }
-            }
         }
         siblingsSearch(input: { query: "*", count: 1 }) @skip(if: $skipSiblingsSearch) {
             count
@@ -1634,6 +1598,10 @@ fragment searchResults on SearchResults {
             text
             icon
         }
+        extraProperties {
+            name
+            value
+        }
     }
     facets {
         ...facetFields
@@ -1713,7 +1681,8 @@ fragment schemaFieldEntitySearchFields on SchemaFieldEntity {
     type
     fieldPath
     parent {
-        ...searchResultsWithoutSchemaField
+        urn
+        type
     }
 }
 

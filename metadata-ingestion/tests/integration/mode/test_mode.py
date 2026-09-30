@@ -121,8 +121,9 @@ class MockResponseJson(MockResponse):
 
     def get(self, url, timeout=40):
         response = super().get(url, timeout)
-        if self.url in self.json_empty_list:
-            response.status_code = 204
+        # Reset per request: this mock reuses one object across every call, so
+        # leaving 204 set would make every later response look empty too.
+        response.status_code = 204 if self.url in self.json_empty_list else 200
         return response
 
 
@@ -243,7 +244,13 @@ def test_mode_ingest_json_empty(pytestconfig, tmp_path):
             }
         )
         pipeline.run()
-        pipeline.raise_from_status(raise_warnings=True)
+        pipeline.raise_from_status()
+
+        # A 204 on one endpoint must not derail the run. The only warning the
+        # fixtures legitimately produce is the dataset query referencing a data
+        # source that no longer exists (data_source_id 44763).
+        warning_titles = {w.title for w in pipeline.source.get_report().warnings}
+        assert warning_titles == {"Unable to construct upstream lineage"}
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

@@ -6,7 +6,8 @@ import TabItem from '@theme/TabItem';
 This guide specifically covers how to create and report results for custom assertions in DataHub.
 Custom Assertions are those not natively run or directly modeled by DataHub, and managed by a 3rd party framework or tool.
 
-**CUSTOM is the only supported assertion type for external / self-reported checks** (dbt, Great Expectations, partner tools, SDK integrations).
+**CUSTOM is the recommended assertion type for external / self-reported checks** (dbt, Great Expectations, partner tools, SDK integrations).
+(The ODCS contract source is an exception: it currently emits typed assertions for quality rules it can represent exactly. See the [ODCS source docs](/docs/generated/ingestion/sources/odcs.md#quality-rule-mapping).)
 Do not emit native typed models (`FIELD`, `VOLUME`, `FRESHNESS`, `DATA_SCHEMA`, `SQL`) for externally managed assertions — those are intended for assertions DataHub evaluates / schedules natively.
 The legacy `DATASET` / `DatasetAssertionInfo` shape is deprecated; new writers should use `CUSTOM` with optional structured fields on `CustomAssertionInfo` (scope, operator, aggregation, parameters, fields, nativeType).
 
@@ -25,7 +26,7 @@ In this guide, you will learn how to
 
 ## Prerequisites
 
-The actor making API calls must have the `Edit Assertions` and `Edit Monitors` privileges for the Tables being monitored.
+The actor making API calls must have the `Edit Assertions` privilege for the Tables being monitored.
 
 ## Create And Update Custom Assertions
 
@@ -231,6 +232,10 @@ mutation reportAssertionResult {
   )
 }
 ```
+
+Set `timestampMillis` to the time the assertion was actually executed in the external tool. Results are keyed by
+assertion and timestamp: re-sending a result with the same `timestampMillis` overwrites the earlier one rather than adding
+a new entry (`runId` is not part of this key).
 
 The `type` field is used to communicate the latest health status of the assertion.
 

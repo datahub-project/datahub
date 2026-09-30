@@ -508,6 +508,7 @@ _Unreleased. Currently published as `1.7.0.11rc*`._
 
 - _Dependencies_:
   - Apache Parquet bumped to 1.18.1 in the shaded jar for CVE-2026-73334 ([#19743](https://github.com/datahub-project/datahub/pull/19743))
+  - libthrift 0.23.0 → 0.24.0 for CVE-2026-48586 (`TZlibTransport` zip-bomb DoS)
 
 ### Version 1.7.0.10
 

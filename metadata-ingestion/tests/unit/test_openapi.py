@@ -2,14 +2,22 @@ import unittest
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
+import requests
 import yaml
+from pydantic import SecretStr, ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
-from datahub.ingestion.source.openapi import APISource, OpenApiConfig
+from datahub.ingestion.source.openapi import (
+    APISource,
+    OpenApiConfig,
+    OpenApiGetTokenConfig,
+)
 from datahub.ingestion.source.openapi_parser import (
     flatten2list,
     get_endpoints,
+    get_swag_json,
+    get_tok,
     get_url_basepath,
     guessing_url_name,
     maybe_theres_simple_id,
@@ -1773,3 +1781,325 @@ class TestAPISourceSchemaExtraction(unittest.TestCase):
 
         # Should return None (no schema in spec, and no API call made without credentials)
         self.assertIsNone(result)
+
+
+class TestOpenApiGetTokenConfig(unittest.TestCase):
+    def test_get_token_empty_dict_coerces_to_none(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            get_token={},
+        )
+        self.assertIsNone(config.get_token)
+
+    def test_get_token_get_requires_placeholders(self):
+        with self.assertRaises(ValueError):
+            OpenApiGetTokenConfig(request_type="get", url_complement="/token")
+        cfg = OpenApiGetTokenConfig(
+            request_type="get",
+            url_complement="/token?u={username}&p={password}",
+        )
+        self.assertEqual(cfg.request_type, "get")
+
+    def test_ensure_only_one_token_rejects_token_and_get_token(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                token="abc",
+                get_token={"request_type": "post", "url_complement": "/auth"},
+            )
+
+    def test_ensure_only_one_token_rejects_bearer_and_get_token(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                bearer_token="abc",
+                get_token={"request_type": "post", "url_complement": "/auth"},
+            )
+
+    def test_ensure_only_one_token_allows_empty_token_with_get_token(self):
+        # Regression: an empty SecretStr("") (e.g. an unresolved env var
+        # substituted into `token`) is falsy and get_swagger() treats it as
+        # unconfigured, so the validator must use the same truthiness check
+        # instead of rejecting this as "token and get_token together".
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            token=SecretStr(""),
+            get_token={"request_type": "post", "url_complement": "/auth"},
+        )
+        self.assertIsNotNone(config.get_token)
+
+    def test_get_swagger_get_token_substitutes_credentials(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="alice",
+            password="s3cret",
+            get_token={
+                "request_type": "get",
+                "url_complement": "/token?u={username}&p={password}",
+            },
+        )
+        with (
+            patch(
+                "datahub.ingestion.source.openapi.get_tok", return_value="fetched-tok"
+            ) as mock_tok,
+            patch(
+                "datahub.ingestion.source.openapi.get_swag_json",
+                return_value={"openapi": "3.0.0", "paths": {}},
+            ) as mock_swag,
+        ):
+            result = config.get_swagger()
+
+        self.assertEqual(result["openapi"], "3.0.0")
+        mock_tok.assert_called_once()
+        self.assertEqual(mock_tok.call_args.kwargs["method"], "get")
+        self.assertEqual(
+            mock_tok.call_args.kwargs["tok_url"], "/token?u=alice&p=s3cret"
+        )
+        mock_swag.assert_called_once()
+        self.assertEqual(mock_swag.call_args.kwargs["token"], "fetched-tok")
+
+    def test_get_swagger_post_token_dispatches_to_get_tok(self):
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="alice",
+            password="s3cret",
+            get_token={"request_type": "post", "url_complement": "/auth/token"},
+        )
+        with (
+            patch(
+                "datahub.ingestion.source.openapi.get_tok", return_value="post-tok"
+            ) as mock_tok,
+            patch(
+                "datahub.ingestion.source.openapi.get_swag_json",
+                return_value={"openapi": "3.0.0", "paths": {}},
+            ),
+        ):
+            config.get_swagger()
+
+        mock_tok.assert_called_once()
+        self.assertEqual(mock_tok.call_args.kwargs["method"], "post")
+        self.assertEqual(mock_tok.call_args.kwargs["tok_url"], "/auth/token")
+        self.assertEqual(mock_tok.call_args.kwargs["username"], "alice")
+        self.assertEqual(mock_tok.call_args.kwargs["password"], "s3cret")
+
+    def test_get_swagger_empty_bearer_token_falls_back_to_basic_auth(self):
+        # Regression: the auth-branch condition mixed truthiness (self.token,
+        # self.bearer_token in the inner checks) with `is not None` (in the outer
+        # guard), so bearer_token=SecretStr("") took the outer branch but matched
+        # none of the inner arms, hitting `assert self.get_token is not None` and
+        # crashing with a bare AssertionError instead of falling back to basic auth.
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            username="alice",
+            password="s3cret",
+            bearer_token=SecretStr(""),
+        )
+        with patch(
+            "datahub.ingestion.source.openapi.get_swag_json",
+            return_value={"openapi": "3.0.0", "paths": {}},
+        ) as mock_swag:
+            config.get_swagger()
+
+        self.assertEqual(mock_swag.call_args.kwargs["username"], "alice")
+        self.assertNotIn("token", mock_swag.call_args.kwargs)
+
+
+class TestGetTok(unittest.TestCase):
+    def test_get_tok_post_unexpected_shape_raises(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b'{"not_a_token": true}'
+        with patch(
+            "datahub.ingestion.source.openapi_parser.requests.post",
+            return_value=mock_response,
+        ):
+            with self.assertRaises(ValueError):
+                get_tok(
+                    url="https://api.example.com",
+                    username="u",
+                    password="p",
+                    tok_url="/auth",
+                    method="post",
+                )
+
+    def test_get_tok_unrecognised_method_raises(self):
+        # Deliberately passes an invalid method to exercise the runtime guard,
+        # despite get_tok's method param now being typed Literal["get", "post"].
+        with self.assertRaises(ValueError):
+            get_tok(
+                url="https://api.example.com",
+                tok_url="/auth",
+                method="put",  # type: ignore[arg-type]
+            )
+
+    def test_get_tok_error_does_not_leak_credentials_in_message(self):
+        # get_swagger substitutes {username}/{password} into the GET token URL before
+        # calling get_tok; its error messages must never echo that URL or the raw
+        # response body back into report.failure.
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, content=b"not json", text="secret=hunter2"
+            )
+            with self.assertRaises(ValueError) as ctx:
+                get_tok(
+                    url="https://api.example.com",
+                    tok_url="/token?u=alice&p=hunter2",
+                    method="get",
+                )
+        self.assertNotIn("hunter2", str(ctx.exception))
+        self.assertNotIn("u=alice", str(ctx.exception))
+
+    def test_get_tok_connection_error_does_not_leak_credentials_in_message(self):
+        # Regression: a raw `requests` exception raised while making the GET/POST
+        # token request (not just a malformed 200 response) must not propagate its
+        # message verbatim -- for method="get" that message can otherwise embed the
+        # password-substituted URL, and it ends up in report.failure verbatim.
+        with patch("requests.get") as mock_get:
+            mock_get.side_effect = requests.exceptions.ConnectionError(
+                "Failed to resolve host for https://api.example.com/token?u=alice&p=hunter2"
+            )
+            with self.assertRaises(ValueError) as ctx:
+                get_tok(
+                    url="https://api.example.com",
+                    tok_url="/token?u=alice&p=hunter2",
+                    method="get",
+                )
+        self.assertNotIn("hunter2", str(ctx.exception))
+        self.assertNotIn("u=alice", str(ctx.exception))
+
+        with patch("requests.post") as mock_post:
+            mock_post.side_effect = requests.exceptions.ConnectionError(
+                "Failed to resolve host for https://api.example.com/token"
+            )
+            with self.assertRaises(ValueError) as ctx:
+                get_tok(
+                    url="https://api.example.com",
+                    username="alice",
+                    password="hunter2",
+                    tok_url="/token",
+                    method="post",
+                )
+        self.assertNotIn("hunter2", str(ctx.exception))
+
+
+class TestOpenApiInputHardening(unittest.TestCase):
+    def test_forced_examples_coerce_numeric_path_params(self):
+        # Docs use integers (e.g. /pet/{petId}: [1]); config stores strings for URLs.
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            forced_examples={"/pet/{petId}": [1]},
+        )
+        self.assertEqual(config.forced_examples["/pet/{petId}"], ["1"])
+
+    def test_forced_examples_coerce_bool_via_int(self):
+        # The docs promise "bool via int": True/False must become "1"/"0", not
+        # str(True) == "True", which most APIs reject for a boolean path param.
+        config = OpenApiConfig(
+            name="test_api",
+            url="https://api.example.com",
+            swagger_file="/openapi.json",
+            forced_examples={"/pet/{available}": [True, False]},
+        )
+        self.assertEqual(config.forced_examples["/pet/{available}"], ["1", "0"])
+
+    def test_forced_examples_reject_null_path_params(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                forced_examples={"/pet/{petId}": [None]},
+            )
+
+    def test_schema_resolution_max_depth_capped(self):
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                schema_resolution_max_depth=101,
+            )
+        with self.assertRaises(ValidationError):
+            OpenApiConfig(
+                name="test_api",
+                url="https://api.example.com",
+                swagger_file="/openapi.json",
+                schema_resolution_max_depth=0,
+            )
+
+    def test_get_swag_json_parses_json_response(self):
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, content=b'{"openapi": "3.0.0"}'
+            )
+            result = get_swag_json("https://api.example.com")
+        self.assertEqual(result, {"openapi": "3.0.0"})
+
+    def test_get_swag_json_falls_back_to_yaml(self):
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, content=b"openapi: 3.0.0\npaths: {}\n"
+            )
+            result = get_swag_json("https://api.example.com")
+        self.assertEqual(result, {"openapi": "3.0.0", "paths": {}})
+
+    def test_get_swag_json_raises_when_neither_json_nor_yaml(self):
+        with patch("requests.get") as mock_get:
+            # A tab character is invalid in both JSON and YAML.
+            mock_get.return_value = MagicMock(status_code=200, content=b"{\t*bad*")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("as JSON or YAML", str(ctx.exception))
+
+    def test_get_swag_json_raises_clear_error_on_non_utf8_content(self):
+        # Regression: json.loads on non-UTF-8 bytes raises UnicodeDecodeError,
+        # not json.JSONDecodeError -- that used to skip both the YAML fallback
+        # and this function's own clear error message, letting a raw decode
+        # error propagate instead.
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=200, content=b"\xff\xfe\x00")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("as JSON or YAML", str(ctx.exception))
+
+    def test_get_swag_json_raises_on_non_dict_document(self):
+        # Regression: a valid JSON/YAML document that isn't an object (e.g. a
+        # bare list) is not a valid OpenAPI/Swagger spec, but used to be
+        # returned as-is despite the declared `-> Dict` contract, letting a
+        # confusing TypeError/KeyError surface later in get_endpoints instead
+        # of a clear error at the point the malformed data was fetched.
+        with patch("requests.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=200, content=b"[1, 2, 3]")
+            with self.assertRaises(ValueError) as ctx:
+                get_swag_json("https://api.example.com")
+        self.assertIn("did not parse to a JSON/YAML object", str(ctx.exception))
+
+    def test_resolve_schema_references_non_dict_properties_does_not_crash(self):
+        # A malformed spec may set `properties` to a non-dict; resolution must
+        # leave it untouched rather than raising while iterating its keys.
+        schema = {"type": "object", "properties": ["not", "a", "dict"]}
+        resolved = resolve_schema_references(schema, {"components": {"schemas": {}}})
+        self.assertEqual(resolved["properties"], ["not", "a", "dict"])
+
+    def test_resolve_schema_references_non_list_oneof_does_not_crash(self):
+        # oneOf/anyOf as a single inline object (not a list) must be left
+        # untouched rather than iterated as if it were a list of members.
+        schema = {"oneOf": {"type": "string"}}
+        resolved = resolve_schema_references(schema, {"components": {"schemas": {}}})
+        self.assertEqual(resolved["oneOf"], {"type": "string"})
