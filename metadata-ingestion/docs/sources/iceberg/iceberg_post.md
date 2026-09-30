@@ -127,18 +127,12 @@ source:
 
 Unlike other parameters provided in the dictionary under the `catalog` key, `connection` parameter is a custom feature in
 DataHub, allowing to inject connection resiliency parameters to the REST connection made by the ingestor. `connection`
-allows for 3 parameters:
+allows for 2 parameters:
 
 - `timeout` is provided as amount of seconds, it needs to be whole number (or `null` to turn it off)
 - `retry` is a complex object representing parameters used to create [urllib3 Retry object](https://urllib3.readthedocs.io/en/latest/reference/urllib3.util.html#module-urllib3.util.retry).
   There are many possible parameters, most important would be `total` (total retries) and `backoff_factor`. See the linked docs
   for the details.
-- `headers` is a dictionary of extra HTTP headers to send with every request made to the REST catalog, including the
-  initial OAuth token request. This is useful for catalogs requiring custom headers on all traffic, for example
-  Apache Polaris deployments requiring a `Polaris-Realm` header. Headers are applied via pyiceberg's native
-  `header.<name>` properties; an explicitly configured `header.<name>` catalog property takes precedence over
-  the same header defined here (header names are compared case-insensitively). Header values are converted to
-  strings; YAML booleans are sent as `true`/`false`.
 
 ```yaml
 source:
@@ -153,8 +147,25 @@ source:
             backoff_factor: 0.5
             total: 3
           timeout: 120
-          headers:
-            Polaris-Realm: my-realm
+```
+
+To send custom HTTP headers with every request to the REST catalog, add them to the catalog configuration as
+`header.<name>` properties. These are handled natively by pyiceberg, and are applied before the catalog is created,
+so with the legacy `credential` flow they are also sent on the initial OAuth token request. With `auth.type: oauth2`
+they are not sent on the token request. This is useful for catalogs requiring a header on all traffic, for example
+Apache Polaris deployments requiring a `Polaris-Realm` header:
+
+```yaml
+source:
+  type: "iceberg"
+  config:
+    env: dev
+    catalog:
+      my_catalog:
+        type: rest
+        uri: http://localhost:8181/api/catalog
+        credential: client_id:client_secret
+        header.Polaris-Realm: my-realm
 ```
 
 #### Google BigLake REST Catalog + GCS warehouse
