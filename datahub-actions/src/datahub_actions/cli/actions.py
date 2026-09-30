@@ -184,9 +184,16 @@ def run(ctx: Any, config: List[str], debug: bool) -> None:
         pipeline_manager.start_pipeline(p.name, p)
         logger.info(f"Action Pipeline with name '{p.name}' is now running.")
 
-    # Now, run forever only if we have valid pipelines
+    # Run until a shutdown signal, or until every pipeline has stopped on its own, which
+    # only happens when they fail. Exiting then lets the container runtime restart the
+    # process instead of leaving it up with nothing consuming.
     while True:
         time.sleep(5)
+        if not pipeline_manager.has_running_pipelines():
+            logger.error(
+                "No Action Pipeline is running any more; exiting. See the errors above for the cause."
+            )
+            sys.exit(1)
 
 
 @actions.command()

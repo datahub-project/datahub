@@ -33,6 +33,12 @@ fail to be processed will simply be logged to a `failed_events.log` file for fur
 
 If you've configured your Action pipeline `failure_mode` to be `THROW`, then events which fail to be processed result in an Action Pipeline error. This in turn terminates the pipeline before committing offsets back to Kafka. Thus the message will not be marked as "processed" by the Action consumer.
 
+### Connection Failures
+
+When a pipeline starts, the Kafka Event Source waits until the cluster answers a metadata request before it subscribes, and logs `Kafka event source for pipeline '<name>' connected to Kafka at <bootstrap>.` once it has. If the cluster cannot be reached or the client cannot authenticate (for example a client configured for `PLAINTEXT` against a `SASL_SSL` listener, or wrong SASL credentials), the source keeps retrying for 60 seconds, logging the client error at ERROR, and then fails the pipeline. When no pipeline in the process is running any more, the `datahub-actions` process exits with code 1, so a container runtime restarts it instead of leaving it up without consuming anything.
+
+After a pipeline has connected, Kafka client errors are logged (at ERROR for authentication failures and all brokers being down, otherwise at WARNING) and the client keeps reconnecting on its own.
+
 ## Supported Events
 
 The Kafka Event Source produces

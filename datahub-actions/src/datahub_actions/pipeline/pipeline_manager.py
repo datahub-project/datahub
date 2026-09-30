@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from threading import Thread
 from typing import Dict
 
-from datahub_actions.pipeline.pipeline import Pipeline, PipelineException
+from datahub_actions.pipeline.pipeline import Pipeline
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +36,13 @@ class PipelineSpec:
 
 
 # Run a pipeline in blocking fashion
-# TODO: Exit process on failure of single pipeline.
 def run_pipeline(pipeline: Pipeline) -> None:
     try:
         pipeline.run()
-    except PipelineException:
+    except Exception:
+        # Not only PipelineException: a source that cannot reach its backend raises its
+        # own error types, and those must stop the pipeline too rather than kill the
+        # thread with the source left open.
         logger.error(
             f"Caught exception while running pipeline with name {pipeline.name}: {traceback.format_exc(limit=3)}"
         )
@@ -75,6 +77,9 @@ class PipelineManager:
             logger.debug(f"Started pipeline with name {name}.")
         else:
             raise Exception(f"Pipeline with name {name} is already running.")
+
+    def has_running_pipelines(self) -> bool:
+        return any(spec.thread.is_alive() for spec in self.pipeline_registry.values())
 
     # Stop a running Action Pipeline.
     def stop_pipeline(self, name: str) -> None:
