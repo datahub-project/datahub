@@ -52,6 +52,12 @@ fragment apiSearchFields on Api {
             nativeDataType
             type
         }
+        inputDatasets {
+            ...apiSignatureDatasetFields
+        }
+        outputDatasets {
+            ...apiSignatureDatasetFields
+        }
     }
     restProperties {
         method
@@ -80,5 +86,21 @@ fragment apiSearchFields on Api {
     exists
     status {
         removed
+    }
+}
+
+fragment apiSignatureDatasetFields on Dataset {
+    urn
+    type
+    name
+    properties {
+        name
+        qualifiedName
+    }
+    platform {
+        ...platformFields
+    }
+    subTypes {
+        typeNames
     }
 }
