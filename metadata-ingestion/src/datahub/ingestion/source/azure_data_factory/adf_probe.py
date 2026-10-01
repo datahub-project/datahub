@@ -409,7 +409,13 @@ class AzureDataFactoryMetadataProbe:
             ls = services.get(ls_name) if ls_name else None
             ls_type = ls.properties.type if ls and ls.properties else None
             platform = ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type) if ls_type else None
-            urn = self._source._resolve_dataset_urn(dataset.name or "", key)
+            # The resolver reads dataset.properties unguarded; without them
+            # there is no linked service to resolve through anyway.
+            urn = (
+                self._source._resolve_dataset_urn(dataset.name or "", key)
+                if props
+                else None
+            )
             reason = (
                 None
                 if urn
