@@ -134,6 +134,12 @@ BASIC_INGEST_REQUIRED_PERMISSIONS: FrozenSet[str] = frozenset(
 USAGE_INGEST_REQUIRED_PERMISSIONS: FrozenSet[str] = frozenset({"see_system_activity"})
 
 
+def looker_folder_path(ancestor_names: Sequence[str], folder_name: str) -> str:
+    """The string folder_path_pattern is matched against: the names of the
+    folder's ancestors and its own, joined with '/' (Shared/Sales)."""
+    return "/".join([*ancestor_names, folder_name])
+
+
 @platform_name("Looker")
 @support_status(SupportStatus.GA)
 @config_class(LookerDashboardSourceConfig)
@@ -1058,10 +1064,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
     def _get_folder_path(self, folder: FolderBase, client: LookerAPI) -> str:
         assert folder.id
-        ancestors = [
-            ancestor.name for ancestor in client.folder_ancestors(folder_id=folder.id)
-        ]
-        return "/".join(ancestors + [folder.name])
+        return looker_folder_path(
+            [ancestor.name for ancestor in client.folder_ancestors(folder_id=folder.id)],
+            folder.name,
+        )
 
     def _get_looker_dashboard(self, dashboard: LookerAPIDashboard) -> LookerDashboard:
         self.reporter.accessed_dashboards += 1
