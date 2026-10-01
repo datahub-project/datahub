@@ -93,6 +93,7 @@ class DataHubDocumentsReport(StatefulIngestionReport):
     num_documents_skipped_empty: int = 0
     num_documents_skipped_existing_embeddings: int = 0
     num_documents_skipped_orphaned: int = 0
+    num_documents_pruned_from_state: int = 0
     num_chunks_created: int = 0
     lock_skipped_run: bool = False
     num_embeddings_generated: int = 0
@@ -223,6 +224,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Initialize state tracking for incremental mode
         self.document_state: dict[str, dict[str, Any]] = {}
         self.state_file_path: Optional[Path] = None
+        # Every URN of the last fully enumerated document set; None until a scroll completes.
+        self._complete_enumeration: Optional[set[str]] = None
 
         if self.config.incremental.enabled:
             self._initialize_state_tracking()
@@ -418,6 +421,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # though no semanticContent was ever written for it.
             if self.config.incremental.enabled and processed_ok:
                 self._update_document_state(doc["urn"], doc.get("text", ""))
+
+        # State is carried forward between runs, so without this every document ever
+        # embedded keeps an entry and the checkpoint grows until it can't be committed.
+        if self.config.incremental.enabled and self._complete_enumeration is not None:
+            self._prune_document_state(self._complete_enumeration)
 
     def _bootstrap_event_mode_offsets(self, consumer_id: str) -> None:
         """Bootstrap event mode by capturing current offsets BEFORE batch mode.
@@ -1157,6 +1165,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if self._supports_non_global_context_documents():
             search_flags["includeNonGlobalContextDocuments"] = True
 
+        self._complete_enumeration = None
+        enumerated: set[str] = set()
+        truncated = False
         scroll_id: Optional[str] = None
         first_iter = True
         while first_iter or scroll_id:
@@ -1204,6 +1215,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             # fail the run — a warning would let a large silent gap pass as a
             # successful run.
             if not scroll_id and len(search_results) >= self.config.scroll_batch_size:
+                truncated = True
                 self.report.failure(
                     title="Document enumeration ended without a scroll cursor",
                     message="A full page returned no nextScrollId; enumeration "
@@ -1214,7 +1226,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 entity = result.get("entity") or {}
                 urn = entity.get("urn")
                 if urn:
+                    enumerated.add(urn)
                     yield urn
+
+        # Only a scroll that ran to the end without truncating lists every live
+        # document, which is what makes it safe to prune state against it. The
+        # checkpoint commits even when the run fails, so this can't rely on that.
+        if not truncated:
+            self._complete_enumeration = enumerated
 
     def _hydrate_documents(self, urns: Iterable[str]) -> Iterable[dict[str, Any]]:
         """Resolve document URNs to entities in batches.
@@ -1558,6 +1577,19 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 "content_hash": content_hash,
                 "last_processed": last_processed,
             }
+
+    def _prune_document_state(self, live_urns: set[str]) -> None:
+        """Drop state for documents that are no longer enumerated (deleted)."""
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            pruned = self.state_handler.prune_document_state(live_urns)
+        else:
+            stale = self.document_state.keys() - live_urns
+            for document_urn in stale:
+                del self.document_state[document_urn]
+            pruned = len(stale)
+        self.report.num_documents_pruned_from_state = pruned
+        if pruned:
+            logger.info(f"Pruned state for {pruned} deleted document(s)")
 
     def _state_has_document(self, document_urn: str) -> bool:
         """Whether incremental state already tracks this document.

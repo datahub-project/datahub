@@ -4882,6 +4882,106 @@ class TestTotalProcessingFailure:
         assert not source.report.failures
 
 
+class TestCheckpointPruning:
+    """A complete batch enumeration lists every live document, so incremental state
+    for any other URN belongs to a deleted document. Keeping it grows the checkpoint
+    by one entry per document ever embedded, until it no longer fits in a single
+    request and no run can commit progress."""
+
+    LIVE = "urn:li:document:live"
+    DELETED = "urn:li:document:deleted"
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    def _make_source(
+        self, ctx: PipelineContext, backend: str, **config: Any
+    ) -> DataHubDocumentsSource:
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, _make_config(**config))
+        source.graph = Mock()
+        source.graph.config.server = "http://test-server:8080"
+
+        live_doc = TestOrphanedDocumentResilience._native_notion_doc(self.LIVE)
+        # The live document is unchanged since the last run, so it is skipped
+        # without embedding and only the carried-forward state is in play.
+        previous = {
+            self.LIVE: {
+                "content_hash": source._calculate_text_hash(
+                    live_doc["info"]["contents"]["text"]
+                ),
+                "last_processed": "2026-09-01T00:00:00",
+            },
+            self.DELETED: {
+                "content_hash": "hash-of-a-deleted-document",
+                "last_processed": "2026-09-01T00:00:00",
+            },
+        }
+        if backend == "state_handler":
+            handler = TestStateStorage._make_state_handler(
+                stateful_ingestion=DocumentChunkingStatefulIngestionConfig(
+                    enabled=True
+                ),
+                last_checkpoint=Checkpoint(
+                    job_name="document_chunking",
+                    pipeline_name="test-pipeline",
+                    run_id="previous-run",
+                    state=DocumentChunkingCheckpointState(document_state=previous),
+                ),
+            )
+            # Like the real provider, the current checkpoint is seeded from the last one.
+            handler.state_provider.get_current_checkpoint.return_value = (  # type: ignore[attr-defined]
+                handler.create_checkpoint()
+            )
+            source.state_handler = handler
+        else:
+            source.document_state = previous
+
+        def _graphql(query: str, variables: Optional[dict] = None) -> dict:
+            if "scrollAcrossEntities" in query:
+                return {
+                    "scrollAcrossEntities": {
+                        "nextScrollId": None,
+                        "searchResults": [{"entity": {"urn": self.LIVE}}],
+                    }
+                }
+            return {"entities": [live_doc]}
+
+        source.graph.execute_graphql.side_effect = _graphql
+        return source
+
+    @staticmethod
+    def _tracked_urns(source: DataHubDocumentsSource) -> set[str]:
+        if source.state_handler is not None:
+            state = source.state_handler.get_current_state()
+            assert state is not None
+            return set(state.document_state)
+        return set(source.document_state)
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_full_enumeration_drops_state_for_deleted_documents(self, ctx, backend):
+        source = self._make_source(ctx, backend)
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE}
+        assert source.report.num_documents_pruned_from_state == 1
+
+    @pytest.mark.parametrize("backend", ["local", "state_handler"])
+    def test_truncated_enumeration_keeps_state(self, ctx, backend):
+        # A full page without a continuation cursor means some live documents
+        # were never listed. Dropping their state would re-embed them next run.
+        source = self._make_source(ctx, backend, scroll_batch_size=1)
+
+        list(source._process_batch_mode())
+
+        assert self._tracked_urns(source) == {self.LIVE, self.DELETED}
+        assert source.report.num_documents_pruned_from_state == 0
+
+
 def test_datahub_documents_does_not_embed_when_only_v3_enabled():
     """V3 on with semantic search off must not start embedding generation."""
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
