@@ -819,6 +819,25 @@ Rate limiting is **off by default**. Enable one or both limiter types — there 
 | `RATE_LIMITS_ENDPOINT_HAZELCAST_MAP`                   | `gmsRateLimitEndpointBuckets`       | `rateLimits.endpoint.hazelcastMapName`                                                                             | GMS        |
 | `RATE_LIMITS_METRICS_DETAILED`                         | `false`                             | Sample detailed rate-limit metrics on hot path                                                                     | GMS        |
 
+### Runtime role
+
+`datahub.runtime.role` selects whether this process hosts Hazelcast. It is not a general operator knob: the shared `application.yaml` defaults it to `service`, standalone MCL and MCP set `client` in their `application.properties` (no env override), and the datahub-upgrade image sets `upgrade` unless `DATAHUB_RUNTIME_ROLE` is `client`. `service` on the upgrade image fails startup. `upgrade` currently uses the same policy as `client`.
+
+| Role      | Where it is set                                                                   | Hazelcast                                                 |
+| --------- | --------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `service` | GMS, including MCL/MCP embedded in unified GMS                                    | Hosts the embedded member when a service feature needs it |
+| `client`  | Standalone MCL and MCP consumers                                                  | Not hosted                                                |
+| `upgrade` | datahub-upgrade (default). `DATAHUB_RUNTIME_ROLE=client` selects `client` instead | Not hosted                                                |
+
+When the role is `client` or `upgrade`, startup forces these properties and logs a warning for each Helm or env value it ignores:
+
+- `datahub.gms.entityGraphCache.enabled=false` (`ENTITY_GRAPH_CACHE_ENABLED` is ignored)
+- `searchService.cacheImplementation=caffeine` (`SEARCH_SERVICE_CACHE_IMPLEMENTATION` is ignored)
+- `featureFlags.retentionBufferEnabled=false` (`RETENTION_BUFFER_ENABLED` is ignored)
+- `datahub.gms.rateLimits.endpoint.enabled=false` and `datahub.gms.rateLimits.scoped.enabled=false`
+- `ebean.entityWriteLockBackend=none` (`ENTITY_WRITE_LOCK_BACKEND` is ignored)
+- `datahub.usage.aggregation.enabled=false` (`USAGE_AGGREGATION_ENABLED` is ignored; this scheduler is service-only)
+
 ### Entity graph cache
 
 **Unified hierarchy snapshots for View-Based Access Control (VBAC), policy expansion, and search filter rewriters** — configured under **`datahub.gms.entityGraphCache`** in `application.yaml`. Graph definitions live in **`entity-graph-cache.yaml`** (bundled on the classpath by default). When `entityGraphCache.enabled=true`, GMS **automatically bootstraps** the shared Hazelcast client for distributed graph snapshots (`entityGraphSnapshots.full` for `FULL`-scope graphs; `entityGraphSnapshots.<graphId>` per `PARTIAL`-scope graph) — independent of `searchService.cacheImplementation` or `SEARCH_SERVICE_ENABLE_CACHE`.
@@ -829,12 +848,12 @@ VBAC restricted entities and **search filter rewriters** are **core** features; 
 
 Full operations guide: [GMS Entity Graph Cache](./gms-entity-graph-cache.md). Invalidation design and implementer notes: [Invalidation — For implementers](./gms-entity-graph-cache.md#for-implementers).
 
-| Environment Variable                     | Default                   | YAML path / effect                                                                                                                                                                                                                | Components |
-| ---------------------------------------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `ENTITY_GRAPH_CACHE_ENABLED`             | `true`                    | `entityGraphCache.enabled` — when `true`, `EntityGraphCacheFactory` loads Hazelcast snapshots and config; when `false`, only `EntityGraphCache.NO_OP` is registered. Non-GMS modules default `false` in `application.properties`. | GMS        |
-| `ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED` | `true`                    | `entityGraphCache.configFile.enabled`                                                                                                                                                                                             | GMS        |
-| `ENTITY_GRAPH_CACHE_CONFIG_FILE`         | `entity-graph-cache.yaml` | `entityGraphCache.configFile.path` (classpath, then filesystem)                                                                                                                                                                   | GMS        |
-| `ENTITY_GRAPH_CACHE_CONFIG_JSON`         | —                         | `entityGraphCache.configJson` — JSON overlay merged at startup (also set via env placeholder in `application.yaml`)                                                                                                               | GMS        |
+| Environment Variable                     | Default                   | YAML path / effect                                                                                                                                                                                                                              | Components |
+| ---------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| `ENTITY_GRAPH_CACHE_ENABLED`             | `true`                    | `entityGraphCache.enabled` — when `true`, `EntityGraphCacheFactory` loads Hazelcast snapshots and config; when `false`, only `EntityGraphCache.NO_OP` is registered. Ignored when `datahub.runtime.role` is `client` or `upgrade` (forced off). | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_FILE_ENABLED` | `true`                    | `entityGraphCache.configFile.enabled`                                                                                                                                                                                                           | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_FILE`         | `entity-graph-cache.yaml` | `entityGraphCache.configFile.path` (classpath, then filesystem)                                                                                                                                                                                 | GMS        |
+| `ENTITY_GRAPH_CACHE_CONFIG_JSON`         | —                         | `entityGraphCache.configJson` — JSON overlay merged at startup (also set via env placeholder in `application.yaml`)                                                                                                                             | GMS        |
 
 Per-graph refresh timing (`population.intervalSeconds`) and graph bounds (`bounds.maxVertices`, `bounds.maxEdges`) are configured in `entity-graph-cache.yaml` or via `ENTITY_GRAPH_CACHE_CONFIG_JSON` — not global env vars. Example overlay to raise domain graph limits (membership bounds use the same JSON overlay pattern — see [membership graph](./gms-entity-graph-cache.md#bundled-membership-graph-membershipgraph)):
 
@@ -850,7 +869,7 @@ The same overlay can disable a bundled graph (`{"graphs":{"domain":{"enabled":fa
 
 When a FULL build exceeds `maxVertices`, the cache key enters **`OVER_LIMIT`** (no automatic rebuild). Recovery: delete domains to reduce vertex count, or raise bounds and manually drop the graph in Hazelcast. See [Invalidation (sync writes)](./gms-entity-graph-cache.md#invalidation-sync-writes).
 
-`ENTITY_GRAPH_CACHE_ENABLED=true` on **GMS** requires a reachable Hazelcast cluster (`searchService.cache.hazelcast.serviceName`, default `hazelcast-service`). Set `ENTITY_GRAPH_CACHE_ENABLED=false` when Hazelcast is unavailable, or on MAE/MCE/upgrade pods where the graph cache is not loaded (see [GMS Entity Graph Cache](./gms-entity-graph-cache.md)).
+`ENTITY_GRAPH_CACHE_ENABLED=true` on the **service** role requires a reachable Hazelcast cluster (`searchService.cache.hazelcast.serviceName`, default `hazelcast-service`). Set `ENTITY_GRAPH_CACHE_ENABLED=false` when Hazelcast is unavailable. Standalone MCL/MCP (`client`) and datahub-upgrade (`upgrade` or `client`) ignore this variable and do not load the graph cache (see [Runtime role](#runtime-role) and [GMS Entity Graph Cache](./gms-entity-graph-cache.md)).
 
 **Smoke tests:** `pytest tests/e2e/entity_graph_cache` against a running GMS exercises bundled domain/glossary hierarchy reads and sync invalidation — see [Verification (smoke tests)](./gms-entity-graph-cache.md#verification-smoke-tests).
 

@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config.hazelcast;
 
+import com.linkedin.metadata.config.runtime.RuntimeRole;
 import org.springframework.context.annotation.Condition;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.env.Environment;
@@ -18,11 +19,16 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
   }
 
   /**
-   * GMS always needs the embedded node for access-token revocation state, including when the entity
-   * graph cache is off. MAE, MCE, and upgrade do not load {@code GMSApplication}, so they do not
-   * join a cluster just to host that map.
+   * {@code client} and {@code upgrade} never host a member. {@code service} always does when {@code
+   * GMSApplication} is present (access-token revocation), and otherwise when a Hazelcast-backed
+   * feature is enabled.
    */
   static boolean needsInstance(Environment env, boolean gmsApplicationPresent) {
+    // client and upgrade never host a member, even if a Helm env var would otherwise enable a
+    // Hazelcast-backed feature. The property overlay forces those flags off; this is the backstop.
+    if (RuntimeRole.from(env).disablesDistributedCaches()) {
+      return false;
+    }
     if (gmsApplicationPresent) {
       return true;
     }

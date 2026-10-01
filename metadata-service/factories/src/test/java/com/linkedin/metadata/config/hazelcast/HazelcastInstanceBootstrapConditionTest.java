@@ -126,6 +126,30 @@ public class HazelcastInstanceBootstrapConditionTest {
     assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, false));
   }
 
+  @Test
+  public void testClientRoleSkipsInstanceEvenWhenGmsAndFeaturesWouldBootIt() {
+    MockEnvironment environment = enablingEnvironment();
+    environment.setProperty("datahub.runtime.role", "client");
+    assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, true));
+  }
+
+  @Test
+  public void testUpgradeRoleSkipsInstanceEvenWhenFeaturesWouldBootIt() {
+    MockEnvironment environment = enablingEnvironment();
+    environment.setProperty("datahub.runtime.role", "upgrade");
+    assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, false));
+  }
+
+  private static MockEnvironment enablingEnvironment() {
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "hazelcast");
+    environment.setProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "true");
+    environment.setProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, "true");
+    environment.setProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "true");
+    environment.setProperty(HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED, "true");
+    return environment;
+  }
+
   private boolean matches(MockEnvironment environment) {
     return HazelcastInstanceBootstrapCondition.needsInstance(environment, false);
   }

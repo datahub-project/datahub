@@ -1401,6 +1401,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.gms.rateLimits.scoped.sdk.perActor",
           "datahub.gms.rateLimits.scoped.global.perActor",
           "datahub.gms.rateLimits.scoped.heavyResolvers",
+          "datahub.runtime.role",
           "datahub.gms.entityGraphCache.enabled",
           "datahub.gms.entityGraphCache.configFile.enabled",
           "datahub.gms.entityGraphCache.configFile.path",
