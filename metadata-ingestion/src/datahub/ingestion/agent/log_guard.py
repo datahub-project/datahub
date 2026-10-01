@@ -26,6 +26,14 @@ REUSED_LOGGERS: Tuple[str, ...] = (
     "pyiceberg",
     "looker_sdk",
     "tableauserverclient",
+    "sqlalchemy",
+    "requests_oauthlib",
+    "oauthlib",
+    "msal",
+    "httpx",
+    # logging.captureWarnings, which the recipe CLI's masking bootstrap turns
+    # on: a library's warnings.warn() text arrives here, at WARNING.
+    "py.warnings",
 )
 
 
@@ -59,7 +67,11 @@ class _ScrubFilter(logging.Filter):
         except Exception:
             # Mismatched args: logging would report the error itself later,
             # with the raw args in it.
-            message = str(record.msg)
+            try:
+                message = str(record.msg)
+            except Exception:
+                # Raising here would escape into the caller's logging call.
+                message = "<unprintable log message>"
         record.msg = scrub_text(message, self._secrets)
         record.args = None
         record.exc_info = None
@@ -106,6 +118,11 @@ def quiet_reused_logs(secret_values: Set[str]) -> Iterator[None]:
     nested guard (or two probes in one process) leaves logging exactly as it
     found it. Not safe against two guards on different threads exiting out of
     order: each restores the levels it saw on entry.
+
+    Not covered: datahub's shared modules a provider calls into
+    (datahub.utilities, datahub.ingestion.api), because they also serve the
+    framework and the CLI, and flooring them wholesale would hide the probe's
+    own diagnostics; their records still go through the CLI's masking filter.
     """
     if get_probe_verbose_logs():
         yield
@@ -122,7 +139,13 @@ def quiet_reused_logs(secret_values: Set[str]) -> Iterator[None]:
             undo.append(partial(logger.removeFilter, guard))
         # A logger created inside the guard (a lazy import) has no filter of
         # its own; the handlers its records reach do.
-        for handler in _reachable_handlers(loggers):
+        handlers = _reachable_handlers(loggers)
+        # Written to when a record finds no handler on its chain at all: a
+        # logger created inside the guard with propagate off, say. Not covered:
+        # a handler added inside the guard to such a logger.
+        if logging.lastResort is not None and logging.lastResort not in handlers:
+            handlers.append(logging.lastResort)
+        for handler in handlers:
             handler.addFilter(guard)
             undo.append(partial(handler.removeFilter, guard))
         yield

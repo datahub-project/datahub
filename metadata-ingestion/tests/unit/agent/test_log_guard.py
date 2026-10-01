@@ -228,3 +228,71 @@ def test_run_probe_method_keeps_reused_logs_scrubbed(
     assert after.pop("logger:datahub.ingestion.source.leaky.fetcher") == (0, [])
     assert after.pop("logger:datahub.ingestion.source.leaky") == (0, [])
     assert after == before
+
+
+def test_a_captured_warning_is_scrubbed(caplog: pytest.LogCaptureFixture) -> None:
+    """The recipe CLI turns on logging.captureWarnings, so a library's
+    warnings.warn arrives as a `py.warnings` log record. Emitted here the way
+    captureWarnings emits it, rather than by toggling captureWarnings: an
+    earlier test's CLI run may have left it on, and then pytest's own warning
+    recorder takes the warning instead."""
+    import warnings
+
+    caplog.set_level(logging.DEBUG)
+    text = warnings.formatwarning(
+        "retrying " + _USERINFO_URL % SENTINEL, UserWarning, "lib.py", 1
+    )
+    with quiet_reused_logs(set()):
+        logging.getLogger("py.warnings").warning("%s", text)
+    assert "retrying" in caplog.text
+    assert SENTINEL not in caplog.text
+
+
+def test_an_unprintable_message_does_not_escape_into_the_callers_log_call(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _Unprintable:
+        def __str__(self) -> str:
+            raise RuntimeError("no")
+
+    caplog.set_level(logging.DEBUG)
+    with quiet_reused_logs(set()):
+        # A name no library has put its own filter on: databricks-sql
+        # installs one on urllib3.connectionpool that calls str(record.msg).
+        logging.getLogger("datahub.ingestion.source.unprintable").warning(
+            _Unprintable()
+        )
+    assert "<unprintable log message>" in caplog.text
+
+
+def test_the_last_resort_handler_is_scrubbed_and_restored(
+    capsys: pytest.CaptureFixture,
+) -> None:
+    """A logger with no handler anywhere on its chain is written by
+    logging.lastResort, straight to stderr."""
+    last_resort = logging.lastResort
+    assert last_resort is not None
+    filters_before = list(last_resort.filters)
+    with quiet_reused_logs(set()):
+        lonely = logging.getLogger("httpx.created_inside_without_handlers")
+        lonely.propagate = False
+        try:
+            raise ValueError(SENTINEL)
+        except ValueError:
+            lonely.exception("request to " + _USERINFO_URL, SENTINEL)
+    assert last_resort.filters == filters_before
+    err = capsys.readouterr().err
+    assert "request to" in err
+    assert SENTINEL not in err
+
+
+@pytest.mark.parametrize(
+    "name", ["sqlalchemy.engine", "requests_oauthlib", "oauthlib", "msal", "httpx"]
+)
+def test_auth_and_driver_loggers_are_floored(
+    name: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Root at DEBUG, so an unguarded logger would inherit DEBUG.
+    caplog.set_level(logging.DEBUG)
+    with quiet_reused_logs(set()):
+        assert logging.getLogger(name).getEffectiveLevel() >= logging.WARNING
