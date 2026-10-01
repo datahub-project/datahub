@@ -15,9 +15,14 @@
 </p>
 
 <p align="center">
+  <a href="#quick-start"><b>Quickstart</b></a> ·
   <a href="https://demo.datahub.com"><b>Live Demo</b></a> ·
   <a href="https://docs.datahub.com"><b>Docs</b></a> ·
-  <a href="https://datahub.com/slack"><b>Slack</b></a>
+  <a href="https://datahub.com/slack"><b>Slack Community</b></a>
+</p>
+
+<p align="center">
+  <i>Built with ❤️ by <a href="https://datahub.com">DataHub</a> and <a href="https://engineering.linkedin.com">LinkedIn</a></i>
 </p>
 
 # DataHub
@@ -28,10 +33,6 @@ DataHub transforms enterprise data into trusted context, enabling intelligent de
   <a href="https://demo.datahub.com">
     <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/demos/datahub-tour.gif" alt="DataHub Product Tour" />
   </a>
-</p>
-
-<p align="center">
-  <i>Updated product tour GIF coming soon.</i>
 </p>
 
 Trusted in production by teams at Netflix, Visa, Etsy, Slack, Apple, FIS, Miro, and [3,000+ organizations worldwide →](https://datahub.com/resources/customer-stories/) · [See all adopters](ADOPTERS.md)
@@ -93,7 +94,7 @@ Know when something breaks before your users do.
 
 [Learn more about Observability →](https://datahub.com/products/data-observability/)
 
-[→ See the full product tour at datahub.com](https://datahub.com/product-tour/)
+[→ See the full product tour at datahub.com](https://datahub.com/product-tour/) · [Explore common use cases →](https://docs.datahub.com/docs/features#common-use-cases)
 
 ## Quick start
 
@@ -117,6 +118,8 @@ Know when something breaks before your users do.
 
   [MCP server setup →](https://docs.datahub.com/docs/features/feature-guides/mcp)
 
+**Next steps:** [Ingest metadata](https://docs.datahub.com/docs/metadata-ingestion/cli-ingestion) · [Search with the Python SDK](https://docs.datahub.com/docs/api/tutorials/sdk/search_client) · [Query lineage with GraphQL](https://docs.datahub.com/docs/api/tutorials/lineage) · [Add documentation with the Python SDK](https://docs.datahub.com/docs/api/tutorials/descriptions)
+
 ## Why DataHub
 
 - **Cross-platform by design.** DataHub started at LinkedIn in 2019 to manage metadata at hyperscale. That foundation with column-level lineage across 150+ integrations, spanning your entire data estate is what makes trusted context possible. Context is only as good as the lineage underneath it, and lineage is only as good as its coverage.
@@ -133,7 +136,7 @@ Know when something breaks before your users do.
 
 ## Integrations
 
-150+ production-grade integrations across your full data stack.
+Production-grade integrations across your full data stack.
 
 <p align="center">
   <img src="docs-website/static/img/logos/platforms/snowflake.svg" alt="Snowflake" title="Snowflake" height="40" />&nbsp;&nbsp;
@@ -143,7 +146,7 @@ Know when something breaks before your users do.
   <img src="docs-website/static/img/logos/platforms/dbt.svg" alt="dbt" title="dbt" height="40" />&nbsp;&nbsp;
   <img src="docs-website/static/img/logos/platforms/looker.svg" alt="Looker" title="Looker" height="40" />&nbsp;&nbsp;
   <img src="docs-website/static/img/logos/platforms/tableau.png" alt="Tableau" title="Tableau" height="40" />&nbsp;&nbsp;
-  <img src="docs-website/static/img/logos/platforms/powerbi.png" alt="Power BI" title="Power BI" height="40" />&nbsp;&nbsp;
+  <img src="docs-website/static/img/logos/platforms/powerbi-report-server.svg" alt="Power BI" title="Power BI" height="40" />&nbsp;&nbsp;
   <img src="docs-website/static/img/logos/platforms/airflow.svg" alt="Airflow" title="Airflow" height="40" />&nbsp;&nbsp;
   <img src="docs-website/static/img/logos/platforms/spark.svg" alt="Spark" title="Spark" height="40" />&nbsp;&nbsp;
   <img src="docs-website/static/img/logos/platforms/s3.svg" alt="Amazon S3" title="Amazon S3" height="40" />&nbsp;&nbsp;
@@ -151,8 +154,18 @@ Know when something breaks before your users do.
 </p>
 
 <p align="center">
-  <a href="https://docs.datahub.com/integrations"><b>+ 140 more integrations →</b></a>
+  <a href="https://docs.datahub.com/integrations"><b>See all 150+ integrations →</b></a>
 </p>
+
+Missing a source? [Build a custom connector](https://docs.datahub.com/docs/how/add-custom-ingestion-source). [DataHub Skills](https://github.com/datahub-project/datahub-skills) can help your AI coding assistant plan and review it.
+
+## DataHub ecosystem
+
+- **[Analytics Agent](https://github.com/datahub-project/analytics-agent)** – Open-source agent grounded in your DataHub catalog. Ask data questions in plain English and get SQL, results, and charts back. Apache 2.0, bring your own LLM.
+- **[MCP Server](https://github.com/acryldata/mcp-server-datahub)** – The official Model Context Protocol server for DataHub.
+- **[DataHub Skills](https://github.com/datahub-project/datahub-skills)** – Agent skills for working with DataHub: search, lineage, enrichment, and quality workflows.
+
+[See the full ecosystem →](docs/ecosystem.md)
 
 ## Built by the community
 
@@ -162,9 +175,10 @@ DataHub has 16,000+ community members and 750+ contributors across 3,600+ organi
 - Watch demos and events on [YouTube](https://www.youtube.com/@DataHubCloud)
 - Register to [Monthly Town Hall](https://datahub.com/community/datahub-town-halls/)
 - Read our [Blog](https://datahub.com/blog/)
+- Learn from teams using DataHub in [case studies and talks](docs/links.md)
 - Found a bug? [Open an issue](https://github.com/datahub-project/datahub/issues)
 
-Ready to contribute? See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for setup and guidelines.
+Ready to contribute? See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines and the [Developer's Guide](https://docs.datahub.com/docs/developers) to set up your local development environment.
 
 ## Explore DataHub Now
 
