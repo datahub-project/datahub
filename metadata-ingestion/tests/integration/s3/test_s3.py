@@ -486,12 +486,18 @@ def test_probe_folders_match_real_folders_only_ingestion(s3_emulator: None) -> N
     )
     listing = run_probe_method("s3", config, "path_spec_folders", {"limit": "1000"})
     assert isinstance(listing.result, list) and listing.result
+    # The leaves the walk lists, and every folder above them: ingestion emits
+    # the whole chain as containers, so each one needs a verdict.
+    candidates: Set[str] = set()
+    for leaf in listing.result:
+        parts = leaf.split("/")
+        candidates |= {"/".join(parts[:n]) for n in range(4, len(parts) + 1)}
     verdicts = check_filters(
         source_type="s3",
         config_dict=config,
         kind="Folder",
         parent_path=[],
-        names=listing.result,
+        names=sorted(candidates),
     )
     probed = {r.name[len("s3://") :] for r in verdicts.results if r.included}
     folders = {
@@ -500,8 +506,7 @@ def test_probe_folders_match_real_folders_only_ingestion(s3_emulator: None) -> N
         if e.get("aspectName") == "containerProperties"
         and "folder_abs_path" in e["aspect"]["json"].get("customProperties", {})
     }
-    leaves = {f for f in folders if not any(o.startswith(f + "/") for o in folders)}
-    assert probed == leaves
+    assert probed == folders
 
 
 def test_probe_buckets_and_tags_against_the_emulator(s3_emulator: None) -> None:

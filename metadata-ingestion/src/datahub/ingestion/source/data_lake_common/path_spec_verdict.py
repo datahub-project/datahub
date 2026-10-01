@@ -28,12 +28,14 @@ TEMPLATED_FILE_RULES_WARNING = (
 UNPARSED_TABLE_WARNING = (
     "a {table} path_spec could not read the table name out of at least one of "
     "these folders (a wildcard or placeholder before {table} matched nothing, "
-    "as `s3://my-bucket*/` does for `my-bucket`): ingestion still emits that "
+    "as a bucket wildcard like `my-bucket*` does for the bucket `my-bucket`): "
+    "ingestion still emits that "
     "table, but names the dataset after a file inside it, not after the folder"
 )
 CONTAINER_WARNING = (
-    "buckets and folders above a dataset are emitted only as the containers of a "
-    "dataset that is itself included"
+    "buckets and folders above a dataset (or above a folders-only path_spec's "
+    "leaf folder) are emitted only as the containers of something beneath them "
+    "that is itself included"
 )
 
 
@@ -134,13 +136,38 @@ def judge_dataset(
 
 
 def judge_folder(
-    path_specs: Sequence[PathSpec], uri: str, warn: Callable[[str], None]
+    path_specs: Sequence[PathSpec],
+    uri: str,
+    warn: Callable[[str], None],
+    *,
+    bucket_kind: Optional[str] = None,
 ) -> Verdict:
+    """`bucket_kind` names the kind a bucket is judged as, for the error that
+    tells a caller who passed a bare bucket URI where to ask instead."""
     folder = uri.rstrip("/")
+    # "s3://my-bucket" has two slashes: it is a bucket container, never a folder.
+    if folder.count("/") <= 2:
+        where = f'--kind "{bucket_kind}"' if bucket_kind else "the bucket kind"
+        raise ValueError(
+            f"'{uri}' is a bucket, not a folder; judge its bare name with {where}"
+        )
 
     def reason(spec: PathSpec) -> Optional[str]:
         glob_parts = spec.glob_include.rstrip("/").split("/")
         if spec.emit_folders_only:
+            depth = folder.count("/")
+            leaf = len(glob_parts) - 1
+            if depth < leaf:
+                # create_folder_containers emits every folder above an allowed
+                # leaf. Under a hidden ancestor every leaf is hidden too, so
+                # that one never appears; exclude globs match whole leaf paths
+                # and say nothing about an ancestor.
+                if not _reaches(folder, "/".join(glob_parts[: depth + 1])):
+                    return ""
+                if spec.is_path_hidden(folder) and not spec.include_hidden_folders:
+                    return "include_hidden_folders"
+                warn(CONTAINER_WARNING)
+                return None
             # _process_folders applies folder_allowed only, no include glob.
             if not _reaches(folder, "/".join(glob_parts)):
                 return ""

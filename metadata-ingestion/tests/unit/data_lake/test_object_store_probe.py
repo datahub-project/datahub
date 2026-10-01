@@ -1,5 +1,5 @@
 import re
-from typing import Iterator
+from typing import Any, Iterator, List
 from unittest import mock
 
 import boto3
@@ -89,8 +89,9 @@ def test_a_denied_whole_listing_is_a_failure_not_an_empty_result() -> None:
 
 def test_a_denied_prefix_during_table_resolution_is_a_warning(bucket: None) -> None:
     # resolve_templated_folders (s3.source) is not patched; only the per-prefix
-    # table-folder listing the base issues is denied.
-    probe = _probe("s3://my-bucket/data/{table}/*/*.csv")
+    # table-folder listing the base issues is denied. The wildcard before
+    # {table} makes that one prefix among several.
+    probe = _probe("s3://my-bucket/*/{table}/*/*.csv")
     with mock.patch.object(
         object_store_probe,
         "list_folders_path",
@@ -225,3 +226,44 @@ def test_a_subclass_can_widen_the_bucket_name_rule() -> None:
     assert (
         _Legacy(_aws(), specs)._bucket_uri("Legacy_Bucket", "") == "s3://Legacy_Bucket/"
     )
+
+
+def test_wildcard_resolution_stops_listing_dead_ends(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # `*/*/{table}` over many top-level folders with nothing below them: each
+    # resolves to no prefix, so a budget on resolved prefixes alone never trips
+    # while one listing per folder goes on.
+    monkeypatch.setattr(object_store_probe, "MAX_RESOLVED_PREFIXES", 5)
+    seen: List[str] = []
+    real_client = boto3.session.Session.client
+
+    def recording_client(self: boto3.session.Session, *args: Any, **kwargs: Any) -> Any:
+        client = real_client(self, *args, **kwargs)
+        client.meta.events.register(
+            "before-call.s3", lambda model, **_: seen.append(model.name)
+        )
+        return client
+
+    with mock_aws():
+        client = boto3.client("s3", region_name="us-east-1")
+        client.create_bucket(Bucket="my-bucket")
+        for i in range(40):
+            client.put_object(Bucket="my-bucket", Key=f"top{i:02d}/x.csv", Body=b"a\n")
+        probe = _probe("s3://my-bucket/*/*/{table}/*.csv")
+        with mock.patch.object(boto3.session.Session, "client", recording_client):
+            assert probe.datasets(limit=10) == []
+    assert len(seen) <= 6
+    assert any("narrow" in w for w in probe.warnings)
+
+
+def test_a_denied_single_table_prefix_is_the_whole_answer(bucket: None) -> None:
+    # No wildcard before {table}: the one listing is the answer, as in `objects`.
+    probe = _probe("s3://my-bucket/data/{table}/*/*.csv")
+    with mock.patch.object(
+        object_store_probe,
+        "list_folders_path",
+        side_effect=_client_error("AccessDenied", 403),
+    ):
+        assert probe.datasets(limit=10) == []
+    assert probe.failures and not probe.warnings

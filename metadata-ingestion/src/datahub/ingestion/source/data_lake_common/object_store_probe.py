@@ -44,10 +44,16 @@ from datahub.ingestion.source.s3.source import (
     table_marker_prefix,
 )
 
-# Folders visited while expanding the wildcards of one include. Ingestion
-# expands them all; a probe must not, because `*/*/{table}` over a large
-# bucket can list for a long time before yielding a single table.
+# Listings one include may cost while its wildcards are expanded: every
+# folder listed on the way, plus (for tables) each resolved prefix, which is
+# listed once more for its table folders. Ingestion expands them all; a probe
+# must not, because `*/*/{table}` over a large bucket can list for a long time
+# -- one request per dead-end folder -- before yielding a single table.
 MAX_RESOLVED_PREFIXES = 1000
+
+
+class _ListingBudgetSpent(Exception):
+    """Raised from the resolution callback to stop the walk mid-recursion."""
 
 _BUCKET_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$")
 _AUTH_ERROR_CODES = frozenset(
@@ -200,18 +206,31 @@ class S3CompatibleMetadataProbe:
             )
         return self._path_specs[index]
 
-    def _bounded_prefixes(self, prefix: str) -> Iterator[str]:
-        for count, resolved in enumerate(
-            resolve_templated_folders(prefix, self._aws_config), start=1
-        ):
-            if count > MAX_RESOLVED_PREFIXES:
-                self.warnings.append(
-                    f"stopped after resolving {MAX_RESOLVED_PREFIXES} folders for "
-                    f"'{self._display(prefix)}'; narrow the include's wildcards "
-                    f"to see the rest"
-                )
-                return
-            yield resolved
+    def _bounded_prefixes(self, prefix: str, listed_after: bool) -> Iterator[str]:
+        """resolve_templated_folders, stopped once it has cost
+        MAX_RESOLVED_PREFIXES listings. `listed_after`: the caller lists each
+        resolved prefix again, so each one is charged too."""
+        spent = 0
+
+        def charge(_: str) -> None:
+            nonlocal spent
+            spent += 1
+            if spent > MAX_RESOLVED_PREFIXES:
+                raise _ListingBudgetSpent()
+
+        try:
+            for resolved in resolve_templated_folders(
+                prefix, self._aws_config, on_listing=charge
+            ):
+                if listed_after:
+                    charge(resolved)
+                yield resolved
+        except _ListingBudgetSpent:
+            self.warnings.append(
+                f"stopped after {MAX_RESOLVED_PREFIXES} listings while resolving "
+                f"'{self._display(prefix)}', so this answer may be incomplete; "
+                f"narrow the include's wildcards to see the rest"
+            )
 
     def _list_buckets(self, limit: int) -> List[str]:
         return self._take(
@@ -290,9 +309,13 @@ class S3CompatibleMetadataProbe:
         # _process_templated_path, stopped at the folder listing: the partition
         # scan after it lists every object in the table and is not needed to
         # name the table.
-        for resolved in self._bounded_prefixes(table_marker_prefix(spec.include)):
+        prefix = table_marker_prefix(spec.include)
+        # With no wildcard before {table} there is one prefix, and a denied
+        # listing of it is the whole answer, as it is for `objects`.
+        whole = "*" not in prefix
+        for resolved in self._bounded_prefixes(prefix, listed_after=True):
             with self._storage_errors(
-                f"listing {self._display(resolved)}", whole=False
+                f"listing {self._display(resolved)}", whole=whole
             ):
                 for folder in list_folders_path(resolved, aws_config=self._aws_config):
                     yield {
@@ -315,7 +338,7 @@ class S3CompatibleMetadataProbe:
             )
             return []
         found = self._take(
-            lambda: self._bounded_prefixes(spec.glob_include),
+            lambda: self._bounded_prefixes(spec.glob_include, listed_after=False),
             limit,
             "resolving folders",
         )

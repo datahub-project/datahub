@@ -8,7 +8,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 import smart_open.compression as so_compression
 from smart_open import open as smart_open
@@ -158,8 +158,14 @@ def table_marker_prefix(include: str) -> str:
 
 
 def resolve_templated_folders(
-    prefix: str, aws_config: Optional[AwsConnectionConfig]
+    prefix: str,
+    aws_config: Optional[AwsConnectionConfig],
+    on_listing: Optional[Callable[[str], None]] = None,
 ) -> Iterable[str]:
+    """Expand the `*`s in prefix into the folders that exist. `on_listing`, if
+    given, is called with each folder about to be listed, so a caller can bound
+    the walk: a dead end yields nothing but still costs a listing. It may raise
+    to stop the walk."""
     folder_split: List[str] = prefix.split("*", 1)
     # If the len of split is 1 it means we don't have * in the prefix
     if len(folder_split) == 1:
@@ -169,6 +175,8 @@ def resolve_templated_folders(
     basename_startswith = folder_split[0].split("/")[-1]
     dirname = folder_split[0].removesuffix(basename_startswith)
 
+    if on_listing is not None:
+        on_listing(dirname)
     folders = list_folders_path(
         dirname,
         startswith=basename_startswith,
@@ -183,7 +191,7 @@ def resolve_templated_folders(
             remaining_pattern = remaining_pattern[1:]
 
         yield from resolve_templated_folders(
-            f"{folder.path}/{remaining_pattern}", aws_config
+            f"{folder.path}/{remaining_pattern}", aws_config, on_listing
         )
 
 

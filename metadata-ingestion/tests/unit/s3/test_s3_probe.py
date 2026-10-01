@@ -259,3 +259,12 @@ def test_tags_issues_only_tagging_reads(tagged: None) -> None:
             {"bucket": "my-bucket", "key": "raw/a.csv"},
         )
     assert seen and set(seen) <= {"GetBucketTagging", "GetObjectTagging"}
+
+
+def test_object_tags_alone_need_a_key(tagged: None) -> None:
+    # Without it there is nothing to read, and an empty answer would look like
+    # "this bucket has no tags".
+    with pytest.raises(ValueError, match="key"):
+        run_probe_method(
+            "s3", _tag_recipe(use_s3_object_tags=True), "tags", {"bucket": "my-bucket"}
+        )

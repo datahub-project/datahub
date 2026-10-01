@@ -167,17 +167,26 @@ def _no_allowed_file_under(recipe: Dict[str, object], folder_uri: str) -> bool:
 
 
 def _named_after_a_file_in(
-    ingested: Set[str], probed: Dict[str, str], warnings: List[str]
+    recipe: Dict[str, object], ingested: Set[str], probed: Dict[str, str]
 ) -> Dict[str, str]:
     """ingested urn -> the included table folder it was emitted for, for the
     datasets ingestion named after a file rather than the folder. Each must sit
-    under an included folder, and the probe must have warned about it."""
+    under an included folder, and judging that folder alone must warn."""
     attributed: Dict[str, str] = {}
     for urn in ingested - set(probed):
         path = DatasetUrn.from_string(urn).name
         folders = [u for u in probed.values() if path.startswith(u[len("s3://") :] + "/")]
         assert len(folders) == 1, f"probe missed {urn}"
-        assert UNPARSED_TABLE_WARNING in warnings, f"{urn} was named without a warning"
+        alone = check_filters(
+            source_type="s3",
+            config_dict=recipe,
+            kind="Table",
+            parent_path=[],
+            names=folders,
+        )
+        assert UNPARSED_TABLE_WARNING in alone.warnings, (
+            f"{urn} was named without a warning"
+        )
         attributed[urn] = folders[0]
     return attributed
 
@@ -187,7 +196,7 @@ def test_probe_verdicts_match_ingestion(storage: None, name: str) -> None:
     recipe = _recipe(CASES[name])
     ingested = _ingested(recipe)
     probed, warnings = _probed(recipe)
-    renamed = set(_named_after_a_file_in(ingested, probed, warnings).values())
+    renamed = set(_named_after_a_file_in(recipe, ingested, probed).values())
     for urn in set(probed) - ingested:
         if probed[urn] in renamed:
             continue
@@ -213,8 +222,8 @@ def test_a_table_ingestion_cannot_name_is_attributed_to_its_folder(
 ) -> None:
     # Pins the naming gap: fails if the bucket-wildcard fixture stops hitting it.
     recipe = _recipe(CASES["bucket_wildcard"])
-    probed, warnings = _probed(recipe)
-    assert set(_named_after_a_file_in(_ingested(recipe), probed, warnings).values()) == {
+    probed, _ = _probed(recipe)
+    assert set(_named_after_a_file_in(recipe, _ingested(recipe), probed).values()) == {
         "s3://my-bucket/data/events",
         "s3://my-bucket/data/users",
     }
