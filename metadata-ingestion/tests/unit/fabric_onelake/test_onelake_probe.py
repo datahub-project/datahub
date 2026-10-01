@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 import requests
+from azure.core.exceptions import ClientAuthenticationError
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.api.common import PipelineContext
@@ -307,6 +308,21 @@ def test_a_refused_rest_read_is_recorded_without_the_response_text() -> None:
     assert probe.failures == ["listing workspaces failed: HTTP 403"]
     assert "secret-ish" not in str(excinfo.value)
     assert not isinstance(excinfo.value, ValueError)
+
+
+def test_a_credential_failure_says_so_without_the_sdk_text() -> None:
+    probe, client = _probe()
+    client.workspaces_error = ClientAuthenticationError(
+        "authority https://login.example/placeholder-tenant rejected secret-ish"
+    )
+
+    with pytest.raises(FabricReadError):
+        probe.workspaces()
+
+    assert len(probe.failures) == 1
+    assert "credential" in probe.failures[0]
+    assert "secret-ish" not in probe.failures[0]
+    assert "placeholder-tenant" not in probe.failures[0]
 
 
 def test_exit_closes_the_client() -> None:

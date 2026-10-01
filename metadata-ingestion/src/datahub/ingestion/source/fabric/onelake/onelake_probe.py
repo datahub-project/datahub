@@ -10,6 +10,7 @@ from contextlib import contextmanager
 from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import requests
+from azure.core.exceptions import ClientAuthenticationError
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import (
@@ -57,6 +58,11 @@ def _scrubbed(operation: str, exc: BaseException) -> str:
     if isinstance(exc, requests.HTTPError):
         status = exc.response.status_code if exc.response is not None else None
         return f"{operation} failed: HTTP {status}"
+    if isinstance(exc, ClientAuthenticationError):
+        return (
+            f"{operation} failed: could not get a token with the recipe's "
+            f"credential ({type(exc).__name__})"
+        )
     if isinstance(exc, ImportError):
         # pyodbc is imported when the first SQL connection opens, and fails
         # here when the unixODBC / Microsoft ODBC driver is not installed.
