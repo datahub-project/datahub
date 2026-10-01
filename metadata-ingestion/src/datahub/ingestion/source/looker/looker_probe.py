@@ -1,12 +1,24 @@
 import re
 from contextlib import contextmanager
-from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, TypeVar
+from dataclasses import dataclass
+from typing import (
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    TypeVar,
+    Union,
+)
 from urllib.parse import urlparse
 
 import looker_sdk.rtl.requests_transport as looker_requests_transport
 import requests
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
+from looker_sdk.sdk.api40.models import Dashboard, DashboardBase, FolderBase
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import probe_method
@@ -17,9 +29,17 @@ from datahub.ingestion.agent.verdicts import (
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
+from datahub.ingestion.source.looker.looker_probe_verdicts import (
+    ATTR_DELETED,
+    ATTR_FOLDER_PATH,
+    ATTR_FOLDER_PATH_ALLOWED,
+    ATTR_FOLDER_PERSONAL,
+    DASHBOARD_KIND,
+)
 from datahub.ingestion.source.looker.looker_source import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
     USAGE_INGEST_REQUIRED_PERMISSIONS,
+    looker_folder_path,
 )
 
 _T = TypeVar("_T")
@@ -29,6 +49,29 @@ _T = TypeVar("_T")
 _DOC_URL_STATUS = re.compile(r"/r/err/[^/]+/(\d{3})(?:/|$)")
 # Older SDKs and LookerAPI's own checks use "Looker Not Found (404)".
 _MESSAGE_STATUS = re.compile(r"\((\d{3})\)")
+
+# No user fields (user_id, last_updater_id, deleter_id) and no usage counts:
+# what is not requested cannot leak.
+_DASHBOARD_LIST_FIELDS = ["id", "title", "folder"]
+# LookerAPI.folder_ancestors' default fields, as ingestion requests them.
+_FOLDER_ANCESTOR_FIELDS = "id,name,parent_id"
+_ANCESTORS_UNREADABLE = (
+    "some folders' ancestors could not be read, so their paths are just the "
+    "folder's own name -- which is also what ingestion matches "
+    "folder_path_pattern against when it cannot read them"
+)
+
+
+@dataclass(frozen=True)
+class _FolderFacts:
+    # None for a personal folder: Looker names it after its user.
+    path: Optional[str]
+    personal: bool
+    # folder_path_pattern's verdict on the real path; None with no folder.
+    path_allowed: Optional[bool]
+
+
+_NO_FOLDER = _FolderFacts(path=None, personal=False, path_allowed=None)
 
 
 def sdk_error_status(exc: SDKError) -> Optional[int]:
@@ -121,6 +164,7 @@ class LookerMetadataProbe:
     def __init__(self, config: LookerDashboardSourceConfig) -> None:
         self._config = config
         self._looker: Optional[LookerAPI] = None
+        self._folder_cache: Dict[str, _FolderFacts] = {}
         self.warnings = []
 
     @classmethod
@@ -188,3 +232,102 @@ class LookerMetadataProbe:
             "missing_for_metadata": sorted(BASIC_INGEST_REQUIRED_PERMISSIONS - granted),
             "missing_for_usage": sorted(USAGE_INGEST_REQUIRED_PERMISSIONS - granted),
         }
+
+    def _ancestor_names(self, folder_id: str) -> List[str]:
+        api = self._api()
+        try:
+            with _looker_call("folder ancestor lookup"):
+                ancestors = api.client.folder_ancestors(
+                    folder_id,
+                    _FOLDER_ANCESTOR_FIELDS,
+                    transport_options=api.transport_options,
+                )
+        except (ProbeSoftError, ProbeReadFailed):
+            # LookerAPI.folder_ancestors, which ingestion calls, swallows every
+            # SDKError and returns no ancestors. The SDK is called directly here
+            # only so that degrade can be reported instead of silent.
+            self._warn(_ANCESTORS_UNREADABLE)
+            return []
+        return [ancestor.name for ancestor in ancestors]
+
+    def _folder_facts(self, folder: Optional[FolderBase]) -> _FolderFacts:
+        """What _should_skip_personal_folder_dashboard and
+        _should_skip_dashboard_by_folder_path read, for one folder."""
+        if folder is None or folder.id is None:
+            return _NO_FOLDER
+        cached = self._folder_cache.get(folder.id)
+        if cached is not None:
+            return cached
+        personal = bool(folder.is_personal or folder.is_personal_descendant)
+        path = looker_folder_path(self._ancestor_names(folder.id), folder.name)
+        facts = _FolderFacts(
+            path=None if personal else path,
+            personal=personal,
+            path_allowed=self._config.folder_path_pattern.allowed(path),
+        )
+        self._folder_cache[folder.id] = facts
+        return facts
+
+    def _dashboard_record(
+        self, dashboard: Union[Dashboard, DashboardBase], deleted: bool
+    ) -> Optional[Dict[str, object]]:
+        if dashboard.id is None:
+            # get_workunits_internal skips a dashboard without an id too.
+            return None
+        folder = self._folder_facts(dashboard.folder)
+        return {
+            "name": dashboard.id,
+            "title": dashboard.title,
+            ATTR_DELETED: deleted,
+            ATTR_FOLDER_PATH: folder.path,
+            ATTR_FOLDER_PERSONAL: folder.personal,
+            ATTR_FOLDER_PATH_ALLOWED: folder.path_allowed,
+        }
+
+    @probe_method(kind=DASHBOARD_KIND, row_limit_param="limit")
+    def dashboards(self, limit: int = 200) -> List[Dict[str, object]]:
+        """Dashboards this credential can see, by id -- the string
+        dashboard_pattern matches -- including ones the recipe would drop: a
+        dropped dashboard is reported, not hidden. Deleted dashboards are
+        listed too (`deleted: true`); ingestion reads them only with
+        include_deleted. Each record carries what ingestion also filters on:
+        `folder_path` (what folder_path_pattern matches), `folder_personal`
+        (what skip_personal_folders drops) and `folder_path_allowed`. A
+        personal folder's path is withheld, because Looker names it after its
+        user; `folder_path_allowed` is folder_path_pattern's verdict on it,
+        computed from this recipe at run time. Save this with `--report-to` and
+        judge it with `probe filter --kind Dashboard --from-run <report>`.
+        Metadata only: no owners, users or usage counts."""
+        api = self._api()
+        rows: List[Dict[str, object]] = []
+        # Live first, then deleted, as get_workunits_internal orders them. The
+        # framework asks for limit+1; stopping there keeps folder lookups and
+        # the deleted listing from being requested at all.
+        live = self._fetch(
+            "dashboard listing",
+            lambda: api.all_dashboards(fields=_DASHBOARD_LIST_FIELDS),
+        )
+        self._extend_dashboards(rows, live, deleted=False, limit=limit)
+        if len(rows) < limit:
+            deleted = self._fetch(
+                "deleted dashboard listing",
+                lambda: api.search_dashboards(
+                    fields=_DASHBOARD_LIST_FIELDS, deleted="true"
+                ),
+            )
+            self._extend_dashboards(rows, deleted, deleted=True, limit=limit)
+        return rows
+
+    def _extend_dashboards(
+        self,
+        rows: List[Dict[str, object]],
+        dashboards: Sequence[Union[Dashboard, DashboardBase]],
+        deleted: bool,
+        limit: int,
+    ) -> None:
+        for dashboard in dashboards:
+            if len(rows) >= limit:
+                return
+            record = self._dashboard_record(dashboard, deleted=deleted)
+            if record is not None:
+                rows.append(record)

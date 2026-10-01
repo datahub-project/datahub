@@ -15,11 +15,13 @@ from datahub.ingestion.source.looker.looker_probe import (
 )
 from datahub.ingestion.source.looker.looker_source import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
+    looker_folder_path,
 )
 from tests.unit.looker.looker_probe_fixtures import (
     API_USER_EMAIL,
     CLIENT_ID,
     CLIENT_SECRET,
+    PERSONAL_FOLDER_NAME,
     fake_looker,
     install,
     recipe,
@@ -133,3 +135,65 @@ def test_no_command_output_carries_credentials_or_the_api_user() -> None:
 def test_methods_are_advertised_with_their_kinds() -> None:
     kinds = {spec.command: spec.kind for spec in list_probe_methods("looker")}
     assert kinds["permissions"] is None
+    assert kinds["dashboards"] == "Dashboard"
+
+def test_folder_path_joins_ancestors_and_the_folder() -> None:
+    assert looker_folder_path(["Shared"], "Sales") == "Shared/Sales"
+    assert looker_folder_path([], "Shared") == "Shared"
+
+
+def test_dashboards_list_live_and_deleted_with_their_folder_facts() -> None:
+    run = _run("dashboards", {}, folder_path_pattern={"deny": ["^Users/"]})
+    by_id = {r["name"]: r for r in run["result"]}
+    assert run["kind"] == "Dashboard"
+    assert set(by_id) == {"1", "2", "3", "4", "5", "6"}
+    assert by_id["1"] == {
+        "name": "1",
+        "title": "Revenue",
+        "deleted": False,
+        "folder_path": "Shared/Sales",
+        "folder_personal": False,
+        "folder_path_allowed": True,
+    }
+    assert by_id["4"]["deleted"] is True
+    assert by_id["6"]["folder_path"] is None
+    assert by_id["6"]["folder_path_allowed"] is None
+
+
+def test_a_personal_folder_path_is_withheld_but_still_judged() -> None:
+    run = _run("dashboards", {}, folder_path_pattern={"deny": ["^Users/"]})
+    personal = next(r for r in run["result"] if r["name"] == "3")
+    assert personal["folder_path"] is None
+    assert personal["folder_personal"] is True
+    assert personal["folder_path_allowed"] is False
+    assert PERSONAL_FOLDER_NAME not in json.dumps(run)
+
+
+def test_unreadable_ancestors_degrade_as_ingestion_does() -> None:
+    client = install(mock.MagicMock())
+    client.folder_ancestors.side_effect = sdk_error(500)
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method("looker", recipe(), "dashboards", {})
+    first = next(r for r in run.result if r["name"] == "1")
+    assert first["folder_path"] == "Sales"
+    assert any("ancestors" in w for w in run.warnings)
+
+
+def test_a_refused_deleted_listing_keeps_the_live_ones_and_warns() -> None:
+    client = install(mock.MagicMock())
+    client.search_dashboards.side_effect = sdk_error(403)
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method("looker", recipe(), "dashboards", {})
+    assert {r["name"] for r in run.result} == {"1", "2", "3", "5", "6"}
+    assert any("deleted dashboard listing returned HTTP 403" in w for w in run.warnings)
+
+
+def test_the_limit_bounds_folder_lookups_and_skips_the_deleted_listing() -> None:
+    client = install(mock.MagicMock())
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method("looker", recipe(), "dashboards", {"limit": 1})
+    assert [r["name"] for r in run.result] == ["1"]
+    assert run.truncated is True
+    client.search_dashboards.assert_not_called()
+    # Dashboards 1 and 2 share f-sales: one lookup, cached.
+    assert client.folder_ancestors.call_count == 1
