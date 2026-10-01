@@ -32,6 +32,7 @@ description: "Release notes and breaking change history for upgrading DataHub be
 - **(Ingestion SDK)** `SourceReport.report_failure()` is deprecated in favor of `failure()`. Same timeline.
 
 ### Other Notable Changes
+- **(GMS / search)** Existing Data Product membership is now backfilled into the asset-side `dataProducts` search field by `ResyncDataProductAssetsStep`. The previous path (re-UPSERT `dataProductProperties` via `MigrateAspects` / `REPROCESS_DATA_PRODUCT_ASSETS`, introduced in v1.7.0) was a no-op: GMS suppresses MCLs for identical payloads, so `DataProductAssetsSideEffect` never wrote member assets and the Data Product search filter stayed empty for pre-existing memberships. The step now reads stored properties, synthesizes RESTATE items, and applies `DataProductAssetsSideEffect` directly. It is enabled by default (`BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED=true`) and skips once its versioned upgrade marker has SUCCEEDED; `REPROCESS_DATA_PRODUCT_ASSETS=true` forces a re-run. **Action:** none — the next system update writes the missing aspect. New env vars: `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED`, `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_DELAY_MS`, `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_LIMIT`.
 
 - #13726: Removed dgraph from tests
 - #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
@@ -209,6 +210,11 @@ Requirements:
 - #19547 **(Ingestion / dbt)** When `target_platform_instance` is set, dbt's target-platform sibling entities (stub entities dbt creates for warehouse tables the warehouse connector hasn't itself ingested, e.g. a `source` node excluded by the connector's `deny` pattern) now get a `browsePathsV2` built from the entity's real container hierarchy instead of a plain-text guess. This corrects any previously-written path in that guessed shape — including the one #18539 introduced — on the next dbt ingestion run; entities the warehouse connector has ingested are unaffected, since their container-based path is never touched. Separately, `emit_target_platform_display_name` (patches `datasetProperties.name` on those same container-less stub entities, which otherwise show the full dotted `instance.database.schema.table` string in place of a table name) now defaults to `true`. **Action:** none required — both changes self-correct on the next dbt run for recipes with `target_platform_instance` set; recipes without it are unaffected. Set `emit_target_platform_display_name: false` to opt back out of the display-name patch.
 
 ### Environment Variables
+- `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED` (default `true`) — Run the one-time sweep that writes asset-side `dataProducts` from stored `dataProductProperties`. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
+
+- `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_DELAY_MS` (default `1000`) — Delay between scan batches and patch ingest chunks during that sweep.
+
+- `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_LIMIT` (default `0`) — Max Data Products to scan (`0` = no limit).
 
 - `GRAPHQL_ASPECT_OPTIMIZATION_ENABLED` (default `true`) — Schema-driven GraphQL aspect fetching. See Other Notable Changes above and [Environment Variables](../deploy/environment-vars.md).
 
