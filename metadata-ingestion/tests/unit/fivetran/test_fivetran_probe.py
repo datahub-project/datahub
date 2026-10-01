@@ -1,6 +1,7 @@
 """Fivetran's probe: it reads what ingestion reads, reports what the patterns
 would drop instead of hiding it, and never returns user identity."""
 
+import datetime
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List
 from unittest import mock
@@ -46,15 +47,50 @@ _CONNECTOR_ROWS: List[Dict[str, object]] = [
 ]
 
 
+_TABLE_LINEAGE_ROWS: List[Dict[str, object]] = [
+    {
+        "connection_id": connection_id,
+        "source_table_id": f"{connection_id}_st",
+        "source_table_name": "orders",
+        "source_schema_name": "public",
+        "destination_table_id": f"{connection_id}_dt",
+        "destination_table_name": "orders",
+        "destination_schema_name": "sales",
+        "created_at": datetime.datetime(2026, 1, 1),
+    }
+    for connection_id in ("conn_a1", "conn_a2")
+]
+
+_COLUMN_LINEAGE_ROWS: List[Dict[str, object]] = [
+    {
+        "source_table_id": f"{connection_id}_st",
+        "destination_table_id": f"{connection_id}_dt",
+        "source_column_name": "id",
+        "destination_column_name": "id",
+    }
+    for connection_id in ("conn_a1", "conn_a2")
+]
+
+_SYNC_ROWS: List[Dict[str, object]] = [
+    {
+        "connection_id": "conn_a1",
+        "sync_id": "sync_1",
+        "start_time": datetime.datetime(2026, 1, 1, 10, 0),
+        "end_time": datetime.datetime(2026, 1, 1, 10, 5),
+        "end_message_data": '"{\\"status\\":\\"SUCCESSFUL\\"}"',
+    }
+]
+
+
 def _route(query: str) -> List[Dict[str, object]]:
     # Order matters: the column query joins source_table, the sync query
     # reads the log table, and only the connectors query names connection_name.
     if "ranked_syncs" in query:
-        return []
+        return _SYNC_ROWS
     if "column_lineage" in query:
-        return []
+        return _COLUMN_LINEAGE_ROWS
     if "table_lineage" in query:
-        return []
+        return _TABLE_LINEAGE_ROWS
     if "connection_name" in query:
         return _CONNECTOR_ROWS
     return []
@@ -348,3 +384,99 @@ def test_rest_destinations_are_group_ids_with_their_names() -> None:
         ("dest_a", "Warehouse A"),
         ("dest_b", "Warehouse B"),
     ]
+
+
+def test_connector_tables_resolve_a_connector_by_name_or_id(
+    engine: MagicMock,
+) -> None:
+    with _probe(_db_recipe()) as probe:
+        by_name = probe.connector_tables("sales_pg")
+        by_id = probe.connector_tables("conn_a1")
+    assert (
+        by_name
+        == by_id
+        == [
+            {
+                "source_table": "public.orders",
+                "destination_table": "sales.orders",
+                "column_count": 1,
+                "lineage_source": "log_database",
+            }
+        ]
+    )
+
+
+def test_google_sheets_connectors_get_no_column_lineage_as_in_ingestion(
+    engine: MagicMock,
+) -> None:
+    with _probe(_db_recipe()) as probe:
+        tables = probe.connector_tables("sheets", include_columns=True)
+    assert tables[0]["column_count"] == 0
+    assert tables[0]["columns"] == []
+
+
+def test_an_unknown_connector_is_bad_input(engine: MagicMock) -> None:
+    with _probe(_db_recipe()) as probe, pytest.raises(ValueError, match="nope"):
+        probe.connector_tables("nope")
+
+
+def test_an_ambiguous_connector_name_is_refused() -> None:
+    routes = {
+        "/groups": _GROUPS,
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/groups/dest_b/connections": _page(_listed("conn_b1", "sales_pg", "dest_b")),
+    }
+    with (
+        _rest_api(routes),
+        _probe({"api_config": _API}) as probe,
+        pytest.raises(ValueError, match="conn_b1"),
+    ):
+        probe.connector_tables("sales_pg")
+
+
+def test_hybrid_mode_prefers_the_log_and_falls_back_to_rest_schemas(
+    engine: MagicMock,
+) -> None:
+    routes = {
+        "/groups": _GROUPS,
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/groups/dest_b/connections": _page(_listed("conn_b9", "crm", "dest_b")),
+        # conn_b9 has no rows in the log, so ingestion reads the REST schemas.
+        "/connections/conn_b9/schemas": _ok(
+            {
+                "schemas": {
+                    "crm_src": {
+                        "name_in_destination": "crm",
+                        "tables": {"accounts": {"name_in_destination": "accounts"}},
+                    }
+                }
+            }
+        ),
+        "/connections/conn_b9/schemas/crm_src/tables/accounts/columns": _ok(
+            {"columns": {"id": {"name_in_destination": "id"}}}
+        ),
+    }
+    recipe = _db_recipe(log_source="rest_api", api_config=_API)
+    with _rest_api(routes), _probe(recipe) as probe:
+        from_log = probe.connector_tables("conn_a1")
+        from_rest = probe.connector_tables("conn_b9")
+    assert [t["lineage_source"] for t in from_log] == ["log_database"]
+    assert from_rest == [
+        {
+            "source_table": "crm_src.accounts",
+            "destination_table": "crm.accounts",
+            "column_count": 1,
+            "lineage_source": "rest_schemas",
+        }
+    ]
+
+
+def test_rest_only_lineage_degrades_on_a_missing_schemas_endpoint() -> None:
+    routes = {
+        "/groups": _page({"id": "dest_a", "name": "Warehouse A"}),
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/connections/conn_a1/schemas": _response(status=404),
+    }
+    with _rest_api(routes), _probe({"api_config": _API}) as probe:
+        assert probe.connector_tables("conn_a1") == []
+        assert any("conn_a1" in w and "404" in w for w in probe.warnings)
