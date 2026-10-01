@@ -90,8 +90,11 @@ def _connect_uri_problem(uri: str) -> Optional[str]:
         _ = parts.port  # raises ValueError on a non-numeric port
     except ValueError:
         return "connect_uri is not a valid URL: its host or port cannot be parsed"
-    if parts.scheme and not parts.hostname:
-        return "connect_uri is not a valid URL: it has no host"
+    # Both, not just a host when there is a scheme: requests rejects a
+    # schemeless "//user:pass@host" by quoting it whole, and with no "://" in
+    # front of the userinfo neither scrub can find it.
+    if not parts.scheme or not parts.hostname:
+        return "connect_uri is not a valid URL: it needs a scheme and a host"
     return None
 
 
@@ -265,7 +268,9 @@ class KafkaConnectMetadataProbe:
     per-connector steps -- minus connector_patterns, which `probe filter` judges.
     """
 
-    def __init__(self, source: KafkaConnectSource) -> None:
+    def __init__(
+        self, source: KafkaConnectSource, recipe_problem: Optional[str] = None
+    ) -> None:
         self._source = source
         # Replaced rather than reused so the reused steps' report entries are
         # never logged; see _UnloggedStructuredLogs.
@@ -274,8 +279,10 @@ class KafkaConnectMetadataProbe:
         self._saved_log_level: Optional[int] = None
         # Judged here, without a request, but raised from the first command:
         # an error while the provider is built is reported as "could not open
-        # source" (exit 3), and this is the caller's to fix (exit 2).
-        self._connect_uri_problem = _connect_uri_problem(source.config.connect_uri)
+        # source" (exit 3), and these are the caller's to fix (exit 2).
+        self._recipe_problem = recipe_problem or _connect_uri_problem(
+            source.config.connect_uri
+        )
 
     @classmethod
     def for_config(
@@ -284,16 +291,25 @@ class KafkaConnectMetadataProbe:
         # The same factories ingestion's __init__ uses, so headers, auth and the
         # Kafka REST retry adapter match; only the timeout is the probe's own.
         # No request here: ingestion's test GET is replaced by the first command.
-        session = KafkaConnectSource._create_connect_session(
-            config, session=_TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
-        )
+        recipe_problem: Optional[str] = None
+        try:
+            session = KafkaConnectSource._create_connect_session(
+                config, session=_TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
+            )
+        except ValueError as exc:
+            # Confluent Cloud without Connect credentials: a recipe error, so
+            # deferred like a bad connect_uri. The message is ingestion's fixed
+            # text, with no recipe value in it.
+            recipe_problem = str(exc)
+            session = _TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
         kafka_session = KafkaConnectSource._create_kafka_session(
             session=_TimeoutSession(PROBE_REQUEST_TIMEOUT_SECONDS)
         )
         return cls(
             KafkaConnectSource.for_probe(
                 config, session=session, kafka_session=kafka_session
-            )
+            ),
+            recipe_problem=recipe_problem,
         )
 
     def __enter__(self) -> "KafkaConnectMetadataProbe":
@@ -362,29 +378,37 @@ class KafkaConnectMetadataProbe:
 
     @contextmanager
     def _ingestion_step(self, connector: str) -> Iterator[None]:
-        """Run a reused ingestion step with its error text withheld.
+        with self._error_text_withheld(
+            f"ingestion's lineage step failed for connector '{connector}'"
+        ):
+            yield
+
+    @staticmethod
+    @contextmanager
+    def _error_text_withheld(what_failed: str) -> Iterator[None]:
+        """Run reused ingestion code with its error text withheld.
 
         Ingestion's parsers quote connector config in their exceptions -- the
         JDBC source raises "Missing database name in JDBC URL: <url>" with the
         whole connection.url, query-string password included. That value comes
         off the cluster, not the recipe, so nothing downstream would mask it.
-        Only the exception type is kept."""
+        Only the exception type is kept, and `from None` keeps the original off
+        __cause__, where a traceback would print it."""
         try:
             yield
         except Exception as exc:
             raise ProbeReadFailed(
-                f"ingestion's lineage step failed for connector '{connector}' "
-                f"({type(exc).__name__}); ingestion would fail on it too"
+                f"{what_failed} ({type(exc).__name__}); ingestion would fail on it too"
             ) from None
 
-    def _refuse_misparsed_connect_uri(self) -> None:
-        if self._connect_uri_problem is not None:
-            raise ValueError(self._connect_uri_problem)
+    def _refuse_recipe_problem(self) -> None:
+        if self._recipe_problem is not None:
+            raise ValueError(self._recipe_problem)
 
     def _listed_names(self) -> List[str]:
         # The GET /connectors ingestion's endpoint discovery already makes, which
         # (unlike get_connectors_manifest's) raises on 401/5xx.
-        self._refuse_misparsed_connect_uri()
+        self._refuse_recipe_problem()
         with self._userinfo_scrubbed():
             payload: object = self._source._get_connector_names_for_endpoint_discovery()
         if isinstance(payload, list):
@@ -551,15 +575,9 @@ class KafkaConnectMetadataProbe:
                 "ingestion reads each connector's runtime topics instead -- use "
                 "connector_topics"
             )
-        self._refuse_misparsed_connect_uri()
-        try:
+        self._refuse_recipe_problem()
+        with self._error_text_withheld("ingestion's Kafka REST topic listing failed"):
             topics = self._source._get_all_topics_from_kafka_api()
-        except Exception as exc:
-            # Same reason as _ingestion_step: the error text may quote config.
-            raise ProbeReadFailed(
-                f"ingestion's Kafka REST topic listing failed "
-                f"({type(exc).__name__}); ingestion would fail on it too"
-            ) from None
         # None means unavailable, and the reason is already on the report.
         return sorted(topics)[:limit] if topics is not None else []
 

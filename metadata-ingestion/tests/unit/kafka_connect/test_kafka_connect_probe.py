@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from typing import Dict, Iterable, List, Tuple
+from unittest import mock
 
 import pytest
 import requests
@@ -176,6 +177,24 @@ def test_confluent_cloud_without_credentials_is_refused_by_the_shared_factory() 
         KafkaConnectSource._create_connect_session(config)
 
 
+@pytest.mark.parametrize("command,kwargs", [("connectors", {}), ("cluster_topics", {})])
+def test_confluent_cloud_without_credentials_is_bad_input_not_unreachable(
+    command: str, kwargs: Dict[str, object]
+) -> None:
+    # A recipe the caller must fix: exit 2 (ValueError), not the exit 3 a
+    # failing for_config maps to, which would send an agent to retry.
+    recipe: Dict[str, object] = {
+        "confluent_cloud_environment_id": "env-1",
+        "confluent_cloud_cluster_id": "lkc-1",
+    }
+    with requests_mock.Mocker() as m:
+        with pytest.raises(ValueError) as raised:
+            run_probe_method("kafka-connect", recipe, command, kwargs)
+        assert m.call_count == 0
+    assert not isinstance(raised.value, ProbeReadFailed)
+    assert "credentials" in str(raised.value)
+
+
 def test_building_the_provider_opens_no_connection() -> None:
     with requests_mock.Mocker() as m:
         KafkaConnectMetadataProbe.for_config(_recipe()).__exit__(None, None, None)
@@ -299,6 +318,9 @@ def test_a_failing_ingestion_step_never_echoes_the_connection_url(
                 "kafka-connect", dict(_RECIPE), command, {"connector": "nodb"}
             )
             assert NO_DB_CRED not in json.dumps(result.to_dict(), default=str)
+            # ...and that warning reaches the caller, so the degraded answer
+            # does not read as a clean one.
+            assert any("JDBC sink" in w for w in result.warnings)
     assert NO_DB_CRED not in caplog.text
 
 
@@ -318,6 +340,26 @@ def test_a_connect_uri_whose_password_would_be_misparsed_is_refused(
     with requests_mock.Mocker() as m:
         with pytest.raises(ValueError) as raised:
             run_probe_method("kafka-connect", {"connect_uri": uri}, command, kwargs)
+        assert m.call_count == 0
+    assert not isinstance(raised.value, ProbeReadFailed)
+    assert URI_CRED not in str(raised.value)
+    assert "connect-user" not in str(raised.value)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        f"//connect-user:{URI_CRED}@connect.example:8083",
+        f"connect-user:{URI_CRED}@connect.example:8083",
+        "connect.example:8083",
+    ],
+)
+def test_a_connect_uri_without_scheme_and_host_is_refused_unquoted(uri: str) -> None:
+    # requests would reject these itself, quoting the whole URL -- and with no
+    # "://" in front of the userinfo, neither scrub can find it.
+    with requests_mock.Mocker() as m:
+        with pytest.raises(ValueError) as raised:
+            run_probe_method("kafka-connect", {"connect_uri": uri}, "connectors", {})
         assert m.call_count == 0
     assert not isinstance(raised.value, ProbeReadFailed)
     assert URI_CRED not in str(raised.value)
@@ -546,6 +588,21 @@ def test_cluster_topics_lists_non_internal_topics_on_confluent_cloud() -> None:
         )
         with KafkaConnectMetadataProbe.for_config(_cloud_recipe()) as probe:
             assert probe.cluster_topics() == ["orders"]
+
+
+def test_a_failing_kafka_rest_listing_never_echoes_its_error_text() -> None:
+    planted = ValueError(f"bad reply from https://key:{PLANTED_CRED}@kafka.example")
+    with (
+        KafkaConnectMetadataProbe.for_config(_cloud_recipe()) as probe,
+        mock.patch.object(
+            probe._source, "_get_all_topics_from_kafka_api", side_effect=planted
+        ),
+        pytest.raises(ProbeReadFailed) as raised,
+    ):
+        probe.cluster_topics()
+    assert PLANTED_CRED not in str(raised.value)
+    assert raised.value.__cause__ is None
+    assert "ValueError" in str(raised.value)
 
 
 def test_cluster_topics_is_the_wrong_command_on_self_hosted_connect() -> None:
