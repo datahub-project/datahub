@@ -14,8 +14,9 @@ import requests
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeReadFailed
+from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
 from datahub.ingestion.source.fivetran.config import FivetranSourceConfig
+from datahub.ingestion.source.fivetran.fivetran_log_db_reader import FivetranLogDbReader
 from datahub.ingestion.source.fivetran.fivetran_probe import FivetranMetadataProbe
 
 _CONNECTOR_ROWS: List[Dict[str, object]] = [
@@ -712,3 +713,95 @@ def test_a_malformed_reply_logs_no_payload_values(
     ):
         probe.destinations()
     assert "private_value_x" not in caplog.text
+
+
+_PLANTED = "planted_secret_x"
+
+
+def _error_reply() -> MagicMock:
+    return _response({"code": "Error", "message": _PLANTED})
+
+
+def test_a_skipped_destination_warning_carries_no_reply_text() -> None:
+    routes = {
+        "/groups": _GROUPS,
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/groups/dest_b/connections": _error_reply(),
+    }
+    with _rest_api(routes), _probe({"api_config": _API}) as probe:
+        probe.connectors()
+        warnings = list(probe.warnings)
+    assert any("dest_b" in w for w in warnings)
+    assert _PLANTED not in " ".join(warnings)
+
+
+def test_a_skipped_destination_warning_keeps_the_http_status() -> None:
+    routes = {
+        "/groups": _GROUPS,
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/groups/dest_b/connections": _response(status=403),
+    }
+    with _rest_api(routes), _probe({"api_config": _API}) as probe:
+        probe.connectors()
+        warnings = list(probe.warnings)
+    assert any("dest_b" in w and "403" in w for w in warnings)
+
+
+def test_a_failed_schemas_read_warning_carries_no_reply_text() -> None:
+    routes = {
+        "/groups": _page({"id": "dest_a", "name": "Warehouse A"}),
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/connections/conn_a1/schemas": _error_reply(),
+    }
+    with _rest_api(routes), _probe({"api_config": _API}) as probe:
+        probe.connector_tables("conn_a1")
+        warnings = list(probe.warnings)
+    assert any("conn_a1" in w for w in warnings)
+    assert _PLANTED not in " ".join(warnings)
+
+
+def test_an_unusable_reply_failure_carries_no_reply_text() -> None:
+    with (
+        _rest_api({"/groups": _error_reply()}),
+        _probe({"api_config": _API}) as probe,
+        pytest.raises(ProbeReadFailed) as raised,
+    ):
+        probe.destinations()
+    assert _PLANTED not in str(raised.value)
+
+
+def test_a_failed_log_warehouse_lineage_read_warning_carries_no_driver_text(
+    engine: MagicMock,
+) -> None:
+    routes = {
+        "/groups": _page({"id": "dest_a", "name": "Warehouse A"}),
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/connections/conn_a1/schemas": _ok({"schemas": {}}),
+    }
+    recipe = _db_recipe(log_source="rest_api", api_config=_API)
+    with (
+        _rest_api(routes),
+        _probe(recipe) as probe,
+        mock.patch.object(
+            FivetranLogDbReader,
+            "fetch_lineage_for_connectors",
+            side_effect=ValueError(_PLANTED),
+        ),
+    ):
+        probe.connector_tables("conn_a1")
+        warnings = list(probe.warnings)
+    assert any("lineage tables" in w for w in warnings)
+    assert _PLANTED not in " ".join(warnings)
+
+
+def test_a_failing_log_warehouse_open_names_the_class_not_the_text() -> None:
+    with (
+        _probe(_db_recipe()) as probe,
+        mock.patch.object(
+            FivetranLogDbReader, "__init__", side_effect=ValueError(_PLANTED)
+        ),
+        pytest.raises(ProbeConnectionError) as raised,
+    ):
+        probe.connectors()
+    assert _PLANTED not in str(raised.value)
+    assert "ValueError" in str(raised.value)
