@@ -10,6 +10,7 @@ before matching (see equivalent_s3_path_specs).
 
 from typing import Callable, Optional, Sequence
 
+import parse
 from wcmatch import pathlib
 
 from datahub.ingestion.agent.verdicts import Verdict
@@ -23,6 +24,12 @@ TEMPLATED_FILE_RULES_WARNING = (
     "default_extension apply to each file inside it during ingestion, and a table "
     "whose selected partitions hold no matching file is not emitted. List its "
     "files with `probe run objects` to check them."
+)
+UNPARSED_TABLE_WARNING = (
+    "a {table} path_spec could not read the table name out of at least one of "
+    "these folders (a wildcard or placeholder before {table} matched nothing, "
+    "as `s3://my-bucket*/` does for `my-bucket`): ingestion still emits that "
+    "table, but names the dataset after a file inside it, not after the folder"
 )
 CONTAINER_WARNING = (
     "buckets and folders above a dataset are emitted only as the containers of a "
@@ -47,6 +54,16 @@ def _reaches(path: str, glob: str) -> bool:
 def _table_depth(spec: PathSpec) -> int:
     # The same count extract_table_name_and_path uses to cut the table path.
     return spec.include.count("/", 0, spec.include.find(TABLE_MARKER))
+
+
+def _table_name_parses(spec: PathSpec, folder: str) -> bool:
+    """Whether the include, cut after {table}, parses `folder`. Ingestion names
+    a table from parse() over a file in it, and `parse`'s fields match one
+    character at least, so when this fails that parse fails too and
+    extract_table_name_and_path falls back to the file's own path."""
+    parsable = PathSpec.get_parsable_include(spec.include)
+    head = parsable[: parsable.find(TABLE_MARKER) + len(TABLE_MARKER)]
+    return parse.parse(head, folder) is not None
 
 
 def _dataset_reason(
@@ -75,6 +92,8 @@ def _dataset_reason(
         table_name, _ = spec.extract_table_name_and_path(folder)
         if not spec.tables_filter_pattern.allowed(table_name):
             return "tables_filter_pattern"
+        if not _table_name_parses(spec, folder):
+            warn(UNPARSED_TABLE_WARNING)
         return None
     dirname, startswith = listing_prefix(spec.include)
     if not uri.startswith(dirname + startswith):
