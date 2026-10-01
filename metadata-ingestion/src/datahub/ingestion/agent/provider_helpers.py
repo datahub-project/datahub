@@ -1,0 +1,170 @@
+"""Plumbing a probe provider would otherwise write for itself.
+
+Every connector that gained probe support hand-wrote some of these -- a name
+lookup with an ambiguity error, a counter for withheld personal records, a
+listing that stops paging at the limit, a lazily built client closed on exit,
+a 403 that degrades to a warning -- and the copies drifted in wording, in the
+errors they raised, and in whether they closed what they opened.
+
+Everything here is framework-authored: error_policy.is_authored vouches for
+this package by file path. So the rules are stricter than a provider's own: a
+caller-facing refusal is a ProbeArgumentError (exit 2) or a ProbeSoftError,
+and no message is ever built from the text of an exception this module did
+not raise.
+"""
+
+from dataclasses import dataclass
+from typing import Callable, Generic, Iterable, List, Optional, TypeVar
+
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
+
+T = TypeVar("T")
+
+# Enough to recognise a value; a hostile argument can be arbitrarily long.
+_MAX_ECHOED = 64
+# Hints and distinguishing values shown in one refusal.
+_MAX_LISTED = 5
+
+
+def echoed(value: str) -> str:
+    """`value` clipped and repr-quoted, safe to put in a refusal.
+
+    repr escapes NUL and control characters, so neither a caller's argument
+    nor a listed name can carry them into a terminal or a log line.
+    """
+    clipped = value if len(value) <= _MAX_ECHOED else value[:_MAX_ECHOED] + "..."
+    return repr(clipped)
+
+
+def _plain(value: str) -> str:
+    # echoed without the quotes: ids and resource-group names in a list.
+    return echoed(value)[1:-1]
+
+
+@dataclass(frozen=True)
+class Resolved(Generic[T]):
+    record: T
+    # The listed spelling, key(record): what a pattern is matched against.
+    name: str
+    # Matched by id_key, and the caller's argument is not the name. The
+    # framework builds parent_path from the raw argument, so a caller that
+    # accepted an id should say so (Fabric's _warn_if_resolved_by_id).
+    by_id: bool
+
+
+def resolve_name(
+    arg: str,
+    records: Iterable[T],
+    *,
+    key: Callable[[T], str],
+    kind: str,
+    where: str = "",
+    list_command: Optional[str] = None,
+    id_key: Optional[Callable[[T], Optional[str]]] = None,
+    distinguish: Optional[Callable[[T], Optional[str]]] = None,
+    on_ambiguous: str = "",
+    on_miss: Optional[Callable[[], None]] = None,
+    stop_at_first: bool = False,
+) -> Resolved[T]:
+    """The record in `records` the caller's `arg` names, or ProbeArgumentError.
+
+    Matching is exact, on key(record) -- and on id_key(record) when given,
+    where an id match wins over another record's equal name, since ids are
+    unique and names are not. A name that differs only in case is refused,
+    with the listed spelling as a hint: ingestion matches patterns against
+    the listed spelling, so accepting another would have `probe filter`
+    judge a name ingestion never sees.
+
+    The hint and the ambiguity list are drawn from `records` only. **Pass
+    records after withholding personal ones** (PersonalWithholding), or a
+    hint could print an owner's name the listing itself withheld.
+
+    `records` is iterated inside this call, so a listing that fails part-way
+    fails here with its own exception (the framework reports a foreign one
+    by class name). With stop_at_first, it is consumed only up to the first
+    match -- for listings whose names are unique, and so that a caller can
+    chain listings and pay for later ones only on a miss -- and ambiguity is
+    not checked.
+
+    `on_miss` runs before the refusal: to note why a record may be missing
+    (Power BI's withheld count), or to raise a read failure instead when an
+    unread listing could hold it (Fivetran, Fabric). `distinguish` (default
+    `id_key`) labels each candidate in an ambiguity refusal; `on_ambiguous`
+    tells the caller how to pick one. `where` follows the kind ("in
+    workspace 'x'"); it must not carry exception text.
+    """
+    by_id: List[T] = []
+    by_name: List[T] = []
+    others: List[str] = []
+    for record in records:
+        name = key(record)
+        id_matches = id_key is not None and id_key(record) == arg
+        if not id_matches and name != arg:
+            others.append(name)
+            continue
+        if stop_at_first:
+            return Resolved(record=record, name=name, by_id=name != arg)
+        (by_id if id_matches else by_name).append(record)
+    matches = by_id or by_name
+    if len(matches) == 1:
+        name = key(matches[0])
+        return Resolved(record=matches[0], name=name, by_id=name != arg)
+    if not matches:
+        if on_miss is not None:
+            on_miss()
+        raise ProbeArgumentError(
+            _miss_message(arg, others, kind, where, list_command, id_key is not None)
+        )
+    raise ProbeArgumentError(
+        _ambiguous_message(
+            arg, matches, kind, where, distinguish or id_key, on_ambiguous
+        )
+    )
+
+
+def _miss_message(
+    arg: str,
+    others: List[str],
+    kind: str,
+    where: str,
+    list_command: Optional[str],
+    accepts_id: bool,
+) -> str:
+    named = "named or with id" if accepts_id else "named"
+    message = f"no {kind} {named} {echoed(arg)}"
+    if where:
+        message += f" {where}"
+    folded = arg.casefold()
+    near = sorted({n for n in others if n.casefold() == folded})
+    if near:
+        hints = ", ".join(echoed(n) for n in near[:_MAX_LISTED])
+        message += (
+            f"; did you mean {hints}? Names are matched exactly, as the source "
+            f"lists them"
+        )
+    if list_command:
+        message += f". Run `{list_command}` for the exact names"
+    return message
+
+
+def _ambiguous_message(
+    arg: str,
+    matches: List[T],
+    kind: str,
+    where: str,
+    distinguish: Optional[Callable[[T], Optional[str]]],
+    remedy: str,
+) -> str:
+    labels: List[str] = []
+    if distinguish is not None:
+        labels = sorted({_plain(v) for v in map(distinguish, matches) if v})
+    message = f"{echoed(arg)} names more than one {kind}"
+    if labels:
+        shown = ", ".join(labels[:_MAX_LISTED])
+        more = ", ..." if len(labels) > _MAX_LISTED else ""
+        message += f" ({shown}{more})"
+    if where:
+        message += f" {where}"
+    if remedy:
+        message += f"; {remedy}"
+    return message
