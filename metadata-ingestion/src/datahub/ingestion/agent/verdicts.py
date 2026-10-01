@@ -176,6 +176,15 @@ class ProbeArgumentError(ValueError):
     text of exceptions it cannot vouch for (see agent.error_policy), a plain
     ValueError raised from code the provider did not write is reported by its
     class name only -- raise this to keep your message.
+
+    A plain ValueError keeps its message only when raised lexically in the file
+    that defines the provider class. From a shared base class or a helper
+    module, or around stdlib/SDK validation of a caller's argument (int(),
+    a URL parser), raise this instead.
+
+    If the provider already recorded read failures before raising, the call
+    reports ProbeReadFailed (exit 3) instead: the recorded failure is what
+    explains the miss, not the argument.
     """
 
 

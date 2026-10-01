@@ -812,7 +812,11 @@ def run_probe_method(
     )
     # The provider's own source file: an exception raised there carries a
     # message the provider wrote, so it may be shown (see agent.error_policy).
-    provider_file = inspect.getsourcefile(provider_cls) or ""
+    try:
+        provider_file = inspect.getsourcefile(provider_cls) or ""
+    except TypeError:
+        # A class whose module has no __file__: nothing is authored by file.
+        provider_file = ""
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):
         raise ValueError(

@@ -1,5 +1,5 @@
 import os
-import traceback
+import re
 from typing import Tuple
 
 from datahub.ingestion.agent.verdicts import (
@@ -26,32 +26,19 @@ _FRAMEWORK_TYPES: Tuple[type, ...] = (
     ProbeInternalError,
 )
 
-# Class names that mean "could not reach or authenticate to the source",
-# matched by name across the MRO so the framework takes no dependency on
-# requests, botocore, google-auth or azure-core.
-_UNREACHABLE_NAMES = frozenset(
-    {
-        "ConnectionError",
-        "ConnectTimeout",
-        "ReadTimeout",
-        "Timeout",
-        "TimeoutError",
-        "SSLError",
-        "EndpointConnectionError",
-        "ConnectTimeoutError",
-        "NoCredentialsError",
-        "CredentialRetrievalError",
-        "TransportError",
-        "RefreshError",
-        "DefaultCredentialsError",
-        "ClientAuthenticationError",
-        "ServiceRequestError",
-        "ServiceUnavailable",
-        "OperationalError",
-        "InterfaceError",
-        "ConfigurationError",
-    }
+# Python defects: after run_probe_method has coerced the arguments, these mean
+# the code misread something, not that the caller's input was wrong (exit 1).
+_DEFECT_TYPES: Tuple[type, ...] = (
+    TypeError,
+    KeyError,
+    AttributeError,
+    AssertionError,
+    IndexError,
+    NameError,
 )
+
+# What the CLI reads as "your input was wrong" (exit 2) when raised bare.
+_ARGUMENT_TYPES: Tuple[type, ...] = (ValueError, re.error)
 
 
 def is_authored(exc: BaseException, provider_file: str) -> bool:
@@ -73,20 +60,32 @@ def is_authored(exc: BaseException, provider_file: str) -> bool:
     """
     if isinstance(exc, _FRAMEWORK_TYPES):
         return True
-    frames = traceback.extract_tb(exc.__traceback__)
-    if not frames:
+    tb = exc.__traceback__
+    if tb is None:
+        # Never raised, so there is no frame to vouch for it: fail closed.
+        return False
+    while tb.tb_next is not None:
+        tb = tb.tb_next
+    # From the code object rather than traceback.extract_tb, which reads
+    # source lines through linecache for every frame.
+    innermost = os.path.realpath(tb.tb_frame.f_code.co_filename)
+    if innermost.startswith(_FRAMEWORK_DIR):
         return True
-    innermost = os.path.realpath(frames[-1].filename)
-    return innermost.startswith(_FRAMEWORK_DIR) or innermost == os.path.realpath(
-        provider_file
-    )
+    return bool(provider_file) and innermost == os.path.realpath(provider_file)
 
 
 def classify_foreign(exc: BaseException, context: str) -> Exception:
-    """The framework exception a foreign failure is reported as -- by class
-    name only, never its text."""
-    names = {klass.__name__ for klass in type(exc).__mro__}
+    """The framework exception a foreign failure in a provider call is reported
+    as -- by class name only, never its text.
+
+    Withholding the text must not also move the exit code, so this keeps the
+    family the bare exception would have reached the CLI as: a defect stays
+    exit 1, the ValueError family stays exit 2, and everything else (drivers,
+    SDKs, HTTP and permission errors) stays exit 3.
+    """
     message = f"{context} failed ({type(exc).__name__})"
-    if names & _UNREACHABLE_NAMES:
-        return ProbeConnectionError(message)
-    return ProbeInternalError(message)
+    if isinstance(exc, _DEFECT_TYPES):
+        return ProbeInternalError(message)
+    if isinstance(exc, _ARGUMENT_TYPES):
+        return ProbeArgumentError(message)
+    return ProbeConnectionError(message)
