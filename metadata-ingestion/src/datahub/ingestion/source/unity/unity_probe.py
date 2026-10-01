@@ -355,3 +355,21 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
             }
             for column in info.columns or []
         ]
+
+    @probe_method(kind=DatasetSubTypes.NOTEBOOK, row_limit_param="limit")
+    def notebooks(self, limit: int = 200) -> List[str]:
+        """Notebook paths in the workspace -- the string notebook_pattern is
+        matched against. Listed whatever include_notebooks says; `probe filter
+        --kind Notebook` reports them excluded while it is off. Paths only,
+        never notebook source. Walks the workspace tree, so a large workspace
+        is slow; the walk stops at `limit`."""
+        try:
+            with (
+                self._calling("listing workspace notebooks"),
+                closing(iter(self._proxy.workspace_notebooks())) as listed,
+            ):
+                return [
+                    notebook.path for notebook in itertools.islice(listed, limit)
+                ]
+        except _Degraded:
+            return []

@@ -11,6 +11,7 @@ from databricks.sdk.service.catalog import (
     TableInfo,
     TableType,
 )
+from databricks.sdk.service.workspace import ObjectInfo, ObjectType
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
@@ -297,3 +298,23 @@ def test_columns_of_an_unknown_table_is_a_caller_error() -> None:
     ws.tables.get.side_effect = NotFound("no such table")
     with pytest.raises(ValueError, match="main.analytics.typo"):
         _probe(ws).columns(catalog="main", schema="analytics", table="typo")
+
+
+def test_notebooks_list_paths_even_while_include_notebooks_is_off() -> None:
+    ws = _fake_ws()
+    ws.workspace.list.return_value = [
+        ObjectInfo(object_type=ObjectType.DIRECTORY, object_id=2, path="/Shared"),
+        ObjectInfo(object_type=ObjectType.NOTEBOOK, object_id=1, path="/Shared/etl"),
+        ObjectInfo(object_type=ObjectType.FILE, object_id=3, path="/Shared/a.csv"),
+        ObjectInfo(object_type=ObjectType.NOTEBOOK, object_id=4, path="/Users/x/nb"),
+    ]
+    assert _probe(ws).notebooks(limit=10) == ["/Shared/etl", "/Users/x/nb"]
+    assert _probe(ws).notebooks(limit=1) == ["/Shared/etl"]
+
+
+def test_notebooks_the_credential_cannot_list_degrade_with_a_warning() -> None:
+    ws = _fake_ws()
+    ws.workspace.list.side_effect = PermissionDenied("no workspace access")
+    probe = _probe(ws)
+    assert probe.notebooks() == []
+    assert probe.warnings
