@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_passthrough import (
@@ -8,6 +8,7 @@ from datahub.ingestion.agent.sql_passthrough import (
     CatalogRows,
     SqlCatalogPassthrough,
 )
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -23,6 +24,25 @@ logger = logging.getLogger(__name__)
 # is refused before it can reach RedshiftCommonQuery's f-strings, even when the
 # catalog itself returned it.
 _LITERAL_BREAKING = ("'", "\\")
+
+# The list_tables columns the probe reads.
+_RELATION_FIELDS = ("schema", "relname", "tabletype", "view_definition")
+
+
+def _case_hint(name: str, candidates: Iterable[str]) -> str:
+    """A pointer to the name the caller probably meant, or "".
+
+    Matching is exact, as ingestion's is, so `Public` does not find `public`.
+    Saying so is cheaper than leaving the caller to work out why.
+    """
+    folded = name.lower()
+    near = sorted({c for c in candidates if c != name and c.lower() == folded})
+    if not near:
+        return ""
+    return (
+        f"; did you mean '{near[0]}'? Names are matched exactly, and Redshift "
+        f"folds unquoted identifiers to lower case"
+    )
 
 
 @dataclass(frozen=True)
@@ -55,6 +75,7 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         self.warnings: List[str] = []
         self._shared: Optional[bool] = None
         self._all_relations: Optional[List[_Relation]] = None
+        self._schema_listing: Optional[List["RedshiftSchema"]] = None
 
     @classmethod
     def for_config(cls, config: RedshiftConfig) -> "RedshiftMetadataProbe":
@@ -141,13 +162,34 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
             RedshiftDataDictionary,
         )
 
-        # extract_ownership=False whatever the recipe says: the ownership join
-        # reads pg_catalog.pg_user, and user names are not schema shape.
-        return RedshiftDataDictionary.get_schemas(
-            conn=self._connection,
-            database=self._config.database,
-            extract_ownership=False,
-        )
+        if self._schema_listing is None:
+            # extract_ownership=False whatever the recipe says: the ownership
+            # join reads pg_catalog.pg_user, and user names are not schema
+            # shape.
+            self._schema_listing = RedshiftDataDictionary.get_schemas(
+                conn=self._connection,
+                database=self._config.database,
+                extract_ownership=False,
+            )
+        return self._schema_listing
+
+    def _resolve_schema(self, schema: str) -> "RedshiftSchema":
+        """The catalog's own RedshiftSchema for `schema`, or ValueError (exit 2).
+
+        Every command naming a schema checks it here first, so a schema the
+        catalog does not list is a bad argument everywhere rather than an
+        empty listing in some commands and an error in others.
+        """
+        listed = self._schemas()
+        match = next((s for s in listed if s.name == schema), None)
+        if match is None:
+            raise ValueError(
+                f"no schema named '{schema}' in database "
+                f"'{self._config.database}'"
+                f"{_case_hint(schema, (s.name for s in listed))}; run "
+                f"`containers` for the names this recipe can see"
+            )
+        return match
 
     def _relations(self, schema: str) -> List[_Relation]:
         from datahub.ingestion.source.redshift.query import RedshiftCommonQuery
@@ -156,6 +198,7 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
             RedshiftDataDictionary,
         )
 
+        self._resolve_schema(schema)
         if self._all_relations is None:
             # list_tables, not get_tables_and_views: the latter first runs
             # enrich_tables (svv_table_info joined to stl_insert), which needs
@@ -173,10 +216,16 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
                 ),
             )
             fields = [d[0] for d in cursor.description]
-            at = {
-                name: fields.index(name)
-                for name in ("schema", "relname", "tabletype", "view_definition")
-            }
+            missing = [name for name in _RELATION_FIELDS if name not in fields]
+            if missing:
+                # A drifted catalog query is a defect here, not a bad
+                # argument: fields.index would raise ValueError, which the CLI
+                # reports as "you named something that isn't there".
+                raise ProbeInternalError(
+                    f"the Redshift table listing returned no "
+                    f"{', '.join(missing)} column; got {', '.join(fields)}"
+                )
+            at = {name: fields.index(name) for name in _RELATION_FIELDS}
             self._all_relations = [
                 _Relation(
                     schema=row[at["schema"]],
@@ -193,9 +242,7 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
             # reads as "this schema is empty".
             self.warnings.append(
                 f"no tables or views are visible in schema '{schema}': it may "
-                f"not exist in database '{self._config.database}', or this user "
-                f"may lack privileges on it; `containers` lists the schemas "
-                f"this recipe can see"
+                f"be empty, or this user may lack privileges on it"
             )
         return found
 
@@ -232,19 +279,13 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         return [r.name for r in self._relations(schema) if r.is_view][:limit]
 
     def _listed_schema(self, schema: str) -> "RedshiftSchema":
-        """The catalog's own RedshiftSchema for `schema`, or ValueError.
+        """The catalog's own RedshiftSchema for `schema`, safe to interpolate.
 
         list_columns interpolates the schema name into its SQL, so the caller's
         string is never passed on: it is looked up in the catalog listing first,
         and only the name the server returned goes into the query.
         """
-        match = next((s for s in self._schemas() if s.name == schema), None)
-        if match is None:
-            raise ValueError(
-                f"no schema named '{schema}' in database "
-                f"'{self._config.database}'; run `containers` for the names "
-                f"this recipe can see"
-            )
+        match = self._resolve_schema(schema)
         if any(ch in match.name for ch in _LITERAL_BREAKING):
             # Ingestion would send this name as written and fail on it; the
             # probe refuses instead of sending a query whose literal it no
@@ -260,9 +301,10 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
     def columns(self, schema: str, table: str) -> List[Dict[str, object]]:
         """Columns of one table or view as ingestion reads them: name, type,
         nullability, default expression and comment. Covers late-binding views
-        and external (Spectrum) tables, and reads SVV_REDSHIFT_COLUMNS on a
-        datashare-consumer database. Structural metadata only -- no cell
-        values are read. `schema` must be one `containers` lists."""
+        and external (Spectrum) tables. On a datashare-consumer database it
+        reuses ingestion's SVV_REDSHIFT_COLUMNS query, which is untested
+        against a live one. Structural metadata only -- no cell values are
+        read. `schema` must be one `containers` lists."""
         from datahub.ingestion.source.redshift.redshift_schema import (
             RedshiftDataDictionary,
         )
@@ -280,8 +322,9 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         if not found:
             self.warnings.append(
                 f"no columns visible for '{schema}.{table}': it may not exist, "
-                f"or this user may lack privileges on it; `tables` and `views` "
-                f"list what this schema holds"
+                f"or this user may lack privileges on it"
+                f"{_case_hint(table, by_table)}; `tables` and `views` list what "
+                f"this schema holds"
             )
         return [
             {
@@ -299,11 +342,11 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         """The stored view SQL (DDL, not query results) that ingestion publishes
         as the view's logic. Null for a table, or where the catalog exposes
         none -- as on a datashare-consumer database."""
-        return next(
-            (
-                r.definition
-                for r in self._relations(schema)
-                if r.name == view and r.is_view
-            ),
-            None,
-        )
+        relations = self._relations(schema)
+        match = next((r for r in relations if r.name == view and r.is_view), None)
+        if match is None:
+            hint = _case_hint(view, (r.name for r in relations if r.is_view))
+            if hint:
+                self.warnings.append(f"no view named '{schema}.{view}'{hint}")
+            return None
+        return match.definition

@@ -127,7 +127,9 @@ datahub recipe probe run columns --recipe redshift_recipe.yml --schema public --
 The probe connects the way ingestion does, with the recipe's own `extra_client_options` (IAM,
 `sslmode`, `cluster_identifier`), and lists objects with the same catalog queries. Materialized
 views are listed under `views`, foreign and external tables under `tables`, external tables are
-left out when `skip_external_tables` is set, and datashare-consumer databases are supported. It
+left out when `skip_external_tables` is set, and on a datashare-consumer database `tables` and
+`views` read `svv_redshift_tables`, as ingestion does. `columns` on a datashare-consumer database
+reuses ingestion's column query for those databases, which has not been tested against one. It
 needs no grants beyond ingestion's: it never reads `stl_*` query history or `pg_user`, and never
 reads table rows. `probe filter --kind View` judges a view by `view_pattern` and then
 `table_pattern`, because ingestion drops a view that either pattern refuses.
