@@ -450,6 +450,13 @@ class GlueSourceConfig(
     )
 
     @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Glue jobs: no pattern filters them (get_all_jobs lists every job).
+        Whether they are emitted at all is extract_transforms, which
+        probe_verdict_override applies."""
+        return {str(FlowContainerSubTypes.GLUE_JOB)}
+
+    @classmethod
     def probe_provider_class(cls) -> type:
         # Late import: glue_probe imports this module for the config type.
         from datahub.ingestion.source.aws.glue_probe import GlueMetadataProbe

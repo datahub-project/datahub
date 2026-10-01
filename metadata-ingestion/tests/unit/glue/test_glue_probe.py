@@ -1,3 +1,4 @@
+import datetime
 from typing import TYPE_CHECKING, Dict, Iterator, List, Optional
 
 import boto3
@@ -42,7 +43,7 @@ def glue(monkeypatch: pytest.MonkeyPatch) -> Iterator[Stubber]:
 def test_probe_methods_advertises_the_glue_commands() -> None:
     commands = {spec.command: spec for spec in list_probe_methods("glue")}
 
-    assert {"databases", "tables", "columns"} <= set(commands)
+    assert {"databases", "tables", "columns", "jobs"} <= set(commands)
     assert commands["databases"].kind == "Database"
 
 
@@ -403,3 +404,59 @@ def test_columns_of_an_unknown_table_is_a_caller_error(glue: Stubber) -> None:
         run_probe_method(
             "glue", _RECIPE, "columns", {"database": "sales", "table": "nope"}
         )
+
+
+_JOB: Dict[str, object] = {
+    "Name": "nightly_load",
+    "Role": "arn:aws:iam::123456789012:role/glue-job-role",
+    "CreatedOn": datetime.datetime(2026, 1, 1, 0, 0, 0),
+    "Command": {
+        "Name": "glueetl",
+        "ScriptLocation": "s3://scripts-bucket/nightly_load.py",
+    },
+    "DefaultArguments": {"--source-dsn": "job-arg-sentinel"},
+    "GlueVersion": "4.0",
+}
+
+
+def test_jobs_are_listed_with_the_flow_urn_ingestion_emits(glue: Stubber) -> None:
+    glue.add_response("get_jobs", {"Jobs": [_JOB]}, {})
+
+    result = run_probe_method("glue", {**_RECIPE, "env": "DEV"}, "jobs", {})
+
+    assert result.kind == "Job"
+    assert result.result == [
+        {
+            "name": "nightly_load",
+            "flow_urn": "urn:li:dataFlow:(glue,nightly_load,DEV)",
+            "command": "glueetl",
+            "script_location": "s3://scripts-bucket/nightly_load.py",
+            "role": "arn:aws:iam::123456789012:role/glue-job-role",
+            "glue_version": "4.0",
+            "created_on": "2026-01-01 00:00:00",
+            "last_modified_on": None,
+        }
+    ]
+    assert "job-arg-sentinel" not in str(result.to_dict())
+
+
+def test_jobs_say_when_ingestion_emits_none_of_them(glue: Stubber) -> None:
+    glue.add_response("get_jobs", {"Jobs": [_JOB]}, {})
+
+    result = run_probe_method(
+        "glue", {**_RECIPE, "extract_transforms": False}, "jobs", {}
+    )
+
+    assert any("extract_transforms" in w for w in result.warnings)
+
+
+def test_jobs_ignore_catalog_id_as_ingestion_does(glue: Stubber) -> None:
+    glue.add_response("get_jobs", {"Jobs": [_JOB]}, {})
+
+    result = run_probe_method(
+        "glue", {**_RECIPE, "catalog_id": _OTHER_ACCOUNT}, "jobs", {}
+    )
+
+    assert isinstance(result.result, list)
+    assert [r["name"] for r in result.result] == ["nightly_load"]
+    assert any("not cross-account" in w for w in result.warnings)

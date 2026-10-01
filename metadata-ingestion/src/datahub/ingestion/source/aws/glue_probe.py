@@ -29,6 +29,7 @@ from botocore.exceptions import (
     PartialCredentialsError,
 )
 
+from datahub.emitter import mce_builder
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeSoftError
 from datahub.ingestion.source.aws.aws_common import aws_error_code
@@ -41,6 +42,7 @@ from datahub.ingestion.source.aws.glue import (
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    FlowContainerSubTypes,
 )
 
 if TYPE_CHECKING:
@@ -198,6 +200,26 @@ def _column_record(column: Mapping[str, Any], partition_key: bool) -> Dict[str, 
         "type": column.get("Type"),
         "comment": column.get("Comment"),
         "partition_key": partition_key,
+    }
+
+
+def _job_record(job: Mapping[str, Any], config: GlueSourceConfig) -> Dict[str, object]:
+    command = job.get("Command") or {}
+    created = job.get("CreatedOn")
+    modified = job.get("LastModifiedOn")
+    return {
+        "name": job["Name"],
+        # The URN _transform_extraction builds for this job's DataFlow.
+        "flow_urn": mce_builder.make_data_flow_urn(
+            orchestrator=config.platform, flow_id=job["Name"], cluster=config.env
+        ),
+        "command": command.get("Name"),
+        "script_location": command.get("ScriptLocation"),
+        "role": job.get("Role"),
+        "glue_version": job.get("GlueVersion"),
+        # str(), as get_dataflow_wus renders them into custom properties.
+        "created_on": str(created) if created is not None else None,
+        "last_modified_on": str(modified) if modified is not None else None,
     }
 
 
@@ -432,3 +454,49 @@ class GlueMetadataProbe:
             for key in found.get("PartitionKeys") or []
         )
         return columns
+
+    def _list_jobs(self, limit: Optional[int]) -> List[Dict[str, Any]]:
+        # No CatalogId: get_all_jobs pages GetJobs without one, because the
+        # job API is not cross-account.
+        with aws_call("glue:GetJobs"):
+            pages = self._glue().get_paginator("get_jobs").paginate()
+            return _take(pages.search("Jobs"), limit)
+
+    def _find_job(self, name: str) -> Dict[str, Any]:
+        # GetJobs rather than GetJob: ingestion's policy grants only the former.
+        found = next(
+            (j for j in self._list_jobs(None) if j.get("Name") == name), None
+        )
+        if found is None:
+            raise ValueError(
+                f"no Glue job named '{name}' in this account and region; "
+                f"`probe run jobs` lists them"
+            )
+        return found
+
+    @probe_method(kind=FlowContainerSubTypes.GLUE_JOB, row_limit_param="limit")
+    def jobs(self, limit: int = 500) -> List[Dict[str, object]]:
+        """Glue jobs in the recipe's AWS account and region, in API order.
+        Ingestion emits each as a DataFlow (subtype Job) when
+        extract_transforms is on; nothing else filters them -- there is no
+        job pattern. flow_urn is the URN ingestion gives it. Glue's job API is
+        not cross-account, so with catalog_id set these are still the calling
+        account's jobs, exactly as in ingestion. Each record is name,
+        flow_urn, command (glueetl, pythonshell, gluestreaming...),
+        script_location, role, glue_version, created_on and
+        last_modified_on. Job arguments are withheld: Glue jobs routinely pass
+        connection passwords and tokens as arguments. `job_nodes` lists the
+        DataJobs one job becomes."""
+        jobs = self._list_jobs(limit)
+        if not self._config.extract_transforms:
+            self._warn(
+                "extract_transforms is off, so ingestion emits none of these "
+                "jobs; they are listed for inspection only"
+            )
+        if self._config.catalog_id:
+            self._warn(
+                "catalog_id does not apply to jobs: Glue's job API is not "
+                "cross-account, so these are the calling account's jobs, and "
+                "ingestion emits them under this recipe"
+            )
+        return [_job_record(job, self._config) for job in jobs]
