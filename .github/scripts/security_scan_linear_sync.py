@@ -29,8 +29,9 @@ Feature summary:
     otherwise to the image tag. The label lives in a label group chosen by the ref:
     - Semantic versions, including release candidates (``vX.Y.Z``, ``vX.Y.Z.W``, optional
       ``rcN`` / ``-rcN``, optional ``-cloud``), reuse the child of a workspace release group.
-      A ``-cloud`` suffix uses ``Saas Release``; a tag without it uses ``OSS Release``. The
-      group is the one the release workflow creates when a final tag is cut, and it must
+      A ``-cloud`` suffix uses ``Saas Release`` and the tag as the label name. A tag without
+      it uses ``OSS Release`` and the label name ``OSS <tag>`` (for example ``OSS v1.7.0.1``).
+      The group is the one the release workflow creates when a final tag is cut, and it must
       already exist. An RC child is created under that group when missing.
     - Non-semantic refs (default branch, ``sha-*`` tags, custom builds) go under the team
       label group ``Security Scan``. Within that group the last scan wins. The group and the
@@ -99,6 +100,8 @@ from utils.security_scan_utils import (
 SAAS_RELEASE_LABEL_GROUP = "Saas Release"
 OSS_RELEASE_LABEL_GROUP = "OSS Release"
 SECURITY_SCAN_LABEL_GROUP = "Security Scan"
+# Child labels under OSS Release are ``OSS v1.7.0.1``, not the bare git tag.
+OSS_RELEASE_LABEL_PREFIX = "OSS "
 CLOUD_RELEASE_SUFFIX = "-cloud"
 
 # Final release tags: vX.Y.Z or vX.Y.Z.W, optionally with the DataHub Cloud -cloud suffix.
@@ -163,21 +166,36 @@ def release_label_group_for_tag(ref_name: str) -> str | None:
     return OSS_RELEASE_LABEL_GROUP
 
 
+def ref_label_name(ref_name: str) -> str:
+    """Linear child label name for a scan ref.
+
+    OSS release tags follow the workspace convention ``OSS v1.7.0.1``. SaaS
+    release tags and non-semantic refs use the ref name itself.
+    """
+    name = ref_name.strip()
+    if release_label_group_for_tag(name) == OSS_RELEASE_LABEL_GROUP:
+        return f"{OSS_RELEASE_LABEL_PREFIX}{name}"
+    return name
+
+
 def _resolve_ref_label(api_key: str, team_id: str, ref_name: str) -> RefLabel:
     """Pick the label group for ``ref_name`` and reuse or create the child label under it."""
     release_group = release_label_group_for_tag(ref_name)
+    label_name = ref_label_name(ref_name)
     if release_group:
         group_id = _get_or_create_label_group_id_util(
             api_key, release_group, None, create_if_missing=False
         )
-        label_id = _get_or_create_group_child_label_id_util(api_key, group_id, ref_name)
-        print(f"Linear ref label {ref_name!r}: workspace group {release_group!r}")
+        label_id = _get_or_create_group_child_label_id_util(
+            api_key, group_id, label_name
+        )
+        print(f"Linear ref label {label_name!r}: workspace group {release_group!r}")
     else:
         group_id = _get_or_create_label_group_id_util(
             api_key, SECURITY_SCAN_LABEL_GROUP, team_id, create_if_missing=True
         )
         label_id = _get_or_create_group_child_label_id_util(
-            api_key, group_id, ref_name, team_id
+            api_key, group_id, label_name, team_id
         )
         print(
             f"Linear ref label {ref_name!r}: team group {SECURITY_SCAN_LABEL_GROUP!r}"

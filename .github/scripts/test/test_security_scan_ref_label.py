@@ -90,12 +90,30 @@ def test_cloud_release_tag_uses_saas_group(monkeypatch):
     assert seen["child"] == ("group:Saas Release", "v2.3.0-cloud", None)
 
 
+@pytest.mark.parametrize(
+    ("ref_name", "label_name"),
+    [
+        ("v1.7.0", "OSS v1.7.0"),
+        ("v1.7.0.1", "OSS v1.7.0.1"),
+        ("v1.7.0rc1", "OSS v1.7.0rc1"),
+        ("v1.7.0-rc1", "OSS v1.7.0-rc1"),
+        ("v2.3.0-cloud", "v2.3.0-cloud"),
+        ("v2.3.0rc1-cloud", "v2.3.0rc1-cloud"),
+        ("master", "master"),
+        ("sha-abc1234", "sha-abc1234"),
+    ],
+)
+def test_ref_label_name(ref_name, label_name):
+    assert sync.ref_label_name(ref_name) == label_name
+
+
 def test_oss_release_tag_uses_oss_group(monkeypatch):
     seen: dict = {}
     _stub_groups(monkeypatch, seen)
     out = sync._resolve_ref_label("k", "team-1", "v1.7.0.1")
-    assert out == sync.RefLabel("label:v1.7.0.1", "group:OSS Release")
+    assert out == sync.RefLabel("label:OSS v1.7.0.1", "group:OSS Release")
     assert seen["group"] == ("OSS Release", None, False)
+    assert seen["child"] == ("group:OSS Release", "OSS v1.7.0.1", None)
 
 
 def test_rc_uses_release_group_not_security_scan(monkeypatch):
