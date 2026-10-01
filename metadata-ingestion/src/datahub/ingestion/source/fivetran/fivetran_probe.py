@@ -1,6 +1,8 @@
 import itertools
 import logging
-from typing import Callable, Dict, List, Optional, TypeVar
+from typing import Callable, Dict, List, Optional, Tuple, TypeVar
+
+import sqlalchemy.exc
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import (
@@ -17,14 +19,27 @@ from datahub.ingestion.source.fivetran.config import (
     FivetranSourceConfig,
     FivetranSourceReport,
 )
-from datahub.ingestion.source.fivetran.data_classes import Connector
+from datahub.ingestion.source.fivetran.data_classes import Connector, TableLineage
 from datahub.ingestion.source.fivetran.fivetran_log_db_reader import FivetranLogDbReader
+from datahub.ingestion.source.fivetran.fivetran_log_rest_reader import (
+    FivetranLogRestReader,
+)
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
 from datahub.ingestion.source.fivetran.response_models import FivetranListedConnection
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+# The failures FivetranLogRestReader._fetch_lineage treats as "the log's
+# lineage tables are unreadable, use the REST schemas instead". Mirrored so the
+# probe falls back exactly where ingestion does.
+_DB_LINEAGE_FALLBACK_ERRORS = (
+    sqlalchemy.exc.SQLAlchemyError,
+    ValueError,
+    KeyError,
+    AttributeError,
+)
 
 
 def _connector_from_listed(listed: FivetranListedConnection) -> Connector:
@@ -69,6 +84,7 @@ class FivetranMetadataProbe:
         # SELECT @@project_id on BigQuery and builds the engine everywhere),
         # and `probe methods` or a REST-only command must not pay for that.
         self._db_reader: Optional[FivetranLogDbReader] = None
+        self._rest_lineage_reader: Optional[FivetranLogRestReader] = None
         self.warnings = []
 
     @classmethod
@@ -223,6 +239,80 @@ class FivetranMetadataProbe:
         )
         return found if stop_after is None else found[:stop_after]
 
+    def _resolve(self, connector: str) -> Connector:
+        """A connector by id, else by name. Costs one listing.
+
+        By id first because ids are unique and names are not: two destinations
+        can each hold a connector writing to a schema of the same name."""
+        listed = self._list_connectors(destination=None)
+        matches = [c for c in listed if c.connector_id == connector] or [
+            c for c in listed if c.connector_name == connector
+        ]
+        if not matches:
+            raise ValueError(
+                f"no connector with id or name '{connector}'; list them with "
+                f"`probe run connectors`"
+            )
+        if len(matches) > 1:
+            ids = ", ".join(sorted(c.connector_id for c in matches))
+            raise ValueError(
+                f"'{connector}' names {len(matches)} connectors ({ids}); pass "
+                f"the connector_id instead"
+            )
+        return matches[0]
+
+    def _rest_reader(self) -> FivetranLogRestReader:
+        # Its constructor sends nothing. Built for _extract_lineage_from_schemas,
+        # which carries ingestion's caps and truncation warnings.
+        if self._rest_lineage_reader is None:
+            self._rest_lineage_reader = FivetranLogRestReader(
+                self._api(),
+                self._report,
+                max_table_lineage_per_connector=self._config.max_table_lineage_per_connector,
+                max_column_lineage_per_connector=self._config.max_column_lineage_per_connector,
+            )
+        return self._rest_lineage_reader
+
+    def _lineage_for(self, target: Connector) -> Tuple[List[TableLineage], str]:
+        if not self._uses_rest:
+            # The same call get_allowed_connectors_list makes, so the Google
+            # Sheets column-lineage opt-out applies as it does in ingestion.
+            self._db()._fill_connectors_lineage([target])
+            return target.lineage, "log_database"
+        if self._config.fivetran_log_config is not None:
+            try:
+                from_log = (
+                    self._db()
+                    .fetch_lineage_for_connectors([target.connector_id])
+                    .get(target.connector_id, [])
+                )
+            except _DB_LINEAGE_FALLBACK_ERRORS as exc:
+                self._warn(
+                    f"the log warehouse's lineage tables could not be read "
+                    f"({type(exc).__name__}: {exc}); ingestion falls back to "
+                    f"the REST schemas endpoint here, and so did this"
+                )
+                from_log = []
+            if from_log:
+                return from_log, "log_database"
+        try:
+            with soft_on_status(
+                404, context=f"schemas for connector '{target.connector_id}'"
+            ):
+                schemas = self._rest(
+                    f"reading schemas of connector '{target.connector_id}'",
+                    lambda: self._api().get_connection_schemas(target.connector_id),
+                )
+        except ProbeSoftError as exc:
+            self._warn(str(exc))
+            return [], "rest_schemas"
+        return (
+            self._rest_reader()._extract_lineage_from_schemas(
+                schemas, target.connector_id
+            ),
+            "rest_schemas",
+        )
+
     def _connector_record(self, connector: Connector) -> Dict[str, object]:
         return {
             "name": connector.connector_name,
@@ -296,3 +386,44 @@ class FivetranMetadataProbe:
                 f"the id against `probe run destinations`"
             )
         return [self._connector_record(c) for c in found]
+
+    @probe_method(row_limit_param="limit")
+    def connector_tables(
+        self, connector: str, include_columns: bool = False, limit: int = 200
+    ) -> List[Dict[str, object]]:
+        """Source-to-destination table mappings for one connector, by
+        connector_id or name -- the table lineage ingestion would emit for it,
+        read the way this recipe's log_source reads it and capped where
+        ingestion caps it (max_table_lineage_per_connector). `lineage_source`
+        says which backend answered: in rest_api mode with a log configured,
+        ingestion tries the log first and falls back to the REST schemas
+        endpoint. include_columns adds the column mappings (names only).
+        Reported whether or not the recipe's patterns keep this connector;
+        ask `probe filter` for that. In rest_api mode each table costs one
+        /columns request, as it does in ingestion."""
+        target = self._resolve(connector)
+        lineage, lineage_source = self._lineage_for(target)
+        cap = self._config.max_table_lineage_per_connector
+        if lineage_source == "log_database" and len(lineage) >= cap:
+            # The REST path records its own truncation warning; the log query
+            # caps silently in SQL (QUALIFY ... <= max_table_lineage), so say it.
+            self._warn(
+                f"this connector reached max_table_lineage_per_connector ({cap}); "
+                f"ingestion stops at the same point, so tables past it get no "
+                f"lineage"
+            )
+        records: List[Dict[str, object]] = []
+        for table in lineage[:limit]:
+            record: Dict[str, object] = {
+                "source_table": table.source_table,
+                "destination_table": table.destination_table,
+                "column_count": len(table.column_lineage),
+                "lineage_source": lineage_source,
+            }
+            if include_columns:
+                record["columns"] = [
+                    {"source": c.source_column, "destination": c.destination_column}
+                    for c in table.column_lineage
+                ]
+            records.append(record)
+        return records
