@@ -163,6 +163,28 @@ public class MultiEntityMappingsBuilderTest {
     }
   }
 
+  /** Full-text search reads the root fields, so no V3 index analyzes the copies under _aspects. */
+  @Test
+  public void testRegistryMappingsKeepAspectCopiesUnanalyzed() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Collection<IndexMapping> mappings =
+        new MultiEntityMappingsBuilder(mockConfig).getIndexMappings(registryContext);
+
+    assertFalse(mappings.isEmpty());
+    for (IndexMapping mapping : mappings) {
+      Object aspects = getProperties(mapping.getMappings()).get("_aspects");
+      Set<String> analyzers = new HashSet<>();
+      collectAnalysisReferences(aspects, analyzers, new HashSet<>());
+      Set<String> types = new HashSet<>();
+      collectFieldTypes(aspects, types);
+      types.retainAll(Set.of("text", "search_as_you_type", "token_count", "match_only_text"));
+      assertTrue(analyzers.isEmpty(), mapping.getIndexName() + " _aspects uses " + analyzers);
+      assertTrue(types.isEmpty(), mapping.getIndexName() + " _aspects maps " + types);
+    }
+  }
+
   /**
    * The base configuration types the _search fields system metadata copies into, and fields built
    * from search labels keep their own mapping. Reference fields are mapped at the root, where V2
@@ -1109,6 +1131,21 @@ public class MultiEntityMappingsBuilderTest {
     assertEquals(((Map<String, Object>) fields.get("wordGrams2")).get("analyzer"), "word_gram_2");
     assertEquals(((Map<String, Object>) fields.get("wordGrams3")).get("analyzer"), "word_gram_3");
     assertEquals(((Map<String, Object>) fields.get("wordGrams4")).get("analyzer"), "word_gram_4");
+  }
+
+  @SuppressWarnings("unchecked")
+  private static void collectFieldTypes(Object value, Set<String> types) {
+    if (value instanceof Map) {
+      ((Map<String, Object>) value)
+          .forEach(
+              (key, child) -> {
+                if ("type".equals(key) && child instanceof String) {
+                  types.add((String) child);
+                } else {
+                  collectFieldTypes(child, types);
+                }
+              });
+    }
   }
 
   @SuppressWarnings("unchecked")
