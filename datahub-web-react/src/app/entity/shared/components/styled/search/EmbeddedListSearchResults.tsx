@@ -1,10 +1,10 @@
-import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Button, Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
-import styled, { useTheme } from 'styled-components';
+import styled, { keyframes, useTheme } from 'styled-components';
 
 import {
     EntityActionProps,
@@ -20,6 +20,7 @@ import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
 import { Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 
 const SearchBody = styled.div`
     height: 100%;
@@ -70,11 +71,17 @@ const LoadingContainer = styled.div`
     flex: 1;
 `;
 
-const StyledLoading = styled(LoadingOutlined)`
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const StyledLoading = styled(CircleNotch)`
     font-size: 32px;
     color: ${(props) => props.theme.colors.textSecondary};
     padding-bottom: 18px;
-]`;
+    animation: ${spin} 1s linear infinite;
+`;
 
 const ErrorMessage = styled.div`
     padding-top: 70px;
@@ -229,7 +236,7 @@ export const EmbeddedListSearchResults = ({
                     )}
                     {isViewAllMode && (
                         <WarningMessage>
-                            <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                            <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }}  />
                             <Text weight="bold" style={{ lineHeight: 'normal' }}>
                                 {t('viewAll.resultsIncomplete')}{' '}
                                 {platform && (

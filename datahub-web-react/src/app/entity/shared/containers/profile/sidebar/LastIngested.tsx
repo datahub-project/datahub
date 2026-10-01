@@ -1,5 +1,4 @@
 import { green, orange, red } from '@ant-design/colors';
-import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
 import { Image } from 'antd';
 import React from 'react';
@@ -12,6 +11,7 @@ import { getPlatformName } from '@app/entity/shared/utils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
 
 const StyledDot = styled.div<{ color: string }>`
     border: 1px solid ${(props) => props.theme.colors.border};
@@ -55,7 +55,7 @@ const SubText = styled.div`
     font-style: italic;
 `;
 
-const HelpIcon = styled(QuestionCircleOutlined)`
+const HelpIcon = styled(Question)`
     color: ${(props) => props.theme.colors.textTertiary};
     margin-left: 7px;
     font-size: 10px;

@@ -1,4 +1,3 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
@@ -8,6 +7,7 @@ import styled from 'styled-components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Container, EntityType } from '@types';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 
 const ContainerText = styled(Typography.Text)`
     font-size: 12px;
@@ -15,7 +15,7 @@ const ContainerText = styled(Typography.Text)`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
-const ContainerIcon = styled(FolderOpenOutlined)`
+const ContainerIcon = styled(FolderOpen)`
     color: ${(props) => props.theme.colors.textTertiary};
 
     &&& {

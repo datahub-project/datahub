@@ -1,8 +1,10 @@
-import { CheckCircleFilled, StopOutlined, WarningFilled } from '@ant-design/icons';
 import { Typography } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { DefaultTheme, useTheme } from 'styled-components';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 
 const SummaryHeader = styled.div`
     width: 100%;
@@ -41,12 +43,12 @@ type Props = {
 
 const getSummaryIcon = (summary: IncidentsSummary, theme: DefaultTheme) => {
     if (summary.totalIncident === 0) {
-        return <StopOutlined style={{ color: theme.colors.icon, fontSize: 28 }} />;
+        return <Prohibit style={{ color: theme.colors.icon, fontSize: 28 }}  />;
     }
     if (summary.resolvedIncident === summary.totalIncident) {
-        return <CheckCircleFilled style={{ color: theme.colors.iconSuccess, fontSize: 28 }} />;
+        return <CheckCircle weight="fill" style={{ color: theme.colors.iconSuccess, fontSize: 28 }}  />;
     }
-    return <WarningFilled style={{ color: theme.colors.iconError, fontSize: 28 }} />;
+    return <Warning weight="fill" style={{ color: theme.colors.iconError, fontSize: 28 }}  />;
 };
 
 export const IncidentSummary = ({ summary }: Props) => {
