@@ -30,9 +30,7 @@ def test_warehouse_404_is_reported_to_the_caller() -> None:
     seen: List[str] = []
 
     with patch.object(client._session, "request", return_value=_response(404)):
-        tables = list(
-            client.list_warehouse_tables("ws", "wh", on_degraded=seen.append)
-        )
+        tables = list(client.list_warehouse_tables("ws", "wh", on_degraded=seen.append))
 
     assert tables == []
     assert len(seen) == 1 and "404" in seen[0]
@@ -56,9 +54,7 @@ def test_schemas_enabled_lakehouse_403_is_reported_to_the_caller() -> None:
             return_value=_response(403, b'{"error": "placeholder-token in body"}'),
         ),
     ):
-        tables = list(
-            client.list_lakehouse_tables("ws", "lh", on_degraded=seen.append)
-        )
+        tables = list(client.list_lakehouse_tables("ws", "lh", on_degraded=seen.append))
 
     assert tables == []
     assert len(seen) == 1 and "403" in seen[0]
@@ -99,7 +95,11 @@ def test_delta_api_error_bodies_never_reach_the_logs(
     caplog.set_level(logging.INFO)
     # 403 on schemas (the swallowed branch), 500 on schemas and on tables
     # (the raised branches).
-    for status, failing_call, raises in ((403, 0, False), (500, 0, True), (500, 1, True)):
+    for status, failing_call, raises in (
+        (403, 0, False),
+        (500, 0, True),
+        (500, 1, True),
+    ):
         client, responses = _lakehouse_delta_api_failing(status, failing_call)
         with (
             patch.object(

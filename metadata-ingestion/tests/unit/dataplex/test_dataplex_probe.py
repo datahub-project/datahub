@@ -289,9 +289,7 @@ class _CountingEntries:
             yield entry
 
 
-def _entry(
-    short: str, fqn: str, entry_type: str = SUPPORTED_TYPE
-) -> dataplex_v1.Entry:
+def _entry(short: str, fqn: str, entry_type: str = SUPPORTED_TYPE) -> dataplex_v1.Entry:
     return dataplex_v1.Entry(
         name=f"{GROUP}/entries/{short}",
         fully_qualified_name=fqn,
