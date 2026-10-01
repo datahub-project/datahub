@@ -629,3 +629,38 @@ def test_an_operators_pgconnect_timeout_wins(monkeypatch: pytest.MonkeyPatch) ->
         "postgresql://h/db", QueryBudget(timeout_seconds=3)
     ).connect_args
     assert "connect_timeout" not in connect_args
+
+
+def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() -> (
+    None
+):
+    """The Redshift provider holds a bare redshift_connector connection rather
+    than an engine, so the ceiling has to be applicable without the engine
+    listener -- and must not leave the session's autocommit changed."""
+    from datahub.ingestion.source.sql.protocol_probe_settings import (
+        set_redshift_statement_timeout,
+    )
+
+    seen: List[Tuple[str, bool]] = []
+
+    class _Conn:
+        autocommit = False
+
+        def cursor(self) -> "_Cursor":
+            return _Cursor(self)
+
+    class _Cursor:
+        def __init__(self, conn: _Conn) -> None:
+            self._conn = conn
+
+        def execute(self, sql: str) -> None:
+            seen.append((sql, self._conn.autocommit))
+
+        def close(self) -> None:
+            pass
+
+    conn = _Conn()
+    set_redshift_statement_timeout(conn, 30)
+
+    assert seen == [("SET statement_timeout = 30000", True)]
+    assert conn.autocommit is False
