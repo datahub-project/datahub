@@ -320,6 +320,19 @@ beyond convenience:
 - **They work where `sql` cannot.** sqlglot has no dialect for DB2 or Vertica, so the
   gate refuses every query on them; before these listings existed, those two probes
   could enumerate nothing at all.
+- **Every name a caller passes is resolved against these listings first.** The `schema`,
+  `table` or `view` argument of `tables`, `views`, `columns`, `foreign_keys`, `indexes`,
+  `primary_key`, `table_comment` and `view_definition` is looked up in `get_schema_names` /
+  `get_table_names` / `get_view_names` (and `get_materialized_view_names` where the dialect has
+  it), and reflection receives the catalog's own string, never the caller's. An unlisted name is
+  refused with exit 2 before any reflection runs. This is a security boundary: several dialects
+  (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid) format these arguments straight
+  into their reflection SQL, which the `sql` gate never sees. Matching is exact. A name that
+  differs only in case is refused with the listed spelling as a hint, because ingestion reflects
+  and pattern-matches the listed spelling. A provider that overrides one of these commands must
+  resolve its identifiers the same way, with `resolve_listed_name` in
+  `sql/sql_identifier_resolver.py`. `test_sql_identifier_hostile_input.py` fails for one that
+  does not.
 
 `containers` declares no `kind`, because the same Inspector call means different things
 per tier: three-tier sources return schemas filtered by `schema_pattern`, two-tier ones
@@ -484,6 +497,8 @@ feeds the same warnings list, deduplicated by message so one connector-wide reas
 - [ ] verdicts checked against what ingestion computes for the same inputs
 - [ ] `pytest tests/unit/agent/test_probe_contract.py` — the registry-wide scan covers you now
 - [ ] listings return metadata only, and report degradation as a warning instead of an empty result
+- [ ] every caller-supplied identifier is resolved against a catalog listing before it reaches a
+      driver or reflection call (`resolve_listed_name`)
 
 ## Everything a connector exposes is a probe method
 

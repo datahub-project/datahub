@@ -520,6 +520,10 @@ datahub recipe probe run columns --recipe my_recipe.yml --schema public --table 
 datahub recipe probe run topics --recipe my_recipe.yml --limit 50
 ```
 
+Schema, table and view names are matched exactly as `containers`, `tables` and `views` list them.
+Any other name, including one that differs only in case, is refused with exit code 2 before the
+database sees it. When a listed name differs only in case, the error names it.
+
 SQL sources expose a `sql` command for catalog queries, usually faster. It is an ordinary
 command in the `probe methods` list — there is no separate subcommand to learn:
 
