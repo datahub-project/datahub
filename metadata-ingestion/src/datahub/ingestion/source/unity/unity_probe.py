@@ -1,7 +1,7 @@
 import itertools
 import re
-from contextlib import contextmanager
-from typing import Any, Iterator, List, Optional
+from contextlib import closing, contextmanager
+from typing import Any, Callable, Dict, Iterator, List, Optional
 
 import requests
 from databricks.sdk import WorkspaceClient
@@ -16,12 +16,21 @@ from databricks.sdk.errors.platform import STATUS_CODE_MAPPING
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_passthrough import QueryBudget, SqlCatalogPassthrough
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.hive_metastore_proxy import HIVE_METASTORE
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-from datahub.ingestion.source.unity.proxy_types import Catalog
+from datahub.ingestion.source.unity.proxy_types import (
+    Catalog,
+    Schema,
+    Table,
+    escape_unity_name,
+    qualified_table_name,
+)
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 # Databricks error codes are SCREAMING_SNAKE identifiers ("PERMISSION_DENIED").
@@ -250,3 +259,99 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 ]
         except _Degraded:
             return []
+
+    def _table_like(
+        self, catalog: str, schema: str, limit: int, keep: Callable[[Table], bool]
+    ) -> List[str]:
+        if catalog == HIVE_METASTORE:
+            self._warn(_HIVE_NOT_PROBED)
+            return []
+        try:
+            catalog_obj = self._catalog(catalog)
+            # The shape proxy._create_schema builds, without a schemas.get
+            # round trip: tables() reads only catalog.name and name.
+            schema_obj = Schema(
+                id=f"{catalog_obj.id}.{escape_unity_name(schema)}",
+                name=schema,
+                catalog=catalog_obj,
+                comment=None,
+                owner=None,
+            )
+            with (
+                self._calling(f"listing tables of '{catalog}.{schema}'"),
+                # Closed explicitly: proxy.tables patches the SDK's TableInfo
+                # around its loop, and a generator abandoned at the limit
+                # would hold that patch until garbage collection.
+                closing(iter(self._proxy.tables(schema_obj))) as listed,
+            ):
+                matching = (table.name for table in listed if keep(table))
+                return list(itertools.islice(matching, limit))
+        except _Degraded:
+            return []
+
+    @probe_method(
+        kind=DatasetSubTypes.TABLE,
+        row_limit_param="limit",
+        parent_params=("catalog", "schema"),
+    )
+    def tables(self, catalog: str, schema: str, limit: int = 200) -> List[str]:
+        """Tables in one schema -- not views or metric views, which ingestion
+        also judges by view_pattern and metric_view_pattern. Includes ones
+        table_pattern would exclude. The catalog and schema travel with the
+        result, so `probe filter` needs no --parent."""
+        return self._table_like(
+            catalog,
+            schema,
+            limit,
+            lambda table: not table.is_view and not table.is_metric_view,
+        )
+
+    @probe_method(
+        kind=DatasetSubTypes.VIEW,
+        row_limit_param="limit",
+        parent_params=("catalog", "schema"),
+    )
+    def views(self, catalog: str, schema: str, limit: int = 200) -> List[str]:
+        """Views and materialized views in one schema. Ingestion judges each
+        by table_pattern first and then by view_pattern, and `probe filter
+        --kind View` does the same."""
+        return self._table_like(catalog, schema, limit, lambda table: table.is_view)
+
+    @probe_method(
+        kind=DatasetSubTypes.METRIC_VIEW,
+        row_limit_param="limit",
+        parent_params=("catalog", "schema"),
+    )
+    def metric_views(self, catalog: str, schema: str, limit: int = 200) -> List[str]:
+        """Metric views in one schema. table_pattern always applies to them;
+        metric_view_pattern only while include_metric_views is on. Empty on a
+        databricks-sdk too old to know the METRIC_VIEW table type."""
+        return self._table_like(
+            catalog, schema, limit, lambda table: table.is_metric_view
+        )
+
+    @probe_method()
+    def columns(self, catalog: str, schema: str, table: str) -> List[Dict[str, object]]:
+        """Columns of one table or view: name, type, nullability, comment and
+        partition index. Structural metadata only -- no cell values are read."""
+        if catalog == HIVE_METASTORE:
+            self._warn(_HIVE_NOT_PROBED)
+            return []
+        full_name = qualified_table_name(catalog, schema, table)
+        try:
+            with self._calling(
+                f"reading table '{full_name}'", missing=f"table '{full_name}'"
+            ):
+                info = self._client.tables.get(full_name=full_name)
+        except _Degraded:
+            return []
+        return [
+            {
+                "name": column.name,
+                "type": column.type_text,
+                "nullable": column.nullable,
+                "comment": column.comment,
+                "partition_index": column.partition_index,
+            }
+            for column in info.columns or []
+        ]
