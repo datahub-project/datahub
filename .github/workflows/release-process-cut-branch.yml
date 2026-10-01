@@ -175,3 +175,54 @@ jobs:
           emoji: ":scissors:"
           message: ${{ steps.slack_message.outputs.message }}
           slack-bot-token: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
+
+  rollback_analysis:
+    name: Rollback Analysis
+    needs: cut_branch
+    if: inputs.branch_type == 'release'
+    runs-on: depot-ubuntu-24.04-small
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repo with full history and tags
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+
+      - name: Resolve previous release tags
+        id: targets
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # N = the just-cut branch tip
+          CURRENT="${{ needs.cut_branch.outputs.commit_sha }}"
+          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
+
+          # N-1: latest stable cloud tag before the new version
+          N1=$(git tag --list 'v*-cloud' --sort=-v:refname \
+            | grep -v 'rc' \
+            | head -1)
+          echo "n1=${N1}" >> "$GITHUB_OUTPUT"
+
+          echo "Resolved: current=${CURRENT}, N-1=${N1}"
+
+      - name: Rollback analysis N → N-1
+        if: steps.targets.outputs.n1 != ''
+        run: |
+          python3 .github/scripts/rollback_analysis.py \
+            --current "${{ steps.targets.outputs.current }}" \
+            --target "${{ steps.targets.outputs.n1 }}" \
+            --output rollback-n1.md --json
+          cat rollback-n1.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: rollback-reports-v${{ inputs.version }}
+          path: |
+            rollback-n1.md
+            rollback-n1.json
+          if-no-files-found: warn
