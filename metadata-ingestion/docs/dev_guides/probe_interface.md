@@ -107,6 +107,38 @@ implement exactly this one hook and nothing else in this guide. Everything below
 | `warnings: List[str]`          | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                             |
 | `probe_report`                 | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand |
 
+### Errors, logs and secrets
+
+The framework owns what reaches the caller, so a provider does not have to scrub
+every call site:
+
+- **Your own errors keep their message.** Raise `ProbeArgumentError` when the
+  caller's argument is wrong (exit 2); it keeps its message wherever it is raised.
+  A plain `ValueError` keeps its text only when it is raised in the file that
+  defines your provider class. From a shared base class, a helper module, or around
+  a stdlib or SDK call that validates a caller argument, raise `ProbeArgumentError`.
+- **Everything else is reported by class name only.** An exception raised inside
+  reused ingestion code, a driver or an SDK keeps its exit code but loses its text:
+
+  - while the provider is being built: `ProbeConnectionError` (exit 3);
+  - during a command: Python defects (`TypeError`, `KeyError`, `AttributeError`,
+    `AssertionError`, `IndexError`, `NameError`) exit 1, the `ValueError` family
+    exits 2, and everything else (HTTP, cloud SDK, database, Kafka errors) exits 3.
+
+  That text is where JDBC URLs, YAML node arguments and token-endpoint bodies leak
+  from. If a command already recorded read failures, it reports `ProbeReadFailed`
+  (exit 3) instead.
+
+- **All free text is scrubbed.** The recipe's own secret values are masked first,
+  then credential shapes (`user:pass@` in URLs, `password=` / `client_secret=` /
+  `token:` pairs including quoted keys, bearer and basic auth headers, PEM private
+  keys, AWS key ids, SAS signatures), so recipes with no inline secrets (ADC, IAM
+  roles) are covered too. This applies to `probe` output and to `test-connection`.
+- **Reused code's logs are capped at scrubbed warnings** while a probe runs, with
+  tracebacks dropped, including under `datahub --debug` and for captured Python
+  warnings. Set `DATAHUB_PROBE_VERBOSE_LOGS=1` to see them when debugging a
+  connector locally.
+
 **A source type that validates differently from its config class.** Some registered
 names share one config class and differ only in the pydantic context their `create()`
 passes (`mssql-odbc` vs `mssql`). Declare
@@ -606,7 +638,8 @@ on `@probe_method`: nothing checks that a return value holds only metadata.
 
 Two things in `agent/redact.py` do act on results, and neither is a general net:
 
-- `register_secrets` masks credentials drawn from the recipe wherever they appear in output.
+- `redact` and `scrub_text` mask credentials drawn from the recipe, and credential-shaped text, wherever they
+  appear in output (see [Errors, logs and secrets](#errors-logs-and-secrets)).
 - `mask_identity_columns` masks values under the column names in `WITHHELD_COLUMN_NAMES`
   (`user_name`, `login_name`, `email` and the like). It exists for the relations that are catalog metadata
   by definition but carry identity in particular columns — Snowflake's `access_history` is the
