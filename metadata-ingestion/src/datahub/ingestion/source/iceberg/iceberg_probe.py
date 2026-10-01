@@ -1,10 +1,21 @@
-from typing import List
+from typing import Dict, List, Optional
 
 from pyiceberg.catalog import Catalog
+from pyiceberg.exceptions import (
+    NoSuchIcebergTableError,
+    NoSuchNamespaceError,
+    NoSuchPropertyException,
+    NoSuchTableError,
+)
+from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
 
 
@@ -68,3 +79,95 @@ class IcebergMetadataProbe:
         not hidden. Nested namespaces are not listed because ingestion never
         reads them. Metadata only."""
         return sorted(_dotted(ns) for ns in self._top_level_namespaces())[:limit]
+
+    def _load_table(self, namespace: str, table: str) -> Table:
+        identifier = (*self._resolve_namespace(namespace), table)
+        try:
+            return self._catalog.load_table(identifier)
+        except (NoSuchIcebergTableError, NoSuchPropertyException) as exc:
+            # Checked before NoSuchTableError, its base class. Ingestion skips
+            # these with a warning (iceberg.py _try_processing_dataset).
+            raise ValueError(
+                f"'{namespace}.{table}' is not an Iceberg table; ingestion "
+                f"skips it with a warning"
+            ) from exc
+        except NoSuchTableError as exc:
+            raise ValueError(f"no table '{table}' in namespace '{namespace}'") from exc
+        except ValueError as exc:
+            if "Could not initialize FileIO" not in str(exc):
+                raise
+            # The same message ingestion matches on to skip the table. The
+            # py-io-impl it names comes from the catalog's merged properties
+            # (often the server's), and the failure is that module missing
+            # from this environment: the recipe and the arguments are fine,
+            # the storage could not be reached, so exit 3 rather than 2.
+            raise ProbeConnectionError(
+                f"could not open storage for '{namespace}.{table}': {exc}"
+            ) from exc
+
+    @probe_method()
+    def namespace_properties(self, namespace: str) -> Dict[str, str]:
+        """Properties of one top-level namespace (location, owner, comment...),
+        the ones ingestion attaches to the namespace container. Ingestion skips
+        a namespace, and every table in it, if this read fails -- so an error
+        here explains a namespace that ingests nothing."""
+        resolved = self._resolve_namespace(namespace)
+        try:
+            properties = self._catalog.load_namespace_properties(resolved)
+        except NoSuchNamespaceError as exc:
+            raise ValueError(f"no namespace '{namespace}'") from exc
+        return {str(k): str(v) for k, v in properties.items()}
+
+    @probe_method(
+        kind=DatasetSubTypes.TABLE,
+        row_limit_param="limit",
+        parent_params=("namespace",),
+    )
+    def tables(self, namespace: str, limit: int = 500) -> List[str]:
+        """Tables in one top-level namespace, as bare names. Includes tables the
+        recipe's table_pattern excludes -- a denied table is reported, not
+        hidden. table_pattern is matched against "<namespace>.<table>";
+        `probe filter` builds that from the namespace reported as the parent.
+        Metadata only."""
+        resolved = self._resolve_namespace(namespace)
+        try:
+            identifiers = self._catalog.list_tables(resolved)
+        except NoSuchNamespaceError as exc:
+            raise ValueError(f"no namespace '{namespace}'") from exc
+        return sorted(identifier[-1] for identifier in identifiers)[:limit]
+
+    @probe_method()
+    def columns(self, namespace: str, table: str) -> List[Dict[str, object]]:
+        """Top-level fields of the table's current schema: field id, name,
+        Iceberg type, required, doc. Nested types are shown as their Iceberg
+        type string. Reads the table metadata file through the same load_table
+        call ingestion makes, so a storage permission problem shows up here as
+        it would during ingestion. Never reads data files."""
+        loaded = self._load_table(namespace, table)
+        return [
+            {
+                "id": field.field_id,
+                "name": field.name,
+                "type": str(field.field_type),
+                "required": field.required,
+                "doc": field.doc,
+            }
+            for field in loaded.schema().fields
+        ]
+
+    @probe_method()
+    def table_metadata(self, namespace: str, table: str) -> Dict[str, object]:
+        """Table-level metadata ingestion records as custom properties: format
+        version, location, partition spec, current snapshot id and table
+        properties. Never includes FileIO or catalog properties, which can hold
+        vended storage credentials."""
+        loaded = self._load_table(namespace, table)
+        snapshot = loaded.current_snapshot()
+        snapshot_id: Optional[int] = snapshot.snapshot_id if snapshot else None
+        return {
+            "format_version": loaded.metadata.format_version,
+            "location": loaded.metadata.location,
+            "partition_spec": str(loaded.spec()),
+            "current_snapshot_id": snapshot_id,
+            "properties": dict(loaded.metadata.properties),
+        }

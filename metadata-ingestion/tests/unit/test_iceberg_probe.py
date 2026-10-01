@@ -15,6 +15,7 @@ from pyiceberg.table.metadata import TableMetadataV2
 from pyiceberg.types import LongType, NestedField, StringType
 
 from datahub.ingestion.agent.probe_methods import run_probe_method
+from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
 
 Identifier = Tuple[str, ...]
@@ -132,3 +133,176 @@ def test_the_catalog_is_closed_after_the_command(
     run_probe_method("iceberg", _config_dict(), "namespaces", {})
 
     assert catalog.closed
+
+
+def test_tables_returns_bare_names_with_the_namespace_as_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_catalog(monkeypatch, _FakeCatalog({("sales",): ["orders", "orders_tmp"]}))
+
+    result = run_probe_method(
+        "iceberg",
+        _config_dict(table_pattern={"deny": [".*_tmp$"]}),
+        "tables",
+        {"namespace": "sales"},
+    )
+
+    assert result.result == ["orders", "orders_tmp"]
+    assert result.kind == "Table"
+    assert result.parent_path == ["sales"]
+
+
+def test_a_dotted_single_level_namespace_is_addressed_whole(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    catalog = _FakeCatalog({("team.a",): ["events"]})
+    _patch_catalog(monkeypatch, catalog)
+
+    result = run_probe_method(
+        "iceberg", _config_dict(), "tables", {"namespace": "team.a"}
+    )
+
+    assert result.result == ["events"]
+    assert catalog.list_tables_calls == [("team.a",)]
+
+
+def test_a_nested_namespace_is_refused_because_ingestion_never_reads_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_catalog(
+        monkeypatch,
+        _FakeCatalog({("sales",): ["orders"], ("sales", "eu"): ["orders_eu"]}),
+    )
+
+    with pytest.raises(ValueError, match="top-level"):
+        run_probe_method(
+            "iceberg", _config_dict(), "tables", {"namespace": "sales.eu"}
+        )
+
+
+def test_an_unknown_namespace_is_a_caller_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_catalog(monkeypatch, _FakeCatalog({("sales",): []}))
+
+    with pytest.raises(ValueError):
+        run_probe_method("iceberg", _config_dict(), "tables", {"namespace": "nope"})
+
+
+def test_namespace_properties_are_returned(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_catalog(monkeypatch, _FakeCatalog({("sales",): []}))
+
+    result = run_probe_method(
+        "iceberg", _config_dict(), "namespace_properties", {"namespace": "sales"}
+    )
+
+    assert result.result == {"location": "s3://warehouse/sales"}
+
+
+def test_columns_reports_the_current_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    _patch_catalog(monkeypatch, _FakeCatalog({("sales",): ["orders"]}))
+
+    result = run_probe_method(
+        "iceberg",
+        _config_dict(),
+        "columns",
+        {"namespace": "sales", "table": "orders"},
+    )
+
+    assert result.result == [
+        {"id": 1, "name": "id", "type": "long", "required": True, "doc": None},
+        {
+            "id": 2,
+            "name": "name",
+            "type": "string",
+            "required": False,
+            "doc": "display name",
+        },
+    ]
+
+
+def test_columns_of_a_missing_table_is_a_caller_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_catalog(monkeypatch, _FakeCatalog({("sales",): ["orders"]}))
+
+    with pytest.raises(ValueError):
+        run_probe_method(
+            "iceberg",
+            _config_dict(),
+            "columns",
+            {"namespace": "sales", "table": "nope"},
+        )
+
+
+def test_a_non_iceberg_table_is_reported_as_one(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_catalog(
+        monkeypatch,
+        _FakeCatalog({("sales",): ["legacy"]}, not_iceberg=[("sales", "legacy")]),
+    )
+
+    with pytest.raises(ValueError, match="not an Iceberg table"):
+        run_probe_method(
+            "iceberg",
+            _config_dict(),
+            "columns",
+            {"namespace": "sales", "table": "legacy"},
+        )
+
+
+def test_a_file_io_that_cannot_start_is_a_connection_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Exit 3, not 2: ingestion skips the table with a warning, and the cause
+    # is a FileIO implementation missing from the environment (or named by
+    # the catalog server), not an argument the caller can fix.
+    catalog = _FakeCatalog({("sales",): ["orders"]})
+
+    def _failing_load_table(identifier: Identifier) -> Table:
+        raise ValueError("Could not initialize FileIO: my_module.MyFileIO")
+
+    monkeypatch.setattr(catalog, "load_table", _failing_load_table)
+    _patch_catalog(monkeypatch, catalog)
+
+    with pytest.raises(ProbeConnectionError, match="FileIO"):
+        run_probe_method(
+            "iceberg",
+            _config_dict(),
+            "table_metadata",
+            {"namespace": "sales", "table": "orders"},
+        )
+
+
+def test_table_metadata_never_exposes_file_io_properties(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vended = {
+        "s3.access-key-id": "AKIAEXAMPLE",
+        "s3.secret-access-key": "vended-secret",
+    }
+    _patch_catalog(
+        monkeypatch, _FakeCatalog({("sales",): ["orders"]}, io_properties=vended)
+    )
+
+    for command in ("table_metadata", "columns"):
+        result = run_probe_method(
+            "iceberg",
+            _config_dict(),
+            command,
+            {"namespace": "sales", "table": "orders"},
+        )
+        rendered = repr(result.to_dict())
+        assert "AKIAEXAMPLE" not in rendered
+        assert "vended-secret" not in rendered
+
+    metadata = run_probe_method(
+        "iceberg",
+        _config_dict(),
+        "table_metadata",
+        {"namespace": "sales", "table": "orders"},
+    ).result
+    assert isinstance(metadata, dict)
+    assert metadata["properties"] == {"owner": "someone", "comment": "a table"}
+    assert metadata["format_version"] == 2
