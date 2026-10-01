@@ -454,6 +454,16 @@ class AllowDenyPattern(ConfigModel):
     def allow_all(cls) -> "AllowDenyPattern":
         return AllowDenyPattern()
 
+    def is_allow_all(self) -> bool:
+        """Whether this pattern lets every string through.
+
+        Use this instead of `== AllowDenyPattern.allow_all()`. `__eq__`
+        compares `__dict__`, which also holds the compiled-regex caches once
+        `allowed()` has run, so a used default pattern stops equalling a
+        fresh one. `ignoreCase` does not matter: `.*` matches regardless.
+        """
+        return not self.deny and ".*" in self.allow
+
     def allowed(self, string: str) -> bool:
         if self.denied(string):
             return False
