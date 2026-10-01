@@ -372,3 +372,126 @@ def test_a_forbidden_groups_listing_raises_rather_than_reporting_empty(
 def test_probe_methods_advertises_the_commands_and_kinds() -> None:
     kinds = {s.command: s.kind for s in list_probe_methods("powerbi")}
     assert kinds["workspaces"] == "Workspace"
+
+
+_REPORTS: Dict[str, Any] = {
+    "value": [
+        {"id": "r-1", "name": "Weekly", "reportType": "PowerBIReport"},
+        {"id": "r-2", "name": "Invoice", "reportType": "PaginatedReport"},
+        # PowerBI repeats app-published reports with an appId; ingestion drops them.
+        {"id": "r-1", "name": "Weekly", "reportType": "PowerBIReport", "appId": "a"},
+    ]
+}
+
+
+def test_reports_are_listed_by_workspace_name_without_app_duplicates(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    requests_mock.get(f"{_ORG}/groups/ws-1/reports", json=_REPORTS)
+    result = run_probe_method(
+        "powerbi", dict(_RECIPE), "reports", {"workspace": "Sales"}
+    )
+    assert result.result == [
+        {"name": "Weekly", "id": "r-1", "type": "Report"},
+        {"name": "Invoice", "id": "r-2", "type": "PaginatedReport"},
+    ]
+    assert result.parent_path == ["Sales"]
+    assert result.warnings == []
+
+
+def test_dashboards_are_listed_by_display_name_without_app_duplicates(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    requests_mock.get(
+        f"{_ORG}/groups/ws-1/dashboards",
+        json={
+            "value": [
+                {"id": "d-1", "displayName": "Overview"},
+                {"id": "d-1", "displayName": "Overview", "appId": "a"},
+            ]
+        },
+    )
+    with _probe() as probe:
+        assert probe.dashboards("Sales") == [{"name": "Overview", "id": "d-1"}]
+
+
+def test_a_workspace_scoped_command_lists_workspaces_exactly_once(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    requests_mock.get(f"{_ORG}/groups/ws-1/dashboards", json={"value": []})
+    with _probe() as probe:
+        probe.dashboards("Sales")
+    groups_calls = [
+        r for r in requests_mock.request_history if r.path.endswith("/groups")
+    ]
+    assert len(groups_calls) == 2  # one sweep: a page plus the empty terminator
+
+
+def test_an_unknown_workspace_is_a_bad_argument(requests_mock: rm.Mocker) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    with pytest.raises(ValueError, match="no workspace named"), _probe() as probe:
+        probe.reports("Nope")
+
+
+def test_a_withheld_personal_workspace_cannot_be_reached_by_name(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    with (
+        pytest.raises(ValueError, match="no workspace named"),
+        _probe() as probe,
+    ):
+        probe.reports("PersonalWorkspace Some Person")
+    assert not [r for r in requests_mock.request_history if "ws-3" in r.url]
+
+
+def test_a_duplicated_workspace_name_is_refused_with_the_ids(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(
+        requests_mock,
+        f"{_ORG}/groups",
+        [_GROUPS[0], {"id": "ws-5", "name": "Sales", "type": "Workspace"}],
+    )
+    with pytest.raises(ValueError, match="ws-1, ws-5"), _probe() as probe:
+        probe.reports("Sales")
+
+
+def test_a_404_on_one_workspace_degrades_with_a_warning(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    requests_mock.get(f"{_ORG}/groups/ws-1/reports", status_code=404)
+    with _probe() as probe:
+        assert probe.reports("Sales") == []
+    assert any("HTTP 404" in w for w in probe.warnings)
+
+
+def test_a_401_on_a_workspace_listing_raises(requests_mock: rm.Mocker) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    requests_mock.get(f"{_ORG}/groups/ws-1/reports", status_code=401)
+    with pytest.raises(Exception) as excinfo, _probe() as probe:
+        probe.reports("Sales")
+    assert "401" in str(excinfo.value)
+
+
+def test_id_and_type_exclusions_of_the_parent_are_reported(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    requests_mock.get(f"{_ORG}/groups/ws-4/dashboards", json={"value": []})
+    with _probe(workspace_id_pattern={"deny": ["^ws-4$"]}) as probe:
+        probe.dashboards("Admin Monitoring")
+    assert any("workspace_id_pattern" in w for w in probe.warnings)
+    assert any("workspace_type_filter" in w for w in probe.warnings)
+
+
+def test_disabled_extraction_is_explained(requests_mock: rm.Mocker) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    requests_mock.get(f"{_ORG}/groups/ws-1/dashboards", json={"value": []})
+    with _probe(extract_dashboards=False) as probe:
+        probe.dashboards("Sales")
+    assert any("extract_dashboards" in w for w in probe.warnings)
