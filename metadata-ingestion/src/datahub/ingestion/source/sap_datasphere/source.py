@@ -1,7 +1,18 @@
 import itertools
 import json
 import logging
-from typing import ClassVar, Dict, Iterable, Iterator, List, Optional, Set, Type, Union
+from typing import (
+    ClassVar,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
 
 import requests
 
@@ -114,6 +125,7 @@ from datahub.ingestion.source.sap_datasphere.lineage import (
 )
 from datahub.ingestion.source.sap_datasphere.models import (
     AssetCsn,
+    CatalogListing,
     ColumnLineageContext,
     ColumnLineagePair,
     CsnSchemaResult,
@@ -324,12 +336,18 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 context=str(e),
             )
 
-    def _safe_list_assets(self, space_name: str) -> Iterator[Dict]:
+    def _safe_list_assets(
+        self, space_name: str, listing: CatalogListing
+    ) -> Iterator[Dict]:
         # Soften transport errors into a warning so one space's outage doesn't
         # abort the run.
         try:
-            yield from self._client.list_assets(space_name)
+            for asset in self._client.list_assets(space_name):
+                if isinstance(asset, dict) and asset.get(CATALOG_FIELD_NAME):
+                    listing.names.add(asset[CATALOG_FIELD_NAME])
+                yield asset
         except requests.RequestException as e:
+            listing.failed = True
             self.report.warning(
                 title="Failed to list assets in space",
                 message=(
@@ -390,13 +408,17 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
             try:
                 yield from self._emit_space(space_name, space_label)
-                yield from self._emit_assets_in_space(space_name)
+                catalog = CatalogListing()
+                yield from self._emit_assets_in_space(space_name, catalog)
 
                 if (
                     self.config.discover_unexposed_views
                     and not self.config.expose_for_consumption_only
+                    and not catalog.failed
                 ):
-                    yield from self._emit_non_consumption_views_for_space(space_name)
+                    yield from self._emit_non_consumption_views_for_space(
+                        space_name, catalog.names
+                    )
 
                 if self.config.include_local_tables:
                     yield from self._emit_local_tables_for_space(space_name)
@@ -418,7 +440,9 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         # overwrites between flows writing the same target.
         yield from self._emit_flow_downstream_lineage()
 
-    def _emit_assets_in_space(self, space_name: str) -> Iterable[MetadataWorkUnit]:
+    def _emit_assets_in_space(
+        self, space_name: str, catalog: CatalogListing
+    ) -> Iterable[MetadataWorkUnit]:
         def _emit_asset_with_isolation(
             asset: JsonDict,
         ) -> Iterable[MetadataWorkUnit]:
@@ -446,7 +470,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             # Bounded chunks cap peak memory at ~asset_batch_size live tasks
             # (ThreadedIteratorExecutor otherwise submits every task up front).
             for chunk in _chunked(
-                self._safe_list_assets(space_name), self.config.asset_batch_size
+                self._safe_list_assets(space_name, catalog),
+                self.config.asset_batch_size,
             ):
                 yield from ThreadedIteratorExecutor.process(
                     worker_func=_emit_asset_with_isolation,
@@ -454,24 +479,17 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     max_workers=self.config.max_workers_assets,
                 )
         else:
-            for asset in self._safe_list_assets(space_name):
+            for asset in self._safe_list_assets(space_name, catalog):
                 yield from _emit_asset_with_isolation(asset)
 
     def _emit_non_consumption_views_for_space(
-        self, space_name: str
+        self, space_name: str, catalog_names: Set[str]
     ) -> Iterable[MetadataWorkUnit]:
         """Emit design-time Views / Analytic Models missing from the catalog."""
-        resolved = self._resolve_managed_or_warn(
-            space_name,
-            "non-consumption Views / Analytic Models",
-            extra_hint=(
-                " Configure connection_to_platform_map to enable design-time "
-                "View discovery."
-            ),
-        )
-        if resolved is None:
-            return
-
+        # Skip by catalog name, not emitted URN: a federated catalog View lives
+        # on its remote platform's URN, and skipped catalog assets have none.
+        # Neither may be re-emitted here as non-consumption.
+        pending: List[Tuple[str, str, bool]] = []
         for object_type, is_analytic in (
             (OBJECT_TYPE_VIEWS, False),
             (OBJECT_TYPE_ANALYTIC_MODELS, True),
@@ -485,28 +503,40 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     f"dangling lineage targets."
                 ),
             )
-            if not entries:
-                continue
+            for technical_name in self._iter_allowed_technical_names(entries or []):
+                if technical_name not in catalog_names:
+                    pending.append((object_type, technical_name, is_analytic))
+        if not pending:
+            return
 
-            for technical_name in self._iter_allowed_technical_names(entries):
-                dataset_name = self._build_dataset_name(space_name, technical_name)
-                if (
-                    self._dataset_urn(resolved, dataset_name)
-                    in self._emitted_dataset_urns
-                ):
-                    continue
-                asset: JsonDict = {
-                    CATALOG_FIELD_NAME: technical_name,
-                    CATALOG_FIELD_LABEL: technical_name,
-                    CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: is_analytic,
-                }
-                before = self._datasets_emitted
-                yield from self._isolate(
-                    f"{space_name}.{object_type}.{technical_name}",
-                    self._emit_asset(space_name, asset),
-                )
-                if self._datasets_emitted > before:
-                    self.report.non_consumption_views_emitted += 1
+        # Resolve only once there is something to emit, so spaces without
+        # unexposed Views don't warn about an intentionally unmapped _managed.
+        if (
+            self._resolve_managed_or_warn(
+                space_name,
+                "non-consumption Views / Analytic Models",
+                extra_hint=(
+                    " Configure connection_to_platform_map to enable design-time "
+                    "View discovery."
+                ),
+            )
+            is None
+        ):
+            return
+
+        for object_type, technical_name, is_analytic in pending:
+            asset: JsonDict = {
+                CATALOG_FIELD_NAME: technical_name,
+                CATALOG_FIELD_LABEL: technical_name,
+                CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: is_analytic,
+            }
+            before = self._datasets_emitted
+            yield from self._isolate(
+                f"{space_name}.{object_type}.{technical_name}",
+                self._emit_asset(space_name, asset),
+            )
+            if self._datasets_emitted > before:
+                self.report.non_consumption_views_emitted += 1
 
     def _emit_local_tables_for_space(
         self, space_name: str

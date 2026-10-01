@@ -3920,6 +3920,11 @@ def test_discover_unexposed_views_managed_unresolvable_skips_space(requests_mock
         json={"value": []},
     )
     requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{base}/dwaas-core/api/v1/spaces/S1/views",
+        json=[{"technicalName": "HIDDEN_VIEW"}],
+    )
+    requests_mock.get(f"{base}/dwaas-core/api/v1/spaces/S1/analyticmodels", json=[])
 
     source = SapDatasphereSource(PipelineContext(run_id="ncv-managed"), cfg)
     list(source.get_workunits())
