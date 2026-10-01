@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Tuple, Union
 
 from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
@@ -40,6 +40,18 @@ def _server_spelling(name: str, known: List[str], what: str, hint: str) -> str:
         if candidate.casefold() == folded:
             return candidate
     raise ValueError(f"no {what} '{name}' here; {hint}")
+
+
+class _Located(NamedTuple):
+    """Where a command reads: one database's connection, and a schema in it
+    as the server spells it -- as a name, and as the argument the dialect
+    is handed."""
+
+    inspector: Inspector
+    engine: Engine
+    database: str
+    schema: str
+    schema_arg: Union[str, quoted_name]
 
 
 class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
@@ -188,11 +200,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             )
         return schema
 
-    def _schema(
-        self, schema: str, database: Optional[str]
-    ) -> Tuple[Inspector, str, Union[str, quoted_name]]:
-        """The Inspector for `database`, and `schema` as the server spells it,
-        both as a name and as the argument the dialect is handed."""
+    def _schema(self, schema: str, database: Optional[str]) -> _Located:
         inspector, db_name = self._inspector_for(database)
         name = _server_spelling(
             schema,
@@ -200,23 +208,31 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             f"schema in database '{db_name}'" if db_name else "schema",
             "`containers` lists them",
         )
-        return inspector, name, self._schema_arg(name)
+        # The engine itself rather than inspector.bind, which may be a
+        # Connection: a pinned recipe reads through the base engine.
+        engine = (
+            self._engine
+            if self._config.is_single_database_recipe()
+            else self._database_engines[db_name]
+        )
+        return _Located(inspector, engine, db_name, name, self._schema_arg(name))
 
     def _relation(
         self, schema: str, name: str, database: Optional[str], views_only: bool
-    ) -> Tuple[Inspector, str, Union[str, quoted_name], str]:
+    ) -> Tuple[_Located, str]:
         """`_schema`, plus the table or view as the server spells it."""
-        inspector, schema_name, schema_arg = self._schema(schema, database)
+        located = self._schema(schema, database)
+        inspector, schema_arg = located.inspector, located.schema_arg
         known = list(inspector.get_view_names(schema=schema_arg))
         if not views_only:
             known += list(inspector.get_table_names(schema=schema_arg))
         relation = _server_spelling(
             name,
             known,
-            f"{'view' if views_only else 'table or view'} in '{schema_name}'",
+            f"{'view' if views_only else 'table or view'} in '{located.schema}'",
             f"`{'views' if views_only else 'tables'}` lists them",
         )
-        return inspector, schema_name, schema_arg, relation
+        return located, relation
 
     # -- commands --
 
@@ -262,8 +278,8 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         with the result, so `probe filter` judges `database.schema.table`, the
         identifier ingestion matches. --database is required unless the recipe
         pins one."""
-        inspector, _, schema_arg = self._schema(schema, database)
-        return list(inspector.get_table_names(schema=schema_arg))[:limit]
+        at = self._schema(schema, database)
+        return list(at.inspector.get_table_names(schema=at.schema_arg))[:limit]
 
     @probe_method(
         kind=DatasetSubTypes.VIEW,
@@ -275,8 +291,8 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
     ) -> List[str]:
         """Views in one schema, judged by view_pattern. --database is required
         unless the recipe pins one."""
-        inspector, _, schema_arg = self._schema(schema, database)
-        return list(inspector.get_view_names(schema=schema_arg))[:limit]
+        at = self._schema(schema, database)
+        return list(at.inspector.get_view_names(schema=at.schema_arg))[:limit]
 
     @probe_method()
     def columns(
@@ -284,9 +300,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
     ) -> List[Dict[str, object]]:
         """Columns of a table or view: name, data type, nullability, default.
         Structural metadata only -- no cell values are read."""
-        inspector, _, schema_arg, name = self._relation(
-            schema, table, database, views_only=False
-        )
+        at, name = self._relation(schema, table, database, views_only=False)
         return [
             {
                 "name": c["name"],
@@ -294,7 +308,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
                 "nullable": c.get("nullable"),
                 "default": str(c["default"]) if c.get("default") is not None else None,
             }
-            for c in inspector.get_columns(name, schema=schema_arg)
+            for c in at.inspector.get_columns(name, schema=at.schema_arg)
         ]
 
     @probe_method()
@@ -303,40 +317,33 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
     ) -> List[Dict[str, object]]:
         """Foreign-key constraints on a table: local constrained columns and the
         referred schema/table/columns. Metadata only."""
-        inspector, _, schema_arg, name = self._relation(
-            schema, table, database, views_only=False
-        )
-        return [dict(fk) for fk in inspector.get_foreign_keys(name, schema=schema_arg)]
+        at, name = self._relation(schema, table, database, views_only=False)
+        fks = at.inspector.get_foreign_keys(name, schema=at.schema_arg)
+        return [dict(fk) for fk in fks]
 
     @probe_method()
     def indexes(
         self, schema: str, table: str, database: Optional[str] = None
     ) -> List[Dict[str, object]]:
         """Indexes on a table: name, indexed column names, and uniqueness."""
-        inspector, _, schema_arg, name = self._relation(
-            schema, table, database, views_only=False
-        )
-        return [dict(ix) for ix in inspector.get_indexes(name, schema=schema_arg)]
+        at, name = self._relation(schema, table, database, views_only=False)
+        return [dict(ix) for ix in at.inspector.get_indexes(name, schema=at.schema_arg)]
 
     @probe_method()
     def primary_key(
         self, schema: str, table: str, database: Optional[str] = None
     ) -> Dict[str, object]:
         """The primary-key constraint on a table: column names and constraint name."""
-        inspector, _, schema_arg, name = self._relation(
-            schema, table, database, views_only=False
-        )
-        return dict(inspector.get_pk_constraint(name, schema=schema_arg))
+        at, name = self._relation(schema, table, database, views_only=False)
+        return dict(at.inspector.get_pk_constraint(name, schema=at.schema_arg))
 
     @probe_method(name="view_definition")
     def view_definition(
         self, schema: str, view: str, database: Optional[str] = None
     ) -> Optional[str]:
         """The stored CREATE VIEW text for a view (DDL, not query results)."""
-        inspector, _, schema_arg, name = self._relation(
-            schema, view, database, views_only=True
-        )
-        return inspector.get_view_definition(name, schema=schema_arg)
+        at, name = self._relation(schema, view, database, views_only=True)
+        return at.inspector.get_view_definition(name, schema=at.schema_arg)
 
     @probe_method()
     def table_comment(
@@ -346,14 +353,10 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         as its description when include_descriptions is on. SQLAlchemy's mssql
         dialect does not reflect comments, so the generic command could not
         answer here at all."""
-        inspector, schema_name, _, name = self._relation(
-            schema, table, database, views_only=False
-        )
-        with inspector.bind.connect() as conn:
+        at, name = self._relation(schema, table, database, views_only=False)
+        with at.engine.connect() as conn:
             return {
-                "text": MSSQLQuery.table_description(
-                    conn, schema=schema_name, table=name
-                )
+                "text": MSSQLQuery.table_description(conn, schema=at.schema, table=name)
             }
 
     @probe_method(
@@ -370,14 +373,13 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         include_stored_procedures says; `probe filter --kind "Stored
         Procedure"` reports what ingestion keeps. Names only: the procedure
         body is not read. --database is required unless the recipe pins one."""
-        inspector, db_name = self._inspector_for(database)
-        if not db_name:
+        at = self._schema(schema, database)
+        if not at.database:
             # Ingestion would query `[].[sys].[procedures]` here and fail.
             raise ValueError(
                 "this recipe's connection names no database, and procedures are "
                 "read by database name; set `database` in the recipe"
             )
-        _, schema_name, _ = self._schema(schema, database)
-        with inspector.bind.connect() as conn:
-            rows = SQLServerSource._get_stored_procedures(conn, db_name, schema_name)
+        with at.engine.connect() as conn:
+            rows = SQLServerSource._get_stored_procedures(conn, at.database, at.schema)
         return [str(row["name"]) for row in rows][:limit]
