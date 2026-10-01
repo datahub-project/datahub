@@ -36,8 +36,28 @@ def _project(pid: str, name: str, parent: Optional[str] = None) -> ProjectItem:
     return item
 
 
+class _Endpoint:
+    """A TSC endpoint whose `get` is visible to a static attribute lookup.
+
+    TSC.Pager tells an endpoint from a callable with runtime-checkable
+    Protocols. From Python 3.12 those use inspect.getattr_static, which does
+    not see a MagicMock's lazily created `get`, so a bare MagicMock is paged
+    as a callable and the pager unpacks the mock itself.
+    """
+
+    def __init__(self) -> None:
+        self._other = mock.MagicMock()
+        self.get = mock.MagicMock()
+
+    def __getattr__(self, name: str) -> Any:
+        # Everything but `get` (get_by_id, ...) stays an ordinary mock.
+        return getattr(self._other, name)
+
+
 def _server(projects: Sequence[ProjectItem] = ()) -> mock.MagicMock:
     server = mock.MagicMock()
+    for endpoint in ("sites", "projects", "workbooks"):
+        setattr(server, endpoint, _Endpoint())
     server.site_id = "site-luid"
     server.user_id = "user-luid"
     server.version = "3.21"

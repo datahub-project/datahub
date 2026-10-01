@@ -137,6 +137,7 @@ from datahub.ingestion.source.tableau.tableau_initial_sql import (
     extract_tds_bytes,
 )
 from datahub.ingestion.source.tableau.tableau_selection import (
+    ACTIVE_SITE_STATE,
     is_project_allowed,
     is_project_denied,
     probe_project_verdict,
@@ -789,7 +790,7 @@ class TableauConfig(
         if ctx.kind == BIContainerSubTypes.TABLEAU_PROJECT:
             return probe_project_verdict(self, ctx.name, ctx.parent_path, ctx.warn)
         if ctx.kind == BIContainerSubTypes.TABLEAU_SITE:
-            return probe_site_verdict(self, ctx.name, ctx.warn)
+            return probe_site_verdict(self, ctx)
         return None
 
     # mode = "before" because we want to take some decision before pydantic initialize the configuration to default values
@@ -1190,7 +1191,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.ingest_multiple_sites:
                 for site in list(TSC.Pager(self.server.sites)):
                     if (
-                        site.state != "Active"
+                        site.state != ACTIVE_SITE_STATE
                         or not self.config.site_name_pattern.allowed(site.name)
                     ):
                         logger.info(
