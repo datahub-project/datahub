@@ -85,6 +85,21 @@ action:
   | `commit_retry_backoff` | ❌ | `10.0` | Seconds between synchronous commit retries (only used when `async_commit_enabled` is `false`) |
 </details>
 
+### Consumer Properties from Environment Variables
+
+The Kafka Event Source also reads Kafka client properties from `KAFKA_PROPERTIES_*` environment variables, which is how
+the DataHub Helm chart passes Kafka settings to the actions pod. The part of the name after the prefix is lowercased and
+its underscores become dots, so `KAFKA_PROPERTIES_SASL_MECHANISM=PLAIN` sets `sasl.mechanism: PLAIN`.
+`KAFKA_PROPERTIES_OAUTH_CB` sets `oauth_cb` (for example `datahub_actions.utils.kafka_msk_iam:oauth_cb` for AWS MSK IAM),
+which is resolved to a function the same way as `oauth_cb` in `consumer_config`. Empty values are ignored.
+
+- Values in `connection.consumer_config` take precedence over environment variables.
+- Properties that librdkafka does not accept are skipped: Java-only settings (`sasl.jaas.config`, `ssl.truststore.*`,
+  `ssl.keystore.*`, `ssl.protocol`, `ssl.enabled.protocols`, the `sasl.*.class` settings, `kafkastore.*`), schema registry
+  settings (`basic.auth.*`, `schema.registry.*`) and `partition.assignment.strategy`. `group.id` is skipped too, because
+  each pipeline consumes under its own name. Set any of these in `consumer_config` if you need them.
+- Set `DATAHUB_ACTIONS_KAFKA_ENV_PROPERTIES_ENABLED=false` to turn this off and use only `consumer_config`.
+
 ## Schema Registry Configuration
 
 The Kafka Event Source requires a schema registry to deserialize events. There are several ways to configure the schema registry:
