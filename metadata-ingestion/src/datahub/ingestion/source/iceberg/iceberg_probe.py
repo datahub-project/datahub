@@ -98,11 +98,12 @@ class IcebergMetadataProbe:
                 raise
             # The same message ingestion matches on to skip the table. The
             # py-io-impl it names comes from the catalog's merged properties
-            # (often the server's), and the failure is that module missing
-            # from this environment: the recipe and the arguments are fine,
-            # the storage could not be reached, so exit 3 rather than 2.
+            # (often the server's), and pyiceberg raises this only when that
+            # FileIO implementation module is missing from this environment:
+            # an environment problem, not caller input, so exit 3 rather than 2.
             raise ProbeConnectionError(
-                f"could not open storage for '{namespace}.{table}': {exc}"
+                f"could not load the FileIO implementation for "
+                f"'{namespace}.{table}': {exc}"
             ) from exc
 
     @probe_method()
