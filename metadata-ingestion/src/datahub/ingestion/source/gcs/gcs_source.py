@@ -254,6 +254,13 @@ class GCSSourceConfig(
         return path_specs
 
     @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: gcs_probe imports this module
+        from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
+
+        return GCSMetadataProbe
+
+    @classmethod
     def probe_rule_filtered_kinds(cls) -> Dict[str, str]:
         """path_specs, not an AllowDenyPattern, decide every level this source emits."""
         return {
