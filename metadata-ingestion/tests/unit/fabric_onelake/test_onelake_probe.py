@@ -1,8 +1,11 @@
 """Fabric OneLake probe: verdicts that match what ingestion filters on, and
 listings that say when they could not look."""
 
-from typing import Dict, List, Set
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple, cast
 from unittest.mock import MagicMock
+
+import pytest
+import requests
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.api.common import PipelineContext
@@ -12,7 +15,16 @@ from datahub.ingestion.source.common.subtypes import (
     GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace
-from datahub.ingestion.source.fabric.onelake.models import FabricTable
+from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
+from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
+from datahub.ingestion.source.fabric.onelake.models import (
+    FabricLakehouse,
+    FabricTable,
+    FabricWarehouse,
+)
+from datahub.ingestion.source.fabric.onelake.onelake_probe import (
+    FabricOneLakeMetadataProbe,
+)
 from datahub.ingestion.source.fabric.onelake.source import (
     FabricOneLakeSource,
     LakehouseKey,
@@ -141,3 +153,157 @@ def test_table_verdict_says_the_item_level_was_not_judged() -> None:
     )
     assert result.results[0].excluded_by == "schema_pattern"
     assert any("Fabric Schema" in w for w in result.warnings)
+
+
+WH_ID = "00000000-0000-0000-0000-00000000000c"
+
+
+class _FakeClient:
+    """Answers only what the probe calls; records calls so resolution cost is visible."""
+
+    def __init__(self) -> None:
+        self.calls: List[str] = []
+        self.closed = False
+        self.auth_helper = MagicMock()
+        self.lakehouse_tables: List[FabricTable] = _tables()
+        self.degrade_message: str = ""
+        self.workspaces_error: Optional[Exception] = None
+
+    def list_workspaces(self) -> Iterator[FabricWorkspace]:
+        self.calls.append("workspaces")
+        if self.workspaces_error is not None:
+            raise self.workspaces_error
+        yield WS
+        yield FabricWorkspace(id="00000000-0000-0000-0000-0000000000ff", name="hr-ws")
+
+    def list_lakehouses(self, workspace_id: str) -> Iterator[FabricLakehouse]:
+        self.calls.append("lakehouses")
+        yield FabricLakehouse(
+            id=LH_ID, name="lh_main", type="Lakehouse", workspace_id=workspace_id
+        )
+        yield FabricLakehouse(
+            id="lh-dup", name="shared_name", type="Lakehouse", workspace_id=workspace_id
+        )
+
+    def list_warehouses(self, workspace_id: str) -> Iterator[FabricWarehouse]:
+        self.calls.append("warehouses")
+        yield FabricWarehouse(
+            id=WH_ID, name="wh_main", type="Warehouse", workspace_id=workspace_id
+        )
+        yield FabricWarehouse(
+            id="wh-dup", name="shared_name", type="Warehouse", workspace_id=workspace_id
+        )
+
+    def list_lakehouse_tables(
+        self,
+        workspace_id: str,
+        lakehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
+    ) -> Iterator[FabricTable]:
+        self.calls.append("lakehouse_tables")
+        if self.degrade_message and on_degraded is not None:
+            on_degraded(self.degrade_message)
+            return iter([])
+        return iter(self.lakehouse_tables)
+
+    def list_warehouse_tables(
+        self,
+        workspace_id: str,
+        warehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
+    ) -> Iterator[FabricTable]:
+        self.calls.append("warehouse_tables")
+        return iter(
+            [
+                FabricTable(
+                    name="facts",
+                    schema_name="dbo",
+                    item_id=warehouse_id,
+                    workspace_id=workspace_id,
+                )
+            ]
+        )
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _probe(**config: object) -> Tuple[FabricOneLakeMetadataProbe, _FakeClient]:
+    client = _FakeClient()
+    return (
+        FabricOneLakeMetadataProbe(
+            # A structural fake of the parts of OneLakeClient the probe calls.
+            cast(OneLakeClient, client),
+            FabricOneLakeSourceConfig.model_validate(config),
+        ),
+        client,
+    )
+
+
+def test_workspaces_lists_names_and_ids_including_denied_ones() -> None:
+    probe, _ = _probe(workspace_pattern={"deny": ["^hr-ws$"]})
+    assert [w["name"] for w in probe.workspaces(limit=10)] == ["sales-ws", "hr-ws"]
+
+
+def test_workspace_and_item_resolve_by_guid_as_well_as_name() -> None:
+    probe, _ = _probe()
+    by_name = probe.lakehouses(workspace="sales-ws")
+    by_guid = probe.lakehouses(workspace=WS.id)
+    assert (
+        by_name
+        == by_guid
+        == [
+            {"name": "lh_main", "id": LH_ID},
+            {"name": "shared_name", "id": "lh-dup"},
+        ]
+    )
+
+
+def test_an_unknown_workspace_is_the_callers_error() -> None:
+    probe, _ = _probe()
+    with pytest.raises(ValueError, match="no-such-ws"):
+        probe.lakehouses(workspace="no-such-ws")
+    assert probe.failures == []
+
+
+@pytest.mark.xfail(strict=True, reason="tables lands in the next commit")
+def test_a_name_shared_by_a_lakehouse_and_a_warehouse_asks_for_item_type() -> None:
+    probe, _ = _probe()
+    with pytest.raises(ValueError, match="item_type"):
+        probe.tables(workspace="sales-ws", item="shared_name", schema="dbo")
+    assert probe.tables(
+        workspace="sales-ws", item="shared_name", schema="dbo", item_type="Warehouse"
+    ) == ["facts"]
+
+
+def test_an_unknown_item_type_is_the_callers_error() -> None:
+    probe, _ = _probe()
+    ws = probe._workspace("sales-ws")
+    with pytest.raises(ValueError, match="item_type"):
+        probe._item(ws, "lh_main", "Notebook")
+
+
+def test_a_refused_rest_read_is_recorded_without_the_response_text() -> None:
+    probe, client = _probe()
+    response = requests.Response()
+    response.status_code = 403
+    response.url = "https://api.fabric.microsoft.com/v1/workspaces?token=secret-ish"
+    client.workspaces_error = requests.HTTPError("403 for url ...", response=response)
+
+    with pytest.raises(Exception) as excinfo:
+        probe.workspaces()
+
+    # Recorded, so run_probe_method reports a read failure (exit 3), and
+    # scrubbed to status + operation: the URL and body never reach the output.
+    assert probe.failures == ["listing workspaces failed: HTTP 403"]
+    assert "secret-ish" not in str(excinfo.value)
+    assert not isinstance(excinfo.value, ValueError)
+
+
+def test_exit_closes_the_client() -> None:
+    probe, client = _probe()
+    with probe:
+        pass
+    assert client.closed
