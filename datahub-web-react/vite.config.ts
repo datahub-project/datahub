@@ -213,6 +213,10 @@ export default defineConfig(async ({ mode }) => {
             // Emit dist/.vite/manifest.json so the Play server can map entrypoints to
             // hashed filenames. Distinct from the PWA file at dist/manifest.json.
             manifest: true,
+            // Emit .map files without a sourceMappingURL comment, so browsers do not
+            // request maps from the public asset host. `vite build --sourcemap`
+            // (-Psourcemap, used by Cloudflare Pages) overrides this to linked maps.
+            sourcemap: 'hidden',
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
