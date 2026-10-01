@@ -68,6 +68,7 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageUpstreamTypeClass,
     SchemaMetadataClass,
 )
+from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.utilities.urns.field_paths import (
     get_simple_field_path_from_v2_field_path,
 )
@@ -409,12 +410,20 @@ class TrinoSource(SQLAlchemySource):
             ),
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=source_dataset_urn,
-            aspect=Siblings(
-                primary=not self.config.trino_as_primary, siblings=[dataset_urn]
-            ),
-        ).as_workunit()
+        # The connector dataset belongs to the native source (e.g. the `oracle` source),
+        # not to Trino. Patch its Siblings rather than upserting the aspect, so an
+        # existing pairing (e.g. dbt <-> Oracle) is not overwritten, and mark the
+        # workunit non-primary so stateful ingestion does not record the native dataset
+        # in Trino's checkpoint -- otherwise Trino would soft-delete a dataset another
+        # source owns once the URN stops being emitted.
+        patch = DatasetPatchBuilder(source_dataset_urn)
+        patch.add_sibling(dataset_urn, primary=not self.config.trino_as_primary)
+        for mcp in patch.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp),
+                mcp_raw=mcp,
+                is_primary_source=False,
+            )
 
     def gen_lineage_workunit(
         self,

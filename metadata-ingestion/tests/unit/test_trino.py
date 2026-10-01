@@ -9,6 +9,8 @@ from datahub.ingestion.source.sql.trino import (
     TrinoSource,
 )
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+    MetadataChangeProposalClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemalessClass,
@@ -426,3 +428,42 @@ def test_trino_process_table_emits_lineage_without_cll_when_no_schema_emitted():
     assert isinstance(upstream_lineage, UpstreamLineageClass)
     assert upstream_lineage.fineGrainedLineages is None
     assert len(upstream_lineage.upstreams) == 1
+
+
+def test_trino_gen_siblings_workunit_connector_side_is_not_primary():
+    """Trino must not claim ownership of the connector's native dataset.
+
+    The connector-side workunit is a patch marked non-primary, so stateful ingestion
+    records it in Trino's skip list rather than its checkpoint. Were it primary, Trino
+    would soft-delete a dataset owned by the native source once that URN stopped being
+    emitted -- which the connector_database precedence change makes reachable on the
+    first run after upgrading. The Trino-side aspect stays primary; Trino owns that.
+    """
+    source = get_test_trino_source()
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:trino,oracle_catalog.hr.employees,PROD)"
+    )
+    source_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+
+    workunits = list(source.gen_siblings_workunit(dataset_urn, source_dataset_urn))
+
+    by_urn = {wu.get_urn(): wu for wu in workunits}
+    assert by_urn[dataset_urn].is_primary_source
+    assert not by_urn[source_dataset_urn].is_primary_source
+
+
+def test_trino_gen_siblings_workunit_connector_side_patches_rather_than_upserts():
+    """The connector side must patch, so an existing pairing (e.g. dbt) survives."""
+    source = get_test_trino_source()
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:trino,oracle_catalog.hr.employees,PROD)"
+    )
+    source_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+
+    workunits = list(source.gen_siblings_workunit(dataset_urn, source_dataset_urn))
+    connector_wu = next(wu for wu in workunits if wu.get_urn() == source_dataset_urn)
+
+    mcp = connector_wu.metadata
+    assert isinstance(mcp, MetadataChangeProposalClass)
+    assert mcp.changeType == ChangeTypeClass.PATCH
+    assert mcp.aspectName == "siblings"
