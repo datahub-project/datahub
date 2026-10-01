@@ -314,3 +314,99 @@ def test_pipelines_report_their_factory_as_the_parent() -> None:
     specs = dict(_iter_specs(AzureDataFactoryMetadataProbe))
     assert specs["pipelines"].parent_params == ("factory",)
     assert specs["pipelines"].kind == ADF_PIPELINE_KIND
+
+
+def _copy(name: str, source_ds: str, sink_ds: str) -> adf.CopyActivity:
+    return adf.CopyActivity(
+        name=name,
+        inputs=[
+            adf.DatasetReference(type="DatasetReference", reference_name=source_ds)
+        ],
+        outputs=[adf.DatasetReference(type="DatasetReference", reference_name=sink_ds)],
+        source=adf.AzureSqlSource(
+            sql_reader_query=f"SELECT * FROM t WHERE k = '{PLANTED}'"
+        ),
+        sink=adf.AzureSqlSink(),
+    )
+
+
+def _web(name: str, depends_on: str) -> adf.WebActivity:
+    return adf.WebActivity(
+        name=name,
+        method="GET",
+        url="https://example.invalid/hook",
+        headers={"Authorization": f"Bearer {PLANTED}"},
+        depends_on=[
+            adf.ActivityDependency(
+                activity=depends_on, dependency_conditions=["Succeeded"]
+            )
+        ],
+    )
+
+
+def _with_pipeline(activities: List[Any]) -> _FakeClient:
+    client = _FakeClient()
+    client.pipelines["my-factory"] = [_pipeline("sales_pipeline", activities)]
+    return client
+
+
+def test_activities_are_listed_with_the_subtype_ingestion_stamps() -> None:
+    probe = _probe(
+        _with_pipeline(
+            [_copy("CopyRows", "src_ds", "dst_ds"), _web("Notify", "CopyRows")]
+        )
+    )
+    assert probe.activities("my-factory", "sales_pipeline") == [
+        {
+            "name": "CopyRows",
+            "type": "Copy",
+            "subtype": "Copy Activity",
+            "depends_on": [],
+            "inputs": ["src_ds"],
+            "outputs": ["dst_ds"],
+        },
+        {
+            "name": "Notify",
+            "type": "WebActivity",
+            "subtype": "Web Activity",
+            "depends_on": ["CopyRows"],
+            "inputs": [],
+            "outputs": [],
+        },
+    ]
+
+
+def test_an_activity_record_never_carries_headers_or_sql_text() -> None:
+    probe = _probe(
+        _with_pipeline([_copy("CopyRows", "a", "b"), _web("Notify", "CopyRows")])
+    )
+    assert PLANTED not in json.dumps(probe.activities("my-factory", "sales_pipeline"))
+
+
+def test_nested_activities_are_counted_and_warned_about() -> None:
+    branch = adf.IfConditionActivity(
+        name="IfBig",
+        expression=adf.Expression(type="Expression", value="@true"),
+        if_true_activities=[_copy("CopyThree", "e", "f")],
+    )
+    loop = adf.ForEachActivity(
+        name="EachTable",
+        items=adf.Expression(type="Expression", value="@pipeline().parameters.t"),
+        activities=[_copy("CopyOne", "a", "b"), branch],
+    )
+    probe = _probe(_with_pipeline([loop]))
+    [record] = probe.activities("my-factory", "sales_pipeline")
+    # CopyOne, IfBig and CopyThree, two levels deep.
+    assert record["nested_activities"] == 3
+    assert any("nested" in w for w in probe.warnings)
+
+
+def test_an_unknown_pipeline_is_a_bad_argument() -> None:
+    with pytest.raises(ValueError):
+        _probe(_with_pipeline([])).activities("my-factory", "no_such_pipeline")
+
+
+def test_activities_report_factory_and_pipeline_as_parents() -> None:
+    spec = dict(_iter_specs(AzureDataFactoryMetadataProbe))["activities"]
+    assert spec.parent_params == ("factory", "pipeline")
+    assert spec.kind == ADF_ACTIVITY_KIND
