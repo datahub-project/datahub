@@ -56,9 +56,29 @@ _WITHHELD = (
 )
 
 
-# Databricks names each user's home folder after their login (usually an
-# email address), so a path under it is personal data, not metadata.
-_USER_FOLDER = "/Users/"
+# Notebook paths are listed from an allowlist, not filtered by a denylist.
+# Databricks names home folders and personal repos after the user's login
+# (usually an email address) and reaches them by several spellings --
+# /Users/, /users/, //Users/, /Workspace/Users/, /Repos/<user>/ -- so any
+# denylist of "personal" roots misses one. Only the shared root is safe to
+# list unconditionally; everything else is listed only when ingestion itself
+# would read it.
+_SHARED_ROOT = "/shared/"
+_WORKSPACE_PREFIX = "/workspace/"
+_REPEATED_SLASHES = re.compile(r"/{2,}")
+
+
+def _is_shared_path(path: str) -> bool:
+    """Whether a notebook path lies under /Shared/ however it is spelled:
+    repeated slashes collapsed, a leading /Workspace stripped, compared
+    case-insensitively. A path with a `.` or `..` segment is never shared,
+    so `/Shared/../Users/...` cannot pass."""
+    normal = _REPEATED_SLASHES.sub("/", path).casefold()
+    if normal.startswith(_WORKSPACE_PREFIX):
+        normal = normal[len(_WORKSPACE_PREFIX) - 1 :]
+    if any(segment in (".", "..") for segment in normal.split("/")):
+        return False
+    return normal.startswith(_SHARED_ROOT)
 
 _HIVE_NOT_PROBED = (
     "hive_metastore is read by ingestion through a SQL warehouse "
@@ -420,20 +440,22 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
 
     @probe_method(kind=DatasetSubTypes.NOTEBOOK, row_limit_param="limit")
     def notebooks(self, limit: int = 200) -> List[str]:
-        """Notebook paths in the workspace -- the string notebook_pattern is
-        matched against. Shared paths (/Shared, /Repos, ...) are listed whatever
-        include_notebooks says; `probe filter --kind Notebook` reports them
-        excluded while it is off. A notebook under /Users/<user>/ is listed
-        only when this recipe would ingest it (include_notebooks on and
-        notebook_pattern allowing its path); the rest are withheld and only
-        counted in warnings, because those paths name people. Paths only,
-        never notebook source. Walks the workspace tree, so a large workspace
-        is slow; the walk stops at `limit`."""
+        """Notebook paths in the workspace, exactly as ingestion sees them --
+        the string notebook_pattern is matched against. A path is listed only
+        when (a) this recipe would ingest it (include_notebooks on and
+        notebook_pattern allowing it), or (b) it lies under /Shared/
+        (also /Workspace/Shared/, any case, repeated slashes ignored); those
+        are listed whatever include_notebooks says, and `probe filter --kind
+        Notebook` reports them excluded while it is off. Every other path --
+        user folders, personal repos -- is withheld and only counted in
+        warnings, because those paths name people. Paths only, never notebook
+        source. Walks the workspace tree, so a large workspace is slow; the
+        walk stops at `limit`."""
         withheld = 0
 
         def shown(notebook: Notebook) -> bool:
             nonlocal withheld
-            if not notebook.path.startswith(_USER_FOLDER) or self._ingests_notebook(
+            if _is_shared_path(notebook.path) or self._ingests_notebook(
                 notebook.path
             ):
                 return True
@@ -449,10 +471,13 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         except _Degraded:
             return []
         if withheld:
+            # A walk that filled the limit stopped early, so more may follow.
+            count = f"at least {withheld}" if len(paths) >= limit else str(withheld)
             self._warn(
-                f"{withheld} notebook{'' if withheld == 1 else 's'} in user "
-                f"folders ({_USER_FOLDER}<user>/...) withheld: ingestion would not "
-                f"read them with this recipe, and their paths name people"
+                f"{count} notebook{'' if withheld == 1 else 's'} outside /Shared/ "
+                f"withheld: ingestion would not read them with this recipe, and "
+                f"paths outside the shared folder (user folders, personal repos) "
+                f"name people"
             )
         return paths
 
