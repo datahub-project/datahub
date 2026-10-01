@@ -12,6 +12,7 @@ from databricks.sdk.service.catalog import (
     TableType,
 )
 from databricks.sdk.service.workspace import ObjectInfo, ObjectType
+from databricks.sql.exc import RequestError, ServerOperationError
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
@@ -318,3 +319,121 @@ def test_notebooks_the_credential_cannot_list_degrade_with_a_warning() -> None:
     probe = _probe(ws)
     assert probe.notebooks() == []
     assert probe.warnings
+
+
+def _sql_ws() -> MagicMock:
+    ws = _fake_ws()
+    ws.config.warehouse_id = "w1"
+    ws.config.host = "https://example.cloud.databricks.com"
+    return ws
+
+
+def _fake_connection(rows: List[Any]) -> MagicMock:
+    cursor = MagicMock()
+    cursor.description = [("table_name",)]
+    cursor.fetchmany.return_value = rows
+    conn = MagicMock()
+    conn.cursor.return_value.__enter__.return_value = cursor
+    return conn
+
+
+def test_sql_without_a_warehouse_is_a_recipe_error() -> None:
+    with pytest.raises(ValueError, match="warehouse_id"):
+        _probe(_fake_ws()).execute_catalog_query(
+            "SELECT 1 FROM system.information_schema.tables", 2
+        )
+
+
+def test_sql_opens_one_connection_with_ingestions_params_and_a_server_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    opened: List[Dict[str, Any]] = []
+    conn = _fake_connection([("orders",)])
+
+    def connect(**kwargs: Any) -> MagicMock:
+        opened.append(kwargs)
+        return conn
+
+    monkeypatch.setattr("datahub.ingestion.source.unity.unity_probe.connect", connect)
+    probe = _probe(_sql_ws(), warehouse_id="w1")
+    query = "SELECT table_name FROM main.information_schema.tables"
+    rows = probe.execute_catalog_query(query, 3)
+    probe.execute_catalog_query(query, 3)
+    assert list(rows.columns) == ["table_name"]
+    assert [list(r) for r in rows.rows] == [["orders"]]
+    assert len(opened) == 1
+    assert opened[0]["http_path"] == "/sql/1.0/warehouses/w1"
+    assert opened[0]["server_hostname"] == "example.cloud.databricks.com"
+    assert opened[0]["session_configuration"] == {"STATEMENT_TIMEOUT": "30"}
+    conn.cursor.return_value.__enter__.return_value.fetchmany.assert_called_with(3)
+    probe.__exit__(None, None, None)
+    conn.close.assert_called_once()
+
+
+def test_sql_through_the_framework_is_scope_checked_before_the_warehouse_is_touched(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    opened: List[Dict[str, Any]] = []
+
+    def connect(**kwargs: Any) -> MagicMock:
+        opened.append(kwargs)
+        return _fake_connection([("orders",)])
+
+    monkeypatch.setattr("datahub.ingestion.source.unity.unity_probe.connect", connect)
+    _serve(monkeypatch, _sql_ws())
+    config = {**BASE, "warehouse_id": "w1"}
+    with pytest.raises(ValueError):
+        run_probe_method(
+            "unity-catalog",
+            config,
+            "sql",
+            {"query": "SELECT statement_text FROM system.query.history"},
+        )
+    assert opened == []
+    result = run_probe_method(
+        "unity-catalog",
+        config,
+        "sql",
+        {"query": "SELECT table_name FROM main.information_schema.tables"},
+    )
+    assert isinstance(result.result, dict) and result.result["rows"] == [["orders"]]
+
+
+def test_the_sql_help_says_it_needs_and_may_start_a_warehouse() -> None:
+    (spec,) = [s for s in list_probe_methods("unity-catalog") if s.command == "sql"]
+    help_text = " ".join(spec.description.split())
+    assert "warehouse_id" in help_text
+    assert "start" in help_text and "stopped" in help_text
+
+
+@pytest.mark.parametrize(
+    "error, expected",
+    [
+        (
+            ServerOperationError(
+                "[CAST_INVALID_INPUT] The value 's3cr3t-row-value' cannot be cast"
+            ),
+            ValueError,
+        ),
+        (
+            RequestError("Error during request to server: Bearer s3cr3t"),
+            ProbeConnectionError,
+        ),
+    ],
+)
+def test_warehouse_error_text_never_reaches_the_caller(
+    monkeypatch: pytest.MonkeyPatch, error: Exception, expected: type
+) -> None:
+    conn = _fake_connection([])
+    conn.cursor.return_value.__enter__.return_value.execute.side_effect = error
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.unity_probe.connect",
+        lambda **kwargs: conn,
+    )
+    probe = _probe(_sql_ws(), warehouse_id="w1")
+    with pytest.raises(expected) as raised:
+        probe.execute_catalog_query(
+            "SELECT table_name FROM main.information_schema.tables", 2
+        )
+    assert "s3cr3t" not in str(raised.value)
+    assert type(error).__name__ in str(raised.value)
