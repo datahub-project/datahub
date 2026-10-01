@@ -10,7 +10,9 @@ from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import (
+    Annotated,
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -50,6 +52,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationError,
+    Filters,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import (
@@ -64,6 +67,7 @@ from datahub.emitter.mcp_builder import (
     add_entity_to_container,
     gen_containers,
 )
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -135,6 +139,9 @@ from datahub.ingestion.source.tableau.tableau_initial_sql import (
 from datahub.ingestion.source.tableau.tableau_selection import (
     is_project_allowed,
     is_project_denied,
+    probe_project_verdict,
+    probe_site_verdict,
+    project_segments,
 )
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
 from datahub.ingestion.source.tableau.tableau_validation import check_user_role
@@ -540,7 +547,9 @@ class TableauConfig(
     )
     _deprecate_projects_pattern = pydantic_field_deprecated("project_pattern")
 
-    project_path_pattern: AllowDenyPattern = Field(
+    project_path_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.TABLEAU_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filters Tableau projects by their full path. For instance, 'My Project/Nested Project' targets a specific nested project named 'Nested Project'."
         " This is also useful when you need to exclude all nested projects under a particular project."
@@ -684,7 +693,9 @@ class TableauConfig(
         description="When enabled, ingests multiple sites the user has access to. If the user doesn't have access to the default site, specify an initial site to query in the site property. By default all sites the user has access to will be ingested. You can filter sites with the site_name_pattern property. This flag is currently only supported for Tableau Server. Tableau Cloud is not supported.",
     )
 
-    site_name_pattern: AllowDenyPattern = Field(
+    site_name_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.TABLEAU_SITE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filter for specific Tableau sites. "
         "By default, all sites will be included in the ingestion. "
@@ -724,6 +735,57 @@ class TableauConfig(
         month="December",
         year=2024,
     )
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Workbooks have no name filter: emit_workbooks takes every workbook
+        whose project is selected, so the Project verdict decides."""
+        return {str(BIContainerSubTypes.TABLEAU_WORKBOOK)}
+
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        """Projects list no ancestor on purpose: _init_tableau_project_registry
+        includes an allowed project under an excluded parent, so exclusion must
+        not propagate between projects. A workbook is dropped with its project."""
+        project = str(BIContainerSubTypes.TABLEAU_PROJECT)
+        ancestors: Dict[str, Tuple[str, ...]] = {
+            str(BIContainerSubTypes.TABLEAU_SITE): (),
+            project: (),
+            str(BIContainerSubTypes.TABLEAU_WORKBOOK): (project,),
+        }
+        return ancestors.get(kind)
+
+    def probe_container_match_target(
+        self,
+        kind: str,
+        name: str,
+        parent_path: Sequence[str],
+        warn: Callable[[str], None],
+    ) -> Optional[str]:
+        """The path project_path_pattern is matched on (_get_project_path)."""
+        if kind != BIContainerSubTypes.TABLEAU_PROJECT:
+            return None
+        segments = project_segments(self, name, parent_path)
+        if len(segments) > len(parent_path) + 1:
+            warn(
+                f"read '{self.project_path_separator}' in a name as the project "
+                "path separator; if a project name itself contains it, the "
+                "extract_project_hierarchy and project_pattern verdicts may "
+                "differ from ingestion. Set project_path_separator to a "
+                "character no project name uses"
+            )
+        return self.project_path_separator.join(segments)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Project: both project patterns plus extract_project_hierarchy
+        re-admission (tableau_selection.project_selection, which ingestion
+        also calls). Site: site_name_pattern applies only with
+        ingest_multiple_sites (get_workunits_internal)."""
+        if ctx.kind == BIContainerSubTypes.TABLEAU_PROJECT:
+            return probe_project_verdict(self, ctx.name, ctx.parent_path, ctx.warn)
+        if ctx.kind == BIContainerSubTypes.TABLEAU_SITE:
+            return probe_site_verdict(self, ctx.name, ctx.warn)
+        return None
 
     # mode = "before" because we want to take some decision before pydantic initialize the configuration to default values
     @model_validator(mode="before")
