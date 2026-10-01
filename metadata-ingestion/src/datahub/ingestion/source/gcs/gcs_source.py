@@ -1,8 +1,10 @@
 import logging
 import time
+from dataclasses import replace
 from typing import (
     TYPE_CHECKING,
     Any,
+    Dict,
     Iterable,
     List,
     Optional,
@@ -22,6 +24,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -37,13 +40,22 @@ from datahub.ingestion.source.common.gcp_wif_config import (
     GCPWIFConfig,
     load_wif_credentials,
 )
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
+from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
+    judge_bucket,
+    judge_dataset,
+    judge_folder,
+)
 from datahub.ingestion.source.gcs.gcs_utils import GCS_ENDPOINT_URL, HMACKey
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.datalake_profiler_config import DataLakeProfilerConfig
@@ -240,6 +252,43 @@ class GCSSourceConfig(
             raise ValueError("All path_spec.include should start with gs://")
 
         return path_specs
+
+    @classmethod
+    def probe_rule_filtered_kinds(cls) -> Dict[str, str]:
+        """path_specs, not an AllowDenyPattern, decide every level this source emits."""
+        return {
+            str(DatasetContainerSubTypes.GCS_BUCKET): "path_specs",
+            str(DatasetContainerSubTypes.FOLDER): "path_specs",
+            str(DatasetSubTypes.TABLE): "path_specs",
+        }
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Judge one name the way GCSSource does: with the s3:// specs
+        equivalent_s3_path_specs builds for ingestion, and the name rewritten
+        to s3:// to match. The reported target stays the gs:// name given."""
+        specs = equivalent_s3_path_specs(self.path_specs)
+        kind = str(ctx.kind)
+        if kind == str(DatasetContainerSubTypes.GCS_BUCKET):
+            if "/" in ctx.name:
+                raise ValueError(
+                    f"'{ctx.name}' is not a bucket name; pass bare names, as "
+                    f"`probe run buckets` lists them"
+                )
+            return judge_bucket(specs, ctx.name, ctx.warn)
+        if not is_gcs_uri(ctx.name):
+            raise ValueError(
+                f"'{ctx.name}' is not a gs:// URI; {kind} names are full gs:// "
+                f"URIs, as `probe run datasets` lists them"
+            )
+        s3_uri = "s3://" + ctx.name[len("gs://") :]
+        if kind == str(DatasetContainerSubTypes.FOLDER):
+            verdict = judge_folder(specs, s3_uri, ctx.warn)
+        else:
+            # GCSSource never sets use_s3_content_type, so S3Source passes
+            # ignore_ext=False for every file.
+            verdict = judge_dataset(specs, s3_uri, ctx.warn)
+        judged = verdict.matched_target or s3_uri
+        return replace(verdict, matched_target="gs://" + judged[len("s3://") :])
 
 
 def equivalent_s3_path_specs(path_specs: Sequence[PathSpec]) -> List[PathSpec]:
