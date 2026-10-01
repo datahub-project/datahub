@@ -39,6 +39,7 @@ import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationRes
 import com.linkedin.datahub.graphql.resolvers.application.BatchUnsetApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.CreateApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.DeleteApplicationResolver;
+import com.linkedin.datahub.graphql.resolvers.application.ParentApplicationsResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
@@ -3512,10 +3513,42 @@ public class GmsGraphQLEngine {
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
+                // Hydrate the parent application stub (ApplicationPartOf) so callers
+                // get its properties, not just the urn.
+                .dataFetcher(
+                    "parentApplication",
+                    new LoadableTypeResolver<>(
+                        applicationType,
+                        (env) -> {
+                          final com.linkedin.datahub.graphql.generated.Application application =
+                              env.getSource();
+                          return application.getParentApplication() == null
+                              ? null
+                              : application.getParentApplication().getUrn();
+                        }))
+                .dataFetcher("parentApplications", new ParentApplicationsResolver())
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
                         documentService, entityClient)));
+    builder.type(
+        "ParentApplicationsResult",
+        typeWiring ->
+            // Hydrate the stub Application objects (urn + type only, as built by
+            // ParentApplicationsResolver) so callers get properties, not just the urn.
+            typeWiring.dataFetcher(
+                "applications",
+                new LoadableTypeBatchResolver<>(
+                    applicationType,
+                    (env) -> {
+                      final com.linkedin.datahub.graphql.generated.ParentApplicationsResult result =
+                          env.getSource();
+                      return result == null
+                          ? java.util.Collections.emptyList()
+                          : result.getApplications().stream()
+                              .map(applicationType.getKeyProvider())
+                              .collect(Collectors.toList());
+                    })));
     builder.type(
         "ApplicationAssociation",
         typeWiring ->
@@ -3885,9 +3918,7 @@ public class GmsGraphQLEngine {
                   try (Scope ignored = batchContext.makeCurrent()) {
                     try {
                       log.debug(
-                          String.format(
-                              "Batch loading entities of type: %s, keys: %s",
-                              graphType.name(), keys));
+                          "Batch loading entities of type: {}, keys: {}", graphType.name(), keys);
                       // Dispatch-side union: merge key contexts that reached this batch into the
                       // request-scoped accumulator. Resolver-side merge at enqueue remains
                       // necessary when DataLoader caching suppresses duplicate key contexts

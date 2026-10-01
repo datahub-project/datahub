@@ -402,6 +402,22 @@ module.exports = {
             to: '/docs/managed-datahub/observe/overview',
           },
           {
+            from: '/docs/managed-datahub/context/overview',
+            to: '/docs/managed-datahub/build-a-data-agent/overview',
+          },
+          {
+            from: '/docs/managed-datahub/context/configure-context-generation',
+            to: '/docs/features/feature-guides/context/context-generation',
+          },
+          {
+            from: '/docs/managed-datahub/context/review-context-proposals',
+            to: '/docs/managed-datahub/build-a-data-agent/generate-context',
+          },
+          {
+            from: '/docs/managed-datahub/context/activate-context',
+            to: '/docs/managed-datahub/build-a-data-agent/activate-context',
+          },
+          {
             // The root README is no longer built into the docs site.
             from: '/docs/introduction',
             to: '/docs/features',
