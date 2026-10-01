@@ -1,10 +1,11 @@
-import { ArrowRightOutlined, FolderOutlined } from '@ant-design/icons';
 import { Card, Row, Space, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { singularizeCollectionName } from '@app/entity/shared/utils';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 
 const styles = {
     row: { padding: 8 },
@@ -39,7 +40,7 @@ export default function BrowseResultCard({ url, count, name, type, onClick }: Br
             <ResultCard hoverable>
                 <Row style={styles.row} justify="space-between">
                     <Space size="middle" align="center">
-                        <FolderOutlined width={28} />
+                        <Folder width={28}  />
                         <Typography.Title style={styles.title} level={5}>
                             {name}
                         </Typography.Title>
@@ -50,7 +51,7 @@ export default function BrowseResultCard({ url, count, name, type, onClick }: Br
                                 {count} {displayType}
                             </Typography.Text>
                         )}
-                        <ArrowRightOutlined />
+                        <ArrowRight  />
                     </Space>
                 </Row>
             </ResultCard>

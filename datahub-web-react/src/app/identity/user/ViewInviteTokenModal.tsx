@@ -1,4 +1,3 @@
-import { UserOutlined } from '@ant-design/icons';
 import { Button, Modal, Text, Tooltip } from '@components';
 import { Select, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
@@ -14,6 +13,7 @@ import { resolveRuntimePath } from '@utils/runtimeBasePath';
 import { useCreateInviteTokenMutation } from '@graphql/mutations.generated';
 import { useGetInviteTokenQuery } from '@graphql/role.generated';
 import { DataHubRole } from '@types';
+import { User } from '@phosphor-icons/react/dist/csr/User';
 
 const ModalSection = styled.div`
     display: flex;
@@ -160,7 +160,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                         <RoleSelect
                             placeholder={
                                 <>
-                                    <UserOutlined style={{ marginRight: 6, fontSize: 12 }} />
+                                    <User style={{ marginRight: 6, fontSize: 12 }}  />
                                     {noRoleText}
                                 </>
                             }
