@@ -1,11 +1,13 @@
+import re
 from typing import Iterator
 from unittest import mock
 
 import boto3
 import pytest
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, EndpointConnectionError, ProfileNotFound
 from moto import mock_aws
 
+from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common import object_store_probe
 from datahub.ingestion.source.data_lake_common.object_store_probe import (
@@ -141,3 +143,85 @@ def test_close_cached_s3_clients_forgets_the_client(bucket: None) -> None:
     first = aws.get_s3_client()
     aws.close_cached_s3_clients()
     assert aws.get_s3_client() is not first
+
+
+_ARN_MESSAGE = (
+    "User: arn:aws:iam::123456789012:user/probe-user is not authorized to "
+    "perform: s3:ListBucket"
+)
+
+
+def _objects_raising(exc: Exception) -> S3CompatibleMetadataProbe:
+    probe = _probe()
+    with mock.patch.object(
+        object_store_probe, "list_objects_recursive_path", side_effect=exc
+    ):
+        probe.objects(bucket="my-bucket", limit=10)
+    return probe
+
+
+def test_an_sts_refusal_is_a_connection_error_not_a_denied_listing() -> None:
+    # aws_role is assumed inside get_session on the first listing, so STS's
+    # AccessDenied arrives where a listing 403 would.
+    with pytest.raises(ProbeConnectionError, match="credential rejected"):
+        _objects_raising(_client_error("AccessDenied", 403, operation="AssumeRole"))
+
+
+def test_aws_error_text_never_reaches_the_output() -> None:
+    with pytest.raises(ProbeConnectionError) as raised:
+        _objects_raising(_client_error("InternalError", 500, message=_ARN_MESSAGE))
+    assert "123456789012" not in str(raised.value)
+    assert "InternalError" in str(raised.value)
+    probe = _objects_raising(_client_error("AccessDenied", 403, message=_ARN_MESSAGE))
+    assert probe.failures
+    assert not any("123456789012" in f for f in probe.failures + probe.warnings)
+
+
+def test_client_side_failures_name_the_class_not_the_endpoint_or_profile() -> None:
+    with pytest.raises(ProbeConnectionError) as raised:
+        _objects_raising(
+            EndpointConnectionError(endpoint_url="https://private-host.example:9000")
+        )
+    assert "private-host" not in str(raised.value)
+    assert "EndpointConnectionError" in str(raised.value)
+    with pytest.raises(ProbeConnectionError) as raised:
+        _objects_raising(ProfileNotFound(profile="my-secret-profile"))
+    assert "my-secret-profile" not in str(raised.value)
+
+
+def test_a_region_redirect_is_recorded_as_could_not_look() -> None:
+    probe = _objects_raising(_client_error("PermanentRedirect", 301))
+    assert any("aws_region" in f for f in probe.failures)
+
+
+def test_a_missing_key_is_a_caller_error() -> None:
+    with pytest.raises(ValueError, match="no such object"):
+        _objects_raising(_client_error("NoSuchKey", 404))
+
+
+def test_a_refusal_stops_every_command_before_any_request() -> None:
+    probe = S3CompatibleMetadataProbe(
+        _aws(), [PathSpec(include="s3://my-bucket/raw/*.csv")], refusal="not here"
+    )
+    with mock.patch.object(object_store_probe, "list_objects_recursive_path") as lister:
+        with pytest.raises(ValueError, match="not here"):
+            probe.objects(bucket="my-bucket", limit=1)
+        with pytest.raises(ValueError, match="not here"):
+            probe.datasets(limit=1)
+        with pytest.raises(ValueError, match="not here"):
+            probe.path_spec_folders(limit=1)
+    lister.assert_not_called()
+
+
+def test_a_subclass_can_widen_the_bucket_name_rule() -> None:
+    class _Legacy(S3CompatibleMetadataProbe):
+        bucket_name_pattern = re.compile(
+            r"^[A-Za-z0-9][A-Za-z0-9._-]{1,253}[A-Za-z0-9]$"
+        )
+
+    with pytest.raises(ValueError, match="bucket name"):
+        _probe()._bucket_uri("Legacy_Bucket", "")
+    specs = [PathSpec(include="s3://my-bucket/raw/*.csv")]
+    assert (
+        _Legacy(_aws(), specs)._bucket_uri("Legacy_Bucket", "") == "s3://Legacy_Bucket/"
+    )

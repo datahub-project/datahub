@@ -17,15 +17,17 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    Optional,
+    Pattern,
     Sequence,
     TypeVar,
 )
 
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig, aws_error_code
 from datahub.ingestion.source.aws.s3_boto_utils import (
     list_buckets,
     list_folders_path,
@@ -49,7 +51,35 @@ MAX_RESOLVED_PREFIXES = 1000
 
 _BUCKET_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$")
 _AUTH_ERROR_CODES = frozenset(
-    {"SignatureDoesNotMatch", "InvalidAccessKeyId", "InvalidSecurity", "ExpiredToken"}
+    {
+        "SignatureDoesNotMatch",
+        "InvalidAccessKeyId",
+        "InvalidSecurity",
+        "ExpiredToken",
+        "InvalidToken",
+        "TokenRefreshRequired",
+        "InvalidClientTokenId",
+        "ExpiredTokenException",
+    }
+)
+# AwsConnectionConfig resolves credentials -- and assumes aws_role -- inside
+# get_session, which first runs on the first listing. STS refusing the role
+# rejects the credential; it does not deny the listing.
+_CREDENTIAL_OPERATIONS = frozenset(
+    {
+        "AssumeRole",
+        "AssumeRoleWithWebIdentity",
+        "AssumeRoleWithSAML",
+        "GetCallerIdentity",
+    }
+)
+# Seen with a custom endpoint, where boto's S3 region redirector does not run.
+_REGION_ERROR_CODES = frozenset(
+    {
+        "PermanentRedirect",
+        "AuthorizationHeaderMalformed",
+        "IllegalLocationConstraintException",
+    }
 )
 
 T = TypeVar("T")
@@ -57,15 +87,27 @@ T = TypeVar("T")
 
 class S3CompatibleMetadataProbe:
     display_scheme: ClassVar[str] = "s3://"
+    bucket_name_pattern: ClassVar[Pattern[str]] = _BUCKET_NAME
 
     def __init__(
-        self, aws_config: AwsConnectionConfig, path_specs: Sequence[PathSpec]
+        self,
+        aws_config: AwsConnectionConfig,
+        path_specs: Sequence[PathSpec],
+        refusal: Optional[str] = None,
     ) -> None:
         self._aws_config = aws_config
         # The s3:// specs ingestion matches with, not the recipe's gs:// ones.
         self._path_specs = list(path_specs)
+        # Why this recipe cannot be probed at all. Raised as a caller error by
+        # every command, not from for_config, which the framework reports as
+        # "could not open the source".
+        self._refusal = refusal
         self.warnings: List[str] = []
         self.failures: List[str] = []
+
+    def _refuse_if_unavailable(self) -> None:
+        if self._refusal is not None:
+            raise ValueError(self._refusal)
 
     def __enter__(self) -> "S3CompatibleMetadataProbe":
         return self
@@ -77,7 +119,8 @@ class S3CompatibleMetadataProbe:
         return self.display_scheme + s3_uri[len("s3://") :]
 
     def _bucket_uri(self, bucket: str, prefix: str) -> str:
-        if not _BUCKET_NAME.match(bucket):
+        self._refuse_if_unavailable()
+        if not self.bucket_name_pattern.match(bucket):
             raise ValueError(f"'{bucket}' is not a bucket name")
         if prefix and not prefix.endswith("/"):
             prefix += "/"
@@ -86,28 +129,60 @@ class S3CompatibleMetadataProbe:
     @contextmanager
     def _storage_errors(self, context: str, whole: bool) -> Iterator[None]:
         """Split storage errors the way the probe contract asks: a missing bucket
-        is the caller's mistake, a denied listing is recorded (as a failure when
-        it is the whole answer), a rejected credential is a connection error."""
+        or key is the caller's mistake, a denied listing is recorded (as a
+        failure when it is the whole answer), a rejected credential or an
+        unreachable endpoint is a connection error.
+
+        Only an error code reaches a message: AWS error text names account ids,
+        principals and ARNs, and botocore's client errors name the endpoint host
+        or profile.
+        """
         try:
             yield
         except ClientError as exc:
-            code = str(exc.response.get("Error", {}).get("Code", ""))
+            code = aws_error_code(exc)
             status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if (
+                exc.operation_name in _CREDENTIAL_OPERATIONS
+                or code in _AUTH_ERROR_CODES
+                or status == 401
+            ):
+                raise ProbeConnectionError(
+                    f"{context}: credential rejected ({code or status})"
+                ) from exc
             if code == "NoSuchBucket":
                 raise ValueError(f"{context}: no such bucket") from exc
-            if code in _AUTH_ERROR_CODES or status == 401:
-                raise ProbeConnectionError(
-                    f"{context}: credential rejected ({code})"
-                ) from exc
-            if code == "AccessDenied":
-                message = f"{context}: access denied, so this could not be listed"
-                (self.failures if whole else self.warnings).append(message)
+            if code == "NoSuchKey":
+                raise ValueError(f"{context}: no such object") from exc
+            if code == "AccessDenied" or code in _REGION_ERROR_CODES:
+                why = (
+                    "access denied"
+                    if code == "AccessDenied"
+                    else "the bucket is in another region than the client; set "
+                    "aws_region"
+                )
+                (self.failures if whole else self.warnings).append(
+                    f"{context}: {why}, so this could not be listed"
+                )
                 return
-            raise
+            raise ProbeConnectionError(
+                f"{context}: the storage request failed ({code or status})"
+            ) from exc
+        except ParamValidationError as exc:
+            raise ValueError(
+                f"{context}: the request was refused before it was sent "
+                f"({aws_error_code(exc)})"
+            ) from exc
+        except BotoCoreError as exc:
+            raise ProbeConnectionError(
+                f"{context}: could not reach storage or load credentials "
+                f"({aws_error_code(exc)})"
+            ) from exc
 
     def _take(
         self, listing: Callable[[], Iterable[T]], limit: int, context: str
     ) -> List[T]:
+        self._refuse_if_unavailable()
         # A factory, not an iterable: the listing is created inside the error
         # context, so a helper that raises on the call rather than on the first
         # item is classified too.
@@ -117,6 +192,7 @@ class S3CompatibleMetadataProbe:
         return out
 
     def _spec(self, index: int) -> PathSpec:
+        self._refuse_if_unavailable()
         if not 0 <= index < len(self._path_specs):
             raise ValueError(
                 f"path_spec {index} does not exist; the recipe has "
