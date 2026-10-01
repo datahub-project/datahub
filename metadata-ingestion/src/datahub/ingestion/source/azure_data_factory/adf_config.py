@@ -1,21 +1,31 @@
 """Configuration classes for Azure Data Factory connector."""
 
-from typing import Optional
+from typing import Annotated, Optional, Sequence, Set
 
 from pydantic import Field
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.agent.verdicts import ancestors_in
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
+from datahub.ingestion.source.common.subtypes import FlowContainerSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+# ADF pipelines are DataFlows with no subtype and activities are DataJobs whose
+# subtype varies by activity type, so neither has a DataHub subtype `probe filter
+# --kind` could name. Declared here so the probe's kind= and the Filters()
+# declaration below cannot drift apart. FlowContainerSubTypes.MATILLION_PIPELINE
+# also spells "Pipeline", but it names another connector's container.
+ADF_PIPELINE_KIND = "Pipeline"
+ADF_ACTIVITY_KIND = "Activity"
 
 
 class AzureDataFactoryConfig(
@@ -60,7 +70,9 @@ class AzureDataFactoryConfig(
     )
 
     # Filtering
-    factory_pattern: AllowDenyPattern = Field(
+    factory_pattern: Annotated[
+        AllowDenyPattern, Filters(FlowContainerSubTypes.ADF_DATA_FACTORY)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter Data Factories by name. "
@@ -68,7 +80,7 @@ class AzureDataFactoryConfig(
         ),
     )
 
-    pipeline_pattern: AllowDenyPattern = Field(
+    pipeline_pattern: Annotated[AllowDenyPattern, Filters(ADF_PIPELINE_KIND)] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter pipelines by name. "
@@ -133,3 +145,30 @@ class AzureDataFactoryConfig(
             "no longer exist in Azure Data Factory."
         ),
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Lazy: adf_probe imports adf_source, which imports this module.
+        from datahub.ingestion.source.azure_data_factory.adf_probe import (
+            AzureDataFactoryMetadataProbe,
+        )
+
+        return AzureDataFactoryMetadataProbe
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Every top-level activity of a kept pipeline is ingested; ADF has no
+        activity pattern. Declared so `probe filter --kind Activity` says
+        "unfiltered" rather than "unresolved"."""
+        return {ADF_ACTIVITY_KIND}
+
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        """Pipelines are fetched only for factories factory_pattern keeps, and
+        activities only for pipelines pipeline_pattern keeps
+        (AzureDataFactorySource.get_workunits_internal / _process_pipelines)."""
+        return ancestors_in(
+            (str(FlowContainerSubTypes.ADF_DATA_FACTORY), ADF_PIPELINE_KIND),
+            kind,
+            (ADF_ACTIVITY_KIND,),
+        )
