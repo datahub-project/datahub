@@ -1329,6 +1329,8 @@ class TestChartRefStrategies:
             element_warehouse_table_index={},
             elementId_to_chart_urn={},
             workbook_dm_url_ids=workbook_dm_url_ids,
+            # The chart's lineage is known and has no non-DM source.
+            chart_source_names=frozenset(),
         )
 
     @pytest.mark.parametrize(

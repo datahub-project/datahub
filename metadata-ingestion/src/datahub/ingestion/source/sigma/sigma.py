@@ -3757,7 +3757,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         element_warehouse_table_index: Dict[str, List[str]],
         elementId_to_chart_urn: Dict[str, str],
         workbook_dm_url_ids: FrozenSet[str] = frozenset(),
-        chart_source_names: Optional[FrozenSet[str]] = frozenset(),
+        chart_source_names: Optional[FrozenSet[str]] = None,
     ) -> Optional[Tuple[str, str]]:
         """Resolve a single bracket ref to (entity_urn, field_path), or None.
 
@@ -4422,7 +4422,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_chart_urn: Dict[str, str],
         wb_only_warehouse_keys: FrozenSet[str] = frozenset(),
         workbook_dm_url_ids: FrozenSet[str] = frozenset(),
-        chart_source_names: Optional[FrozenSet[str]] = frozenset(),
+        chart_source_names: Optional[FrozenSet[str]] = None,
     ) -> List[InputFieldClass]:
         """Emit exactly one InputField per chart column.
 
@@ -4577,17 +4577,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not sibling_pending:
             return fields
         known = dict(upstreams_by_column)
+        # Matched once, against every column, so an exact spelling with no
+        # upstream is not replaced by a case variant with one.
+        siblings_of: Dict[str, List[str]] = {}
+        for column, pending in sibling_pending.items():
+            matched = (_match_name(name, columns) for name in pending.sibling_names)
+            siblings_of[column] = [
+                sibling for sibling in matched if sibling is not None
+            ]
         changed = True
         while changed:
             changed = False
-            for column, pending in sibling_pending.items():
+            for column in sibling_pending:
                 union = list(known.get(column, []))
-                for name in pending.sibling_names:
-                    # Matched against every column, so an exact spelling with
-                    # no upstream is not replaced by a case variant with one.
-                    sibling = _match_name(name, columns)
-                    if sibling is not None:
-                        union.extend(known.get(sibling, []))
+                for sibling in siblings_of[column]:
+                    union.extend(known.get(sibling, []))
                 union = list(dict.fromkeys(union))
                 if len(union) > len(known.get(column, [])):
                     known[column] = union
@@ -4788,7 +4792,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             # After the input fields, so a Data Model element the loaded-DM
             # lookup resolved is an entity input as well as a column input.
-            for dm_urn in sorted(self._loaded_dm_chart_inputs.pop(element.elementId, ())):
+            for dm_urn in sorted(
+                self._loaded_dm_chart_inputs.pop(element.elementId, ())
+            ):
                 dataset_inputs.setdefault(dm_urn, [])
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
