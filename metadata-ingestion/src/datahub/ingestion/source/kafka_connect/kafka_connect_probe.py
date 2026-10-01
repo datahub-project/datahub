@@ -15,6 +15,7 @@ from typing import Any, Dict, FrozenSet, List, Optional
 import requests
 from typing_extensions import LiteralString
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeReadFailed
 from datahub.ingestion.api.source import (
@@ -34,6 +35,7 @@ from datahub.ingestion.source.kafka_connect.connector_registry import (
     ConnectorRegistry,
 )
 from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
+from datahub.metadata.schema_classes import DataJobInputOutputClass
 
 # Ingestion's Connect calls pass no timeout, which a long run tolerates. A probe
 # is a short diagnostic an agent waits on; a hung worker must fail it.
@@ -428,3 +430,40 @@ class KafkaConnectMetadataProbe:
         topics = self._source._get_all_topics_from_kafka_api()
         # None means unavailable, and the reason is already on the report.
         return sorted(topics)[:limit] if topics is not None else []
+
+    @probe_method(row_limit_param="limit", parent_params=("connector",))
+    def connector_lineage(
+        self, connector: str, limit: int = 200
+    ) -> List[Dict[str, object]]:
+        """The DataJobs ingestion would emit for one connector, each with the
+        dataset URNs it reads and writes -- after platform_instance_map,
+        connect_to_platform_map, generic_connectors and
+        convert_lineage_urns_to_lowercase, so a URN here is the one to compare
+        against the upstream source's datasets. `fine_grained_edges` counts
+        column-level edges. Shown even for a connector connector_patterns would
+        exclude; empty, with the reason in warnings, for a connector ingestion
+        does not emit."""
+        resolved = self._resolve(connector)
+        if resolved.manifest is None or not resolved.emitted:
+            return []
+        edges: List[Dict[str, object]] = []
+        # construct_job_workunits is what ingestion emits, so the URNs are not
+        # re-derived here and cannot drift from it.
+        for wu in self._source.construct_job_workunits(resolved.manifest):
+            mcp = wu.metadata
+            if not (
+                isinstance(mcp, MetadataChangeProposalWrapper)
+                and isinstance(mcp.aspect, DataJobInputOutputClass)
+            ):
+                continue
+            edges.append(
+                {
+                    "job": str(mcp.entityUrn),
+                    "inputs": list(mcp.aspect.inputDatasets),
+                    "outputs": list(mcp.aspect.outputDatasets),
+                    "fine_grained_edges": len(mcp.aspect.fineGrainedLineages or []),
+                }
+            )
+            if len(edges) >= limit:
+                break
+        return edges
