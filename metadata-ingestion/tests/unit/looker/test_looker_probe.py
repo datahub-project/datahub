@@ -306,6 +306,8 @@ def test_no_listing_carries_credentials_users_or_personal_folders() -> None:
         ("looks", {}),
         ("models", {}),
         ("explores", {"model": "sales"}),
+        ("explores", {"model": "sales", "trace_charts": True}),
+        ("looks", {"trace_charts": True}),
         ("permissions", {}),
     ):
         dumped = json.dumps(_run(command, params, **_LOOKS_ON))
