@@ -226,8 +226,9 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         kind=DatasetSubTypes.VIEW, row_limit_param="limit", parent_params=("schema",)
     )
     def views(self, schema: str, limit: int = 200) -> List[str]:
-        """Views and materialized views in one schema, judged by view_pattern.
-        Separate from `tables` for the reason given there."""
+        """Views and materialized views in one schema, judged by view_pattern
+        and then table_pattern, as ingestion judges them. Separate from
+        `tables` for the reason given there."""
         return [r.name for r in self._relations(schema) if r.is_view][:limit]
 
     def _listed_schema(self, schema: str) -> "RedshiftSchema":

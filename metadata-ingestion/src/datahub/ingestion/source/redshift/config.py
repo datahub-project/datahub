@@ -19,12 +19,14 @@ from datahub.ingestion.agent.sql_gate import (
     INFORMATION_SCHEMA,
     CatalogScope,
 )
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, pattern_verdict
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
@@ -322,6 +324,21 @@ class RedshiftConfig(
             else:
                 values["options"] = {"connect_args": values["extra_client_options"]}
         return values
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # Mirrors redshift.py: cache_tables_and_views keeps the views
+        # view_pattern allows, then _process_view drops any that table_pattern
+        # refuses, both matched on dataset_name(database, schema, view). So a
+        # view needs both patterns to allow it. view_pattern is checked first
+        # there, and is left to report itself here; pattern_verdict reads this
+        # config, so --try-allow/--try-deny on views reach the first check and
+        # table_pattern still applies after it, as it would in a run.
+        if str(ctx.kind) != str(DatasetSubTypes.VIEW) or ctx.structural is not None:
+            return None
+        if not pattern_verdict(self, ctx.pattern_field, ctx.target).included:
+            return None
+        verdict = pattern_verdict(self, "table_pattern", ctx.target)
+        return None if verdict.included else verdict
 
     @classmethod
     def probe_provider_class(cls) -> type:
