@@ -549,12 +549,22 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on Api {
         urn
         type
+        exists
         properties {
             name
             description
+            externalUrl
+        }
+        dataPlatformInstance {
+            platform {
+                ...platformFields
+            }
         }
         subTypes {
             typeNames
+        }
+        status {
+            removed
         }
     }
     ... on Restricted {

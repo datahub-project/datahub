@@ -239,6 +239,7 @@ export class ApiEntity implements Entity<Api> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.RELATED_DOCUMENTS,
         ]);
