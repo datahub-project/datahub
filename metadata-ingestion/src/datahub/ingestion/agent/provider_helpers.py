@@ -15,9 +15,24 @@ not raise.
 
 import itertools
 from dataclasses import dataclass
-from typing import Callable, Generic, Iterable, Iterator, List, Optional, TypeVar
+from types import TracebackType
+from typing import (
+    Callable,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+)
 
-from datahub.ingestion.agent.verdicts import ProbeArgumentError
+from datahub.ingestion.agent.error_policy import withhold_foreign_text
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeSoftError,
+    soft_error_for,
+)
 
 T = TypeVar("T")
 
@@ -227,3 +242,56 @@ class PersonalWithholding(Generic[T]):
         """The count for a warning. A walk that stopped at the limit saw only
         part of the source, so its count is a lower bound."""
         return f"at least {self.withheld}" if stopped_early else str(self.withheld)
+
+
+class soft_listing:
+    """One sub-listing that may degrade: a ProbeSoftError -- or an HTTP error
+    whose status is in `codes` -- becomes a warning, and the caller's own
+    fallback after the block is the answer.
+
+        with soft_listing(self._warn, 403, 404, context="reports listing"):
+            return fetch()
+        return []
+
+    "Could not look" must never read as "nothing here", which is why the
+    reason is always recorded. Everything else propagates untouched, so auth
+    and 5xx failures still fail the command. A class rather than a
+    @contextmanager because mypy treats a `with` as possibly suppressing only
+    when __exit__ returns bool: the fallback stays reachable, and a missing
+    one is reported as a missing return.
+
+    The recorded text has any foreign exception's text withheld (class name
+    instead) -- a backstop for a connector translator that quoted one.
+    """
+
+    def __init__(
+        self, warn: Callable[[str], None], *codes: int, context: Optional[str] = None
+    ) -> None:
+        if codes and context is None:
+            raise TypeError("soft_listing needs a context to map HTTP statuses")
+        self._warn = warn
+        self._codes = codes
+        self._context = context or ""
+
+    def __enter__(self) -> None:
+        return None
+
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> bool:
+        if not isinstance(exc, Exception):
+            return False
+        soft = exc if isinstance(exc, ProbeSoftError) else None
+        if soft is None and self._codes:
+            soft = soft_error_for(exc, self._codes, self._context)
+            if soft is not None:
+                soft.__cause__ = exc
+        if soft is None:
+            return False
+        # No provider files: every non-framework exception in the chain counts
+        # as foreign, which only ever withholds more.
+        self._warn(withhold_foreign_text(soft, frozenset()))
+        return True

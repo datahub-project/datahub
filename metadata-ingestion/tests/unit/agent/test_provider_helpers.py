@@ -1,7 +1,7 @@
 """agent.provider_helpers: the plumbing every probe provider used to hand-write."""
 
 from dataclasses import dataclass
-from typing import Iterator, List
+from typing import Iterator, List, Optional
 
 import pytest
 
@@ -10,9 +10,16 @@ from datahub.ingestion.agent.provider_helpers import (
     Resolved,
     echoed,
     resolve_name,
+    soft_listing,
     take,
 )
-from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeReadFailed
+from datahub.ingestion.agent.verdicts import (
+    ProbeArgumentError,
+    ProbeReadFailed,
+    ProbeSoftError,
+)
+from tests.unit.agent import _foreign_errors
+from tests.unit.agent._foreign_errors import SENTINEL
 
 
 @dataclass(frozen=True)
@@ -248,3 +255,80 @@ def test_withholding_counts_only_what_a_cut_short_walk_saw() -> None:
     assert withholding.withheld == 1
     assert withholding.count_text(stopped_early=True) == "at least 1"
     assert withholding.count_text(stopped_early=False) == "1"
+
+
+class _Response:
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+
+
+class _HttpError(Exception):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"{status_code} for https://host/api?token={SENTINEL}")
+        self.response = _Response(status_code)
+
+
+def _reports(warnings: List[str], error: Optional[BaseException]) -> List[str]:
+    with soft_listing(warnings.append, 403, 404, context="reports listing"):
+        if error is not None:
+            raise error
+        return ["Weekly"]
+    return []
+
+
+def test_a_clean_listing_passes_through_without_a_warning() -> None:
+    warnings: List[str] = []
+    assert _reports(warnings, None) == ["Weekly"]
+    assert warnings == []
+
+
+def test_a_listed_status_degrades_to_the_fallback_with_a_warning() -> None:
+    warnings: List[str] = []
+    assert _reports(warnings, _HttpError(403)) == []
+    assert warnings == ["reports listing returned HTTP 403; treating it as empty."]
+    assert SENTINEL not in warnings[0]
+
+
+def test_an_unlisted_status_propagates_untouched() -> None:
+    error = _HttpError(401)
+    with pytest.raises(_HttpError) as info:
+        _reports([], error)
+    assert info.value is error
+
+
+def test_a_soft_error_raised_by_a_connector_translator_degrades_without_codes() -> None:
+    warnings: List[str] = []
+
+    def site() -> Optional[str]:
+        with soft_listing(warnings.append):
+            raise ProbeSoftError("site details returned Tableau error 403069")
+        return None
+
+    assert site() is None
+    assert warnings == ["site details returned Tableau error 403069"]
+
+
+def test_a_soft_error_quoting_foreign_text_is_recorded_without_it() -> None:
+    warnings: List[str] = []
+    with soft_listing(warnings.append):
+        try:
+            _foreign_errors.fetch()
+        except RuntimeError as exc:
+            raise ProbeSoftError(f"listing said {exc}") from exc
+    assert len(warnings) == 1
+    assert SENTINEL not in warnings[0]
+    assert "(RuntimeError)" in warnings[0]
+
+
+def test_codes_without_a_context_is_a_programming_error() -> None:
+    sink: List[str] = []
+    with pytest.raises(TypeError):
+        soft_listing(sink.append, 403)
+
+
+def test_a_base_exception_is_never_swallowed() -> None:
+    sink: List[str] = []
+    with pytest.raises(KeyboardInterrupt):
+        with soft_listing(sink.append, 403, context="x"):
+            raise KeyboardInterrupt()
+    assert sink == []

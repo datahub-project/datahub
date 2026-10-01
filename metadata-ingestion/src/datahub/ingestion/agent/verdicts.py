@@ -225,6 +225,23 @@ class ProbeInternalError(Exception):
     """
 
 
+def soft_error_for(
+    exc: BaseException, codes: Collection[int], context: str
+) -> Optional[ProbeSoftError]:
+    """The ProbeSoftError soft_on_status turns `exc` into, or None.
+
+    Duck-types on `.response.status_code`, so the framework takes no
+    HTTP-library dependency. The message names the context and the status
+    only, never the exception's text.
+    """
+    status = getattr(getattr(exc, "response", None), "status_code", None)
+    if status in codes:
+        return ProbeSoftError(
+            f"{context} returned HTTP {status}; treating it as empty."
+        )
+    return None
+
+
 @contextmanager
 def soft_on_status(*codes: int, context: str) -> Iterator[None]:
     """Treat the given HTTP statuses as expected absence, not failure.
@@ -239,11 +256,9 @@ def soft_on_status(*codes: int, context: str) -> Iterator[None]:
     try:
         yield
     except Exception as exc:
-        status = getattr(getattr(exc, "response", None), "status_code", None)
-        if status in codes:
-            raise ProbeSoftError(
-                f"{context} returned HTTP {status}; treating it as empty."
-            ) from exc
+        soft = soft_error_for(exc, codes, context)
+        if soft is not None:
+            raise soft from exc
         raise
 
 
