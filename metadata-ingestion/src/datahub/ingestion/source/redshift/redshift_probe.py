@@ -1,14 +1,31 @@
 import logging
-from typing import Any, List
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, List, Optional
 
+from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_passthrough import (
     PROBE_QUERY_LABEL,
     CatalogRows,
     SqlCatalogPassthrough,
 )
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 
+if TYPE_CHECKING:
+    from datahub.ingestion.source.redshift.redshift_schema import RedshiftSchema
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _Relation:
+    schema: str
+    name: str
+    is_view: bool
+    definition: Optional[str]
 
 
 class RedshiftMetadataProbe(SqlCatalogPassthrough):
@@ -31,6 +48,8 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         self._connection = connection
         self._config = config
         self.warnings: List[str] = []
+        self._shared: Optional[bool] = None
+        self._all_relations: Optional[List[_Relation]] = None
 
     @classmethod
     def for_config(cls, config: RedshiftConfig) -> "RedshiftMetadataProbe":
@@ -90,3 +109,118 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
             )
         finally:
             cursor.close()
+
+    # The catalog reads below go through RedshiftDataDictionary and
+    # RedshiftCommonQuery, the code ingestion runs. RedshiftCommonQuery builds
+    # its SQL with f-strings, so the rule throughout is that only the recipe's
+    # own `database` and names the catalog itself returned may reach it -- never
+    # a string the caller passed. Imported lazily for the reason given in
+    # for_config: redshift_schema pulls in redshift_connector and sqlglot.
+
+    def _is_shared_database(self) -> bool:
+        # The same test get_workunits_internal makes before choosing which
+        # catalog to read. Cached: tables, views and columns each need it.
+        from datahub.ingestion.source.redshift.redshift_schema import (
+            RedshiftDataDictionary,
+        )
+
+        if self._shared is None:
+            db = RedshiftDataDictionary.get_database_details(
+                self._connection, self._config.database
+            )
+            self._shared = db is not None and db.is_shared_database()
+        return self._shared
+
+    def _schemas(self) -> List["RedshiftSchema"]:
+        from datahub.ingestion.source.redshift.redshift_schema import (
+            RedshiftDataDictionary,
+        )
+
+        # extract_ownership=False whatever the recipe says: the ownership join
+        # reads pg_catalog.pg_user, and user names are not schema shape.
+        return RedshiftDataDictionary.get_schemas(
+            conn=self._connection,
+            database=self._config.database,
+            extract_ownership=False,
+        )
+
+    def _relations(self, schema: str) -> List[_Relation]:
+        from datahub.ingestion.source.redshift.query import RedshiftCommonQuery
+        from datahub.ingestion.source.redshift.redshift_schema import (
+            REDSHIFT_VIEW_TABLE_TYPES,
+            RedshiftDataDictionary,
+        )
+
+        if self._all_relations is None:
+            # list_tables, not get_tables_and_views: the latter first runs
+            # enrich_tables (svv_table_info joined to stl_insert), which needs
+            # grants a metadata probe should not, and a failure there would
+            # sink a listing that needs none of it. The query is
+            # database-wide, as ingestion runs it; the schema is matched in
+            # Python below, so the caller's string never reaches SQL.
+            cursor = RedshiftDataDictionary.get_query_result(
+                self._connection,
+                RedshiftCommonQuery.list_tables(
+                    database=self._config.database,
+                    skip_external_tables=self._config.skip_external_tables,
+                    is_shared_database=self._is_shared_database(),
+                    extract_ownership=False,
+                ),
+            )
+            fields = [d[0] for d in cursor.description]
+            at = {
+                name: fields.index(name)
+                for name in ("schema", "relname", "tabletype", "view_definition")
+            }
+            self._all_relations = [
+                _Relation(
+                    schema=row[at["schema"]],
+                    name=row[at["relname"]],
+                    is_view=row[at["tabletype"]] in REDSHIFT_VIEW_TABLE_TYPES,
+                    definition=row[at["view_definition"]],
+                )
+                for row in cursor.fetchall()
+            ]
+        found = [r for r in self._all_relations if r.schema == schema]
+        if not found:
+            # Ingestion reports the same condition ("No tables found in some
+            # schemas ... insufficient privileges"); an empty list without it
+            # reads as "this schema is empty".
+            self.warnings.append(
+                f"no tables or views are visible in schema '{schema}': it may "
+                f"not exist in database '{self._config.database}', or this user "
+                f"may lack privileges on it; `containers` lists the schemas "
+                f"this recipe can see"
+            )
+        return found
+
+    @probe_method(kind=DatasetContainerSubTypes.SCHEMA, row_limit_param="limit")
+    def containers(self, limit: int = 200) -> List[str]:
+        """Schemas in the recipe's database, as ingestion walks them: local
+        schemas from svv_redshift_schemas plus every external (Spectrum)
+        schema, which Redshift does not scope to one database. pg_catalog and
+        information_schema are left out, as ingestion leaves them out.
+        Includes schemas schema_pattern would exclude, so `probe filter --kind
+        Schema` can explain them. Metadata only."""
+        return [s.name for s in self._schemas()][:limit]
+
+    @probe_method(
+        kind=DatasetSubTypes.TABLE, row_limit_param="limit", parent_params=("schema",)
+    )
+    def tables(self, schema: str, limit: int = 200) -> List[str]:
+        """Tables in one schema, as ingestion classifies them: regular, foreign
+        and external tables, never views or materialized views. External
+        tables are left out when the recipe sets skip_external_tables, because
+        ingestion never enumerates them and no pattern decides that. On a
+        datashare-consumer database this reads svv_redshift_tables, as
+        ingestion does. Includes tables table_pattern would exclude. The schema
+        travels with the result, so `probe filter` needs no --parent."""
+        return [r.name for r in self._relations(schema) if not r.is_view][:limit]
+
+    @probe_method(
+        kind=DatasetSubTypes.VIEW, row_limit_param="limit", parent_params=("schema",)
+    )
+    def views(self, schema: str, limit: int = 200) -> List[str]:
+        """Views and materialized views in one schema, judged by view_pattern.
+        Separate from `tables` for the reason given there."""
+        return [r.name for r in self._relations(schema) if r.is_view][:limit]

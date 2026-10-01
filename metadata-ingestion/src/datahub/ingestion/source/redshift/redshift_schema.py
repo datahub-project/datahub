@@ -24,6 +24,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 # identified in Redshift query logs (AWS Redshift Ready / GIF-005).
 REDSHIFT_QUERY_TAG_COMMENT_TEMPLATE = "-- partner: DataHub -v {version}\n"
 
+# What get_tables_and_views files under views rather than tables. Shared with
+# the probe so a materialized view is a View in both places.
+REDSHIFT_VIEW_TABLE_TYPES: Tuple[str, ...] = ("MATERIALIZED VIEW", "VIEW")
+
 
 def unescape_stl_query_text(text: str) -> str:
     """Convert Redshift STL literal escape sequences back to real characters.
@@ -428,10 +432,7 @@ class RedshiftDataDictionary:
             schema = table[field_names.index("schema")]
             table_name = table[field_names.index("relname")]
 
-            if table[field_names.index("tabletype")] not in [
-                "MATERIALIZED VIEW",
-                "VIEW",
-            ]:
+            if table[field_names.index("tabletype")] not in REDSHIFT_VIEW_TABLE_TYPES:
                 if schema not in tables:
                     tables.setdefault(schema, [])
 

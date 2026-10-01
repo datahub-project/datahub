@@ -165,3 +165,178 @@ def test_sql_passthrough_returns_columns_and_detects_truncation() -> None:
     # Sent without bind values, so the driver does not reinterpret a `%`
     # inside a LIKE literal as a paramstyle placeholder.
     assert conn.bound == [None]
+
+
+_DB_COLUMNS = ["database_name", "database_type", "database_options"]
+_DB_DETAILS: Route = ("database_options", _DB_COLUMNS, [["dev", "local", None]])
+_SHARED_DB: Route = ("database_options", _DB_COLUMNS, [["dev", "shared", None]])
+_SCHEMAS: Route = (
+    "schema_type",
+    [
+        "schema_name",
+        "schema_type",
+        "schema_owner_name",
+        "schema_option",
+        "external_platform",
+        "external_database",
+    ],
+    [
+        ["public", "local", None, None, None, None],
+        ["ext_schema", "external", None, None, "GLUE", "lake"],
+    ],
+)
+_REL_COLUMNS = ["tabletype", "schema", "relname", "view_definition"]
+_RELATIONS: Route = (
+    "tabletype",
+    _REL_COLUMNS,
+    [
+        ["TABLE", "public", "orders", None],
+        ["VIEW", "public", "v_orders", "select * from orders"],
+        ["MATERIALIZED VIEW", "public", "mv_orders", "select 1"],
+        ["FOREIGN TABLE", "public", "f_orders", None],
+        ["EXTERNAL_TABLE", "ext_schema", "clicks", None],
+        ["TABLE", "other", "unrelated", None],
+    ],
+)
+
+# Each one a way out of a quoted SQL literal or statement: a closing quote, a
+# UNION, a second statement, and both comment markers.
+_HOSTILE_NAMES = [
+    "public' OR '1'='1",
+    "x' UNION SELECT usename FROM pg_user --",
+    "public'; DROP TABLE orders; --",
+    "public' /* comment */",
+    'public" --',
+]
+
+
+def _assert_never_sent(conn: _FakeConnection, payload: str) -> None:
+    assert not any(payload in q for q in conn.executed), conn.executed
+    assert not any(payload in str(b) for b in conn.bound if b is not None)
+
+
+def test_containers_are_the_schemas_ingestion_walks() -> None:
+    conn = _FakeConnection(routes=[_SCHEMAS])
+    assert _probe(conn).containers(limit=200) == ["public", "ext_schema"]
+    # extract_ownership would join pg_catalog.pg_user: user names are not
+    # schema shape and the probe must not read them.
+    assert not any("pg_user" in q for q in conn.executed)
+
+
+def test_tables_and_views_split_like_ingestion() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    probe = _probe(conn)
+    assert probe.tables(schema="public", limit=200) == ["orders", "f_orders"]
+    assert probe.views(schema="public", limit=200) == ["v_orders", "mv_orders"]
+    assert not any("pg_user" in q for q in conn.executed)
+
+
+def test_listing_never_enriches_from_operational_history() -> None:
+    # get_tables_and_views would first run enrich_tables (svv_table_info joined
+    # to stl_insert): grants a metadata probe should not need.
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    _probe(conn).tables(schema="public", limit=200)
+    assert not any("stl_insert" in q or "svv_table_info" in q for q in conn.executed)
+
+
+@pytest.mark.parametrize("hostile", _HOSTILE_NAMES)
+@pytest.mark.parametrize("command", ["tables", "views"])
+def test_listing_filters_the_schema_in_python_not_in_sql(
+    command: str, hostile: str
+) -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    assert getattr(_probe(conn), command)(schema=hostile, limit=200) == []
+    _assert_never_sent(conn, hostile)
+
+
+def test_skip_external_tables_is_honoured() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    _probe(conn, skip_external_tables=True).tables(schema="ext_schema", limit=200)
+    listing = [q for q in conn.executed if "tabletype" in q][0]
+    assert "svv_external_tables" not in listing
+
+
+def test_external_tables_are_listed_by_default() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    assert _probe(conn).tables(schema="ext_schema", limit=200) == ["clicks"]
+    listing = [q for q in conn.executed if "tabletype" in q][0]
+    assert "svv_external_tables" in listing
+
+
+def test_shared_database_lists_through_svv_redshift_tables() -> None:
+    shared: Route = (
+        "FROM svv_redshift_tables",
+        _REL_COLUMNS,
+        [["TABLE", "public", "orders", None]],
+    )
+    conn = _FakeConnection(routes=[_SHARED_DB, shared])
+    assert _probe(conn).tables(schema="public", limit=200) == ["orders"]
+
+
+def test_database_type_is_read_once_per_probe() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    probe = _probe(conn)
+    probe.tables(schema="public", limit=200)
+    probe.views(schema="public", limit=200)
+    assert sum("database_options" in q for q in conn.executed) == 1
+
+
+def test_an_empty_schema_says_why_rather_than_looking_empty() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    probe = _probe(conn)
+    assert probe.views(schema="nothing_here", limit=200) == []
+    assert probe.warnings
+
+
+def test_a_failing_catalog_query_propagates() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS], fail_on="tabletype")
+    with pytest.raises(RuntimeError):
+        _probe(conn).tables(schema="public", limit=200)
+
+
+def test_run_reports_kind_and_parent(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datahub.ingestion.agent.probe_methods import run_probe_method
+
+    _connect_with(monkeypatch, _FakeConnection(routes=[_DB_DETAILS, _RELATIONS]))
+
+    result = run_probe_method(
+        "redshift", dict(_RECIPE), "views", {"schema": "public", "limit": 1}
+    )
+
+    assert result.kind == "View"
+    assert result.parent_path == ["public"]
+    assert result.result == ["v_orders"]
+    assert result.truncated is True
+
+
+def test_run_reports_containers_as_schemas(monkeypatch: pytest.MonkeyPatch) -> None:
+    from datahub.ingestion.agent.probe_methods import run_probe_method
+
+    _connect_with(monkeypatch, _FakeConnection(routes=[_SCHEMAS]))
+
+    result = run_probe_method("redshift", dict(_RECIPE), "containers", {})
+
+    assert result.kind == "Schema"
+    assert result.result == ["public", "ext_schema"]
+
+
+def test_a_catalog_timeout_is_not_reported_as_an_empty_listing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.ingestion.agent.probe_methods import run_probe_method
+
+    _connect_with(
+        monkeypatch,
+        _FakeConnection(routes=[_DB_DETAILS, _RELATIONS], fail_on="tabletype"),
+    )
+
+    with pytest.raises(RuntimeError, match="statement timeout"):
+        run_probe_method("redshift", dict(_RECIPE), "tables", {"schema": "public"})
+
+
+def test_probe_methods_advertises_what_the_provider_serves() -> None:
+    from datahub.ingestion.agent.probe_methods import list_probe_methods
+
+    commands = {spec.command for spec in list_probe_methods("redshift")}
+    assert {"containers", "tables", "views", "sql"} <= commands
+    assert not commands & {"foreign_keys", "primary_key", "indexes", "table_comment"}
