@@ -147,6 +147,37 @@ source:
   characters (except `.`) are replaced with `_`.
 - Partition key columns are also processed.
 
+#### Checking a recipe before ingesting
+
+`datahub recipe probe` lists what the catalog holds and says what your recipe would keep, using
+the same credentials, role assumption and retry settings as ingestion. It reads catalog listings
+only — never table data, job arguments or free-form parameters — and needs no IAM permission
+beyond what ingestion needs.
+
+```shell
+datahub recipe probe run databases --recipe recipe.yml --report-to dbs.json
+datahub recipe probe filter --recipe recipe.yml --from-run dbs.json
+datahub recipe probe run tables --recipe recipe.yml --database sales --report-to t.json
+datahub recipe probe filter --recipe recipe.yml --from-run t.json
+datahub recipe probe run columns --recipe recipe.yml --database sales --table orders
+datahub recipe probe run jobs --recipe recipe.yml
+datahub recipe probe run job_nodes --recipe recipe.yml --job nightly_load
+```
+
+Matching rules worth knowing when writing patterns:
+
+- `database_pattern` is matched against the database name.
+- `table_pattern` is matched against `<database>.<table>`, for views as well as tables, so write
+  `^sales\.orders$` rather than `^orders$`.
+- `ignore_resource_links` and `catalog_id` drop databases and tables by facts that are not in
+  their names. Judge the output of `probe run` with `--from-run` to apply them; with bare `--name`
+  values the probe warns that it could not.
+- Glue jobs are not filtered by any pattern; `extract_transforms: false` turns them all off.
+
+If Lake Formation or IAM denies listing one database's tables, `probe run tables` returns an
+empty list with a warning naming the denied action, as ingestion skips that database's tables
+with a warning.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
