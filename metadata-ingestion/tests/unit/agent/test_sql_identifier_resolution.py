@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, Inspector
 
+from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
 
@@ -237,3 +238,40 @@ def test_a_dialect_without_materialized_views_still_refuses_cleanly() -> None:
     with pytest.raises(ProbeArgumentError):
         probe.columns(schema="public", table="daily_totals")
     assert fake.reflected == []
+
+
+def test_a_dialect_that_cannot_list_schemas_exits_on_the_unsupported_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Resolving a schema now lists schemas first, so a dialect without
+    get_schema_names fails there. It must still reach run_probe_method's
+    "does not support" branch (a ValueError, exit 2) rather than escape as a
+    foreign error the CLI reports as an unreachable source (exit 3)."""
+    db = tmp_path / "t.db"
+    seed = create_engine(f"sqlite:///{db}")
+    with seed.begin() as c:
+        c.exec_driver_sql("CREATE TABLE orders (id INTEGER)")
+    seed.dispose()
+
+    reflected: List[str] = []
+
+    def no_schemas(self: Inspector) -> List[str]:
+        raise NotImplementedError()
+
+    def table_names(self: Inspector, schema: str) -> List[str]:
+        reflected.append(schema)
+        return []
+
+    monkeypatch.setattr(Inspector, "get_schema_names", no_schemas)
+    monkeypatch.setattr(Inspector, "get_table_names", table_names)
+
+    with pytest.raises(ValueError) as info:
+        run_probe_method(
+            "sqlalchemy",
+            {"platform": "sqlite", "connect_uri": f"sqlite:///{db}"},
+            "tables",
+            {"schema": "main"},
+        )
+    assert not isinstance(info.value, ProbeArgumentError)
+    assert "tables" in str(info.value)
+    assert reflected == []

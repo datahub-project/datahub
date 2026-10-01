@@ -74,3 +74,15 @@ def test_the_echoed_argument_is_clipped_and_escaped() -> None:
     message = str(info.value)
     assert "\x00" not in message
     assert len(message) < 300
+
+
+def test_a_hinted_listed_name_is_clipped_and_escaped_too() -> None:
+    # The server listed it, but a listed name can still be long or carry
+    # control characters, and the refusal is printed to a terminal.
+    listed = "Ab\x1b" + "c" * 500
+    with pytest.raises(ProbeArgumentError) as info:
+        _resolve(listed.lower(), [listed])
+    message = str(info.value)
+    assert "did you mean" in message
+    assert "\x1b" not in message
+    assert len(message) < 400

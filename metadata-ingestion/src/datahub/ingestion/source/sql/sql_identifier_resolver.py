@@ -57,7 +57,9 @@ def resolve_listed_name(
     near = sorted({c for c in seen if c.casefold() == folded})
     message = f"no {what} named {_echoed(name)} {where}"
     if near:
-        hints = ", ".join(repr(c) for c in near[:_MAX_HINTS])
+        # The server listed these, but a listed name can still be long, so
+        # it is clipped the same way.
+        hints = ", ".join(_echoed(c) for c in near[:_MAX_HINTS])
         message += (
             f"; did you mean {hints}? Names are matched exactly, as the "
             f"catalog lists them"
