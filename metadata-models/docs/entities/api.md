@@ -48,6 +48,32 @@ re-ingested, leaving catalog identity untouched. It carries:
 - **inputFields** / **outputFields**: A structured, typed view reusing DataHub's schema-field model,
   so nested/struct/array types, nullability, and field descriptions render with the standard schema
   components. Each field's `fieldPath` is the parameter name; `nullable=false` means a required argument.
+- **inputDatasetEdges** / **outputDatasetEdges**: The input and output schema _by reference_ — edges to
+  [Dataset](./dataset.md) entities that already model the payload (a protobuf message, an Avro record,
+  a shared DTO). Use these when the same message type is reused across many APIs or also flows through
+  topics and tables, so the schema is defined once. These are lineage edges (`Consumes` and
+  `Produces`), so the graph reads request dataset → API → response dataset. Each edge can carry
+  properties such as `streaming: server` for protocol details.
+
+A given side (input or output) should be expressed either inline or by reference. If both are present,
+the referenced dataset's schema is authoritative and the inline fields are treated as a cached or
+partial view.
+
+#### Example: a gRPC method over protobuf messages
+
+Ingest each protobuf `message` as a Dataset (the `datahub-protobuf` module does this, with full nested
+schemas). Then register each `rpc` as an API of subtype `GRPC_METHOD` whose signature points at those
+datasets:
+
+```yaml
+id: orders.OrderService/GetOrder
+name: GetOrder
+subtypes: [GRPC_METHOD]
+input_datasets:
+  - urn:li:dataset:(urn:li:dataPlatform:grpc,orders.GetOrderRequest,PROD)
+output_datasets:
+  - urn:li:dataset:(urn:li:dataPlatform:grpc,orders.Order,PROD)
+```
 
 ### REST Properties
 

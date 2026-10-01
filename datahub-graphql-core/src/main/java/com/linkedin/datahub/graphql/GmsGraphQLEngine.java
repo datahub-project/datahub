@@ -3549,6 +3549,40 @@ public class GmsGraphQLEngine {
                     "lineage",
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration)));
+    // Schema-by-reference on the signature: hydrate the input/output Dataset
+    // stubs (Consumes / Produces edges) so the signature can show the datasets'
+    // names, platforms and schemas. Empty list (not null) when absent — the
+    // batch resolver NPEs on a null provider result.
+    builder.type(
+        "ApiSignature",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "inputDatasets",
+                    new LoadableTypeBatchResolver<>(
+                        datasetType,
+                        (env) -> {
+                          final com.linkedin.datahub.graphql.generated.ApiSignature signature =
+                              env.getSource();
+                          return signature.getInputDatasets() == null
+                              ? new ArrayList<String>()
+                              : signature.getInputDatasets().stream()
+                                  .map(datasetType.getKeyProvider())
+                                  .collect(Collectors.toList());
+                        }))
+                .dataFetcher(
+                    "outputDatasets",
+                    new LoadableTypeBatchResolver<>(
+                        datasetType,
+                        (env) -> {
+                          final com.linkedin.datahub.graphql.generated.ApiSignature signature =
+                              env.getSource();
+                          return signature.getOutputDatasets() == null
+                              ? new ArrayList<String>()
+                              : signature.getOutputDatasets().stream()
+                                  .map(datasetType.getKeyProvider())
+                                  .collect(Collectors.toList());
+                        })));
   }
 
   private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {
