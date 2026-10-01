@@ -9,9 +9,10 @@ from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    JobContainerSubTypes,
 )
 from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
-from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
+from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_probe import (
     SqlAlchemyMetadataProbe,
@@ -336,3 +337,29 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
                     conn, schema=schema_name, table=name
                 )
             }
+
+    @probe_method(
+        kind=JobContainerSubTypes.STORED_PROCEDURE,
+        row_limit_param="limit",
+        parent_params=("database", "schema"),
+    )
+    def procedures(
+        self, schema: str, database: Optional[str] = None, limit: int = 200
+    ) -> List[str]:
+        """Stored procedures in one schema. Ingestion emits each as a DataJob
+        and matches procedure_pattern against `database.schema.procedure`.
+        Includes ones procedure_pattern would exclude, and is listed whatever
+        include_stored_procedures says; `probe filter --kind "Stored
+        Procedure"` reports what ingestion keeps. Names only: the procedure
+        body is not read. --database is required unless the recipe pins one."""
+        inspector, db_name = self._inspector_for(database)
+        if not db_name:
+            # Ingestion would query `[].[sys].[procedures]` here and fail.
+            raise ValueError(
+                "this recipe's connection names no database, and procedures are "
+                "read by database name; set `database` in the recipe"
+            )
+        _, schema_name, _ = self._schema(schema, database)
+        with inspector.bind.connect() as conn:
+            rows = SQLServerSource._get_stored_procedures(conn, db_name, schema_name)
+        return [str(row["name"]) for row in rows][:limit]
