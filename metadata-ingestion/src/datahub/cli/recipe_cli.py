@@ -29,6 +29,7 @@ from datahub.ingestion.agent.redact import (
     collect_nested_secret_values,
     collect_secret_values,
     redact,
+    scrub_text,
 )
 from datahub.ingestion.agent.secrets import (
     MappingResolver,
@@ -166,10 +167,8 @@ _USER_ERRORS: Tuple[Type[BaseException], ...] = (
 def _redacted_text(exc: BaseException, secret_values: Set[str]) -> str:
     # SECURITY: exception text is where credentials leak in practice -- a driver
     # echoing a connection string, a pydantic ValidationError echoing its
-    # input_value. Redact before it reaches stderr.
-    redacted = redact(str(exc), secret_values)
-    assert isinstance(redacted, str)
-    return redacted
+    # input_value. Scrub credential shapes, then registered values.
+    return scrub_text(str(exc), secret_values)
 
 
 @contextmanager
@@ -476,6 +475,14 @@ def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
     identifier they can see.
     """
     redacted = redact(payload, secret_values)
+    if isinstance(redacted, dict):
+        for key in ("warnings", "failures"):
+            items = redacted.get(key)
+            if isinstance(items, list):
+                redacted[key] = [
+                    scrub_text(item, secret_values) if isinstance(item, str) else item
+                    for item in items
+                ]
     if redacted == payload:
         return redacted
     warnings = redacted.get("warnings") if isinstance(redacted, dict) else None

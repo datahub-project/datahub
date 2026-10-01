@@ -1,3 +1,4 @@
+import re
 from typing import (
     Any,
     Dict,
@@ -143,7 +144,14 @@ SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     "api_key",
     "apikey",
     "access_key",
-    # NOT "credential". It names a mixed object rather than a scalar secret:
+    # pyiceberg / Azure catalog properties and REST catalog credentials. Keys
+    # are compared after normalize_key, so `s3.access-key-id` and
+    # `adls.account-key` match these underscore forms.
+    "account_key",
+    # Looker's client id is half of its API credential pair, and the CLI used
+    # to print it in error text verbatim.
+    "client_id",
+    # NOT "credential" here; see _SCALAR_ONLY_KEY_HINTS. It names a mixed object rather than a scalar secret:
     # BigQuery's `credential` holds private_key -- already matched above --
     # beside project_id, and collect_nested_secret_values has no suffix
     # guard, so the hint swept the project id into the masked set. A project
@@ -169,6 +177,12 @@ SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
 # from it; the two are complementary, not alternatives.
 
 _SENSITIVE_KEY_HINTS = SENSITIVE_KEY_HINTS
+
+# Hints that count only when the value is a string. `credential` is a scalar
+# secret in REST catalogs but a mixed object in BigQuery's service-account
+# shape (`credential: {private_key, project_id}`), where inheriting sensitivity
+# would mask the project id. The private_key inside is caught by its own hint.
+_SCALAR_ONLY_KEY_HINTS: Tuple[str, ...] = ("credential",)
 
 
 def collect_secret_values(
@@ -204,9 +218,12 @@ def collect_nested_secret_values(
     found: Set[str] = set()
     if isinstance(obj, dict):
         for k, v in obj.items():
-            sensitive = under_sensitive or any(h in str(k).lower() for h in hints)
+            sensitive = under_sensitive or any(h in normalize_key(k) for h in hints)
             if isinstance(v, str):
-                if v and sensitive:
+                if v and (
+                    sensitive
+                    or any(h in normalize_key(k) for h in _SCALAR_ONLY_KEY_HINTS)
+                ):
                     found.add(v)
             else:
                 found |= collect_nested_secret_values(v, hints, sensitive)
@@ -294,6 +311,46 @@ def _maskable_forms(secret_values: Set[str]) -> List[str]:
             if len(form) >= _MIN_SUBSTRING_SECRET_LEN
         )
     return sorted(forms, key=len, reverse=True)
+
+
+def normalize_key(key: object) -> str:
+    """Compare config keys in one spelling.
+
+    Catalog-property style keys (`s3.access-key-id`) and Kafka style keys
+    (`basic.auth.user.info`) would otherwise slip past underscore hints.
+    """
+    return re.sub(r"[-.]", "_", str(key).lower())
+
+
+# Shapes that carry a secret whatever its value. Error text from drivers and
+# SDKs quotes these; an ADC or IAM-role recipe registers no secret values, so
+# value redaction alone has nothing to match.
+_URL_USERINFO = re.compile(r"(?<=://)[^/@\s]+@")
+_SECRET_ASSIGNMENT = re.compile(
+    r"(?i)\b("
+    r"password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key(?:[_-]?id)?"
+    r"|secret[_-]?access[_-]?key|account[_-]?key|sig|signature"
+    r"|x-amz-signature|x-amz-credential|x-amz-security-token|credential"
+    r")(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|[^\s&;,]+)"
+)
+_BEARER = re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]+")
+_AWS_KEY_ID = re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")
+
+
+def scrub_text(text: str, secret_values: Set[str]) -> str:
+    """Remove credential-shaped substrings, then registered secret values.
+
+    For free text only (error messages, warnings, log lines). Structured
+    payloads still go through `redact`, because a view definition that
+    legitimately contains `password=` must not be rewritten.
+    """
+    out = _URL_USERINFO.sub(MASK + "@", text)
+    out = _SECRET_ASSIGNMENT.sub(lambda m: f"{m.group(1)}{m.group(2)}{MASK}", out)
+    out = _BEARER.sub(lambda m: f"{m.group(1)} {MASK}", out)
+    out = _AWS_KEY_ID.sub(MASK, out)
+    redacted = redact(out, secret_values)
+    assert isinstance(redacted, str)
+    return redacted
 
 
 def redact(payload: object, secret_values: Set[str]) -> object:

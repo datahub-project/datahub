@@ -8,6 +8,7 @@ from datahub.ingestion.agent.redact import (
     collect_nested_secret_values,
     collect_secret_values,
     redact,
+    scrub_text,
 )
 
 
@@ -333,3 +334,61 @@ def _fresh_registry():
 
     SecretRegistry.reset_instance()
     return SecretRegistry.get_instance()
+
+
+@pytest.mark.parametrize(
+    "text, secret",
+    [
+        ("GET http://admin:PLANTED-pw@connect.example:8083/connectors", "PLANTED-pw"),
+        ("jdbc:mysql://db:3306?user=u&password=PLANTED-pw", "PLANTED-pw"),
+        ("https://acct.blob.core.windows.net/c?sv=1&sig=PLANTEDsig%3D", "PLANTEDsig"),
+        ("Authorization: Bearer PLANTED.jwt.value", "PLANTED.jwt.value"),
+        ("aws_access_key_id=AKIAPLANTED000000000 rejected", "AKIAPLANTED000000000"),
+        ("connection failed: secret: 'PLANTED-quoted'", "PLANTED-quoted"),
+    ],
+)
+def test_scrub_text_strips_secrets_with_no_registered_values(
+    text: str, secret: str
+) -> None:
+    out = scrub_text(text, set())
+    assert secret not in out
+    assert "***" in out
+
+
+def test_scrub_text_keeps_identifiers_that_mention_secret_words() -> None:
+    text = "table token_usage in schema password_resets has 3 columns"
+    assert scrub_text(text, set()) == text
+
+
+def test_scrub_text_keeps_the_host_after_removing_userinfo() -> None:
+    out = scrub_text("http://u:p4ssw0rd@connect.example:8083/x", set())
+    assert out == "http://***@connect.example:8083/x"
+
+
+def test_scrub_text_still_masks_registered_values() -> None:
+    assert scrub_text("driver said hunter2-long", {"hunter2-long"}) == "driver said ***"
+
+
+def test_hyphenated_and_dotted_keys_are_treated_as_secrets() -> None:
+    config = {
+        "catalog": {
+            "s3.access-key-id": "AKIAPLANTED000000000",
+            "adls.account-key": "PLANTED-account-key",
+            "credential": "client:PLANTED-cred",
+        },
+        "client_id": "PLANTED-client-id",
+    }
+    found = collect_nested_secret_values(config, _SENSITIVE_KEY_HINTS)
+    assert {
+        "AKIAPLANTED000000000",
+        "PLANTED-account-key",
+        "client:PLANTED-cred",
+        "PLANTED-client-id",
+    } <= found
+
+
+def test_credential_mapping_does_not_mask_sibling_identifiers() -> None:
+    cfg = {"credential": {"project_id": "proj", "private_key": "PLANTED-key"}}
+    found = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
+    assert "PLANTED-key" in found
+    assert "proj" not in found
