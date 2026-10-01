@@ -272,6 +272,16 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: onelake_probe imports this module, so a top-level
+        # import here would be circular.
+        from datahub.ingestion.source.fabric.onelake.onelake_probe import (
+            FabricOneLakeMetadataProbe,
+        )
+
+        return FabricOneLakeMetadataProbe
+
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """What contains each kind, outermost first.
 
