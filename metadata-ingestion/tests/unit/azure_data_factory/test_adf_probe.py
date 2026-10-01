@@ -612,3 +612,16 @@ def test_a_forbidden_listing_reports_the_failure_not_the_lineage_note() -> None:
     assert probe.datasets("my-factory") == []
     assert any("403" in w for w in probe.warnings)
     assert not any("include_lineage" in w for w in probe.warnings)
+
+
+def test_a_dataset_without_properties_is_an_unresolved_row_not_a_crash() -> None:
+    # The SDK model requires properties, but the probe already guards for a
+    # reply without them, and the resolver must not be reached then.
+    bare = SimpleNamespace(name="bare_ds", properties=None)
+    records = _probe(_factory_with_datasets([bare, _orders_table()])).datasets(
+        "my-factory"
+    )
+    assert [r["name"] for r in records] == ["bare_ds", "orders_ds"]
+    assert records[0]["urn"] is None
+    assert records[0]["unresolved_reason"]
+    assert records[1]["urn"] is not None
