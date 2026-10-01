@@ -127,7 +127,10 @@ probe refuses rather than answer from the login's default database, which ingest
 schema and table names are matched against the server's own listing before they are used, and
 `quote_schemas` is honoured as ingestion honours it. `probe filter --kind "Stored Procedure"`
 judges `procedure_pattern` against `database.schema.procedure`, as ingestion does, and reports
-every procedure excluded when `include_stored_procedures` is off.
+every procedure excluded when `include_stored_procedures` is off. On a multi-database recipe `sql`
+admits three-part catalog names (`OtherDb.sys.tables`) for any database the login can read,
+including ones `database_pattern` excludes and system databases; it still reads catalog metadata
+only, never table rows.
 
 ### Limitations
 

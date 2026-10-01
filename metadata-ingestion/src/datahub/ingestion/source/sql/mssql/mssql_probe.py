@@ -208,6 +208,14 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             f"schema in database '{db_name}'" if db_name else "schema",
             "`containers` lists them",
         )
+        if name != schema:
+            # The caller's spelling is what travels in parent_path, and a
+            # case-sensitive pattern judges the server's.
+            self._warn(
+                f"schema '{schema}' is spelled '{name}' on the server, which is "
+                f"the name ingestion matches patterns against; pass '{name}' as "
+                f"the --parent to `probe filter`"
+            )
         # The engine itself rather than inspector.bind, which may be a
         # Connection: a pinned recipe reads through the base engine.
         engine = (
