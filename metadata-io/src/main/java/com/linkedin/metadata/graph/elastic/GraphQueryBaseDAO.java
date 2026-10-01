@@ -1394,6 +1394,9 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     ThreadSafePathStore existingPaths = new ThreadSafePathStore();
     List<Urn> currentLevel = ImmutableList.of(entityUrn);
 
+    final LineageBenchLog.Walk benchWalk = LineageBenchLog.start(entityUrn);
+    int benchHops = 0;
+    String benchStatus = "error";
     try (CascadeOperationContext cascade =
         CascadeOperationContext.beginWithoutMDC(
                 metricUtils, "getImpactLineage", entityUrn, -1, "datahub.lineage.graph_walk")
@@ -1436,6 +1439,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             urn -> Optional.ofNullable(result.get(urn)).ifPresent(rel -> rel.setExplored(true)));
 
         int sizeBefore = result.size();
+        final long benchHopStart = System.nanoTime();
+        final int benchUrnsIn = currentLevel.size();
         // Do one hop on the lineage graph
         // Note: maxRelations is the original total limit, but we pass the remaining capacity
         // to the scroll methods to ensure accurate limit checking at each level
@@ -1466,6 +1471,13 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         currentLevel = hopResult.getNextLevelUrns();
         isPartial |= hopResult.isSlicePartial();
         cascade.recordEntitiesProcessed(result.size() - sizeBefore);
+        benchHops = i + 1;
+        LineageBenchLog.hop(
+            benchWalk,
+            benchHops,
+            benchUrnsIn,
+            currentLevel.size(),
+            LineageBenchLog.msSince(benchHopStart));
 
         currentTime = System.currentTimeMillis();
         remainingTime = timeoutTime - currentTime;
@@ -1500,6 +1512,9 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
           break;
         }
       }
+      benchStatus = "ok";
+    } finally {
+      LineageBenchLog.end(benchWalk, benchHops, result.size(), isPartial, benchStatus);
     }
 
     List<LineageRelationship> resultList = new ArrayList<>(result.values());
@@ -1543,6 +1558,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
             remainingCapacity,
             allowPartialResults);
 
+    final long benchPostStart = System.nanoTime();
     for (LineageRelationship oneHopRelnship : hopFetch.getLineageRelationships()) {
       if (result.containsKey(oneHopRelnship.getEntity())) {
         log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
@@ -1557,6 +1573,10 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         hopFetch.getLineageRelationships().stream()
             .map(LineageRelationship::getEntity)
             .collect(Collectors.toList());
+    LineageBenchLog.Walk benchWalk = LineageBenchLog.current();
+    if (benchWalk != null) {
+      benchWalk.postprocessMs.addAndGet(LineageBenchLog.msSince(benchPostStart));
+    }
     return new ImpactHopResult(nextLevelUrns, hopFetch.isPartial());
   }
 

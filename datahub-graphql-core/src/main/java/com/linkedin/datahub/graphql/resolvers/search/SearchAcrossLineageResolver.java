@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.graph.elastic.LineageBenchLog;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
@@ -172,6 +173,7 @@ public class SearchAcrossLineageResolver
               searchFlags = new SearchFlags().setFulltext(true).setSkipHighlighting(true);
             }
             List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
+            final long benchStart = System.nanoTime();
             LineageSearchResult salResults =
                 _entityClient.searchAcrossLineage(
                     context
@@ -188,7 +190,16 @@ public class SearchAcrossLineageResolver
                     start,
                     count);
 
-            return UrnSearchAcrossLineageResultsMapper.map(context, salResults);
+            final long benchMapStart = System.nanoTime();
+            SearchAcrossLineageResults mapped =
+                UrnSearchAcrossLineageResultsMapper.map(context, salResults);
+            final long benchEnd = System.nanoTime();
+            LineageBenchLog.resolver(
+                LineageBenchLog.lastWalkId(),
+                benchMapStart - benchStart,
+                benchEnd - benchMapStart,
+                benchEnd - benchStart);
+            return mapped;
           } catch (RemoteInvocationException e) {
             log.error(
                 "Failed to execute search across relationships: source urn {}, direction {}, entity types {}, query {}, filters: {}, start: {}, count: {}",

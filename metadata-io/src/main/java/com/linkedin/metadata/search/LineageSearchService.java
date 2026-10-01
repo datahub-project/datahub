@@ -24,6 +24,7 @@ import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.graph.elastic.LineageBenchLog;
 import com.linkedin.metadata.query.FreshnessStats;
 import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
@@ -189,6 +190,8 @@ public class LineageSearchService {
       int from,
       @Nullable Integer size) {
 
+    final long benchStart = System.nanoTime();
+    LineageBenchLog.clearLastWalk();
     // Not try-with-resources: the failure must be recorded before close() emits the timer and log
     final CascadeOperationContext cascade =
         beginLineageOperation(opContext, "searchAcrossLineage", sourceUrn, SEARCH_PATH_UNKNOWN);
@@ -230,10 +233,12 @@ public class LineageSearchService {
 
       EntityLineageResult lineageResult;
       FreshnessStats freshnessStats = new FreshnessStats().setCached(Boolean.FALSE);
+      long benchWalkNanos = 0L;
       if (cachedLineageResult == null) {
         long walkStart = System.nanoTime();
         lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
-        cascade.recordPhase(PHASE_WALK, System.nanoTime() - walkStart);
+        benchWalkNanos = System.nanoTime() - walkStart;
+        cascade.recordPhase(PHASE_WALK, benchWalkNanos);
 
         if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
           try {
@@ -279,6 +284,7 @@ public class LineageSearchService {
       }
 
       long filterStart = System.nanoTime();
+      final long benchFilterStart = filterStart;
       if (SearchUtils.convertSchemaFieldToDataset(
           finalOpContext.getSearchContext().getSearchFlags())) {
         // Copy so the cached graph result keeps its original schemaField URNs
@@ -293,6 +299,8 @@ public class LineageSearchService {
       log.debug("Lineage relationships found: {}", lineageRelationships);
       cascade.recordPhase(PHASE_FILTER, System.nanoTime() - filterStart);
       cascade.recordEntitiesProcessed(lineageRelationships.size());
+      final long benchResultStart = System.nanoTime();
+      final long benchFilterNanos = benchResultStart - benchFilterStart;
 
       Filter reducedFilters =
           SearchUtils.removeCriteria(
@@ -322,6 +330,14 @@ public class LineageSearchService {
         if (lineageResult.hasPartial()) {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
         }
+        LineageBenchLog.search(
+            LineageBenchLog.lastWalkId(),
+            benchWalkNanos,
+            benchFilterNanos,
+            System.nanoTime() - benchResultStart,
+            "lightning",
+            lineageRelationships.size(),
+            System.nanoTime() - benchStart);
         return lineageSearchResult;
       } else if (forceLightningMode) {
         // Falling through would answer from the entity index, which has nothing to return for an
@@ -352,6 +368,14 @@ public class LineageSearchService {
         if (lineageResult.hasPartial()) {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
         }
+        LineageBenchLog.search(
+            LineageBenchLog.lastWalkId(),
+            benchWalkNanos,
+            benchFilterNanos,
+            System.nanoTime() - benchResultStart,
+            "tortoise",
+            lineageRelationships.size(),
+            System.nanoTime() - benchStart);
         return lineageSearchResult;
       }
     } catch (RuntimeException e) {

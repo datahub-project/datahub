@@ -1,0 +1,29 @@
+<!--
+  GMS logging as the DataHub helm chart configures it (subcharts/datahub-gms/templates/configmap-logging.yaml):
+  root INFO to the console, no com.linkedin DEBUG logger and no debug file. Differences from the chart:
+  the console uses a plain pattern instead of the JSON layout, so run_walks.py can parse LINEAGE_BENCH
+  lines from `docker logs`, and there is no Sentry or log-aggregator appender.
+-->
+<configuration scan="false">
+  <statusListener class="ch.qos.logback.core.status.NopStatusListener"/>
+
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+    <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
+      <excluded>scanned from multiple locations</excluded>
+      <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
+      <excluded>Seeking to offset</excluded>
+    </filter>
+  </appender>
+
+  <logger name="org.apache.kafka.clients" level="INFO"/>
+  <logger name="org.reflections.Reflections" level="ERROR"/>
+  <logger name="com.linkedin.metadata.models.registry.PatchEntityRegistry" level="INFO"/>
+  <logger name="org.springframework" level="ERROR"/>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+</configuration>
