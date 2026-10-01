@@ -2958,7 +2958,7 @@ public class ESIndexBuilder {
    * and tokenizer. Any other value replaces the generated one.
    */
   @SuppressWarnings("unchecked")
-  public static void mergeSettings(Map<String, Object> target, Map<String, ?> overrides) {
+  private static void mergeSettings(Map<String, Object> target, Map<String, ?> overrides) {
     for (Map.Entry<String, ?> entry : overrides.entrySet()) {
       Object current = target.get(entry.getKey());
       Object override = entry.getValue();

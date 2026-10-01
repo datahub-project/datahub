@@ -95,7 +95,8 @@ public class ElasticSearchIndexBuilderFactory {
    * Parses {@code {"<index>": {"<setting>": <value>}}}. A value may be a string (flat setting such
    * as {@code number_of_shards}) or a nested object/array (grouped settings such as {@code
    * analysis}). Scalars are kept as their JSON text so they compare equal to the strings the search
-   * engine returns for stored settings (e.g. {@code 2}, not {@code 2.0}).
+   * engine returns for stored settings (e.g. {@code 2}, not {@code 2.0}). JSON {@code null} entries
+   * are dropped: a null target value never equals the stored one and would reindex on every run.
    */
   @Nonnull
   static Map<String, Map<String, Object>> parseIndexSettingsMap(@Nullable String json) {
@@ -110,7 +111,9 @@ public class ElasticSearchIndexBuilderFactory {
     for (Map.Entry<String, JsonElement> index : root.getAsJsonObject().entrySet()) {
       Map<String, Object> settings = new LinkedHashMap<>();
       for (Map.Entry<String, JsonElement> setting : index.getValue().getAsJsonObject().entrySet()) {
-        settings.put(setting.getKey(), toSettingValue(setting.getValue()));
+        if (!setting.getValue().isJsonNull()) {
+          settings.put(setting.getKey(), toSettingValue(setting.getValue()));
+        }
       }
       result.put(index.getKey(), settings);
     }
@@ -120,9 +123,8 @@ public class ElasticSearchIndexBuilderFactory {
   private static Object toSettingValue(JsonElement element) {
     if (element.isJsonObject()) {
       Map<String, Object> map = new LinkedHashMap<>();
-      element
-          .getAsJsonObject()
-          .entrySet()
+      element.getAsJsonObject().entrySet().stream()
+          .filter(e -> !e.getValue().isJsonNull())
           .forEach(e -> map.put(e.getKey(), toSettingValue(e.getValue())));
       return map;
     }

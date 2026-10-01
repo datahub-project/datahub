@@ -42,4 +42,17 @@ public class ElasticSearchIndexBuilderFactoryParseTest {
             ((Map<String, Object>) analysis.get("analyzer")).get("word_delimited");
     assertEquals(analyzer.get("filter"), List.of("lowercase", "min_length_2"));
   }
+
+  @Test
+  public void testJsonNullEntriesDropped() {
+    Map<String, Map<String, Object>> parsed =
+        ElasticSearchIndexBuilderFactory.parseIndexSettingsMap(
+            "{\"my_index\":{\"refresh_interval\":null,"
+                + "\"analysis\":{\"filter\":{\"f\":{\"type\":\"length\",\"min\":null}}}}}");
+    assertEquals(
+        parsed,
+        Map.of(
+            "my_index",
+            Map.of("analysis", Map.of("filter", Map.of("f", Map.of("type", "length"))))));
+  }
 }
