@@ -76,6 +76,20 @@ def _run(
     return run_probe_method("dataplex", config or BASE, command, kwargs)
 
 
+def _records(result: ProbeMethodResult) -> List[Dict[str, object]]:
+    rows = result.result
+    assert isinstance(rows, list)
+    assert all(isinstance(r, dict) for r in rows)
+    return rows
+
+
+def _strings(result: ProbeMethodResult) -> List[str]:
+    rows = result.result
+    assert isinstance(rows, list)
+    assert all(isinstance(r, str) for r in rows)
+    return rows
+
+
 def test_for_config_opens_no_client() -> None:
     probe = DataplexMetadataProbe.for_config(DataplexConfig.model_validate(BASE))
     assert "_catalog" not in probe.__dict__
@@ -109,7 +123,7 @@ def test_explicit_project_ids_are_listed_without_resource_manager(
     projects = Mock(spec=resourcemanager_v3.ProjectsClient)
     result = _run(monkeypatch, "projects", {}, projects=projects)
     assert result.kind == DATAPLEX_PROJECT_KIND
-    assert [r["name"] for r in result.result] == ["proj-a"]
+    assert [r["name"] for r in _records(result)] == ["proj-a"]
     projects.search_projects.assert_not_called()
     assert any("project_ids" in w for w in result.warnings)
 
@@ -124,7 +138,7 @@ def test_discovery_lists_denied_projects_too(monkeypatch: pytest.MonkeyPatch) ->
     )
     config: Dict[str, object] = {"project_id_pattern": {"allow": ["^prod-"]}}
     result = _run(monkeypatch, "projects", {}, config=config, projects=projects)
-    assert [r["name"] for r in result.result] == ["prod-a", "dev-a"]
+    assert [r["name"] for r in _records(result)] == ["prod-a", "dev-a"]
 
 
 def test_label_discovery_sends_the_query_ingestion_sends(
@@ -173,7 +187,7 @@ def test_entry_group_names_are_returned_verbatim(
     )
     assert result.kind == DATAPLEX_ENTRY_GROUP_KIND
     assert result.parent_path == ["proj-a"]
-    assert [r["name"] for r in result.result] == [GROUP_US]
+    assert [r["name"] for r in _records(result)] == [GROUP_US]
 
 
 def test_omitting_location_sweeps_entries_locations(
@@ -187,7 +201,7 @@ def test_omitting_location_sweeps_entries_locations(
         }
     )
     result = _run(monkeypatch, "entry_groups", {"project": "proj-a"}, catalog=catalog)
-    assert [(r["name"], r["location"]) for r in result.result] == [
+    assert [(r["name"], r["location"]) for r in _records(result)] == [
         (GROUP_US, "us"),
         (eu_group, "eu"),
     ]
@@ -203,7 +217,7 @@ def test_one_forbidden_location_degrades_to_a_warning(
         }
     )
     result = _run(monkeypatch, "entry_groups", {"project": "proj-a"}, catalog=catalog)
-    assert [r["name"] for r in result.result] == [GROUP_US]
+    assert [r["name"] for r in _records(result)] == [GROUP_US]
     assert any("'eu'" in w for w in result.warnings)
     assert not any(SERVER_DETAIL in w for w in result.warnings)
 
@@ -321,7 +335,7 @@ def test_an_unmapped_entry_type_is_listed_as_unsupported(
         {"project": "proj-a", "entry_group": GROUP},
         catalog=_catalog_with_entries(pager),
     )
-    assert result.result[0]["supported"] is False
+    assert _records(result)[0]["supported"] is False
     assert any("mapper" in w for w in result.warnings)
 
 
@@ -335,8 +349,8 @@ def test_an_entry_without_an_fqn_is_listed_and_flagged(
         {"project": "proj-a", "entry_group": GROUP},
         catalog=_catalog_with_entries(pager),
     )
-    assert result.result[0]["name"].endswith("/orphan")
-    assert result.result[0]["fully_qualified_name"] == ""
+    assert str(_records(result)[0]["name"]).endswith("/orphan")
+    assert _records(result)[0]["fully_qualified_name"] == ""
     assert any("fully_qualified_name" in w for w in result.warnings)
 
 
@@ -367,7 +381,7 @@ def test_a_limited_listing_stops_reading_the_pager(
         {"project": "proj-a", "entry_group": GROUP, "limit": "2"},
         catalog=_catalog_with_entries(pager),
     )
-    assert len(result.result) == 2
+    assert len(_records(result)) == 2
     assert result.truncated is True
     assert pager.read == 3  # limit + 1, the framework's truncation probe
 
@@ -441,13 +455,13 @@ def test_aspect_types_are_the_names_aspect_type_pattern_matches(
         for k in props
         if k.startswith("dataplex_aspect_")
     }
-    assert kept == {t for t in result.result if pattern.allowed(t)}
+    assert kept == {t for t in _strings(result) if pattern.allowed(t)}
 
 
 def test_aspect_data_never_leaves_the_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     client = _catalog_with_detail()
     result = _run(monkeypatch, "entry_aspect_types", {"entry": ENTRY}, catalog=client)
-    assert all(isinstance(t, str) for t in result.result)
+    assert _strings(result)
     request = client.get_entry.call_args.kwargs["request"]
     assert request.view == dataplex_v1.EntryView.ALL  # what ingestion fetches
 
