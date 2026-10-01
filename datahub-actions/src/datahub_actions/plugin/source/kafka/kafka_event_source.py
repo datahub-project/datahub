@@ -14,6 +14,7 @@
 
 import logging
 import os
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
@@ -155,6 +156,29 @@ def kafka_messages_observer(pipeline_name: str) -> Callable:
     return _observe
 
 
+# How long a pipeline keeps retrying its first connection to the cluster before it
+# fails. Long enough to ride out a broker restart; short enough that a client that can
+# never connect (wrong protocol, bad credentials) fails the process instead of idling.
+_STARTUP_CONNECT_TIMEOUT_SECONDS = 60.0
+
+# librdkafka recovers from these on its own, but while they persist nothing is consumed.
+_SEVERE_CLIENT_ERRORS = frozenset(
+    {KafkaError._AUTHENTICATION, KafkaError._ALL_BROKERS_DOWN}
+)
+
+
+def kafka_error_logger(pipeline_name: str) -> Callable[[KafkaError], None]:
+    # Without an error_cb these errors reach the logs only as librdkafka FAIL lines.
+    def _log(err: KafkaError) -> None:
+        severe = err.fatal() or err.code() in _SEVERE_CLIENT_ERRORS
+        logger.log(
+            logging.ERROR if severe else logging.WARNING,
+            f"Kafka client error in pipeline '{pipeline_name}': {err.name()}: {err.str()}",
+        )
+
+    return _log
+
+
 # This is the default Kafka-based Event Source.
 @dataclass
 class KafkaEventSource(EventSource):
@@ -191,6 +215,7 @@ class KafkaEventSource(EventSource):
                 "bootstrap.servers": self.source_config.connection.bootstrap,
                 "enable.auto.commit": False,  # We manually commit offsets.
                 "auto.offset.reset": "latest",  # Latest by default, unless overwritten.
+                "error_cb": kafka_error_logger(ctx.pipeline_name),
                 "value.deserializer": AvroDeserializer(
                     schema_registry_client=self.schema_registry_client,
                     return_record_name=True,
@@ -381,7 +406,43 @@ class KafkaEventSource(EventSource):
             f"Criteria (OR semantics - pass if ANY match, conservative by design): {criteria_list}"
         )
 
+    def _wait_until_connected(self) -> None:
+        """Block until the cluster answers a metadata request, so that a client that
+        cannot connect or authenticate fails the pipeline instead of polling forever."""
+        bootstrap = self.source_config.connection.bootstrap
+        deadline = time.monotonic() + _STARTUP_CONNECT_TIMEOUT_SECONDS
+        while True:
+            try:
+                self.consumer.list_topics(
+                    timeout=max(0.1, min(5.0, deadline - time.monotonic()))
+                )
+                logger.info(
+                    f"Kafka event source for pipeline '{self._pipeline_name}' "
+                    f"connected to Kafka at {bootstrap}."
+                )
+                return
+            except KafkaException as e:
+                last_error = e
+            if not self.running:  # close() was called during startup.
+                return
+            # Nothing is subscribed yet, so this only serves error_cb, which logs the
+            # underlying cause (e.g. a SASL error) that list_topics does not report.
+            self.consumer.poll(1.0)
+            if time.monotonic() >= deadline:
+                logger.error(
+                    f"Could not connect to Kafka at {bootstrap} for pipeline "
+                    f"'{self._pipeline_name}' within {_STARTUP_CONNECT_TIMEOUT_SECONDS:.0f}s: "
+                    f"{last_error}. Check the source connection settings (bootstrap, "
+                    "security.protocol, SASL/SSL properties) against the broker listener."
+                )
+                raise last_error
+
     def events(self) -> Iterable[EventEnvelope]:
+        self.running = True
+        self._wait_until_connected()
+        if not self.running:
+            return
+
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
         topics_to_subscribe = list(topic_routes.values())
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
@@ -391,7 +452,6 @@ class KafkaEventSource(EventSource):
         if self._lag_monitor is not None:
             self._lag_monitor.start()
 
-        self.running = True
         while self.running:
             try:
                 msg = self.consumer.poll(timeout=2.0)
