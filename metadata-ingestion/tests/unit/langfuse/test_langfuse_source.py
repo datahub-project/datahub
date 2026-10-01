@@ -1,11 +1,10 @@
-from typing import Any, List, cast
+from typing import Any, Dict, List, Optional, Set, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 from pydantic import SecretStr, ValidationError
 
-from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import CapabilityReport
@@ -22,7 +21,13 @@ from datahub.ingestion.source.langfuse.langfuse_config import (
     LangfuseSourceConfig,
 )
 from datahub.metadata.schema_classes import (
+    DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
+    DataProcessInstanceRelationshipsClass,
+    DataProcessInstanceRunEventClass,
+    MLTrainingRunPropertiesClass,
+    StatusClass,
+    SubTypesClass,
     VersionPropertiesClass,
 )
 
@@ -63,7 +68,38 @@ def source(connection: LangfuseConnectionConfig) -> LangfuseSource:
         src = LangfuseSource(ctx=PipelineContext(run_id="langfuse-test"), config=config)
     src.client = MagicMock()
     src._project_container_urn = "urn:li:container:test-project"
+    src._project_id = "proj-1"
     return src
+
+
+def _serve_observations(
+    source: LangfuseSource,
+    roots: List[LangfuseObservation],
+    generations: List[LangfuseObservation],
+) -> None:
+    """Mimics the server-side `isRootObservation` / `type` filters."""
+
+    def iter_observations(
+        *_: Any,
+        observation_type: Optional[str] = None,
+        is_root_observation: Optional[bool] = None,
+    ) -> List[LangfuseObservation]:
+        if is_root_observation:
+            return roots
+        if observation_type == "GENERATION":
+            return generations
+        raise AssertionError("Observations must be filtered on the server")
+
+    _client(source).iter_observations.side_effect = iter_observations
+
+
+def _aspects_for(workunits: List[MetadataWorkUnit], urn: str) -> Dict[str, List[Any]]:
+    aspects: Dict[str, List[Any]] = {}
+    for wu in workunits:
+        mcpw = _mcpw(wu)
+        if mcpw.entityUrn == urn:
+            aspects.setdefault(type(mcpw.aspect).__name__, []).append(mcpw.aspect)
+    return aspects
 
 
 def _obs(**kwargs: Any) -> LangfuseObservation:
@@ -134,62 +170,107 @@ class TestIsoToMillis:
 
 
 class TestTraceReconstruction:
-    def test_generation_and_non_generation_counts_are_split_correctly(
+    def test_observations_filtered_on_server_and_root_generation_deduplicated(
         self, source: LangfuseSource
     ) -> None:
-        _client(source).iter_observations.return_value = [
-            _obs(id="root-1", trace_id="t1", type="SPAN", is_root_observation=True),
-            _obs(id="gen-1", trace_id="t1", type="GENERATION"),
-            _obs(id="gen-2", trace_id="t1", type="GENERATION"),
-            _obs(id="event-1", trace_id="t1", type="EVENT"),
-        ]
+        root_generation = _obs(
+            id="root-1", trace_id="t1", type="GENERATION", is_root_observation=True
+        )
+        _serve_observations(
+            source,
+            roots=[root_generation],
+            # A root GENERATION is returned by both server-side queries.
+            generations=[
+                root_generation,
+                _obs(id="gen-2", trace_id="t1", type="GENERATION"),
+            ],
+        )
         _client(source).iter_scores.return_value = []
 
         workunits = list(source._get_trace_workunits())
 
-        props = _dpi_props(workunits)
-        trace_props = next(p for p in props if p.customProperties["trace_id"] == "t1")
+        call_kwargs = [
+            c.kwargs for c in _client(source).iter_observations.call_args_list
+        ]
+        assert {"is_root_observation": True} in call_kwargs
+        assert {"observation_type": "GENERATION"} in call_kwargs
+        trace_props = next(
+            p
+            for p in _dpi_props(workunits)
+            if p.customProperties.get("trace_id") == "t1"
+            and "generation_count" in p.customProperties
+        )
         assert trace_props.customProperties["generation_count"] == "2"
-        assert trace_props.customProperties["non_generation_observation_count"] == "2"
-        assert "partial_trace" not in trace_props.customProperties
         assert source.report.traces_scanned == 1
         assert source.report.generations_scanned == 2
-        # Regression: this counter was declared but never incremented.
-        assert source.report.non_generation_observations_skipped == 2
 
-    def test_missing_root_observation_produces_partial_trace(
+    def test_partial_trace_does_not_overwrite_full_trace_record(
         self, source: LangfuseSource
     ) -> None:
-        # Root observation started before the configured window; only a
-        # generation-type child observation falls inside it.
-        _client(source).iter_observations.return_value = [
-            _obs(
-                id="gen-1", trace_id="t2", type="GENERATION", is_root_observation=False
-            ),
+        # Regression: the trace root started before this run's window (an
+        # earlier run already emitted the full Trace). Only a generation falls
+        # inside the window; previously a trace record synthesized from that
+        # generation overwrote the full Trace's properties and run events.
+        _serve_observations(
+            source,
+            roots=[],
+            generations=[
+                _obs(
+                    id="gen-1",
+                    trace_id="t2",
+                    type="GENERATION",
+                    trace_name="checkout",
+                    start_time="2026-01-02T00:00:00Z",
+                )
+            ],
+        )
+        _client(source).iter_scores.return_value = [
+            LangfuseScore(
+                id="s1",
+                name="helpfulness",
+                value=0.9,
+                data_type="NUMERIC",
+                timestamp="2026-01-02T00:00:00Z",
+                subject_kind="trace",
+                subject_id="t2",
+            )
         ]
-        _client(source).iter_scores.return_value = []
 
         workunits = list(source._get_trace_workunits())
 
-        dpi_props = _dpi_props(workunits)
-        trace_props = next(
-            p for p in dpi_props if p.customProperties.get("trace_id") == "t2"
-        )
-        assert trace_props.customProperties["partial_trace"] == "true"
+        trace_aspects = _aspects_for(workunits, source._make_dpi_urn("t2"))
+        assert DataProcessInstancePropertiesClass.__name__ not in trace_aspects
+        assert DataProcessInstanceRunEventClass.__name__ not in trace_aspects
+        assert MLTrainingRunPropertiesClass.__name__ not in trace_aspects
+        assert SubTypesClass.__name__ in trace_aspects
+        assert source.report.partial_traces == 1
+        assert source.report.scores_attached == 0
+
+        # The generation itself is still ingested and linked to its trace.
+        generation_aspects = _aspects_for(workunits, source._make_dpi_urn("gen-1"))
+        [relationships] = generation_aspects[
+            DataProcessInstanceRelationshipsClass.__name__
+        ]
+        assert relationships.parentInstance == source._make_dpi_urn("t2")
+        assert DataProcessInstancePropertiesClass.__name__ in generation_aspects
 
     def test_trace_name_pattern_filters_traces(self, source: LangfuseSource) -> None:
         source.config.trace_name_pattern = source.config.trace_name_pattern.__class__(
             deny=["^internal_.*"]
         )
-        _client(source).iter_observations.return_value = [
-            _obs(
-                id="root-1",
-                trace_id="t1",
-                type="SPAN",
-                is_root_observation=True,
-                name="internal_healthcheck",
-            ),
-        ]
+        _serve_observations(
+            source,
+            roots=[
+                _obs(
+                    id="root-1",
+                    trace_id="t1",
+                    type="SPAN",
+                    is_root_observation=True,
+                    name="internal_healthcheck",
+                ),
+            ],
+            generations=[],
+        )
         _client(source).iter_scores.return_value = []
 
         workunits = list(source._get_trace_workunits())
@@ -197,22 +278,55 @@ class TestTraceReconstruction:
         assert workunits == []
         assert source.report.traces_filtered == 1
 
-    def test_all_dataprocessinstance_workunits_excluded_from_stale_removal(
+    def test_dataprocessinstances_get_status_aspect(
         self, source: LangfuseSource
     ) -> None:
-        # Trace/Generation workunits must never be considered by stale-entity
-        # removal, since they are retrieved through a rolling window, not
-        # fully enumerated.
-        _client(source).iter_observations.return_value = [
-            _obs(id="root-1", trace_id="t1", type="SPAN", is_root_observation=True),
-            _obs(id="gen-1", trace_id="t1", type="GENERATION"),
-        ]
+        # Regression: emitting DPI workunits with is_primary_source=False made
+        # the pipeline skip their Status aspect. DPIs are already ignored by
+        # stale-entity removal, so the flag was never needed.
+        source.config.include_prompts = False
+        _client(source).get_project.return_value = {"id": "proj-1", "name": "P"}
+        _serve_observations(
+            source,
+            roots=[_obs(id="root-1", trace_id="t1", is_root_observation=True)],
+            generations=[_obs(id="gen-1", trace_id="t1", type="GENERATION")],
+        )
         _client(source).iter_scores.return_value = []
 
-        workunits = list(source._get_trace_workunits())
+        workunits = list(source.get_workunits())
 
-        assert len(workunits) > 0
-        assert all(not wu.is_primary_source for wu in workunits)
+        urns_with_status: Set[str] = {
+            str(_mcpw(wu).entityUrn)
+            for wu in workunits
+            if isinstance(_mcpw(wu).aspect, StatusClass)
+        }
+        assert source._make_dpi_urn("t1") in urns_with_status
+        assert source._make_dpi_urn("gen-1") in urns_with_status
+
+
+class TestDataProcessInstanceUrns:
+    def test_same_native_id_does_not_collide_across_instances_or_projects(
+        self, connection: LangfuseConnectionConfig
+    ) -> None:
+        def dpi_urn(platform_instance: Optional[str], project_id: str) -> str:
+            config = LangfuseSourceConfig(
+                connection=connection, platform_instance=platform_instance
+            )
+            with patch("datahub.ingestion.source.langfuse.langfuse.LangfuseClient"):
+                src = LangfuseSource(
+                    ctx=PipelineContext(run_id="langfuse-test"), config=config
+                )
+            src._project_id = project_id
+            return src._make_dpi_urn("trace-1")
+
+        urns = {
+            dpi_urn("prod", "proj-1"),
+            dpi_urn("staging", "proj-1"),
+            dpi_urn("prod", "proj-2"),
+            dpi_urn(None, "proj-1"),
+        }
+        assert len(urns) == 4
+        assert dpi_urn("prod", "proj-1") == dpi_urn("prod", "proj-1")
 
 
 class TestScoreAttachment:
@@ -244,13 +358,9 @@ class TestScoreAttachment:
             source.config.window.start_time, source.config.window.end_time
         )
 
-        assert source.report.scores_attached == 2
         assert source.report.scores_dropped_unattachable_subject == 0
 
-        trace_urn = str(
-            DataProcessInstance(id="trace-1", orchestrator=source.platform).urn
-        )
-        [metric] = metrics_by_urn[trace_urn]
+        [metric] = metrics_by_urn[source._make_dpi_urn("trace-1")]
         assert metric.name == "helpfulness"
         assert metric.value == "0.9"
         assert metric.description is not None
@@ -285,8 +395,45 @@ class TestScoreAttachment:
         )
 
         assert metrics_by_urn == {}
-        assert source.report.scores_attached == 0
         assert source.report.scores_dropped_unattachable_subject == 2
+
+    def test_scores_attached_counts_only_emitted_scores(
+        self, source: LangfuseSource
+    ) -> None:
+        _client(source).iter_scores.return_value = [
+            LangfuseScore(
+                id="s1",
+                name="helpfulness",
+                value=0.9,
+                data_type="NUMERIC",
+                timestamp="2026-01-01T00:00:00Z",
+                subject_kind="trace",
+                subject_id="t1",
+            ),
+            # Its trace is not in the window, so this score is never emitted.
+            LangfuseScore(
+                id="s2",
+                name="helpfulness",
+                value=0.1,
+                data_type="NUMERIC",
+                timestamp="2026-01-01T00:00:00Z",
+                subject_kind="trace",
+                subject_id="trace-outside-window",
+            ),
+        ]
+        _serve_observations(
+            source,
+            roots=[_obs(id="root-1", trace_id="t1", is_root_observation=True)],
+            generations=[],
+        )
+
+        workunits = list(source._get_trace_workunits())
+
+        [training_run] = _aspects_for(workunits, source._make_dpi_urn("t1"))[
+            MLTrainingRunPropertiesClass.__name__
+        ]
+        assert [m.name for m in training_run.trainingMetrics or []] == ["helpfulness"]
+        assert source.report.scores_attached == 1
 
 
 class TestPromptVersionEmission:
@@ -330,12 +477,105 @@ class TestPromptVersionEmission:
         _client(source).iter_prompt_names.return_value = [
             {"name": "broken-prompt", "versions": [1]}
         ]
-        _client(source).get_prompt_version.side_effect = requests.HTTPError("boom")
+        # Any RequestException (not only HTTPError) skips just that version.
+        _client(source).get_prompt_version.side_effect = requests.ConnectionError(
+            "boom"
+        )
 
         workunits = list(source._get_prompt_workunits())
 
         assert workunits == []
         assert source.report.warnings
+        assert not source.report.failures
+
+    def test_prompt_listing_failure_is_reported_as_failure_not_raised(
+        self, source: LangfuseSource
+    ) -> None:
+        def failing_listing() -> Any:
+            yield {"name": "greeting", "versions": []}
+            raise requests.ConnectionError("connection reset mid-pagination")
+
+        _client(source).iter_prompt_names.side_effect = failing_listing
+
+        workunits = list(source._get_prompt_workunits())
+
+        assert workunits == []
+        # A failure (not a warning) so stale-entity removal does not
+        # soft-delete prompts that simply were not listed.
+        assert source.report.failures
+
+    def test_version_set_urn_is_scoped_to_platform_instance(
+        self, connection: LangfuseConnectionConfig
+    ) -> None:
+        def version_set_urn(platform_instance: Optional[str]) -> str:
+            config = LangfuseSourceConfig(
+                connection=connection, platform_instance=platform_instance
+            )
+            with patch("datahub.ingestion.source.langfuse.langfuse.LangfuseClient"):
+                src = LangfuseSource(
+                    ctx=PipelineContext(run_id="langfuse-test"), config=config
+                )
+            return str(src._get_prompt_version_set_urn("greeting"))
+
+        assert version_set_urn("prod") != version_set_urn("staging")
+        assert version_set_urn("prod") != version_set_urn(None)
+
+
+class TestPromptLineage:
+    def test_generation_input_points_at_emitted_prompt_dataset(
+        self, source: LangfuseSource
+    ) -> None:
+        source.config.platform_instance = "prod"
+        prompt = LangfusePromptVersion(
+            name="greeting",
+            version=2,
+            prompt_type="text",
+            prompt="Hello {{name}}",
+            config=None,
+        )
+        prompt_dataset_urn = next(
+            str(_mcpw(wu).entityUrn)
+            for wu in source._emit_prompt_version(
+                prompt, source._get_prompt_version_set_urn("greeting")
+            )
+        )
+        generation = _obs(
+            id="gen-1",
+            trace_id="t1",
+            type="GENERATION",
+            prompt_name="greeting",
+            prompt_version=2,
+        )
+
+        workunits = list(
+            source._emit_generation(generation, source._make_dpi_urn("t1"), {})
+        )
+
+        [dpi_input] = _aspects_for(workunits, source._make_dpi_urn("gen-1"))[
+            DataProcessInstanceInputClass.__name__
+        ]
+        assert dpi_input.inputs == [prompt_dataset_urn]
+
+    def test_no_input_for_prompt_excluded_by_prompt_pattern(
+        self, source: LangfuseSource
+    ) -> None:
+        source.config.prompt_pattern = source.config.prompt_pattern.__class__(
+            deny=["^greeting$"]
+        )
+        generation = _obs(
+            id="gen-1",
+            trace_id="t1",
+            type="GENERATION",
+            prompt_name="greeting",
+            prompt_version=2,
+        )
+
+        workunits = list(
+            source._emit_generation(generation, source._make_dpi_urn("t1"), {})
+        )
+
+        aspects = _aspects_for(workunits, source._make_dpi_urn("gen-1"))
+        assert DataProcessInstanceInputClass.__name__ not in aspects
 
 
 class TestConnection:
@@ -426,9 +666,13 @@ class TestGracefulFailureHandling:
         self, source: LangfuseSource
     ) -> None:
         _client(source).iter_scores.side_effect = requests.ConnectionError("boom")
-        _client(source).iter_observations.return_value = [
-            _obs(id="root-1", trace_id="t1", type="SPAN", is_root_observation=True),
-        ]
+        _serve_observations(
+            source,
+            roots=[
+                _obs(id="root-1", trace_id="t1", type="SPAN", is_root_observation=True)
+            ],
+            generations=[],
+        )
 
         # Scores fail, but trace ingestion should still proceed with no metrics.
         workunits = list(source._get_trace_workunits())

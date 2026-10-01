@@ -15,8 +15,11 @@ logger = logging.getLogger(__name__)
 # Field groups requested from the Observations API v2. `io` and `metadata` are
 # intentionally excluded from the default selection: they can carry large
 # and/or sensitive LLM prompt/response payloads that a metadata catalog
-# should not copy into DataHub by default.
-DEFAULT_OBSERVATION_FIELDS = "core,basic,model,usage,metrics,trace_context"
+# should not copy into DataHub by default. `prompt` is required for
+# promptName/promptVersion to be returned at all.
+DEFAULT_OBSERVATION_FIELDS = "core,basic,model,usage,prompt,metrics,trace_context"
+
+OBSERVATION_TYPE_GENERATION = "GENERATION"
 
 # Score subject kinds that this connector version can attach a score to.
 # "session" and "experiment" (dataset run) subjects have no corresponding

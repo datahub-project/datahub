@@ -15,7 +15,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312254,
+        "lastObserved": 1790889093418,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -31,7 +31,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312255,
+        "lastObserved": 1790889093420,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -49,7 +49,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312256,
+        "lastObserved": 1790889093420,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -65,7 +65,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312256,
+        "lastObserved": 1790889093421,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -81,7 +81,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312267,
+        "lastObserved": 1790889093441,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -105,7 +105,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312268,
+        "lastObserved": 1790889093442,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -121,7 +121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312268,
+        "lastObserved": 1790889093443,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -139,7 +139,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312269,
+        "lastObserved": 1790889093443,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -151,7 +151,7 @@
     "aspectName": "versionProperties",
     "aspect": {
         "json": {
-            "versionSet": "urn:li:versionSet:(a6850e5c30eaf7c432ceb045b09d8faf,dataset)",
+            "versionSet": "urn:li:versionSet:(798ee3f19297aeae77be8f68484a7560,dataset)",
             "version": {
                 "versionTag": "1"
             },
@@ -165,7 +165,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312269,
+        "lastObserved": 1790889093443,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -186,7 +186,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312270,
+        "lastObserved": 1790889093444,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -202,7 +202,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312279,
+        "lastObserved": 1790889093457,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -226,7 +226,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312280,
+        "lastObserved": 1790889093458,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -242,7 +242,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312280,
+        "lastObserved": 1790889093459,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -260,7 +260,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312281,
+        "lastObserved": 1790889093461,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -272,7 +272,7 @@
     "aspectName": "versionProperties",
     "aspect": {
         "json": {
-            "versionSet": "urn:li:versionSet:(a6850e5c30eaf7c432ceb045b09d8faf,dataset)",
+            "versionSet": "urn:li:versionSet:(798ee3f19297aeae77be8f68484a7560,dataset)",
             "version": {
                 "versionTag": "2"
             },
@@ -286,7 +286,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312281,
+        "lastObserved": 1790889093461,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -307,7 +307,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312281,
+        "lastObserved": 1790889093462,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -323,7 +323,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312341,
+        "lastObserved": 1790889093603,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -347,7 +347,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312342,
+        "lastObserved": 1790889093604,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -363,7 +363,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312342,
+        "lastObserved": 1790889093606,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -381,7 +381,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312342,
+        "lastObserved": 1790889093606,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -393,7 +393,7 @@
     "aspectName": "versionProperties",
     "aspect": {
         "json": {
-            "versionSet": "urn:li:versionSet:(57eaab9661d4db0b1a179a2edd1ec127,dataset)",
+            "versionSet": "urn:li:versionSet:(6177fe1f0abeea3dbd40f5727e1c8987,dataset)",
             "version": {
                 "versionTag": "1"
             },
@@ -410,7 +410,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312343,
+        "lastObserved": 1790889093607,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -431,14 +431,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312343,
+        "lastObserved": 1790889093608,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+    "entityUrn": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -446,31 +446,30 @@
             "customProperties": {
                 "trace_id": "cccccccccccccccccccccccccccccccc",
                 "generation_count": "2",
-                "non_generation_observation_count": "2",
                 "langfuse_session_id": "session-multi-1"
             },
             "externalUrl": "http://localhost:3211/trace/cccccccccccccccccccccccccccccccc",
             "name": "multi-turn-conversation",
             "created": {
-                "time": 1790083299459,
+                "time": 1790889083320,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312345,
+        "lastObserved": 1790889093610,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+    "entityUrn": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083299459,
+            "timestampMillis": 1790889083320,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -479,19 +478,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312345,
+        "lastObserved": 1790889093611,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+    "entityUrn": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083304459,
+            "timestampMillis": 1790889088320,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -505,14 +504,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312346,
+        "lastObserved": 1790889093612,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+    "entityUrn": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
     "changeType": "UPSERT",
     "aspectName": "mlTrainingRunProperties",
     "aspect": {
@@ -523,14 +522,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312347,
+        "lastObserved": 1790889093613,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+    "entityUrn": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -539,14 +538,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312347,
+        "lastObserved": 1790889093613,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+    "entityUrn": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -557,14 +556,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312348,
+        "lastObserved": 1790889093614,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+    "entityUrn": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -573,14 +572,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312348,
+        "lastObserved": 1790889093615,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:b4d2dd0853b854f70b1fe5278ed30bef",
+    "entityUrn": "urn:li:dataProcessInstance:645856cac3da656c154ccbd246cdacda",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -600,25 +599,25 @@
             },
             "name": "llm-call-turn-2",
             "created": {
-                "time": 1790083304256,
+                "time": 1790889085270,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312349,
+        "lastObserved": 1790889093617,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:b4d2dd0853b854f70b1fe5278ed30bef",
+    "entityUrn": "urn:li:dataProcessInstance:645856cac3da656c154ccbd246cdacda",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083304256,
+            "timestampMillis": 1790889085270,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -627,19 +626,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312350,
+        "lastObserved": 1790889093618,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:b4d2dd0853b854f70b1fe5278ed30bef",
+    "entityUrn": "urn:li:dataProcessInstance:645856cac3da656c154ccbd246cdacda",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083305256,
+            "timestampMillis": 1790889086270,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -653,14 +652,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312350,
+        "lastObserved": 1790889093619,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:b4d2dd0853b854f70b1fe5278ed30bef",
+    "entityUrn": "urn:li:dataProcessInstance:645856cac3da656c154ccbd246cdacda",
     "changeType": "UPSERT",
     "aspectName": "mlTrainingRunProperties",
     "aspect": {
@@ -671,14 +670,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312351,
+        "lastObserved": 1790889093620,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:b4d2dd0853b854f70b1fe5278ed30bef",
+    "entityUrn": "urn:li:dataProcessInstance:645856cac3da656c154ccbd246cdacda",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -687,14 +686,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312351,
+        "lastObserved": 1790889093621,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:b4d2dd0853b854f70b1fe5278ed30bef",
+    "entityUrn": "urn:li:dataProcessInstance:645856cac3da656c154ccbd246cdacda",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -705,31 +704,31 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312351,
+        "lastObserved": 1790889093622,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:b4d2dd0853b854f70b1fe5278ed30bef",
+    "entityUrn": "urn:li:dataProcessInstance:645856cac3da656c154ccbd246cdacda",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentInstance": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+            "parentInstance": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
             "upstreamInstances": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312352,
+        "lastObserved": 1790889093622,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:9c75c18d62fe2fc310db240ae3b3e73c",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -740,6 +739,8 @@
                 "model": "gpt-4o-mini",
                 "total_cost": "5.85e-05",
                 "latency_ms": "1",
+                "prompt_name": "integration-test-system-instructions",
+                "prompt_version": "1",
                 "usage_input": "150",
                 "usage_output": "60",
                 "usage_total": "210",
@@ -749,25 +750,25 @@
             },
             "name": "llm-call-turn-1",
             "created": {
-                "time": 1790083300145,
+                "time": 1790889084013,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312353,
+        "lastObserved": 1790889093624,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:9c75c18d62fe2fc310db240ae3b3e73c",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083300145,
+            "timestampMillis": 1790889084013,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -776,19 +777,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312353,
+        "lastObserved": 1790889093625,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:9c75c18d62fe2fc310db240ae3b3e73c",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083301145,
+            "timestampMillis": 1790889085013,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -802,14 +803,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312354,
+        "lastObserved": 1790889093626,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:9c75c18d62fe2fc310db240ae3b3e73c",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
     "changeType": "UPSERT",
     "aspectName": "mlTrainingRunProperties",
     "aspect": {
@@ -820,14 +821,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312354,
+        "lastObserved": 1790889093626,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:9c75c18d62fe2fc310db240ae3b3e73c",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -836,14 +837,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312355,
+        "lastObserved": 1790889093627,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:9c75c18d62fe2fc310db240ae3b3e73c",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -854,338 +855,49 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312355,
+        "lastObserved": 1790889093627,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:9c75c18d62fe2fc310db240ae3b3e73c",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentInstance": "urn:li:dataProcessInstance:f0f9573a43ac8522bae43c687637d95b",
+            "parentInstance": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
             "upstreamInstances": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312355,
+        "lastObserved": 1790889093628,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:535871a19908b5ef6dc4759514030ff9",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
     "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceProperties",
+    "aspectName": "dataProcessInstanceInput",
     "aspect": {
         "json": {
-            "customProperties": {
-                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "generation_count": "1",
-                "non_generation_observation_count": "2",
-                "tags": "support",
-                "langfuse_session_id": "session-support-1",
-                "langfuse_user_id": "user-1"
-            },
-            "externalUrl": "http://localhost:3211/trace/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "name": "support-chat",
-            "created": {
-                "time": 1790083299095,
-                "actor": "urn:li:corpuser:datahub"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312356,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:535871a19908b5ef6dc4759514030ff9",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceRunEvent",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1790083299095,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "status": "STARTED"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312356,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:535871a19908b5ef6dc4759514030ff9",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceRunEvent",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1790083302095,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "status": "COMPLETE",
-            "result": {
-                "type": "SUCCESS",
-                "nativeResultType": "langfuse"
-            },
-            "durationMillis": 3000
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312357,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:535871a19908b5ef6dc4759514030ff9",
-    "changeType": "UPSERT",
-    "aspectName": "mlTrainingRunProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            "trainingMetrics": [
-                {
-                    "name": "helpfulness",
-                    "description": "dataType=NUMERIC",
-                    "value": "0.9",
-                    "createdAt": 1790083304873
-                }
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:langfuse,integration-test-system-instructions.v1,PROD)"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312357,
+        "lastObserved": 1790889093629,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:535871a19908b5ef6dc4759514030ff9",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:langfuse"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312358,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:535871a19908b5ef6dc4759514030ff9",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Langfuse Trace"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312358,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:535871a19908b5ef6dc4759514030ff9",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:98ea50d0480432906da036a661c4408f"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312359,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be22deb50ccbe59f649c4882c7b9625b",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "langfuse_observation_type": "GENERATION",
-                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                "model": "gpt-4o-mini",
-                "total_cost": "4.5e-05",
-                "latency_ms": "1",
-                "usage_input": "100",
-                "usage_output": "50",
-                "usage_total": "150",
-                "cost_input": "1.5e-05",
-                "cost_output": "3e-05",
-                "cost_total": "4.5e-05"
-            },
-            "name": "llm-call",
-            "created": {
-                "time": 1790083299449,
-                "actor": "urn:li:corpuser:datahub"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312359,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be22deb50ccbe59f649c4882c7b9625b",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceRunEvent",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1790083299449,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "status": "STARTED"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312360,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be22deb50ccbe59f649c4882c7b9625b",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceRunEvent",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1790083300449,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "status": "COMPLETE",
-            "result": {
-                "type": "SUCCESS",
-                "nativeResultType": "langfuse"
-            },
-            "durationMillis": 1000
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312360,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be22deb50ccbe59f649c4882c7b9625b",
-    "changeType": "UPSERT",
-    "aspectName": "mlTrainingRunProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {},
-            "id": "2222222222222222",
-            "trainingMetrics": [
-                {
-                    "name": "is_correct",
-                    "description": "dataType=BOOLEAN",
-                    "value": "True",
-                    "createdAt": 1790083304909
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312361,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be22deb50ccbe59f649c4882c7b9625b",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:langfuse"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312361,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be22deb50ccbe59f649c4882c7b9625b",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Langfuse Generation"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312362,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:be22deb50ccbe59f649c4882c7b9625b",
-    "changeType": "UPSERT",
-    "aspectName": "dataProcessInstanceRelationships",
-    "aspect": {
-        "json": {
-            "parentInstance": "urn:li:dataProcessInstance:535871a19908b5ef6dc4759514030ff9",
-            "upstreamInstances": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1790083312362,
-        "runId": "langfuse-integration-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d6f323e2dd51619b498a815c5fe769de",
+    "entityUrn": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -1193,31 +905,30 @@
             "customProperties": {
                 "trace_id": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 "generation_count": "1",
-                "non_generation_observation_count": "0",
                 "tags": "billing"
             },
             "externalUrl": "http://localhost:3211/trace/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
             "name": "billing-query",
             "created": {
-                "time": 1790083299422,
+                "time": 1790889083181,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312363,
+        "lastObserved": 1790889093630,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d6f323e2dd51619b498a815c5fe769de",
+    "entityUrn": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083299422,
+            "timestampMillis": 1790889083181,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1226,19 +937,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312364,
+        "lastObserved": 1790889093630,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d6f323e2dd51619b498a815c5fe769de",
+    "entityUrn": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083301422,
+            "timestampMillis": 1790889085181,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1252,14 +963,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312364,
+        "lastObserved": 1790889093631,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d6f323e2dd51619b498a815c5fe769de",
+    "entityUrn": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
     "changeType": "UPSERT",
     "aspectName": "mlTrainingRunProperties",
     "aspect": {
@@ -1270,14 +981,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312365,
+        "lastObserved": 1790889093632,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d6f323e2dd51619b498a815c5fe769de",
+    "entityUrn": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1286,14 +997,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312365,
+        "lastObserved": 1790889093633,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d6f323e2dd51619b498a815c5fe769de",
+    "entityUrn": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1304,14 +1015,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312365,
+        "lastObserved": 1790889093634,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:d6f323e2dd51619b498a815c5fe769de",
+    "entityUrn": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1320,14 +1031,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312366,
+        "lastObserved": 1790889093634,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:a08e5e133e0f56040263987caeee2aee",
+    "entityUrn": "urn:li:dataProcessInstance:f937722d3448b65beb6e84d00239ae54",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
@@ -1343,25 +1054,25 @@
             },
             "name": "billing-query",
             "created": {
-                "time": 1790083299422,
+                "time": 1790889083181,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312367,
+        "lastObserved": 1790889093635,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:a08e5e133e0f56040263987caeee2aee",
+    "entityUrn": "urn:li:dataProcessInstance:f937722d3448b65beb6e84d00239ae54",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083299422,
+            "timestampMillis": 1790889083181,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1370,19 +1081,19 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312367,
+        "lastObserved": 1790889093636,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:a08e5e133e0f56040263987caeee2aee",
+    "entityUrn": "urn:li:dataProcessInstance:f937722d3448b65beb6e84d00239ae54",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1790083301422,
+            "timestampMillis": 1790889085181,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1396,14 +1107,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312368,
+        "lastObserved": 1790889093636,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:a08e5e133e0f56040263987caeee2aee",
+    "entityUrn": "urn:li:dataProcessInstance:f937722d3448b65beb6e84d00239ae54",
     "changeType": "UPSERT",
     "aspectName": "mlTrainingRunProperties",
     "aspect": {
@@ -1414,14 +1125,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312368,
+        "lastObserved": 1790889093637,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:a08e5e133e0f56040263987caeee2aee",
+    "entityUrn": "urn:li:dataProcessInstance:f937722d3448b65beb6e84d00239ae54",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -1430,14 +1141,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312369,
+        "lastObserved": 1790889093637,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:a08e5e133e0f56040263987caeee2aee",
+    "entityUrn": "urn:li:dataProcessInstance:f937722d3448b65beb6e84d00239ae54",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1448,24 +1159,350 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312369,
+        "lastObserved": 1790889093637,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataProcessInstance",
-    "entityUrn": "urn:li:dataProcessInstance:a08e5e133e0f56040263987caeee2aee",
+    "entityUrn": "urn:li:dataProcessInstance:f937722d3448b65beb6e84d00239ae54",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentInstance": "urn:li:dataProcessInstance:d6f323e2dd51619b498a815c5fe769de",
+            "parentInstance": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
             "upstreamInstances": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312370,
+        "lastObserved": 1790889093638,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "generation_count": "1",
+                "tags": "support",
+                "langfuse_session_id": "session-support-1",
+                "langfuse_user_id": "user-1"
+            },
+            "externalUrl": "http://localhost:3211/trace/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "name": "support-chat",
+            "created": {
+                "time": 1790889083009,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093639,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790889083009,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093639,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790889086009,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "langfuse"
+            },
+            "durationMillis": 3000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093641,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "trainingMetrics": [
+                {
+                    "name": "helpfulness",
+                    "description": "dataType=NUMERIC",
+                    "value": "0.9",
+                    "createdAt": 1790889085602
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093642,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:langfuse"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093643,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Langfuse Trace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093644,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:98ea50d0480432906da036a661c4408f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093645,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "langfuse_observation_type": "GENERATION",
+                "trace_id": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "model": "gpt-4o-mini",
+                "total_cost": "4.5e-05",
+                "latency_ms": "1",
+                "prompt_name": "integration-test-greeting",
+                "prompt_version": "1",
+                "usage_input": "100",
+                "usage_output": "50",
+                "usage_total": "150",
+                "cost_input": "1.5e-05",
+                "cost_output": "3e-05",
+                "cost_total": "4.5e-05"
+            },
+            "name": "llm-call",
+            "created": {
+                "time": 1790889083203,
+                "actor": "urn:li:corpuser:datahub"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093646,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790889083203,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "STARTED"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093649,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1790889084203,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "status": "COMPLETE",
+            "result": {
+                "type": "SUCCESS",
+                "nativeResultType": "langfuse"
+            },
+            "durationMillis": 1000
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093650,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "id": "2222222222222222",
+            "trainingMetrics": [
+                {
+                    "name": "is_correct",
+                    "description": "dataType=BOOLEAN",
+                    "value": "True",
+                    "createdAt": 1790889085655
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093652,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:langfuse"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093653,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Langfuse Generation"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093654,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+        "json": {
+            "parentInstance": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+            "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093655,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+        "json": {
+            "inputs": [
+                "urn:li:dataset:(urn:li:dataPlatform:langfuse,integration-test-greeting.v1,PROD)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093655,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1481,7 +1518,119 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312371,
+        "lastObserved": 1790889093656,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:14d22f7545a4b6231197d6eb41b34979",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093657,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:2fe5294204ba589cca3c55ae1726c06e",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093658,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:4edee37499f46308f9e8209146bd5492",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093658,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:54ccb598dd9ac06832b6e6fdc017444f",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093659,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:645856cac3da656c154ccbd246cdacda",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093659,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:7eb8162c8a2a1795ea7641f33707bdfd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093660,
+        "runId": "langfuse-integration-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:f937722d3448b65beb6e84d00239ae54",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1790889093661,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1497,7 +1646,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312371,
+        "lastObserved": 1790889093662,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1513,7 +1662,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312372,
+        "lastObserved": 1790889093662,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1529,7 +1678,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1790083312372,
+        "lastObserved": 1790889093663,
         "runId": "langfuse-integration-test",
         "lastRunId": "no-run-id-provided"
     }

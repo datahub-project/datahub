@@ -1,3 +1,4 @@
+import itertools
 import json
 import logging
 from collections import defaultdict
@@ -7,7 +8,6 @@ from typing import Any, Dict, Iterable, List, Optional
 import requests
 
 import datahub.emitter.mce_builder as builder
-from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
@@ -28,6 +28,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes, MLAssetSubTypes
 from datahub.ingestion.source.langfuse.langfuse_client import (
     ATTACHABLE_SCORE_SUBJECT_KINDS,
+    OBSERVATION_TYPE_GENERATION,
     LangfuseAuthenticationError,
     LangfuseClient,
     LangfuseObservation,
@@ -42,6 +43,7 @@ from datahub.metadata.schema_classes import (
     AuditStampClass,
     ContainerClass,
     DataPlatformInstanceClass,
+    DataProcessInstanceInputClass,
     DataProcessInstancePropertiesClass,
     DataProcessInstanceRelationshipsClass,
     DataProcessInstanceRunEventClass,
@@ -53,7 +55,12 @@ from datahub.metadata.schema_classes import (
     VersionPropertiesClass,
     VersionTagClass,
 )
-from datahub.metadata.urns import DataPlatformUrn, DatasetUrn, VersionSetUrn
+from datahub.metadata.urns import (
+    DataPlatformUrn,
+    DataProcessInstanceUrn,
+    DatasetUrn,
+    VersionSetUrn,
+)
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 
@@ -80,8 +87,8 @@ def _iso_to_millis(iso_timestamp: Optional[str]) -> Optional[int]:
 @capability(SourceCapability.CONTAINERS, "Enabled by default (Project container)")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Not implemented in this version",
-    supported=False,
+    "Enabled by default: Generation -> Prompt version lineage via "
+    "DataProcessInstanceInput",
 )
 @capability(
     SourceCapability.DELETION_DETECTION,
@@ -119,6 +126,7 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
         # Set once get_workunits_internal() resolves the project; see
         # _get_project_container_urn() for the guarded accessor.
         self._project_container_urn: Optional[str] = None
+        self._project_id: Optional[str] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "LangfuseSource":
@@ -138,6 +146,23 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
             "resolved it."
         )
         return self._project_container_urn
+
+    def _get_project_id(self) -> str:
+        assert self._project_id is not None, (
+            "Project id accessed before get_workunits_internal() resolved it."
+        )
+        return self._project_id
+
+    def _make_dpi_urn(self, native_id: str) -> str:
+        guid = builder.datahub_guid(
+            {
+                "platform": self.platform,
+                "instance": self.config.platform_instance,
+                "project_id": self._get_project_id(),
+                "id": native_id,
+            }
+        )
+        return str(DataProcessInstanceUrn(guid))
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -163,6 +188,7 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
             instance=self.config.platform_instance,
             project_id=project["id"],
         )
+        self._project_id = project["id"]
         self._project_container_urn = str(project_key.as_urn())
         yield from self._emit_project_container(project_key, project)
 
@@ -196,44 +222,73 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
     # ------------------------------------------------------------------
 
     def _get_prompt_workunits(self) -> Iterable[MetadataWorkUnit]:
-        for prompt_meta in self.client.iter_prompt_names():
-            name = prompt_meta["name"]
-            if not self.config.prompt_pattern.allowed(name):
-                self.report.prompts_filtered += 1
-                continue
+        try:
+            for prompt_meta in self.client.iter_prompt_names():
+                yield from self._get_prompt_name_workunits(prompt_meta)
+        except (LangfuseAuthenticationError, requests.RequestException) as e:
+            # Reported as a failure, not a warning: a partial prompt listing
+            # must block stale-entity removal, or every prompt not yet listed
+            # would be soft-deleted.
+            self.report.failure(
+                title="Failed to list Prompts",
+                message="Could not retrieve the Prompt list. Prompts from this "
+                "run will be incomplete or missing.",
+                exc=e,
+            )
 
-            self.report.prompts_scanned += 1
-            version_set_urn = self._get_prompt_version_set_urn(name)
-            for version in prompt_meta.get("versions", []):
-                try:
-                    prompt_version = self.client.get_prompt_version(name, version)
-                except requests.HTTPError as e:
-                    self.report.warning(
-                        title="Failed to fetch prompt version",
-                        message="This prompt version will be skipped.",
-                        context=f"name={name}, version={version}",
-                        exc=e,
-                    )
-                    continue
-                yield from self._emit_prompt_version(prompt_version, version_set_urn)
-                self.report.prompt_versions_scanned += 1
+    def _get_prompt_name_workunits(
+        self, prompt_meta: Dict[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
+        name = prompt_meta["name"]
+        if not self.config.prompt_pattern.allowed(name):
+            self.report.prompts_filtered += 1
+            return
+
+        self.report.prompts_scanned += 1
+        version_set_urn = self._get_prompt_version_set_urn(name)
+        for version in prompt_meta.get("versions", []):
+            try:
+                prompt_version = self.client.get_prompt_version(name, version)
+            except requests.RequestException as e:
+                self.report.warning(
+                    title="Failed to fetch prompt version",
+                    message="This prompt version will be skipped.",
+                    context=f"name={name}, version={version}",
+                    exc=e,
+                )
+                continue
+            yield from self._emit_prompt_version(prompt_version, version_set_urn)
+            self.report.prompt_versions_scanned += 1
 
     def _get_prompt_version_set_urn(self, prompt_name: str) -> VersionSetUrn:
-        guid_dict = {"platform": self.platform, "name": prompt_name}
+        guid_dict = {
+            "platform": self.platform,
+            "instance": self.config.platform_instance,
+            "name": prompt_name,
+        }
         return VersionSetUrn(
             id=builder.datahub_guid(guid_dict),
             entity_type=DatasetUrn.ENTITY_TYPE,
         )
 
-    def _make_prompt_dataset_name(self, prompt: LangfusePromptVersion) -> str:
-        return f"{prompt.name}.v{prompt.version}"
+    @staticmethod
+    def _make_prompt_dataset_name(prompt_name: str, version: int) -> str:
+        return f"{prompt_name}.v{version}"
+
+    def _make_prompt_dataset_urn(self, prompt_name: str, version: int) -> str:
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=self._make_prompt_dataset_name(prompt_name, version),
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
     def _emit_prompt_version(
         self,
         prompt: LangfusePromptVersion,
         version_set_urn: VersionSetUrn,
     ) -> Iterable[MetadataWorkUnit]:
-        dataset_name = self._make_prompt_dataset_name(prompt)
+        dataset_name = self._make_prompt_dataset_name(prompt.name, prompt.version)
         dataset = Dataset(
             platform=self.platform,
             name=dataset_name,
@@ -280,12 +335,10 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
             else {}
         )
 
-        observations_by_trace: Dict[str, List[LangfuseObservation]] = defaultdict(list)
         try:
-            for obs in self.client.iter_observations(
+            observations_by_trace = self._fetch_trace_observations(
                 window.start_time, window.end_time
-            ):
-                observations_by_trace[obs.trace_id].append(obs)
+            )
         except (LangfuseAuthenticationError, requests.RequestException) as e:
             self.report.failure(
                 title="Failed to fetch Observations",
@@ -297,35 +350,52 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
 
         for trace_id, observations in observations_by_trace.items():
             root = next((o for o in observations if o.is_root_observation), None)
-            is_partial_trace = root is None
-            if root is None:
-                # The trace's root observation started outside the configured
-                # window while at least one of its children (a generation)
-                # started inside it. Rather than dropping the generation's
-                # data, synthesize a minimal trace record from the earliest
-                # observation we did retrieve. This is a documented, accepted
-                # limitation rather than a silent data drop.
-                root = min(observations, key=lambda o: o.start_time or "")
+            # Without a root in the window, the trace name comes from the
+            # trace_context of the earliest generation we did retrieve.
+            reference = root or min(observations, key=lambda o: o.start_time or "")
 
-            trace_name = root.trace_name or root.name or trace_id
+            trace_name = reference.trace_name or reference.name or trace_id
             if not self.config.trace_name_pattern.allowed(trace_name):
                 self.report.traces_filtered += 1
                 continue
 
-            generations = [o for o in observations if o.type == "GENERATION"]
-            non_generation_count = len(observations) - len(generations)
-            self.report.non_generation_observations_skipped += non_generation_count
-
+            generations = [
+                o for o in observations if o.type == OBSERVATION_TYPE_GENERATION
+            ]
             yield from self._emit_trace(
                 trace_id=trace_id,
                 trace_name=trace_name,
                 root=root,
                 generations=generations,
-                non_generation_count=non_generation_count,
-                is_partial_trace=is_partial_trace,
                 metrics_by_urn=metrics_by_urn,
             )
             self.report.traces_scanned += 1
+
+    def _fetch_trace_observations(
+        self, from_start_time: datetime, to_start_time: datetime
+    ) -> Dict[str, List[LangfuseObservation]]:
+        # Only roots (for the Trace record) and generations (the only
+        # Observation type emitted as its own entity) are needed, so filter on
+        # the server instead of paging through every span/event/tool
+        # observation in the window. A root can itself be a GENERATION, so the
+        # two result sets are deduplicated by id.
+        observations_by_id: Dict[str, LangfuseObservation] = {}
+        for obs in itertools.chain(
+            self.client.iter_observations(
+                from_start_time, to_start_time, is_root_observation=True
+            ),
+            self.client.iter_observations(
+                from_start_time,
+                to_start_time,
+                observation_type=OBSERVATION_TYPE_GENERATION,
+            ),
+        ):
+            observations_by_id.setdefault(obs.id, obs)
+
+        observations_by_trace: Dict[str, List[LangfuseObservation]] = defaultdict(list)
+        for obs in observations_by_id.values():
+            observations_by_trace[obs.trace_id].append(obs)
+        return observations_by_trace
 
     def _build_score_metrics_map(
         self, from_timestamp: datetime, to_timestamp: datetime
@@ -352,10 +422,7 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.report_score_dropped(score.id, "missing_subject_id")
                 continue
 
-            target_urn = str(
-                DataProcessInstance(id=score.subject_id, orchestrator=self.platform).urn
-            )
-            metrics_by_urn[target_urn].append(
+            metrics_by_urn[self._make_dpi_urn(score.subject_id)].append(
                 MLMetricClass(
                     name=score.name,
                     description=f"dataType={score.data_type}",
@@ -363,55 +430,58 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
                     createdAt=_iso_to_millis(score.timestamp),
                 )
             )
-            self.report.scores_attached += 1
         return metrics_by_urn
 
     def _emit_trace(
         self,
         trace_id: str,
         trace_name: str,
-        root: LangfuseObservation,
+        root: Optional[LangfuseObservation],
         generations: List[LangfuseObservation],
-        non_generation_count: int,
-        is_partial_trace: bool,
         metrics_by_urn: Dict[str, List[MLMetricClass]],
     ) -> Iterable[MetadataWorkUnit]:
-        trace_urn = str(
-            DataProcessInstance(id=trace_id, orchestrator=self.platform).urn
-        )
+        trace_urn = self._make_dpi_urn(trace_id)
 
-        custom_properties = {
-            "trace_id": trace_id,
-            "generation_count": str(len(generations)),
-            "non_generation_observation_count": str(non_generation_count),
-        }
-        if is_partial_trace:
-            custom_properties["partial_trace"] = "true"
-        if root.release:
-            custom_properties["release"] = root.release
-        if root.tags:
-            custom_properties["tags"] = ",".join(root.tags)
-        if self.config.include_sessions:
-            if root.session_id:
-                custom_properties["langfuse_session_id"] = root.session_id
-            if root.user_id:
-                custom_properties["langfuse_user_id"] = root.user_id
+        if root is None:
+            # The root started before the window, so only its generations were
+            # retrieved. Properties, run events and metrics synthesized from a
+            # generation would overwrite the full Trace record written by an
+            # earlier run that did see the root, so only the identity aspects
+            # the generations' parentInstance link needs are emitted.
+            self.report.partial_traces += 1
+            yield from self._emit_dpi_identity_aspects(
+                trace_urn, MLAssetSubTypes.LANGFUSE_TRACE
+            )
+        else:
+            custom_properties = {
+                "trace_id": trace_id,
+                "generation_count": str(len(generations)),
+            }
+            if root.release:
+                custom_properties["release"] = root.release
+            if root.tags:
+                custom_properties["tags"] = ",".join(root.tags)
+            if self.config.include_sessions:
+                if root.session_id:
+                    custom_properties["langfuse_session_id"] = root.session_id
+                if root.user_id:
+                    custom_properties["langfuse_user_id"] = root.user_id
 
-        yield from self._emit_dpi_common_aspects(
-            entity_urn=trace_urn,
-            native_id=trace_id,
-            name=trace_name,
-            custom_properties=custom_properties,
-            obs=root,
-            subtype=MLAssetSubTypes.LANGFUSE_TRACE,
-            metrics=metrics_by_urn.get(trace_urn, []),
-            external_url=self._make_trace_external_url(trace_id),
-        )
+            yield from self._emit_dpi_common_aspects(
+                entity_urn=trace_urn,
+                native_id=trace_id,
+                name=trace_name,
+                custom_properties=custom_properties,
+                obs=root,
+                subtype=MLAssetSubTypes.LANGFUSE_TRACE,
+                metrics=metrics_by_urn.get(trace_urn, []),
+                external_url=self._make_trace_external_url(trace_id),
+            )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=trace_urn,
             aspect=ContainerClass(container=self._get_project_container_urn()),
-        ).as_workunit(is_primary_source=False)
+        ).as_workunit()
 
         for generation in generations:
             yield from self._emit_generation(generation, trace_urn, metrics_by_urn)
@@ -423,7 +493,7 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
         trace_urn: str,
         metrics_by_urn: Dict[str, List[MLMetricClass]],
     ) -> Iterable[MetadataWorkUnit]:
-        obs_urn = str(DataProcessInstance(id=obs.id, orchestrator=self.platform).urn)
+        obs_urn = self._make_dpi_urn(obs.id)
 
         custom_properties: Dict[str, str] = {
             "langfuse_observation_type": obs.type,
@@ -462,7 +532,25 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
                 upstreamInstances=[],
                 parentInstance=trace_urn,
             ),
-        ).as_workunit(is_primary_source=False)
+        ).as_workunit()
+
+        prompt_urn = self._get_generation_prompt_urn(obs)
+        if prompt_urn is not None:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=obs_urn,
+                aspect=DataProcessInstanceInputClass(inputs=[prompt_urn]),
+            ).as_workunit()
+
+    def _get_generation_prompt_urn(self, obs: LangfuseObservation) -> Optional[str]:
+        # Only link to prompt versions this connector itself emits, so lineage
+        # never creates stub Datasets for prompts that were filtered out.
+        if not obs.prompt_name or obs.prompt_version is None:
+            return None
+        if not self.config.include_prompts or not self.config.prompt_pattern.allowed(
+            obs.prompt_name
+        ):
+            return None
+        return self._make_prompt_dataset_urn(obs.prompt_name, obs.prompt_version)
 
     def _emit_dpi_common_aspects(
         self,
@@ -476,14 +564,7 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
         metrics: List[MLMetricClass],
         external_url: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit the aspect set shared by Trace and Generation DataProcessInstances.
-
-        Every workunit here is emitted with is_primary_source=False - Trace and
-        Generation entities are retrieved through a rolling time window, not
-        fully enumerated, so they must never be considered by stale-entity
-        removal. Otherwise entities that simply aged out of the window would
-        be incorrectly soft-deleted on every subsequent run.
-        """
+        """Emit the aspect set shared by Trace and Generation DataProcessInstances."""
         yield MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=DataProcessInstancePropertiesClass(
@@ -492,7 +573,7 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
                 created=self._audit_stamp(obs.start_time),
                 externalUrl=external_url,
             ),
-        ).as_workunit(is_primary_source=False)
+        ).as_workunit()
 
         yield from self._emit_run_event(entity_urn, obs)
 
@@ -502,17 +583,23 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
                 id=native_id,
                 trainingMetrics=metrics,
             ),
-        ).as_workunit(is_primary_source=False)
+        ).as_workunit()
+        self.report.scores_attached += len(metrics)
 
+        yield from self._emit_dpi_identity_aspects(entity_urn, subtype)
+
+    def _emit_dpi_identity_aspects(
+        self, entity_urn: str, subtype: str
+    ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=self._data_platform_instance(),
-        ).as_workunit(is_primary_source=False)
+        ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=SubTypesClass(typeNames=[subtype]),
-        ).as_workunit(is_primary_source=False)
+        ).as_workunit()
 
     def _emit_run_event(
         self, entity_urn: str, obs: LangfuseObservation
@@ -527,7 +614,7 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
                     status=DataProcessRunStatusClass.STARTED,
                     timestampMillis=start_millis,
                 ),
-            ).as_workunit(is_primary_source=False)
+            ).as_workunit()
 
         if end_millis is not None:
             result_type = "FAILURE" if obs.level == "ERROR" else "SUCCESS"
@@ -544,7 +631,7 @@ class LangfuseSource(StatefulIngestionSourceBase, TestableSource):
                         end_millis - start_millis if start_millis is not None else None
                     ),
                 ),
-            ).as_workunit(is_primary_source=False)
+            ).as_workunit()
 
     def _data_platform_instance(self) -> DataPlatformInstanceClass:
         instance_urn = None

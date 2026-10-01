@@ -2411,9 +2411,9 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Not implemented in this version",
+          "description": "Enabled by default: Generation -> Prompt version lineage via DataProcessInstanceInput",
           "subtype_modifier": null,
-          "supported": false
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.langfuse.langfuse.LangfuseSource",

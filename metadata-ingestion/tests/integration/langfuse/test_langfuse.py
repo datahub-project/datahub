@@ -1,5 +1,6 @@
+import json
 import logging
-from typing import cast
+from typing import Any, Dict, List, Set, cast
 
 import pytest
 import requests
@@ -109,14 +110,31 @@ def test_langfuse_ingest(seeded_langfuse, pytestconfig, tmp_path, test_resources
         # regresses, rather than just "some JSON diff line changed".
         assert report.traces_scanned == summary.trace_count
         assert report.generations_scanned == summary.generation_count
-        assert (
-            report.non_generation_observations_skipped
-            == summary.non_generation_observation_count
-        )
         assert report.scores_attached == summary.attachable_score_count
         assert report.scores_dropped_unattachable_subject == summary.dropped_score_count
         assert report.prompts_scanned == len(summary.prompt_names)
         assert report.prompt_versions_scanned == summary.prompt_version_count
+        assert report.partial_traces == 0
+
+        with open("langfuse_mces.json") as f:
+            mcps: List[Dict[str, Any]] = json.load(f)
+        prompt_dataset_urns: Set[str] = {
+            mcp["entityUrn"]
+            for mcp in mcps
+            if mcp["entityType"] == "dataset"
+            and mcp.get("aspectName") == "versionProperties"
+        }
+        prompt_inputs = [
+            mcp["aspect"]["json"]["inputs"]
+            for mcp in mcps
+            if mcp.get("aspectName") == "dataProcessInstanceInput"
+        ]
+        # Every generation->prompt lineage edge must resolve to a prompt
+        # version Dataset emitted by this same run.
+        assert len(prompt_inputs) == summary.prompt_linked_generation_count
+        for inputs in prompt_inputs:
+            assert len(inputs) == 1
+            assert inputs[0] in prompt_dataset_urns
 
         mce_helpers.check_golden_file(
             pytestconfig,
