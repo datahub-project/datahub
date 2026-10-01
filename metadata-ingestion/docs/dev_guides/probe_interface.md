@@ -107,6 +107,7 @@ implement exactly this one hook and nothing else in this guide. Everything below
 | `warnings: List[str]`               | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                                                                                                                                                       |
 | `probe_report`                      | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand                                                                                                                           |
 | `silenced_loggers: Tuple[str, ...]` | if reused code logs values read from the source that carry no credential shape (connector configs, response bodies): those loggers' records are dropped, not scrubbed, while a probe runs. Framework loggers cannot be silenced; `DATAHUB_PROBE_VERBOSE_LOGS=1` shows them again |
+| `ProbeProviderBase` (optional base) | to get `warnings`/`_warn`, lazily opened clients (`_open_once`) and an `__exit__` that closes them all; see [Shared provider helpers](#shared-provider-helpers)                                                                                                                  |
 
 ### Errors, logs and secrets
 
@@ -177,6 +178,60 @@ names share one config class and differ only in the pydantic context their `crea
 passes (`mssql-odbc` vs `mssql`). Declare
 `probe_validation_context(cls, source_type: str) -> Optional[Dict[str, object]]` and
 every probe command validates the recipe with the same context ingestion uses.
+
+### Shared provider helpers
+
+`datahub.ingestion.agent.provider_helpers` holds what every provider used to
+write for itself. Use these instead of a local copy. None of them is a hook:
+the framework never looks them up, so the [hook reference](#hook-reference) does
+not list them.
+
+| Helper                                                   | Use it for                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `echoed(value)`                                          | Putting a caller's argument or a listed name into a refusal: clipped and repr-quoted, so control characters cannot reach a terminal or a log.                                                                                                                                                                                                                                                                                                                                           |
+| `resolve_name(arg, records, *, key, kind, ...)`          | Turning a caller's name (or id, with `id_key`) into the listed record, returned as `Resolved(record, name, by_id)`. Exact match; a case-only miss is refused with the listed spelling as a hint; a shared name is refused with `distinguish` labels and your `on_ambiguous` remedy. Raises `ProbeArgumentError` (exit 2). `on_miss` runs first, so it can raise a read failure instead when an unread listing could hold the name. `stop_at_first=True` for listings with unique names. |
+| `take(items, limit, *, keep=None)`                       | Any listing with a limit (`None` for no limit). Stops paging at the limit and closes the source.                                                                                                                                                                                                                                                                                                                                                                                        |
+| `PersonalWithholding(is_personal=..., would_ingest=...)` | Leaving out records that name people and that ingestion would not emit. Pass `.keep` to `take`, then warn with `.count_text(stopped_early=...)`. `is_personal` must fail closed.                                                                                                                                                                                                                                                                                                        |
+| `soft_listing(self._warn, 403, 404, context=...)`        | One sub-listing that may degrade. Write `return fetch()` inside the block and your fallback (`return []`) after it. `context` is required when you pass status codes.                                                                                                                                                                                                                                                                                                                   |
+| `ProbeProviderBase`                                      | `warnings` / `_warn`, `_open_once(key, opener, close=...)`, `_on_exit(close)`, and an `__exit__` that closes everything, last first.                                                                                                                                                                                                                                                                                                                                                    |
+
+```python
+class MyProbe(ProbeProviderBase):
+    def _api(self) -> MyClient:
+        return self._open_once("api", lambda: MyClient(self._config), close=MyClient.close)
+
+    def _workspace(self, name: str) -> Workspace:
+        return resolve_name(
+            name,
+            self._api().list_workspaces(),
+            key=lambda ws: ws.name,
+            kind="workspace",
+            list_command="probe run workspaces",
+        ).record
+
+    @probe_method(kind="Report", parent_params=("workspace",))
+    def reports(self, workspace: str) -> List[str]:
+        ws = self._workspace(workspace)
+        with soft_listing(self._warn, 403, 404, context=f"reports in '{workspace}'"):
+            return take((r.name for r in self._api().reports(ws.id)), None)
+        return []
+```
+
+Pass `resolve_name` the records **after** withholding: its hint and its
+ambiguity list print listed names. Do not wrap a `resolve_name` call in your own
+error translator. Materialise the listing inside the translator, and resolve
+outside it, so a refusal stays exit 2.
+
+Two cautions:
+
+- **Do not give `warnings` a class-level list default** in a subclass
+  (`warnings: List[str] = []`). It would replace the base's per-instance
+  property, and every provider instance would share one list.
+- **A warning built inside `soft_listing` must not interpolate parts of a
+  foreign exception** (for example `{e.doc}`). Warnings get no framework
+  backstop beyond the withholding of a foreign exception's whole text. Name the
+  operation and the exception class instead, as in
+  [Errors, logs and secrets](#errors-logs-and-secrets).
 
 ### `@probe_method` options
 
@@ -945,6 +1000,9 @@ Every item has cost a review round on at least one connector.
       after review; a subclass's NEW identifier-taking `@probe_method` is not
       auto-checked (see
       [the SQL family](#the-sql-familys-listings-come-from-the-inspector-not-from-a-query)).
+- [ ] **Shared helpers, not copies.** Name lookups, limits, personal-record
+      withholding, lazy clients and soft sub-listings use
+      [the shared helpers](#shared-provider-helpers).
 - [ ] **PII withheld.** Owner names, emails and personal workspaces are left out
       with a warning, or masked with `mask_identity_columns` (whose mask marker
       says the value was withheld).
