@@ -4010,10 +4010,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Optional[FrozenSet[str]]:
         """The chart's own non-DM source names, sheets included (a pivot or
         input table is a sheet source but never a page element), or None when
-        its lineage is unknown or incomplete: none returned, an unnamed
-        source, or a customSQL chart, whose SQL sources are not upstreams."""
+        its lineage is unknown or incomplete: none returned, a source the
+        lineage walk dropped, an unnamed source, or a customSQL chart, whose
+        SQL sources are not upstreams."""
         upstreams = list(element.upstream_sources.values())
-        if not upstreams or chart_urn in self._workbook_customsql_registered_urns:
+        if (
+            not upstreams
+            or not element.upstream_sources_complete
+            or chart_urn in self._workbook_customsql_registered_urns
+        ):
             return None
         names: Set[str] = set()
         for upstream in upstreams:

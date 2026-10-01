@@ -1481,7 +1481,9 @@ class TestChartRefStrategies:
             f"urn:li:schemaField:({_OWNER_URN},Sku)"
         ]
 
-    @pytest.mark.parametrize("lineage", ["none", "unnamed-dataset", "customsql"])
+    @pytest.mark.parametrize(
+        "lineage", ["none", "unnamed-dataset", "customsql", "dropped-source"]
+    )
     def test_unknown_chart_lineage_skips_the_loaded_data_model_lookup(
         self, lineage: str
     ) -> None:
@@ -1490,6 +1492,15 @@ class TestChartRefStrategies:
         )
         if lineage == "unnamed-dataset":
             chart.upstream_sources = {"ds": DatasetUpstream(name=None)}
+        elif lineage == "dropped-source":
+            # The walk kept the DM upstream but dropped a source that may be
+            # the one the formula names.
+            chart.upstream_sources = {
+                "dm1/y": DataModelElementUpstream(
+                    name="Join El", data_model_url_id="dm1"
+                )
+            }
+            chart.upstream_sources_complete = False
         elif lineage == "customsql":
             chart.upstream_sources = {
                 "dm1/y": DataModelElementUpstream(

@@ -133,6 +133,59 @@ def _lineage_response(payload: dict) -> MagicMock:
 
 
 class TestGetElementUpstreamSources:
+    @pytest.mark.parametrize(
+        ("dropped_node", "edge"),
+        [
+            ({"type": "formula", "name": "Future"}, None),
+            ({"type": "table", "nodeId": "not-an-inode", "name": "T"}, None),
+            ({"type": "sheet", "name": "No Id"}, None),
+            (None, {"target": "tgt_node"}),
+        ],
+        ids=["unknown-type", "bad-table-node", "sheet-without-id", "malformed-edge"],
+    )
+    def test_a_dropped_node_marks_the_upstreams_incomplete(
+        self, dropped_node: Optional[dict], edge: Optional[dict]
+    ) -> None:
+        """The good source is kept, but a partial list must not read as the
+        chart's full lineage."""
+        api = _create_sigma_api()
+        element = _make_element()
+        dependencies: dict = {
+            "tgt_node": {"elementId": "elem1", "name": "My Chart", "type": "sheet"},
+            "ds_node": {"name": "Orders", "type": "dataset"},
+        }
+        edges = [{"source": "ds_node", "target": "tgt_node"}]
+        if dropped_node is not None:
+            dependencies["bad_node"] = dropped_node
+            edges.append({"source": "bad_node", "target": "tgt_node"})
+        if edge is not None:
+            edges.append(edge)
+        response = _lineage_response({"dependencies": dependencies, "edges": edges})
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            result = api._get_element_upstream_sources(element, _make_workbook())
+
+        assert list(result) == ["ds_node"]
+        assert element.upstream_sources_complete is False
+
+    def test_a_clean_walk_is_complete(self) -> None:
+        api = _create_sigma_api()
+        element = _make_element()
+        response = _lineage_response(
+            {
+                "dependencies": {
+                    "tgt_node": {"elementId": "elem1", "name": "C", "type": "sheet"},
+                    "ds_node": {"name": "Orders", "type": "dataset"},
+                },
+                "edges": [{"source": "ds_node", "target": "tgt_node"}],
+            }
+        )
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            api._get_element_upstream_sources(element, _make_workbook())
+
+        assert element.upstream_sources_complete is True
+
     def test_sheet_node_missing_element_id_is_skipped_with_warning(self) -> None:
         api = _create_sigma_api()
         element = _make_element()
