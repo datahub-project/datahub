@@ -6,6 +6,7 @@ import requests_mock as rm
 
 from datahub.ingestion.agent.api_gate import ApiScopeError, check_api_request
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
+from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.powerbi.config import (
@@ -578,3 +579,37 @@ def test_api_base_follows_the_environment(requests_mock: rm.Mocker) -> None:
     )
     assert result.result == {"value": []}
     assert all("powerbigov.us" in r.url for r in requests_mock.request_history)
+
+
+def test_a_saved_workspaces_run_judges_all_three_workspace_rules(
+    requests_mock: rm.Mocker,
+) -> None:
+    # The round trip the docs describe: `probe run workspaces --report-to`,
+    # then `probe filter --from-run`. Each rule drops exactly one workspace.
+    recipe = {
+        **_RECIPE,
+        "workspace_name_pattern": {"deny": ["^Finance$"]},
+        "workspace_id_pattern": {"deny": ["^ws-5$"]},
+    }
+    _paged(
+        requests_mock,
+        f"{_ORG}/groups",
+        [*_GROUPS, {"id": "ws-5", "name": "Archive", "type": "Workspace"}],
+    )
+    run = run_probe_method("powerbi", recipe, "workspaces", {})
+    listing = listing_from_run(run.to_dict())
+    result = check_filters(
+        source_type="powerbi",
+        config_dict=recipe,
+        kind=str(listing.kind),
+        parent_path=listing.parent_path,
+        names=listing.names,
+        attributes=listing.attributes,
+    )
+    assert {v.name: v.excluded_by for v in result.results} == {
+        "Sales": None,
+        "Finance": "workspace_name_pattern",
+        "Admin Monitoring": "workspace_type_filter",
+        "Archive": "workspace_id_pattern",
+    }
+    assert result.warnings == []
