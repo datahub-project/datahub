@@ -8,12 +8,15 @@ import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.context.Scope;
 import io.opentelemetry.sdk.trace.data.SpanData;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkItemResponse;
@@ -23,6 +26,7 @@ import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.core.index.shard.ShardId;
+import org.opensearch.core.rest.RestStatus;
 import org.testng.annotations.Test;
 
 public class BulkListenerTest {
@@ -65,7 +69,7 @@ public class BulkListenerTest {
   public void telemetryEndsBatchSpanWithItemFailures() {
     BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
     BulkTelemetry telemetry =
-        BulkTelemetry.create(BulkTelemetryTest.tracer(collector), true, true, "gms");
+        BulkTelemetryTest.create(BulkTelemetryTest.tracer(collector), true, true, "gms");
     BulkListener listener =
         BulkListener.create(WriteRequest.RefreshPolicy.NONE, null, null, null, telemetry);
 
@@ -106,7 +110,7 @@ public class BulkListenerTest {
   public void telemetryEndsBatchSpanOnTransportFailure() {
     BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
     BulkTelemetry telemetry =
-        BulkTelemetry.create(BulkTelemetryTest.tracer(collector), true, false, null);
+        BulkTelemetryTest.create(BulkTelemetryTest.tracer(collector), true, false, null);
     BulkListener listener = BulkListener.create(null, null, null, null, telemetry);
 
     BulkRequest request = twoActions();
@@ -135,6 +139,56 @@ public class BulkListenerTest {
   }
 
   @Test
+  public void requeuedItemKeepsItsLinkInTheRetryBatch() {
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    BulkTelemetry telemetry =
+        BulkTelemetryTest.create(BulkTelemetryTest.tracer(collector), true, false, null);
+    // The shim's requeue path: carry the origin over, then re-add to a processor.
+    List<DocWriteRequest<?>> requeued = new ArrayList<>();
+    BulkItemRequeueSupport requeueSupport =
+        new BulkItemRequeueSupport(
+            true,
+            3,
+            req -> {
+              telemetry.onRequeue(req);
+              requeued.add(req);
+            });
+    BulkListener listener = BulkListener.create(null, null, null, requeueSupport, telemetry);
+
+    BulkRequest request = twoActions();
+    try (Scope ignored =
+        BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
+            .makeCurrent()) {
+      telemetry.onAdd(request.requests().get(1));
+    }
+    listener.beforeBulk(10L, request);
+    BulkItemResponse ok =
+        new BulkItemResponse(
+            0,
+            DocWriteRequest.OpType.INDEX,
+            new IndexResponse(new ShardId("idx", "uuid", 0), "1", 1L, 1L, 1L, true));
+    BulkItemResponse rejected =
+        new BulkItemResponse(
+            1,
+            DocWriteRequest.OpType.INDEX,
+            new BulkItemResponse.Failure(
+                "idx", "2", new RuntimeException("rejected"), RestStatus.TOO_MANY_REQUESTS));
+    listener.afterBulk(10L, request, new BulkResponse(new BulkItemResponse[] {ok, rejected}, 4L));
+    assertEquals(requeued, List.of(request.requests().get(1)));
+
+    BulkRequest retry = new BulkRequest().add(requeued.get(0));
+    listener.beforeBulk(11L, retry);
+    listener.afterBulk(11L, retry, new BulkResponse(new BulkItemResponse[] {ok}, 2L));
+
+    assertEquals(collector.spans.size(), 2);
+    SpanData retrySpan = collector.spans.get(1);
+    assertEquals(retrySpan.getLinks().size(), 1);
+    assertEquals(
+        retrySpan.getLinks().get(0).getSpanContext().getTraceId(),
+        "0af7651916cd43dd8448eb211c80319c");
+  }
+
+  @Test
   public void listenerWithoutTelemetryStillWorksOnRealRequests() {
     BulkListener listener = BulkListener.create(null, null, null, null);
     BulkRequest request = twoActions();
@@ -143,5 +197,13 @@ public class BulkListenerTest {
     BulkListener nullTelemetry = BulkListener.create(null, null, null, null, null);
     nullTelemetry.beforeBulk(2L, request);
     nullTelemetry.afterBulk(2L, request, new BulkResponse(new BulkItemResponse[0], 1L));
+    // Disabled telemetry: item failures are still handled, nothing is counted for a span.
+    BulkItemResponse failed =
+        new BulkItemResponse(
+            0,
+            DocWriteRequest.OpType.INDEX,
+            new BulkItemResponse.Failure("idx", "1", new RuntimeException("mapper_parsing")));
+    nullTelemetry.beforeBulk(3L, request);
+    nullTelemetry.afterBulk(3L, request, new BulkResponse(new BulkItemResponse[] {failed}, 1L));
   }
 }

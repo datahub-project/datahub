@@ -1,9 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.api.trace.Tracer;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Optional;
@@ -62,15 +62,11 @@ public class ESBulkProcessor implements Closeable {
   @Builder.Default @Nonnull private RequestOptions byQueryRequestOptions = RequestOptions.DEFAULT;
 
   /**
-   * Bulk-write attribution, see {@link BulkTelemetry}: {@code bulkBatchSpans} emits one {@code
-   * index bulk} span per flushed batch, {@code bulkOpaqueId} sends the batch id as {@code
-   * X-Opaque-Id}. Both off by default.
+   * Bulk-write attribution, see {@link BulkTelemetry}: a span per flushed batch and the batch id as
+   * {@code X-Opaque-Id}. Off by default.
    */
-  @Nullable private final Tracer tracer;
-
-  @Builder.Default private boolean bulkBatchSpans = false;
-  @Builder.Default private boolean bulkOpaqueId = false;
-  @Builder.Default @Nullable private String serviceName = BulkTelemetry.DEFAULT_SERVICE;
+  @Builder.Default @Nonnull
+  private BulkTelemetryConfig bulkTelemetry = BulkTelemetryConfig.DISABLED;
 
   @Getter private final WriteRequest.RefreshPolicy writeRequestRefreshPolicy;
 
@@ -91,10 +87,7 @@ public class ESBulkProcessor implements Closeable {
       Boolean ackAfterTransfer,
       Integer ackAfterTransferTimeoutSeconds,
       @Nonnull RequestOptions byQueryRequestOptions,
-      @Nullable Tracer tracer,
-      boolean bulkBatchSpans,
-      boolean bulkOpaqueId,
-      @Nullable String serviceName,
+      @Nonnull BulkTelemetryConfig bulkTelemetry,
       WriteRequest.RefreshPolicy writeRequestRefreshPolicy,
       MetricUtils metricUtils) {
     this.searchClient = searchClient;
@@ -113,14 +106,11 @@ public class ESBulkProcessor implements Closeable {
     this.ackAfterTransferTimeoutSeconds =
         ackAfterTransferTimeoutSeconds != null ? ackAfterTransferTimeoutSeconds : 60;
     this.byQueryRequestOptions = byQueryRequestOptions;
-    this.tracer = tracer;
-    this.bulkBatchSpans = bulkBatchSpans;
-    this.bulkOpaqueId = bulkOpaqueId;
-    this.serviceName = serviceName;
+    this.bulkTelemetry = bulkTelemetry;
     this.writeRequestRefreshPolicy = writeRequestRefreshPolicy;
     searchClient.configureBulkProcessorWriteOptions(
         this.itemRequeueEnabled, this.itemRequeueMaxAttempts);
-    searchClient.configureBulkTelemetry(tracer, bulkBatchSpans, bulkOpaqueId, serviceName);
+    searchClient.configureBulkTelemetry(this.bulkTelemetry);
     if (async) {
       searchClient.generateAsyncBulkProcessor(
           writeRequestRefreshPolicy,

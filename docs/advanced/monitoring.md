@@ -1009,10 +1009,19 @@ sample; `datahub.bulk.actions` always has the full count.
 
 **The header.** With `TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID` also on, each batch is
 sent with `X-Opaque-Id: bulk|<service>|batch=<batch id>|n=<documents>`, where `<service>` is
-`OTEL_SERVICE_NAME` (default `datahub`), so OpenSearch's task list names the batch. The header is
-sent by the OpenSearch client; the Elasticsearch 8 client's bulk ingester does not allow a
-per-batch header, so there only the span is produced. OpenSearch's indexing slow log does not
-record request headers, so its per-document lines join to a batch by index and time, not by id.
+`OTEL_SERVICE_NAME` (default `datahub`), so OpenSearch's task list and request logs name the
+batch. OpenSearch's indexing slow log does not record request headers, so its per-document lines
+join to a batch by index and time, not by id.
+
+**Elasticsearch 8.** The header is sent by the OpenSearch client only. On Elasticsearch 8 the bulk
+ingester owns the HTTP call and offers no per-batch header or context hook, so the `index bulk`
+span is produced with its attributes and links, but no `X-Opaque-Id` is sent and the span is not
+made current around the call: a tracing agent's own client span for the bulk request stays a
+separate span rather than nesting under the batch span.
+
+**Retries.** A document the store rejects with a retriable status is requeued into a later batch;
+that batch's span links to the same request as the original, so a change can be followed through
+its retries.
 
 **Using it.** Filter spans named `index bulk` by duration or by `datahub.bulk.failures` to find the
 slow or failing flushes; group by `datahub.bulk.indices` to see which indices they hit; follow the

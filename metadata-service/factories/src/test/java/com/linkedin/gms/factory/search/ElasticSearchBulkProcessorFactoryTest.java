@@ -13,6 +13,7 @@ import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.telemetry.RequestAttributionConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.opentelemetry.api.OpenTelemetry;
@@ -72,22 +73,26 @@ public class ElasticSearchBulkProcessorFactoryTest extends AbstractTestNGSpringC
 
     SearchClientShim<?> off = mock(SearchClientShim.class);
     ElasticSearchBulkProcessorFactory.build(off, config, 1, null);
-    verify(off).configureBulkTelemetry(null, false, false, null);
+    verify(off).configureBulkTelemetry(BulkTelemetryConfig.DISABLED);
 
     RequestAttributionConfiguration attribution = new RequestAttributionConfiguration();
     attribution.setServiceName("gms");
     SearchClientShim<?> disabled = mock(SearchClientShim.class);
     ElasticSearchBulkProcessorFactory.build(disabled, config, 1, null, attribution, tracer);
-    verify(disabled).configureBulkTelemetry(tracer, false, false, "gms");
+    verify(disabled).configureBulkTelemetry(BulkTelemetryConfig.of(tracer, false, false, "gms"));
 
     attribution.setEnabled(true);
     SearchClientShim<?> spansOnly = mock(SearchClientShim.class);
     ElasticSearchBulkProcessorFactory.build(spansOnly, config, 1, null, attribution, tracer);
-    verify(spansOnly).configureBulkTelemetry(tracer, true, false, "gms");
+    verify(spansOnly).configureBulkTelemetry(BulkTelemetryConfig.of(tracer, true, false, "gms"));
 
     attribution.setOpensearchOpaqueId(true);
     SearchClientShim<?> both = mock(SearchClientShim.class);
     ElasticSearchBulkProcessorFactory.build(both, config, 1, null, attribution, tracer);
-    verify(both).configureBulkTelemetry(tracer, true, true, "gms");
+    verify(both).configureBulkTelemetry(BulkTelemetryConfig.of(tracer, true, true, "gms"));
+
+    assertSame(
+        ElasticSearchBulkProcessorFactory.bulkTelemetry(null, tracer),
+        BulkTelemetryConfig.DISABLED);
   }
 }

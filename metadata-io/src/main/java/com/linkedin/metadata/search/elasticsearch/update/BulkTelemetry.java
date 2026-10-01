@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.update;
 
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanBuilder;
@@ -10,11 +11,14 @@ import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.opentelemetry.context.Scope;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,8 +48,13 @@ import org.opensearch.client.RequestOptions;
  *       the distinct indices written, the store's {@code took} and the number of failed items;
  *   <li>OpenTelemetry span <em>links</em> from that span to the spans that were current when each
  *       action was added, so a backend can answer "which changes were in the slow batch" without
- *       pretending the batch belongs to any one request.
+ *       pretending the batch belongs to any one request. One link per distinct trace, at most
+ *       {@value #MAX_LINKS}.
  * </ul>
+ *
+ * <p>A failed item that the listener requeues is re-added to the processor from {@code afterBulk},
+ * outside any request scope; {@link #onRequeue} carries its original span over so the retry batch
+ * links to the same request (see {@link #RECENT_BATCHES}).
  *
  * <p>Everything is off unless {@code telemetry.requestAttribution.enabled} is set (span) and {@code
  * telemetry.requestAttribution.opensearchOpaqueId} is set (header). When disabled every method is a
@@ -64,7 +73,10 @@ public final class BulkTelemetry {
   public static final AttributeKey<Long> TOOK_MS = AttributeKey.longKey("datahub.bulk.took_ms");
   public static final AttributeKey<Long> FAILURES = AttributeKey.longKey("datahub.bulk.failures");
 
-  /** Most span links attached to one batch span; actions beyond this are counted, not linked. */
+  /**
+   * Most span links on one batch span: one per distinct trace id (the first span seen for a trace),
+   * so a request that added many actions is one link. Traces beyond this are counted, not linked.
+   */
   static final int MAX_LINKS = 64;
 
   /** Most distinct index names recorded on one batch span. */
@@ -72,6 +84,13 @@ public final class BulkTelemetry {
 
   /** Bound on actions whose originating span is remembered between add and flush. */
   static final int MAX_PENDING = 20_000;
+
+  /**
+   * Ended batches kept so {@link #onRequeue} can find an action's origin. The listener requeues
+   * synchronously inside the {@code afterBulk} that ended the batch, so only the newest few are
+   * ever consulted; the bound only caps memory when nothing requeues.
+   */
+  public static final int RECENT_BATCHES = 16;
 
   private static final BulkTelemetry DISABLED = new BulkTelemetry(null, false, DEFAULT_SERVICE);
 
@@ -87,6 +106,9 @@ public final class BulkTelemetry {
       Collections.synchronizedMap(new IdentityHashMap<>());
   private final Map<Object, Batch> batches = Collections.synchronizedMap(new IdentityHashMap<>());
 
+  /** Ended batches, newest last; guarded by itself. Only populated when spans are on. */
+  private final Deque<Batch> recent = new ArrayDeque<>(RECENT_BATCHES);
+
   private BulkTelemetry(@Nullable Tracer tracer, boolean opaqueIdEnabled, @Nonnull String service) {
     this.tracer = tracer;
     this.opaqueIdEnabled = opaqueIdEnabled;
@@ -101,20 +123,18 @@ public final class BulkTelemetry {
   }
 
   /**
-   * @param tracer tracer for the batch span; ignored unless {@code batchSpans}
-   * @param batchSpans emit an {@value #SPAN_NAME} span per flush
-   * @param opaqueId send the batch id as {@code X-Opaque-Id}
-   * @param service service name for the header, {@value #DEFAULT_SERVICE} when blank
+   * The instance for {@code config}: {@link #disabled()} unless it enables spans (with a tracer) or
+   * the header. A blank service name falls back to {@value #DEFAULT_SERVICE}.
    */
   @Nonnull
-  public static BulkTelemetry create(
-      @Nullable Tracer tracer, boolean batchSpans, boolean opaqueId, @Nullable String service) {
-    Tracer spanTracer = batchSpans ? tracer : null;
-    if (spanTracer == null && !opaqueId) {
+  public static BulkTelemetry create(@Nonnull BulkTelemetryConfig config) {
+    if (!config.isEnabled()) {
       return DISABLED;
     }
+    String service = config.getServiceName();
     String svc = service == null || service.isBlank() ? DEFAULT_SERVICE : service.trim();
-    return new BulkTelemetry(spanTracer, opaqueId, svc);
+    return new BulkTelemetry(
+        config.spansEnabled() ? config.getTracer() : null, config.isOpaqueId(), svc);
   }
 
   public boolean isEnabled() {
@@ -130,8 +150,38 @@ public final class BulkTelemetry {
       return;
     }
     SpanContext ctx = Span.current().getSpanContext();
-    if (ctx.isValid() && pending.size() < MAX_PENDING) {
-      pending.put(action, ctx);
+    if (ctx.isValid()) {
+      remember(action, ctx);
+    }
+  }
+
+  /**
+   * Carries an action's origin over to its next batch when the listener requeues it after a
+   * failure. Called from the requeue path, before the action is re-added to the processor; no-op
+   * when spans are off or the action's batch is no longer remembered.
+   */
+  public void onRequeue(@Nullable Object action) {
+    if (tracer == null || action == null) {
+      return;
+    }
+    SpanContext ctx = null;
+    synchronized (recent) {
+      // Newest first: the requeue happens inside the afterBulk that just ended the batch.
+      for (Iterator<Batch> it = recent.descendingIterator(); it.hasNext() && ctx == null; ) {
+        ctx = it.next().origins.get(action);
+      }
+    }
+    if (ctx != null) {
+      remember(action, ctx);
+    }
+  }
+
+  private void remember(@Nonnull Object action, @Nonnull SpanContext ctx) {
+    // Collections.synchronizedMap locks on the map itself, so this makes check-and-put atomic.
+    synchronized (pending) {
+      if (pending.size() < MAX_PENDING) {
+        pending.put(action, ctx);
+      }
     }
   }
 
@@ -148,14 +198,20 @@ public final class BulkTelemetry {
     int count = actions == null ? 0 : actions.size();
     String batchId = prefix + "-" + seq.incrementAndGet();
     Span span = null;
+    Map<Object, SpanContext> origins = Collections.emptyMap();
     if (tracer != null) {
-      Set<SpanContext> links = new LinkedHashSet<>();
+      // One link per trace: the first span seen for each trace id, in insertion order.
+      Map<String, SpanContext> links = new LinkedHashMap<>();
       Set<String> indices = new TreeSet<>();
+      origins = new IdentityHashMap<>();
       if (actions != null) {
         for (DocWriteRequest<?> action : actions) {
           SpanContext ctx = pending.remove(action);
-          if (ctx != null && links.size() < MAX_LINKS) {
-            links.add(ctx);
+          if (ctx != null) {
+            origins.put(action, ctx);
+            if (links.size() < MAX_LINKS || links.containsKey(ctx.getTraceId())) {
+              links.putIfAbsent(ctx.getTraceId(), ctx);
+            }
           }
           if (action.index() != null && indices.size() < MAX_INDICES) {
             indices.add(action.index());
@@ -172,12 +228,12 @@ public final class BulkTelemetry {
               .setAttribute(BATCH_ID, batchId)
               .setAttribute(ACTIONS, (long) count)
               .setAttribute(INDICES, new ArrayList<>(indices));
-      for (SpanContext link : links) {
+      for (SpanContext link : links.values()) {
         builder.addLink(link);
       }
       span = builder.startSpan();
     }
-    batches.put(batchKey, new Batch(batchId, count, span));
+    batches.put(batchKey, new Batch(batchId, count, span, origins));
   }
 
   /** {@code X-Opaque-Id} value for the batch, or empty when the header is off or batch unknown. */
@@ -222,8 +278,8 @@ public final class BulkTelemetry {
 
   /** Ends the batch after a response: the store's {@code took} and the number of failed items. */
   public void afterBulk(@Nullable Object batchKey, long tookMs, long failures) {
-    Batch batch = batchKey == null ? null : batches.remove(batchKey);
-    if (batch == null || batch.span == null) {
+    Batch batch = end(batchKey);
+    if (batch == null) {
       return;
     }
     batch.span.setAttribute(TOOK_MS, Math.max(0L, tookMs));
@@ -236,14 +292,35 @@ public final class BulkTelemetry {
 
   /** Ends the batch after a transport-level failure: every action counts as failed. */
   public void afterBulk(@Nullable Object batchKey, @Nonnull Throwable failure) {
-    Batch batch = batchKey == null ? null : batches.remove(batchKey);
-    if (batch == null || batch.span == null) {
+    Batch batch = end(batchKey);
+    if (batch == null) {
       return;
     }
     batch.span.setAttribute(FAILURES, (long) batch.actions);
     batch.span.recordException(failure);
     batch.span.setStatus(StatusCode.ERROR, String.valueOf(failure.getMessage()));
     batch.span.end();
+  }
+
+  /**
+   * Forgets the open batch and, when it has a span, keeps it among the recent ones for {@link
+   * #onRequeue}. Returns the batch to end, or null when there is nothing to do.
+   */
+  @Nullable
+  private Batch end(@Nullable Object batchKey) {
+    Batch batch = batchKey == null ? null : batches.remove(batchKey);
+    if (batch == null || batch.span == null) {
+      return null;
+    }
+    if (!batch.origins.isEmpty()) {
+      synchronized (recent) {
+        if (recent.size() >= RECENT_BATCHES) {
+          recent.pollFirst();
+        }
+        recent.addLast(batch);
+      }
+    }
+    return batch;
   }
 
   /** Number of actions whose origin span is remembered but not yet flushed (tests, diagnostics). */
@@ -261,10 +338,15 @@ public final class BulkTelemetry {
     private final int actions;
     @Nullable private final Span span;
 
-    private Batch(String batchId, int actions, @Nullable Span span) {
+    /** Origin span per action (identity), for requeue; empty when spans are off. */
+    private final Map<Object, SpanContext> origins;
+
+    private Batch(
+        String batchId, int actions, @Nullable Span span, Map<Object, SpanContext> origins) {
       this.batchId = batchId;
       this.actions = actions;
       this.span = span;
+      this.origins = origins;
     }
   }
 }
