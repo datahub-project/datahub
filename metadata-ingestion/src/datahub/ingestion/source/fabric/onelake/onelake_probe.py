@@ -7,7 +7,7 @@ reads in DataHub carry GUIDs.
 """
 
 from contextlib import contextmanager
-from typing import Callable, Dict, Iterator, List, Optional, Set
+from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 import requests
 
@@ -24,10 +24,16 @@ from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceCo
 from datahub.ingestion.source.fabric.onelake.filter_names import (
     effective_schema_name,
 )
-from datahub.ingestion.source.fabric.onelake.models import FabricItem, FabricTable
+from datahub.ingestion.source.fabric.onelake.models import (
+    FabricItem,
+    FabricTable,
+    FabricView,
+)
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeClientReport
 from datahub.ingestion.source.fabric.onelake.schema_client import (
     SchemaExtractionClient,
+    SqlAnalyticsEndpointClient,
+    create_schema_extraction_client,
 )
 
 SchemaClientFactory = Callable[[FabricWorkspace, FabricItem], SchemaExtractionClient]
@@ -51,6 +57,13 @@ def _scrubbed(operation: str, exc: BaseException) -> str:
     if isinstance(exc, requests.HTTPError):
         status = exc.response.status_code if exc.response is not None else None
         return f"{operation} failed: HTTP {status}"
+    if isinstance(exc, ImportError):
+        # pyodbc is imported when the first SQL connection opens, and fails
+        # here when the unixODBC / Microsoft ODBC driver is not installed.
+        return (
+            f"{operation} failed: pyodbc or its ODBC driver could not be "
+            f"loaded where the probe runs (ImportError)"
+        )
     return f"{operation} failed ({type(exc).__name__})"
 
 
@@ -64,7 +77,7 @@ class FabricOneLakeMetadataProbe:
         self._client = client
         self._config = config
         self._schema_client_factory = schema_client_factory
-        self._schema_clients: List[SchemaExtractionClient] = []
+        self._schema_clients: Dict[Tuple[str, str], SchemaExtractionClient] = {}
         self.warnings: List[str] = []
         self.failures: List[str] = []
 
@@ -88,7 +101,7 @@ class FabricOneLakeMetadataProbe:
         return self
 
     def __exit__(self, *exc: object) -> None:
-        for schema_client in self._schema_clients:
+        for schema_client in self._schema_clients.values():
             # close() is on SqlAnalyticsEndpointClient, not on the
             # SchemaExtractionClient protocol it is handed out as.
             close = getattr(schema_client, "close", None)
@@ -245,8 +258,217 @@ class FabricOneLakeMetadataProbe:
             )
 
     def _view_schemas(self, ws: FabricWorkspace, item: FabricItem) -> Set[str]:
-        # Replaced once the SQL Analytics Endpoint commands land.
-        return set()
+        # Degrades rather than fails: `schemas` has already answered from the
+        # tables, and a views-only gap is partial, not absent. So no entry in
+        # `failures`, which would turn the whole answer into exit 3.
+        operation = f"reading the views of {item.type} '{item.name}'"
+        try:
+            views = self._open_schema_client(ws, item).get_all_views(
+                workspace_id=ws.id, item_id=item.id
+            )
+        except Exception as exc:
+            self._warn(
+                f"{_scrubbed(operation, exc)}; schemas that hold only views are "
+                f"missing from this list"
+            )
+            return set()
+        return {effective_schema_name(v.schema_name) for v in views}
+
+    def _require_sql_endpoint(self) -> None:
+        sql_endpoint = self._config.sql_endpoint
+        if sql_endpoint is None or not sql_endpoint.enabled:
+            # The recipe's choice, so the caller's to fix (exit 2).
+            raise ValueError(
+                "this recipe has no enabled sql_endpoint, so ingestion reads no "
+                "views or columns; set sql_endpoint.enabled: true"
+            )
+
+    def _open_schema_client(
+        self, ws: FabricWorkspace, item: FabricItem
+    ) -> SchemaExtractionClient:
+        key = (ws.id, item.id)
+        cached = self._schema_clients.get(key)
+        if cached is not None:
+            return cached
+        factory = self._schema_client_factory or self._default_schema_client
+        client = factory(ws, item)
+        self._schema_clients[key] = client
+        return client
+
+    def _schema_client(
+        self, ws: FabricWorkspace, item: FabricItem
+    ) -> SchemaExtractionClient:
+        self._require_sql_endpoint()
+        try:
+            return self._open_schema_client(ws, item)
+        except ValueError:
+            # create_schema_extraction_client raises ValueError for exactly one
+            # thing: get_sql_analytics_endpoint_url found no endpoint (it turns
+            # every error, a 403 included, into None). Alone that would read as
+            # a bad argument at exit 2; it is a read failure.
+            message = (
+                f"SQL Analytics Endpoint for {item.type} '{item.name}' could not "
+                f"be opened: it is not provisioned, or this credential cannot "
+                f"read the item; ingestion skips its columns, views and usage"
+            )
+        except Exception as exc:
+            message = _scrubbed(
+                f"opening the SQL Analytics Endpoint for {item.type} '{item.name}'",
+                exc,
+            )
+        self.failures.append(message)
+        raise FabricReadError(message) from None
+
+    def _default_schema_client(
+        self, ws: FabricWorkspace, item: FabricItem
+    ) -> SchemaExtractionClient:
+        sql_endpoint = self._config.sql_endpoint
+        if sql_endpoint is None:
+            raise ValueError("sql_endpoint is not configured")
+        # The factory ingestion's _create_schema_client calls, so the probe
+        # connects to the same endpoint, database and driver settings.
+        return create_schema_extraction_client(
+            method=self._config.extract_schema.method,
+            auth_helper=self._client.auth_helper,
+            config=sql_endpoint,
+            report=None,
+            workspace_id=ws.id,
+            item_id=item.id,
+            item_type=item.type,
+            base_client=self._client,
+            item_display_name=item.name,
+        )
+
+    @probe_method(
+        kind=DatasetSubTypes.VIEW,
+        row_limit_param="limit",
+        parent_params=("workspace", "item", "schema"),
+    )
+    def views(
+        self,
+        workspace: str,
+        item: str,
+        schema: str,
+        item_type: Optional[str] = None,
+        limit: int = 200,
+    ) -> List[str]:
+        """Views in one schema of a lakehouse or warehouse, from
+        INFORMATION_SCHEMA.VIEWS on the item's SQL Analytics Endpoint -- the
+        same query ingestion runs. Includes views view_pattern would exclude;
+        view_pattern matches '<schema>.<view>'. Needs sql_endpoint.enabled and
+        the ODBC driver. Warns when extract_views is off."""
+        if not self._config.extract_views:
+            self._warn("extract_views is false: ingestion emits no views")
+        ws = self._workspace(workspace)
+        fabric_item = self._item(ws, item, item_type)
+        views = self._item_views(ws, fabric_item)
+        return [
+            v.name for v in views if effective_schema_name(v.schema_name) == schema
+        ][:limit]
+
+    def _item_views(self, ws: FabricWorkspace, item: FabricItem) -> List[FabricView]:
+        schema_client = self._schema_client(ws, item)
+        with self._reading(
+            f"reading INFORMATION_SCHEMA.VIEWS of {item.type} '{item.name}'"
+        ):
+            return schema_client.get_all_views(workspace_id=ws.id, item_id=item.id)
+
+    @probe_method()
+    def columns(
+        self,
+        workspace: str,
+        item: str,
+        schema: str,
+        table: str,
+        item_type: Optional[str] = None,
+    ) -> List[Dict[str, object]]:
+        """Columns of one table or view: name, data type and nullability, from
+        INFORMATION_SCHEMA.COLUMNS on the item's SQL Analytics Endpoint.
+        Structural metadata only; no values are read. Schema-less lakehouse
+        tables are under 'dbo'."""
+        if not self._config.extract_schema.enabled:
+            self._warn(
+                "extract_schema.enabled is false: ingestion emits no column metadata"
+            )
+        ws = self._workspace(workspace)
+        fabric_item = self._item(ws, item, item_type)
+        schema_client = self._schema_client(ws, fabric_item)
+        with self._reading(
+            f"reading INFORMATION_SCHEMA.COLUMNS of {fabric_item.type} "
+            f"'{fabric_item.name}'"
+        ):
+            by_table = schema_client.get_all_table_columns(
+                workspace_id=ws.id, item_id=fabric_item.id
+            )
+        found = by_table.get((schema, table))
+        if found is None:
+            # Every table and view has columns, so no entry means no object.
+            raise ValueError(
+                f"no table or view '{schema}.{table}' in the SQL Analytics "
+                f"Endpoint of {fabric_item.type} '{fabric_item.name}' (a newly "
+                f"created lakehouse table can take a while to appear there)"
+            )
+        return [
+            {"name": c.name, "type": c.data_type, "nullable": c.is_nullable}
+            for c in found
+        ]
+
+    @probe_method()
+    def view_definition(
+        self,
+        workspace: str,
+        item: str,
+        schema: str,
+        view: str,
+        item_type: Optional[str] = None,
+    ) -> Optional[str]:
+        """The stored CREATE VIEW text (DDL, not query results) that ingestion
+        parses for view lineage. Null, with a warning, when the credential
+        lacks VIEW DEFINITION permission on it."""
+        ws = self._workspace(workspace)
+        fabric_item = self._item(ws, item, item_type)
+        for v in self._item_views(ws, fabric_item):
+            if effective_schema_name(v.schema_name) == schema and v.name == view:
+                if v.view_definition is None:
+                    self._warn(
+                        f"the definition of '{schema}.{view}' is not readable "
+                        f"(VIEW DEFINITION permission); ingestion emits the view "
+                        f"without lineage"
+                    )
+                return v.view_definition
+        raise ValueError(
+            f"no view '{schema}.{view}' in {fabric_item.type} '{fabric_item.name}'"
+        )
+
+    @probe_method()
+    def sql_endpoint(
+        self, workspace: str, item: str, item_type: Optional[str] = None
+    ) -> Dict[str, object]:
+        """The SQL Analytics Endpoint host ingestion would connect to for one
+        lakehouse or warehouse, or null. Null means ingestion skips columns,
+        views and usage for it: the endpoint is not provisioned, or the
+        credential cannot read the item (the connector cannot tell which).
+        Makes REST calls only; opens no SQL connection."""
+        sql_endpoint = self._config.sql_endpoint
+        if sql_endpoint is None or not sql_endpoint.enabled:
+            self._warn(
+                "sql_endpoint is not enabled in this recipe, so ingestion "
+                "connects to no SQL Analytics Endpoint"
+            )
+        ws = self._workspace(workspace)
+        fabric_item = self._item(ws, item, item_type)
+        # Swallows every error into None itself, so there is nothing for
+        # _reading to scrub; the warning below names both possible causes.
+        host = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
+            self._client, ws.id, fabric_item.id, fabric_item.type
+        )
+        if host is None:
+            self._warn(
+                f"no SQL Analytics Endpoint resolvable for {fabric_item.type} "
+                f"'{fabric_item.name}': it is not provisioned, or this credential "
+                f"cannot read the item"
+            )
+        return {"item": fabric_item.name, "item_type": fabric_item.type, "host": host}
 
     def _workspace(self, workspace: str) -> FabricWorkspace:
         with self._reading("listing workspaces"):
@@ -295,8 +517,9 @@ class FabricOneLakeMetadataProbe:
             )
         if len(matches) > 1:
             raise ValueError(
-                f"'{item}' names more than one item ({', '.join(m.type for m in matches)}) "
-                f"in workspace '{ws.name}'; pass item_type=Lakehouse or "
+                f"'{item}' names more than one item "
+                f"({', '.join(m.type for m in matches)}) in workspace "
+                f"'{ws.name}'; pass item_type=Lakehouse or "
                 f"item_type=Warehouse, or the item's GUID"
             )
         return matches[0]
