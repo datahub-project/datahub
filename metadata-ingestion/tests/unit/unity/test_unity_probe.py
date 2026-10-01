@@ -1,10 +1,12 @@
 from typing import Any, Dict, Iterator, List
 from unittest.mock import MagicMock
 
-from databricks.sdk.errors import NotFound
-from databricks.sdk.service.catalog import CatalogInfo
+import pytest
+from databricks.sdk.errors import NotFound, PermissionDenied, Unauthenticated
+from databricks.sdk.service.catalog import CatalogInfo, SchemaInfo
 
-from datahub.ingestion.agent.probe_methods import list_probe_methods
+from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
+from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.unity_probe import UnityCatalogMetadataProbe
 
@@ -89,3 +91,89 @@ def test_catalogs_stops_paging_at_the_limit() -> None:
     ws.catalogs.list.return_value = gen()
     assert len(_probe(ws).catalogs(limit=3)) == 3
     assert len(pulled) <= 4
+
+
+def _serve(monkeypatch: pytest.MonkeyPatch, ws: MagicMock) -> None:
+    monkeypatch.setattr(
+        UnityCatalogMetadataProbe,
+        "for_config",
+        classmethod(lambda cls, config: cls(ws, config)),
+    )
+
+
+def test_schemas_lists_raw_names_and_carries_the_catalog_as_parent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ws = _fake_ws()
+    ws.catalogs.get.return_value = CatalogInfo(name="my cat")
+    ws.schemas.list.return_value = [
+        SchemaInfo(name="analytics"),
+        SchemaInfo(name="information_schema"),
+    ]
+    _serve(monkeypatch, ws)
+    result = run_probe_method("unity-catalog", BASE, "schemas", {"catalog": "my cat"})
+    assert result.result == ["analytics", "information_schema"]
+    assert result.parent_path == ["my cat"]
+    assert result.kind == "Schema"
+    assert ws.schemas.list.call_args.kwargs["catalog_name"] == "my cat"
+
+
+def test_schemas_of_an_unknown_catalog_is_a_caller_error() -> None:
+    ws = _fake_ws()
+    ws.catalogs.get.side_effect = NotFound("no such catalog")
+    with pytest.raises(ValueError, match="no catalog 'typo'"):
+        _probe(ws).schemas(catalog="typo")
+
+
+def test_schemas_the_credential_cannot_browse_degrade_with_a_warning() -> None:
+    ws = _fake_ws()
+    ws.catalogs.get.return_value = CatalogInfo(name="main")
+    ws.schemas.list.side_effect = PermissionDenied("no USE CATALOG")
+    probe = _probe(ws)
+    assert probe.schemas(catalog="main") == []
+    # Empty WITH a reason, never a silent empty.
+    assert any("main" in w and "403" in w for w in probe.warnings)
+
+
+def test_hive_metastore_schemas_are_not_probed_and_say_so() -> None:
+    ws = _fake_ws()
+    probe = _probe(ws)
+    assert probe.schemas(catalog="hive_metastore") == []
+    ws.catalogs.get.assert_not_called()
+    assert any("hive_metastore" in w for w in probe.warnings)
+
+
+def test_sdk_error_text_never_reaches_the_caller() -> None:
+    # An unparseable response embeds the whole request log in the message.
+    leaky = "unable to parse response. Request log: GET /api/2.1 Authorization: Bearer s3cr3t"
+    ws = _fake_ws()
+    ws.catalogs.get.return_value = CatalogInfo(name="main")
+    ws.schemas.list.side_effect = Unauthenticated(leaky)
+    with pytest.raises(ProbeConnectionError) as raised:
+        _probe(ws).schemas(catalog="main")
+    assert "s3cr3t" not in str(raised.value)
+    assert "Unauthenticated" in str(raised.value) and "401" in str(raised.value)
+
+    ws.schemas.list.side_effect = PermissionDenied(leaky)
+    probe = _probe(ws)
+    assert probe.schemas(catalog="main") == []
+    assert probe.warnings and not any("s3cr3t" in w for w in probe.warnings)
+
+    ws.catalogs.get.side_effect = NotFound(leaky)
+    with pytest.raises(ValueError) as missing:
+        _probe(ws).schemas(catalog="main")
+    assert "s3cr3t" not in str(missing.value)
+
+
+def test_a_client_that_cannot_be_built_is_reported_without_the_sdk_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(config: UnityCatalogSourceConfig) -> MagicMock:
+        raise ValueError(b'{"error":"invalid_client","secret":"s3cr3t"}')
+
+    monkeypatch.setattr(
+        "datahub.ingestion.source.unity.unity_probe.create_workspace_client", broken
+    )
+    with pytest.raises(ProbeConnectionError) as raised:
+        UnityCatalogMetadataProbe.for_config(_config())
+    assert "s3cr3t" not in str(raised.value)
