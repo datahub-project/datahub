@@ -28,15 +28,6 @@ export default function HoverCardAttributionDetails({ propagationDetails, addMar
     const { t } = useTranslation('shared.propagation');
     const sourceDetailEntries = propagationDetails?.attribution?.sourceDetail;
     const sourceDetail = usePropagationDetails(sourceDetailEntries);
-    let context: PropagationContext | null = null;
-    if (propagationDetails?.context) {
-        try {
-            context = JSON.parse(propagationDetails.context) as PropagationContext;
-        } catch (e) {
-            console.warn('Failed to parse propagation context as JSON:', propagationDetails.context, e);
-        }
-    }
-    const sourceDetail = usePropagationDetails(propagationDetails?.attribution?.sourceDetail);
     const context = parsePropagationContext(propagationDetails?.context);
     const contextEntities = usePropagationContextEntities(context);
     const isPropagated = sourceDetail.isPropagated || context?.propagated;
