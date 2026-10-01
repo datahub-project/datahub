@@ -35,6 +35,7 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import HIVE_METASTORE
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
+    Notebook,
     Schema,
     Table,
     escape_unity_name,
@@ -54,6 +55,10 @@ _WITHHELD = (
     "its URL and, with debug headers on, its credentials"
 )
 
+
+# Databricks names each user's home folder after their login (usually an
+# email address), so a path under it is personal data, not metadata.
+_USER_FOLDER = "/Users/"
 
 _HIVE_NOT_PROBED = (
     "hive_metastore is read by ingestion through a SQL warehouse "
@@ -215,9 +220,14 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 f"({_describe_failure(exc)}); {_WITHHELD}"
             ) from None
         except (DatabricksError, requests.RequestException, ValueError) as exc:
-            # ValueError too: the SDK raises it for an auth failure during the
-            # first request (oauth.py's ValueError(resp.content)), which is the
-            # source refusing the session, not the caller's argument.
+            # ValueError cannot be narrowed: the SDK's auth layer raises a bare
+            # ValueError while authenticating the first request, and its text
+            # can be the raw token-endpoint body (oauth.py's
+            # ValueError(resp.content)) -- no subclass marks those, so the
+            # scrub has to take the whole class. Nothing this probe raises
+            # itself runs inside the block, and _Missing / _Degraded above are
+            # already handled. It is the source refusing the session, not the
+            # caller's argument, hence exit 3.
             raise ProbeConnectionError(
                 f"{operation} failed ({_describe_failure(exc)}); {_WITHHELD}"
             ) from None
@@ -238,13 +248,22 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
             # UnityCatalogApiProxy.catalogs yields it first when ingestion has
             # a hive_metastore proxy, which it builds for this flag.
             names.append(HIVE_METASTORE)
+        seen = set(names)
+
+        def unseen(catalog: Catalog) -> bool:
+            # On UC-enabled workspaces the listing can return hive_metastore
+            # itself, which ingestion would then see twice.
+            if catalog.name in seen:
+                return False
+            seen.add(catalog.name)
+            return True
+
         try:
             with self._calling("listing catalogs"):
-                for catalog in self._proxy.catalogs(metastore=None):
-                    if catalog.name not in names:
-                        names.append(catalog.name)
-                    if len(names) >= limit:
-                        break
+                listed = _take(
+                    self._proxy.catalogs(metastore=None), limit - len(names), unseen
+                )
+                names.extend(catalog.name for catalog in listed)
         except _Degraded:
             pass
         return names[:limit]
@@ -260,7 +279,8 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
             except _Missing:
                 self._warn(
                     f"catalog '{name}' named in `catalogs` was not found; "
-                    f"ingestion reads nothing for it"
+                    f"ingestion would fail on it, since _get_catalogs reads "
+                    f"each pinned catalog without catching the 404"
                 )
                 continue
             except _Degraded:
@@ -270,6 +290,16 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
             if len(names) >= limit:
                 break
         return names
+
+    def _hive_via_warehouse(self, catalog: str) -> bool:
+        """Whether ingestion reads this catalog over SQL, which the probe does
+        not do. Only with include_hive_metastore: then UnityCatalogApiProxy
+        routes hive_metastore to HiveMetastoreProxy. Without it, a UC-listed
+        hive_metastore goes through the same REST listings as any catalog."""
+        if catalog != HIVE_METASTORE or not self._config.include_hive_metastore:
+            return False
+        self._warn(_HIVE_NOT_PROBED)
+        return True
 
     def _catalog(self, name: str) -> Catalog:
         with self._calling(f"reading catalog '{name}'", missing=f"catalog '{name}'"):
@@ -289,8 +319,7 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         denies. The catalog travels with the result, so `probe filter` needs
         no --parent. hive_metastore is read by ingestion over a SQL warehouse
         and is not probed here; it comes back empty with a warning."""
-        if catalog == HIVE_METASTORE:
-            self._warn(_HIVE_NOT_PROBED)
+        if self._hive_via_warehouse(catalog):
             return []
         try:
             catalog_obj = self._catalog(catalog)
@@ -302,8 +331,7 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
     def _table_like(
         self, catalog: str, schema: str, limit: int, keep: Callable[[Table], bool]
     ) -> List[str]:
-        if catalog == HIVE_METASTORE:
-            self._warn(_HIVE_NOT_PROBED)
+        if self._hive_via_warehouse(catalog):
             return []
         try:
             catalog_obj = self._catalog(catalog)
@@ -316,7 +344,10 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 comment=None,
                 owner=None,
             )
-            with self._calling(f"listing tables of '{catalog}.{schema}'"):
+            with self._calling(
+                f"listing tables of '{catalog}.{schema}'",
+                missing=f"schema '{catalog}.{schema}'",
+            ):
                 return [t.name for t in _take(self._proxy.tables(schema_obj), limit, keep)]
         except _Degraded:
             return []
@@ -366,8 +397,7 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
     def columns(self, catalog: str, schema: str, table: str) -> List[Dict[str, object]]:
         """Columns of one table or view: name, type, nullability, comment and
         partition index. Structural metadata only -- no cell values are read."""
-        if catalog == HIVE_METASTORE:
-            self._warn(_HIVE_NOT_PROBED)
+        if self._hive_via_warehouse(catalog):
             return []
         full_name = qualified_table_name(catalog, schema, table)
         try:
@@ -391,15 +421,46 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
     @probe_method(kind=DatasetSubTypes.NOTEBOOK, row_limit_param="limit")
     def notebooks(self, limit: int = 200) -> List[str]:
         """Notebook paths in the workspace -- the string notebook_pattern is
-        matched against. Listed whatever include_notebooks says; `probe filter
-        --kind Notebook` reports them excluded while it is off. Paths only,
+        matched against. Shared paths (/Shared, /Repos, ...) are listed whatever
+        include_notebooks says; `probe filter --kind Notebook` reports them
+        excluded while it is off. A notebook under /Users/<user>/ is listed
+        only when this recipe would ingest it (include_notebooks on and
+        notebook_pattern allowing its path); the rest are withheld and only
+        counted in warnings, because those paths name people. Paths only,
         never notebook source. Walks the workspace tree, so a large workspace
         is slow; the walk stops at `limit`."""
+        withheld = 0
+
+        def shown(notebook: Notebook) -> bool:
+            nonlocal withheld
+            if not notebook.path.startswith(_USER_FOLDER) or self._ingests_notebook(
+                notebook.path
+            ):
+                return True
+            withheld += 1
+            return False
+
         try:
             with self._calling("listing workspace notebooks"):
-                return [n.path for n in _take(self._proxy.workspace_notebooks(), limit)]
+                paths = [
+                    n.path
+                    for n in _take(self._proxy.workspace_notebooks(), limit, shown)
+                ]
         except _Degraded:
             return []
+        if withheld:
+            self._warn(
+                f"{withheld} notebook{'' if withheld == 1 else 's'} in user "
+                f"folders ({_USER_FOLDER}<user>/...) withheld: ingestion would not "
+                f"read them with this recipe, and their paths name people"
+            )
+        return paths
+
+    def _ingests_notebook(self, path: str) -> bool:
+        # The predicate get_workunits_internal + process_notebooks apply.
+        return self._config.include_notebooks and self._config.notebook_pattern.allowed(
+            path
+        )
 
     @probe_method(
         name="sql",

@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, Iterator, List
 from unittest.mock import MagicMock
 
@@ -77,7 +78,8 @@ def test_catalogs_honours_a_pinned_list_and_reports_a_missing_entry() -> None:
     probe = _probe(ws, catalogs=["main", "typo"])
     assert probe.catalogs(limit=10) == ["main"]
     ws.catalogs.list.assert_not_called()
-    assert any("typo" in w for w in probe.warnings)
+    # _get_catalogs has no try around catalogs.get, so the run itself fails.
+    assert any("typo" in w and "fail" in w for w in probe.warnings)
 
 
 def test_catalogs_adds_hive_metastore_when_ingestion_would_read_it() -> None:
@@ -146,9 +148,14 @@ def test_schemas_the_credential_cannot_browse_degrade_with_a_warning() -> None:
     assert any("main" in w and "403" in w for w in probe.warnings)
 
 
+def _hive_probe(ws: MagicMock) -> UnityCatalogMetadataProbe:
+    # The flag needs a warehouse_id, or the config switches it back off.
+    return _probe(ws, warehouse_id="w1", include_hive_metastore=True)
+
+
 def test_hive_metastore_schemas_are_not_probed_and_say_so() -> None:
     ws = _fake_ws()
-    probe = _probe(ws)
+    probe = _hive_probe(ws)
     assert probe.schemas(catalog="hive_metastore") == []
     ws.catalogs.get.assert_not_called()
     assert any("hive_metastore" in w for w in probe.warnings)
@@ -256,12 +263,38 @@ def test_a_listed_table_round_trips_into_the_verdict_ingestion_makes(
 
 def test_hive_metastore_tables_are_not_probed_and_say_so() -> None:
     ws = _fake_ws()
-    probe = _probe(ws)
+    probe = _hive_probe(ws)
     assert probe.tables(catalog="hive_metastore", schema="default") == []
     assert probe.columns(catalog="hive_metastore", schema="default", table="t") == []
     ws.tables.list.assert_not_called()
     ws.tables.get.assert_not_called()
     assert any("hive_metastore" in w for w in probe.warnings)
+
+
+def test_hive_metastore_is_listed_over_rest_while_include_hive_metastore_is_off() -> (
+    None
+):
+    # Without the flag ingestion builds no HiveMetastoreProxy, so a UC-listed
+    # hive_metastore goes through the same REST listings as any catalog.
+    ws = _fake_ws()
+    ws.catalogs.get.return_value = CatalogInfo(name="hive_metastore")
+    ws.schemas.list.return_value = [SchemaInfo(name="default")]
+    ws.tables.list.return_value = [
+        TableInfoWithGeneration(name="t", table_type=TableType.MANAGED)
+    ]
+    probe = _probe(ws)
+    assert probe.schemas(catalog="hive_metastore") == ["default"]
+    assert probe.tables(catalog="hive_metastore", schema="default") == ["t"]
+    assert probe.warnings == []
+
+
+@pytest.mark.parametrize("command", ["tables", "views", "metric_views"])
+def test_a_mistyped_schema_is_a_caller_error(command: str) -> None:
+    ws = _fake_ws()
+    ws.catalogs.get.return_value = CatalogInfo(name="main")
+    ws.tables.list.side_effect = NotFound("SCHEMA_DOES_NOT_EXIST")
+    with pytest.raises(ValueError, match="main.typo"):
+        getattr(_probe(ws), command)(catalog="main", schema="typo")
 
 
 def test_tables_of_a_schema_the_credential_cannot_read_degrade_with_a_warning() -> None:
@@ -301,16 +334,63 @@ def test_columns_of_an_unknown_table_is_a_caller_error() -> None:
         _probe(ws).columns(catalog="main", schema="analytics", table="typo")
 
 
-def test_notebooks_list_paths_even_while_include_notebooks_is_off() -> None:
+def _notebook(object_id: int, path: str) -> ObjectInfo:
+    return ObjectInfo(object_type=ObjectType.NOTEBOOK, object_id=object_id, path=path)
+
+
+def test_notebooks_list_shared_paths_even_while_include_notebooks_is_off() -> None:
     ws = _fake_ws()
     ws.workspace.list.return_value = [
         ObjectInfo(object_type=ObjectType.DIRECTORY, object_id=2, path="/Shared"),
-        ObjectInfo(object_type=ObjectType.NOTEBOOK, object_id=1, path="/Shared/etl"),
+        _notebook(1, "/Shared/etl"),
         ObjectInfo(object_type=ObjectType.FILE, object_id=3, path="/Shared/a.csv"),
-        ObjectInfo(object_type=ObjectType.NOTEBOOK, object_id=4, path="/Users/x/nb"),
+        _notebook(4, "/Repos/team/report"),
     ]
-    assert _probe(ws).notebooks(limit=10) == ["/Shared/etl", "/Users/x/nb"]
+    assert _probe(ws).notebooks(limit=10) == ["/Shared/etl", "/Repos/team/report"]
     assert _probe(ws).notebooks(limit=1) == ["/Shared/etl"]
+
+
+def _user_folder_ws() -> MagicMock:
+    ws = _fake_ws()
+    ws.workspace.list.return_value = [
+        _notebook(1, "/Shared/etl"),
+        _notebook(2, "/Users/person.one@example.com/pipeline"),
+        _notebook(3, "/Users/person.two@example.com/scratch"),
+    ]
+    return ws
+
+
+def test_a_user_folder_notebook_the_recipe_ingests_is_listed() -> None:
+    probe = _probe(
+        _user_folder_ws(),
+        include_notebooks=True,
+        notebook_pattern={"deny": [".*/scratch$"]},
+    )
+    assert probe.notebooks() == [
+        "/Shared/etl",
+        "/Users/person.one@example.com/pipeline",
+    ]
+    assert any("1 notebook" in w for w in probe.warnings)
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        # include_notebooks is off by default: ingestion reads none of them.
+        {},
+        {"include_notebooks": True, "notebook_pattern": {"allow": ["^/Shared/.*"]}},
+    ],
+)
+def test_user_folder_notebooks_ingestion_would_not_read_are_withheld(
+    extra: Dict[str, Any],
+) -> None:
+    probe = _probe(_user_folder_ws(), **extra)
+    result = probe.notebooks()
+    assert result == ["/Shared/etl"]
+    assert any("2 notebooks" in w for w in probe.warnings)
+    # A user folder is named after its owner: a withheld one leaves no trace.
+    leaked = json.dumps({"result": result, "warnings": probe.warnings})
+    assert "person." not in leaked and "example.com" not in leaked
 
 
 def test_notebooks_the_credential_cannot_list_degrade_with_a_warning() -> None:
