@@ -623,3 +623,14 @@ def test_sql_reaches_the_driver_with_no_parameter_set(
         monkeypatch.undo()
     assert calls == [("SELECT name FROM sys.tables WHERE name LIKE 'P%'",)]
     assert rows.columns == ["name"] and rows.rows == [["Persons"]]
+
+
+def test_a_schema_resolved_to_another_spelling_says_so(tmp_path: Path) -> None:
+    """parent_path carries the caller's `MAIN`; a case-sensitive pattern
+    judges ingestion's `main`, so the caller has to be told which to pass."""
+    with _probe(tmp_path, database="DemoData") as probe:
+        assert probe.tables(schema="MAIN") == ["t_default"]
+        assert any("'main'" in w for w in probe.warnings), probe.warnings
+    with _probe(tmp_path, database="DemoData") as probe:
+        probe.tables(schema="main")
+        assert probe.warnings == []

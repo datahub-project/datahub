@@ -149,7 +149,7 @@ _FILTERS: Dict[str, object] = {
 
 def _assert_probe_agrees_with_ingestion(
     config: Dict[str, object], tmp_path: Path
-) -> None:
+) -> Dict[str, Set[bool]]:
     """Walk what the probe lists, and check every verdict `probe filter` gives
     against what ingestion emitted -- including for the objects inside an
     excluded database, which the probe lists and ingestion never reaches."""
@@ -159,7 +159,10 @@ def _assert_probe_agrees_with_ingestion(
     pinned = bool(config.get("database"))
     databases = _names(_run("databases", config=config))
     database_verdicts = _included(config, "Database", [], databases)
-    outcomes: Set[bool] = set()
+    # Per kind, so one kind with both answers cannot hide another with one.
+    outcomes: Dict[str, Set[bool]] = {"Table": set(), "View": set(), _PROC: set()}
+    probed_datasets: Set[str] = set()
+    probed_procedures: Set[str] = set()
     for database in databases:
         # A pinned recipe reads its own database through the base connection.
         db_arg: Dict[str, object] = {} if pinned else {"database": database}
@@ -181,27 +184,33 @@ def _assert_probe_agrees_with_ingestion(
                 parent = _strings(listing, "parent_path")
                 verdicts = _included(config, kind, parent, names)
                 for name in names:
-                    emitted = f"{database}.{schema}.{name}" in datasets
+                    qualified = f"{database}.{schema}.{name}"
+                    probed_datasets.add(qualified)
+                    emitted = qualified in datasets
                     assert verdicts[name] == emitted, (
                         f"{kind} {database}.{schema}.{name}: probe says "
                         f"{verdicts[name]}, ingestion emitted {emitted}"
                     )
-                    outcomes.add(emitted)
+                    outcomes[kind].add(emitted)
             listing = _run("procedures", config=config, schema=schema, **db_arg)
             names = _names(listing)
             parent = _strings(listing, "parent_path")
             verdicts = _included(config, _PROC, parent, names)
             for name in names:
-                emitted = f"{database}.{schema}.{name}" in procedures
+                qualified = f"{database}.{schema}.{name}"
+                probed_procedures.add(qualified)
+                emitted = qualified in procedures
                 assert verdicts[name] == emitted, (
                     f"procedure {database}.{schema}.{name}: probe says "
                     f"{verdicts[name]}, ingestion emitted {emitted}"
                 )
-                outcomes.add(emitted)
+                outcomes[_PROC].add(emitted)
         if not database_verdicts[database]:
             assert not any(d.startswith(f"{database}.") for d in datasets)
-    # Both answers were exercised, or the filters above tested nothing.
-    assert outcomes == {True, False}
+    # Nothing ingestion emitted escaped the probe's listings.
+    assert datasets <= probed_datasets, datasets - probed_datasets
+    assert procedures <= probed_procedures, procedures - probed_procedures
+    return outcomes
 
 
 @pytest.mark.integration
@@ -212,7 +221,9 @@ def test_multi_database_verdicts_match_ingestion(
     config = _config(
         database_pattern={"deny": ["^NewData$", ".*SPEC_SYMB.*"]}, **_FILTERS
     )
-    _assert_probe_agrees_with_ingestion(config, tmp_path)
+    outcomes = _assert_probe_agrees_with_ingestion(config, tmp_path)
+    # Each kind saw both answers, or its filter above tested nothing.
+    assert outcomes == {k: {True, False} for k in ("Table", "View", _PROC)}
 
 
 @pytest.mark.integration
@@ -221,7 +232,10 @@ def test_pinned_database_verdicts_match_ingestion(
     tmp_path: Path,
 ) -> None:
     config = _config(database="DemoData", **_FILTERS)
-    _assert_probe_agrees_with_ingestion(config, tmp_path)
+    outcomes = _assert_probe_agrees_with_ingestion(config, tmp_path)
+    # DemoData's one view is allowed; the denied one lives in NewData, which a
+    # recipe pinned to DemoData never walks.
+    assert outcomes == {"Table": {True, False}, "View": {True}, _PROC: {True, False}}
     # Ingestion never opens another database on a pinned recipe, whatever
     # database_pattern says, and the probe refuses to answer about one.
     assert _included(config, "Database", [], ["NewData", "demodata"]) == {
