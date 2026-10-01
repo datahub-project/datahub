@@ -5,6 +5,7 @@ import sys
 
 import pytest
 from click.testing import CliRunner
+from sqlalchemy import create_engine
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
@@ -1894,3 +1895,39 @@ def test_test_connection_withholds_a_pydantic_input_echo(monkeypatch, tmp_path):
     assert res.exit_code == 3, res.output
     assert "PLANTED" not in res.output
     assert "int_parsing" in res.stdout
+
+
+def test_a_hostile_schema_exits_on_the_bad_argument_code(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Before identifiers were resolved against the catalog listing, this
+    payload reached sqlite's reflection SQL and the call exited 3 with the
+    driver's OperationalError -- telling an agent the source was unreachable
+    when its argument was the problem."""
+    db = tmp_path / "t.db"
+    seed = create_engine(f"sqlite:///{db}")
+    with seed.begin() as c:
+        c.exec_driver_sql("CREATE TABLE orders (id INTEGER)")
+    seed.dispose()
+    recipe_path = tmp_path / "r.yml"
+    recipe_path.write_text(
+        "source:\n"
+        "  type: sqlalchemy\n"
+        "  config:\n"
+        "    platform: sqlite\n"
+        f"    connect_uri: sqlite:///{db}\n"
+    )
+    res = CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "run",
+            "tables",
+            "--recipe",
+            str(recipe_path),
+            "--schema",
+            "x' UNION SELECT 1 --",
+        ],
+    )
+    assert res.exit_code == 2, res.output
+    assert "containers" in res.output
