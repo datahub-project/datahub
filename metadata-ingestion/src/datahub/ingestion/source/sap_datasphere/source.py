@@ -394,10 +394,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
 
                 # After the catalog pass so names already emitted (with EDMX /
                 # labels) are skipped rather than re-emitted as CSN-only stubs.
-                if (
-                    self.config.include_non_consumption_views
-                    and not self.config.expose_for_consumption_only
-                ):
+                if not self.config.expose_for_consumption_only:
                     yield from self._emit_non_consumption_views_for_space(space_name)
 
                 if self.config.include_local_tables:

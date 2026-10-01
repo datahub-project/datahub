@@ -59,6 +59,14 @@ def _install_mocks(m: rm_module.Mocker) -> None:
         f"{TENANT_URL}/api/v1/datasphere/spaces/S2/connections",
         json=[],
     )
+    # Default expose_for_consumption_only=false also lists design-time Views /
+    # Analytic Models; empty arrays keep this path a no-op for golden files.
+    for _space in ("S1", "S2"):
+        m.get(f"{TENANT_URL}/dwaas-core/api/v1/spaces/{_space}/views", json=[])
+        m.get(
+            f"{TENANT_URL}/dwaas-core/api/v1/spaces/{_space}/analyticmodels",
+            json=[],
+        )
     # S1 has two base tables, S2 none — exercises both the populated and empty
     # branches plus the per-table CSN fetch that backfills schemas for CLL.
     m.get(
@@ -383,6 +391,11 @@ def _install_lineage_mocks(m: rm_module.Mocker) -> None:
     m.get(
         f"{TENANT_URL}/api/v1/datasphere/spaces/LINEAGE_TEST/connections",
         text=(fixtures_dir / "connections_lineage.json").read_text(),
+    )
+    m.get(f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/views", json=[])
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/LINEAGE_TEST/analyticmodels",
+        json=[],
     )
     m.get(
         f"{TENANT_URL}/edmx/LINEAGE_TEST/BASE_TABLE/$metadata",
@@ -811,6 +824,11 @@ def _install_federation_mocks(m: rm_module.Mocker) -> None:
     )
     m.get(
         f"{TENANT_URL}/api/v1/datasphere/spaces/FED_TEST/connections",
+        json=[],
+    )
+    m.get(f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/views", json=[])
+    m.get(
+        f"{TENANT_URL}/dwaas-core/api/v1/spaces/FED_TEST/analyticmodels",
         json=[],
     )
     m.get(

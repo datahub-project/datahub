@@ -251,10 +251,19 @@ class SapDatasphereConfig(
     expose_for_consumption_only: bool = Field(
         default=False,
         description=(
-            "If True, only emit datasets that have an `assetRelationalMetadataUrl` set "
-            "(i.e., assets exposed for consumption via the SAP Datasphere consumption API). "
-            "Assets without an exposure URL are counted in `assets_filtered`. "
-            "Useful when you want DataHub to only show consumable views."
+            "Controls how broadly Views / Analytic Models are discovered. "
+            "If True, only emit catalog assets that have an "
+            "`assetRelationalMetadataUrl` (exposed for OData consumption); "
+            "assets without an exposure URL are counted in `assets_filtered`, "
+            "and the design-time dwaas-core listing is not used. "
+            "If False (default), emit all catalog assets and ALSO discover "
+            "Views / Analytic Models absent from the consumption catalog via "
+            "`/dwaas-core/api/v1/spaces/X/{views,analyticmodels}` (the same "
+            "surface as `datasphere objects views|analytic-models list`). "
+            "Names already returned by the catalog are not re-emitted; "
+            "design-time-only assets get schema and lineage from their CSN. "
+            "That closes dangling lineage edges to intermediate modelling "
+            "views that are not Expose for Consumption."
         ),
     )
     convert_urns_to_lowercase: bool = Field(
@@ -305,23 +314,6 @@ class SapDatasphereConfig(
             "otherwise they are emitted as schema-less stubs carrying platform + "
             "subtype + container membership. Off by default to keep ingestion "
             "minimal; turn on when you want full catalog coverage."
-        ),
-    )
-    include_non_consumption_views: bool = Field(
-        default=False,
-        description=(
-            "If True, ALSO discover Views and Analytic Models that are not "
-            "Expose for Consumption enabled, via the supported "
-            "`/dwaas-core/api/v1/spaces/X/{views,analyticmodels}` listing "
-            "(the same surface the official `datasphere` CLI uses). The "
-            "consumption catalog only returns exposed assets, so without this "
-            "flag unexposed upstreams appear as dangling lineage nodes. Assets "
-            "already returned by the catalog are not re-emitted (the catalog "
-            "path keeps EDMX schema and labels when both surfaces list the same "
-            "name). Design-time-only assets get schema and lineage from their "
-            "CSN. No-op when `expose_for_consumption_only` is True. Off by "
-            "default; turn on when intermediate modelling views must appear in "
-            "the lineage graph without being exposed for OData consumption."
         ),
     )
 

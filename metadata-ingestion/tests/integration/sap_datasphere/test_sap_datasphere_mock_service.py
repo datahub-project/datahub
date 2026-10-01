@@ -134,6 +134,14 @@ def sap_mock_service(httpserver: HTTPServer) -> Iterator[str]:
         content_type="application/json",
     )
 
+    # Default expose_for_consumption_only=false lists design-time objects;
+    # empty arrays keep this path a no-op for the golden lineage file.
+    for kind in ("views", "analyticmodels"):
+        httpserver.expect_request(
+            f"/dwaas-core/api/v1/spaces/LINEAGE_TEST/{kind}",
+            method="GET",
+        ).respond_with_data("[]", content_type="application/json")
+
     httpserver.expect_request(
         "/edmx/LINEAGE_TEST/BASE_TABLE/$metadata",
         method="GET",

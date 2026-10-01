@@ -70,9 +70,18 @@ from tests.unit.sap_datasphere.sap_datasphere_test_helpers import (
 
 @pytest.fixture(autouse=True)
 def _default_csn_endpoint_404(requests_mock):
-    """Low-priority 404 fallback so CSN fetches for assets that don't mock the
-    per-object-type endpoint degrade gracefully; a test's own specific CSN mock
-    overrides this (requests_mock matches in reverse registration order)."""
+    """Low-priority fallbacks for dwaas-core object endpoints:
+    - empty list for design-time Views / Analytic Models listing (runs by
+      default when expose_for_consumption_only is false)
+    - 404 for per-object CSN fetches that a test does not mock specifically
+    A test's own more-specific mock overrides these (requests_mock matches in
+    reverse registration order)."""
+    requests_mock.get(
+        re.compile(
+            r"https://[^/]+/dwaas-core/api/v1/spaces/[^/]+/(views|analyticmodels)$"
+        ),
+        json=[],
+    )
     requests_mock.get(
         re.compile(
             r"https://[^/]+/dwaas-core/api/v1/spaces/[^/]+/(views|analyticmodels)/"
@@ -1576,8 +1585,12 @@ def test_association_lineage_emitted_from_csn_elements(requests_mock):
 
 
 def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
-    """When both include_lineage and include_view_definitions are False, the CSN
-    endpoint is never called."""
+    """When both include_lineage and include_view_definitions are False, CSN is
+    not fetched for catalog assets that already have an EDMX URL (schema comes
+    from EDMX). Assets without a consumption URL still fetch CSN for schema."""
+    fixture_xml = (
+        Path(__file__).parent / "fixtures" / "sap_datasphere_dimension_day.xml"
+    ).read_text()
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -1602,12 +1615,18 @@ def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
                 {
                     "name": "VIEW_X",
                     "spaceName": "S1",
-                    "assetRelationalMetadataUrl": None,
+                    "assetRelationalMetadataUrl": (
+                        "https://myco.eu10.hcs.cloud.sap/edmx/VIEW_X/$metadata"
+                    ),
                     "supportsAnalyticalQueries": False,
                     "hasParameters": False,
                 }
             ]
         },
+    )
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/edmx/VIEW_X/$metadata",
+        text=fixture_xml,
     )
 
     source = SapDatasphereSource(ctx, cfg)
@@ -1620,8 +1639,9 @@ def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
         and ("/views/" in h.url or "/analyticmodels/" in h.url)
     ]
     assert len(csn_calls) == 0, (
-        f"CSN should NOT be fetched when include_lineage=False; "
-        f"got {len(csn_calls)} per-object-type calls: {[h.url for h in csn_calls]}"
+        f"CSN should NOT be fetched when include_lineage=False for an "
+        f"EDMX-backed catalog asset; got {len(csn_calls)} per-object-type "
+        f"calls: {[h.url for h in csn_calls]}"
     )
 
 
@@ -3570,10 +3590,10 @@ def test_include_local_tables_off_by_default(requests_mock):
     assert source.report.local_tables_emitted == 0
 
 
-def test_include_non_consumption_views_emits_unexposed_view(requests_mock):
-    """Design-time Views absent from the consumption catalog are emitted when
-    include_non_consumption_views is on, with CSN schema + lineage so dangling
-    upstream edges become real nodes."""
+def test_expose_false_emits_non_consumption_views(requests_mock):
+    """With expose_for_consumption_only=false (default), design-time Views
+    absent from the consumption catalog are emitted with CSN schema + lineage
+    so dangling upstream edges become real nodes."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3643,7 +3663,6 @@ def test_include_non_consumption_views_emits_unexposed_view(requests_mock):
         base_url=tenant,
         token="t",
         include_lineage=True,
-        include_non_consumption_views=True,
     )
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     workunits = list(source.get_workunits())
@@ -3679,9 +3698,9 @@ def test_include_non_consumption_views_emits_unexposed_view(requests_mock):
     assert "COL_B" in upstream_schemas[0]
 
 
-def test_include_non_consumption_views_emits_analytic_model(requests_mock):
+def test_expose_false_emits_non_consumption_analytic_model(requests_mock):
     """Unexposed Analytic Models are listed under analyticmodels and get the
-    Analytic Model subtype."""
+    Analytic Model subtype when expose_for_consumption_only is false."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3711,7 +3730,6 @@ def test_include_non_consumption_views_emits_analytic_model(requests_mock):
     config = SapDatasphereConfig(
         base_url=tenant,
         token="t",
-        include_non_consumption_views=True,
     )
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     workunits = list(source.get_workunits())
@@ -3727,7 +3745,7 @@ def test_include_non_consumption_views_emits_analytic_model(requests_mock):
     assert DatasetSubTypes.SAP_ANALYTICAL_MODEL in subtype_aspects[0].typeNames
 
 
-def test_include_non_consumption_views_skips_catalog_duplicates(requests_mock):
+def test_non_consumption_views_skips_catalog_duplicates(requests_mock):
     """A name present in both the catalog and dwaas-core is emitted once (catalog
     path wins); non_consumption_views_emitted stays zero."""
     tenant = "https://test.eu10.hcs.cloud.sap"
@@ -3773,7 +3791,6 @@ def test_include_non_consumption_views_skips_catalog_duplicates(requests_mock):
     config = SapDatasphereConfig(
         base_url=tenant,
         token="t",
-        include_non_consumption_views=True,
     )
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     workunits = list(source.get_workunits())
@@ -3789,9 +3806,9 @@ def test_include_non_consumption_views_skips_catalog_duplicates(requests_mock):
     assert source.report.non_consumption_views_emitted == 0
 
 
-def test_include_non_consumption_views_noop_when_expose_only(requests_mock):
-    """expose_for_consumption_only takes precedence — dwaas-core view listing
-    is not called."""
+def test_expose_for_consumption_only_skips_design_time_listing(requests_mock):
+    """expose_for_consumption_only=true skips the dwaas-core Views /
+    Analytic Models listing."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3802,30 +3819,27 @@ def test_include_non_consumption_views_noop_when_expose_only(requests_mock):
         json={"value": []},
     )
     requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    # Override the autouse empty-list mock with a failure so any design-time
+    # list call would surface as a warning / exception rather than succeeding.
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        status_code=500,
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        status_code=500,
+    )
     config = SapDatasphereConfig(
         base_url=tenant,
         token="t",
-        include_non_consumption_views=True,
         expose_for_consumption_only=True,
     )
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     list(source.get_workunits())
-    # No mock for /views or /analyticmodels — requests_mock would raise if hit.
     assert source.report.non_consumption_views_emitted == 0
-
-
-def test_include_non_consumption_views_off_by_default(requests_mock):
-    """Default behavior is unchanged — no design-time views listing."""
-    tenant = "https://test.eu10.hcs.cloud.sap"
-    requests_mock.get(
-        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
-        json={"value": []},
-    )
-    config = SapDatasphereConfig(base_url=tenant, token="t")
-    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
-    list(source.get_workunits())
-    assert source.report.non_consumption_views_emitted == 0
-    assert config.include_non_consumption_views is False
+    assert not any(
+        "Failed to list" in (w.title or "") for w in source.report.warnings
+    ), "design-time list endpoints must not be called when expose-only"
 
 
 def test_non_consumption_views_managed_unresolvable_skips_space(requests_mock):
@@ -3835,7 +3849,6 @@ def test_non_consumption_views_managed_unresolvable_skips_space(requests_mock):
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
             "token": "tok",
-            "include_non_consumption_views": True,
             "connection_to_platform_map": {
                 "_managed": {"platform": "hana", "enabled": False},
             },

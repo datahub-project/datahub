@@ -126,14 +126,11 @@ source:
       deny:
         - "^STAGING_.*"
 
+    # false (default): emit all catalog assets and ALSO discover Views /
+    # Analytic Models absent from the consumption catalog via dwaas-core so
+    # intermediate modelling views appear as real lineage nodes.
+    # true: only catalog assets with an exposure URL (no design-time listing).
     expose_for_consumption_only: false
-
-    # Also discover Views / Analytic Models that are not Expose for Consumption
-    # (absent from the consumption catalog) via dwaas-core listing. Needed when
-    # intermediate modelling views must appear as real lineage nodes without
-    # being exposed for OData / SAC consumption. No-op when
-    # expose_for_consumption_only is true.
-    # include_non_consumption_views: true
 
     # HTTP behavior
     request_timeout_sec: 30
