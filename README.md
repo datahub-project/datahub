@@ -22,7 +22,7 @@
 </p>
 
 <p align="center">
-  <i>Built with ❤️ by <a href="https://datahub.com">DataHub</a> and <a href="https://engineering.linkedin.com">LinkedIn</a></i>
+  <i>Built with ❤️ by <a href="https://datahub.com">DataHub</a> and <a href="https://engineering.linkedin.com">LinkedIn</a></i> · <a href="https://github.com/datahub-project/datahub">⭐ Star us on GitHub</a>
 </p>
 
 # DataHub
@@ -184,7 +184,7 @@ Ready to contribute? See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines 
 
 ## Explore DataHub Now
 
-[Live Demo](https://demo.datahub.com) · [Docs](https://docs.datahub.com) · [Slack](https://datahub.com/slack) · [LinkedIn](https://www.linkedin.com/company/datahub-cloud/) · [X](https://x.com/DataHubCloud) · [Security](https://docs.datahub.com/docs/security) · [Feature Requests](https://datahubspace.slack.com/archives/C02FWNS2F08)
+[Live Demo](https://demo.datahub.com) · [Docs](https://docs.datahub.com) · [Slack](https://datahub.com/slack) · [LinkedIn](https://www.linkedin.com/company/datahub-cloud/) · [X](https://x.com/DataHubCloud) · [Security](https://docs.datahub.com/docs/security) · [Feature Requests](https://datahubspace.slack.com/archives/C02FWNS2F08) · [⭐ Star us on GitHub](https://github.com/datahub-project/datahub)
 
 ## License
 
