@@ -373,6 +373,13 @@ datahub recipe probe filter --recipe recipe.yml --kind Table \
   `--kind "Fabric Workspace"`.
 - `extract_lakehouses`, `extract_warehouses` and `extract_views` set to `false`
   are reported as the reason a lakehouse, warehouse or view is excluded.
+- `probe filter --kind "Fabric Schema"` does not model `extract_schemas: false`:
+  ingestion then emits no schema containers, but `schema_pattern` still filters
+  the tables, so the verdict still applies to them.
+- Address workspaces and items by display name when a listing feeds
+  `probe filter --from-run`. A GUID works for `probe run`, but the listing's
+  parent path then carries the GUID, and patterns match display names. The
+  result warns when this happens.
 - `views`, `columns` and `view_definition` connect to the item's SQL Analytics
   Endpoint. They need `sql_endpoint.enabled: true` and the ODBC driver on the
   machine running the probe. `sql_endpoint` makes REST calls only, and reports
