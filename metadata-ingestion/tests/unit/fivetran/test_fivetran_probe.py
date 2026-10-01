@@ -2,6 +2,7 @@
 would drop instead of hiding it, and never returns user identity."""
 
 import datetime
+import logging
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List
 from unittest import mock
@@ -179,6 +180,7 @@ def test_log_database_connectors_include_ones_the_recipe_would_drop(
     assert records[0]["destination_id"] == "dest_a"
     # Metadata only: the connecting user is fetched by the query and withheld.
     assert not any("user" in key for record in records for key in record)
+    assert "user_x" not in str(records)
 
 
 def test_destinations_are_the_ids_destination_patterns_matches(
@@ -357,7 +359,8 @@ def test_rest_connectors_survive_one_destination_disappearing() -> None:
         warnings = list(probe.warnings)
     assert [r["connector_id"] for r in records] == ["conn_a1"]
     assert any("dest_b" in w for w in warnings)
-    assert not any("user" in key for record in records for key in record)
+    # The REST field is connected_by, which a key-name check would not catch.
+    assert "user_x" not in str(records)
 
 
 def test_rest_connectors_raise_on_an_auth_failure() -> None:
@@ -471,6 +474,54 @@ def test_hybrid_mode_prefers_the_log_and_falls_back_to_rest_schemas(
             "lineage_source": "rest_schemas",
         }
     ]
+
+
+@pytest.mark.parametrize(
+    "failing",
+    [
+        pytest.param(_response(status=403), id="forbidden"),
+        pytest.param(_response(status=503), id="unavailable"),
+        pytest.param(_response({"code": "Error", "message": "nope"}), id="bad-reply"),
+    ],
+)
+def test_rest_only_lineage_degrades_where_ingestion_does(failing: MagicMock) -> None:
+    # Ingestion emits the connector without lineage on any recoverable REST
+    # failure of /schemas, so failing the command would describe another run.
+    routes = {
+        "/groups": _page({"id": "dest_a", "name": "Warehouse A"}),
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/connections/conn_a1/schemas": failing,
+    }
+    with _rest_api(routes), _probe({"api_config": _API}) as probe:
+        assert probe.connector_tables("conn_a1") == []
+        assert any("conn_a1" in w and "without" in w for w in probe.warnings)
+
+
+def test_a_connector_on_an_unreadable_destination_is_not_reported_missing() -> None:
+    # The connector may be on dest_b, which could not be listed: "no such
+    # connector" (exit 2) would send the caller to fix a name that is right.
+    routes = {
+        "/groups": _GROUPS,
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/groups/dest_b/connections": _response(status=403),
+    }
+    with (
+        _rest_api(routes),
+        _probe({"api_config": _API}) as probe,
+        pytest.raises(ProbeReadFailed, match="dest_b"),
+    ):
+        probe.connector_tables("conn_b1")
+
+
+def test_connector_tables_show_no_columns_when_the_recipe_emits_none(
+    engine: MagicMock,
+) -> None:
+    with _probe(_db_recipe(include_column_lineage=False)) as probe:
+        tables = probe.connector_tables("sales_pg", include_columns=True)
+        warnings = list(probe.warnings)
+    assert tables[0]["column_count"] == 0
+    assert tables[0]["columns"] == []
+    assert any("include_column_lineage" in w for w in warnings)
 
 
 def test_rest_only_lineage_degrades_on_a_missing_schemas_endpoint() -> None:
@@ -647,3 +698,17 @@ def test_a_malformed_reply_does_not_echo_payload_values() -> None:
         probe.destinations()
     assert "private_value_x" not in str(raised.value)
     assert "missing" in str(raised.value)
+
+
+def test_a_malformed_reply_logs_no_payload_values(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    bad = _page({"name": "private_value_x"})
+    with (
+        _rest_api({"/groups": bad}),
+        _probe({"api_config": _API}) as probe,
+        pytest.raises(ProbeReadFailed),
+    ):
+        probe.destinations()
+    assert "private_value_x" not in caplog.text

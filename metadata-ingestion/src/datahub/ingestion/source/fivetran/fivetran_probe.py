@@ -87,6 +87,9 @@ class FivetranMetadataProbe:
         # and `probe methods` or a REST-only command must not pay for that.
         self._db_reader: Optional[FivetranLogDbReader] = None
         self._rest_lineage_reader: Optional[FivetranLogRestReader] = None
+        # Groups whose connections could not be listed, so a lookup that
+        # misses can say the connector may be on one of them.
+        self._unlisted_groups: List[str] = []
         self.warnings = []
 
     @classmethod
@@ -190,13 +193,14 @@ class FivetranMetadataProbe:
         except pydantic.ValidationError as exc:
             # str(exc) quotes each rejected input value, and the payload can
             # carry user ids (connected_by). Name where and how the reply was
-            # wrong, keep the values in the debug log only.
-            logger.debug("Fivetran reply failed validation: %s", context, exc_info=True)
+            # wrong -- in the debug log too, which --debug sends to stderr, so
+            # no exc_info: its traceback would print str(exc).
             problems = "; ".join(
                 f"{'.'.join(str(part) for part in error['loc']) or '<root>'}: "
                 f"{error['type']}"
                 for error in exc.errors()
             )
+            logger.debug("Fivetran reply failed validation: %s (%s)", context, problems)
             raise ProbeReadFailed(
                 f"{context}: the reply did not have the expected shape ({problems})"
             ) from None
@@ -245,6 +249,7 @@ class FivetranMetadataProbe:
                 # gets the failure itself rather than an empty listing.
                 if destination is not None:
                     raise
+                self._unlisted_groups.append(group_id)
                 self._warn(
                     f"could not list the connections of destination "
                     f"'{group_id}' ({type(exc).__name__}: {exc}); skipped, as "
@@ -276,6 +281,14 @@ class FivetranMetadataProbe:
         matches = [c for c in listed if c.connector_id == connector] or [
             c for c in listed if c.connector_name == connector
         ]
+        if not matches and self._unlisted_groups:
+            # Not ValueError (exit 2): the name may be right and on a
+            # destination this key could not read.
+            raise ProbeReadFailed(
+                f"no connector with id or name '{connector}' on the destinations "
+                f"that could be read; it may be on one that could not be listed "
+                f"({', '.join(self._unlisted_groups)})"
+            )
         if not matches:
             raise ValueError(
                 f"no connector with id or name '{connector}'; list them with "
@@ -333,6 +346,16 @@ class FivetranMetadataProbe:
                 )
         except ProbeSoftError as exc:
             self._warn(str(exc))
+            return [], "rest_schemas"
+        except (ProbeReadFailed, requests.RequestException) as exc:
+            # The failures FivetranLogRestReader._fetch_lineage recovers from
+            # (_RECOVERABLE_REST_ERRORS; ValueError arrives as ProbeReadFailed):
+            # ingestion emits the connector without lineage, so this does too.
+            self._warn(
+                f"could not read the schemas of connector "
+                f"'{target.connector_id}' ({type(exc).__name__}: {exc}); "
+                f"ingestion emits it without table or column lineage"
+            )
             return [], "rest_schemas"
         return (
             self._rest_reader()._extract_lineage_from_schemas(
@@ -440,18 +463,25 @@ class FivetranMetadataProbe:
                 f"ingestion stops at the same point, so tables past it get no "
                 f"lineage"
             )
+        emits_columns = self._config.include_column_lineage
+        if not emits_columns:
+            self._warn(
+                "include_column_lineage is false, so ingestion emits no column "
+                "lineage; column counts and mappings are shown as empty"
+            )
         records: List[Dict[str, object]] = []
         for table in lineage[:limit]:
+            columns = table.column_lineage if emits_columns else []
             record: Dict[str, object] = {
                 "source_table": table.source_table,
                 "destination_table": table.destination_table,
-                "column_count": len(table.column_lineage),
+                "column_count": len(columns),
                 "lineage_source": lineage_source,
             }
             if include_columns:
                 record["columns"] = [
                     {"source": c.source_column, "destination": c.destination_column}
-                    for c in table.column_lineage
+                    for c in columns
                 ]
             records.append(record)
         return records
