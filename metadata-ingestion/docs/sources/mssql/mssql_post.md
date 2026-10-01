@@ -103,6 +103,32 @@ The source will automatically detect and use the appropriate method based on you
 - **Storage**: Query Store storage usage depends on retention settings and query volume
 - **Parsing Time**: Scales with query complexity and volume; monitor debug logs for timing
 
+#### Probing a recipe
+
+`datahub recipe probe` checks a recipe against the server without running ingestion. For SQL
+Server it offers `databases`, `containers` (schemas), `tables`, `views`, `procedures`, `columns`,
+`foreign_keys`, `indexes`, `primary_key`, `table_comment` (the `MS_Description` ingestion reads),
+`view_definition` and `sql` (a read-only query over the catalog views ingestion reads):
+
+```shell
+datahub recipe probe run databases --recipe mssql_recipe.yml
+datahub recipe probe run tables --recipe mssql_recipe.yml --database DemoData --schema dbo
+datahub recipe probe run procedures --recipe mssql_recipe.yml --database DemoData --schema dbo
+datahub recipe probe filter --recipe mssql_recipe.yml --kind "Stored Procedure" \
+  --parent DemoData --parent dbo --name NewProc
+```
+
+A recipe without `database` makes ingestion walk every database the login can see, except SQL
+Server's system databases, so every command except `databases` and `sql` needs `--database`; the
+probe refuses rather than answer from the login's default database, which ingestion never reads.
+`databases` lists the candidates, including ones `database_pattern` would exclude, so
+`probe filter --kind Database` can explain them. A recipe that sets `database` or
+`sqlalchemy_uri` reads exactly one database, and the probe answers only about that one. Database,
+schema and table names are matched against the server's own listing before they are used, and
+`quote_schemas` is honoured as ingestion honours it. `probe filter --kind "Stored Procedure"`
+judges `procedure_pattern` against `database.schema.procedure`, as ingestion does, and reports
+every procedure excluded when `include_stored_procedures` is off.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
