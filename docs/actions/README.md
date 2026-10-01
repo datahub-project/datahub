@@ -87,7 +87,8 @@ action:
 
 # 6. Optional: Additional pipeline options (error handling, etc)
 options:
-  retry_count: 0 # The number of times to retry an Action with the same event. (If an exception is thrown). 0 by default.
+  retry_count: 3 # The number of times to retry an Action with the same event. (If an exception is thrown). 3 by default.
+  retry_backoff_seconds: 1 # Seconds to wait before the first retry, doubled for each later retry and capped at 60. 1 by default.
   failure_mode: "CONTINUE" # What to do when an event fails to be processed. Either 'CONTINUE' to make progress or 'THROW' to stop the pipeline. Either way, the failed event will be logged to a failed_events.log file.
   failed_events_dir: "/tmp/datahub/actions" # The directory in which to write a failed_events.log file that tracks events which fail to be processed. Defaults to "/tmp/logs/datahub/actions".
 

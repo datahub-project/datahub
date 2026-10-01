@@ -297,7 +297,11 @@ class KafkaEventSource(EventSource):
                     return_record_name=True,
                 ),
                 "session.timeout.ms": "10000",  # 10s timeout.
-                "max.poll.interval.ms": "10000",  # 10s poll max.
+                # The pipeline polls again only once act() and its retries have
+                # returned. Exceeding this evicts the consumer mid-event: the event is
+                # redelivered and re-run, or, before the group's first commit, the
+                # partition resets to latest and the events behind it are skipped.
+                "max.poll.interval.ms": "300000",
                 **env_consumer_config,
                 **recipe_consumer_config,
                 **async_commit_config,

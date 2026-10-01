@@ -28,6 +28,14 @@ This event source implements an "ack" function which is invoked if and only if a
 by the Actions framework, meaning that the event made it through the Transformers and into the Action without
 any errors. Under the hood, the "ack" method synchronously commits Kafka Consumer Offsets on behalf of the Action. This means that by default, the framework provides _at-least once_ processing semantics. That is, in the unusual case that a failure occurs when attempting to commit offsets back to Kafka, that event may be replayed on restart of the Action.
 
+An event whose processing raises is retried before it counts as failed: 3 times by default, waiting 1, 2 and 4 seconds
+between attempts (pipeline options `retry_count` and `retry_backoff_seconds`).
+
+The consumer polls Kafka again only after the Action and its retries have returned, so the consumer's
+`max.poll.interval.ms` defaults to `300000` (5 minutes). An event that takes longer evicts the consumer from its group,
+and the event is processed again. If your Action can take longer, raise it through `connection.consumer_config` or
+`KAFKA_PROPERTIES_MAX_POLL_INTERVAL_MS`.
+
 If you've configured your Action pipeline `failure_mode` to be `CONTINUE` (the default), then events which
 fail to be processed will simply be logged to a `failed_events.log` file for further investigation (dead letter queue). The Kafka Event Source will continue to make progress against the underlying topics and continue to commit offsets even in the case of failed messages.
 

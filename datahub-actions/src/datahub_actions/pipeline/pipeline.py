@@ -14,6 +14,7 @@
 
 import logging
 import os
+import threading
 import warnings
 from typing import List, Optional
 
@@ -38,7 +39,11 @@ logger = logging.getLogger(__name__)
 
 
 # Defaults for the location where failed events will be written.
-DEFAULT_RETRY_COUNT = 0  # Do not retry unless instructed.
+DEFAULT_RETRY_COUNT = 3
+# Waits double after each failed attempt: 1s, 2s, 4s with the defaults, so a
+# downstream outage of a few seconds is ridden out rather than acked as a failure.
+DEFAULT_RETRY_BACKOFF_SECONDS = 1.0
+MAX_RETRY_BACKOFF_SECONDS = 60.0
 DEFAULT_FAILED_EVENTS_DIR = "/tmp/logs/datahub/actions"
 DEFAULT_FAILED_EVENTS_FILE_NAME = "failed_events.log"  # Not currently configurable.
 DEFAULT_FAILURE_MODE = FailureMode.CONTINUE
@@ -51,6 +56,10 @@ class PipelineException(Exception):
     """
 
     pass
+
+
+class _RetryInterrupted(Exception):
+    """The pipeline was stopped while waiting to retry an event."""
 
 
 class Pipeline:
@@ -87,6 +96,7 @@ class Pipeline:
 
     # Options
     _retry_count: int = DEFAULT_RETRY_COUNT  # Number of times a single event should be retried in case of processing error.
+    _retry_backoff_seconds: float = DEFAULT_RETRY_BACKOFF_SECONDS
     _failure_mode: FailureMode = DEFAULT_FAILURE_MODE
     _failed_events_dir: str = DEFAULT_FAILED_EVENTS_DIR  # The top-level path where failed events will be logged.
 
@@ -100,6 +110,7 @@ class Pipeline:
         retry_count: Optional[int],
         failure_mode: Optional[FailureMode],
         failed_events_dir: Optional[str],
+        retry_backoff_seconds: Optional[float] = None,
     ) -> None:
         self.name = name
         self.source = source
@@ -107,9 +118,12 @@ class Pipeline:
         self.transforms = transforms
         self.action = action
         self._stats = PipelineStats()
+        self._stop_requested = threading.Event()
 
         if retry_count is not None:
             self._retry_count = retry_count
+        if retry_backoff_seconds is not None:
+            self._retry_backoff_seconds = retry_backoff_seconds
         if failure_mode is not None:
             self._failure_mode = failure_mode
         if failed_events_dir is not None:
@@ -166,6 +180,7 @@ class Pipeline:
             config.options.retry_count if config.options else None,
             config.options.failure_mode if config.options else None,
             config.options.failed_events_dir if config.options else None,
+            config.options.retry_backoff_seconds if config.options else None,
         )
 
     async def start(self) -> None:
@@ -185,7 +200,14 @@ class Pipeline:
         enveloped_events = self.source.events()
         for enveloped_event in enveloped_events:
             # Then, process the event.
-            retval = self._process_event(enveloped_event)
+            try:
+                retval = self._process_event(enveloped_event)
+            except _RetryInterrupted:
+                # Leave the event unacked so the source redelivers it after restart.
+                logger.info(
+                    f"Actions Pipeline with name {self.name} stopped while retrying an event; it was not acknowledged."
+                )
+                return
 
             # For legacy users w/o selective ack support, convert
             # None to True, i.e. always commit.
@@ -201,6 +223,7 @@ class Pipeline:
         """
         logger.debug(f"Preparing to stop Actions Pipeline with name {self.name}")
         self._shutdown = True
+        self._stop_requested.set()
         self._failed_events_fd.close()
         self.source.close()
         self.action.close()
@@ -235,6 +258,13 @@ class Pipeline:
                 logger.exception(
                     f"Caught exception while attempting to process event. Attempt {curr_attempt}/{max_attempts} event type: {enveloped_event.event_type}, pipeline name: {self.name}"
                 )
+                if curr_attempt < max_attempts:
+                    backoff = min(
+                        self._retry_backoff_seconds * 2 ** (curr_attempt - 1),
+                        MAX_RETRY_BACKOFF_SECONDS,
+                    )
+                    if self._stop_requested.wait(backoff):
+                        raise _RetryInterrupted() from None
                 curr_attempt = curr_attempt + 1
 
         logger.error(
