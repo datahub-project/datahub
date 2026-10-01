@@ -192,29 +192,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Resolve previous release tags
-        id: targets
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          # N = the just-cut branch tip
-          CURRENT="${{ needs.cut_branch.outputs.commit_sha }}"
-          echo "current=${CURRENT}" >> "$GITHUB_OUTPUT"
-
-          # N-1: latest stable cloud tag before the new version
-          N1=$(git tag --list 'v*-cloud' --sort=-v:refname \
-            | grep -v 'rc' \
-            | head -1)
-          echo "n1=${N1}" >> "$GITHUB_OUTPUT"
-
-          echo "Resolved: current=${CURRENT}, N-1=${N1}"
-
+      # N is the just-cut branch tip. N-1 is left to the script, which picks the
+      # latest stable release tag for this repo (v*-cloud in acryl-fork, v* in OSS).
       - name: Rollback analysis N → N-1
-        if: steps.targets.outputs.n1 != ''
+        env:
+          CURRENT: ${{ needs.cut_branch.outputs.commit_sha }}
         run: |
           python3 .github/scripts/rollback_analysis.py \
-            --current "${{ steps.targets.outputs.current }}" \
-            --target "${{ steps.targets.outputs.n1 }}" \
+            --current "$CURRENT" \
             --output rollback-n1.md --json
           cat rollback-n1.md >> "$GITHUB_STEP_SUMMARY"
 

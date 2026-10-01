@@ -1,6 +1,6 @@
 name: Rollback Compatibility Analysis
 
-run-name: "Rollback analysis: ${{ inputs.current }} → ${{ inputs.target }}"
+run-name: "Rollback analysis: ${{ inputs.current }} → ${{ inputs.target || 'last release' }}"
 
 on:
   workflow_dispatch:
@@ -9,8 +9,9 @@ on:
         description: "Current build (N) — tag, branch, or SHA"
         required: true
       target:
-        description: "Target build (N-1) — tag, branch, or SHA"
-        required: true
+        description: "Target build (N-1) — tag, branch, or SHA. Leave blank to auto-resolve the latest stable release tag (v*-cloud in acryl-fork, v* in OSS)."
+        required: false
+        default: ""
       json:
         description: "Also emit JSON report"
         type: boolean
@@ -22,13 +23,14 @@ on:
         required: true
       target:
         type: string
-        required: true
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: rollback-analysis-${{ inputs.current }}-${{ inputs.target }}
+  group: rollback-analysis-${{ inputs.current }}-${{ inputs.target || 'last-release' }}
   cancel-in-progress: true
 
 jobs:
@@ -50,11 +52,13 @@ jobs:
           INPUT_TARGET: ${{ inputs.target }}
           INPUT_JSON: ${{ inputs.json }}
         run: |
+          TARGET_ARG=()
           JSON_ARG=()
+          [ -n "$INPUT_TARGET" ] && TARGET_ARG=(--target "$INPUT_TARGET")
           [ "$INPUT_JSON" = "true" ] && JSON_ARG=(--json)
           python3 .github/scripts/rollback_analysis.py \
             --current "$INPUT_CURRENT" \
-            --target "$INPUT_TARGET" \
+            "${TARGET_ARG[@]}" \
             --output rollback-report.md \
             "${JSON_ARG[@]}"
           cat rollback-report.md >> "$GITHUB_STEP_SUMMARY"
@@ -62,7 +66,7 @@ jobs:
       - name: Upload report artifact
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: rollback-report-${{ inputs.current }}-${{ inputs.target }}
+          name: rollback-report-${{ inputs.current }}-${{ inputs.target || 'last-release' }}
           path: |
             rollback-report.md
             rollback-report.json
