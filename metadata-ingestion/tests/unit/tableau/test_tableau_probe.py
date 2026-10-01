@@ -227,3 +227,19 @@ def test_database_servers_report_what_the_routing_maps_key_on() -> None:
         ]
     # Stops at the limit rather than paging everything.
     assert consumed == ["ds1"]
+
+
+def test_an_insufficient_role_never_reports_the_user_name() -> None:
+    server = _server()
+    server.users.get_by_id.return_value = UserItem(
+        name="probe-user", site_role="Explorer"
+    )
+    server.sites.get_by_id.return_value = SiteItem(
+        name="My Site", content_url="my-site"
+    )
+    result = _run(server, "site")
+    assert isinstance(result.result, dict)
+    assert result.result["site_administrator_explorer"] is False
+    assert any("Insufficient Permissions" in w for w in result.warnings)
+    assert "probe-user" not in json.dumps(result.result)
+    assert not any("probe-user" in w for w in result.warnings)

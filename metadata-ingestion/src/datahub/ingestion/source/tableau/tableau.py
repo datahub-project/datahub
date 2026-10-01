@@ -772,19 +772,14 @@ class TableauConfig(
         parent_path: Sequence[str],
         warn: Callable[[str], None],
     ) -> Optional[str]:
-        """The path project_path_pattern is matched on (_get_project_path)."""
+        """The path project_path_pattern is matched on (_get_project_path).
+        A separator inside a name is warned about in probe_project_verdict,
+        and only where the two readings of it disagree."""
         if kind != BIContainerSubTypes.TABLEAU_PROJECT:
             return None
-        segments = project_segments(self, name, parent_path)
-        if len(segments) > len(parent_path) + 1:
-            warn(
-                f"read '{self.project_path_separator}' in a name as the project "
-                "path separator; if a project name itself contains it, the "
-                "extract_project_hierarchy and project_pattern verdicts may "
-                "differ from ingestion. Set project_path_separator to a "
-                "character no project name uses"
-            )
-        return self.project_path_separator.join(segments)
+        return self.project_path_separator.join(
+            project_segments(self, name, parent_path)
+        )
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """Project: both project patterns plus extract_project_hierarchy

@@ -48,13 +48,13 @@ DataHub will still create **table-level lineage** for these tables, even though 
 
 `datahub recipe probe` checks a Tableau recipe against the live site before a run. It signs in with the recipe's own credentials, SSL and proxy settings, and returns metadata only.
 
-| Command            | Parameters              | Returns                                                                                                    |
-| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `site`             | none                    | The recipe's site, the credential's site role, and whether that role is enough for a complete ingestion    |
-| `sites`            | `limit`                 | Each visible site's name, content URL and state. Needs server administrator rights; otherwise empty        |
-| `projects`         | `limit`                 | Every project as its full path, joined by `project_path_separator`, including projects the recipe excludes |
-| `workbooks`        | `project_path`, `limit` | The workbooks directly in one project                                                                      |
-| `database_servers` | `limit`                 | Upstream database servers: id, name, host name and connection type                                         |
+| Command            | Parameters              | Returns                                                                                                             |
+| ------------------ | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `site`             | none                    | The recipe's site, the credential's site role, and whether that role is enough for a complete ingestion             |
+| `sites`            | `limit`                 | Each visible site's name, content URL and state. Needs server administrator rights; otherwise empty, with a warning |
+| `projects`         | `limit`                 | Every project as its full path, joined by `project_path_separator`, including projects the recipe excludes          |
+| `workbooks`        | `project_path`, `limit` | The workbooks directly in one project                                                                               |
+| `database_servers` | `limit`                 | Upstream database servers: id, name, host name and connection type                                                  |
 
 For example, to see which projects exist, whether one is ingested, and what it holds:
 
