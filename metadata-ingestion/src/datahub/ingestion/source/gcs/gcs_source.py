@@ -86,11 +86,11 @@ _GCS_OAUTH_S3_OPERATIONS = (
 )
 
 
-def _refresh_if_needed(credentials: Credentials) -> None:
+def _refresh_if_needed(credentials: Credentials, margin_seconds: float = 0.0) -> None:
     need_refresh = not getattr(credentials, "token", None)
     expiry = getattr(credentials, "expiry", None)
     if not need_refresh and expiry is not None:
-        need_refresh = expiry.timestamp() < time.time()
+        need_refresh = expiry.timestamp() - margin_seconds < time.time()
     if need_refresh:
         credentials.refresh(Request())
 
@@ -142,13 +142,15 @@ class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
             )
         _register_gcs_oauth_before_send(boto3_client, creds, self._gcs_oauth_project_id)
 
-    def refresh_token_if_needed(self) -> None:
+    def refresh_token_if_needed(self, margin_seconds: float = 0.0) -> None:
         """Refresh the OAuth token now, as the before-send hook otherwise
         would on the next request. A caller that must classify a refresh
         failure itself calls this first: raised inside the hook, the failure
-        is also logged by botocore with google-auth's full text."""
+        is also logged by botocore with google-auth's full text.
+        `margin_seconds` also refreshes a token expiring within that long, so
+        the hook does not have to while the caller's requests run."""
         if self._gcs_oauth_credentials is not None:
-            _refresh_if_needed(self._gcs_oauth_credentials)
+            _refresh_if_needed(self._gcs_oauth_credentials, margin_seconds)
 
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None

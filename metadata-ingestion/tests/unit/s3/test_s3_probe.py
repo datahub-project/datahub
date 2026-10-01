@@ -42,6 +42,22 @@ def buckets() -> Iterator[None]:
         yield
 
 
+def _denied(operation: str) -> ClientError:
+    return ClientError(
+        {
+            "Error": {"Code": "AccessDenied"},
+            "ResponseMetadata": {
+                "RequestId": "",
+                "HostId": "",
+                "HTTPStatusCode": 403,
+                "HTTPHeaders": {},
+                "RetryAttempts": 0,
+            },
+        },
+        operation,
+    )
+
+
 def _recording(seen: List[str]) -> Any:
     real_client = boto3.session.Session.client
 
@@ -91,19 +107,7 @@ def test_bucket_wildcard_datasets_span_buckets(buckets: None) -> None:
 
 
 def test_a_bucket_wildcard_without_list_buckets_is_a_failure(buckets: None) -> None:
-    denied = ClientError(
-        {
-            "Error": {"Code": "AccessDenied"},
-            "ResponseMetadata": {
-                "RequestId": "",
-                "HostId": "",
-                "HTTPStatusCode": 403,
-                "HTTPHeaders": {},
-                "RetryAttempts": 0,
-            },
-        },
-        "ListBuckets",
-    )
+    denied = _denied("ListBuckets")
     with mock.patch(
         "datahub.ingestion.source.aws.s3_boto_utils.list_buckets", side_effect=denied
     ):
@@ -236,19 +240,7 @@ def test_a_missing_object_is_a_caller_error(buckets: None) -> None:
 
 def test_a_denied_object_tag_read_is_a_failure(tagged: None) -> None:
     # Ingestion does not catch this one: a denied GetObjectTagging fails the run.
-    denied = ClientError(
-        {
-            "Error": {"Code": "AccessDenied"},
-            "ResponseMetadata": {
-                "RequestId": "",
-                "HostId": "",
-                "HTTPStatusCode": 403,
-                "HTTPHeaders": {},
-                "RetryAttempts": 0,
-            },
-        },
-        "GetObjectTagging",
-    )
+    denied = _denied("GetObjectTagging")
     with mock.patch(
         "datahub.ingestion.source.s3.s3_probe.get_object_tag_set", side_effect=denied
     ):
