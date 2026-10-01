@@ -96,3 +96,14 @@ def test_a_dot_table_folder_fails_the_include_even_when_hidden_folders_are_on() 
     assert v.excluded_by == "path_specs[0].include"
     v, _ = _judge(judge_dataset, [spec], "s3://my-bucket/data/_staging")
     assert v.included
+
+
+def test_content_type_mode_skips_the_extension_rules_like_ingestion() -> None:
+    spec = PathSpec(include="s3://my-bucket/no_ext/*")
+    v, _ = _judge(judge_dataset, [spec], "s3://my-bucket/no_ext/blob")
+    assert (v.included, v.excluded_by) == (False, "path_specs[0].default_extension")
+    warnings: List[str] = []
+    v = judge_dataset(
+        [spec], "s3://my-bucket/no_ext/blob", warnings.append, ignore_ext=True
+    )
+    assert v.included
