@@ -10,6 +10,7 @@ from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods
 from datahub.ingestion.agent.recipe import validate_recipe
+from datahub.ingestion.agent.sql_gate import SqlScopeError, check_query_scope
 from datahub.ingestion.source.sql.mssql.mssql_probe import SqlServerMetadataProbe
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig
 
@@ -535,3 +536,42 @@ def test_multi_database_recipe_warns_when_the_database_parent_is_missing() -> No
     assert any("--parent" in w and "database" in w for w in result.warnings), (
         result.warnings
     )
+
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        # Procedure source is metadata ingestion already emits
+        # (include_stored_procedures_code), so the standard view of it is read.
+        "SELECT routine_name, routine_definition FROM information_schema.routines",
+        "SELECT * FROM DemoData.INFORMATION_SCHEMA.ROUTINES",
+        "SELECT TOP 5 name FROM DemoData.sys.tables WHERE name LIKE 'P%'",
+        "SELECT name FROM [DemoData].[sys].[procedures] WITH (NOLOCK)",
+    ],
+)
+def test_the_sql_scope_admits_the_catalog_ingestion_reads(query: str) -> None:
+    check_query_scope(
+        query, platform="tsql", scope=SQLServerConfig.probe_catalog_scope()
+    )
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "SELECT * FROM Foo.Items",
+        "SELECT * FROM DemoData.Foo.Items",
+        "SELECT * FROM [DemoData].[dbo].[orders]",
+        "SELECT routine_name FROM information_schema.routines "
+        "UNION SELECT ItemName FROM DemoData.Foo.Items",
+        "SELECT name FROM sys.tables WHERE name IN (SELECT ItemName FROM Foo.Items)",
+        "SELECT definition FROM DemoData.sys.sql_modules",
+        "SELECT * FROM OPENQUERY(remote, 'SELECT * FROM t')",
+        "EXEC sp_helptext 'Foo.NewProc'",
+    ],
+)
+def test_the_sql_scope_never_opens_a_user_table(query: str) -> None:
+    with pytest.raises(SqlScopeError):
+        check_query_scope(
+            query, platform="tsql", scope=SQLServerConfig.probe_catalog_scope()
+        )
