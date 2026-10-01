@@ -36,18 +36,6 @@ public class AspectMappingBuilder {
       @Nonnull EntitySpec entitySpec,
       @Nullable Map<String, Set<String>> fieldNameConflicts,
       @Nullable Map<String, Set<String>> fieldNameAliasConflicts) {
-    return createAspectMappings(
-        entitySpec,
-        fieldNameConflicts,
-        fieldNameAliasConflicts,
-        FieldTypeMapper.DEFAULT_PARTIAL_NGRAM_CONFIG);
-  }
-
-  public static Map<String, Object> createAspectMappings(
-      @Nonnull EntitySpec entitySpec,
-      @Nullable Map<String, Set<String>> fieldNameConflicts,
-      @Nullable Map<String, Set<String>> fieldNameAliasConflicts,
-      @Nonnull Map<String, String> partialNgramConfig) {
 
     Map<String, Object> aspectsMappings = new HashMap<>();
 
@@ -67,8 +55,8 @@ public class AspectMappingBuilder {
                   .forEach(
                       searchableFieldSpec -> {
                         aspectFields.putAll(
-                            MultiEntityMappingsBuilder.getMappingsForField(
-                                searchableFieldSpec, aspectName, false, partialNgramConfig));
+                            MultiEntityMappingsBuilder.getAspectMappingsForField(
+                                searchableFieldSpec, aspectName));
                       });
 
               // Add system metadata to each aspect using the projector's serialized field name.

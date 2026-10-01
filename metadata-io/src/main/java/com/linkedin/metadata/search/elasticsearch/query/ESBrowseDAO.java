@@ -7,7 +7,6 @@ import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
 import com.linkedin.metadata.browse.BrowseResultEntityArray;
@@ -28,7 +27,6 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -90,14 +88,6 @@ public class ESBrowseDAO {
   private static final String BROWSE_PATH_DEPTH = "browsePaths.length";
   private static final String BROWSE_PATH_V2 = "browsePathV2";
   private static final String BROWSE_PATH_V2_DEPTH = "browsePathV2.length";
-  // Search V3 filters depth on the aspect field, as it did while its root browsePathV2 was an alias
-  // that could not expose the length token count.
-  private static final String V3_BROWSE_PATH_V2_DEPTH =
-      MappingConstants.ASPECTS_FIELD_NAME
-          + "."
-          + Constants.BROWSE_PATHS_V2_ASPECT_NAME
-          + "."
-          + BROWSE_PATH_V2_DEPTH;
   private static final String BROWSE_V2_DELIMITER = "␟";
   private static final String URN = "urn";
   private static final String REMOVED = "removed";
@@ -714,7 +704,7 @@ public class ESBrowseDAO {
       queryBuilder.filter(QueryBuilders.matchQuery(BROWSE_PATH_V2, path));
     }
 
-    queryBuilder.filter(QueryBuilders.rangeQuery(browsePathV2DepthField()).gt(browseDepthVal));
+    queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
     queryBuilder.filter(
         SearchRequestHandler.getFilterQuery(
@@ -761,7 +751,7 @@ public class ESBrowseDAO {
       queryBuilder.filter(QueryBuilders.matchQuery(BROWSE_PATH_V2, path));
     }
 
-    queryBuilder.filter(QueryBuilders.rangeQuery(browsePathV2DepthField()).gt(browseDepthVal));
+    queryBuilder.filter(QueryBuilders.rangeQuery(BROWSE_PATH_V2_DEPTH).gt(browseDepthVal));
 
     Map<String, Set<SearchableAnnotation.FieldType>> searchableFields =
         entitySpecs.stream()
@@ -850,12 +840,6 @@ public class ESBrowseDAO {
       browseGroup.setUrn(UrnUtils.getUrn(name));
     }
     return browseGroup;
-  }
-
-  private String browsePathV2DepthField() {
-    return EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())
-        ? V3_BROWSE_PATH_V2_DEPTH
-        : BROWSE_PATH_V2_DEPTH;
   }
 
   private boolean rewriteEntityTypeToIndex() {
