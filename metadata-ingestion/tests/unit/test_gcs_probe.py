@@ -155,6 +155,28 @@ def test_buckets_and_folders_are_rule_filtered_too() -> None:
     }
 
 
+def test_a_bucket_uri_is_not_a_folder() -> None:
+    with pytest.raises(ValueError, match="gs://my-bucket.*GCS bucket") as raised:
+        _verdicts(
+            _recipe("gs://my-bucket/data/{table}/*.parquet"),
+            "Folder",
+            ["gs://my-bucket/"],
+        )
+    assert "s3://" not in str(raised.value)
+
+
+def test_a_folders_only_spec_includes_the_folders_above_its_leaves() -> None:
+    result, folders = _verdicts(
+        _recipe("gs://my-bucket/media/*/*/", emit_folders_only=True),
+        "Folder",
+        ["gs://my-bucket/media", "gs://my-bucket/media/photos"],
+    )
+    assert folders == {
+        "gs://my-bucket/media": (True, None),
+        "gs://my-bucket/media/photos": (True, None),
+    }
+    assert result.warnings
+
 def test_a_folder_above_datasets_is_a_container() -> None:
     result, folders = _verdicts(
         _recipe("gs://my-bucket/data/{table}/*.parquet"),

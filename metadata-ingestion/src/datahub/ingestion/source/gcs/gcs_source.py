@@ -289,7 +289,16 @@ class GCSSourceConfig(
             )
         s3_uri = "s3://" + ctx.name[len("gs://") :]
         if kind == str(DatasetContainerSubTypes.FOLDER):
-            verdict = judge_folder(specs, s3_uri, ctx.warn)
+            try:
+                verdict = judge_folder(
+                    specs,
+                    s3_uri,
+                    ctx.warn,
+                    bucket_kind=str(DatasetContainerSubTypes.GCS_BUCKET),
+                )
+            except ValueError as exc:
+                # The judge sees the rewritten s3:// name; the caller wrote gs://.
+                raise ValueError(str(exc).replace(s3_uri, ctx.name)) from exc
         else:
             # GCSSource never sets use_s3_content_type, so S3Source passes
             # ignore_ext=False for every file.
