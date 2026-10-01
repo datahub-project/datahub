@@ -427,3 +427,39 @@ class FivetranMetadataProbe:
                 ]
             records.append(record)
         return records
+
+    @probe_method(row_limit_param="limit")
+    def sync_history(self, connector: str, limit: int = 50) -> List[Dict[str, object]]:
+        """Recent sync runs of one connector, by connector_id or name: the runs
+        ingestion turns into DataProcessInstance events, within
+        history_sync_lookback_period days and max_jobs_per_connector. Times
+        are epoch seconds, newest first. Only the status is returned, never
+        the run's message text. Needs the Fivetran log warehouse: in rest_api
+        mode without fivetran_log_config this is empty, because Fivetran's
+        REST API has no sync-history endpoint and ingestion emits no runs
+        either."""
+        target = self._resolve(connector)
+        if self._config.fivetran_log_config is None:
+            self._warn(
+                "no fivetran_log_config, so there is no sync history to read: "
+                "Fivetran's REST API has no sync-history endpoint and ingestion "
+                "emits no run events in this mode. Add fivetran_log_config "
+                "alongside log_source: rest_api to get them."
+            )
+            return []
+        jobs = (
+            self._db()
+            .fetch_jobs_for_connectors(
+                [target.connector_id], self._config.history_sync_lookback_period
+            )
+            .get(target.connector_id, [])
+        )
+        return [
+            {
+                "sync_id": job.job_id,
+                "start_time": job.start_time,
+                "end_time": job.end_time,
+                "status": job.status,
+            }
+            for job in jobs[:limit]
+        ]

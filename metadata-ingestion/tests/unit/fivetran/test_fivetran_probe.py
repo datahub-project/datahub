@@ -145,7 +145,6 @@ def _probe(recipe: Dict[str, object]) -> FivetranMetadataProbe:
     return FivetranMetadataProbe.for_config(FivetranSourceConfig.model_validate(recipe))
 
 
-@pytest.mark.xfail(strict=True, reason="commands land in later tasks")
 def test_methods_declare_the_kinds_probe_filter_judges() -> None:
     declared = {spec.command: spec.kind for spec in list_probe_methods("fivetran")}
     assert declared == {
@@ -480,3 +479,29 @@ def test_rest_only_lineage_degrades_on_a_missing_schemas_endpoint() -> None:
     with _rest_api(routes), _probe({"api_config": _API}) as probe:
         assert probe.connector_tables("conn_a1") == []
         assert any("conn_a1" in w and "404" in w for w in probe.warnings)
+
+
+def test_sync_history_reports_run_status_without_message_text(
+    engine: MagicMock,
+) -> None:
+    with _probe(_db_recipe()) as probe:
+        runs = probe.sync_history("sales_pg")
+    assert runs == [
+        {
+            "sync_id": "sync_1",
+            "start_time": int(datetime.datetime(2026, 1, 1, 10, 0).timestamp()),
+            "end_time": int(datetime.datetime(2026, 1, 1, 10, 5).timestamp()),
+            "status": "SUCCESSFUL",
+        }
+    ]
+
+
+def test_a_rest_only_recipe_has_no_sync_history_and_says_why() -> None:
+    routes = {
+        "/groups": _GROUPS,
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/groups/dest_b/connections": _page(),
+    }
+    with _rest_api(routes), _probe({"api_config": _API}) as probe:
+        assert probe.sync_history("conn_a1") == []
+        assert any("fivetran_log_config" in w for w in probe.warnings)
