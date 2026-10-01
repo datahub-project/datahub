@@ -181,6 +181,15 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
 class KafkaEventSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
     topic_routes: Optional[Dict[str, str]] = Field(default=None)
+    dead_letter_topic: Optional[str] = Field(
+        default=None,
+        description=(
+            "Topic that receives events which still fail after the pipeline's retries "
+            "(failure_mode CONTINUE). An event is acked only once the broker confirms "
+            "its dead-letter copy; if that write fails, the pipeline stops without "
+            "acking it, so it is redelivered. Uses the consumer's connection settings."
+        ),
+    )
     async_commit_enabled: bool = True
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
@@ -246,6 +255,27 @@ def kafka_error_logger(pipeline_name: str) -> Callable[[KafkaError], None]:
     return _log
 
 
+# Consumer-only properties dropped when the consumer's connection settings are reused
+# for the dead-letter producer; librdkafka warns about each one on producer startup.
+_CONSUMER_ONLY_PROPERTIES = frozenset(
+    {
+        "group.id",
+        "group.instance.id",
+        "auto.offset.reset",
+        "enable.auto.commit",
+        "enable.auto.offset.store",
+        "auto.commit.interval.ms",
+        "session.timeout.ms",
+        "heartbeat.interval.ms",
+        "max.poll.interval.ms",
+        "isolation.level",
+    }
+)
+# Bounds how long a failed event waits for its dead-letter copy to be confirmed.
+_DEAD_LETTER_DELIVERY_TIMEOUT_SECONDS = 30
+_DEAD_LETTER_ERROR_MAX_LENGTH = 1000
+
+
 # This is the default Kafka-based Event Source.
 @dataclass
 class KafkaEventSource(EventSource):
@@ -259,6 +289,9 @@ class KafkaEventSource(EventSource):
         default_factory=list, init=False
     )
     _pipeline_name: str = field(default="", init=False)
+    _dead_letter_producer: Optional[confluent_kafka.Producer] = field(
+        default=None, init=False
+    )
 
     def __init__(self, config: KafkaEventSourceConfig, ctx: PipelineContext):
         self.source_config = config
@@ -304,6 +337,23 @@ class KafkaEventSource(EventSource):
             }
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
+        if self.source_config.dead_letter_topic:
+            self._dead_letter_producer = confluent_kafka.Producer(
+                {
+                    key: value
+                    for key, value in {
+                        **env_consumer_config,
+                        **recipe_consumer_config,
+                    }.items()
+                    if key not in _CONSUMER_ONLY_PROPERTIES
+                }
+                | {
+                    "bootstrap.servers": self.source_config.connection.bootstrap,
+                    "error_cb": kafka_error_logger(ctx.pipeline_name),
+                    "enable.idempotence": True,
+                    "message.timeout.ms": _DEAD_LETTER_DELIVERY_TIMEOUT_SECONDS * 1000,
+                }
+            )
         self._skip_mcl_entirely = False
         self._early_mcl_criteria_list: List[Dict[str, Any]] = []
         self._pipeline_name = ctx.pipeline_name
@@ -651,6 +701,50 @@ class KafkaEventSource(EventSource):
             rce = RelationshipChangeEvent.from_json(payload.get("value"))
             kafka_meta = build_kafka_meta(msg)
             yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, kafka_meta)
+
+    def dead_letter(self, event: EventEnvelope, error: BaseException) -> bool:
+        topic = self.source_config.dead_letter_topic
+        if self._dead_letter_producer is None or topic is None:
+            return False
+        kafka_meta = event.meta.get("kafka", {})
+        coordinates = [
+            str(kafka_meta.get(key)) for key in ("topic", "partition", "offset")
+        ]
+        delivery_errors: List[KafkaError] = []
+
+        def on_delivery(err: Optional[KafkaError], msg: Any) -> None:
+            if err is not None:
+                delivery_errors.append(err)
+
+        self._dead_letter_producer.produce(
+            topic,
+            key=":".join(coordinates),
+            value=event.as_json(),
+            headers=[
+                ("datahub.pipeline", self._pipeline_name),
+                ("datahub.source.topic", coordinates[0]),
+                ("datahub.source.partition", coordinates[1]),
+                ("datahub.source.offset", coordinates[2]),
+                (
+                    "datahub.error",
+                    f"{type(error).__name__}: {error}"[:_DEAD_LETTER_ERROR_MAX_LENGTH],
+                ),
+            ],
+            on_delivery=on_delivery,
+        )
+        # message.timeout.ms fails the delivery first; the extra seconds let that
+        # report arrive before flush() gives up.
+        undelivered = self._dead_letter_producer.flush(
+            _DEAD_LETTER_DELIVERY_TIMEOUT_SECONDS + 5
+        )
+        if delivery_errors:
+            raise KafkaException(delivery_errors[0])
+        if undelivered:
+            raise KafkaException(KafkaError(KafkaError._MSG_TIMED_OUT))
+        logger.info(
+            f"Dead-lettered event from {coordinates[0]}[{coordinates[1]}]@{coordinates[2]} to topic {topic}"
+        )
+        return True
 
     def close(self) -> None:
         # Stop lag monitoring first

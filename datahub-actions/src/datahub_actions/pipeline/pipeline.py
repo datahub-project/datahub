@@ -216,6 +216,7 @@ class Pipeline:
         curr_attempt = 1
         max_attempts = self._retry_count + 1
         retval = None
+        error: Optional[Exception] = None
         while curr_attempt <= max_attempts:
             try:
                 # First, apply pipeline filters.
@@ -231,7 +232,8 @@ class Pipeline:
 
                 # Short circuit - processing has succeeded.
                 return retval
-            except Exception:
+            except Exception as e:
+                error = e
                 logger.exception(
                     f"Caught exception while attempting to process event. Attempt {curr_attempt}/{max_attempts} event type: {enveloped_event.event_type}, pipeline name: {self.name}"
                 )
@@ -244,8 +246,10 @@ class Pipeline:
         # Increment failed event count.
         self._stats.increment_failed_event_count()
 
-        # Finally, handle the failure
-        self._handle_failure(enveloped_event)
+        # Finally, handle the failure. Report the component's own error, not the
+        # PipelineException wrapping it.
+        assert error is not None
+        self._handle_failure(enveloped_event, error.__cause__ or error)
 
         return retval
 
@@ -320,14 +324,22 @@ class Pipeline:
             )
             logger.debug(f"Failed to ack event: {enveloped_event}")
 
-    def _handle_failure(self, enveloped_event: EventEnvelope) -> None:
+    def _handle_failure(
+        self, enveloped_event: EventEnvelope, error: BaseException
+    ) -> None:
         # First, always save the failed event to a file. Useful for investigation.
         self._append_failed_event_to_file(enveloped_event)
         if self._failure_mode == FailureMode.THROW:
             raise PipelineException("Failed to process event after maximum retries.")
-        elif self._failure_mode == FailureMode.CONTINUE:
-            # Simply return, nothing left to do.
-            pass
+        # CONTINUE: the event is about to be acked and skipped. If the source has a
+        # dead-letter destination, the event must reach it first; when that write
+        # fails, stop without acking so the event is redelivered instead of lost.
+        try:
+            self.source.dead_letter(enveloped_event, error)
+        except Exception as e:
+            raise PipelineException(
+                f"Failed to dead-letter event for pipeline {self.name}; stopping without acknowledging it."
+            ) from e
 
     def _append_failed_event_to_file(self, enveloped_event: EventEnvelope) -> None:
         # First, convert the event to JSON.

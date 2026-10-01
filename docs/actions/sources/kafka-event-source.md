@@ -29,7 +29,9 @@ by the Actions framework, meaning that the event made it through the Transformer
 any errors. Under the hood, the "ack" method synchronously commits Kafka Consumer Offsets on behalf of the Action. This means that by default, the framework provides _at-least once_ processing semantics. That is, in the unusual case that a failure occurs when attempting to commit offsets back to Kafka, that event may be replayed on restart of the Action.
 
 If you've configured your Action pipeline `failure_mode` to be `CONTINUE` (the default), then events which
-fail to be processed will simply be logged to a `failed_events.log` file for further investigation (dead letter queue). The Kafka Event Source will continue to make progress against the underlying topics and continue to commit offsets even in the case of failed messages.
+fail to be processed will simply be logged to a `failed_events.log` file for further investigation. The Kafka Event Source will continue to make progress against the underlying topics and continue to commit offsets even in the case of failed messages.
+
+The `failed_events.log` file lives on the local disk of the process, so in a container it is lost when the container is replaced. To keep failed events durably, set `dead_letter_topic`. Each failed event is then produced to that topic before its offset is committed. The message value is the event as JSON; its key and headers name the source topic, partition and offset, the pipeline, and the error. If the dead-letter write fails (for example, the topic does not exist or the client may not write to it), the pipeline stops without committing the event's offset. The `datahub-actions` process then exits with code 1, and the event is processed again after the restart, so it is not lost. The dead-letter producer uses the consumer's connection and security settings, so the same credentials need permission to write to the dead-letter topic.
 
 If you've configured your Action pipeline `failure_mode` to be `THROW`, then events which fail to be processed result in an Action Pipeline error. This in turn terminates the pipeline before committing offsets back to Kafka. Thus the message will not be marked as "processed" by the Action consumer.
 
@@ -85,6 +87,7 @@ action:
   | `connection.consumer_config` | ❌ | {} | A set of key-value pairs that represents arbitrary Kafka Consumer configs |
   | `topic_routes.mcl` | ❌  | `MetadataChangeLog_v1` | The name of the topic containing MetadataChangeLog events |
   | `topic_routes.pe` | ❌ | `PlatformEvent_v1` | The name of the topic containing PlatformEvent events |
+  | `dead_letter_topic` | ❌ | None | Topic that receives events which still fail after the pipeline's retries, before their offsets are committed. Only used with `failure_mode: CONTINUE`. |
   | `async_commit_enabled` | ❌ | `true` | Use async (periodic background) offset commits. Set to `false` for batch-processing actions. |
   | `async_commit_interval` | ❌ | `10000` | Milliseconds between background offset commits (only used when `async_commit_enabled` is `true`) |
   | `commit_retry_count` | ❌ | `5` | Number of retries on synchronous commit failure (only used when `async_commit_enabled` is `false`) |
