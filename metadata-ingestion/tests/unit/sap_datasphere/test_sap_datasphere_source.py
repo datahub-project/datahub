@@ -3580,7 +3580,7 @@ def test_include_non_consumption_views_emits_unexposed_view(requests_mock):
         json={"value": [{"name": "S1", "label": "S1"}]},
     )
     # Catalog only returns the exposed downstream view — the upstream is
-    # deliberately unexposed (the Chalhoub / ING-3556 shape).
+    # deliberately unexposed.
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
         json={
