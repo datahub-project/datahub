@@ -15,7 +15,7 @@ from datahub.configuration.config_loader import (
     parse_recipe_envelope,
 )
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.filter_input import listing_from_run
+from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
 from datahub.ingestion.agent.introspect import describe_source
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe_methods import (
@@ -646,6 +646,53 @@ def probe_methods_cmd(recipe_path: str, report_to: Optional[str]) -> None:
         _emit(payload)
 
 
+def _read_run_file(path: str) -> object:
+    """The parsed JSON of a `probe run --report-to` file.
+
+    click checks the file is readable, but only at parse time; a permission
+    or I/O error at the read itself is the caller's argument being wrong, as
+    _write_report treats it, so it exits 2 rather than as an internal error.
+    """
+    try:
+        text = pathlib.Path(path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"cannot read --from-run file '{path}': {exc}") from exc
+    return json.loads(text)
+
+
+def _listing_warnings(listing: RunListing) -> List[str]:
+    """What the caller must know about a listing judged as it stands.
+
+    Each is a warning, not a refusal: the names that are there still get a
+    correct verdict. What would be wrong is reading the result as covering
+    every object the source has.
+    """
+    warnings: List[str] = []
+    if listing.skipped:
+        warnings.append(
+            "not judged, because redaction masked their names: listing entries "
+            f"{', '.join(str(i) for i in listing.skipped)}. A name that collides "
+            "with a secret reads '***'; judge it with --name and the real name"
+        )
+    if listing.masked_attributes:
+        keys = ", ".join(f"`{k}`" for k in listing.masked_attributes)
+        warnings.append(
+            f"redaction masked {keys} on some entries, so those values were "
+            "left out of their verdicts; a source that filters on them judged "
+            "those names without them"
+        )
+    if listing.truncated:
+        warnings.append(
+            "that listing was truncated, so names beyond it were not judged"
+        )
+    if listing.incomplete:
+        warnings.append(
+            "the run that wrote that listing recorded failures, so the listing "
+            "is incomplete and names it could not read were not judged"
+        )
+    return warnings
+
+
 @probe_group.command(name="filter")
 @click.option("--recipe", "recipe_path", required=True)
 @click.option(
@@ -718,14 +765,13 @@ def probe_filter_cmd(
         source_type, resolved, found = _resolve_for_probe(_load_recipe(recipe_path))
         secret_values.update(found)
         attributes = None
+        listing_warnings: List[str] = []
         if from_run is not None:
             if names:
                 raise ValueError(
                     "--name and --from-run both name the objects to judge; pass one"
                 )
-            listing = listing_from_run(
-                json.loads(pathlib.Path(from_run).read_text(encoding="utf-8"))
-            )
+            listing = listing_from_run(_read_run_file(from_run))
             if listing.source_type and listing.source_type != source_type:
                 raise ValueError(
                     f"this listing came from {listing.source_type}, the recipe "
@@ -736,16 +782,21 @@ def probe_filter_cmd(
                     f"--kind {kind} contradicts the listing, which holds "
                     f"{listing.kind} names"
                 )
+            if not (kind or listing.kind):
+                raise ValueError(
+                    "the listing does not say what kind it holds; pass --kind"
+                )
             kind = kind or listing.kind
             parents = parents or tuple(listing.parent_path)
             names = tuple(listing.names)
             attributes = listing.attributes
+            listing_warnings = _listing_warnings(listing)
         elif not names:
             raise ValueError(
                 "nothing to judge: pass --name, or --from-run with a `probe run` output"
             )
         if not kind:
-            raise ValueError("pass --kind: the listing does not say what kind it holds")
+            raise ValueError("pass --kind: it says what kind of object the names are")
         _ping_probe("filter", source_type, kind=kind)
         result = check_filters(
             source_type=source_type,
@@ -757,6 +808,8 @@ def probe_filter_cmd(
             try_deny=list(try_deny),
             attributes=attributes,
         )
+        # Before redaction, so these pass through it like every other warning.
+        result.warnings.extend(listing_warnings)
         payload = _redacted_payload(result.to_dict(), secret_values)
         _write_report(report_to, payload)
         _emit(payload)

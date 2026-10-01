@@ -111,6 +111,36 @@ def test_a_kind_with_no_filter_reports_every_name_included():
     assert result.warnings == []
 
 
+@pytest.mark.parametrize(
+    ("source_type", "config_dict", "kind", "filtering"),
+    [
+        ("mode", MODE_CONFIG, "Dataset", "unfiltered"),
+        ("mysql", MYSQL_CONFIG, "NoSuchKind", "unresolved"),
+    ],
+)
+def test_try_patterns_on_a_kind_with_no_pattern_are_ignored_with_a_warning(
+    source_type: str, config_dict: Dict[str, object], kind: str, filtering: str
+) -> None:
+    """There is no allow/deny list to replace, so a hypothetical one judged
+    the names against a filter ingestion has no field for -- and reported
+    exclusions ingestion can never make."""
+    result = check_filters(
+        source_type=source_type,
+        config_dict=config_dict,
+        kind=kind,
+        parent_path=[],
+        names=["a", "b"],
+        try_deny=["^a$"],
+        try_allow=["^z$"],
+    )
+    assert result.filtering == filtering
+    assert result.tried is None
+    assert [v.included for v in result.results] == [True, True]
+    assert any(
+        "--try-allow and --try-deny were ignored" in w for w in result.warnings
+    ), result.warnings
+
+
 def test_an_unknown_kind_still_answers_but_says_it_is_unrecognised():
     """A misspelling is more likely than a level without a filter, and answering
     "all included" for one silently would be a wrong answer delivered

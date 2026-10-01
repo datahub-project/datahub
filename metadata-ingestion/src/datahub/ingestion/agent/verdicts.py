@@ -11,7 +11,7 @@ from typing import (
     Tuple,
 )
 
-from datahub.ingestion.agent.pattern_path import require_pattern_at
+from datahub.ingestion.agent.pattern_path import require_pattern_at, unset_block_on
 
 
 @dataclass(frozen=True)
@@ -124,6 +124,11 @@ def pattern_verdict(config: Any, pattern_field: Optional[str], target: str) -> V
         # "no filter at this level", which is the same include that None gets.
         # filter_check guards this before calling, but the sentinel and this
         # function are exported from the same module and read as composable.
+        return _INCLUDED
+    if unset_block_on(config, pattern_field) is not None:
+        # A recipe that leaves an Optional block out filters nothing there, as
+        # filter_check already reads it; raising would fail a classifier that
+        # defers here on a recipe nothing is wrong with.
         return _INCLUDED
     pattern = require_pattern_at(config, pattern_field)
     return _INCLUDED if pattern.allowed(target) else Verdict(False, pattern_field)

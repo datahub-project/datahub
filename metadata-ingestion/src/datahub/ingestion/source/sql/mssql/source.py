@@ -340,9 +340,9 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 
     @classmethod
     def probe_validation_context(cls, source_type: str) -> Optional[Dict[str, object]]:
-        # Mirrors SQLServerSource.create: the registered name is the only thing
-        # that tells an ODBC recipe from a pytds one, and validate_uri_args
-        # reads it from the context.
+        # SQLServerSource.create validates through this too: the registered
+        # name is the only thing that tells an ODBC recipe from a pytds one,
+        # and validate_uri_args reads it from the context.
         return {"is_odbc": source_type == "mssql-odbc"}
 
     @field_validator("max_queries_to_extract")
@@ -657,11 +657,15 @@ class SQLServerSource(SQLAlchemySource):
         source_type = getattr(
             getattr(ctx.pipeline_config, "source", None), "type", None
         )
-        is_odbc = source_type == "mssql-odbc"
-
-        config = SQLServerConfig.model_validate(
-            config_dict, context={"is_odbc": is_odbc}
+        # The same hook `probe filter` validates with, so the two cannot
+        # disagree about which recipes are ODBC ones.
+        context = (
+            SQLServerConfig.probe_validation_context(source_type=source_type or "")
+            or {}
         )
+        is_odbc = bool(context.get("is_odbc", False))
+
+        config = SQLServerConfig.model_validate(config_dict, context=context)
         return cls(config, ctx, is_odbc=is_odbc)
 
     def get_table_properties(

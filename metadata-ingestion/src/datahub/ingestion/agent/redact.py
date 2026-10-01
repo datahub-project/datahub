@@ -8,7 +8,8 @@ from typing import (
     Tuple,
 )
 
-_MASK = "***"
+# Public so a reader of redacted output (filter_input) can recognise it.
+MASK = "***"
 
 # Below this length a value is matched only against a whole string, never as a
 # substring. Substring masking is deliberately blunt -- it is what catches a
@@ -108,7 +109,7 @@ def mask_identity_columns(
         copy = list(row)
         for i in masked_at:
             if i < len(copy) and copy[i] is not None:
-                copy[i] = _MASK
+                copy[i] = MASK
         out.append(copy)
     return out
 
@@ -315,7 +316,7 @@ def redact(payload: object, secret_values: Set[str]) -> object:
         for secret in secret_values:
             if secret and len(secret) < _MIN_SUBSTRING_SECRET_LEN:
                 if redacted == secret:
-                    return _MASK
+                    return MASK
         # Longest first, across every form of every secret. Two registered
         # secrets can overlap -- a password and a connection string containing
         # it -- and replacing the shorter first destroys the match for the
@@ -324,7 +325,7 @@ def redact(payload: object, secret_values: Set[str]) -> object:
         # but intermittent.
         for form in _maskable_forms(secret_values):
             if form in redacted:
-                redacted = redacted.replace(form, _MASK)
+                redacted = redacted.replace(form, MASK)
         return redacted
     if isinstance(payload, dict):
         # Built incrementally, not as a comprehension: two distinct keys can

@@ -566,6 +566,16 @@ def _pattern_to_judge(
                 f"ignored; edit {pattern_field} in the recipe to test a change"
             )
         return _Judged(config, AllowDenyPattern.allow_all())
+    if pattern_field is None:
+        # "unfiltered" or "unresolved": no allow/deny list exists to replace.
+        # Judging the hypothetical anyway reported exclusions ingestion can
+        # never make, since it has no field to apply them from.
+        if try_allow or try_deny:
+            warn(
+                "--try-allow and --try-deny were ignored: this kind has no "
+                "allow/deny pattern to replace"
+            )
+        return _Judged(config, AllowDenyPattern.allow_all())
     unset = unset_block_on(config, pattern_field) if pattern_field is not None else None
     if unset is not None:
         # A valid recipe that leaves an Optional block out: ingestion applies

@@ -577,6 +577,29 @@ def test_describe_and_probe_filter_agree_about_every_field():
     assert checked > 20, f"only {checked} fields reached"
 
 
+def _fields_leaning_on_the_name_convention(
+    source_type: str, config_cls: type
+) -> List[str]:
+    """The fields `describe` maps to a kind only through the `<kind>_pattern` guess.
+
+    A rule field (probe_rule_filtered_kinds) counts as explicit: the connector
+    named it for that kind, which is the opposite of a guess.
+    """
+    from datahub.ingestion.agent.introspect import (
+        _declared_filter_kind,
+        _filter_kinds_by_field,
+        declared_rule_filtered_kinds,
+        iter_config_fields,
+    )
+
+    explicit = {
+        path
+        for path, info in iter_config_fields(config_cls)
+        if _declared_filter_kind(info) is not None
+    } | set(declared_rule_filtered_kinds(config_cls).values())
+    return sorted(set(_filter_kinds_by_field(source_type, config_cls)) - explicit)
+
+
 def test_no_connector_leans_on_the_name_convention():
     """Every kind an agent can ask about resolves through an explicit
     Filters(...), not through the `<kind>_pattern` name guess.
@@ -603,24 +626,11 @@ def test_no_connector_leans_on_the_name_convention():
     Database` resolves it by name on both. That is what introspect's
     _warn_convention exists to surface at runtime, since no test here can.
     """
-    from datahub.ingestion.agent.introspect import (
-        _declared_filter_kind,
-        _filter_kinds_by_field,
-        iter_config_fields,
-    )
-
     leaning = {}
     checked = 0
     for source_type, config_cls in _probe_capable_configs():
         checked += 1
-        explicit = {
-            path
-            for path, info in iter_config_fields(config_cls)
-            if _declared_filter_kind(info) is not None
-        }
-        by_convention = sorted(
-            set(_filter_kinds_by_field(source_type, config_cls)) - explicit
-        )
+        by_convention = _fields_leaning_on_the_name_convention(source_type, config_cls)
         if by_convention:
             leaning[source_type] = by_convention
 
@@ -1178,3 +1188,19 @@ def test_describe_maps_a_rule_kind_to_its_rule_field_only(monkeypatch):
     assert introspect._filter_kinds_by_field("fake-source", _RulesAndPattern) == {
         "path_specs": "Table"
     }
+
+
+def test_a_rule_field_is_not_mistaken_for_the_name_guess(monkeypatch):
+    from datahub.ingestion.agent import introspect
+
+    class _RulesOnly(ConfigModel):
+        path_specs: List[str] = Field(default_factory=list)
+
+        @classmethod
+        def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
+            return {"Table": "path_specs"}
+
+    monkeypatch.setattr(
+        introspect, "declared_kinds_for_class", lambda _st, _cls: {"Table"}
+    )
+    assert _fields_leaning_on_the_name_convention("fake-source", _RulesOnly) == []

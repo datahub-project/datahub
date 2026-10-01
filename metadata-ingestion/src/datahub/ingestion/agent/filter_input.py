@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Mapping, Optional
+
+from datahub.ingestion.agent.redact import MASK
 
 
 @dataclass(frozen=True)
@@ -15,6 +17,17 @@ class RunListing:
     # Aligned with names. Only scalar fields travel: a verdict compares
     # strings, and a nested value has no single string to match.
     attributes: List[Dict[str, str]]
+    # Entries left out because `probe run` redacted their name: a secret that
+    # equals an identifier masks it, and "***" is not a name the source has.
+    # Indexes, not names, since the name is exactly what is unreadable.
+    skipped: List[int] = field(default_factory=list)
+    # Attribute keys dropped from at least one entry for the same reason: a
+    # verdict matching an id against "***" is a verdict about nothing.
+    masked_attributes: List[str] = field(default_factory=list)
+    # The run stopped at its limit, so names beyond it were never listed.
+    truncated: bool = False
+    # The run recorded failures, so part of the source was not listed at all.
+    incomplete: bool = False
 
 
 def _as_attribute(value: object) -> Optional[str]:
@@ -50,35 +63,66 @@ def listing_from_run(envelope: object) -> RunListing:
         )
     names: List[str] = []
     attributes: List[Dict[str, str]] = []
+    skipped: List[int] = []
+    masked_keys: List[str] = []
     for index, item in enumerate(result):
         if isinstance(item, str):
-            names.append(item)
-            attributes.append({})
-            continue
-        name = item.get("name") if isinstance(item, dict) else None
-        if not isinstance(name, str) or not isinstance(item, dict):
+            name: object = item
+            fields: Mapping[str, object] = {}
+        elif isinstance(item, dict):
+            name = item.get("name")
+            fields = item
+        else:
+            name = None
+            fields = {}
+        if not isinstance(name, str):
             # The index, not the item: the item is caller data and may be large.
             raise ValueError(
                 f"entry {index} of the listing has no string `name`, so it "
                 f"cannot be judged"
             )
+        # `in`, not `==`: redact.py masks a secret as "***" but the registry
+        # masker writes "***REDACTED:NAME***", and a secret embedded in a
+        # longer identifier is masked as a substring.
+        if MASK in name:
+            skipped.append(index)
+            continue
+        kept: Dict[str, str] = {}
+        for key, value in fields.items():
+            text = _as_attribute(value) if key != "name" else None
+            if text is None:
+                continue
+            if MASK in text:
+                if key not in masked_keys:
+                    masked_keys.append(key)
+                continue
+            kept[key] = text
         names.append(name)
-        attributes.append(
-            {
-                key: text
-                for key, value in item.items()
-                if key != "name" and (text := _as_attribute(value)) is not None
-            }
-        )
+        attributes.append(kept)
     kind = envelope.get("kind")
-    parent = envelope.get("parent_path")
     source_type = envelope.get("source_type")
+    failures = envelope.get("failures")
     return RunListing(
         kind=kind if isinstance(kind, str) and kind else None,
         source_type=source_type
         if isinstance(source_type, str) and source_type
         else None,
-        parent_path=[str(p) for p in parent] if isinstance(parent, list) else [],
+        parent_path=_parent_path(envelope.get("parent_path")),
         names=names,
         attributes=attributes,
+        skipped=skipped,
+        masked_attributes=masked_keys,
+        truncated=envelope.get("truncated") is True,
+        incomplete=isinstance(failures, list) and len(failures) > 0,
     )
+
+
+def _parent_path(parent: object) -> List[str]:
+    if parent is None:
+        return []
+    # Refused rather than read as no parent: a bare string used to become []
+    # and judge the names as top-level, and str() over a nested entry judged
+    # a repr no source has.
+    if not isinstance(parent, list) or not all(isinstance(p, str) for p in parent):
+        raise ValueError("not a `probe run` listing: its parent_path is malformed")
+    return list(parent)

@@ -3,7 +3,7 @@ import re
 import types
 import typing
 from functools import lru_cache
-from typing import Dict, Iterator, List, Optional, Set, Tuple
+from typing import Dict, FrozenSet, Iterator, List, Optional, Set, Tuple
 
 from pydantic import SecretStr
 from pydantic.fields import FieldInfo
@@ -74,12 +74,6 @@ def is_pattern_field(annotation: object) -> bool:
     return _kind_for(annotation) == FieldKind.PATTERN
 
 
-# Deep enough for filter_config.entries.pattern with room to spare. A bound
-# rather than a visited-set because a self-referencing config would otherwise
-# walk forever, and no real config nests patterns deeper than three.
-_MAX_NESTING = 4
-
-
 def _model_members(annotation: object) -> List[type]:
     """The ConfigModel types a field holds directly, Optional unwrapped.
 
@@ -96,18 +90,24 @@ def _model_members(annotation: object) -> List[type]:
 
 
 def iter_config_fields(
-    config_cls: type, _prefix: str = "", _depth: int = 0
+    config_cls: type,
+    _prefix: str = "",
+    _active: FrozenSet[type] = frozenset(),
 ) -> Iterator[Tuple[str, FieldInfo]]:
     """Every field on this config and its nested config blocks, as
     (dotted path, FieldInfo). Top-level fields keep their bare names."""
     fields = getattr(config_cls, "model_fields", None) or {}
+    # Only the classes on the current descent are excluded, not every class
+    # seen so far: a self-referencing config must stop, but two sibling
+    # blocks of one type each hold their own Filters(...) fields. A fixed
+    # depth cap did the first and silently cut off legitimately deep blocks.
+    active = _active | {config_cls}
     for name, info in fields.items():
         path = f"{_prefix}{name}"
         yield path, info
-        if _depth + 1 >= _MAX_NESTING:
-            continue
         for member in _model_members(info.annotation):
-            yield from iter_config_fields(member, f"{path}.", _depth + 1)
+            if member not in active:
+                yield from iter_config_fields(member, f"{path}.", active)
 
 
 # A pattern field is conventionally named after the kind it filters:

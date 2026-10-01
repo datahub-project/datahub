@@ -189,3 +189,62 @@ def test_a_set_optional_block_still_filters() -> None:
     )
     assert [r.included for r in result.results] == [False, True]
     assert result.warnings == []
+
+
+def test_pattern_verdict_includes_under_an_unset_optional_block() -> None:
+    # The recipe left `block` out, which is valid and filters nothing there.
+    verdict = pattern_verdict(_OptOuter(), "block.pattern", "anything")
+    assert verdict.included is True
+
+
+def test_pattern_verdict_still_raises_on_an_unresolved_path() -> None:
+    with pytest.raises(TypeError):
+        pattern_verdict(_OptOuter(), "nope.pattern", "anything")
+
+
+class _Level4(ConfigModel):
+    pattern: Annotated[AllowDenyPattern, Filters("Deep")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+
+
+class _Level3(ConfigModel):
+    d: _Level4 = Field(default_factory=_Level4)
+
+
+class _Level2(ConfigModel):
+    c: _Level3 = Field(default_factory=_Level3)
+
+
+class _Level1(ConfigModel):
+    b: _Level2 = Field(default_factory=_Level2)
+
+
+class _Deep(ConfigModel):
+    a: _Level1 = Field(default_factory=_Level1)
+
+
+def test_a_declaration_five_blocks_deep_resolves() -> None:
+    assert _pattern_field_for_config_class(_Deep, "Deep") == "a.b.c.d.pattern"
+
+
+class _Node(ConfigModel):
+    name_pattern: Annotated[AllowDenyPattern, Filters("Node")] = Field(
+        default=AllowDenyPattern.allow_all()
+    )
+    child: Optional["_Node"] = None
+
+
+class _TwoSiblings(ConfigModel):
+    left: _Inner = Field(default_factory=_Inner)
+    right: _Inner = Field(default_factory=_Inner)
+
+
+def test_a_self_referencing_config_terminates() -> None:
+    paths = [path for path, _ in iter_config_fields(_Node)]
+    assert paths == ["name_pattern", "child"]
+
+
+def test_siblings_reusing_one_block_type_are_both_walked() -> None:
+    paths = {path for path, _ in iter_config_fields(_TwoSiblings)}
+    assert {"left.pattern", "right.pattern"} <= paths

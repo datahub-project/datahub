@@ -163,7 +163,11 @@ sources — declares `probe_rule_filtered_kinds()` (classmethod: kind → the ru
 field) and judges each name in `probe_verdict_override`, which must return a
 `Verdict` for those kinds. `probe filter` reports `filtering: "by_rule"` with
 `pattern_field` naming the rule field; put the exact sub-rule in `excluded_by`
-(`path_specs[0].exclude`). `--try-allow`/`--try-deny` are ignored, with a warning
+(`path_specs[0].exclude`). Return a `Verdict` for a rule kind even when
+`ctx.attributes` is empty: a parent container is judged by name alone when the
+level below it is checked, so an override that needs a per-name fact must
+degrade to its best verdict and say so with `ctx.warn` rather than return `None`
+(which is a connector defect for a rule kind). `--try-allow`/`--try-deny` are ignored, with a warning
 (exit 0), since there is no list to replace. Declaring such a kind unfiltered instead would
 report everything included — the contract test refuses both at once.
 

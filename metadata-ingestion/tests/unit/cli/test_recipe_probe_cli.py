@@ -1417,6 +1417,7 @@ def test_from_run_and_name_together_are_a_bad_argument(monkeypatch, tmp_path):
         ],
     )
     assert res.exit_code == 2, res.output
+    assert "both name the objects to judge" in res.output
 
 
 def test_a_kind_contradicting_the_listing_is_a_bad_argument(monkeypatch, tmp_path):
@@ -1436,6 +1437,7 @@ def test_a_kind_contradicting_the_listing_is_a_bad_argument(monkeypatch, tmp_pat
         ],
     )
     assert res.exit_code == 2, res.output
+    assert "contradicts the listing" in res.output
 
 
 def test_a_listing_from_another_source_is_a_bad_argument(monkeypatch, tmp_path):
@@ -1448,6 +1450,7 @@ def test_a_listing_from_another_source_is_a_bad_argument(monkeypatch, tmp_path):
         ["probe", "filter", "--recipe", _recipe_file(tmp_path), "--from-run", run],
     )
     assert res.exit_code == 2, res.output
+    assert "this listing came from mysql" in res.output
     assert seen == {}
 
 
@@ -1470,3 +1473,107 @@ def test_neither_names_nor_a_run_is_a_bad_argument(tmp_path):
         ["probe", "filter", "--recipe", _recipe_file(tmp_path), "--kind", "Table"],
     )
     assert res.exit_code == 2, res.output
+    assert "nothing to judge" in res.output
+
+
+def _filter_from_run(tmp_path, run, *extra):
+    return CliRunner().invoke(
+        recipe,
+        [
+            "probe",
+            "filter",
+            "--recipe",
+            _recipe_file(tmp_path),
+            "--from-run",
+            run,
+            *extra,
+        ],
+    )
+
+
+def test_a_kind_differing_only_in_case_is_accepted_and_passed_on(monkeypatch, tmp_path):
+    seen = _capturing_check_filters(monkeypatch)
+    run = _run_file(tmp_path, {"kind": "Table", "result": ["t1"]})
+    res = _filter_from_run(tmp_path, run, "--kind", "table")
+    assert res.exit_code == 0, res.output
+    # The caller's spelling reaches check_filters, which canonicalises it.
+    assert seen["kind"] == "table"
+
+
+def test_a_listing_without_a_kind_asks_for_kind(monkeypatch, tmp_path):
+    _capturing_check_filters(monkeypatch)
+    run = _run_file(tmp_path, {"result": ["t1"]})
+    res = _filter_from_run(tmp_path, run)
+    assert res.exit_code == 2, res.output
+    assert "the listing does not say what kind it holds" in res.output
+    assert "--kind" in res.output
+
+
+def test_names_without_a_kind_ask_for_kind(monkeypatch, tmp_path):
+    _capturing_check_filters(monkeypatch)
+    res = CliRunner().invoke(
+        recipe,
+        ["probe", "filter", "--recipe", _recipe_file(tmp_path), "--name", "t1"],
+    )
+    assert res.exit_code == 2, res.output
+    assert "pass --kind" in res.output
+    # No listing was given, so blaming one would send the caller looking for it.
+    assert "listing" not in res.output
+
+
+def _warnings_of(res):
+    return json.loads(res.stdout)["warnings"]
+
+
+def test_a_truncated_or_failed_listing_is_judged_with_warnings(monkeypatch, tmp_path):
+    seen = _capturing_check_filters(monkeypatch)
+    run = _run_file(
+        tmp_path,
+        {
+            "kind": "Table",
+            "result": ["t1"],
+            "truncated": True,
+            "failures": ["could not read schema x"],
+        },
+    )
+    res = _filter_from_run(tmp_path, run)
+    assert res.exit_code == 0, res.output
+    assert seen["names"] == ["t1"]
+    warnings = _warnings_of(res)
+    assert any("truncated" in w for w in warnings), warnings
+    assert any("incomplete" in w for w in warnings), warnings
+
+
+def test_redacted_entries_are_skipped_with_a_warning(monkeypatch, tmp_path):
+    seen = _capturing_check_filters(monkeypatch)
+    run = _run_file(
+        tmp_path,
+        {
+            "kind": "Workspace",
+            "result": ["***", {"name": "Sales", "id": "***"}],
+        },
+    )
+    res = _filter_from_run(tmp_path, run)
+    assert res.exit_code == 0, res.output
+    assert seen["names"] == ["Sales"]
+    assert seen["attributes"] == [{}]
+    warnings = _warnings_of(res)
+    assert any("listing entries 0" in w for w in warnings), warnings
+    assert any("`id`" in w for w in warnings), warnings
+
+
+def test_an_unreadable_run_file_is_a_bad_argument(tmp_path):
+    import os
+
+    run = pathlib.Path(_run_file(tmp_path, {"kind": "Table", "result": ["t1"]}))
+    run.chmod(0)
+    try:
+        if os.access(run, os.R_OK):
+            pytest.skip("this user reads files regardless of their mode")
+        # Called directly: click's own readable check would otherwise answer
+        # first, and the reader must not depend on it (the file can change
+        # between that check and the read).
+        with pytest.raises(ValueError, match="cannot read --from-run file"):
+            rc._read_run_file(str(run))
+    finally:
+        run.chmod(0o600)

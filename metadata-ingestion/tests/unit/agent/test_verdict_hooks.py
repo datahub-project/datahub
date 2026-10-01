@@ -1,7 +1,10 @@
 """Framework behaviour of the shared verdict hooks, on fake configs.
 
 Each fake is registered through the same two seams test_filter_check's
-fixtures use, so nothing here depends on a real connector.
+fixtures use, so nothing here depends on a real connector -- with one
+exception: the SQL default-switch test runs the real registered MySQL source
+on purpose, to pin the behaviour a source with no probe_kind_switches already
+had.
 """
 
 from typing import Annotated, Dict, List, Mapping, Optional, Sequence, Set, Type
