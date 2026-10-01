@@ -346,6 +346,22 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         # and validate_uri_args reads it from the context.
         return {"is_odbc": source_type == "mssql-odbc"}
 
+    def uses_odbc(self) -> bool:
+        """Whether this recipe connects through pyodbc.
+
+        Exact once validated with the source type's context: validate_uri_args
+        refuses uri_args on the pytds type and demands a `driver` in them on
+        the ODBC one unless sqlalchemy_uri is set -- and with sqlalchemy_uri the
+        URL is taken verbatim, so is_odbc changes nothing get_sql_alchemy_url
+        builds.
+        """
+        return bool(self.uri_args)
+
+    def probe_sql_alchemy_url(self) -> str:
+        # get_sql_alchemy_url() alone defaults is_odbc=False, so the probe
+        # would dial mssql+pytds for an mssql-odbc recipe; ingestion passes it.
+        return self.get_sql_alchemy_url(is_odbc=self.uses_odbc())
+
     @field_validator("max_queries_to_extract")
     @classmethod
     def validate_max_queries_to_extract(cls, value: int) -> int:
