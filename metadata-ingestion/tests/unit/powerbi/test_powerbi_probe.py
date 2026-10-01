@@ -198,8 +198,14 @@ def test_reports_are_unfiltered_but_inherit_their_workspace_verdict() -> None:
     ],
 )
 def test_a_switched_off_kind_is_excluded_by_its_switch(kind: str, switch: str) -> None:
-    _, verdicts = _judge(kind, ["Weekly"], ["Sales"], **{switch: False})
-    assert verdicts == {"Weekly": (False, switch)}
+    result = check_filters(
+        source_type="powerbi",
+        config_dict={**_RECIPE, switch: False},
+        kind=kind,
+        parent_path=["Sales"],
+        names=["Weekly"],
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [(False, switch)]
 
 
 _ORG = "https://api.powerbi.com/v1.0/myorg"
@@ -395,9 +401,9 @@ def test_an_unreadable_modified_list_falls_back_as_ingestion_does(
         r for r in requests_mock.request_history if r.path.endswith("/groups")
     ][0]
     assert "$filter" not in groups_call.qs
-    assert any(
-        str(status) in w and "every workspace" in w for w in probe.warnings
-    ), probe.warnings
+    assert any(str(status) in w and "every workspace" in w for w in probe.warnings), (
+        probe.warnings
+    )
 
 
 def test_a_forbidden_groups_listing_raises_rather_than_reporting_empty(

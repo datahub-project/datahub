@@ -79,9 +79,7 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         self.api_base_url = DataResolverBase.my_org_url_for(config.environment)
 
     @classmethod
-    def for_config(
-        cls, config: PowerBiDashboardSourceConfig
-    ) -> "PowerBiMetadataProbe":
+    def for_config(cls, config: PowerBiDashboardSourceConfig) -> "PowerBiMetadataProbe":
         return cls(config)
 
     def __enter__(self) -> "PowerBiMetadataProbe":
@@ -294,9 +292,7 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         themselves -- their workspace's verdict decides. Metadata only."""
         ws = self._workspace_or_raise(workspace)
         if not self._config.extract_dashboards:
-            self._warn(
-                "extract_dashboards is false, so ingestion emits none of these"
-            )
+            self._warn("extract_dashboards is false, so ingestion emits none of these")
         return self._scoped(
             lambda: [
                 {"name": d.displayName, "id": d.id}
