@@ -21,6 +21,10 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 One run ingests one catalog, so a view that reads from a table in a different Doris catalog gets no lineage for that view — the reference cannot be resolved without pointing the edge at a same-named table in the ingested catalog. Those views are counted in the ingestion report under a `View lineage skipped for cross-catalog reference` warning. Ingest each catalog with its own recipe to catalog both sides.
 
+#### Truncated column comments
+
+Doris truncates `information_schema.COLUMNS.COLUMN_COMMENT` when the FE setting `column_comment_length_limit` is greater than zero. Raise or unset it if long column descriptions arrive cut short.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
@@ -29,15 +33,15 @@ If ingestion fails, validate credentials, permissions, connectivity, and scope f
 
 If logs show `Unknown database 'db_ods'` (or similar) after databases were discovered, the source is reconnecting without the catalog name. Set `catalog: your_catalog` (or `database: your_catalog.db_ods`) so connections use `catalog.database`. See **Multi-Catalog** under Prerequisites.
 
-#### "Table reflected without keys or comment"
+#### "Table reflected without keys"
 
-Doris rejects `SHOW CREATE TABLE` for some objects, most commonly async materialized views. Those tables are still ingested — columns and types come from `DESCRIBE` instead — but primary keys, foreign keys and the table comment are unavailable. The warning context names each affected table along with the error Doris returned.
+Doris rejects `SHOW CREATE TABLE` for some objects, most commonly async materialized views. Those tables are still ingested — columns and types come from `DESCRIBE` instead — but primary keys and foreign keys are unavailable. Table and column comments are still read from `information_schema`. The warning context names each affected table along with the error Doris returned.
 
 This is expected on any instance that has async materialized views, and needs no action. Investigate only if the count is higher than the number of async materialized views you have.
 
-#### "Table reflected without keys or comment after an unexpected error"
+#### "Table reflected without keys after an unexpected error"
 
-The same degradation as above, but triggered by an error Doris is not known to raise for this — most often a missing grant on the table, or a connection dropped mid-reflection. The table is still ingested from `DESCRIBE`, so columns are complete, but keys, foreign keys and the table comment are missing.
+The same degradation as above, but triggered by an error Doris is not known to raise for this — most often a missing grant on the table, or a connection dropped mid-reflection. The table is still ingested from `DESCRIBE`, so columns and comments are complete, but keys and foreign keys are missing.
 
 Check that the ingestion account can run `SHOW CREATE TABLE` on the tables named in the warning context. Unlike the warning above, this one is worth acting on.
 
@@ -46,3 +50,9 @@ Check that the ingestion account can run `SHOW CREATE TABLE` on the tables named
 `DESCRIBE` failed on a table that otherwise reflected normally, so its column types fall back to what the MySQL protocol reports. Columns and names are correct, but Doris-specific types such as `HLL`, `BITMAP`, `VARIANT` and `LARGEINT` appear as their closest MySQL equivalent rather than the real type.
 
 Confirm the ingestion account can run `DESCRIBE` on the tables named in the warning context.
+
+#### "Doris table and column comments unavailable"
+
+The `information_schema` comment lookup failed for the database named in the warning context, so its tables and columns were ingested without descriptions. Everything else about those tables is unaffected.
+
+Confirm the ingestion account can query `information_schema.TABLES` and `information_schema.COLUMNS`.
