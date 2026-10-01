@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Tuple
+from typing import AbstractSet, Tuple
 
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
@@ -16,8 +16,8 @@ _FRAMEWORK_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "")
 
 # Exceptions whose text the framework vouches for: raised deliberately, by code
 # that knows the message is safe to show. SqlScopeError / ApiScopeError live in
-# sql_gate / api_gate under the framework module, so is_authored covers them by
-# module.
+# sql_gate / api_gate under the framework package, so is_authored covers them by
+# file path.
 _FRAMEWORK_TYPES: Tuple[type, ...] = (
     ProbeArgumentError,
     ProbeSoftError,
@@ -28,7 +28,7 @@ _FRAMEWORK_TYPES: Tuple[type, ...] = (
 
 # Python defects: after run_probe_method has coerced the arguments, these mean
 # the code misread something, not that the caller's input was wrong (exit 1).
-_DEFECT_TYPES: Tuple[type, ...] = (
+DEFECT_TYPES: Tuple[type, ...] = (
     TypeError,
     KeyError,
     AttributeError,
@@ -41,12 +41,13 @@ _DEFECT_TYPES: Tuple[type, ...] = (
 _ARGUMENT_TYPES: Tuple[type, ...] = (ValueError, re.error)
 
 
-def is_authored(exc: BaseException, provider_file: str) -> bool:
+def is_authored(exc: BaseException, provider_files: AbstractSet[str]) -> bool:
     """Whether the framework may show this exception's text.
 
     True for framework types, and for an exception whose innermost raising
-    Python frame is in the provider's own source file or in the framework
-    package: a message the provider wrote on purpose. Anything raised inside
+    Python frame is in one of the provider's own source files (see
+    probe_methods.provider_source_files) or in the framework package: a
+    message the provider wrote on purpose. Anything raised inside
     reused ingestion code or a third-party library is foreign -- that is where
     text quoting a JDBC URL, a YAML node or a token endpoint body comes from.
 
@@ -71,7 +72,7 @@ def is_authored(exc: BaseException, provider_file: str) -> bool:
     innermost = os.path.realpath(tb.tb_frame.f_code.co_filename)
     if innermost.startswith(_FRAMEWORK_DIR):
         return True
-    return bool(provider_file) and innermost == os.path.realpath(provider_file)
+    return any(innermost == os.path.realpath(f) for f in provider_files if f)
 
 
 def classify_foreign(exc: BaseException, context: str) -> Exception:
@@ -84,7 +85,7 @@ def classify_foreign(exc: BaseException, context: str) -> Exception:
     SDKs, HTTP and permission errors) stays exit 3.
     """
     message = f"{context} failed ({type(exc).__name__})"
-    if isinstance(exc, _DEFECT_TYPES):
+    if isinstance(exc, DEFECT_TYPES):
         return ProbeInternalError(message)
     if isinstance(exc, _ARGUMENT_TYPES):
         return ProbeArgumentError(message)

@@ -38,3 +38,7 @@ def read_file() -> None:
 
 def lookup() -> None:
     raise KeyError(f"no key {SENTINEL}")
+
+
+def close() -> None:
+    raise TypeError(f"session close got {SENTINEL}")

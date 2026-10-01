@@ -5,6 +5,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    FrozenSet,
     List,
     Mapping,
     NoReturn,
@@ -25,7 +26,11 @@ from datahub.configuration.env_vars import (
 )
 from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
 from datahub.ingestion.agent.config_validation import validate_source_config
-from datahub.ingestion.agent.error_policy import classify_foreign, is_authored
+from datahub.ingestion.agent.error_policy import (
+    DEFECT_TYPES,
+    classify_foreign,
+    is_authored,
+)
 from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.agent.verdicts import (
@@ -423,6 +428,53 @@ def _iter_specs(provider_cls: type) -> List[Tuple[str, ProbeMethodSpec]]:
     return sorted(found.items())
 
 
+def _declares_probe_provider(klass: type) -> bool:
+    """Whether `klass` itself (not a base) builds a provider or declares a
+    command: the classes whose files hold code written for the probe."""
+    if "for_config" in vars(klass):
+        return True
+    return any(
+        isinstance(getattr(value, "__probe_command__", None), ProbeMethodSpec)
+        for value in vars(klass).values()
+    )
+
+
+def provider_source_files(provider_cls: type) -> FrozenSet[str]:
+    """The files whose raises carry a message the provider wrote on purpose
+    (see agent.error_policy.is_authored).
+
+    The provider class's own file, plus the file of every base that is itself
+    a probe provider: a shared provider base raising ValueError for a bad
+    argument wrote that message for the caller exactly as a subclass would.
+
+    Never an ingestion Source's file, even one carrying @probe_method: that is
+    reused ingestion code, the very text the policy withholds. So
+    ModeProbeSource(RestApiPassthrough, ModeSource) vouches for mode_probe.py
+    (and the framework's rest_passthrough.py, authored anyway) but not mode.py.
+    The provider class itself always counts, Source subclass or not -- it is
+    the file written for the probe.
+    """
+    # lazy: the ingestion API module is heavy and only needed once a probe runs
+    from datahub.ingestion.api.source import Source
+
+    files = set()
+    for klass in provider_cls.__mro__:
+        if klass is object or getattr(klass, "_is_protocol", False):
+            continue
+        if klass is not provider_cls and (
+            issubclass(klass, Source) or not _declares_probe_provider(klass)
+        ):
+            continue
+        try:
+            path = inspect.getsourcefile(klass)
+        except TypeError:
+            # A class whose module has no __file__: nothing to vouch for.
+            continue
+        if path:
+            files.add(path)
+    return frozenset(files)
+
+
 def list_probe_methods(
     source_type: str, config_dict: Optional[Mapping[str, object]] = None
 ) -> List[ProbeMethodSpec]:
@@ -724,7 +776,7 @@ def _report_entries(report: object, kind: str) -> Set[str]:
 def _raise_call_failure(
     exc: Exception,
     provider: object,
-    provider_file: str,
+    provider_files: FrozenSet[str],
     command: str,
     source_type: str,
 ) -> NoReturn:
@@ -740,7 +792,7 @@ def _raise_call_failure(
     recorded = set(getattr(provider, "failures", None) or []) | _report_entries(
         getattr(provider, "probe_report", None), "failures"
     )
-    authored = is_authored(exc, provider_file)
+    authored = is_authored(exc, provider_files)
     detail = scrub_text(str(exc), set()) if authored else type(exc).__name__
     if recorded:
         raise ProbeReadFailed(
@@ -753,7 +805,7 @@ def _raise_call_failure(
         raise ProbeConnectionError(
             f"'{command}' could not reach source '{source_type}': {detail}"
         ) from exc
-    if isinstance(exc, (TypeError, KeyError, AttributeError, AssertionError)):
+    if isinstance(exc, DEFECT_TYPES):
         # Still a defect when the provider raised it itself: after the
         # arguments were coerced these do not mean "bad input", so they must
         # not fall through to the CLI's exit-2 family.
@@ -762,6 +814,149 @@ def _raise_call_failure(
             f"{detail}); this is a defect, not a problem with the arguments"
         ) from exc
     raise exc
+
+
+@dataclass(frozen=True)
+class _ProviderCall:
+    builder: Callable[[Any], Any]
+    config: Any
+    spec: ProbeMethodSpec
+    call_kwargs: Dict[str, object]
+    provider_files: FrozenSet[str]
+    source_type: str
+
+
+@dataclass(frozen=True)
+class _CallOutcome:
+    provider: object
+    result: object
+    warnings: Set[str]
+    failures: Set[str]
+
+
+def _open_call_close(call: _ProviderCall) -> _CallOutcome:
+    """Open the provider, run the command, close the provider -- every failure
+    in all three policed the same way.
+
+    The close is the provider's __exit__, which runs reused code too (Mode's
+    closes its ingestion session), so its failure is held to the open path's
+    rule. And a close failure while the command's own failure is propagating
+    must not replace it: contextlib would hand the caller "closing failed"
+    for what was a wrong argument or an unreachable endpoint.
+    """
+    body_error: Optional[BaseException] = None
+    try:
+        with ExitStack() as stack:
+            try:
+                return _open_and_call(stack, call)
+            except BaseException as exc:
+                body_error = exc
+                raise
+    except Exception as exc:
+        if body_error is not None:
+            if exc is body_error:
+                raise
+            # The command's failure was already policed; keep it, with the
+            # close failure out of the displayed chain.
+            raise body_error from body_error.__cause__
+        if is_authored(exc, call.provider_files):
+            raise
+        raise ProbeConnectionError(
+            f"closing source '{call.source_type}' failed ({type(exc).__name__})"
+        ) from None
+    # Reached only when the provider's __exit__ returned true and so swallowed
+    # the command's own failure: there is no result to report.
+    raise ProbeInternalError(
+        f"the probe provider for source '{call.source_type}' suppressed the "
+        f"command's failure in its __exit__; this is a defect in the provider"
+    )
+
+
+def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
+    source_type = call.source_type
+    command = call.spec.command
+    try:
+        provider = stack.enter_context(call.builder(call.config))
+    except Exception as exc:
+        # A provider refusing the recipe on purpose (an argument it can
+        # explain) keeps its message and exits 2. Anything else -- reused
+        # ingestion code, a driver, an SDK -- is reported by class name
+        # only: that text is where connection strings and token-endpoint
+        # bodies leak from.
+        if isinstance(
+            exc,
+            (ValueError, ProbeConnectionError, ProbeInternalError, ProbeReadFailed),
+        ) and is_authored(exc, call.provider_files):
+            raise
+        # Always a connection error here, not classify_foreign's split: the
+        # caller's input was all checked above, so a foreign failure while
+        # building the provider is the source's (exit 3), whatever its type.
+        raise ProbeConnectionError(
+            f"opening source '{source_type}' failed ({type(exc).__name__})"
+        ) from None
+    _enforce_gates(call.spec, provider, call.call_kwargs)
+    try:
+        result = _bound_method(provider, command)(**call.call_kwargs)
+    except NotImplementedError as exc:
+        # A dialect that does not implement a reflection method raises this, and
+        # it is the one failure a caller cannot reason its way out of: without
+        # this branch it falls to recipe_cli's catch-all and exits 3, "I could
+        # not reach the source" -- so an agent concludes the source is
+        # unreachable and retries, when the connection was fine and the engine
+        # simply has no such concept. ValueError maps to exit 2, which is the
+        # honest answer: the command was the wrong one to ask for.
+        #
+        # Deliberately NOT backed by a per-dialect capability table. Everything
+        # else about an unsupported command is already derivable by the caller:
+        # the result carries source_type, and a dialect that answers oddly
+        # answers in a self-describing way -- Trino's get_indexes returns
+        # {"name": "partition", ...} because it reflects partition keys, which an
+        # agent that knows Trino reads for what it is.
+        raise ValueError(
+            f"source '{source_type}' does not support the '{command}' command: "
+            f"its SQL dialect does not implement it. The source was reached "
+            f"fine -- this is a limit of the engine, so choose another command "
+            f"rather than retrying"
+        ) from exc
+    except Exception as exc:
+        # The report was only read on the success path, so a getter that
+        # recorded a failure and then raised had its reason discarded --
+        # Hex's _project_id_or_raise raises ProbeSoftError("no project
+        # titled 'x'") after a failed /projects fetch, and the caller was
+        # told at exit 2 to fix a title when the listing had 401'd.
+        # Both shapes, as the success path does. Reading only probe_report
+        # here meant a provider using the plain `failures` list and then
+        # raising still reached the CLI as a user error.
+        _raise_call_failure(exc, provider, call.provider_files, command, source_type)
+    # Optional, source-agnostic: a provider that degrades a sub-fetch
+    # instead of failing outright (see agent.verdicts.ProbeSoftError) may
+    # expose its own `warnings` list to report that here. Duck-typed
+    # rather than part of the ProbeProvider Protocol, since most
+    # providers have nothing to report and shouldn't need to declare it.
+    provider_warnings = getattr(provider, "warnings", None)
+    # And the other half of the same report. A connector that reuses its
+    # ingestion fetchers records an unreadable endpoint with
+    # report.failure(), not report.warning() -- correct for ingestion, which
+    # emits what it can and surfaces the gap to an operator. Reading only
+    # `warnings` meant those reads came back as an empty result at exit 0,
+    # so the probe's central promise (never report empty for unread) held
+    # only for connectors that happened not to reuse an ingestion path.
+    #
+    # Both shapes are accepted: a plain `failures` list, or a SourceReport
+    # exposed as `probe_report` whose warnings and failures are folded in.
+    # The latter is what a connector reusing its own fetchers already has.
+    provider_report = getattr(provider, "probe_report", None)
+    provider_failures = set(
+        getattr(provider, "failures", None) or []
+    ) | _report_entries(provider_report, "failures")
+    report_warnings = _report_entries(provider_report, "warnings")
+    return _CallOutcome(
+        provider=provider,
+        result=result,
+        warnings=set(list(provider_warnings) if provider_warnings else [])
+        | report_warnings,
+        failures=provider_failures,
+    )
 
 
 def run_probe_method(
@@ -811,13 +1006,9 @@ def run_probe_method(
     config = validate_source_config(
         config_class_for(source_type), source_type, config_dict
     )
-    # The provider's own source file: an exception raised there carries a
+    # The provider's own source files: an exception raised there carries a
     # message the provider wrote, so it may be shown (see agent.error_policy).
-    try:
-        provider_file = inspect.getsourcefile(provider_cls) or ""
-    except TypeError:
-        # A class whose module has no __file__: nothing is authored by file.
-        provider_file = ""
+    provider_files = provider_source_files(provider_cls)
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):
         raise ValueError(
@@ -825,89 +1016,23 @@ def run_probe_method(
             f"'{source_type}' has no for_config(config) classmethod, so it "
             f"cannot be built from the recipe"
         )
-    # The same class discovery described, so the two cannot disagree about what
-    # this source can do.
-    #
     # The log guard is outermost so it also covers the provider's __exit__.
     # No secret set here: the CLI wraps this call in its own guard holding the
     # recipe's secret values, and scrub_text still masks credential shapes for
     # any other caller.
-    with quiet_reused_logs(set()), ExitStack() as stack:
-        try:
-            provider = stack.enter_context(builder(config))
-        except Exception as exc:
-            # A provider refusing the recipe on purpose (an argument it can
-            # explain) keeps its message and exits 2. Anything else -- reused
-            # ingestion code, a driver, an SDK -- is reported by class name
-            # only: that text is where connection strings and token-endpoint
-            # bodies leak from.
-            if isinstance(
-                exc,
-                (ValueError, ProbeConnectionError, ProbeInternalError, ProbeReadFailed),
-            ) and is_authored(exc, provider_file):
-                raise
-            # Always a connection error here, not classify_foreign's split: the
-            # caller's input was all checked above, so a foreign failure while
-            # building the provider is the source's (exit 3), whatever its type.
-            raise ProbeConnectionError(
-                f"opening source '{source_type}' failed ({type(exc).__name__})"
-            ) from None
-        _enforce_gates(specs[command], provider, call_kwargs)
-        try:
-            result = _bound_method(provider, command)(**call_kwargs)
-        except NotImplementedError as exc:
-            # A dialect that does not implement a reflection method raises this, and
-            # it is the one failure a caller cannot reason its way out of: without
-            # this branch it falls to recipe_cli's catch-all and exits 3, "I could
-            # not reach the source" -- so an agent concludes the source is
-            # unreachable and retries, when the connection was fine and the engine
-            # simply has no such concept. ValueError maps to exit 2, which is the
-            # honest answer: the command was the wrong one to ask for.
-            #
-            # Deliberately NOT backed by a per-dialect capability table. Everything
-            # else about an unsupported command is already derivable by the caller:
-            # the result carries source_type, and a dialect that answers oddly
-            # answers in a self-describing way -- Trino's get_indexes returns
-            # {"name": "partition", ...} because it reflects partition keys, which an
-            # agent that knows Trino reads for what it is.
-            raise ValueError(
-                f"source '{source_type}' does not support the '{command}' command: "
-                f"its SQL dialect does not implement it. The source was reached "
-                f"fine -- this is a limit of the engine, so choose another command "
-                f"rather than retrying"
-            ) from exc
-        except Exception as exc:
-            # The report was only read on the success path, so a getter that
-            # recorded a failure and then raised had its reason discarded --
-            # Hex's _project_id_or_raise raises ProbeSoftError("no project
-            # titled 'x'") after a failed /projects fetch, and the caller was
-            # told at exit 2 to fix a title when the listing had 401'd.
-            # Both shapes, as the success path does. Reading only probe_report
-            # here meant a provider using the plain `failures` list and then
-            # raising still reached the CLI as a user error.
-            _raise_call_failure(exc, provider, provider_file, command, source_type)
-        # Optional, source-agnostic: a provider that degrades a sub-fetch
-        # instead of failing outright (see agent.verdicts.ProbeSoftError) may
-        # expose its own `warnings` list to report that here. Duck-typed
-        # rather than part of the ProbeProvider Protocol, since most
-        # providers have nothing to report and shouldn't need to declare it.
-        provider_warnings = getattr(provider, "warnings", None)
-        # And the other half of the same report. A connector that reuses its
-        # ingestion fetchers records an unreadable endpoint with
-        # report.failure(), not report.warning() -- correct for ingestion, which
-        # emits what it can and surfaces the gap to an operator. Reading only
-        # `warnings` meant those reads came back as an empty result at exit 0,
-        # so the probe's central promise (never report empty for unread) held
-        # only for connectors that happened not to reuse an ingestion path.
-        #
-        # Both shapes are accepted: a plain `failures` list, or a SourceReport
-        # exposed as `probe_report` whose warnings and failures are folded in.
-        # The latter is what a connector reusing its own fetchers already has.
-        provider_report = getattr(provider, "probe_report", None)
-        provider_failures = set(
-            getattr(provider, "failures", None) or []
-        ) | _report_entries(provider_report, "failures")
-        report_warnings = _report_entries(provider_report, "warnings")
+    with quiet_reused_logs(set()):
+        outcome = _open_call_close(
+            _ProviderCall(
+                builder=builder,
+                config=config,
+                spec=specs[command],
+                call_kwargs=call_kwargs,
+                provider_files=provider_files,
+                source_type=source_type,
+            )
+        )
+    provider = outcome.provider
+    result = outcome.result
     spec = specs[command]
     # A command whose kind depends on the recipe rather than the class declares it
     # here: get_schema_names() returns Schemas on a three-tier source and Databases
@@ -981,8 +1106,6 @@ def run_probe_method(
         ],
         result=result,
         truncated=truncated,
-        warnings=sorted(
-            set(list(provider_warnings) if provider_warnings else []) | report_warnings
-        ),
-        failures=sorted(provider_failures),
+        warnings=sorted(outcome.warnings),
+        failures=sorted(outcome.failures),
     )

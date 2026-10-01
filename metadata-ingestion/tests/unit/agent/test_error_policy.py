@@ -2,7 +2,7 @@ import pathlib
 from typing import Callable, List
 
 import pytest
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 
 import datahub.cli.recipe_cli as rc
 from datahub.cli.recipe_cli import recipe
@@ -20,7 +20,7 @@ from datahub.ingestion.agent.verdicts import (
     ProbeReadFailed,
     ProbeSoftError,
 )
-from tests.unit.agent import _foreign_errors
+from tests.unit.agent import _base_provider, _foreign_errors
 from tests.unit.agent._foreign_errors import SENTINEL
 
 
@@ -52,11 +52,23 @@ class _Provider:
         return self
 
     def __exit__(self, *exc: object) -> None:
+        if self.mode.startswith("exit-foreign"):
+            _foreign_errors.close()
+        if self.mode == "exit-authored":
+            raise ProbeConnectionError("closing the session timed out")
         return None
 
     @probe_method(name="things")
     def things(self, name: str = "") -> List[str]:
         """List things."""
+        if self.mode == "exit-foreign-after-authored":
+            raise ProbeArgumentError(f"no thing named '{name}'")
+        if self.mode == "exit-foreign-after-foreign":
+            _foreign_errors.fetch()
+        if self.mode == "authored-index":
+            raise IndexError("row 3 of 2")
+        if self.mode == "authored-name":
+            raise NameError("undefined_helper")
         if self.mode == "foreign-value":
             _foreign_errors.parse_url(f"jdbc:mysql://db?password={SENTINEL}")
         if self.mode == "foreign-transport":
@@ -151,14 +163,14 @@ def test_a_provider_without_a_source_file_authors_nothing_by_file(
 
 
 def test_an_exception_with_no_traceback_is_not_authored() -> None:
-    assert not is_authored(RuntimeError("never raised"), __file__)
+    assert not is_authored(RuntimeError("never raised"), {__file__})
 
 
 def test_a_raise_in_the_provider_file_is_authored() -> None:
     try:
         raise RuntimeError("here")
     except RuntimeError as exc:
-        assert is_authored(exc, __file__)
+        assert is_authored(exc, {__file__})
 
 
 def test_a_foreign_transport_error_is_unreachable_with_no_text(run: RunFn) -> None:
@@ -223,6 +235,12 @@ def test_an_authored_argument_error_while_opening_exits_2(run: RunFn) -> None:
         ("authored-value", 2),
         ("authored-arg", 2),
         ("open-authored", 2),
+        ("exit-foreign", 3),
+        ("exit-foreign-after-authored", 2),
+        ("exit-foreign-after-foreign", 3),
+        ("exit-authored", 3),
+        ("authored-index", 1),
+        ("authored-name", 1),
     ],
 )
 def test_the_cli_never_prints_foreign_text_from_the_exception_chain(
@@ -247,3 +265,111 @@ def test_the_cli_never_prints_foreign_text_from_the_exception_chain(
     assert res.exit_code == exit_code, res.output
     assert SENTINEL not in res.output
     assert "Traceback" not in res.output
+
+
+def test_a_foreign_failure_closing_the_source_reports_only_its_class(
+    run: RunFn,
+) -> None:
+    # Raised by the provider's __exit__, after the command returned: still the
+    # source's failure (exit 3), never "fix your input", and never its text.
+    with pytest.raises(ProbeConnectionError) as info:
+        run("exit-foreign")
+    assert SENTINEL not in str(info.value)
+    assert "closing" in str(info.value)
+    assert "TypeError" in str(info.value)
+
+
+def test_an_authored_failure_closing_the_source_keeps_its_message(
+    run: RunFn,
+) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run("exit-authored")
+    assert "timed out" in str(info.value)
+
+
+def test_a_close_failure_does_not_mask_the_commands_own_failure(
+    run: RunFn,
+) -> None:
+    # contextlib semantics: the close failure would replace the body's, so the
+    # caller would read "closing failed" for what was a wrong argument.
+    with pytest.raises(ProbeArgumentError) as info:
+        run("exit-foreign-after-authored", name="widget")
+    assert "widget" in str(info.value)
+    assert SENTINEL not in str(info.value)
+
+
+def test_a_close_failure_keeps_the_commands_policed_foreign_failure(
+    run: RunFn,
+) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run("exit-foreign-after-foreign")
+    assert "RuntimeError" in str(info.value)
+    assert "TypeError" not in str(info.value)
+    assert SENTINEL not in str(info.value)
+
+
+@pytest.mark.parametrize("mode", ["authored-index", "authored-name"])
+def test_an_authored_index_or_name_error_is_a_defect(run: RunFn, mode: str) -> None:
+    with pytest.raises(ProbeInternalError):
+        run(mode)
+
+
+def _invoke_cli(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+    provider_cls: type,
+    command: str,
+    *params: str,
+) -> Result:
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda _r: ("fake", {}, set()))
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    monkeypatch.setattr(probe_methods, "_provider_class", lambda _st: provider_cls)
+
+    class _Config:
+        @classmethod
+        def model_validate(cls, d: object) -> "_Config":
+            return cls()
+
+    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text("source:\n  type: fake\n  config: {}\n")
+    return CliRunner().invoke(
+        recipe,
+        ["probe", "run", command, "--recipe", str(recipe_file), *params],
+    )
+
+
+class _SubclassedProvider(_base_provider.BaseThingsProvider):
+    """Adds nothing: its commands and their errors live in the base's file."""
+
+
+def test_a_provider_base_class_in_another_file_keeps_its_message(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    res = _invoke_cli(
+        monkeypatch, tmp_path, _SubclassedProvider, "things", "--name", "widget"
+    )
+    assert res.exit_code == 2, res.output
+    assert "no thing named 'widget'" in res.output
+
+
+class _SourceBackedProvider(_base_provider.SourceWithProbeMethod):
+    @classmethod
+    def for_config(cls, config: object) -> "_SourceBackedProvider":
+        return cls.__new__(cls)
+
+    def __enter__(self) -> "_SourceBackedProvider":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+
+def test_an_ingestion_source_base_class_does_not_vouch_for_its_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    res = _invoke_cli(monkeypatch, tmp_path, _SourceBackedProvider, "widgets")
+    assert res.exit_code == 2, res.output
+    assert _base_provider.SOURCE_SENTINEL not in res.output
+    assert "ValueError" in res.output
