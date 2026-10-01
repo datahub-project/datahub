@@ -55,7 +55,6 @@ def _recording(seen: List[str]) -> Any:
     return mock.patch.object(boto3.session.Session, "client", recording_client)
 
 
-@pytest.mark.xfail(strict=True, reason="tags lands in the next commit")
 def test_methods_advertise_the_s3_kinds() -> None:
     kinds = {
         s.command: s.kind
@@ -165,3 +164,96 @@ def test_only_list_operations_reach_s3(buckets: None) -> None:
         ]:
             run_probe_method("s3", recipe, command, dict(kwargs))
     assert seen and set(seen) <= {"ListBuckets", "ListObjectsV2"}
+
+
+@pytest.fixture
+def tagged(buckets: None) -> Iterator[None]:
+    client = boto3.client("s3", region_name="us-east-1")
+    client.put_bucket_tagging(
+        Bucket="my-bucket", Tagging={"TagSet": [{"Key": "team", "Value": "data"}]}
+    )
+    client.put_object_tagging(
+        Bucket="my-bucket",
+        Key="raw/a.csv",
+        Tagging={"TagSet": [{"Key": "tier", "Value": "gold"}]},
+    )
+    yield
+
+
+def _tag_recipe(**flags: bool) -> Dict[str, object]:
+    return _recipe("s3://my-bucket/raw/*.csv", **flags)
+
+
+def test_tags_reads_what_the_recipe_enables(tagged: None) -> None:
+    result = run_probe_method(
+        "s3",
+        _tag_recipe(use_s3_bucket_tags=True, use_s3_object_tags=True),
+        "tags",
+        {"bucket": "my-bucket", "key": "raw/a.csv"},
+    )
+    assert result.result == {"bucket": ["team:data"], "object": ["tier:gold"]}
+
+
+def test_tags_refuses_when_ingestion_would_read_none(tagged: None) -> None:
+    with pytest.raises(ValueError, match="use_s3_bucket_tags"):
+        run_probe_method("s3", _tag_recipe(), "tags", {"bucket": "my-bucket"})
+
+
+def test_object_tags_need_the_object_flag(tagged: None) -> None:
+    with pytest.raises(ValueError, match="use_s3_object_tags"):
+        run_probe_method(
+            "s3",
+            _tag_recipe(use_s3_bucket_tags=True),
+            "tags",
+            {"bucket": "my-bucket", "key": "raw/a.csv"},
+        )
+
+
+def test_an_untagged_bucket_has_no_tags(buckets: None) -> None:
+    result = run_probe_method(
+        "s3", _tag_recipe(use_s3_bucket_tags=True), "tags", {"bucket": "my-bucket-2"}
+    )
+    assert result.result == {"bucket": [], "object": []}
+
+
+def test_a_missing_object_is_a_caller_error(buckets: None) -> None:
+    with pytest.raises(ValueError, match="no such object"):
+        run_probe_method(
+            "s3",
+            _tag_recipe(use_s3_object_tags=True),
+            "tags",
+            {"bucket": "my-bucket", "key": "raw/missing.csv"},
+        )
+
+
+def test_a_denied_object_tag_read_is_a_failure(tagged: None) -> None:
+    # Ingestion does not catch this one: a denied GetObjectTagging fails the run.
+    denied = ClientError(
+        {
+            "Error": {"Code": "AccessDenied"},
+            "ResponseMetadata": {"HTTPStatusCode": 403},
+        },
+        "GetObjectTagging",
+    )
+    with mock.patch(
+        "datahub.ingestion.source.s3.s3_probe.get_object_tag_set", side_effect=denied
+    ):
+        result = run_probe_method(
+            "s3",
+            _tag_recipe(use_s3_object_tags=True),
+            "tags",
+            {"bucket": "my-bucket", "key": "raw/a.csv"},
+        )
+    assert result.failures
+
+
+def test_tags_issues_only_tagging_reads(tagged: None) -> None:
+    seen: List[str] = []
+    with _recording(seen):
+        run_probe_method(
+            "s3",
+            _tag_recipe(use_s3_bucket_tags=True, use_s3_object_tags=True),
+            "tags",
+            {"bucket": "my-bucket", "key": "raw/a.csv"},
+        )
+    assert seen and set(seen) <= {"GetBucketTagging", "GetObjectTagging"}
