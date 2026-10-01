@@ -188,6 +188,29 @@ urn:li:dataFlow:(azure-data-factory,{platform_instance}.{factory_name}.{pipeline
 
 For Azure naming rules, see [Azure Data Factory naming rules](https://learn.microsoft.com/en-us/azure/data-factory/naming-rules).
 
+#### Checking a recipe before a run
+
+`datahub recipe probe` reads the Data Factory management API with the recipe's credential and answers the way ingestion will, so you can check scope and lineage resolution before a run. See the [probe interface guide](https://docs.datahub.com/docs/metadata-ingestion/docs/dev_guides/probe_interface) for the general workflow.
+
+| Command           | Params                | Returns                                                                                                                                                            |
+| ----------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `factories`       | `limit`               | every factory in scope (narrowed by `resource_group` when set), including those `factory_pattern` excludes, with its resource group and region                     |
+| `pipelines`       | `factory`, `limit`    | every pipeline in one factory, including those `pipeline_pattern` excludes, with its folder and activity count                                                     |
+| `activities`      | `factory`, `pipeline` | the top-level activities ingestion emits as DataJobs, with type, DataHub subtype, dependencies and input/output dataset names                                      |
+| `linked_services` | `factory`, `limit`    | each linked service's type, the DataHub platform it maps to (null means no lineage resolves through it), its `platform_instance_map` entry and integration runtime |
+| `datasets`        | `factory`, `limit`    | each ADF dataset with the DataHub URN ingestion resolves it to for lineage, or `unresolved_reason` when it resolves to none                                        |
+
+`probe filter --kind "Data Factory"`, `--kind Pipeline` and `--kind Activity` judge `factory_pattern` and `pipeline_pattern` against bare names, as ingestion does. `pipeline_pattern` is not qualified by the factory, so a same-named pipeline in two factories gets the same verdict. Activities have no pattern and follow their pipeline. Activities nested inside ForEach, IfCondition, Until or Switch are counted as `nested_activities` on their container and reported in `warnings`, because ingestion does not emit them.
+
+To find the datasets that will produce no lineage before a run, look for a null `urn`:
+
+```shell
+datahub recipe probe run datasets --recipe recipe.yml --factory my-factory
+datahub recipe probe filter --recipe recipe.yml --kind Pipeline --parent my-factory --name sales_pipeline
+```
+
+The probe returns names, types, references and resolved platforms only. Linked-service, dataset, activity and factory definitions are never returned, because that is where ADF keeps connection strings, keys, request headers, SQL text and parameter values. There is no raw API passthrough. The probe needs the same read actions as the reader role in `datahub-adf-reader-role.json`.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
