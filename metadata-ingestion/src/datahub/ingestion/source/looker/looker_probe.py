@@ -18,7 +18,13 @@ import looker_sdk.rtl.requests_transport as looker_requests_transport
 import requests
 from looker_sdk.error import SDKError
 from looker_sdk.rtl.serialize import DeserializeError
-from looker_sdk.sdk.api40.models import Dashboard, DashboardBase, FolderBase
+from looker_sdk.sdk.api40.models import (
+    Dashboard,
+    DashboardBase,
+    DashboardElement,
+    FolderBase,
+    Query,
+)
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import probe_method
@@ -34,7 +40,10 @@ from datahub.ingestion.source.looker.looker_probe_verdicts import (
     ATTR_FOLDER_PATH,
     ATTR_FOLDER_PATH_ALLOWED,
     ATTR_FOLDER_PERSONAL,
+    ATTR_HAS_QUERY,
+    ATTR_TYPE,
     DASHBOARD_KIND,
+    LOOK_KIND,
 )
 from datahub.ingestion.source.looker.looker_source import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
@@ -72,6 +81,50 @@ class _FolderFacts:
 
 
 _NO_FOLDER = _FolderFacts(path=None, personal=False, path_allowed=None)
+
+# dashboard_elements carries each element's query; user fields are not read.
+_CHART_DASHBOARD_FIELDS = ["id", "deleted", "folder", "dashboard_elements"]
+
+
+def _ingestion_can_read(element: DashboardElement) -> bool:
+    """Whether _get_looker_dashboard_element returns an element, not None.
+
+    It tries element.query, then element.look -- returning None when the look
+    has no query, without trying result_maker -- then element.result_maker.
+    """
+    if element.query is not None:
+        return True
+    if element.look is not None:
+        return element.look.query is not None
+    return element.result_maker is not None
+
+
+def _element_query(element: DashboardElement) -> Optional[Query]:
+    """The query ingestion reads the element's explore from, same order."""
+    if element.query is not None:
+        return element.query
+    if element.look is not None:
+        return element.look.query
+    if element.result_maker is not None:
+        return element.result_maker.query
+    return None
+
+
+def _element_record(element: DashboardElement) -> Dict[str, object]:
+    query = _element_query(element)
+    # Model and explore only: query.filters holds filter values, which are
+    # row values, and dynamic_fields holds expressions.
+    return {
+        "name": element.id,
+        "title": element.title,
+        # "" rather than None so the attribute survives --report-to: ingestion
+        # emits only type == "vis", and a missing type is not "vis".
+        ATTR_TYPE: element.type or "",
+        ATTR_HAS_QUERY: _ingestion_can_read(element),
+        "look_id": element.look_id,
+        "model": query.model if query is not None else None,
+        "explore": query.view if query is not None else None,
+    }
 
 
 def sdk_error_status(exc: SDKError) -> Optional[int]:
@@ -331,3 +384,60 @@ class LookerMetadataProbe:
             record = self._dashboard_record(dashboard, deleted=deleted)
             if record is not None:
                 rows.append(record)
+
+    @probe_method(kind=LOOK_KIND, parent_params=("dashboard",))
+    def charts(self, dashboard: str) -> List[Dict[str, object]]:
+        """Elements of one dashboard, by dashboard id, each by element id --
+        the string chart_pattern matches. Ingestion emits these as charts of
+        subtype Look, and only an element whose `type` is `vis` and
+        `has_query` is true; `model` and `explore` are the explore it queries,
+        which is what emit_used_explores_only keeps. Warns when ingestion
+        drops the dashboard itself (deleted, personal folder, or
+        folder_path_pattern), since then it reads none of these. Judge with
+        `probe filter --kind Look --from-run <report>`. Metadata only: no
+        query filters, fields or SQL."""
+        api = self._api()
+
+        def fetch() -> Optional[Dashboard]:
+            with _looker_call(
+                f"dashboard '{dashboard}'",
+                not_found=(
+                    f"no dashboard with id '{dashboard}'; pass an id from the "
+                    f"`dashboards` listing"
+                ),
+            ):
+                return api.dashboard(
+                    dashboard_id=dashboard, fields=_CHART_DASHBOARD_FIELDS
+                )
+
+        detail = self._degrading(fetch, None)
+        if detail is None:
+            return []
+        self._note_parent_dashboard(detail)
+        return [
+            _element_record(element)
+            for element in detail.dashboard_elements or []
+            if element.id is not None
+        ]
+
+    def _note_parent_dashboard(self, detail: Dashboard) -> None:
+        """`probe filter --parent` judges a dashboard by id only; say when one
+        of ingestion's other dashboard rules drops it (process_dashboard)."""
+        label = f"dashboard '{detail.id}'"
+        if detail.deleted and not self._config.include_deleted:
+            self._warn(
+                f"{label} is deleted and include_deleted is false, so ingestion "
+                f"reads none of its charts"
+            )
+        folder = self._folder_facts(detail.folder)
+        if folder.personal and self._config.skip_personal_folders:
+            self._warn(
+                f"{label} is in a personal folder and skip_personal_folders is "
+                f"set, so ingestion reads none of its charts"
+            )
+        elif folder.path_allowed is False:
+            where = f"folder '{folder.path}'" if folder.path else "a personal folder"
+            self._warn(
+                f"{label} is in {where}, which folder_path_pattern denies, so "
+                f"ingestion reads none of its charts"
+            )
