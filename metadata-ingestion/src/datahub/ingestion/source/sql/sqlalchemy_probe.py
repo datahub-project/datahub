@@ -140,10 +140,10 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     # SECURITY: every caller-supplied schema/table/view passes through the
     # resolvers below before any Inspector reflection call. Several dialects
-    # (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid, Databricks) format these
-    # arguments into their reflection SQL, which the `sql` gate never sees;
-    # resolving against the server's own listing means reflection only ever
-    # receives a string the server produced.
+    # (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid, Databricks)
+    # format these arguments into their reflection SQL, which the `sql` gate
+    # never sees; resolving against the server's own listing means reflection
+    # only ever receives a string the server produced.
     def _listed_schemas(self) -> List[str]:
         if self._schema_listing is None:
             self._schema_listing = list(self._insp.get_schema_names())
@@ -226,7 +226,9 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
             candidates,
             what="table, view or materialized view" if what == "table" else what,
             where=f"in {self._container_label()} {on_schema!r}",
-            list_command=f"tables --schema {on_schema!r}` or `views --schema {on_schema!r}",
+            list_command=(
+                f"tables --schema {on_schema!r}` or `views --schema {on_schema!r}"
+            ),
         )
         return on_schema, relation
 
