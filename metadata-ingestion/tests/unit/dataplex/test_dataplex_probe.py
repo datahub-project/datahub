@@ -2,7 +2,7 @@
 run_probe_method so kind, parent_path, truncation and warnings are the
 framework's real ones."""
 
-from typing import Dict, List, Optional
+from typing import Dict, Iterator, List, Optional
 from unittest.mock import Mock
 
 import pytest
@@ -15,7 +15,9 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     _search_projects_by_labels,
 )
 from datahub.ingestion.source.dataplex.dataplex_config import (
+    DATAPLEX_ENTRY_FQN_KIND,
     DATAPLEX_ENTRY_GROUP_KIND,
+    DATAPLEX_ENTRY_KIND,
     DATAPLEX_PROJECT_KIND,
     DataplexConfig,
 )
@@ -241,3 +243,154 @@ def test_the_provider_closes_only_the_clients_it_opened() -> None:
     probe.__exit__(None, None, None)
     created.transport.close.assert_called_once()
     injected.transport.close.assert_not_called()
+
+
+GROUP = "projects/proj-a/locations/us/entryGroups/sales"
+SUPPORTED_TYPE = "projects/dataplex-types/locations/global/entryTypes/bigquery-table"
+UNSUPPORTED_TYPE = (
+    "projects/dataplex-types/locations/global/entryTypes/not-a-mapped-type"
+)
+
+
+class _CountingEntries:
+    """A list_entries pager that counts how far it was read."""
+
+    def __init__(self, entries: List[dataplex_v1.Entry]) -> None:
+        self._entries = entries
+        self.read = 0
+
+    def __call__(
+        self, request: dataplex_v1.ListEntriesRequest
+    ) -> Iterator[dataplex_v1.Entry]:
+        assert request.parent == GROUP
+        for entry in self._entries:
+            self.read += 1
+            yield entry
+
+
+def _entry(
+    short: str, fqn: str, entry_type: str = SUPPORTED_TYPE
+) -> dataplex_v1.Entry:
+    return dataplex_v1.Entry(
+        name=f"{GROUP}/entries/{short}",
+        fully_qualified_name=fqn,
+        entry_type=entry_type,
+    )
+
+
+def _catalog_with_entries(pager: _CountingEntries) -> Mock:
+    client = Mock(spec=dataplex_v1.CatalogServiceClient)
+    client.list_entries.side_effect = pager
+    return client
+
+
+def test_entries_carry_both_filter_targets_and_the_parent_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pager = _CountingEntries([_entry("orders", "bigquery:proj-a.sales.orders")])
+    result = _run(
+        monkeypatch,
+        "entries",
+        {"project": "proj-a", "entry_group": GROUP},
+        catalog=_catalog_with_entries(pager),
+    )
+    assert result.kind == DATAPLEX_ENTRY_KIND
+    assert result.parent_path == ["proj-a", GROUP]
+    assert result.result == [
+        {
+            "name": f"{GROUP}/entries/orders",
+            "fully_qualified_name": "bigquery:proj-a.sales.orders",
+            "entry_type": "bigquery-table",
+            "supported": True,
+        }
+    ]
+
+
+def test_an_unmapped_entry_type_is_listed_as_unsupported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pager = _CountingEntries([_entry("x", "custom:x", entry_type=UNSUPPORTED_TYPE)])
+    result = _run(
+        monkeypatch,
+        "entries",
+        {"project": "proj-a", "entry_group": GROUP},
+        catalog=_catalog_with_entries(pager),
+    )
+    assert result.result[0]["supported"] is False
+    assert any("mapper" in w for w in result.warnings)
+
+
+def test_an_entry_without_an_fqn_is_listed_and_flagged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pager = _CountingEntries([_entry("orphan", "")])
+    result = _run(
+        monkeypatch,
+        "entries",
+        {"project": "proj-a", "entry_group": GROUP},
+        catalog=_catalog_with_entries(pager),
+    )
+    assert result.result[0]["name"].endswith("/orphan")
+    assert result.result[0]["fully_qualified_name"] == ""
+    assert any("fully_qualified_name" in w for w in result.warnings)
+
+
+def test_entry_fqns_skip_entries_without_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    pager = _CountingEntries(
+        [_entry("orphan", ""), _entry("orders", "bigquery:proj-a.sales.orders")]
+    )
+    result = _run(
+        monkeypatch,
+        "entry_fqns",
+        {"project": "proj-a", "entry_group": GROUP},
+        catalog=_catalog_with_entries(pager),
+    )
+    assert result.kind == DATAPLEX_ENTRY_FQN_KIND
+    assert result.parent_path == ["proj-a", GROUP]
+    assert result.result == ["bigquery:proj-a.sales.orders"]
+
+
+def test_a_limited_listing_stops_reading_the_pager(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pager = _CountingEntries(
+        [_entry(f"t{i}", f"bigquery:proj-a.s.t{i}") for i in range(10)]
+    )
+    result = _run(
+        monkeypatch,
+        "entries",
+        {"project": "proj-a", "entry_group": GROUP, "limit": "2"},
+        catalog=_catalog_with_entries(pager),
+    )
+    assert len(result.result) == 2
+    assert result.truncated is True
+    assert pager.read == 3  # limit + 1, the framework's truncation probe
+
+
+def test_an_unknown_entry_group_is_a_bad_argument(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = Mock(spec=dataplex_v1.CatalogServiceClient)
+    client.list_entries.side_effect = exceptions.NotFound(SERVER_DETAIL)
+    with pytest.raises(ValueError) as info:
+        _run(
+            monkeypatch,
+            "entries",
+            {"project": "proj-a", "entry_group": GROUP},
+            catalog=client,
+        )
+    assert SERVER_DETAIL not in str(info.value)
+
+
+def test_a_forbidden_entry_group_is_scrubbed(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = Mock(spec=dataplex_v1.CatalogServiceClient)
+    client.list_entries.side_effect = exceptions.PermissionDenied(SERVER_DETAIL)
+    with pytest.raises(ProbeConnectionError) as info:
+        _run(
+            monkeypatch,
+            "entry_fqns",
+            {"project": "proj-a", "entry_group": GROUP},
+            catalog=client,
+        )
+    assert "list_entries" in str(info.value)
+    assert SERVER_DETAIL not in str(info.value)
