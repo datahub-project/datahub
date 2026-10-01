@@ -392,3 +392,90 @@ def test_credential_mapping_does_not_mask_sibling_identifiers() -> None:
     found = collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS)
     assert "PLANTED-key" in found
     assert "proj" not in found
+
+
+@pytest.mark.parametrize(
+    "secret, tail",
+    [
+        ("p@ssw0rd-long", "ssw0rd-long"),
+        ("hunter two-long", "two-long"),
+        ("abc&def-long-secret", "def-long-secret"),
+        ("ab;cd-long-secret", "cd-long-secret"),
+    ],
+)
+def test_a_registered_secret_is_removed_whole_before_structural_passes(
+    secret: str, tail: str
+) -> None:
+    for text in (
+        f"http://admin:{secret}@db:5432/x",
+        f"password={secret} rejected",
+        f"token={secret}",
+        f"pwd={secret}",
+    ):
+        out = scrub_text(text, {secret})
+        assert tail not in out, (text, out)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "client_secret=PLANTEDvalue",
+        "auth_token=PLANTEDvalue",
+        "access_token=PLANTEDvalue",
+        "refresh_token=PLANTEDvalue",
+        "session_token=PLANTEDvalue",
+        "private_key=PLANTEDvalue",
+        "aws_secret_access_key=PLANTEDvalue",
+        "aws_access_key_id=PLANTEDvalue",
+        "secretKey=PLANTEDvalue",
+        "clientSecret: PLANTEDvalue",
+        '{"pass' + 'word": "PLANTEDvalue"}',
+        "{'pass" + "word': 'PLANTEDvalue'}",
+        "Authorization: Basic UExBTlRFRHZhbHVl",
+        "SharedAccessSignature=PLANTEDvalue",
+        "token%3DPLANTEDvalue",
+        'secret="PLANTED\\"value"',
+        "x\n-----BEGIN RSA PRIVATE" + " KEY-----\nPLANTEDvalue\n-----END RSA PRIVATE KEY-----\ny",
+        "-----BEGIN PRIVATE" + " KEY-----\nPLANTEDvalue",
+    ],
+)
+def test_scrub_text_covers_more_credential_shapes(text: str) -> None:
+    out = scrub_text(text, set())
+    assert "PLANTED" not in out and "UExBTEVE" not in out
+    assert "***" in out
+
+
+def test_scrub_text_masks_userinfo_up_to_the_last_at_sign() -> None:
+    assert scrub_text("http://u:p@ss@h/x", set()) == "http://***@h/x"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Invalid password: authentication failed for user x",
+        "access_key: field required",
+        "Bearer token required",
+        "token: expired",
+    ],
+)
+def test_scrub_text_keeps_diagnostic_words_after_a_secret_keyword(text: str) -> None:
+    assert scrub_text(text, set()) == text
+
+
+def test_scrub_text_stays_linear_on_long_input() -> None:
+    import time
+
+    start = time.time()
+    for text in ("a.a." * 50000, "password" * 12500, "x://" * 25000):
+        scrub_text(text, set())
+    assert time.time() - start < 2
+
+
+def test_credential_mapping_keys_with_other_suffixes_are_not_secrets() -> None:
+    cfg = {
+        "credential_source": "file",
+        "credentials_path": "/etc/key.json",
+        "credential_id": "abc",
+        "credential": "client:PLANTED",
+    }
+    assert collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS) == {"client:PLANTED"}

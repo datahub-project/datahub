@@ -151,12 +151,12 @@ SENSITIVE_KEY_HINTS: Tuple[str, ...] = (
     # Looker's client id is half of its API credential pair, and the CLI used
     # to print it in error text verbatim.
     "client_id",
-    # NOT "credential" here; see _SCALAR_ONLY_KEY_HINTS. It names a mixed object rather than a scalar secret:
-    # BigQuery's `credential` holds private_key -- already matched above --
-    # beside project_id, and collect_nested_secret_values has no suffix
-    # guard, so the hint swept the project id into the masked set. A project
-    # id appears in almost every line of BigQuery output, and masking it
-    # corrupts the answer rather than protecting anything.
+    # NOT "credential" here (see _SCALAR_ONLY_KEY_HINTS). It names a mixed
+    # object in BigQuery's service-account shape: `credential` holds
+    # private_key -- already matched above -- beside project_id, and a plain
+    # hint would sweep the project id into the masked set. A project id
+    # appears in almost every line of BigQuery output, and masking it corrupts
+    # the answer rather than protecting anything.
     # test_a_nested_private_key_is_collected pins this.
 )
 
@@ -196,6 +196,14 @@ def collect_secret_values(
     return values
 
 
+def _is_scalar_only_secret_key(key: object) -> bool:
+    name = normalize_key(key)
+    if name.endswith(_NOT_THE_SECRET_SUFFIXES):
+        return False
+    # Ends with the hint, so `credential_source` is not treated as the secret.
+    return any(name.rstrip("s").endswith(h) for h in _SCALAR_ONLY_KEY_HINTS)
+
+
 def collect_nested_secret_values(
     obj: object, hints: Tuple[str, ...], under_sensitive: bool = False
 ) -> Set[str]:
@@ -220,10 +228,7 @@ def collect_nested_secret_values(
         for k, v in obj.items():
             sensitive = under_sensitive or any(h in normalize_key(k) for h in hints)
             if isinstance(v, str):
-                if v and (
-                    sensitive
-                    or any(h in normalize_key(k) for h in _SCALAR_ONLY_KEY_HINTS)
-                ):
+                if v and (sensitive or _is_scalar_only_secret_key(k)):
                     found.add(v)
             else:
                 found |= collect_nested_secret_values(v, hints, sensitive)
@@ -325,32 +330,73 @@ def normalize_key(key: object) -> str:
 # Shapes that carry a secret whatever its value. Error text from drivers and
 # SDKs quotes these; an ADC or IAM-role recipe registers no secret values, so
 # value redaction alone has nothing to match.
-_URL_USERINFO = re.compile(r"(?<=://)[^/@\s]+@")
+#
+# Userinfo runs to the LAST `@` of the authority, since a password may itself
+# contain `@`.
+_URL_USERINFO = re.compile(r"(?<=://)[^/\s]*@")
+# The optional key prefix lets `client_secret`, `auth_token` and camelCase
+# `secretKey` match, while the lookbehind keeps it from starting mid-word
+# (and keeps the scan linear on long inputs).
 _SECRET_ASSIGNMENT = re.compile(
-    r"(?i)\b("
-    r"password|passwd|pwd|secret|token|api[_-]?key|access[_-]?key(?:[_-]?id)?"
-    r"|secret[_-]?access[_-]?key|account[_-]?key|sig|signature"
-    r"|x-amz-signature|x-amz-credential|x-amz-security-token|credential"
-    r")(\s*[=:]\s*)(\"[^\"]*\"|'[^']*'|[^\s&;,]+)"
+    r"(?i)(?<![A-Za-z0-9_])([A-Za-z0-9_]*?(?:"
+    r"password|passwd|pwd|secret[_-]?(?:access[_-]?)?key|secret|token"
+    r"|api[_-]?key|access[_-]?key(?:[_-]?id)?|private[_-]?key|account[_-]?key"
+    r"|signature|sig|credential"
+    r"))([\"']?(?:\s*[=:]\s*|%3[Dd]))"
+    r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|[^\s&;,]+)"
 )
-_BEARER = re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]+")
+_BEARER = re.compile(r"(?i)\b(bearer)\s+([A-Za-z0-9._~+/=-]+)")
+_BASIC = re.compile(r"(?i)\b(basic)\s+([A-Za-z0-9+/]{8,}={0,2})")
 _AWS_KEY_ID = re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")
+# The body class stops at the first non-base64 character, so an unterminated
+# or truncated key is still masked without a lazy scan to a missing END marker.
+_PEM_BLOCK = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----[A-Za-z0-9+/=\s]*"
+    r"(?:-----END [A-Z ]*PRIVATE KEY-----)?"
+)
+# A value that is really the next word of a diagnostic ("Invalid password:
+# authentication failed", "access_key: field required"). Masking it would
+# swallow the explanation the caller needs. Kept short on purpose.
+_DIAGNOSTIC_WORDS = frozenset(
+    ["required", "missing", "invalid", "failed", "not", "none", "null", "empty", "expired", "denied", "incorrect", "authentication", "is", "was", "must", "field", "token"]
+)
+
+
+def _is_diagnostic(value: str) -> bool:
+    return value.strip("\"'").lower() in _DIAGNOSTIC_WORDS
+
+
+def _mask_assignment(m: "re.Match[str]") -> str:
+    if _is_diagnostic(m.group(3)):
+        return m.group(0)
+    return f"{m.group(1)}{m.group(2)}{MASK}"
+
+
+def _mask_scheme(m: "re.Match[str]") -> str:
+    if _is_diagnostic(m.group(2)):
+        return m.group(0)
+    return f"{m.group(1)} {MASK}"
 
 
 def scrub_text(text: str, secret_values: Set[str]) -> str:
-    """Remove credential-shaped substrings, then registered secret values.
+    """Remove registered secret values, then credential-shaped substrings.
 
     For free text only (error messages, warnings, log lines). Structured
     payloads still go through `redact`, because a view definition that
     legitimately contains `password=` must not be rewritten.
+
+    Registered values go first: the structural passes consume only part of a
+    secret that contains `@`, a space, `&` or `;`, and the remainder would no
+    longer match the registered value.
     """
-    out = _URL_USERINFO.sub(MASK + "@", text)
-    out = _SECRET_ASSIGNMENT.sub(lambda m: f"{m.group(1)}{m.group(2)}{MASK}", out)
-    out = _BEARER.sub(lambda m: f"{m.group(1)} {MASK}", out)
-    out = _AWS_KEY_ID.sub(MASK, out)
-    redacted = redact(out, secret_values)
+    redacted = redact(text, secret_values)
     assert isinstance(redacted, str)
-    return redacted
+    out = _PEM_BLOCK.sub(MASK, redacted)
+    out = _URL_USERINFO.sub(MASK + "@", out)
+    out = _SECRET_ASSIGNMENT.sub(_mask_assignment, out)
+    out = _BEARER.sub(_mask_scheme, out)
+    out = _BASIC.sub(_mask_scheme, out)
+    return _AWS_KEY_ID.sub(MASK, out)
 
 
 def redact(payload: object, secret_values: Set[str]) -> object:

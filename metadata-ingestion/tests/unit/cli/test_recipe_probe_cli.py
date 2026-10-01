@@ -1621,3 +1621,42 @@ def test_a_redacted_listing_parent_is_refused_unless_parent_is_given(
     accepted = _filter_from_run(tmp_path, run, "--parent", "real_db")
     assert accepted.exit_code == 0, accepted.output
     assert seen["parent_path"] == ["real_db"]
+
+
+def test_test_connection_scrubs_credential_shapes_from_driver_text(
+    monkeypatch, tmp_path
+):
+    from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
+
+    class _Failing:
+        @staticmethod
+        def test_connection(config_dict):
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False,
+                    failure_reason="GET http://admin:" + "PLANTED-pw@host:8083/x failed",
+                    mitigation_message="check client_secret=PLANTED-cs",
+                )
+            )
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _Failing,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", _Failing, raising=False
+    )
+    res = CliRunner().invoke(
+        recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert "PLANTED" not in res.stdout
+
+
+def test_redacted_payload_scrubs_without_mutating_the_input_and_says_so():
+    payload = {"result": {"x": "y"}, "warnings": ["token=abcdef1"], "failures": []}
+    out = rc._redacted_payload(payload, set())
+    assert isinstance(out, dict)
+    assert payload["warnings"] == ["token=abcdef1"]
+    assert "abcdef1" not in str(out)
+    assert len(out["warnings"]) == 2

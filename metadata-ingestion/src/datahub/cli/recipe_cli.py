@@ -454,12 +454,25 @@ def _ping_probe(command: str, source_type: str, **dims: object) -> None:
 # tell "***" from a name otherwise.
 _MASKED_NOTICE = (
     "something in this result was redacted and now reads '***'. Read it as "
-    "'redacted', never as a name. When a secret happens to equal an identifier -- "
-    "a password the same as a database, schema or table name -- that identifier is "
-    "masked everywhere it occurs, `target` included, so a verdict can name a "
+    "'redacted', never as a name. Credential-shaped text is masked wherever it "
+    "appears, and when a secret happens to equal an identifier -- a password "
+    "the same as a database, schema or table name -- that identifier is masked "
+    "everywhere it occurs, `target` included, so a verdict can name a "
     "pattern while the thing it matched shows as '***'. The recipe has the real "
     "name; this output deliberately does not."
 )
+
+
+def _scrub_strings(obj: object, secret_values: Set[str]) -> object:
+    """scrub_text over every string in a JSON-shaped value (driver text lives in
+    arbitrary fields of a test-connection report)."""
+    if isinstance(obj, str):
+        return scrub_text(obj, secret_values)
+    if isinstance(obj, dict):
+        return {k: _scrub_strings(v, secret_values) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_scrub_strings(v, secret_values) for v in obj]
+    return obj
 
 
 def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
@@ -473,21 +486,27 @@ def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
     nothing that is not already visible in the output -- naming the field would
     tell a caller who cannot see a ${ENV_VAR} secret that it equals an
     identifier they can see.
+
+    The free-text `warnings` / `failures` lists are also scrubbed for
+    credential shapes. Nothing here mutates `payload`.
     """
     redacted = redact(payload, secret_values)
-    if isinstance(redacted, dict):
-        for key in ("warnings", "failures"):
-            items = redacted.get(key)
-            if isinstance(items, list):
-                redacted[key] = [
-                    scrub_text(item, secret_values) if isinstance(item, str) else item
-                    for item in items
-                ]
+    if not isinstance(redacted, dict):
+        return redacted
+    redacted = dict(redacted)
+    for key in ("warnings", "failures"):
+        items = redacted.get(key)
+        if isinstance(items, list):
+            redacted[key] = [
+                scrub_text(item, secret_values) if isinstance(item, str) else item
+                for item in items
+            ]
     if redacted == payload:
         return redacted
-    warnings = redacted.get("warnings") if isinstance(redacted, dict) else None
-    if isinstance(warnings, list):
-        warnings.append(_MASKED_NOTICE)
+    warnings = redacted.get("warnings")
+    redacted["warnings"] = [*warnings, _MASKED_NOTICE] if isinstance(
+        warnings, list
+    ) else [_MASKED_NOTICE]
     return redacted
 
 
@@ -553,7 +572,7 @@ def test_connection(recipe_path: str) -> None:
         as_obj = getattr(report, "as_obj", None)
         report_obj = as_obj() if callable(as_obj) else report
         safe_report = json.loads(json.dumps(report_obj, default=_json_default))
-        _emit(redact(safe_report, secret_values))
+        _emit(_scrub_strings(redact(safe_report, secret_values), secret_values))
         # The report was emitted but never consulted, so a FAILED connection
         # test exited 0 -- in a CLI whose whole contract is that the caller
         # reads the exit code to tell "your input was wrong" from "I could not
