@@ -1,7 +1,16 @@
 import React, { SVGProps } from 'react';
 
 export const CodeIcon = (props: SVGProps<SVGSVGElement>) => (
-    <svg width="1em" height="1em" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14" {...props}>
+    <svg
+        width="1em"
+        height="1em"
+        fill="currentColor"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 14 14"
+        {...props}
+        aria-hidden="true"
+        focusable="false"
+    >
         <path
             fillRule="evenodd"
             clipRule="evenodd"

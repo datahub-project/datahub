@@ -37,10 +37,9 @@ const StyledTag = styled(Tag)<{ fontSize?: number; $highlightTerm?: boolean; $sh
         `}
 `;
 
-const PropagateThunderbolt = styled(Lightning)`
+const PropagateThunderbolt = styled(Lightning).attrs({ weight: 'fill', size: 14 })`
     color: ${(props) => props.theme.colors.textSuccess};
     margin-right: -4px;
-    font-weight: bold;
 `;
 
 interface Props {

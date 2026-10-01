@@ -452,7 +452,7 @@ export default function TagStyleEntity({
                             </Text>
                         )}
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                            <Plus />
+                            <Plus size={16} style={{ marginRight: 8 }} />
                             {ownersEmpty ? (
                                 <OwnerButtonEmptyTitle>{t('addOwners')}</OwnerButtonEmptyTitle>
                             ) : (
