@@ -2,7 +2,7 @@ import logging
 import os
 import pathlib
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Callable, Dict, List, Optional, Sequence, Union
+from typing import Annotated, Callable, Dict, List, Mapping, Optional, Sequence, Union
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -22,7 +22,13 @@ from datahub.configuration.source_common import (
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
-from datahub.ingestion.agent.verdicts import ClassifyContext, ancestors_in
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+    pattern_verdict,
+)
 from datahub.ingestion.api.incremental_ownership_helper import (
     IncrementalOwnershipConfigMixin,
 )
@@ -272,7 +278,9 @@ class UnityCatalogSourceConfig(
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
 
-    notebook_pattern: AllowDenyPattern = Field(
+    notebook_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetSubTypes.NOTEBOOK)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
@@ -284,7 +292,9 @@ class UnityCatalogSourceConfig(
     # view_pattern and include_views are inherited from SQLCommonConfig and applied
     # in process_tables; not redeclared here to avoid drift from the base defaults.
 
-    metric_view_pattern: AllowDenyPattern = Field(
+    metric_view_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetSubTypes.METRIC_VIEW)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
@@ -709,12 +719,50 @@ class UnityCatalogSourceConfig(
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         # The metastore has no pattern, so it is left out of the chain; a
-        # --parent naming it is simply not judged.
+        # --parent naming it is simply not judged. Notebooks live in the
+        # workspace tree, not under a catalog, so they have no container.
+        if kind == DatasetSubTypes.NOTEBOOK:
+            return ()
         return ancestors_in(
             (DatasetContainerSubTypes.CATALOG, DatasetContainerSubTypes.SCHEMA),
             kind,
-            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
+            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW),
         )
+
+    @classmethod
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        # get_workunits_internal runs process_notebooks only with this on.
+        return {str(DatasetSubTypes.NOTEBOOK): "include_notebooks"}
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """What process_tables and _get_catalogs (source.py) decide that no
+        single pattern states: every table-like object must pass table_pattern
+        before its own pattern is read, metric_view_pattern applies only with
+        include_metric_views, and a pinned `catalogs` list is all ingestion
+        reads. A built-in exclusion (include_views: false) stands."""
+        if ctx.structural is not None:
+            return None
+        if ctx.kind in (DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW):
+            # Read off this config, which is the copy --try-allow/--try-deny
+            # edited; a tried view_pattern cannot rescue a view table_pattern
+            # drops, and the verdict says which pattern to change.
+            via_table = pattern_verdict(self, "table_pattern", ctx.target)
+            if not via_table.included:
+                return via_table
+            if (
+                ctx.kind == DatasetSubTypes.METRIC_VIEW
+                and not self.include_metric_views
+            ):
+                return Verdict.include()
+            return None
+        if ctx.kind == DatasetContainerSubTypes.CATALOG and self.catalogs:
+            # Truthiness, as _get_catalogs reads it: `catalogs: []` lists all.
+            # Case-folded because catalogs.get resolves names
+            # case-insensitively and the listing reports the stored name.
+            pinned = {name.casefold() for name in self.catalogs}
+            if ctx.name.casefold() not in pinned:
+                return Verdict(False, "catalogs")
+        return None
 
     @classmethod
     def probe_provider_class(cls) -> type:
