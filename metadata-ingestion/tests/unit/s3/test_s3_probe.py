@@ -73,6 +73,7 @@ def test_methods_advertise_the_s3_kinds() -> None:
 def test_buckets_lists_the_account(buckets: None) -> None:
     result = run_probe_method("s3", _recipe("s3://my-bucket/raw/*.csv"), "buckets", {})
     assert result.kind == "S3 bucket"
+    assert isinstance(result.result, list)
     assert set(result.result) == {"my-bucket", "my-bucket-2"}
 
 
@@ -81,6 +82,7 @@ def test_bucket_wildcard_datasets_span_buckets(buckets: None) -> None:
         "s3", _recipe("s3://*/data/{table}/*/*.csv"), "datasets", {}
     )
     assert result.kind == "Table"
+    assert isinstance(result.result, list)
     assert {d["name"] for d in result.result} == {
         f"s3://{b}/data/{t}"
         for b in ("my-bucket", "my-bucket-2")
