@@ -2,7 +2,10 @@ from typing import Dict
 from unittest import mock
 
 import pytest
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import NoSuchTableError
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
@@ -19,6 +22,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
+    ViewPropertiesClass,
 )
 
 
@@ -285,3 +289,30 @@ def test_loop_profiler_requests_propagates_candidate_generation_errors():
 
     with pytest.raises(RuntimeError, match="candidate query failed"):
         list(source.loop_profiler_requests(inspector, "my_schema", source.config))
+
+
+def test_loop_views_keeps_view_when_definition_is_unavailable():
+    # SA 2.0 dialects (Oracle, Postgres) raise NoSuchTableError when the catalog
+    # has no view text; 1.4 returned None. The view must still be emitted, with
+    # an empty definition, instead of being dropped as "Error processing view".
+    engine = create_engine("sqlite://")
+    with engine.connect() as conn:
+        conn.execute(text("CREATE TABLE t (a INTEGER)"))
+        conn.execute(text("CREATE VIEW v AS SELECT a FROM t"))
+        inspector = inspect(conn)
+        source = get_test_sql_alchemy_source()
+        with mock.patch.object(
+            inspector, "get_view_definition", side_effect=NoSuchTableError("v")
+        ):
+            workunits = list(source.loop_views(inspector, "main", source.config))
+
+    view_properties = [
+        wu.metadata.aspect
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, ViewPropertiesClass)
+    ]
+    assert len(view_properties) == 1
+    assert view_properties[0].viewLogic == ""
+    assert not source.report.warnings
+    assert not source.report.failures

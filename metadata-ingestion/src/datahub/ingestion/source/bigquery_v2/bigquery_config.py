@@ -824,7 +824,7 @@ class BigQueryV2Config(
         # Create a copy to avoid modifying the input dictionary, preventing state contamination in tests
         values = deepcopy(values)
         # Extra default SQLAlchemy option for better connection pooling and threading.
-        # https://docs.sqlalchemy.org/en/14/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
+        # https://docs.sqlalchemy.org/en/20/core/pooling.html#sqlalchemy.pool.QueuePool.params.max_overflow
         values.setdefault("options", {}).setdefault("max_overflow", -1)
 
         return values

@@ -96,7 +96,7 @@ class SQLCommonConfig(
 ):
     options: dict = pydantic.Field(
         default_factory=dict,
-        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs.",
+        description="Any options specified here will be passed to [SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/20/core/engines.html#sqlalchemy.create_engine) as kwargs.",
     )
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -331,7 +331,7 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     scheme: str = Field(description="scheme")
     sqlalchemy_uri: Optional[str] = Field(
         default=None,
-        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/14/core/engines.html#database-urls. Takes precedence over other connection parameters.",
+        description="URI of database to connect to. See https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls. Takes precedence over other connection parameters.",
     )
 
     # Duplicate of SQLCommonConfig.options
@@ -339,7 +339,7 @@ class SQLAlchemyConnectionConfig(ConfigModel):
         default_factory=dict,
         description=(
             "Any options specified here will be passed to "
-            "[SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine) as kwargs."
+            "[SQLAlchemy.create_engine](https://docs.sqlalchemy.org/en/20/core/engines.html#sqlalchemy.create_engine) as kwargs."
             " To set connection arguments in the URL, specify them under `connect_args`."
         ),
     )
