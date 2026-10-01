@@ -5095,6 +5095,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_extra_fgls.clear()
         self._workbook_customsql_registered_urns.clear()
         self._workbook_customsql_formula_fields.clear()
+        self._loaded_dm_chart_inputs.clear()
         self._dm_element_field_paths.clear()
         self._dm_key_by_element_urn.clear()
         self._dm_element_source_urns.clear()

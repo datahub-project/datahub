@@ -140,8 +140,16 @@ class TestGetElementUpstreamSources:
             ({"type": "table", "nodeId": "not-an-inode", "name": "T"}, None),
             ({"type": "sheet", "name": "No Id"}, None),
             (None, {"target": "tgt_node"}),
+            # Registered or not, a customSQL source is not in the list.
+            ({"type": "customSQL", "name": "Query"}, None),
         ],
-        ids=["unknown-type", "bad-table-node", "sheet-without-id", "malformed-edge"],
+        ids=[
+            "unknown-type",
+            "bad-table-node",
+            "sheet-without-id",
+            "malformed-edge",
+            "customsql-source",
+        ],
     )
     def test_a_dropped_node_marks_the_upstreams_incomplete(
         self, dropped_node: Optional[dict], edge: Optional[dict]

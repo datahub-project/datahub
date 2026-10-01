@@ -153,8 +153,8 @@ class Element(BaseModel):
     # Built in _gen_elements_workunit after connection config is resolved.
     column_native_names: Dict[str, str] = Field(default_factory=dict)
     upstream_sources: Dict[str, "ElementUpstream"] = Field(default_factory=dict)
-    # False when the lineage walk dropped a node or edge, so upstream_sources
-    # is a partial list.
+    # False when the lineage walk dropped a node or edge, or met a customSQL
+    # source, so upstream_sources is a partial list.
     upstream_sources_complete: bool = True
 
     @model_validator(mode="before")

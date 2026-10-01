@@ -996,7 +996,8 @@ class SigmaAPI:
     ) -> bool:
         """Dispatch one BFS node into upstream_sources or re-enqueue it (join).
 
-        Returns False when the node is dropped, so the caller can tell the
+        Returns False when the node is not in upstream_sources -- dropped, or
+        a customSQL source handled elsewhere -- so the caller can tell the
         element's upstreams are incomplete.
         """
         source_type = source_node.get(Constant.TYPE)
@@ -1106,7 +1107,11 @@ class SigmaAPI:
                 name=name,
             )
         elif source_type == "customSQL":
-            pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
+            # Handled by _build_workbook_customsql_registry via the
+            # workbook-level lineage endpoint, so it is absent from
+            # upstream_sources: that list is not the chart's full lineage,
+            # whether or not the SQL registers.
+            return False
         else:
             # Warn once per unknown source_type to avoid log spam.
             warn_key = source_type if isinstance(source_type, str) else "<non-str>"
