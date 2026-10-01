@@ -15,6 +15,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import _iter_specs, run_probe_method
 from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
+from datahub.ingestion.agent.verdicts import ProbeReadFailed
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
@@ -283,16 +284,44 @@ def test_a_failing_ingestion_step_never_echoes_the_connection_url(
     caplog.set_level(logging.DEBUG)
     with requests_mock.Mocker() as m:
         _mock_cluster(m, {"nodb": (connector_type, config)}, {"nodb": ["orders"]})
-        try:
+        if connector_type == "source":
+            # The source parser raises, quoting the URL; the probe must fail
+            # without it.
+            with pytest.raises(ProbeReadFailed) as raised:
+                run_probe_method(
+                    "kafka-connect", dict(_RECIPE), command, {"connector": "nodb"}
+                )
+            assert NO_DB_CRED not in str(raised.value)
+            assert "nodb" in str(raised.value)
+        else:
+            # The sink parser catches its own error and records a warning.
             result = run_probe_method(
                 "kafka-connect", dict(_RECIPE), command, {"connector": "nodb"}
             )
-        except Exception as exc:
-            assert NO_DB_CRED not in str(exc)
-            assert "nodb" in str(exc)
-        else:
             assert NO_DB_CRED not in json.dumps(result.to_dict(), default=str)
     assert NO_DB_CRED not in caplog.text
+
+
+@pytest.mark.parametrize("scheme", ["http", "https"])
+@pytest.mark.parametrize("reserved", ["/", "#", "?", "\\"])
+@pytest.mark.parametrize(
+    "command,kwargs", [("connectors", {}), ("connector", {"connector": "orders-sink"})]
+)
+def test_a_connect_uri_whose_password_would_be_misparsed_is_refused(
+    scheme: str, reserved: str, command: str, kwargs: Dict[str, object]
+) -> None:
+    # An unencoded reserved character ends the authority early, so urllib3 sees
+    # "user:<password prefix>" as host:port and quotes it in InvalidURL -- text
+    # with no "://" or "@" for a structural scrub to find.
+    secret = f"{URI_CRED}{reserved}tail"
+    uri = f"{scheme}://connect-user:{secret}@connect.example:8083"
+    with requests_mock.Mocker() as m:
+        with pytest.raises(ValueError) as raised:
+            run_probe_method("kafka-connect", {"connect_uri": uri}, command, kwargs)
+        assert m.call_count == 0
+    assert not isinstance(raised.value, ProbeReadFailed)
+    assert URI_CRED not in str(raised.value)
+    assert "connect-user" not in str(raised.value)
 
 
 @pytest.mark.parametrize(

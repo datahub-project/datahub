@@ -12,7 +12,8 @@ import logging
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, Iterator, List, Optional
+from typing import Any, Dict, FrozenSet, Iterator, List, Optional, Set
+from urllib.parse import unquote, urlsplit
 
 import requests
 from typing_extensions import LiteralString
@@ -56,6 +57,52 @@ _URL_USERINFO = re.compile(r"(?<=://)[^/@\s]+@")
 
 def _without_userinfo(text: str) -> str:
     return _URL_USERINFO.sub("", text)
+
+
+# Unencoded, these end a URL's authority early, so requests/urllib3 split
+# `user:pass/x@host` as host "user", port "pass" and quote that pair in the
+# InvalidURL they raise -- text with neither "://" nor "@" to scrub by shape.
+_AUTHORITY_TERMINATORS = ("/", "?", "#", "\\")
+
+# Shorter credential parts are not scrubbed by value: replacing a two-letter
+# user name everywhere would corrupt unrelated text and protect nothing.
+_MIN_SCRUBBED_LEN = 4
+
+
+def _raw_userinfo(uri: str) -> str:
+    """The text between `://` and the last `@`, which is what a reader of the
+    recipe meant as `user:password` even when a parser would split it
+    differently. Empty when there is no `@`."""
+    rest = uri.partition("://")[2]
+    return rest.rpartition("@")[0]
+
+
+def _connect_uri_problem(uri: str) -> Optional[str]:
+    """Why requests would misparse connect_uri, or None. Never quotes it."""
+    if any(ch in _raw_userinfo(uri) for ch in _AUTHORITY_TERMINATORS):
+        return (
+            "connect_uri is not a valid URL: percent-encode reserved characters "
+            "such as '/', '#', '?' and '\\' in its user:password part (or pass "
+            "the credentials as username/password instead)"
+        )
+    try:
+        parts = urlsplit(uri)
+        _ = parts.port  # raises ValueError on a non-numeric port
+    except ValueError:
+        return "connect_uri is not a valid URL: its host or port cannot be parsed"
+    if parts.scheme and not parts.hostname:
+        return "connect_uri is not a valid URL: it has no host"
+    return None
+
+
+def _userinfo_values(uri: str) -> Set[str]:
+    """connect_uri's user and password, raw and decoded, for scrubbing by value."""
+    values: Set[str] = set()
+    for part in _raw_userinfo(uri).split(":", 1):
+        for form in (part, unquote(part)):
+            if len(form) >= _MIN_SCRUBBED_LEN:
+                values.add(form)
+    return values
 
 
 # The package every reused ingestion step logs under.
@@ -225,6 +272,10 @@ class KafkaConnectMetadataProbe:
         self._source.report = _ProbeReport()
         self.warnings: List[str] = []
         self._saved_log_level: Optional[int] = None
+        # Judged here, without a request, but raised from the first command:
+        # an error while the provider is built is reported as "could not open
+        # source" (exit 3), and this is the caller's to fix (exit 2).
+        self._connect_uri_problem = _connect_uri_problem(source.config.connect_uri)
 
     @classmethod
     def for_config(
@@ -294,6 +345,13 @@ class KafkaConnectMetadataProbe:
             yield
         except requests.RequestException as exc:
             scrubbed = _without_userinfo(str(exc))
+            # Defence in depth for a userinfo the shape rule cannot see.
+            # Longest first, so a password containing the user name is
+            # removed whole.
+            for value in sorted(
+                _userinfo_values(self._source.config.connect_uri), key=len, reverse=True
+            ):
+                scrubbed = scrubbed.replace(value, "***")
             if scrubbed == str(exc):
                 raise
             # from None: the original, unscrubbed message must not ride along as
@@ -319,9 +377,14 @@ class KafkaConnectMetadataProbe:
                 f"({type(exc).__name__}); ingestion would fail on it too"
             ) from None
 
+    def _refuse_misparsed_connect_uri(self) -> None:
+        if self._connect_uri_problem is not None:
+            raise ValueError(self._connect_uri_problem)
+
     def _listed_names(self) -> List[str]:
         # The GET /connectors ingestion's endpoint discovery already makes, which
         # (unlike get_connectors_manifest's) raises on 401/5xx.
+        self._refuse_misparsed_connect_uri()
         with self._userinfo_scrubbed():
             payload: object = (
                 self._source._get_connector_names_for_endpoint_discovery()
@@ -488,6 +551,7 @@ class KafkaConnectMetadataProbe:
                 "ingestion reads each connector's runtime topics instead -- use "
                 "connector_topics"
             )
+        self._refuse_misparsed_connect_uri()
         try:
             topics = self._source._get_all_topics_from_kafka_api()
         except Exception as exc:
