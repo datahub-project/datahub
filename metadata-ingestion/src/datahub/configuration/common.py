@@ -461,6 +461,10 @@ class AllowDenyPattern(ConfigModel):
         compares `__dict__`, which also holds the compiled-regex caches once
         `allowed()` has run, so a used default pattern stops equalling a
         fresh one. `ignoreCase` does not matter: `.*` matches regardless.
+
+        Only a literal `".*"` allow entry with an empty deny list counts.
+        Equivalent regexes (`^.*$`, `.+`) return False, so treat False as
+        "unknown", not "restricted".
         """
         return not self.deny and ".*" in self.allow
 

@@ -58,6 +58,16 @@ def test_every_connector_doc_meets_the_heading_contract(docgen: ModuleType) -> N
     assert any(p.name.endswith("_post.md") for p in docs), "scanned no _post.md"
     failures: List[str] = []
     for path in docs:
+        # docGen raises on any other name, so a file that passes the heading
+        # check here would still break the docs build.
+        parts = path.stem.split("_")
+        if path.stem != "README" and not (
+            len(parts) == 2 and parts[1] in ("pre", "post")
+        ):
+            failures.append(
+                f"{path}: needs to be README or <plugin>_pre.md / <plugin>_post.md"
+            )
+            continue
         try:
             docgen.validate_source_doc_headings(
                 str(path), path.read_text(encoding="utf-8")
