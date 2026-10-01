@@ -324,6 +324,16 @@ class RedshiftConfig(
         return values
 
     @classmethod
+    def probe_provider_class(cls) -> type:
+        # Not the inherited SqlAlchemyMetadataProbe: ingestion connects and
+        # enumerates through redshift_connector, not the Inspector.
+        from datahub.ingestion.source.redshift.redshift_probe import (
+            RedshiftMetadataProbe,
+        )
+
+        return RedshiftMetadataProbe
+
+    @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
         # pg_catalog is named relation by relation here, NOT allowed at schema
         # level, because Redshift keeps executed SQL in that schema: stl_query
