@@ -1242,6 +1242,77 @@ public class ESIndexBuilderTest {
     assertEquals(indexSettings.get("refresh_interval"), expectedRefreshInterval);
   }
 
+  @Test
+  void testIndexSettingOverridesDeepMergeAnalysis() throws IOException {
+    // Generated settings carry a full analysis block
+    Map<String, Object> generated = new HashMap<>(createTestSettings());
+    generated.put(
+        "analysis",
+        Map.of(
+            "filter", Map.of("min_length", Map.of("type", "length", "min", "3")),
+            "analyzer",
+                Map.of(
+                    "word_delimited",
+                        Map.of("tokenizer", "main_tokenizer", "filter", List.of("min_length")),
+                    "keyword", Map.of("tokenizer", "keyword"))));
+
+    // Override names only what changes: a new filter and one analyzer's filter chain
+    Map<String, Map<String, Object>> indexOverrides = new HashMap<>();
+    indexOverrides.put(
+        "test_index",
+        Map.of(
+            "number_of_shards",
+            "3",
+            "analysis",
+            Map.of(
+                "filter", Map.of("min_length_2", Map.of("type", "length", "min", "2")),
+                "analyzer", Map.of("word_delimited", Map.of("filter", List.of("min_length_2"))))));
+
+    ESIndexBuilder builderWithOverrides =
+        new ESIndexBuilder(
+            searchClient,
+            elasticSearchConfiguration,
+            TEST_ES_STRUCT_PROPS_DISABLED,
+            indexOverrides,
+            gitVersion);
+    when(searchClient.indexExists(
+            any(OperationFingerprint.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+
+    ReindexConfig result =
+        builderWithOverrides.buildReindexState(
+            opContext, "test_index", createTestMappings(), generated);
+
+    Map<String, Object> index = (Map<String, Object>) result.targetSettings().get("index");
+    assertEquals(index.get("number_of_shards"), "3");
+    Map<String, Object> analysis = (Map<String, Object>) index.get("analysis");
+    Map<String, Object> filters = (Map<String, Object>) analysis.get("filter");
+    // generated filter kept, override filter added
+    assertEquals(filters.get("min_length"), Map.of("type", "length", "min", "3"));
+    assertEquals(filters.get("min_length_2"), Map.of("type", "length", "min", "2"));
+    Map<String, Object> analyzers = (Map<String, Object>) analysis.get("analyzer");
+    // untouched analyzer kept as generated
+    assertEquals(analyzers.get("keyword"), Map.of("tokenizer", "keyword"));
+    // overridden analyzer: list replaced, sibling keys kept
+    Map<String, Object> wordDelimited = (Map<String, Object>) analyzers.get("word_delimited");
+    assertEquals(wordDelimited.get("filter"), List.of("min_length_2"));
+    assertEquals(wordDelimited.get("tokenizer"), "main_tokenizer");
+  }
+
+  @Test
+  void testMergeSettingsDoesNotMutateGeneratedMaps() {
+    Map<String, Object> generatedAnalysis = Map.of("filter", Map.of("a", Map.of("type", "x")));
+    Map<String, Object> target = new HashMap<>(Map.of("analysis", generatedAnalysis));
+    ESIndexBuilder.mergeSettings(
+        target, Map.of("analysis", Map.of("filter", Map.of("b", Map.of("type", "y")))));
+    // immutable generated map was copied, not modified
+    assertEquals(generatedAnalysis, Map.of("filter", Map.of("a", Map.of("type", "x"))));
+    assertEquals(
+        ((Map<String, Object>) ((Map<String, Object>) target.get("analysis")).get("filter"))
+            .keySet(),
+        Set.of("a", "b"));
+  }
+
   @DataProvider(name = "settingsOverrideData")
   public Object[][] provideSettingsOverrideData() {
     return new Object[][] {

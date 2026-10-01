@@ -137,7 +137,12 @@ public class ESIndexBuilder {
 
   @Getter @VisibleForTesting private final StructuredPropertiesConfiguration structPropConfig;
 
-  @Getter private final Map<String, Map<String, String>> indexSettingOverrides;
+  /**
+   * Per-index settings overrides. Values are strings for flat settings (e.g. {@code
+   * number_of_shards}) or nested maps for grouped settings such as {@code analysis}; nested maps
+   * are deep-merged into the generated settings, see {@link #mergeSettings}.
+   */
+  @Getter private final Map<String, Map<String, Object>> indexSettingOverrides;
 
   @Getter @VisibleForTesting private final GitVersion gitVersion;
 
@@ -165,13 +170,15 @@ public class ESIndexBuilder {
       SearchClientShim<?> searchClient,
       ElasticSearchConfiguration elasticSearchConfiguration,
       StructuredPropertiesConfiguration structuredPropertiesConfiguration,
-      Map<String, Map<String, String>> indexSettingOverrides,
+      Map<String, ? extends Map<String, ?>> indexSettingOverrides,
       GitVersion gitVersion) {
     this.searchClient = searchClient;
     this.config = elasticSearchConfiguration;
     this.indexConfig = elasticSearchConfiguration.getIndex();
     this.structPropConfig = structuredPropertiesConfiguration;
-    this.indexSettingOverrides = indexSettingOverrides;
+    Map<String, Map<String, Object>> overrides = new HashMap<>();
+    indexSettingOverrides.forEach((index, value) -> overrides.put(index, new HashMap<>(value)));
+    this.indexSettingOverrides = overrides;
     this.gitVersion = gitVersion;
 
     BuildIndicesConfiguration buildIndices =
@@ -414,7 +421,7 @@ public class ESIndexBuilder {
     if (isOpenSearch29OrHigher(opContext) && !isKnnEnabled(baseSettings)) {
       baseSettings.put("codec", "zstd_no_dict");
     }
-    baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
+    mergeSettings(baseSettings, indexSettingOverrides.getOrDefault(indexName, Map.of()));
     Map<String, Object> targetSetting = ImmutableMap.of("index", baseSettings);
     builder.targetSettings(targetSetting);
 
@@ -2942,5 +2949,26 @@ public class ESIndexBuilder {
       }
     }
     return orphanedIndices;
+  }
+
+  /**
+   * Merges {@code overrides} into {@code target}. When both sides hold a map for the same key (for
+   * example {@code analysis} or {@code analysis.filter}) the maps are merged recursively, so an
+   * override only needs to name what it changes and keeps every other generated analyzer, filter
+   * and tokenizer. Any other value replaces the generated one.
+   */
+  @SuppressWarnings("unchecked")
+  public static void mergeSettings(Map<String, Object> target, Map<String, ?> overrides) {
+    for (Map.Entry<String, ?> entry : overrides.entrySet()) {
+      Object current = target.get(entry.getKey());
+      Object override = entry.getValue();
+      if (current instanceof Map && override instanceof Map) {
+        Map<String, Object> merged = new HashMap<>((Map<String, Object>) current);
+        mergeSettings(merged, (Map<String, ?>) override);
+        target.put(entry.getKey(), merged);
+      } else {
+        target.put(entry.getKey(), override);
+      }
+    }
   }
 }
