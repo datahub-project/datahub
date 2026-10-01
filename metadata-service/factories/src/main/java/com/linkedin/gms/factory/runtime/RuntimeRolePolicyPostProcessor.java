@@ -3,8 +3,7 @@ package com.linkedin.gms.factory.runtime;
 import com.linkedin.metadata.config.runtime.RuntimeRole;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.core.Ordered;
@@ -17,11 +16,10 @@ import org.springframework.core.env.MutablePropertySources;
  * after config data (including Helm env vars resolved through {@code application.yaml}) is loaded.
  * The source is inserted first so it wins over those values.
  */
+@Slf4j
 public class RuntimeRolePolicyPostProcessor implements EnvironmentPostProcessor, Ordered {
 
   static final String PROPERTY_SOURCE_NAME = "runtimeRolePolicy";
-
-  private static final Logger LOG = LoggerFactory.getLogger(RuntimeRolePolicyPostProcessor.class);
 
   @Override
   public void postProcessEnvironment(
@@ -29,7 +27,7 @@ public class RuntimeRolePolicyPostProcessor implements EnvironmentPostProcessor,
     RuntimeRole role = RuntimeRole.from(environment);
     rejectUnlessService(role, gmsApplicationPresent());
     if (!role.disablesDistributedCaches()) {
-      LOG.info("Resolved datahub.runtime.role={}", role.wireName());
+      log.info("Resolved datahub.runtime.role={}", role.wireName());
       return;
     }
 
@@ -37,7 +35,7 @@ public class RuntimeRolePolicyPostProcessor implements EnvironmentPostProcessor,
     for (RuntimeRole.ForcedProperty override : RuntimeRole.DISTRIBUTED_CACHE_OVERRIDES) {
       String previous = environment.getProperty(override.key());
       if (previous != null && !previous.trim().equalsIgnoreCase(override.value())) {
-        LOG.warn(
+        log.warn(
             "datahub.runtime.role={} ignores {}={} (forced to {})",
             role.wireName(),
             override.key(),
@@ -49,7 +47,7 @@ public class RuntimeRolePolicyPostProcessor implements EnvironmentPostProcessor,
 
     MutablePropertySources sources = environment.getPropertySources();
     sources.addFirst(new MapPropertySource(PROPERTY_SOURCE_NAME, forced));
-    LOG.info("Resolved datahub.runtime.role={}; distributed caches disabled", role.wireName());
+    log.info("Resolved datahub.runtime.role={}; distributed caches disabled", role.wireName());
   }
 
   /**

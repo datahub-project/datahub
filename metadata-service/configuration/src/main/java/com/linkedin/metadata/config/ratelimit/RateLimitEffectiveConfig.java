@@ -2,9 +2,6 @@ package com.linkedin.metadata.config.ratelimit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
-import com.linkedin.metadata.config.runtime.RuntimeRole;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.core.env.Environment;
 
@@ -26,8 +23,6 @@ public final class RateLimitEffectiveConfig {
    * datahub.gms.rateLimits.*}.
    */
   public static final String BIND_PREFIX = "datahub.gms.rate-limits";
-
-  private static final Logger LOG = LoggerFactory.getLogger(RateLimitEffectiveConfig.class);
 
   private static final Object LOCK = new Object();
   private static volatile Environment loadedFrom;
@@ -56,36 +51,9 @@ public final class RateLimitEffectiveConfig {
       RateLimitProperties base = fromSpring != null ? fromSpring : bind(environment);
       RateLimitConfigLoader loader =
           new RateLimitConfigLoader(new ObjectMapper(), new YAMLMapper());
-      RateLimitProperties effective = loader.loadEffective(base, environment);
-      RuntimeRole role = RuntimeRole.from(environment);
-      if (role.disablesDistributedCaches()) {
-        disableDistributedLayers(effective, role);
-      }
-      cached = effective;
+      cached = loader.loadEffective(base, environment);
       loadedFrom = environment;
       return cached;
-    }
-  }
-
-  /**
-   * File and JSON overlays are merged after the Spring flags the role policy forces off. Clear the
-   * Hazelcast-backed layers again so datahub-upgrade, which builds the rate-limit engine, does not
-   * require a member this role will not host.
-   */
-  private static void disableDistributedLayers(RateLimitProperties config, RuntimeRole role) {
-    boolean endpointEnabled = config.getEndpoint() != null && config.getEndpoint().isEnabled();
-    boolean scopedEnabled = config.getScoped() != null && config.getScoped().isEnabled();
-    if (config.getEndpoint() != null) {
-      config.getEndpoint().setEnabled(false);
-    }
-    if (config.getScoped() != null) {
-      config.getScoped().setEnabled(false);
-    }
-    if (endpointEnabled || scopedEnabled) {
-      LOG.warn(
-          "datahub.runtime.role={} ignores rate-limit endpoint/scoped enabled by"
-              + " RATE_LIMITS_CONFIG_FILE or RATE_LIMITS_CONFIG_JSON",
-          role.wireName());
     }
   }
 

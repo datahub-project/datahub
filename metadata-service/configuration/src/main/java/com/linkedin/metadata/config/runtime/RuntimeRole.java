@@ -7,10 +7,12 @@ import javax.annotation.Nullable;
 import org.springframework.core.env.Environment;
 
 /**
- * Which process this JVM is. {@code service} hosts Hazelcast. {@code client} (standalone MCL/MCP)
- * and {@code upgrade} do not: both force Hazelcast-backed features off. {@code upgrade} is a
- * placeholder that currently uses the same policy as {@code client}; a later change can let it opt
- * into specific service features.
+ * Which process this JVM is. {@code service} hosts the service caches. {@code client} (standalone
+ * MCL/MCP) and {@code upgrade} do not: both force the entity graph cache, search cache, and
+ * rate-limit layers off. SQL coordination ({@code RETENTION_BUFFER_ENABLED}, {@code
+ * ENTITY_WRITE_LOCK_BACKEND}) stays operator-controlled on every role, because standalone MCP
+ * writes through Ebean. {@code upgrade} currently uses the same service-cache policy as {@code
+ * client}.
  */
 public enum RuntimeRole {
   SERVICE("service"),
@@ -28,10 +30,8 @@ public enum RuntimeRole {
       List.of(
           new ForcedProperty("datahub.gms.entityGraphCache.enabled", "false"),
           new ForcedProperty("searchService.cacheImplementation", "caffeine"),
-          new ForcedProperty("featureFlags.retentionBufferEnabled", "false"),
           new ForcedProperty("datahub.gms.rateLimits.endpoint.enabled", "false"),
-          new ForcedProperty("datahub.gms.rateLimits.scoped.enabled", "false"),
-          new ForcedProperty("ebean.entityWriteLockBackend", "none"));
+          new ForcedProperty("datahub.gms.rateLimits.scoped.enabled", "false"));
 
   private final String wireName;
 

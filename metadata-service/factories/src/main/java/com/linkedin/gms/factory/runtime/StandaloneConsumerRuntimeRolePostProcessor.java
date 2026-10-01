@@ -3,8 +3,7 @@ package com.linkedin.gms.factory.runtime;
 import com.linkedin.metadata.config.runtime.RuntimeRole;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.EnvironmentPostProcessor;
 import org.springframework.boot.SpringApplication;
 import org.springframework.core.Ordered;
@@ -16,20 +15,18 @@ import org.springframework.core.env.MapPropertySource;
  * DATAHUB_RUNTIME_ROLE} cannot turn this process into the metadata service. Runs before {@link
  * RuntimeRolePolicyPostProcessor} so that processor sees {@code client}.
  */
+@Slf4j
 public class StandaloneConsumerRuntimeRolePostProcessor
     implements EnvironmentPostProcessor, Ordered {
 
   static final String PROPERTY_SOURCE_NAME = "standaloneConsumerRuntimeRole";
-
-  private static final Logger LOG =
-      LoggerFactory.getLogger(StandaloneConsumerRuntimeRolePostProcessor.class);
 
   @Override
   public void postProcessEnvironment(
       ConfigurableEnvironment environment, SpringApplication application) {
     String previous = environment.getProperty(RuntimeRole.PROPERTY);
     if (previous != null && !previous.trim().equalsIgnoreCase(RuntimeRole.CLIENT.wireName())) {
-      LOG.warn(
+      log.warn(
           "datahub.runtime.role={} ignored on standalone consumer (forced to client)",
           previous.trim());
     }

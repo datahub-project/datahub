@@ -162,5 +162,7 @@ public class RuntimeRolePolicyPostProcessorTest {
     for (RuntimeRole.ForcedProperty override : RuntimeRole.DISTRIBUTED_CACHE_OVERRIDES) {
       assertEquals(environment.getProperty(override.key()), override.value(), override.key());
     }
+    assertEquals(environment.getProperty("featureFlags.retentionBufferEnabled"), "true");
+    assertEquals(environment.getProperty("ebean.entityWriteLockBackend"), "hazelcast");
   }
 }

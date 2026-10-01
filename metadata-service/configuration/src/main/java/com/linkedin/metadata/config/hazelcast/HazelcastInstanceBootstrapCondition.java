@@ -9,7 +9,7 @@ import org.springframework.core.type.AnnotatedTypeMetadata;
 /**
  * Creates a shared {@link com.hazelcast.core.HazelcastInstance} when any of these features need
  * cluster coordination: GMS access-token revocation, search Hazelcast cache, entity graph cache,
- * GMS endpoint rate limiting, or the post-commit retention buffer.
+ * GMS endpoint rate limiting, the entity write lock, or the post-commit retention buffer.
  */
 public class HazelcastInstanceBootstrapCondition implements Condition {
 
@@ -19,29 +19,12 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
   }
 
   /**
-   * {@code client} and {@code upgrade} never host a member. {@code service} always does when {@code
-   * GMSApplication} is present (access-token revocation), and otherwise when a Hazelcast-backed
-   * feature is enabled.
+   * {@code service} always hosts a member when {@code GMSApplication} is present (access-token
+   * revocation), and otherwise when a Hazelcast-backed feature is enabled. {@code client} and
+   * {@code upgrade} skip the service caches, and still host a member when the entity write lock or
+   * retention buffer needs one. Standalone MCP writes SQL, so those two are not role-gated.
    */
   static boolean needsInstance(Environment env, boolean gmsApplicationPresent) {
-    // client and upgrade never host a member, even if a Helm env var would otherwise enable a
-    // Hazelcast-backed feature. The property overlay forces those flags off; this is the backstop.
-    if (RuntimeRole.from(env).disablesDistributedCaches()) {
-      return false;
-    }
-    if (gmsApplicationPresent) {
-      return true;
-    }
-    if ("hazelcast"
-        .equalsIgnoreCase(
-            env.getProperty(
-                HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "caffeine"))) {
-      return true;
-    }
-    if (Boolean.parseBoolean(
-        env.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))) {
-      return true;
-    }
     // The Hazelcast entity write-gate needs the embedded node — but ONLY when it will actually
     // engage: optimistic-locking mode with the hazelcast backend. With OL off the gate is bypassed
     // (EntityWriteLockFactory logs it), so booting a cluster for it would waste resources and
@@ -79,6 +62,24 @@ public class HazelcastInstanceBootstrapCondition implements Condition {
       // it will actually wire (RetentionBufferFactory needs BOTH flags). Gating on retentionBuffer
       // alone would boot an unused cluster (and risk startup failure if it can't join) while ingest
       // still runs legacy in-transaction retention with RetentionBuffer.NO_OP.
+      return true;
+    }
+    // Service caches and token revocation. client and upgrade do not host these. The property
+    // overlay forces the flags off; skipping here covers a Helm value the overlay has not hidden.
+    if (RuntimeRole.from(env).disablesDistributedCaches()) {
+      return false;
+    }
+    if (gmsApplicationPresent) {
+      return true;
+    }
+    if ("hazelcast"
+        .equalsIgnoreCase(
+            env.getProperty(
+                HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "caffeine"))) {
+      return true;
+    }
+    if (Boolean.parseBoolean(
+        env.getProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "false"))) {
       return true;
     }
     // Endpoint rules OR the scoped chain need the shared Hazelcast store. Keying on endpoint alone

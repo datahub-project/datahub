@@ -128,26 +128,47 @@ public class HazelcastInstanceBootstrapConditionTest {
   }
 
   @Test
-  public void testClientRoleSkipsInstanceEvenWhenGmsAndFeaturesWouldBootIt() {
-    MockEnvironment environment = enablingEnvironment();
+  public void testClientRoleSkipsServiceFeaturesEvenWhenGmsWouldBootIt() {
+    MockEnvironment environment = serviceFeatureEnvironment();
     environment.setProperty(RuntimeRole.PROPERTY, "client");
     assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, true));
   }
 
   @Test
-  public void testUpgradeRoleSkipsInstanceEvenWhenFeaturesWouldBootIt() {
-    MockEnvironment environment = enablingEnvironment();
+  public void testUpgradeRoleSkipsServiceFeatures() {
+    MockEnvironment environment = serviceFeatureEnvironment();
     environment.setProperty(RuntimeRole.PROPERTY, "upgrade");
     assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, false));
   }
 
-  private static MockEnvironment enablingEnvironment() {
+  @Test
+  public void testClientAndUpgradeBootInstanceForRetentionBuffer() {
+    for (String role : new String[] {"client", "upgrade"}) {
+      MockEnvironment environment = new MockEnvironment();
+      environment.setProperty(RuntimeRole.PROPERTY, role);
+      environment.setProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "true");
+      environment.setProperty(HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED, "true");
+      assertTrue(HazelcastInstanceBootstrapCondition.needsInstance(environment, false), role);
+    }
+  }
+
+  @Test
+  public void testClientAndUpgradeBootInstanceForWriteLock() {
+    for (String role : new String[] {"client", "upgrade"}) {
+      MockEnvironment environment = new MockEnvironment();
+      environment.setProperty(RuntimeRole.PROPERTY, role);
+      environment.setProperty(HazelcastBootstrapProperties.ENTITY_WRITE_LOCK_BACKEND, "hazelcast");
+      environment.setProperty(HazelcastBootstrapProperties.OPTIMISTIC_LOCKING_ENABLED, "true");
+      environment.setProperty(HazelcastBootstrapProperties.ENTITY_SERVICE_IMPL, "ebean");
+      assertTrue(HazelcastInstanceBootstrapCondition.needsInstance(environment, false), role);
+    }
+  }
+
+  private static MockEnvironment serviceFeatureEnvironment() {
     MockEnvironment environment = new MockEnvironment();
     environment.setProperty(HazelcastBootstrapProperties.SEARCH_CACHE_IMPLEMENTATION, "hazelcast");
     environment.setProperty(HazelcastBootstrapProperties.ENTITY_GRAPH_CACHE_ENABLED, "true");
     environment.setProperty(HazelcastBootstrapProperties.RATE_LIMIT_ENDPOINT_ENABLED, "true");
-    environment.setProperty(HazelcastBootstrapProperties.RETENTION_BUFFER_ENABLED, "true");
-    environment.setProperty(HazelcastBootstrapProperties.POST_COMMIT_RETENTION_ENABLED, "true");
     return environment;
   }
 

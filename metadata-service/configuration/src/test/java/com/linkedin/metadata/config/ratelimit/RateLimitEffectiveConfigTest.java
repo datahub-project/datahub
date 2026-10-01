@@ -5,7 +5,6 @@ import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
-import com.linkedin.metadata.config.runtime.RuntimeRole;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import org.springframework.mock.env.MockEnvironment;
@@ -34,21 +33,6 @@ public class RateLimitEffectiveConfigTest {
     environment.setProperty(
         RateLimitConfigLoader.RATE_LIMITS_CONFIG_JSON_ENV, "{\"scoped\":{\"enabled\":true}}");
     assertTrue(RateLimitEffectiveConfig.get(environment).getScoped().isEnabled());
-  }
-
-  @Test
-  public void clientAndUpgradeIgnoreOverlayThatEnablesDistributedLayers() {
-    for (String role : new String[] {"client", "upgrade"}) {
-      RateLimitEffectiveConfig.reset();
-      MockEnvironment environment = new MockEnvironment();
-      environment.setProperty(RuntimeRole.PROPERTY, role);
-      environment.setProperty(
-          RateLimitConfigLoader.RATE_LIMITS_CONFIG_JSON_ENV,
-          "{\"endpoint\":{\"enabled\":true},\"scoped\":{\"enabled\":true}}");
-      RateLimitProperties config = RateLimitEffectiveConfig.get(environment);
-      assertFalse(config.getEndpoint().isEnabled(), role);
-      assertFalse(config.getScoped().isEnabled(), role);
-    }
   }
 
   @Test
