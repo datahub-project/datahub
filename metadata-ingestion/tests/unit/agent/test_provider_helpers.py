@@ -1,12 +1,20 @@
 """agent.provider_helpers: the plumbing every probe provider used to hand-write."""
 
 from dataclasses import dataclass
-from typing import Iterator, List, Optional
+from typing import Callable, Iterator, List, Optional
 
 import pytest
 
+from datahub.ingestion.agent import probe_methods
+from datahub.ingestion.agent.probe_methods import (
+    ProbeMethodResult,
+    ProbeProvider,
+    probe_method,
+    run_probe_method,
+)
 from datahub.ingestion.agent.provider_helpers import (
     PersonalWithholding,
+    ProbeProviderBase,
     Resolved,
     echoed,
     resolve_name,
@@ -15,6 +23,7 @@ from datahub.ingestion.agent.provider_helpers import (
 )
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
+    ProbeConnectionError,
     ProbeReadFailed,
     ProbeSoftError,
 )
@@ -332,3 +341,176 @@ def test_a_base_exception_is_never_swallowed() -> None:
         with soft_listing(sink.append, 403, context="x"):
             raise KeyboardInterrupt()
     assert sink == []
+
+
+class _Handle:
+    def __init__(self, log: List[str], name: str, fail: bool) -> None:
+        self.log, self.name, self.fail = log, name, fail
+
+    def close(self) -> None:
+        self.log.append(self.name)
+        if self.fail:
+            raise RuntimeError(f"{self.name} close failed")
+
+
+class _Clients(ProbeProviderBase):
+    def __init__(self) -> None:
+        self.log: List[str] = []
+        self.opened = 0
+
+    def handle(self, key: str, fail: bool = False) -> _Handle:
+        def open_it() -> _Handle:
+            self.opened += 1
+            return _Handle(self.log, key, fail)
+
+        return self._open_once(key, open_it, close=lambda h: h.close())
+
+
+def test_open_once_builds_lazily_and_only_once() -> None:
+    clients = _Clients()
+    assert clients.opened == 0
+    assert clients.handle("a") is clients.handle("a")
+    assert clients.opened == 1
+
+
+def test_a_failed_open_caches_nothing() -> None:
+    clients = _Clients()
+    attempts: List[int] = []
+
+    def flaky() -> int:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise ConnectionError("first try")
+        return 7
+
+    with pytest.raises(ConnectionError):
+        clients._open_once("k", flaky)
+    assert clients._open_once("k", flaky) == 7
+
+
+def test_exit_closes_every_opened_client_in_reverse_order_even_when_one_fails() -> None:
+    clients = _Clients()
+    clients.handle("a")
+    clients.handle("b", fail=True)
+    clients.handle("c")
+    with pytest.raises(RuntimeError, match="b close failed"):
+        clients.__exit__(None, None, None)
+    assert clients.log == ["c", "b", "a"]
+
+
+def test_on_exit_registers_a_plain_closer_and_exit_with_nothing_open_is_fine() -> None:
+    closed: List[str] = []
+    with _Clients() as clients:
+        clients._on_exit(lambda: closed.append("session"))
+    assert closed == ["session"]
+    with _Clients():
+        pass
+
+
+def test_an_instance_built_without_init_still_warns_and_exits() -> None:
+    bare = _Clients.__new__(_Clients)
+    assert bare.warnings == []
+    bare._warn("degraded")
+    bare._warn("degraded")
+    assert bare.warnings == ["degraded"]
+    bare.__exit__(None, None, None)
+
+
+def test_warn_appends_to_the_list_a_subclass_assigned() -> None:
+    class _OwnList(ProbeProviderBase):
+        def __init__(self) -> None:
+            self.warnings = []
+
+    provider = _OwnList()
+    provider._warn("x")
+    assert provider.warnings == ["x"]
+
+
+def test_the_base_declares_no_command_and_no_hook() -> None:
+    assert probe_methods._iter_specs(ProbeProviderBase) == []
+    assert [n for n in dir(ProbeProviderBase) if n.startswith("probe_")] == []
+    assert "for_config" not in vars(ProbeProviderBase)
+
+
+class _RunProvider(ProbeProviderBase):
+    def __init__(self, mode: str) -> None:
+        self.mode = mode
+
+    @classmethod
+    def for_config(cls, config: object) -> "_RunProvider":
+        provider = cls(getattr(config, "mode", ""))
+        if provider.mode.startswith("close-foreign"):
+            provider._on_exit(_foreign_errors.close)
+        return provider
+
+    @probe_method(name="things")
+    def things(self, name: str = "") -> List[str]:
+        """List things."""
+        if self.mode == "close-foreign-after-refusal":
+            resolve_name(name, ["a"], key=str, kind="thing")
+        if self.mode == "resolve-foreign":
+            resolve_name(name, _foreign_listing(), key=str, kind="thing")
+        if self.mode == "warn":
+            self._warn("one listing degraded")
+        return []
+
+
+def _foreign_listing() -> Iterator[str]:
+    yield "a"
+    _foreign_errors.fetch()
+
+
+def test_the_base_satisfies_the_provider_protocol_once_for_config_exists() -> None:
+    assert issubclass(_RunProvider, ProbeProvider)
+
+
+@pytest.fixture
+def run(monkeypatch: pytest.MonkeyPatch) -> Callable[..., ProbeMethodResult]:
+    from datahub.configuration.common import ConfigModel
+
+    class _Config(ConfigModel):
+        mode: str = ""
+
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _RunProvider
+
+    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
+
+    def _run(mode: str, **kwargs: object) -> ProbeMethodResult:
+        return run_probe_method("fake", {"mode": mode}, "things", dict(kwargs))
+
+    return _run
+
+
+def test_a_foreign_close_failure_reports_only_its_class(
+    run: Callable[..., ProbeMethodResult],
+) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run("close-foreign")
+    assert SENTINEL not in str(info.value)
+    assert "TypeError" in str(info.value)
+
+
+def test_a_close_failure_never_replaces_the_commands_own_refusal(
+    run: Callable[..., ProbeMethodResult],
+) -> None:
+    with pytest.raises(ProbeArgumentError) as info:
+        run("close-foreign-after-refusal", name="widget")
+    assert "no thing named 'widget'" in str(info.value)
+    assert SENTINEL not in str(info.value)
+
+
+def test_a_foreign_failure_while_resolving_reports_only_its_class(
+    run: Callable[..., ProbeMethodResult],
+) -> None:
+    # A listing that fails part-way is the source's failure (exit 3), not a
+    # "no such name" (exit 2).
+    with pytest.raises(ProbeConnectionError) as info:
+        run("resolve-foreign", name="b")
+    assert SENTINEL not in str(info.value)
+    assert "RuntimeError" in str(info.value)
+
+
+def test_base_warnings_reach_the_result(run: Callable[..., ProbeMethodResult]) -> None:
+    assert run("warn").warnings == ["one listing degraded"]

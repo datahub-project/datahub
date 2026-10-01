@@ -14,18 +14,24 @@ not raise.
 """
 
 import itertools
+from contextlib import ExitStack
 from dataclasses import dataclass
 from types import TracebackType
 from typing import (
     Callable,
+    Dict,
     Generic,
+    Hashable,
     Iterable,
     Iterator,
     List,
     Optional,
     Type,
     TypeVar,
+    cast,
 )
+
+from typing_extensions import Self
 
 from datahub.ingestion.agent.error_policy import withhold_foreign_text
 from datahub.ingestion.agent.verdicts import (
@@ -295,3 +301,77 @@ class soft_listing:
         # as foreign, which only ever withholds more.
         self._warn(withhold_foreign_text(soft, frozenset()))
         return True
+
+
+class ProbeProviderBase:
+    """An optional base for probe providers: de-duplicated warnings, lazily
+    built clients, and an __exit__ that closes everything that was opened.
+
+    Opt-in. The framework never looks it up -- it is not a config hook --
+    and a provider without it is unaffected. It defines no __init__, because
+    every provider has its own and tests build some with __new__; all state
+    here is created on first use. A subclass still declares for_config
+    itself.
+
+    __exit__ closes last-opened first and runs every closer even when one
+    fails; that failure then propagates, and the framework reports it as it
+    reports any close failure (by class name when foreign, never replacing
+    the command's own failure). A subclass that overrides __exit__ calls
+    super().__exit__(*exc) last.
+    """
+
+    _probe_warnings: Optional[List[str]] = None
+    _probe_opened: Optional[Dict[Hashable, object]] = None
+    _probe_closers: Optional[ExitStack] = None
+
+    @property
+    def warnings(self) -> List[str]:
+        """Read back by run_probe_method after each command."""
+        if self._probe_warnings is None:
+            self._probe_warnings = []
+        return self._probe_warnings
+
+    @warnings.setter
+    def warnings(self, value: List[str]) -> None:
+        self._probe_warnings = value
+
+    def _warn(self, message: str) -> None:
+        if message not in self.warnings:
+            self.warnings.append(message)
+
+    def _on_exit(self, close: Callable[[], object]) -> None:
+        if self._probe_closers is None:
+            self._probe_closers = ExitStack()
+        self._probe_closers.callback(close)
+
+    def _open_once(
+        self,
+        key: Hashable,
+        opener: Callable[[], T],
+        *,
+        close: Optional[Callable[[T], object]] = None,
+    ) -> T:
+        """The client cached under `key`, built by `opener` on first use.
+
+        Built in a command rather than in for_config, so a bad credential
+        surfaces as that command's failure. One key per kind of client: two
+        openers under one key would share the first one's object.
+        """
+        if self._probe_opened is None:
+            self._probe_opened = {}
+        if key in self._probe_opened:
+            return cast(T, self._probe_opened[key])
+        client = opener()
+        self._probe_opened[key] = client
+        if close is not None:
+            self._on_exit(lambda: close(client))
+        return client
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        closers, self._probe_closers = self._probe_closers, None
+        self._probe_opened = None
+        if closers is not None:
+            closers.close()
