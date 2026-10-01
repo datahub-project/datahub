@@ -9,10 +9,10 @@ return configs, and /status returns stack traces.
 """
 
 import logging
+import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Dict, FrozenSet, Iterator, List, Optional
-from urllib.parse import urlsplit
 
 import requests
 from typing_extensions import LiteralString
@@ -47,6 +47,16 @@ PROBE_REQUEST_TIMEOUT_SECONDS = 30
 # change which endpoint a caller-supplied name reaches: "x/config" is a config
 # read, "x?expand=info" returns every config at once.
 _URL_SIGNIFICANT = ("/", "?", "#", "%")
+
+# Any `scheme://<userinfo>@`, judged by shape rather than by the configured
+# value: requests percent-encodes userinfo ("a|b" becomes "a%7Cb"), so the
+# configured string is not what appears in an error.
+_URL_USERINFO = re.compile(r"(?<=://)[^/@\s]+@")
+
+
+def _without_userinfo(text: str) -> str:
+    return _URL_USERINFO.sub("", text)
+
 
 # The package every reused ingestion step logs under.
 _CONNECTOR_LOGGER = "datahub.ingestion.source.kafka_connect"
@@ -240,7 +250,8 @@ class KafkaConnectMetadataProbe:
         # .warning with config values interpolated), and the CLI's masking cannot
         # recognise a credential it was never told about. Silenced for the
         # probe's lifetime only; the result's warnings and failures still carry
-        # every degraded read via probe_report.
+        # every degraded read via probe_report. Process-global while the probe is
+        # open: fine for the CLI, wrong for ingestion running in the same process.
         connector_logger = logging.getLogger(_CONNECTOR_LOGGER)
         self._saved_log_level = connector_logger.level
         connector_logger.setLevel(logging.CRITICAL + 1)
@@ -279,18 +290,33 @@ class KafkaConnectMetadataProbe:
         writes a password embedded in connect_uri into the error text. The CLI
         masks only recipe values a key hint marks secret, and `connect_uri` is
         not one, so that text would reach stderr as-is."""
-        userinfo = urlsplit(self._source.config.connect_uri).netloc.rpartition("@")[0]
         try:
             yield
         except requests.RequestException as exc:
-            if not userinfo or userinfo not in str(exc):
+            scrubbed = _without_userinfo(str(exc))
+            if scrubbed == str(exc):
                 raise
             # from None: the original, unscrubbed message must not ride along as
             # __cause__ into a traceback.
             raise type(exc)(
-                str(exc).replace(f"{userinfo}@", ""),
-                request=exc.request,
-                response=exc.response,
+                scrubbed, request=exc.request, response=exc.response
+            ) from None
+
+    @contextmanager
+    def _ingestion_step(self, connector: str) -> Iterator[None]:
+        """Run a reused ingestion step with its error text withheld.
+
+        Ingestion's parsers quote connector config in their exceptions -- the
+        JDBC source raises "Missing database name in JDBC URL: <url>" with the
+        whole connection.url, query-string password included. That value comes
+        off the cluster, not the recipe, so nothing downstream would mask it.
+        Only the exception type is kept."""
+        try:
+            yield
+        except Exception as exc:
+            raise ProbeReadFailed(
+                f"ingestion's lineage step failed for connector '{connector}' "
+                f"({type(exc).__name__}); ingestion would fail on it too"
             ) from None
 
     def _listed_names(self) -> List[str]:
@@ -346,12 +372,14 @@ class KafkaConnectMetadataProbe:
                     f"connector '{connector}' was listed but no longer exists"
                 )
             response.raise_for_status()
-        manifest = source._parse_connector_manifest(connector, response.json())
+        with self._ingestion_step(connector):
+            manifest = source._parse_connector_manifest(connector, response.json())
         if manifest is None:
             # Ingestion drops it; the parse recorded why on the report.
             return _Resolved(manifest=None, raw_config={}, emitted=False)
         raw_config = dict(manifest.config)
-        emitted = source._enrich_manifest(connector, manifest, url)
+        with self._ingestion_step(connector):
+            emitted = source._enrich_manifest(connector, manifest, url)
         return _Resolved(manifest=manifest, raw_config=raw_config, emitted=emitted)
 
     def _warn_unreproduced(self) -> None:
@@ -392,19 +420,22 @@ class KafkaConnectMetadataProbe:
         if manifest is None:
             return {"name": connector, "emitted": False}
         source = self._source
-        handler = ConnectorRegistry.get_connector_for_manifest(
-            manifest, source.config, source.report, None
-        )
+        with self._ingestion_step(connector):
+            handler = ConnectorRegistry.get_connector_for_manifest(
+                manifest, source.config, source.report, None
+            )
+            platform = handler.get_platform() if handler else None
+            # Only the URN: the aspect's customProperties is the flow property
+            # bag, which is a per-connector denylist and not safe to return.
+            flow_urn = source.construct_flow_workunit(manifest).get_urn()
         return {
             "name": manifest.name,
             "type": manifest.type,
             "connector_class": resolved.raw_config.get(CONNECTOR_CLASS),
             "handled_by": type(handler).__name__ if handler else None,
-            "platform": handler.get_platform() if handler else None,
+            "platform": platform,
             "emitted": resolved.emitted,
-            # Only the URN: the aspect's customProperties is the flow property
-            # bag, which is a per-connector denylist and not safe to return.
-            "flow_urn": source.construct_flow_workunit(manifest).get_urn(),
+            "flow_urn": flow_urn,
             "lineage_edges": len(manifest.lineages),
             "runtime_topics": len(manifest.topic_names),
             "tasks": len(manifest.tasks),
@@ -457,7 +488,14 @@ class KafkaConnectMetadataProbe:
                 "ingestion reads each connector's runtime topics instead -- use "
                 "connector_topics"
             )
-        topics = self._source._get_all_topics_from_kafka_api()
+        try:
+            topics = self._source._get_all_topics_from_kafka_api()
+        except Exception as exc:
+            # Same reason as _ingestion_step: the error text may quote config.
+            raise ProbeReadFailed(
+                f"ingestion's Kafka REST topic listing failed "
+                f"({type(exc).__name__}); ingestion would fail on it too"
+            ) from None
         # None means unavailable, and the reason is already on the report.
         return sorted(topics)[:limit] if topics is not None else []
 
@@ -479,7 +517,9 @@ class KafkaConnectMetadataProbe:
         edges: List[Dict[str, object]] = []
         # construct_job_workunits is what ingestion emits, so the URNs are not
         # re-derived here and cannot drift from it.
-        for wu in self._source.construct_job_workunits(resolved.manifest):
+        with self._ingestion_step(connector):
+            workunits = list(self._source.construct_job_workunits(resolved.manifest))
+        for wu in workunits:
             mcp = wu.metadata
             if not (
                 isinstance(mcp, MetadataChangeProposalWrapper)

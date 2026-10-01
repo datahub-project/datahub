@@ -4,6 +4,7 @@ and a disclosure allowlist whose absences are the point."""
 import base64
 import json
 import logging
+import re
 from typing import Dict, Iterable, List, Tuple
 
 import pytest
@@ -216,6 +217,17 @@ URI_CRED = "mk-3b8e-planted-uri-userinfo"
 
 
 @pytest.mark.parametrize(
+    "password",
+    [
+        URI_CRED,
+        # requests percent-encodes these in Response.url, so matching the
+        # configured value would miss them.
+        f"{URI_CRED}|x",
+        f"{URI_CRED}^x",
+        f"{URI_CRED}{{x}}",
+    ],
+)
+@pytest.mark.parametrize(
     "command,kwargs,failing_path",
     [
         ("connectors", {}, "/connectors"),
@@ -223,19 +235,64 @@ URI_CRED = "mk-3b8e-planted-uri-userinfo"
     ],
 )
 def test_an_http_error_does_not_echo_userinfo_from_connect_uri(
-    command: str, kwargs: Dict[str, object], failing_path: str
+    command: str, kwargs: Dict[str, object], failing_path: str, password: str
 ) -> None:
     # requests keeps userinfo in Response.url, so raise_for_status() puts a
     # connect_uri's embedded password into the error text, and the CLI masks
     # only recipe values a key hint marks secret -- `connect_uri` is not one.
-    authed = f"http://connect-user:{URI_CRED}@connect.example:8083"
+    authed = f"http://connect-user:{password}@connect.example:8083"
     with requests_mock.Mocker() as m:
-        m.get(f"{authed}/connectors", json=["orders-sink"])
-        m.get(f"{authed}{failing_path}", status_code=500, json={})
+        m.get(re.compile(r".*/connectors$"), json=["orders-sink"])
+        m.get(re.compile(f".*{re.escape(failing_path)}$"), status_code=500, json={})
         with pytest.raises(requests.HTTPError) as raised:
             run_probe_method("kafka-connect", {"connect_uri": authed}, command, kwargs)
-    assert URI_CRED not in str(raised.value)
-    assert "connect.example:8083" in str(raised.value)
+    message = str(raised.value)
+    assert URI_CRED not in message
+    assert "connect-user" not in message
+    assert "connect.example:8083" in message
+
+
+NO_DB_CRED = "mk-41c7-planted-no-db-url"
+
+# JDBC URLs with no database name: ingestion's parsers raise a ValueError that
+# quotes the whole URL, query-string password included.
+NO_DB_SOURCE_CONFIG: Dict[str, str] = {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+    "mode": "incrementing",
+    "topic.prefix": "nodb-",
+    "connection.url": f"jdbc:mysql://db.example:3306?user=u&password={NO_DB_CRED}",
+}
+NO_DB_SINK_CONFIG: Dict[str, str] = {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "topics": "orders",
+    "connection.url": f"jdbc:postgresql://db.example:5432?user=u&password={NO_DB_CRED}",
+}
+
+
+@pytest.mark.parametrize("command", ["connector", "connector_lineage"])
+@pytest.mark.parametrize(
+    "connector_type,config",
+    [("source", NO_DB_SOURCE_CONFIG), ("sink", NO_DB_SINK_CONFIG)],
+)
+def test_a_failing_ingestion_step_never_echoes_the_connection_url(
+    command: str,
+    connector_type: str,
+    config: Dict[str, str],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, {"nodb": (connector_type, config)}, {"nodb": ["orders"]})
+        try:
+            result = run_probe_method(
+                "kafka-connect", dict(_RECIPE), command, {"connector": "nodb"}
+            )
+        except Exception as exc:
+            assert NO_DB_CRED not in str(exc)
+            assert "nodb" in str(exc)
+        else:
+            assert NO_DB_CRED not in json.dumps(result.to_dict(), default=str)
+    assert NO_DB_CRED not in caplog.text
 
 
 @pytest.mark.parametrize(

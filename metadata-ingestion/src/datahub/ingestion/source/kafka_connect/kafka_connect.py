@@ -189,8 +189,10 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         construct_flow_workunit and construct_job_workunits.
 
         Built via __new__, as ModeSource.for_probe is, because __init__ does
-        three things a probe must not: a test GET /connectors, a hard failure on
-        Confluent Cloud without a DataHub graph, and an eager JVM start.
+        two things a probe must not: a test GET /connectors, and a hard failure
+        on Confluent Cloud without a DataHub graph. Skipping it does not avoid
+        the JVM: transform_plugins starts it at import time, and the probe
+        imports it through common.py.
 
         Deliberately None: _schema_resolver_provider (the probe has no DataHub
         graph) and _catalog (the probe does not read the Stream Catalog). The
