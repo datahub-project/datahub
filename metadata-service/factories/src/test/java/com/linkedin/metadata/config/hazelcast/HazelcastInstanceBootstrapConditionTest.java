@@ -5,6 +5,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.config.ratelimit.RateLimitConfigLoader;
 import com.linkedin.metadata.config.ratelimit.RateLimitEffectiveConfig;
+import com.linkedin.metadata.config.runtime.RuntimeRole;
 import org.springframework.mock.env.MockEnvironment;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
@@ -129,14 +130,14 @@ public class HazelcastInstanceBootstrapConditionTest {
   @Test
   public void testClientRoleSkipsInstanceEvenWhenGmsAndFeaturesWouldBootIt() {
     MockEnvironment environment = enablingEnvironment();
-    environment.setProperty("datahub.runtime.role", "client");
+    environment.setProperty(RuntimeRole.PROPERTY, "client");
     assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, true));
   }
 
   @Test
   public void testUpgradeRoleSkipsInstanceEvenWhenFeaturesWouldBootIt() {
     MockEnvironment environment = enablingEnvironment();
-    environment.setProperty("datahub.runtime.role", "upgrade");
+    environment.setProperty(RuntimeRole.PROPERTY, "upgrade");
     assertFalse(HazelcastInstanceBootstrapCondition.needsInstance(environment, false));
   }
 

@@ -202,10 +202,10 @@ secretService:
   callerGuardMode: "${SECRET_SERVICE_CALLER_GUARD_MODE:ENFORCE}" # ENFORCE (default), AUDIT, or DISABLED (kill-switch)
 
 datahub:
-  # Process role: service | client | upgrade. Literal default, not an env var.
-  # service hosts Hazelcast. Standalone MCL/MCP set client in their application.properties.
-  # The upgrade image defaults to upgrade and may set DATAHUB_RUNTIME_ROLE=client.
-  # client and upgrade force Hazelcast-backed features off at startup.
+  # Process role: service | client | upgrade.
+  # GMS rejects any other role at startup, so DATAHUB_RUNTIME_ROLE cannot flip it.
+  # Standalone MCL/MCP force client at startup. Only datahub-upgrade reads DATAHUB_RUNTIME_ROLE.
+  # client and upgrade force Hazelcast-backed features off, including rate-limit file/JSON overlays.
   runtime:
     role: service
   serverType: ${DATAHUB_SERVER_TYPE:prod}

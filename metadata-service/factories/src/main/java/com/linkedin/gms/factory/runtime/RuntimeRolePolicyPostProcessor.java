@@ -27,6 +27,7 @@ public class RuntimeRolePolicyPostProcessor implements EnvironmentPostProcessor,
   public void postProcessEnvironment(
       ConfigurableEnvironment environment, SpringApplication application) {
     RuntimeRole role = RuntimeRole.from(environment);
+    rejectUnlessService(role, gmsApplicationPresent());
     if (!role.disablesDistributedCaches()) {
       LOG.info("Resolved datahub.runtime.role={}", role.wireName());
       return;
@@ -49,6 +50,29 @@ public class RuntimeRolePolicyPostProcessor implements EnvironmentPostProcessor,
     MutablePropertySources sources = environment.getPropertySources();
     sources.addFirst(new MapPropertySource(PROPERTY_SOURCE_NAME, forced));
     LOG.info("Resolved datahub.runtime.role={}; distributed caches disabled", role.wireName());
+  }
+
+  /**
+   * GMS hosts access-token revocation in Hazelcast. A non-service role there drops that map with no
+   * other startup failure, so it is rejected. Standalone consumers do not load {@code
+   * GMSApplication}.
+   */
+  static void rejectUnlessService(RuntimeRole role, boolean gmsApplicationPresent) {
+    if (gmsApplicationPresent && role != RuntimeRole.SERVICE) {
+      throw new IllegalStateException(
+          "GMS accepts only datahub.runtime.role=service, but was '"
+              + role.wireName()
+              + "'. Unset DATAHUB_RUNTIME_ROLE.");
+    }
+  }
+
+  private static boolean gmsApplicationPresent() {
+    try {
+      Class.forName("com.linkedin.gms.GMSApplication");
+      return true;
+    } catch (ClassNotFoundException | LinkageError e) {
+      return false;
+    }
   }
 
   @Override

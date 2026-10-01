@@ -31,10 +31,7 @@ public enum RuntimeRole {
           new ForcedProperty("featureFlags.retentionBufferEnabled", "false"),
           new ForcedProperty("datahub.gms.rateLimits.endpoint.enabled", "false"),
           new ForcedProperty("datahub.gms.rateLimits.scoped.enabled", "false"),
-          new ForcedProperty("ebean.entityWriteLockBackend", "none"),
-          // GMS scheduler, not Hazelcast. The shared yaml turns it on via
-          // USAGE_AGGREGATION_ENABLED.
-          new ForcedProperty("datahub.usage.aggregation.enabled", "false"));
+          new ForcedProperty("ebean.entityWriteLockBackend", "none"));
 
   private final String wireName;
 
@@ -56,8 +53,12 @@ public enum RuntimeRole {
   @Nonnull
   public static RuntimeRole from(@Nullable Environment environment) {
     String raw = environment == null ? null : environment.getProperty(PROPERTY);
-    if (raw == null || raw.isBlank()) {
+    if (raw == null) {
       return SERVICE;
+    }
+    if (raw.isBlank()) {
+      throw new IllegalStateException(
+          PROPERTY + " must be service, client, or upgrade, but was blank");
     }
     String normalized = raw.trim().toLowerCase(Locale.ROOT);
     for (RuntimeRole role : values()) {

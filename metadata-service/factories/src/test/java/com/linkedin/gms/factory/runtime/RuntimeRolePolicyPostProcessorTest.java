@@ -102,6 +102,43 @@ public class RuntimeRolePolicyPostProcessorTest {
         "datahub.runtime.role must be service, client, or upgrade, but was 'gms'");
   }
 
+  @Test
+  public void clientLeavesUsageAggregationEnabled() {
+    MockEnvironment environment = enablingEnvironment("client");
+
+    processor.postProcessEnvironment(environment, new SpringApplication());
+
+    assertEquals(environment.getProperty("datahub.usage.aggregation.enabled"), "true");
+  }
+
+  @Test
+  public void blankRoleFailsStartup() {
+    MockEnvironment environment = new MockEnvironment();
+    environment.setProperty(RuntimeRole.PROPERTY, "  ");
+
+    IllegalStateException error =
+        expectThrows(
+            IllegalStateException.class,
+            () -> processor.postProcessEnvironment(environment, new SpringApplication()));
+    assertEquals(
+        error.getMessage(),
+        "datahub.runtime.role must be service, client, or upgrade, but was blank");
+  }
+
+  @Test
+  public void gmsRejectsNonServiceRole() {
+    IllegalStateException error =
+        expectThrows(
+            IllegalStateException.class,
+            () -> RuntimeRolePolicyPostProcessor.rejectUnlessService(RuntimeRole.CLIENT, true));
+    assertTrue(error.getMessage().contains("GMS accepts only datahub.runtime.role=service"));
+  }
+
+  @Test
+  public void nonGmsAllowsClientRole() {
+    RuntimeRolePolicyPostProcessor.rejectUnlessService(RuntimeRole.CLIENT, false);
+  }
+
   private static MockEnvironment enablingEnvironment(String role) {
     MockEnvironment environment = new MockEnvironment();
     enablingValues(role).forEach(environment::setProperty);
