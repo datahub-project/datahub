@@ -1,14 +1,15 @@
 import logging
 import re
-from typing import FrozenSet, List, Optional, Protocol
+from typing import Annotated, FrozenSet, List, Optional, Protocol
 
 from google.api_core.exceptions import GoogleAPICallError
 from google.auth.exceptions import GoogleAuthError
 from google.cloud.resourcemanager_v3 import ProjectsClient
 from pydantic import BaseModel, Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +109,13 @@ class GcpProjectFilterConfig(ConfigModel):
             "Filter projects by labels in `key:value` format. Applied before project_id_pattern."
         ),
     )
-    project_id_pattern: AllowDenyPattern = Field(
+    # Declared here rather than per connector: every consumer filters GCP
+    # projects on this field (is_project_allowed), and "Project" is the
+    # container subtype they emit. A connector redeclaring the field would drop
+    # the annotation, since pydantic v2 replaces inherited field metadata.
+    project_id_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.BIGQUERY_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex allow/deny pattern for GCP project ids.",
     )
