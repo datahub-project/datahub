@@ -23,6 +23,7 @@ from looker_sdk.sdk.api40.models import (
     DashboardBase,
     DashboardElement,
     FolderBase,
+    Look,
     Query,
 )
 
@@ -124,6 +125,23 @@ def _element_record(element: DashboardElement) -> Dict[str, object]:
         "look_id": element.look_id,
         "model": query.model if query is not None else None,
         "explore": query.view if query is not None else None,
+    }
+
+# extract_independent_looks requests user_id too; it is not needed here.
+_LOOK_LIST_FIELDS = ["id", "title", "query_id", "folder"]
+
+
+def _look_record(look: Look, deleted: bool) -> Dict[str, object]:
+    folder = look.folder
+    return {
+        "name": look.id,
+        "title": look.title,
+        ATTR_DELETED: deleted,
+        ATTR_HAS_QUERY: look.query_id is not None,
+        ATTR_FOLDER_PERSONAL: bool(
+            folder is not None
+            and (folder.is_personal or folder.is_personal_descendant)
+        ),
     }
 
 
@@ -441,3 +459,54 @@ class LookerMetadataProbe:
                 f"{label} is in {where}, which folder_path_pattern denies, so "
                 f"ingestion reads none of its charts"
             )
+
+    @probe_method(kind=LOOK_KIND, row_limit_param="limit")
+    def looks(self, limit: int = 200) -> List[Dict[str, object]]:
+        """Saved looks, by look id, as extract_independent_looks reads them:
+        live ones, and deleted ones (`deleted: true`), which it reads only with
+        include_deleted. Ingestion emits a look as a standalone chart only when
+        extract_independent_looks is true, it has a query (`has_query`), and,
+        under skip_personal_folders, it is not in a personal folder
+        (`folder_personal`). chart_pattern does not apply to these. A look that
+        is also on a dashboard ingestion reads is emitted as that dashboard's
+        chart instead, which this listing cannot tell. Judge with `probe filter
+        --kind Look --from-run <report>` and no --parent. Metadata only: no
+        owners and no folder names."""
+        if not self._config.extract_independent_looks:
+            self._warn(
+                "extract_independent_looks is false, so ingestion emits none of "
+                "these as standalone charts; looks on dashboards are listed by "
+                "`charts`"
+            )
+        api = self._api()
+        rows: List[Dict[str, object]] = []
+        seen: Set[str] = set()
+        live = self._fetch(
+            "look listing",
+            lambda: api.all_looks(fields=_LOOK_LIST_FIELDS, soft_deleted=False),
+        )
+        self._extend_looks(rows, seen, live, deleted=False, limit=limit)
+        if len(rows) < limit:
+            deleted = self._fetch(
+                "deleted look listing",
+                lambda: api.search_looks(fields=_LOOK_LIST_FIELDS, deleted=True),
+            )
+            self._extend_looks(rows, seen, deleted, deleted=True, limit=limit)
+        return rows
+
+    @staticmethod
+    def _extend_looks(
+        rows: List[Dict[str, object]],
+        seen: Set[str],
+        looks: Sequence[Look],
+        deleted: bool,
+        limit: int,
+    ) -> None:
+        for look in looks:
+            if len(rows) >= limit:
+                return
+            # extract_independent_looks skips a look without an id.
+            if look.id is None or look.id in seen:
+                continue
+            seen.add(look.id)
+            rows.append(_look_record(look, deleted=deleted))
