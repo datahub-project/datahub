@@ -18,12 +18,19 @@ from datahub.ingestion.source.fabric.common.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
 from datahub.ingestion.source.fabric.onelake.models import (
+    FabricColumn,
+    FabricItem,
     FabricLakehouse,
     FabricTable,
+    FabricView,
     FabricWarehouse,
 )
 from datahub.ingestion.source.fabric.onelake.onelake_probe import (
     FabricOneLakeMetadataProbe,
+    FabricReadError,
+)
+from datahub.ingestion.source.fabric.onelake.schema_client import (
+    SchemaExtractionClient,
 )
 from datahub.ingestion.source.fabric.onelake.source import (
     FabricOneLakeSource,
@@ -159,7 +166,8 @@ WH_ID = "00000000-0000-0000-0000-00000000000c"
 
 
 class _FakeClient:
-    """Answers only what the probe calls; records calls so resolution cost is visible."""
+    """Answers only what the probe calls, and records the calls so resolution
+    cost is visible."""
 
     def __init__(self) -> None:
         self.calls: List[str] = []
@@ -340,3 +348,148 @@ def test_a_tables_command_resolves_the_workspace_once() -> None:
         workspace="sales-ws", item="lh_main", schema="dbo", item_type="Lakehouse"
     )
     assert client.calls.count("workspaces") == 1
+
+
+class _FakeSchemaClient:
+    def __init__(self) -> None:
+        self.closed = False
+        self.views_error: Optional[Exception] = None
+
+    def get_all_views(self, workspace_id: str, item_id: str) -> List[FabricView]:
+        if self.views_error is not None:
+            raise self.views_error
+        return [
+            FabricView(
+                name="v_orders",
+                schema_name="reporting",
+                item_id=item_id,
+                workspace_id=workspace_id,
+                view_definition="CREATE VIEW reporting.v_orders AS SELECT 1 AS a",
+            ),
+            FabricView(
+                name="v_hidden",
+                schema_name="reporting",
+                item_id=item_id,
+                workspace_id=workspace_id,
+                view_definition=None,
+            ),
+        ]
+
+    def get_all_table_columns(
+        self, workspace_id: str, item_id: str
+    ) -> Dict[Tuple[str, str], List[FabricColumn]]:
+        return {
+            ("dbo", "orders"): [
+                FabricColumn(
+                    name="id", data_type="INT", is_nullable=False, ordinal_position=1
+                )
+            ]
+        }
+
+    def close(self) -> None:
+        self.closed = True
+
+
+def _sql_probe(
+    **config: object,
+) -> Tuple[FabricOneLakeMetadataProbe, _FakeSchemaClient]:
+    schema_client = _FakeSchemaClient()
+    opened: List[str] = []
+
+    def _factory(ws: FabricWorkspace, item: FabricItem) -> SchemaExtractionClient:
+        opened.append(item.id)
+        # Structural fake: implements only what the probe calls.
+        return cast(SchemaExtractionClient, schema_client)
+
+    probe = FabricOneLakeMetadataProbe(
+        cast(OneLakeClient, _FakeClient()),
+        FabricOneLakeSourceConfig.model_validate(config),
+        schema_client_factory=_factory,
+    )
+    return probe, schema_client
+
+
+def test_views_columns_and_definition_come_from_the_sql_endpoint() -> None:
+    probe, schema_client = _sql_probe()
+    with probe:
+        assert probe.views(
+            workspace="sales-ws", item="lh_main", schema="reporting"
+        ) == ["v_orders", "v_hidden"]
+        assert probe.columns(
+            workspace="sales-ws", item="lh_main", schema="dbo", table="orders"
+        ) == [{"name": "id", "type": "INT", "nullable": False}]
+        definition = probe.view_definition(
+            workspace="sales-ws", item="lh_main", schema="reporting", view="v_orders"
+        )
+        assert definition is not None and definition.startswith("CREATE VIEW")
+        assert "reporting" in probe.schemas(workspace="sales-ws", item="lh_main")
+    assert schema_client.closed
+    assert probe.failures == []
+
+
+def test_an_unknown_table_is_the_callers_error() -> None:
+    probe, _ = _sql_probe()
+    with pytest.raises(ValueError, match="dbo.nope"):
+        probe.columns(workspace="sales-ws", item="lh_main", schema="dbo", table="nope")
+
+
+def test_an_unreadable_view_definition_is_null_with_a_warning() -> None:
+    probe, _ = _sql_probe()
+    assert (
+        probe.view_definition(
+            workspace="sales-ws", item="lh_main", schema="reporting", view="v_hidden"
+        )
+        is None
+    )
+    assert any("VIEW DEFINITION" in w for w in probe.warnings)
+
+
+def test_an_unresolvable_endpoint_is_a_read_failure_not_a_bad_argument() -> None:
+    def _no_endpoint(ws: FabricWorkspace, item: FabricItem) -> SchemaExtractionClient:
+        raise ValueError("SQL Analytics Endpoint URL is required for Lakehouse x")
+
+    probe = FabricOneLakeMetadataProbe(
+        cast(OneLakeClient, _FakeClient()),
+        FabricOneLakeSourceConfig.model_validate({}),
+        schema_client_factory=_no_endpoint,
+    )
+    with pytest.raises(FabricReadError):
+        probe.views(workspace="sales-ws", item="lh_main", schema="dbo")
+    # Recorded, so run_probe_method raises ProbeReadFailed (exit 3), not exit 2.
+    assert len(probe.failures) == 1 and "lh_main" in probe.failures[0]
+    assert "not provisioned" in probe.failures[0]
+
+
+def test_a_failed_catalog_query_is_recorded_without_the_driver_text() -> None:
+    probe, schema_client = _sql_probe()
+    schema_client.views_error = RuntimeError("driver said: Server=host;secret-ish")
+    with pytest.raises(FabricReadError) as excinfo:
+        probe.views(workspace="sales-ws", item="lh_main", schema="reporting")
+    assert probe.failures and "secret-ish" not in probe.failures[0]
+    assert "secret-ish" not in str(excinfo.value)
+
+
+def test_schemas_degrade_to_tables_only_when_views_cannot_be_read() -> None:
+    probe, schema_client = _sql_probe()
+    schema_client.views_error = RuntimeError("driver said: secret-ish")
+    assert probe.schemas(workspace="sales-ws", item="lh_main") == [
+        "dbo",
+        "finance",
+        "staging",
+    ]
+    # Partial, not failed: the tables answered.
+    assert probe.failures == []
+    assert len(probe.warnings) == 1 and "secret-ish" not in probe.warnings[0]
+
+
+def test_a_recipe_without_an_enabled_sql_endpoint_is_told_why() -> None:
+    probe, _ = _sql_probe(
+        sql_endpoint={"enabled": False},
+        extract_views=False,
+        extract_schema={"enabled": False},
+        usage={"include_usage_statistics": False},
+    )
+    with pytest.raises(ValueError, match="sql_endpoint"):
+        probe.columns(
+            workspace="sales-ws", item="lh_main", schema="dbo", table="orders"
+        )
