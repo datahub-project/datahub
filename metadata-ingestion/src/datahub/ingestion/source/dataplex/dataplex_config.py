@@ -10,7 +10,12 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, ancestors_in
+from datahub.ingestion.agent.verdicts import (
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+    pattern_verdict,
+)
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProjectFilterConfig,
@@ -87,6 +92,20 @@ DEFAULT_LINEAGE_LOCATIONS = [
     "australia-southeast2",
     "africa-south1",
 ]
+
+
+def _looks_like_spanner(ctx: VerdictContext) -> bool:
+    """Whether a judged entry is one ingestion reads via search_entries.
+
+    Judged on what the caller has: the FQN (spanner:...), the entry type a
+    `probe run entries` record carries, or the @spanner system entry group.
+    """
+    entry_type = ctx.attributes.get("entry_type", "")
+    return (
+        ctx.name.startswith("spanner:")
+        or "spanner" in entry_type
+        or any("/entryGroups/@spanner" in p for p in (ctx.name, *ctx.parent_path))
+    )
 
 
 class EntriesFilterConfig(ConfigModel):
@@ -556,7 +575,8 @@ class DataplexConfig(
         dropping a group before listing its entries (process_entries), so an
         entry is judged under both. The export modes read entries from GCS and
         never apply the entry-group pattern (process_exported_entries), so there
-        the group above an entry decides nothing and is not judged. An aspect
+        the group above an entry decides nothing and is not judged (the
+        project above it is judged by probe_verdict_override instead). An aspect
         type is matched wherever an aspect appears, including aspects whose
         type lives in a Google-owned project, so nothing contains it.
         """
@@ -570,23 +590,18 @@ class DataplexConfig(
         )
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-        """Two verdicts a single pattern cannot state.
+        """Verdicts a single pattern cannot state.
 
         Explicit project_ids replace project_id_pattern outright
         (resolve_gcp_projects), so a listed project is read and any other is
-        not, whatever the pattern says. The export modes read entries from GCS
-        and never apply the entry-group pattern (process_exported_entries), so
-        that verdict carries a caveat.
+        not, whatever the pattern says. In the export modes the entry group
+        above an entry decides nothing (process_exported_entries), but `export`
+        is still scoped to the resolved projects (run_exports), so there the
+        project above an entry is judged here, where the ancestor chain cannot
+        reach it past the group.
         """
-        if ctx.kind == DATAPLEX_PROJECT_KIND and self.project_ids:
-            if self.project_id_pattern != AllowDenyPattern.allow_all():
-                ctx.warn(
-                    "project_ids is set, so ingestion reads exactly those "
-                    "projects and project_id_pattern is not consulted"
-                )
-            if ctx.name in self.project_ids:
-                return Verdict(True)
-            return Verdict(False, "project_ids")
+        if ctx.kind == DATAPLEX_PROJECT_KIND:
+            return self._probe_project_verdict(ctx.name, ctx)
         if ctx.kind == DATAPLEX_ENTRY_GROUP_KIND and self.extraction_method != "api":
             ctx.warn(
                 f"extraction_method is '{self.extraction_method}', which reads "
@@ -594,7 +609,60 @@ class DataplexConfig(
                 f"filter_config.entry_groups.pattern; filter entries with "
                 f"filter_config.entries instead"
             )
+        if ctx.kind in (DATAPLEX_ENTRY_KIND, DATAPLEX_ENTRY_FQN_KIND):
+            return self._probe_entry_verdict(ctx)
         return None
+
+    def _probe_project_verdict(
+        self, project: str, ctx: VerdictContext
+    ) -> Optional[Verdict]:
+        if self.project_ids:
+            if self.project_id_pattern != AllowDenyPattern.allow_all():
+                ctx.warn(
+                    "project_ids is set, so ingestion reads exactly those "
+                    "projects and project_id_pattern is not consulted"
+                )
+            if project in self.project_ids:
+                return Verdict(True)
+            return Verdict(False, "project_ids")
+        if self.project_labels and not ctx.attributes:
+            # Labels narrow the Resource Manager search before the pattern
+            # runs, and a bare name carries no labels to check.
+            ctx.warn(
+                "project_labels is set, and a project named on its own carries "
+                "no labels, so it was judged by project_id_pattern alone; list "
+                "projects with `probe run projects` (which applies the labels) "
+                "and judge that output with --from-run"
+            )
+        return None
+
+    def _probe_entry_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if self.extraction_method == "api" and _looks_like_spanner(ctx):
+            ctx.warn(
+                "Spanner entries are read through search_entries, which does "
+                "not apply filter_config.entry_groups.pattern; only the entry "
+                "and project filters decide them"
+            )
+        if self.extraction_method == "read_export":
+            ctx.warn(
+                "extraction_method is 'read_export', so the export you point "
+                "at decides which projects are present; project_ids, "
+                "project_labels and project_id_pattern are not applied to entries"
+            )
+            return None
+        if self.extraction_method != "export" or not ctx.parent_path:
+            return None
+        project = ctx.parent_path[0]
+        verdict = self._probe_project_verdict(project, ctx) or pattern_verdict(
+            self, "project_id_pattern", project
+        )
+        if verdict.included:
+            return None
+        ctx.warn(
+            f"the containing {DATAPLEX_PROJECT_KIND} '{project}' is excluded by "
+            f"{verdict.excluded_by}, so the metadata export never includes it"
+        )
+        return verdict
 
     def get_credentials(self) -> Optional[Dict[str, str]]:
         """Get credentials dictionary for authentication."""

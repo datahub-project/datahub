@@ -48,7 +48,7 @@ source:
       entries:
         pattern:
           allow:
-            - "production_.*" # Only production datasets
+            - ".*/entries/production_.*" # Only production datasets
           deny:
             - ".*_test" # Exclude test datasets
             - ".*_temp" # Exclude temporary datasets
@@ -260,7 +260,7 @@ datahub recipe probe filter --recipe recipe.yml --kind Entry \
   --name projects/my-project/locations/us/entryGroups/my-group/entries/my-entry
 ```
 
-The `filter_config` patterns match full resource names exactly as the API returns them, and a pattern must match from the start of the name. Copy names from the `entry_groups` and `entries` output instead of writing them by hand, because the project segment may be a project number. An entry is ingested only when both its name (`--kind Entry`) and its fully-qualified name (`--kind EntryFqn`) are included. The `export` and `read_export` extraction methods do not apply `filter_config.entry_groups.pattern`.
+The `filter_config` patterns match full resource names exactly as the API returns them, and a pattern must match from the start of the name. Copy names from the `entry_groups` and `entries` output instead of writing them by hand, because the project segment may be a project number. An entry is ingested only when both its name (`--kind Entry`) and its fully-qualified name (`--kind EntryFqn`) are included. The `export` and `read_export` extraction methods do not apply `filter_config.entry_groups.pattern`. In the default `api` method, Spanner entries are read through a catalog search that also bypasses `filter_config.entry_groups.pattern`, so only the entry and project filters decide them.
 
 ### Limitations
 
