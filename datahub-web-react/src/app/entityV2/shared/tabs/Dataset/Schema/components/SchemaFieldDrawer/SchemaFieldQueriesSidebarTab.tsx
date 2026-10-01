@@ -1,4 +1,3 @@
-import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useEffect } from 'react';
 import { Trans, useTranslation } from 'react-i18next';

@@ -1,4 +1,3 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Divider, Typography } from 'antd';
@@ -22,6 +21,7 @@ import { sortNativeResults } from '@app/entityV2/shared/tabs/Dataset/Validations
 import { safeUrl } from '@app/shared/urlUtils';
 
 import { Assertion, AssertionResult, AssertionResultErrorType, AssertionResultType, AssertionRunEvent } from '@types';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 
 const EXPAND_SYMBOL = 'more';
 const UNKNOWN_PLATFORM_NAME = 'unknown';
@@ -92,7 +92,7 @@ const ExpectedText = styled.div``;
 
 const PlatformRow = styled.div``;
 
-const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
+const StyledClockCircleOutlined = styled(Clock)`
     margin-right: 4px;
     font-size: 12px;
 `;

@@ -1,4 +1,3 @@
-import { MoreOutlined } from '@ant-design/icons';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
@@ -14,6 +13,7 @@ import UpdateDeprecationMenuAction from '@app/entityV2/shared/EntityDropdown/Upd
 import ShareMenuAction from '@app/shared/share/v2/ShareMenuAction';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@src/app/useAppConfig';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 
 export enum EntityMenuItems {
     SHARE,
@@ -32,7 +32,7 @@ export enum EntityMenuItems {
     CHANGE_HISTORY,
 }
 
-export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+export const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;

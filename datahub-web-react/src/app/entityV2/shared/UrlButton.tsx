@@ -1,7 +1,7 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components/macro';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 
 const UrlButtonContainer = styled.span`
     font-size: 12px;
@@ -30,7 +30,7 @@ export default function UrlButton({ href, children, onClick = NOOP }: Props) {
     return (
         <UrlButtonContainer>
             <StyledButton type="link" href={href} target="_blank" rel="noreferrer noopener" onClick={onClick}>
-                {children} <ArrowRightOutlined style={{ fontSize: 12 }} />
+                {children} <ArrowRight style={{ fontSize: 12 }}  />
             </StyledButton>
         </UrlButtonContainer>
     );

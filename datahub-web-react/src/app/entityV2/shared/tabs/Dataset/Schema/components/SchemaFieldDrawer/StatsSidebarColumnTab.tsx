@@ -1,4 +1,3 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';

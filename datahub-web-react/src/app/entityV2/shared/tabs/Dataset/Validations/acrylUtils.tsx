@@ -1,4 +1,3 @@
-import { ApiOutlined } from '@ant-design/icons';
 import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
@@ -10,8 +9,9 @@ import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Datase
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
 
 import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 
-const StyledApiOutlined = styled(ApiOutlined)`
+const StyledApiOutlined = styled(Plugs)`
     && {
         margin: 0px;
         padding: 0px;
