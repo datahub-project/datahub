@@ -5,6 +5,7 @@ from botocore.exceptions import (
     EndpointConnectionError,
     NoCredentialsError,
     NoRegionError,
+    ParamValidationError,
     ProxyConnectionError,
 )
 
@@ -105,3 +106,34 @@ def test_transport_errors_are_named_by_class_only(
     assert type(transport_error).__name__ in str(error)
     assert "hunter2" not in str(error)
     assert "proxy.example" not in str(error)
+
+
+def test_a_denied_role_assumption_points_at_sts_not_lake_formation() -> None:
+    error = _raised(_client_error("AccessDenied", operation="AssumeRole"))
+
+    text = str(error)
+    assert isinstance(error, ProbeConnectionError)
+    assert "sts:AssumeRole" in text and "aws_role" in text
+    assert "Lake Formation" not in text
+    assert "someone@example.com" not in text
+    assert "arn:aws" not in text
+
+
+def test_a_denied_role_assumption_is_never_soft() -> None:
+    error = _raised(
+        _client_error("AccessDenied", operation="AssumeRole"), soft_on_denied=True
+    )
+
+    assert isinstance(error, ProbeConnectionError)
+
+
+def test_invalid_request_parameters_are_a_caller_error() -> None:
+    error = _raised(
+        ParamValidationError(
+            report="Invalid length for parameter DatabaseName, value: 0-secret-ish"
+        )
+    )
+
+    assert type(error) is ValueError
+    assert "ParamValidationError" in str(error)
+    assert "0-secret-ish" not in str(error)

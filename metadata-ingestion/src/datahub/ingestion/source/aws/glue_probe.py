@@ -21,17 +21,23 @@ from typing import (
     Union,
 )
 
+import yaml
 from botocore.exceptions import (
     BotoCoreError,
     ClientError,
     NoCredentialsError,
     NoRegionError,
+    ParamValidationError,
     PartialCredentialsError,
 )
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeSoftError
+from datahub.ingestion.agent.verdicts import (
+    ProbeConnectionError,
+    ProbeInternalError,
+    ProbeSoftError,
+)
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws.glue import (
     GlueSource,
@@ -49,6 +55,12 @@ if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
 
 _T = TypeVar("_T")
+
+# What get_all_databases_and_tables does when one database's GetTables fails.
+_DENIED_TABLES_SUFFIX = (
+    "Ingestion skips this database's tables with a warning ('Failed to get "
+    "tables from database') and still emits the database itself"
+)
 
 # A refusal of one call by IAM or Lake Formation. Glue says
 # AccessDeniedException; STS (aws_role) says AccessDenied.
@@ -91,6 +103,14 @@ def _translated(
         return ValueError(
             "no AWS region was resolved for Glue; set aws_region in the recipe"
         )
+    if isinstance(exc, ParamValidationError):
+        # Refused by botocore before anything was sent, so the input is at
+        # fault, not the source. Its text quotes the offending value.
+        return ValueError(
+            f"{action} was refused before it was sent: a request parameter is "
+            f"invalid ({type(exc).__name__}); check the names passed to the "
+            f"command and the recipe's catalog_id"
+        )
     if isinstance(exc, (NoCredentialsError, PartialCredentialsError)):
         return ProbeConnectionError(
             f"no usable AWS credentials were found for {action} "
@@ -101,6 +121,16 @@ def _translated(
     if isinstance(exc, ClientError):
         code = aws_error_code(exc) or "unknown error"
         suffix = _request_id_suffix(exc)
+        if code in _ACCESS_DENIED_CODES and exc.operation_name == "AssumeRole":
+            # aws_role is assumed while the client is built, before any Glue
+            # call; Lake Formation has nothing to do with it, and nothing
+            # downstream can degrade around it.
+            return ProbeConnectionError(
+                f"sts:AssumeRole on the recipe's aws_role was denied while "
+                f"{action} ({code}){suffix}; the recipe's AWS principal needs "
+                f"sts:AssumeRole on aws_role, and the role's trust policy must "
+                f"allow that principal"
+            )
         if code in _ACCESS_DENIED_CODES:
             message = (
                 f"{action} was denied ({code}){suffix}; the recipe's AWS "
@@ -239,6 +269,25 @@ def _node_record(node: Mapping[str, Any], job_name: str) -> Dict[str, object]:
         "output_datasets": list(node["outputDatasets"]),
         "input_datajobs": list(node["inputDatajobs"]),
     }
+
+
+# The start of process_dataflow_node's error for a node it does not recognise
+# when ignore_unsupported_connectors is false; the rest is the node's args.
+_UNRECOGNIZED_NODE_PREFIX = "Unrecognized Glue data object type"
+
+
+def _unparseable_node(dag: Mapping[str, Any]) -> str:
+    """`<NodeType>-<Id>` of the first node whose args process_dataflow_node
+    cannot YAML-load, without keeping or echoing the value itself."""
+    for node in dag.get("DagNodes") or []:
+        if node.get("NodeType") not in ("DataSource", "DataSink"):
+            continue
+        for arg in node.get("Args") or []:
+            try:
+                yaml.safe_load(arg.get("Value", ""))
+            except yaml.YAMLError:
+                return f"{node.get('NodeType')}-{node.get('Id')}"
+    return "node unknown"
 
 
 class GlueMetadataProbe:
@@ -410,11 +459,7 @@ class GlueMetadataProbe:
         try:
             tables = self._list_tables(database, limit, action)
         except ProbeSoftError as exc:
-            self._warn(
-                f"{exc}. Ingestion skips this database's tables with a warning "
-                f"('Failed to get tables from database') and still emits the "
-                f"database itself"
-            )
+            self._warn(f"{exc}. {_DENIED_TABLES_SUFFIX}")
             return []
         return [_table_record(table, record) for table in tables]
 
@@ -433,7 +478,7 @@ class GlueMetadataProbe:
         try:
             listed = self._list_tables(database, None, action)
         except ProbeSoftError as exc:
-            self._warn(str(exc))
+            self._warn(f"{exc}. {_DENIED_TABLES_SUFFIX}")
             return []
         found = next((t for t in listed if t.get("Name") == table), None)
         if found is None:
@@ -535,20 +580,46 @@ class GlueMetadataProbe:
             )
         if dag is None:
             return None
-        try:
-            with aws_call(f"glue:GetConnection for job '{job}'"):
-                return source.process_dataflow_graph(dag, flow_urn)
-        except ValueError:
-            # from None, deliberately: the original message embeds the node's
-            # args, which hold connection options and can hold passwords. A
-            # ProbeConnectionError from aws_call is not a ValueError and
-            # passes through.
-            raise ValueError(
+        # aws_call outside the try, so only boto errors reach it and the
+        # messages written below are not re-translated.
+        with aws_call(f"glue:GetConnection for job '{job}'"):
+            try:
+                nodes = source.process_dataflow_graph(dag, flow_urn)
+            except (ClientError, BotoCoreError):
+                raise
+            # Every rewrite below is `from None`: the originals embed node
+            # args, which hold connection options and can hold passwords --
+            # ingestion's ValueError formats them in, and PyYAML's error quotes
+            # a window of the value it could not parse.
+            except yaml.YAMLError:
+                raise ValueError(
+                    f"job '{job}' has a DAG node whose arguments are not valid "
+                    f"YAML ({_unparseable_node(dag)}), so ingestion fails on "
+                    f"this job; the job script was likely edited by hand"
+                ) from None
+            except ValueError as exc:
+                raise ValueError(self._dag_value_error(job, exc)) from None
+            except Exception as exc:
+                raise ProbeInternalError(
+                    f"resolving the DAG of job '{job}' failed inside the "
+                    f"connector ({type(exc).__name__}); this is a defect, not a "
+                    f"problem with the arguments"
+                ) from None
+        return nodes
+
+    def _dag_value_error(self, job: str, exc: ValueError) -> str:
+        unrecognized = str(exc).startswith(_UNRECOGNIZED_NODE_PREFIX)
+        if unrecognized and not self._config.ignore_unsupported_connectors:
+            return (
                 f"job '{job}' has a data source or sink ingestion does not "
                 f"recognise, and ignore_unsupported_connectors is false, so "
                 f"ingestion fails on this job; set it to true to skip such "
                 f"nodes with a warning"
-            ) from None
+            )
+        return (
+            f"job '{job}' has a DAG node ingestion cannot resolve "
+            f"({type(exc).__name__}), so ingestion fails on this job"
+        )
 
     @probe_method()
     def job_nodes(self, job: str) -> List[Dict[str, object]]:

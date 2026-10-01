@@ -1,15 +1,17 @@
 import datetime
 import json
+import logging
 from typing import TYPE_CHECKING, Dict, Iterator, List, Optional
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from botocore.stub import Stubber
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeInternalError
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
 from datahub.ingestion.source.aws.glue_probe import GlueMetadataProbe
 from tests.unit.glue.test_glue_source_stubs import (
@@ -26,9 +28,9 @@ if TYPE_CHECKING:
 _REGION = "us-east-1"
 _RECIPE: Dict[str, object] = {"aws_region": _REGION}
 _OTHER_ACCOUNT = "222222222222"
+_PRINCIPAL_ARN = "arn:aws:sts::123456789012:assumed-role/ingest-role/someone@example.com"
 _PRINCIPAL_MESSAGE = (
-    "User: arn:aws:sts::123456789012:assumed-role/ingest-role/someone@example.com "
-    "is not authorized to perform: glue:GetDatabases"
+    f"User: {_PRINCIPAL_ARN} is not authorized to perform: glue:GetDatabases"
 )
 
 
@@ -639,3 +641,126 @@ def test_job_node_args_never_reach_the_error_text(
         assert _NODE_SECRET not in str(info.value)
         assert info.value.__cause__ is None
         assert "ignore_unsupported_connectors" in str(info.value)
+
+
+def _stub_job_with_dag(glue: Stubber, s3: Stubber, dag: Dict[str, object]) -> None:
+    glue.add_response("get_jobs", _JOB_ONE, {})
+    s3.add_response("get_object", get_object_response_1(), _SCRIPT)
+    glue.add_response("get_dataflow_graph", dag, {"PythonScript": get_object_body_1})
+
+
+def test_an_unparseable_node_arg_is_never_quoted(
+    glue: Stubber, s3: Stubber, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Not valid YAML (a bare subscript), the shape a hand-edited script leaves
+    # behind; PyYAML's error quotes a window of the input it choked on.
+    malformed = (
+        '{"url": "jdbc:postgresql://db.example:5432/db", "password": "'
+        + _NODE_SECRET
+        + '", "dbtable": args["T"]}'
+    )
+    dag: Dict[str, object] = {
+        "DagNodes": [
+            {
+                "Id": "source0",
+                "NodeType": "DataSource",
+                "Args": [{"Name": "connection_options", "Value": malformed}],
+                "LineNumber": 1,
+            }
+        ],
+        "DagEdges": [],
+    }
+    _stub_job_with_dag(glue, s3, dag)
+    caplog.set_level(logging.DEBUG)
+
+    with pytest.raises(ValueError) as info:
+        run_probe_method("glue", _RECIPE, "job_nodes", {"job": _JOB_ONE_NAME})
+
+    assert "DataSource-source0" in str(info.value)
+    assert _NODE_SECRET not in str(info.value)
+    assert _NODE_SECRET not in caplog.text
+    assert info.value.__cause__ is None
+    assert info.value.__suppress_context__
+
+
+def test_another_value_error_is_not_blamed_on_unsupported_connectors(
+    glue: Stubber, s3: Stubber, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _raise(self: GlueSource, dag: object, flow_urn: str) -> None:
+        raise ValueError(f"bad path {_NODE_SECRET}")
+
+    monkeypatch.setattr(GlueSource, "process_dataflow_graph", _raise)
+    _stub_one_job(glue, s3)
+    recipe = {**_RECIPE, "ignore_unsupported_connectors": False}
+
+    with pytest.raises(ValueError) as info:
+        run_probe_method("glue", recipe, "job_nodes", {"job": _JOB_ONE_NAME})
+
+    assert "ignore_unsupported_connectors" not in str(info.value)
+    assert _NODE_SECRET not in str(info.value)
+
+
+def test_a_defect_in_dag_processing_names_only_the_exception_class(
+    glue: Stubber, s3: Stubber, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _raise(self: GlueSource, dag: object, flow_urn: str) -> None:
+        raise KeyError(_NODE_SECRET)
+
+    monkeypatch.setattr(GlueSource, "process_dataflow_graph", _raise)
+    _stub_one_job(glue, s3)
+
+    with pytest.raises(ProbeInternalError) as info:
+        run_probe_method("glue", _RECIPE, "job_nodes", {"job": _JOB_ONE_NAME})
+
+    assert "KeyError" in str(info.value)
+    assert _NODE_SECRET not in str(info.value)
+
+
+def test_a_denied_role_assumption_names_sts_not_the_principal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _deny(self: GlueSourceConfig) -> "GlueClient":
+        raise ClientError(
+            {
+                "Error": {
+                    "Code": "AccessDenied",
+                    "Message": f"User: {_PRINCIPAL_ARN} is not authorized to perform: "
+                    f"sts:AssumeRole",
+                },
+                "ResponseMetadata": {"RequestId": "req-sts"},
+            },
+            "AssumeRole",
+        )
+
+    monkeypatch.setattr(GlueSourceConfig, "get_glue_client", _deny)
+
+    with pytest.raises(ProbeConnectionError) as info:
+        run_probe_method(
+            "glue",
+            {**_RECIPE, "aws_role": "arn:aws:iam::123456789012:role/ingest-role"},
+            "databases",
+            {},
+        )
+
+    text = str(info.value)
+    assert "sts:AssumeRole" in text and "aws_role" in text
+    assert "Lake Formation" not in text
+    assert "someone@example.com" not in text
+    assert "arn:aws" not in text
+
+
+def test_a_denied_column_listing_explains_what_ingestion_does(glue: Stubber) -> None:
+    glue.add_client_error(
+        "get_tables",
+        service_error_code="AccessDeniedException",
+        service_message=_PRINCIPAL_MESSAGE,
+        http_status_code=400,
+        expected_params={"DatabaseName": "sales"},
+    )
+
+    result = run_probe_method(
+        "glue", _RECIPE, "columns", {"database": "sales", "table": "orders"}
+    )
+
+    assert result.result == []
+    assert any("skips this database's tables" in w for w in result.warnings)
