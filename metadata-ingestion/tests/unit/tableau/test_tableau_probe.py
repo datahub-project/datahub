@@ -3,10 +3,11 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from unittest import mock
 
 import pytest
-from tableauserverclient import ProjectItem, SiteItem, UserItem
+from tableauserverclient import ProjectItem, SiteItem, UserItem, WorkbookItem
 from tableauserverclient.server.endpoint.exceptions import ServerResponseError
 
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
+from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.source.tableau.tableau import TableauConfig
 from datahub.ingestion.source.tableau.tableau_probe import TableauMetadataProbe
 
@@ -116,3 +117,65 @@ def test_leaving_the_probe_signs_out() -> None:
     with _probe(server):
         pass
     server.auth.sign_out.assert_called_once()
+
+
+def _workbook(wid: str, name: str, project_id: str) -> WorkbookItem:
+    item = WorkbookItem(project_id=project_id, name=name)
+    item._id = wid
+    return item
+
+
+def _server_with_workbooks(
+    projects: Sequence[ProjectItem], workbooks: Sequence[WorkbookItem]
+) -> mock.MagicMock:
+    server = _server(projects)
+    server.workbooks.get.side_effect = lambda *a, **k: _page(workbooks)
+    return server
+
+
+def test_workbooks_resolve_the_project_by_luid_not_name() -> None:
+    projects = [
+        _project("f", "Finance"),
+        _project("fr", "Reports", "f"),
+        _project("s", "Sales"),
+        _project("sr", "Reports", "s"),
+    ]
+    workbooks = [_workbook("w1", "Budget", "fr"), _workbook("w2", "Pipeline", "sr")]
+    probe = _probe(_server_with_workbooks(projects, workbooks))
+    assert probe.workbooks("Finance/Reports", limit=10) == ["Budget"]
+
+
+def test_an_unknown_project_path_is_a_bad_argument() -> None:
+    probe = _probe(_server_with_workbooks([_project("1", "Sales")], []))
+    with pytest.raises(ValueError) as excinfo:
+        probe.workbooks("Nope", limit=10)
+    assert not isinstance(excinfo.value, ProbeSoftError)
+
+
+def test_a_forbidden_projects_listing_degrades_the_workbooks_listing() -> None:
+    server = _server_with_workbooks([], [])
+    server.projects.get.side_effect = ServerResponseError("403004", "Forbidden", "no")
+    probe = _probe(server)
+    assert probe.workbooks("Sales", limit=10) == []
+    assert probe.warnings and "403004" in probe.warnings[0]
+
+
+def test_workbooks_carry_their_project_as_the_parent() -> None:
+    server = _server_with_workbooks(
+        [_project("1", "Sales")], [_workbook("w1", "Revenue", "1")]
+    )
+    result = _run(server, "workbooks", project_path="Sales")
+    assert (result.kind, result.parent_path, result.result) == (
+        "Workbook",
+        ["Sales"],
+        ["Revenue"],
+    )
+
+
+def test_a_project_name_with_a_comma_is_not_sent_as_a_server_filter() -> None:
+    server = _server_with_workbooks(
+        [_project("1", "Sales, EMEA")], [_workbook("w1", "Revenue", "1")]
+    )
+    assert _probe(server).workbooks("Sales, EMEA", limit=10) == ["Revenue"]
+    options = server.workbooks.get.call_args[0][0]
+    assert list(options.filter) == []
