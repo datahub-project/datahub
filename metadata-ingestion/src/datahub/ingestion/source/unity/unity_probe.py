@@ -264,6 +264,7 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         is on. Includes catalogs catalog_pattern would exclude, so
         `probe filter --kind Catalog` can explain them. Raw names; the filter
         escapes them the way ingestion builds the id it matches."""
+        self._note_metastore()
         if self._config.catalogs:
             return self._pinned_catalogs(self._config.catalogs, limit)
         names: List[str] = []
@@ -290,6 +291,33 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         except _Degraded:
             pass
         return names[:limit]
+
+    def _note_metastore(self) -> None:
+        """With include_metastore, catalog_pattern and schema_pattern match ids
+        prefixed with the assigned metastore (source.py reads it through
+        assigned_metastore), and a run record carries no metastore to pass on.
+        Name it, so `probe filter` can be given it as the outermost --parent
+        instead of degrading to the bare name."""
+        if not self._config.include_metastore:
+            return
+        try:
+            with self._calling("reading the assigned metastore"):
+                metastore = self._proxy.assigned_metastore()
+        except _Degraded:
+            return
+        if metastore is None:
+            self._warn(
+                "include_metastore is on but the workspace reports no assigned "
+                "metastore; ingestion would report 'Metastore not found' and "
+                "ingest no catalogs (process_metastores)"
+            )
+            return
+        self._warn(
+            f"include_metastore is on, so catalog_pattern and schema_pattern "
+            f"match ids prefixed with the metastore '{metastore.name}'; pass it "
+            f"as the first --parent to `probe filter` for Catalog and Schema "
+            f"verdicts"
+        )
 
     def _pinned_catalogs(self, pinned: List[str], limit: int) -> List[str]:
         # source._get_catalogs: catalogs.get per pinned name, never a listing,
@@ -344,6 +372,7 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         denies. The catalog travels with the result, so `probe filter` needs
         no --parent. hive_metastore is read by ingestion over a SQL warehouse
         and is not probed here; it comes back empty with a warning."""
+        self._note_metastore()
         if self._hive_via_warehouse(catalog):
             return []
         try:
