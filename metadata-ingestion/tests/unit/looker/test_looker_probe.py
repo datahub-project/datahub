@@ -452,6 +452,21 @@ def test_the_trace_stops_at_its_bound_and_says_so() -> None:
     assert any("undetermined" in w for w in run.warnings)
 
 
+def test_the_trace_reads_no_dashboard_skip_personal_folders_discards() -> None:
+    with fake_looker() as client:
+        run_probe_method(
+            "looker",
+            recipe(skip_personal_folders=True),
+            "explores",
+            {"model": "sales", "trace_charts": True},
+        )
+    read = {call.kwargs["dashboard_id"] for call in client.dashboard.call_args_list}
+    assert "3" not in read
+    assert "1" in read
+    listing_fields = client.all_dashboards.call_args.kwargs["fields"]
+    assert "is_personal_descendant" in listing_fields
+
+
 def test_untraced_listings_carry_no_use_facts() -> None:
     explores = _run("explores", {"model": "sales"})
     assert all("used" not in r for r in explores["result"])

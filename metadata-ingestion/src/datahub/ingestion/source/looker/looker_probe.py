@@ -177,6 +177,9 @@ def _look_record(look: Look, deleted: bool) -> Dict[str, object]:
 _TRACE_FETCH_LIMIT = MAX_PROBE_ITEMS
 # The element queries carry the explores; user fields are not read.
 _TRACE_DASHBOARD_FIELDS = ["id", _FOLDER_FIELDS, "dashboard_elements"]
+# The folder flags let the trace skip what skip_personal_folders discards
+# without spending a dashboard read on it.
+_TRACE_LIST_FIELDS = ["id", "folder(id,is_personal,is_personal_descendant)"]
 _TRACE_INCOMPLETE = (
     "the chart trace did not read everything ingestion would (a read was "
     "refused or failed, see above, or it stopped after {limit} reads), so "
@@ -576,12 +579,14 @@ class LookerMetadataProbe:
         include_deleted. Ingestion emits a look as a standalone chart only when
         extract_independent_looks is true, it has a query (`has_query`: a
         query id, and a query when the look is read back, as ingestion reads
-        it -- one read per look; null when that read failed), and,
+        it -- one read per look; null when that read failed, which `probe
+        filter` reports excluded, as ingestion skips such a look), and,
         under skip_personal_folders, it is not in a personal folder
         (`folder_personal`). chart_pattern does not apply to these. A look that
         is also on a dashboard ingestion reads is emitted as that dashboard's
         chart instead; only `trace_charts` tells that: it reads every
-        dashboard dashboard_pattern keeps, as ingestion does (bounded), and
+        dashboard dashboard_pattern keeps, less those skip_personal_folders
+        discards, as ingestion does (bounded), and
         sets `on_kept_dashboard`, computed from this recipe at run time (null
         when the trace could not settle it).
         Judge with `probe filter --kind Look --from-run <report>` and no
@@ -786,7 +791,7 @@ class LookerMetadataProbe:
             self._trace_read(
                 reach,
                 "dashboard listing for the chart trace",
-                lambda: api.all_dashboards(fields="id"),
+                lambda: api.all_dashboards(fields=_TRACE_LIST_FIELDS),
             )
             or []
         )
@@ -795,7 +800,9 @@ class LookerMetadataProbe:
                 self._trace_read(
                     reach,
                     "deleted dashboard listing for the chart trace",
-                    lambda: api.search_dashboards(fields="id", deleted="true"),
+                    lambda: api.search_dashboards(
+                        fields=_TRACE_LIST_FIELDS, deleted="true"
+                    ),
                 )
                 or []
             )
@@ -804,19 +811,25 @@ class LookerMetadataProbe:
             for dashboard in listed
             if dashboard.id is not None
             and self._config.dashboard_pattern.allowed(dashboard.id)
+            # Ingestion reads these and then discards them; skipping them here
+            # keeps them from spending the read bound. _trace_dashboard still
+            # checks the read folder, for a listing that lacked the flags.
+            and not self._skipped_as_personal(dashboard.folder)
         ]
+
+    def _skipped_as_personal(self, folder: Optional[FolderBase]) -> bool:
+        return (
+            self._config.skip_personal_folders
+            and folder is not None
+            and bool(folder.is_personal or folder.is_personal_descendant)
+        )
 
     def _trace_dashboard(self, reach: _Reachability, detail: Dashboard) -> None:
         """What process_dashboard records for one dashboard. folder_path_pattern
         is deliberately not applied: process_dashboard checks it only after
         _get_looker_dashboard has recorded the dashboard's looks and explores,
         so a dashboard it drops still makes them reachable."""
-        folder = detail.folder
-        if (
-            self._config.skip_personal_folders
-            and folder is not None
-            and (folder.is_personal or folder.is_personal_descendant)
-        ):
+        if self._skipped_as_personal(detail.folder):
             return
         for element in detail.dashboard_elements or []:
             if element.id is None or not self._config.chart_pattern.allowed(element.id):
@@ -844,12 +857,7 @@ class LookerMetadataProbe:
             look_id = look.id
             if look_id is None or look_id in reach.looks or look.query_id is None:
                 continue
-            folder = look.folder
-            if (
-                self._config.skip_personal_folders
-                and folder is not None
-                and (folder.is_personal or folder.is_personal_descendant)
-            ):
+            if self._skipped_as_personal(look.folder):
                 continue
             if reach.reads >= _TRACE_FETCH_LIMIT:
                 reach.looks_complete = False

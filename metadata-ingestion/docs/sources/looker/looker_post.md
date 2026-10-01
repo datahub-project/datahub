@@ -17,7 +17,7 @@ Explore usage is attached only to explores that were actually ingested in the sa
 
 :::
 
-### Probing a Looker recipe
+#### Probing a Looker recipe
 
 `datahub recipe probe` lists what this recipe's credential can see and judges
 it the way ingestion will, before you run an ingestion. Probe output is
@@ -46,12 +46,16 @@ With `emit_used_explores_only: true` (the default), an explore, and its LookML
 model, is ingested only when a chart or look that ingestion keeps queries it.
 A name alone cannot show that, so `probe filter` reports such explores as not
 ingested and says the verdict is undetermined. Add `--trace-charts` to
-`explores`, `models` or `looks`: the probe then reads every dashboard the
-recipe keeps (and, with `extract_independent_looks`, every standalone look's
-query), as ingestion does, and records which explores are used and which looks
-are already on a kept dashboard. That costs one API call per kept dashboard
-plus one per standalone look, and stops after 1000 reads; whatever it could not
-read is left undetermined.
+`explores` or `models` to record whether each is `used`, or to `looks` to
+record whether each is `on_kept_dashboard`. The trace lists dashboards and
+reads each one `dashboard_pattern` keeps, skipping personal-folder dashboards
+under `skip_personal_folders`, as ingestion does. It does not apply
+`folder_path_pattern`: ingestion counts a dashboard's explores and looks before
+it drops the dashboard by folder. For `explores` and `models` with
+`extract_independent_looks`, it also reads each standalone look's query.
+Besides the listing calls, that is one read per dashboard plus one per
+standalone look, and it stops after 1000 reads; whatever it could not read is
+left undetermined.
 
 ```shell
 datahub recipe probe run explores --model <model> --trace-charts --recipe looker.yml --report-to explores.json
