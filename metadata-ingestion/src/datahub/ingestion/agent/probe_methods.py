@@ -30,6 +30,8 @@ from datahub.ingestion.agent.error_policy import (
     DEFECT_TYPES,
     classify_foreign,
     is_authored,
+    police_authored,
+    withhold_foreign_text,
 )
 from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -793,7 +795,11 @@ def _raise_call_failure(
         getattr(provider, "probe_report", None), "failures"
     )
     authored = is_authored(exc, provider_files)
-    detail = scrub_text(str(exc), set()) if authored else type(exc).__name__
+    detail = (
+        scrub_text(withhold_foreign_text(exc, provider_files), set())
+        if authored
+        else type(exc).__name__
+    )
     if recorded:
         raise ProbeReadFailed(
             f"{detail}; the connector recorded: " + "; ".join(sorted(recorded))
@@ -813,6 +819,15 @@ def _raise_call_failure(
             f"'{command}' failed inside the connector ({type(exc).__name__}: "
             f"{detail}); this is a defect, not a problem with the arguments"
         ) from exc
+    _reraise_authored(exc, provider_files)
+
+
+def _reraise_authored(exc: BaseException, provider_files: FrozenSet[str]) -> NoReturn:
+    """Raise an authored exception, minus any foreign text it quotes (see
+    agent.error_policy.police_authored)."""
+    replacement = police_authored(exc, provider_files)
+    if replacement is not None:
+        raise replacement from None
     raise exc
 
 
@@ -860,7 +875,7 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
             # close failure out of the displayed chain.
             raise body_error from body_error.__cause__
         if is_authored(exc, call.provider_files):
-            raise
+            _reraise_authored(exc, call.provider_files)
         raise ProbeConnectionError(
             f"closing source '{call.source_type}' failed ({type(exc).__name__})"
         ) from None
@@ -887,7 +902,7 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
             exc,
             (ValueError, ProbeConnectionError, ProbeInternalError, ProbeReadFailed),
         ) and is_authored(exc, call.provider_files):
-            raise
+            _reraise_authored(exc, call.provider_files)
         # Always a connection error here, not classify_foreign's split: the
         # caller's input was all checked above, so a foreign failure while
         # building the provider is the source's (exit 3), whatever its type.

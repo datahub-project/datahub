@@ -30,6 +30,14 @@ def test_probe_argument_error_is_a_value_error_but_not_a_soft_error() -> None:
     assert not isinstance(err, ProbeSoftError)
 
 
+class _OddError(Exception):
+    """An authored type whose constructor is not (message,)."""
+
+    def __init__(self, code: int, detail: str) -> None:
+        super().__init__(f"{code}: {detail}")
+        self.code = code
+
+
 class _Provider:
     def __init__(self, mode: str) -> None:
         self.mode = mode
@@ -46,6 +54,11 @@ class _Provider:
             _foreign_errors.fetch()
         if mode == "open-authored":
             raise ProbeArgumentError("database 'x' is not listed; run `databases`")
+        if mode == "open-wraps-foreign":
+            try:
+                _foreign_errors.connect()
+            except Exception as exc:
+                raise ProbeConnectionError(f"login failed: {exc}") from exc
         return cls(mode)
 
     def __enter__(self) -> "_Provider":
@@ -58,6 +71,30 @@ class _Provider:
             raise ProbeConnectionError("closing the session timed out")
         return None
 
+    def _raise_wrapped(self, name: str) -> None:
+        """Authored exceptions whose message quotes a foreign one."""
+        if self.mode == "wraps-foreign-connection":
+            try:
+                _foreign_errors.connect()
+            except Exception as exc:
+                raise ProbeConnectionError(f"listing failed: {exc}") from exc
+        if self.mode == "wraps-foreign-value-implicitly":
+            try:
+                _foreign_errors.parse_name(name)
+            except ValueError as exc:
+                raise ValueError(f"bad url: {exc!r}")  # noqa: B904
+        if self.mode == "wraps-foreign-odd-ctor":
+            try:
+                _foreign_errors.query()
+            except Exception as exc:
+                raise _OddError(500, f"fetch said {exc}") from exc
+        if self.mode == "recorded-wraps-foreign":
+            self.failures = ["GET /things returned 401"]
+            try:
+                _foreign_errors.connect()
+            except Exception as exc:
+                raise ValueError(f"no things: {exc}") from exc
+
     @probe_method(name="things")
     def things(self, name: str = "") -> List[str]:
         """List things."""
@@ -65,6 +102,11 @@ class _Provider:
             raise ProbeArgumentError(f"no thing named '{name}'")
         if self.mode == "exit-foreign-after-foreign":
             _foreign_errors.fetch()
+        if (
+            self.mode.startswith("wraps-foreign")
+            or self.mode == "recorded-wraps-foreign"
+        ):
+            self._raise_wrapped(name)
         if self.mode == "authored-index":
             raise IndexError("row 3 of 2")
         if self.mode == "authored-name":
@@ -241,6 +283,11 @@ def test_an_authored_argument_error_while_opening_exits_2(run: RunFn) -> None:
         ("exit-authored", 3),
         ("authored-index", 1),
         ("authored-name", 1),
+        ("open-wraps-foreign", 3),
+        ("wraps-foreign-connection", 3),
+        ("wraps-foreign-value-implicitly", 2),
+        ("wraps-foreign-odd-ctor", 3),
+        ("recorded-wraps-foreign", 3),
     ],
 )
 def test_the_cli_never_prints_foreign_text_from_the_exception_chain(
@@ -373,3 +420,27 @@ def test_an_ingestion_source_base_class_does_not_vouch_for_its_file(
     assert res.exit_code == 2, res.output
     assert _base_provider.SOURCE_SENTINEL not in res.output
     assert "ValueError" in res.output
+
+
+@pytest.mark.parametrize(
+    "mode, expected, kept",
+    [
+        ("open-wraps-foreign", ProbeConnectionError, "login failed"),
+        ("wraps-foreign-connection", ProbeConnectionError, "listing failed"),
+        ("wraps-foreign-value-implicitly", ValueError, "bad url"),
+        ("wraps-foreign-odd-ctor", ProbeConnectionError, "fetch said"),
+        ("recorded-wraps-foreign", ProbeReadFailed, "no things"),
+    ],
+)
+def test_foreign_text_wrapped_in_an_authored_message_is_withheld(
+    run: RunFn, mode: str, expected: type, kept: str
+) -> None:
+    # Framework and provider types are trusted wherever raised, so
+    # f"...: {exc}" around a foreign exception would otherwise carry its text
+    # out. The type (and so the exit code) stays; the foreign text becomes
+    # its class name.
+    with pytest.raises(expected) as info:
+        run(mode)
+    assert SENTINEL not in str(info.value)
+    assert kept in str(info.value)
+    assert "Error)" in str(info.value)

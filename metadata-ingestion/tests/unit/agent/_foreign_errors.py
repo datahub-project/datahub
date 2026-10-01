@@ -42,3 +42,7 @@ def lookup() -> None:
 
 def close() -> None:
     raise TypeError(f"session close got {SENTINEL}")
+
+
+def parse_name(name: str) -> None:
+    raise ValueError(f"cannot parse name {SENTINEL}: {name}")

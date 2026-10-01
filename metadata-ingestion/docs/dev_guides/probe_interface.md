@@ -129,6 +129,13 @@ every call site:
   from. If a command already recorded read failures, it reports `ProbeReadFailed`
   (exit 3) instead.
 
+- **Never interpolate `{exc}` from an exception you did not raise; name the
+  operation and the class.** `ProbeConnectionError(f"login failed: {exc}")` around a
+  driver error would carry the driver's text out under a type the framework trusts.
+  As a backstop, a foreign exception's text found verbatim in your message is replaced
+  by its class name, and the exception keeps its type and exit code. Text you rebuilt
+  from parts of it is not caught.
+
 - **All free text is scrubbed.** The recipe's own secret values are masked first,
   then credential shapes (`user:pass@` in URLs, `password=` / `client_secret=` /
   `token:` pairs including quoted keys, bearer and basic auth headers, PEM private

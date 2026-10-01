@@ -1,6 +1,7 @@
+import copy
 import os
 import re
-from typing import AbstractSet, Tuple
+from typing import AbstractSet, List, Optional, Set, Tuple
 
 from datahub.ingestion.agent.verdicts import (
     ProbeArgumentError,
@@ -87,6 +88,86 @@ def classify_foreign(exc: BaseException, context: str) -> Exception:
     message = f"{context} failed ({type(exc).__name__})"
     if isinstance(exc, DEFECT_TYPES):
         return ProbeInternalError(message)
+    if isinstance(exc, _ARGUMENT_TYPES):
+        return ProbeArgumentError(message)
+    return ProbeConnectionError(message)
+
+
+def _foreign_in_chain(
+    exc: BaseException, provider_files: AbstractSet[str]
+) -> List[BaseException]:
+    """Every foreign exception in `exc`'s cause and context chain."""
+    found: List[BaseException] = []
+    seen: Set[int] = {id(exc)}
+    pending = [exc.__cause__, exc.__context__]
+    while pending:
+        link = pending.pop()
+        if link is None or id(link) in seen:
+            continue
+        seen.add(id(link))
+        if not is_authored(link, provider_files):
+            found.append(link)
+        pending.extend([link.__cause__, link.__context__])
+    return found
+
+
+def withhold_foreign_text(exc: BaseException, provider_files: AbstractSet[str]) -> str:
+    """`str(exc)` with the text of any foreign exception it wraps replaced by
+    that exception's class name.
+
+    Framework types are trusted wherever they are raised, and so is anything
+    the provider raises in its own file -- which makes
+    `ProbeConnectionError(f"login failed: {exc}")` around a driver error carry
+    the driver's text out under a vouched-for type. Only text that appears
+    verbatim can be caught (str or repr of the foreign exception); a message
+    built from parts of it cannot, which is why the docs say never to
+    interpolate an exception you did not raise.
+    """
+    message = str(exc)
+    swaps = []
+    for foreign in _foreign_in_chain(exc, provider_files):
+        name = f"({type(foreign).__name__})"
+        for rendering in (repr(foreign), str(foreign)):
+            if rendering:
+                swaps.append((rendering, name))
+    # Longest first: a repr contains its str, and replacing the str first
+    # would leave the repr's class-name wrapper around a placeholder.
+    for rendering, name in sorted(swaps, key=lambda s: len(s[0]), reverse=True):
+        message = message.replace(rendering, name)
+    return message
+
+
+def police_authored(
+    exc: BaseException, provider_files: AbstractSet[str]
+) -> Optional[BaseException]:
+    """A replacement for an authored exception whose message quotes a foreign
+    one, or None when it may be raised as it is.
+
+    The replacement keeps the exception's type, so the exit code does not
+    move. A type that cannot be rebuilt with a plain message (its constructor
+    takes other arguments, or its __str__ ignores args) is replaced by the
+    framework type of the same exit family instead.
+    """
+    message = withhold_foreign_text(exc, provider_files)
+    if message == str(exc):
+        return None
+    try:
+        rebuilt = copy.copy(exc)
+        rebuilt.args = (message,)
+        if str(rebuilt) == message:
+            return rebuilt
+    except Exception:
+        pass
+    return _same_family(exc, message)
+
+
+def _same_family(exc: BaseException, message: str) -> Exception:
+    if isinstance(exc, (ProbeInternalError, *DEFECT_TYPES)):
+        return ProbeInternalError(message)
+    if isinstance(exc, ProbeReadFailed):
+        return ProbeReadFailed(message)
+    if isinstance(exc, ProbeConnectionError):
+        return ProbeConnectionError(message)
     if isinstance(exc, _ARGUMENT_TYPES):
         return ProbeArgumentError(message)
     return ProbeConnectionError(message)

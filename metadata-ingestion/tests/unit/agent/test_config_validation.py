@@ -1,12 +1,15 @@
-from typing import Dict, Optional
+import pathlib
+from typing import Dict, List, Optional
 
 import pytest
-from pydantic import ValidationError, ValidationInfo, field_validator
+from click.testing import CliRunner
+from pydantic import ConfigDict, ValidationInfo, field_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.agent import filter_check
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.recipe import validate_recipe
 
 
@@ -31,8 +34,10 @@ def test_the_source_types_context_reaches_the_validators() -> None:
 
 
 def test_without_the_context_the_same_recipe_is_refused() -> None:
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError) as info:
         validate_source_config(_Contextual, "fake", {"flavour": "x"})
+    # The validator's own message is kept: it is what tells the author why.
+    assert "only legal on the flavoured source type" in str(info.value)
 
 
 def test_a_config_declaring_no_context_validates_as_before() -> None:
@@ -86,3 +91,76 @@ def test_uri_args_stay_refused_on_plain_mssql() -> None:
         }
     }
     assert validate_recipe(recipe)["valid"] is False
+
+
+# Long enough that pydantic truncates its repr: a fragment of it then matches
+# no registered secret value, so only not echoing the input at all protects it.
+_LONG_SECRET = "PLANTEDhead" + "q" * 120 + "PLANTEDtail"
+
+
+class _EchoesInput(ConfigModel):
+    # What every ConfigModel is under DATAHUB_DEBUG=true: hide_input_in_errors
+    # is read once, when the class is created.
+    model_config = ConfigDict(hide_input_in_errors=False)
+
+    port: int = 0
+
+
+def test_a_validation_error_never_echoes_the_input_under_debug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATAHUB_DEBUG", "true")
+    with pytest.raises(ValueError) as info:
+        validate_source_config(_EchoesInput, "fake", {"port": _LONG_SECRET})
+    assert "PLANTED" not in str(info.value)
+    # Still says where and what: the field, and pydantic's error type.
+    assert "port" in str(info.value)
+    assert "int_parsing" in str(info.value)
+    assert info.value.__cause__ is None
+    assert info.value.__suppress_context__
+
+
+def test_probe_run_never_echoes_a_config_input_under_debug(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
+) -> None:
+    import datahub.cli.recipe_cli as rc
+    from datahub.cli.recipe_cli import recipe
+    from datahub.ingestion.agent import probe_methods
+
+    class _Provider:
+        @classmethod
+        def for_config(cls, config: object) -> "_Provider":
+            return cls()
+
+        def __enter__(self) -> "_Provider":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+        @probe_method()
+        def things(self) -> List[str]:
+            """Things."""
+            return []
+
+    class _Config(_EchoesInput):
+        @classmethod
+        def probe_provider_class(cls) -> type:
+            return _Provider
+
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    monkeypatch.setattr(
+        rc,
+        "_resolve_for_probe",
+        lambda _r: ("fake", {"port": _LONG_SECRET}, {_LONG_SECRET}),
+    )
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    monkeypatch.setattr(probe_methods, "config_class_for", lambda _st: _Config)
+    recipe_file = tmp_path / "r.yml"
+    recipe_file.write_text("source:\n  type: fake\n  config: {}\n")
+    res = CliRunner().invoke(
+        recipe, ["probe", "run", "things", "--recipe", str(recipe_file)]
+    )
+    assert res.exit_code == 2, res.output
+    assert "PLANTED" not in res.output
+    assert "port" in res.output

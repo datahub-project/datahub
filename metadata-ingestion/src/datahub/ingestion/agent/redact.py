@@ -354,6 +354,15 @@ _PEM_BLOCK = re.compile(
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----[A-Za-z0-9+/=\s]*"
     r"(?:-----END [A-Z ]*PRIVATE KEY-----)?"
 )
+# pydantic's error suffix, `[type=int_parsing, input_value='...', input_type=str]`.
+# ConfigModel shows it under DATAHUB_DEBUG, and the repr of a long value is
+# truncated in the middle, so a registered secret no longer matches it. The
+# framework's own validation never prints it (config_validation); this covers
+# text a source builds itself, such as a test-connection failure_reason. The
+# scan is bounded so a stray `input_value=` cannot make it quadratic; with no
+# `input_type` in reach, the rest of the line goes.
+_PYDANTIC_INPUT = re.compile(r"(input_value=)[^\n]{0,400}?(?=, input_type=)")
+_PYDANTIC_INPUT_UNTERMINATED = re.compile(r"(input_value=)(?!\*\*\*, )[^\n]*")
 # A value that is really the next word of a diagnostic ("Invalid password:
 # authentication failed", "access_key: field required"). Masking it would
 # swallow the explanation the caller needs. Kept short on purpose.
@@ -409,7 +418,9 @@ def scrub_text(text: str, secret_values: Set[str]) -> str:
     """
     redacted = redact(text, secret_values)
     assert isinstance(redacted, str)
-    out = _PEM_BLOCK.sub(MASK, redacted)
+    out = _PYDANTIC_INPUT.sub(r"\1" + MASK, redacted)
+    out = _PYDANTIC_INPUT_UNTERMINATED.sub(r"\1" + MASK, out)
+    out = _PEM_BLOCK.sub(MASK, out)
     out = _URL_USERINFO.sub(MASK + "@", out)
     out = _SECRET_ASSIGNMENT.sub(_mask_assignment, out)
     out = _BEARER.sub(_mask_scheme, out)

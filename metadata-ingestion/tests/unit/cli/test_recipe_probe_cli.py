@@ -1849,3 +1849,48 @@ def test_test_connection_keeps_reused_logs_scrubbed(
     assert res.exit_code == 0, res.output
     assert _LOG_SENTINEL not in res.stderr
     assert _LOG_SENTINEL not in res.output
+
+
+def test_test_connection_withholds_a_pydantic_input_echo(monkeypatch, tmp_path):
+    """A source's own test_connection parses its config itself and reports
+    str(ValidationError); under DATAHUB_DEBUG that quotes input_value, and a
+    long value's truncated repr matches no registered secret."""
+    from pydantic import BaseModel, ConfigDict, ValidationError
+
+    from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
+
+    long_secret = "PLANTEDhead" + "q" * 120 + "PLANTEDtail"
+
+    class _Echoing(BaseModel):
+        model_config = ConfigDict(hide_input_in_errors=False)
+        port: int
+
+    class _Failing:
+        @staticmethod
+        def test_connection(config_dict):
+            try:
+                _Echoing.model_validate({"port": long_secret})
+            except ValidationError as exc:
+                reason = str(exc)
+            return TestConnectionReport(
+                basic_connectivity=CapabilityReport(
+                    capable=False, failure_reason=reason
+                )
+            )
+
+    monkeypatch.setattr(
+        rc, "_resolve_for_probe", lambda r: ("postgres", {}, {long_secret})
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _Failing,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource", _Failing, raising=False
+    )
+    res = CliRunner().invoke(
+        recipe, ["test-connection", "--recipe", _recipe_file(tmp_path)]
+    )
+    assert res.exit_code == 3, res.output
+    assert "PLANTED" not in res.output
+    assert "int_parsing" in res.stdout
