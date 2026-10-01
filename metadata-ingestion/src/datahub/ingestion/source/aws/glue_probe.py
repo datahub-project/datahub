@@ -223,6 +223,24 @@ def _job_record(job: Mapping[str, Any], config: GlueSourceConfig) -> Dict[str, o
     }
 
 
+def _node_record(node: Mapping[str, Any], job_name: str) -> Dict[str, object]:
+    node_type = node["NodeType"]
+    # Sources and sinks become the input/output datasets of the nodes they
+    # feed, not DataJobs of their own (_transform_extraction).
+    emitted = node_type not in ("DataSource", "DataSink")
+    return {
+        "id": node["Id"],
+        "node_type": node_type,
+        "emitted_as_datajob": emitted,
+        # get_datajob_wu's name for it.
+        "datajob_name": f"{job_name}:{node_type}-{node['Id']}" if emitted else None,
+        "urn": node["urn"],
+        "input_datasets": list(node["inputDatasets"]),
+        "output_datasets": list(node["outputDatasets"]),
+        "input_datajobs": list(node["inputDatajobs"]),
+    }
+
+
 class GlueMetadataProbe:
     """Metadata-only probe over the AWS Glue Data Catalog and Glue jobs.
 
@@ -500,3 +518,80 @@ class GlueMetadataProbe:
                 "ingestion emits them under this recipe"
             )
         return [_job_record(job, self._config) for job in jobs]
+
+    def _job_dag_nodes(
+        self, source: GlueSource, job: str, script_location: str, flow_urn: str
+    ) -> Optional[Dict[str, Dict[str, Any]]]:
+        """The processed DAG nodes of one job, through ingestion's helpers, or
+        None when ingestion would emit the job as a single DataJob."""
+        # Both helpers record their own expected failures on the report
+        # (probe_report); anything else is translated here.
+        with aws_call(f"s3:GetObject / glue:GetDataflowGraph for job '{job}'"):
+            script = source.get_dataflow_script(script_location, flow_urn)
+            dag = (
+                source.get_dataflow_graph(script, script_location, flow_urn)
+                if script
+                else None
+            )
+        if dag is None:
+            return None
+        try:
+            with aws_call(f"glue:GetConnection for job '{job}'"):
+                return source.process_dataflow_graph(dag, flow_urn)
+        except ValueError:
+            # from None, deliberately: the original message embeds the node's
+            # args, which hold connection options and can hold passwords. A
+            # ProbeConnectionError from aws_call is not a ValueError and
+            # passes through.
+            raise ValueError(
+                f"job '{job}' has a data source or sink ingestion does not "
+                f"recognise, and ignore_unsupported_connectors is false, so "
+                f"ingestion fails on this job; set it to true to skip such "
+                f"nodes with a warning"
+            ) from None
+
+    @probe_method()
+    def job_nodes(self, job: str) -> List[Dict[str, object]]:
+        """The DataJobs one Glue job becomes, through ingestion's own path:
+        the job script is read from S3 (never returned), Glue's
+        GetDataflowGraph turns it into a DAG, and each node is resolved as
+        ingestion resolves it. Every node is listed; emitted_as_datajob says
+        which ones ingestion emits (sources and sinks become the input/output
+        datasets of the nodes they feed instead), datajob_name and urn are
+        what it emits them as, and input_datasets/output_datasets are the
+        lineage URNs. A job whose script is missing, unreadable or not
+        parseable by Glue becomes a single DataJob named after the job, with
+        the reason as a warning. Node arguments (connection options, S3
+        paths, SQL) and the script itself are withheld. Nothing filters
+        DataJobs; they follow their job's verdict."""
+        record = self._find_job(job)
+        name = record["Name"]
+        source = self._ingestion_source()
+        flow_urn = mce_builder.make_data_flow_urn(
+            orchestrator=source.platform, flow_id=name, cluster=source.env
+        )
+        script_location = (record.get("Command") or {}).get("ScriptLocation")
+        nodes: Optional[Dict[str, Dict[str, Any]]] = None
+        if script_location is None:
+            self._warn(
+                f"job '{job}' has no script location, so ingestion cannot read "
+                f"its DAG and emits one DataJob named after the job"
+            )
+        else:
+            nodes = self._job_dag_nodes(source, job, script_location, flow_urn)
+        if not nodes:
+            return [
+                {
+                    "id": None,
+                    "node_type": None,
+                    "emitted_as_datajob": True,
+                    "datajob_name": name,
+                    "urn": mce_builder.make_data_job_urn_with_flow(
+                        flow_urn, job_id=name
+                    ),
+                    "input_datasets": [],
+                    "output_datasets": [],
+                    "input_datajobs": [],
+                }
+            ]
+        return [_node_record(node, name) for node in nodes.values()]
