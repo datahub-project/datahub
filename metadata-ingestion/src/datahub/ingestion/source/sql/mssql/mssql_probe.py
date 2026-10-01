@@ -6,6 +6,7 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.sql import quoted_name
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.sql_passthrough import CatalogRows
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -88,6 +89,23 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
     def _warn(self, message: str) -> None:
         if message not in self.warnings:
             self.warnings.append(message)
+
+    def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
+        # On the driver's cursor with no parameters at all. SQLAlchemy's
+        # exec_driver_sql always hands the cursor a (possibly empty) parameter
+        # set, and pytds then %-formats the statement with it, so a query the
+        # gate has cleared -- `LIKE 'P%'` -- died with "unsupported format
+        # character". With none, pytds sends the text as a plain batch, as
+        # pyodbc does, so the SQL reaches the server exactly as written.
+        with self._engine.connect() as conn:
+            cursor = conn.connection.cursor()
+            try:
+                cursor.execute(query)
+                columns = [str(d[0]) for d in cursor.description or []]
+                rows = cursor.fetchmany(limit) if cursor.description else []
+                return CatalogRows(columns=columns, rows=[list(row) for row in rows])
+            finally:
+                cursor.close()
 
     # -- the two server round-trips, separate so tests can stand in for them --
 

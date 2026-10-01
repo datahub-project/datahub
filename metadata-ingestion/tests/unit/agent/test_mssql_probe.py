@@ -575,3 +575,51 @@ def test_the_sql_scope_never_opens_a_user_table(query: str) -> None:
         check_query_scope(
             query, platform="tsql", scope=SQLServerConfig.probe_catalog_scope()
         )
+
+
+def test_sql_reaches_the_driver_with_no_parameter_set(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """pytds %-formats a statement whenever it is handed parameters, even an
+    empty set, so `LIKE 'P%'` failed after the gate had cleared it. The query
+    must reach cursor.execute alone."""
+    calls: List[Tuple[object, ...]] = []
+
+    class _Cursor:
+        description = [("name",)]
+
+        def execute(self, *args: object) -> None:
+            calls.append(args)
+
+        def fetchmany(self, n: int) -> List[Tuple[str]]:
+            return [("Persons",)]
+
+        def close(self) -> None:
+            pass
+
+    class _Raw:
+        def cursor(self) -> _Cursor:
+            return _Cursor()
+
+    class _Conn:
+        connection = _Raw()
+
+        def __enter__(self) -> "_Conn":
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            pass
+
+    class _Engine:
+        def connect(self) -> _Conn:
+            return _Conn()
+
+    with _probe(tmp_path, database="DemoData") as probe:
+        monkeypatch.setattr(probe, "_engine", _Engine())
+        rows = probe.execute_catalog_query(
+            "SELECT name FROM sys.tables WHERE name LIKE 'P%'", limit=5
+        )
+        # The real engine is put back before __exit__ disposes it.
+        monkeypatch.undo()
+    assert calls == [("SELECT name FROM sys.tables WHERE name LIKE 'P%'",)]
+    assert rows.columns == ["name"] and rows.rows == [["Persons"]]
