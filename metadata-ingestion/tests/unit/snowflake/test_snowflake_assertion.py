@@ -1,19 +1,26 @@
 from datetime import datetime
+from typing import Dict, List
 from unittest.mock import MagicMock
 
 import pytest
 
-from datahub.emitter.mce_builder import SYSTEM_ACTOR
+from datahub.emitter.mce_builder import SYSTEM_ACTOR, make_assertion_urn
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_assertion import (
     DataQualityMonitoringResult,
     SnowflakeAssertionsHandler,
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    auto_stale_entity_removal,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionResultType
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.schema_classes import (
+    AssertionInfoClass,
     AssertionSourceTypeClass,
     AssertionTypeClass,
+    StatusClass,
 )
 
 
@@ -106,8 +113,8 @@ class TestExternalDmfGuidGeneration:
             REFERENCE_ID="ref_abc123",
             ARGUMENT_NAMES="[]",
         )
-        guid1 = handler._generate_external_dmf_guid(result)
-        guid2 = handler._generate_external_dmf_guid(result)
+        guid1 = handler._generate_external_dmf_guid(result.REFERENCE_ID)
+        guid2 = handler._generate_external_dmf_guid(result.REFERENCE_ID)
         assert guid1 == guid2
 
     def test_guid_differs_for_different_reference_ids(self, handler):
@@ -132,8 +139,8 @@ class TestExternalDmfGuidGeneration:
             REFERENCE_ID="ref_456",
             ARGUMENT_NAMES="[]",
         )
-        guid1 = handler._generate_external_dmf_guid(result1)
-        guid2 = handler._generate_external_dmf_guid(result2)
+        guid1 = handler._generate_external_dmf_guid(result1.REFERENCE_ID)
+        guid2 = handler._generate_external_dmf_guid(result2.REFERENCE_ID)
         assert guid1 != guid2
 
     def test_guid_includes_platform_instance(self):
@@ -169,8 +176,8 @@ class TestExternalDmfGuidGeneration:
             ARGUMENT_NAMES="[]",
         )
 
-        guid_with = handler_with._generate_external_dmf_guid(result)
-        guid_without = handler_without._generate_external_dmf_guid(result)
+        guid_with = handler_with._generate_external_dmf_guid(result.REFERENCE_ID)
+        guid_without = handler_without._generate_external_dmf_guid(result.REFERENCE_ID)
         assert guid_with != guid_without
 
 
@@ -546,3 +553,158 @@ class TestAssertionResultTypes:
                 wu for wu in workunits if wu.metadata.aspectName == "assertionRunEvent"
             ][0]
             assert run_event_wu.metadata.aspect.result.type == AssertionResultType.ERROR
+
+
+class TestExternalDmfStatefulIngestion:
+    """External DMF definitions come from the association listing and are
+    connector-owned (primary), so stateful ingestion can soft-delete DMFs that
+    were removed in Snowflake without touching DMFs that simply did not run."""
+
+    DATASET_URN = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
+    )
+
+    def _handler(self, references, results, stale_removal_enabled=True):
+        config = MagicMock()
+        config.platform_instance = None
+        config.include_externally_managed_dmfs = True
+        config.stateful_ingestion.enabled = stale_removal_enabled
+        config.stateful_ingestion.remove_stale_metadata = stale_removal_enabled
+        report = MagicMock()
+        connection = MagicMock()
+
+        def query(sql):
+            if "DATA_METRIC_FUNCTION_REFERENCES" in sql:
+                if isinstance(references, Exception):
+                    raise references
+                return iter(references)
+            return iter(results)
+
+        connection.query.side_effect = query
+        identifiers = MagicMock()
+        identifiers.platform = "snowflake"
+        identifiers.get_dataset_identifier.return_value = "my_db.public.orders"
+        identifiers.gen_dataset_urn.return_value = self.DATASET_URN
+        return SnowflakeAssertionsHandler(config, report, connection, identifiers)
+
+    @staticmethod
+    def _reference(
+        metric_name, ref_id, args='[{"domain": "COLUMN", "name": "amount"}]'
+    ):
+        return {
+            "METRIC_NAME": metric_name,
+            "REF_DATABASE_NAME": "my_db",
+            "REF_SCHEMA_NAME": "public",
+            "REF_ENTITY_NAME": "orders",
+            "REF_ID": ref_id,
+            "REF_ARGUMENTS": args,
+        }
+
+    @staticmethod
+    def _result(metric_name, ref_id):
+        return {
+            "MEASUREMENT_TIME": datetime.now(),
+            "METRIC_NAME": metric_name,
+            "TABLE_NAME": "orders",
+            "TABLE_SCHEMA": "public",
+            "TABLE_DATABASE": "my_db",
+            "VALUE": 1,
+            "REFERENCE_ID": ref_id,
+            "ARGUMENT_NAMES": '["amount"]',
+        }
+
+    def test_external_dmf_definition_is_primary_and_run_event_is_not(self):
+        handler = self._handler(
+            references=[self._reference("my_check", "ref_1")],
+            results=[self._result("my_check", "ref_1")],
+        )
+        wus = list(handler.get_assertion_workunits(["my_db.public.orders"]))
+
+        by_aspect: Dict[str, List[MetadataWorkUnit]] = {}
+        for wu in wus:
+            by_aspect.setdefault(wu.metadata.aspectName, []).append(wu)
+        # Definition is emitted once (from the listing), not again from results.
+        assert len(by_aspect["assertionInfo"]) == 1
+        assert by_aspect["assertionInfo"][0].is_primary_source
+        assert by_aspect["dataPlatformInstance"][0].is_primary_source
+        assert by_aspect["status"][0].is_primary_source
+        status = by_aspect["status"][0].get_aspect_of_type(StatusClass)
+        assert status is not None and status.removed is False
+        assert not by_aspect["assertionRunEvent"][0].is_primary_source
+        info = by_aspect["assertionInfo"][0].get_aspect_of_type(AssertionInfoClass)
+        assert info is not None and info.customAssertion is not None
+        assert info.customAssertion.field is not None
+        assert "amount" in info.customAssertion.field
+        # Listing and results resolve to the same assertion URN.
+        assert (
+            by_aspect["assertionInfo"][0].get_urn()
+            == by_aspect["assertionRunEvent"][0].get_urn()
+        )
+
+    def test_dmf_without_results_in_window_stays_in_state(self):
+        """A DMF that still exists but did not run in the window must not be
+        considered stale."""
+        handler = self._handler(
+            references=[self._reference("daily_check", "ref_daily")],
+            results=[],
+        )
+        stale_handler = MagicMock()
+        list(
+            auto_stale_entity_removal(
+                stale_handler,
+                handler.get_assertion_workunits(["my_db.public.orders"]),
+            )
+        )
+        state_urns = {
+            c.args[1] for c in stale_handler.add_entity_to_state.call_args_list
+        }
+        assert state_urns == {
+            make_assertion_urn(handler._generate_external_dmf_guid("ref_daily"))
+        }
+        stale_handler.add_urn_to_skip.assert_not_called()
+
+    def test_datahub_compiled_dmfs_are_never_primary(self):
+        handler = self._handler(
+            references=[self._reference("datahub__abc123", "ref_dh")],
+            results=[self._result("datahub__abc123", "ref_dh")],
+        )
+        wus = list(handler.get_assertion_workunits(["my_db.public.orders"]))
+        assert wus
+        assert all(not wu.is_primary_source for wu in wus)
+        assert "assertionInfo" not in {wu.metadata.aspectName for wu in wus}
+
+    def test_listing_skips_undiscovered_tables(self):
+        handler = self._handler(
+            references=[self._reference("my_check", "ref_1")], results=[]
+        )
+        assert list(handler.get_assertion_workunits(["other_db.public.t"])) == []
+
+    def test_listing_failure_reports_failure_when_stale_removal_enabled(self):
+        """A failed listing must block stale removal (via a reported failure);
+        otherwise every tracked DMF would look deleted."""
+        handler = self._handler(
+            references=Exception("insufficient privileges"),
+            results=[self._result("my_check", "ref_1")],
+        )
+        wus = list(handler.get_assertion_workunits(["my_db.public.orders"]))
+        handler.report.failure.assert_called_once()
+        # Falls back to result-derived, non-primary definitions.
+        assert "assertionInfo" in {wu.metadata.aspectName for wu in wus}
+        assert all(not wu.is_primary_source for wu in wus)
+
+    def test_listing_failure_only_warns_without_stale_removal(self):
+        handler = self._handler(
+            references=Exception("insufficient privileges"),
+            results=[],
+            stale_removal_enabled=False,
+        )
+        list(handler.get_assertion_workunits(["my_db.public.orders"]))
+        handler.report.failure.assert_not_called()
+        handler.report.warning.assert_called_once()
+
+    def test_references_not_queried_without_external_dmfs(self):
+        handler = self._handler(references=[], results=[])
+        handler.config.include_externally_managed_dmfs = False
+        list(handler.get_assertion_workunits(["my_db.public.orders"]))
+        queries = [c.args[0] for c in handler.connection.query.call_args_list]
+        assert not any("DATA_METRIC_FUNCTION_REFERENCES" in q for q in queries)

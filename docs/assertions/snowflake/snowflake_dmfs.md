@@ -247,6 +247,20 @@ source:
 
 Both flags must be enabled for external DMF ingestion to work.
 
+External DMF definitions are read from `SNOWFLAKE.ACCOUNT_USAGE.DATA_METRIC_FUNCTION_REFERENCES`, which lists every current DMF association regardless of whether it produced a result in the time window. The DataHub role therefore also needs access to `ACCOUNT_USAGE`, which the Snowflake source already requires for lineage and usage:
+
+```sql
+grant imported privileges on database snowflake to role "<datahub_role>";
+-- or, more narrowly:
+grant database role SNOWFLAKE.GOVERNANCE_VIEWER to role "<datahub_role>";
+```
+
+### Removing External DMFs
+
+With [stateful ingestion](../../../metadata-ingestion/docs/dev_guides/stateful.md#stale-entity-removal) and `remove_stale_metadata` enabled, external DMF assertions whose association was removed in Snowflake (for example via `ALTER TABLE ... DROP DATA METRIC FUNCTION`) are soft-deleted in DataHub on the next run. A DMF that still exists but did not run inside the time window is not removed. `ACCOUNT_USAGE` can lag by up to 3 hours, so a removal may take an extra run to be reflected.
+
+If the association listing cannot be queried, stale external DMF removal is skipped for that run and the run reports a failure. Assertions created with the DataHub assertions compiler (`datahub__*` DMFs) are managed by DataHub and are never removed by Snowflake ingestion.
+
 ### Requirements for External DMFs
 
 **External DMFs must return `1` for SUCCESS and `0` for FAILURE.**
