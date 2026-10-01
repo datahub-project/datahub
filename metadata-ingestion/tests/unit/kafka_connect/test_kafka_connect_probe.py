@@ -323,16 +323,8 @@ def test_an_unsupported_source_connector_is_reported_as_not_emitted() -> None:
         ("connector", {"connector": "legacy-source"}),
         ("connector", {"connector": "unknown-jdbc-sink"}),
         ("connector_topics", {"connector": "orders-sink"}),
-        pytest.param(
-            "connector_lineage",
-            {"connector": "unknown-jdbc-sink"},
-            marks=pytest.mark.xfail(strict=True, reason="added in Task 5"),
-        ),
-        pytest.param(
-            "connector_lineage",
-            {"connector": "orders-sink"},
-            marks=pytest.mark.xfail(strict=True, reason="added in Task 5"),
-        ),
+        ("connector_lineage", {"connector": "unknown-jdbc-sink"}),
+        ("connector_lineage", {"connector": "orders-sink"}),
     ],
 )
 def test_no_command_returns_or_logs_a_credential_from_connector_config(
@@ -464,3 +456,44 @@ def test_a_topic_under_a_denied_connector_is_reported_excluded() -> None:
     assert [(r.included, r.excluded_by) for r in result.results] == [
         (False, "connector_patterns")
     ]
+
+
+def test_connector_lineage_is_exactly_what_ingestion_emits() -> None:
+    config = _recipe()
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        expected = _ingested_io(config)
+        with KafkaConnectMetadataProbe.for_config(config) as probe:
+            edges = probe.connector_lineage("orders-sink")
+    got: Dict[str, Tuple[List[str], List[str]]] = {}
+    for e in edges:
+        job, inputs, outputs = e["job"], e["inputs"], e["outputs"]
+        assert isinstance(job, str)
+        assert isinstance(inputs, list) and isinstance(outputs, list)
+        got[job] = (sorted(inputs), sorted(outputs))
+    assert got == {k: v for k, v in expected.items() if "orders-sink" in k}
+    assert got
+
+
+def test_a_denied_connectors_lineage_is_still_shown() -> None:
+    config = _recipe(connector_patterns={"deny": ["^orders-sink$"]})
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(config) as probe:
+            assert probe.connector_lineage("orders-sink")
+
+
+def test_an_unemitted_connector_has_no_lineage() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            assert probe.connector_lineage("legacy-source") == []
+
+
+def test_lineage_without_datahub_says_what_it_could_not_reproduce() -> None:
+    config = _recipe(use_schema_resolver=True)
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(config) as probe:
+            probe.connector_lineage("orders-sink")
+            assert any("use_schema_resolver" in w for w in probe.warnings)
