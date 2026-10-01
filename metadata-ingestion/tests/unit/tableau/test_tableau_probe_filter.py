@@ -86,10 +86,19 @@ def test_readmission_through_a_readmitted_parent_warns_about_listing_order() -> 
     assert any("listing order" in w for w in result.warnings)
 
 
-def test_a_separator_inside_a_name_is_reported() -> None:
-    result = _judge("Project", ["Q1/Q2"], project_path_pattern={"allow": ["^Q1/Q2$"]})
+def test_a_separator_inside_a_name_is_reported_when_the_readings_differ() -> None:
+    # Q1 > Q2 is re-admitted under Q1; a root project named "Q1/Q2" is not.
+    result = _judge("Project", ["Q1/Q2"], project_path_pattern={"allow": ["^Q1$"]})
     assert result.results[0].included
     assert any("separator" in w for w in result.warnings)
+
+
+def test_a_path_name_is_not_warned_about_when_both_readings_agree() -> None:
+    for config in ({"project_path_pattern": {"allow": ["^Sales/EMEA$"]}}, {}):
+        project = _judge("Project", ["Sales/EMEA"], **config)
+        workbook = _judge("Workbook", ["Revenue"], ["Sales/EMEA"], **config)
+        for result in (project, workbook):
+            assert not any("separator" in w for w in result.warnings), config
 
 
 def test_site_name_pattern_applies_only_with_multiple_sites() -> None:

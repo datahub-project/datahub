@@ -128,7 +128,25 @@ def probe_project_verdict(
 ) -> Verdict:
     """`probe filter`'s Project verdict: project_selection, plus the caveats a
     caller needs to read it the way ingestion will act on it."""
-    selection = project_selection(config, project_segments(config, name, parent_path))
+    segments = project_segments(config, name, parent_path)
+    selection = project_selection(config, segments)
+    literal = [*parent_path, name]
+    if (
+        len(segments) > len(literal)
+        and project_selection(config, literal).included != selection.included
+    ):
+        # Splitting on the separator is right for the documented usage
+        # (`--name Sales/EMEA`), and then both readings agree on the path
+        # pattern. They part only through the per-segment rules: the hierarchy
+        # re-admission and project_pattern's bare-name match. Warn just then,
+        # so the warning is never noise an agent learns to skip.
+        warn(
+            f"read '{config.project_path_separator}' in '{name}' as the project "
+            "path separator; this only matters if a project name itself "
+            f"contains '{config.project_path_separator}', and here it changes "
+            "the verdict. Set project_path_separator to a character no project "
+            "name uses"
+        )
     # Compared field by field: AllowDenyPattern.__eq__ compares __dict__, which
     # also holds the regexes it caches once it has matched anything, so a used
     # allow-all pattern compares unequal to a fresh one.
