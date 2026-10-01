@@ -1,7 +1,7 @@
 import { grey } from '@ant-design/colors';
-import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { ApolloError } from '@apollo/client';
 import { Text } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Button, Divider, Typography, message } from 'antd';
 import ColorHash from 'color-hash';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
