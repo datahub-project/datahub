@@ -290,6 +290,15 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
             )
         return catalog
 
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: iceberg_probe imports this module for the config type.
+        from datahub.ingestion.source.iceberg.iceberg_probe import (
+            IcebergMetadataProbe,
+        )
+
+        return IcebergMetadataProbe
+
 
 class TopTableTimings:
     _VALUE_FIELD: str = "timing"
