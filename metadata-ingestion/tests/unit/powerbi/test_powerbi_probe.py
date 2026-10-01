@@ -2,9 +2,16 @@ from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 from unittest import mock
 
 import pytest
+import requests_mock as rm
 
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
-from datahub.ingestion.source.powerbi.config import PowerBiEnvironment
+from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
+from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.source.powerbi.config import (
+    PowerBiDashboardSourceConfig,
+    PowerBiEnvironment,
+)
+from datahub.ingestion.source.powerbi.powerbi_probe import PowerBiMetadataProbe
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     DataResolverBase,
 )
@@ -176,3 +183,192 @@ def test_reports_are_unfiltered_but_inherit_their_workspace_verdict() -> None:
 def test_a_switched_off_kind_is_excluded_by_its_switch(kind: str, switch: str) -> None:
     _, verdicts = _judge(kind, ["Weekly"], ["Sales"], **{switch: False})
     assert verdicts == {"Weekly": (False, switch)}
+
+
+_ORG = "https://api.powerbi.com/v1.0/myorg"
+_GROUPS: List[Dict[str, Any]] = [
+    {"id": "ws-1", "name": "Sales", "type": "Workspace"},
+    {"id": "ws-2", "name": "Finance", "type": "Workspace"},
+    {"id": "ws-3", "name": "PersonalWorkspace Some Person", "type": "PersonalGroup"},
+    {"id": "ws-4", "name": "Admin Monitoring", "type": "AdminWorkspace"},
+]
+
+
+def _paged(requests_mock: rm.Mocker, url: str, rows: List[Dict[str, Any]]) -> None:
+    # itr_pages stops on the first empty page.
+    requests_mock.get(url, [{"json": {"value": rows}}, {"json": {"value": []}}])
+
+
+def _probe(**recipe: Any) -> PowerBiMetadataProbe:
+    return PowerBiMetadataProbe.for_config(
+        PowerBiDashboardSourceConfig.model_validate({**_RECIPE, **recipe})
+    )
+
+
+def test_building_the_provider_opens_no_connection(requests_mock: rm.Mocker) -> None:
+    with mock.patch("msal.ConfidentialClientApplication") as msal_client:
+        with _probe():
+            pass
+    msal_client.assert_not_called()
+    assert requests_mock.call_count == 0
+
+
+def test_workspaces_report_denied_ones_and_flag_the_type_filter(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    with _probe(workspace_name_pattern={"deny": ["^Finance$"]}) as probe:
+        rows = probe.workspaces(limit=10)
+    # Finance is denied by pattern but still reported; probe filter judges it.
+    assert [(r["name"], r["id"], r["type_allowed"]) for r in rows] == [
+        ("Sales", "ws-1", True),
+        ("Finance", "ws-2", True),
+        ("Admin Monitoring", "ws-4", False),
+    ]
+
+
+def test_personal_workspace_names_are_withheld_unless_the_recipe_ingests_them(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    with _probe() as probe:
+        rows = probe.workspaces(limit=10)
+    # Neither the name nor the id: the id is enough to look the owner up.
+    assert all("Some Person" not in str(row) for row in rows)
+    assert "ws-3" not in [r["id"] for r in rows]
+    assert any("1 personal workspace" in w for w in probe.warnings)
+    assert all("Some Person" not in w for w in probe.warnings)
+
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    with _probe(workspace_type_filter=["Workspace", "PersonalGroup"]) as opted_in:
+        names = [r["name"] for r in opted_in.workspaces(limit=10)]
+    assert "PersonalWorkspace Some Person" in names
+    assert opted_in.warnings == []
+
+
+def test_withheld_personal_workspaces_are_not_counted_twice(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    with _probe() as probe:
+        probe.workspaces(limit=10)
+        _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+        probe.workspaces(limit=10)
+    personal = [w for w in probe.warnings if "personal" in w]
+    assert len(personal) == 1 and personal[0].startswith("1 personal workspace")
+
+
+def test_admin_apis_only_lists_through_the_admin_endpoint(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(
+        requests_mock,
+        f"{_ORG}/admin/groups",
+        [{**_GROUPS[0], "state": "Active"}],
+    )
+    with _probe(admin_apis_only=True) as probe:
+        rows = probe.workspaces(limit=10)
+    assert [(r["id"], r["state"]) for r in rows] == [("ws-1", "Active")]
+
+
+def test_government_environment_lists_from_the_government_host(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, "https://api.powerbigov.us/v1.0/myorg/groups", _GROUPS[:1])
+    with _probe(environment="GOVERNMENT") as probe:
+        assert [r["id"] for r in probe.workspaces(limit=10)] == ["ws-1"]
+    assert all("powerbigov.us" in r.url for r in requests_mock.request_history)
+
+
+def test_the_limit_stops_paging_instead_of_reading_the_whole_tenant(
+    requests_mock: rm.Mocker,
+) -> None:
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS)
+    result = run_probe_method("powerbi", dict(_RECIPE), "workspaces", {"limit": 1})
+    assert isinstance(result.result, list)
+    assert len(result.result) == 1 and result.truncated
+    assert requests_mock.call_count == 1  # the second (empty) page was never fetched
+
+
+def test_modified_since_narrows_the_listing_as_ingestion_does(
+    requests_mock: rm.Mocker,
+) -> None:
+    requests_mock.get(f"{_ORG}/admin/workspaces/modified", json=[{"id": "ws-1"}])
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS[:1])
+    with _probe(modified_since="2026-09-01T00:00:00.0000000Z") as probe:
+        probe.workspaces(limit=10)
+    groups_call = [
+        r for r in requests_mock.request_history if r.path.endswith("/groups")
+    ][0]
+    assert groups_call.qs["$filter"] == ["id eq ws-1"]
+
+
+def test_nothing_modified_lists_everything_and_says_so(
+    requests_mock: rm.Mocker,
+) -> None:
+    requests_mock.get(f"{_ORG}/admin/workspaces/modified", json=[])
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS[:2])
+    with _probe(modified_since="2026-09-01T00:00:00.0000000Z") as probe:
+        assert len(probe.workspaces(limit=10)) == 2
+    groups_call = [
+        r for r in requests_mock.request_history if r.path.endswith("/groups")
+    ][0]
+    assert "$filter" not in groups_call.qs
+    assert any("no id filter" in w for w in probe.warnings)
+
+
+def test_a_rejected_modified_since_is_the_callers_to_fix(
+    requests_mock: rm.Mocker,
+) -> None:
+    requests_mock.get(
+        f"{_ORG}/admin/workspaces/modified",
+        status_code=400,
+        json={"error": {"code": "InvalidRequest"}},
+    )
+    with (
+        pytest.raises(ValueError, match="modified_since"),
+        _probe(modified_since="2020-01-01T00:00:00.0000000Z") as probe,
+    ):
+        probe.workspaces(limit=10)
+    assert not [r for r in requests_mock.request_history if r.path.endswith("/groups")]
+
+
+def _no_token(*args: Any, **kwargs: Any) -> Any:
+    class Client:
+        def acquire_token_for_client(self, *a: Any, **k: Any) -> Dict:
+            return {}
+
+    return Client()
+
+
+def test_an_auth_failure_is_a_connection_error_not_an_empty_listing() -> None:
+    with (
+        mock.patch("msal.ConfidentialClientApplication", side_effect=_no_token),
+        pytest.raises(ProbeConnectionError),
+    ):
+        run_probe_method("powerbi", dict(_RECIPE), "workspaces", {})
+
+
+def test_an_auth_failure_under_modified_since_is_not_blamed_on_the_value() -> None:
+    # The admin resolver is built inside the modified_since lookup; its token
+    # failure is a ConfigurationError too, and must not read as a bad value.
+    recipe = {**_RECIPE, "modified_since": "2026-09-01T00:00:00.0000000Z"}
+    with (
+        mock.patch("msal.ConfidentialClientApplication", side_effect=_no_token),
+        pytest.raises(ProbeConnectionError),
+    ):
+        run_probe_method("powerbi", recipe, "workspaces", {})
+
+
+def test_a_forbidden_groups_listing_raises_rather_than_reporting_empty(
+    requests_mock: rm.Mocker,
+) -> None:
+    requests_mock.get(f"{_ORG}/groups", status_code=403)
+    with pytest.raises(Exception) as excinfo, _probe() as probe:
+        probe.workspaces(limit=10)
+    assert "403" in str(excinfo.value)
+
+
+def test_probe_methods_advertises_the_commands_and_kinds() -> None:
+    kinds = {s.command: s.kind for s in list_probe_methods("powerbi")}
+    assert kinds["workspaces"] == "Workspace"

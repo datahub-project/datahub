@@ -843,6 +843,16 @@ class PowerBiDashboardSourceConfig(
     )
 
     @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: powerbi_probe imports this module, so a top-level import
+        # would be circular.
+        from datahub.ingestion.source.powerbi.powerbi_probe import (
+            PowerBiMetadataProbe,
+        )
+
+        return PowerBiMetadataProbe
+
+    @classmethod
     def probe_unfiltered_kinds(cls) -> Set[str]:
         """Reports and dashboards are ingested whole for every workspace the
         recipe keeps; no pattern applies below a workspace (powerbi.py filters
