@@ -104,7 +104,7 @@ class DataResolverBase(ABC):
         )
 
         self._scope = urls["SCOPE"]
-        self._my_org_url = urls["MY_ORG_URL"]
+        self._my_org_url = self.my_org_url_for(environment)
         self._base_url = f"{self._my_org_url}/groups"
         self._admin_base_url = f"{self._my_org_url}/admin"
         self._authority = urls["AUTHORITY"]
@@ -139,6 +139,22 @@ class DataResolverBase(ABC):
                 )
             ),
         )
+
+    @classmethod
+    def my_org_url_for(cls, environment: PowerBiEnvironment) -> str:
+        urls = (
+            cls.GOVERNMENT_URLS
+            if environment == PowerBiEnvironment.GOVERNMENT
+            else cls.COMMERCIAL_URLS
+        )
+        return urls["MY_ORG_URL"]
+
+    @property
+    def request_session(self) -> requests.Session:
+        # The session carries the retry adapter and default timeout mounted in
+        # __init__; a caller outside this class (the probe's `api` command)
+        # must reuse it rather than open a bare one.
+        return self._request_session
 
     @abstractmethod
     def get_groups_endpoint(self) -> str:
