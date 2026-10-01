@@ -183,12 +183,16 @@ def test_explores_and_models_match_ingestion_when_not_used_only(
     config = recipe(emit_used_explores_only=False)
     emitted = _ingest(tmp_path, config)
     explores, _ = _probe(config, "explores", {"model": "sales"})
-    assert explores == _explore_names(emitted, "sales") == {
-        "orders",
-        "customers",
-        "archived",
-        "unused",
-    }
+    assert (
+        explores
+        == _explore_names(emitted, "sales")
+        == {
+            "orders",
+            "customers",
+            "archived",
+            "unused",
+        }
+    )
     models, reasons = _probe(config, "models", {})
     assert models == _model_names(emitted) == {"sales"}
     assert reasons["empty"] == "model_has_no_explores"

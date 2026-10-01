@@ -260,7 +260,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     ) -> None:
         assert test_report.capability_report is not None
 
-        if required.issubset(permissions):
+        if required <= permissions:
             test_report.capability_report[perm] = CapabilityReport(capable=True)
         else:
             missing = required - permissions
@@ -1065,7 +1065,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _get_folder_path(self, folder: FolderBase, client: LookerAPI) -> str:
         assert folder.id
         return looker_folder_path(
-            [ancestor.name for ancestor in client.folder_ancestors(folder_id=folder.id)],
+            [
+                ancestor.name
+                for ancestor in client.folder_ancestors(folder_id=folder.id)
+            ],
             folder.name,
         )
 

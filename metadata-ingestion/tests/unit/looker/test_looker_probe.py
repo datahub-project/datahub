@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any, Dict, List
 from unittest import mock
 
 import looker_sdk.rtl.requests_transport as looker_requests_transport
@@ -13,7 +13,11 @@ from looker_sdk.sdk.api40.models import (
     Query,
 )
 
-from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
+from datahub.ingestion.agent.probe_methods import (
+    ProbeMethodResult,
+    list_probe_methods,
+    run_probe_method,
+)
 from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_probe import (
@@ -42,9 +46,16 @@ _LOOKS_ON: Dict[str, Any] = {
 }
 
 
+def _rows(run: ProbeMethodResult) -> List[Dict[str, Any]]:
+    assert isinstance(run.result, list)
+    return run.result
+
+
 def _run(command: str, params: Dict[str, Any], **overrides: Any) -> Dict[str, Any]:
     with fake_looker():
-        return run_probe_method("looker", recipe(**overrides), command, params).to_dict()
+        return run_probe_method(
+            "looker", recipe(**overrides), command, params
+        ).to_dict()
 
 
 def test_building_the_provider_opens_no_connection() -> None:
@@ -139,7 +150,6 @@ def test_unreadable_roles_degrade_to_a_warning() -> None:
     assert any("HTTP 403" in w for w in run.warnings)
 
 
-
 def test_folder_path_joins_ancestors_and_the_folder() -> None:
     assert looker_folder_path(["Shared"], "Sales") == "Shared/Sales"
     assert looker_folder_path([], "Shared") == "Shared"
@@ -177,7 +187,7 @@ def test_unreadable_ancestors_degrade_as_ingestion_does() -> None:
     client.folder_ancestors.side_effect = sdk_error(500)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(), "dashboards", {})
-    first = next(r for r in run.result if r["name"] == "1")
+    first = next(r for r in _rows(run) if r["name"] == "1")
     # Without its ancestors a folder's path is just its own name, which for a
     # personal folder is its user's name: withheld, with the verdict kept.
     assert first["folder_path"] is None
@@ -190,7 +200,7 @@ def test_a_refused_deleted_listing_keeps_the_live_ones_and_warns() -> None:
     client.search_dashboards.side_effect = sdk_error(403)
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(), "dashboards", {})
-    assert {r["name"] for r in run.result} == {"1", "2", "3", "5", "6"}
+    assert {r["name"] for r in _rows(run)} == {"1", "2", "3", "5", "6"}
     assert any("deleted dashboard listing returned HTTP 403" in w for w in run.warnings)
 
 
@@ -198,7 +208,7 @@ def test_the_limit_bounds_folder_lookups_and_skips_the_deleted_listing() -> None
     client = install(mock.MagicMock())
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(), "dashboards", {"limit": 1})
-    assert [r["name"] for r in run.result] == ["1"]
+    assert [r["name"] for r in _rows(run)] == ["1"]
     assert run.truncated is True
     client.search_dashboards.assert_not_called()
     # Dashboards 1 and 2 share f-sales: one lookup, cached.
@@ -245,7 +255,9 @@ def test_charts_warn_when_ingestion_drops_their_dashboard() -> None:
 
 
 def test_an_element_whose_look_has_no_query_is_unreadable_to_ingestion() -> None:
-    assert _ingestion_can_read(DashboardElement(id="1", query=Query(model="m", view="v")))
+    assert _ingestion_can_read(
+        DashboardElement(id="1", query=Query(model="m", view="v"))
+    )
     assert not _ingestion_can_read(DashboardElement(id="2", look=LookWithQuery()))
     assert not _ingestion_can_read(DashboardElement(id="3"))
 
@@ -351,16 +363,27 @@ def test_traced_explores_mark_what_kept_charts_and_looks_query() -> None:
         "unused": False,
     }
     # The only chart querying `archived` is dropped, or its dashboard is.
-    assert _used("explores", {"model": "sales"}, chart_pattern={"deny": ["^51$"]})[
-        "archived"
-    ] is False
-    assert _used("explores", {"model": "sales"}, dashboard_pattern={"deny": ["^5$"]})[
-        "archived"
-    ] is False
+    assert (
+        _used("explores", {"model": "sales"}, chart_pattern={"deny": ["^51$"]})[
+            "archived"
+        ]
+        is False
+    )
+    assert (
+        _used("explores", {"model": "sales"}, dashboard_pattern={"deny": ["^5$"]})[
+            "archived"
+        ]
+        is False
+    )
     # folder_path_pattern drops the dashboard only after its explores count.
-    assert _used(
-        "explores", {"model": "sales"}, folder_path_pattern={"deny": ["^Shared/Archive"]}
-    )["archived"] is True
+    assert (
+        _used(
+            "explores",
+            {"model": "sales"},
+            folder_path_pattern={"deny": ["^Shared/Archive"]},
+        )["archived"]
+        is True
+    )
 
 
 def test_traced_models_are_used_when_any_of_their_explores_is() -> None:
@@ -384,8 +407,8 @@ def test_standalone_looks_count_toward_use_only_when_extracted() -> None:
             "explores",
             {"model": "sales", "trace_charts": True},
         )
-    assert {r["name"]: r["used"] for r in off.result}["unused"] is False
-    assert {r["name"]: r["used"] for r in on.result}["unused"] is True
+    assert {r["name"]: r["used"] for r in _rows(off)}["unused"] is False
+    assert {r["name"]: r["used"] for r in _rows(on)}["unused"] is True
 
 
 def test_traced_looks_mark_the_ones_on_a_kept_dashboard() -> None:
@@ -402,7 +425,7 @@ def test_an_interrupted_trace_leaves_unfound_use_undetermined() -> None:
         run = run_probe_method(
             "looker", recipe(), "explores", {"model": "sales", "trace_charts": True}
         )
-    assert {r["name"]: r["used"] for r in run.result} == {
+    assert {r["name"]: r["used"] for r in _rows(run)} == {
         "orders": None,
         "customers": None,
         "archived": None,
@@ -422,7 +445,7 @@ def test_the_trace_stops_at_its_bound_and_says_so() -> None:
         run = run_probe_method(
             "looker", recipe(), "explores", {"model": "sales", "trace_charts": True}
         )
-    used = {r["name"]: r["used"] for r in run.result}
+    used = {r["name"]: r["used"] for r in _rows(run)}
     # Dashboard 1 was read before the bound; what only later ones use is unknown.
     assert used["orders"] is True
     assert used["unused"] is None
@@ -457,7 +480,7 @@ def test_a_folder_under_the_users_root_is_withheld_even_without_flags() -> None:
     config = recipe(folder_path_pattern={"deny": ["^Users/"]})
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", config, "dashboards", {})
-    record = next(r for r in run.result if r["name"] == "9")
+    record = next(r for r in _rows(run) if r["name"] == "9")
     assert record["folder_path"] is None
     assert record["folder_path_allowed"] is False
     assert PERSONAL_FOLDER_NAME not in json.dumps(run.to_dict())
@@ -480,6 +503,6 @@ def test_an_unreadable_look_leaves_the_trace_undetermined_not_failed() -> None:
         run = run_probe_method(
             "looker", config, "explores", {"model": "sales", "trace_charts": True}
         )
-    assert {r["used"] for r in run.result} == {None}
+    assert {r["used"] for r in _rows(run)} == {None}
     assert any("undetermined" in w for w in run.warnings)
     assert not any("boom" in w for w in run.warnings)

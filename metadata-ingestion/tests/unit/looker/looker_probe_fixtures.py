@@ -130,7 +130,9 @@ LIVE_DASHBOARDS: List[Dashboard] = [
                 title="chart 62",
                 look_id="105",
                 look=LookWithQuery(
-                    query=Query(model="sales", view="customers", fields=["customers.id"])
+                    query=Query(
+                        model="sales", view="customers", fields=["customers.id"]
+                    )
                 ),
             ),
         ],
@@ -226,12 +228,15 @@ def install(client: mock.MagicMock) -> mock.MagicMock:
     client.dashboard.side_effect = dashboard
     client.search_dashboards.side_effect = search_dashboards
     client.folder_ancestors.side_effect = (
-        lambda folder_id, fields=None, transport_options=None: list(ANCESTORS[folder_id])
+        lambda folder_id, fields=None, transport_options=None: list(
+            ANCESTORS[folder_id]
+        )
     )
     client.all_looks.side_effect = lambda fields=None, transport_options=None: list(
         LIVE_LOOKS
     )
     client.search_looks.side_effect = search_looks
+
     def look(
         look_id: str, fields: Optional[str] = None, transport_options: Any = None
     ) -> LookWithQuery:
