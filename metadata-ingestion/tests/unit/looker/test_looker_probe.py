@@ -133,18 +133,6 @@ def test_unreadable_roles_degrade_to_a_warning() -> None:
     assert any("HTTP 403" in w for w in run.warnings)
 
 
-def test_no_command_output_carries_credentials_or_the_api_user() -> None:
-    dumped = json.dumps(_run("permissions", {}))
-    for secret in (CLIENT_ID, CLIENT_SECRET, API_USER_EMAIL, '"7"'):
-        assert secret not in dumped
-
-
-def test_methods_are_advertised_with_their_kinds() -> None:
-    kinds = {spec.command: spec.kind for spec in list_probe_methods("looker")}
-    assert kinds["permissions"] is None
-    assert kinds["dashboards"] == "Dashboard"
-    assert kinds["charts"] == "Look"
-    assert kinds["looks"] == "Look"
 
 def test_folder_path_joins_ancestors_and_the_folder() -> None:
     assert looker_folder_path(["Shared"], "Sales") == "Shared/Sales"
@@ -265,3 +253,67 @@ def test_looks_list_live_and_deleted_with_the_facts_ingestion_skips_on() -> None
 def test_looks_say_ingestion_emits_none_without_the_switch() -> None:
     run = _run("looks", {})
     assert any("extract_independent_looks" in w for w in run["warnings"])
+
+
+def test_models_and_their_explores() -> None:
+    models = _run("models", {})
+    assert models["kind"] == "LookML Model"
+    assert models["result"] == [
+        {"name": "sales", "project": "proj", "explore_count": 3},
+        {"name": "empty", "project": "proj", "explore_count": 0},
+    ]
+    explores = _run("explores", {"model": "sales"})
+    assert explores["kind"] == "Explore"
+    assert explores["parent_path"] == ["sales"]
+    assert explores["result"] == [
+        {"name": "orders", "hidden": False},
+        {"name": "customers", "hidden": False},
+        {"name": "unused", "hidden": True},
+    ]
+
+
+def test_explores_of_an_unknown_model_are_a_bad_argument() -> None:
+    with fake_looker(), pytest.raises(ValueError, match="no LookML model named"):
+        run_probe_method("looker", recipe(), "explores", {"model": "nope"})
+
+
+def test_a_refused_model_listing_is_empty_with_a_warning_not_a_bad_argument() -> None:
+    client = install(mock.MagicMock())
+    client.all_lookml_models.side_effect = sdk_error(403)
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method("looker", recipe(), "explores", {"model": "sales"})
+    assert run.result == []
+    assert any("HTTP 403" in w for w in run.warnings)
+
+
+def test_methods_are_advertised_with_their_kinds() -> None:
+    kinds = {spec.command: spec.kind for spec in list_probe_methods("looker")}
+    assert kinds == {
+        "permissions": None,
+        "dashboards": "Dashboard",
+        "charts": "Look",
+        "looks": "Look",
+        "models": "LookML Model",
+        "explores": "Explore",
+    }
+
+
+def test_no_listing_carries_credentials_users_or_personal_folders() -> None:
+    for command, params in (
+        ("dashboards", {}),
+        ("charts", {"dashboard": "3"}),
+        ("looks", {}),
+        ("models", {}),
+        ("explores", {"model": "sales"}),
+        ("permissions", {}),
+    ):
+        dumped = json.dumps(_run(command, params, **_LOOKS_ON))
+        # '"7"' is the API user's id in the fake, as a JSON string.
+        for withheld in (
+            CLIENT_ID,
+            CLIENT_SECRET,
+            API_USER_EMAIL,
+            PERSONAL_FOLDER_NAME,
+            '"7"',
+        ):
+            assert withheld not in dumped, (command, withheld)
