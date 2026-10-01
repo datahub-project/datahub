@@ -716,6 +716,15 @@ class UnityCatalogSourceConfig(
             (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW),
         )
 
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: unity_probe imports proxy.py, which imports this module
+        from datahub.ingestion.source.unity.unity_probe import (
+            UnityCatalogMetadataProbe,
+        )
+
+        return UnityCatalogMetadataProbe
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
