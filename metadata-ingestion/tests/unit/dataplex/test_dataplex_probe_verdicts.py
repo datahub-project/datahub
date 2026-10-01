@@ -262,3 +262,66 @@ def test_project_labels_with_a_bare_name_warn_that_labels_were_not_checked() -> 
         attributes=[{"display_name": "prod-a"}],
     )
     assert not any("project_labels" in w for w in listed.warnings)
+
+
+GROUP_SPANNER = "projects/proj-a/locations/us/entryGroups/@spanner"
+
+
+def test_a_spanner_entry_under_a_denied_spanner_group_is_reported_included() -> None:
+    # search_entries reads Spanner entries without consulting
+    # entry_groups.pattern, so denying @spanner does not drop them.
+    config: Dict[str, object] = {
+        "project_ids": ["proj-a"],
+        "filter_config": {"entry_groups": {"pattern": {"deny": [".*/@spanner$"]}}},
+    }
+    entry = _judge(
+        config,
+        DATAPLEX_ENTRY_KIND,
+        [f"{GROUP_SPANNER}/entries/orders"],
+        parents=["proj-a", GROUP_SPANNER],
+    )
+    assert entry.results[0].included is True
+    assert any("search_entries" in w for w in entry.warnings)
+    # The project above it still decides.
+    other_project = "projects/proj-b/locations/us/entryGroups/@spanner"
+    unlisted = _judge(
+        config,
+        DATAPLEX_ENTRY_KIND,
+        [f"{other_project}/entries/orders"],
+        parents=["proj-b", other_project],
+    )
+    assert [(r.included, r.excluded_by) for r in unlisted.results] == [
+        (False, "project_ids")
+    ]
+
+
+def test_export_mode_reports_a_denied_entry_group_included() -> None:
+    # process_exported_entries never consults entry_groups.pattern, so the
+    # group's entries are exported whatever it says.
+    config: Dict[str, object] = {
+        **EXPORT_MODE,
+        "project_ids": ["proj-a"],
+        "filter_config": {"entry_groups": {"pattern": {"deny": [".*/sales$"]}}},
+    }
+    group = _judge(config, DATAPLEX_ENTRY_GROUP_KIND, [GROUP_SALES], parents=["proj-a"])
+    assert group.results[0].included is True
+    assert any("extraction_method" in w for w in group.warnings)
+
+
+def test_export_mode_entry_from_run_warns_that_project_labels_were_not_checked() -> (
+    None
+):
+    # An entry record carries entry attributes, not the project's labels, so
+    # the labels resolve_gcp_projects narrows the export by were not judged.
+    config: Dict[str, object] = {**EXPORT_MODE, "project_labels": ["env:prod"]}
+    result = check_filters(
+        source_type="dataplex",
+        config_dict=config,
+        kind=DATAPLEX_ENTRY_KIND,
+        parent_path=["proj-a", GROUP_SALES],
+        names=[ENTRY_ORDERS],
+        attributes=[
+            {"entry_type": "bigquery-table", "fully_qualified_name": "bigquery:x.y.z"}
+        ],
+    )
+    assert any("project_labels" in w for w in result.warnings)

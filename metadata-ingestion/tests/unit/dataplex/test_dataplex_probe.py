@@ -143,6 +143,31 @@ def test_discovery_lists_denied_projects_too(monkeypatch: pytest.MonkeyPatch) ->
     assert [r["name"] for r in _records(result)] == ["prod-a", "dev-a"]
 
 
+def test_discovery_stops_reading_projects_at_the_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    pulled: List[str] = []
+
+    def pager() -> Iterator[resourcemanager_v3.Project]:
+        for i in range(1000):
+            pulled.append(f"p-{i}")
+            yield resourcemanager_v3.Project(project_id=f"p-{i}")
+
+    projects = Mock(spec=resourcemanager_v3.ProjectsClient)
+    projects.search_projects.return_value = pager()
+    result = _run(
+        monkeypatch,
+        "projects",
+        {"limit": 2},
+        config={"project_id_pattern": {"allow": ["^p-"]}},
+        projects=projects,
+    )
+    assert [r["name"] for r in _records(result)] == ["p-0", "p-1"]
+    assert result.truncated is True
+    # The framework asks for one past the limit to detect truncation.
+    assert len(pulled) <= 3
+
+
 def test_label_discovery_sends_the_query_ingestion_sends(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
