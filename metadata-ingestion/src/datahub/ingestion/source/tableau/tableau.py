@@ -132,6 +132,10 @@ from datahub.ingestion.source.tableau.tableau_initial_sql import (
     extract_initial_sql_connections,
     extract_tds_bytes,
 )
+from datahub.ingestion.source.tableau.tableau_selection import (
+    is_project_allowed,
+    is_project_denied,
+)
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
 from datahub.ingestion.source.tableau.tableau_validation import check_user_role
 from datahub.ingestion.source.tableau.tableau_virtual_connections import (
@@ -1398,11 +1402,9 @@ class TableauSiteSource:
         return all_project_map
 
     def _is_allowed_project(self, project: TableauProject) -> bool:
-        # Either project name or project path should exist in allow
-        is_allowed: bool = (
-            self.config.project_pattern.allowed(project.name)
-            or self.config.project_pattern.allowed(self._get_project_path(project))
-        ) and self.config.project_path_pattern.allowed(self._get_project_path(project))
+        is_allowed = is_project_allowed(
+            self.config, project.name, self._get_project_path(project)
+        )
         if is_allowed is False:
             logger.info(
                 f"Project ({project.name}) is not allowed as per project_pattern or project_path_pattern"
@@ -1410,36 +1412,11 @@ class TableauSiteSource:
         return is_allowed
 
     def _is_denied_project(self, project: TableauProject) -> bool:
-        """
-        Why use an explicit denial check instead of the `AllowDenyPattern.allowed` method?
-
-        Consider a scenario where a Tableau site contains four projects: A, B, C, and D, with the following hierarchical relationship:
-
-        - **A**
-          - **B** (Child of A)
-          - **C** (Child of A)
-        - **D**
-
-        In this setup:
-
-        - `project_pattern` is configured with `allow: ["A"]` and `deny: ["B"]`.
-        - `extract_project_hierarchy` is set to `True`.
-
-        The goal is to extract assets from project A and its children while explicitly denying the child project B.
-
-        If we rely solely on the `project_pattern.allowed()` method, project C's assets will not be ingested.
-        This happens because project C is not explicitly included in the `allow` list, nor is it part of the `deny` list.
-        However, since `extract_project_hierarchy` is enabled, project C should ideally be included in the ingestion process unless explicitly denied.
-
-        To address this, the function explicitly checks the deny regex to ensure that project C’s assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
-        """
-
-        # Either project_pattern or project_path_pattern is set in a recipe
-        # TableauConfig.projects_backward_compatibility ensures that at least one of these properties is configured.
-
-        return self.config.project_pattern.denied(
-            project.name
-        ) or self.config.project_path_pattern.denied(self._get_project_path(project))
+        # See is_project_denied for why this is an explicit deny check rather
+        # than `not allowed`.
+        return is_project_denied(
+            self.config, project.name, self._get_project_path(project)
+        )
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
