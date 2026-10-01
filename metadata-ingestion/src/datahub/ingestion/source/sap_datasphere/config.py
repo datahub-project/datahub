@@ -251,19 +251,10 @@ class SapDatasphereConfig(
     expose_for_consumption_only: bool = Field(
         default=False,
         description=(
-            "Controls how broadly Views / Analytic Models are discovered. "
-            "If True, only emit catalog assets that have an "
-            "`assetRelationalMetadataUrl` (exposed for OData consumption); "
-            "assets without an exposure URL are counted in `assets_filtered`, "
-            "and the design-time dwaas-core listing is not used. "
-            "If False (default), emit all catalog assets and ALSO discover "
-            "Views / Analytic Models absent from the consumption catalog via "
-            "`/dwaas-core/api/v1/spaces/X/{views,analyticmodels}` (the same "
-            "surface as `datasphere objects views|analytic-models list`). "
-            "Names already returned by the catalog are not re-emitted; "
-            "design-time-only assets get schema and lineage from their CSN. "
-            "That closes dangling lineage edges to intermediate modelling "
-            "views that are not Expose for Consumption."
+            "If True, only emit catalog assets with an "
+            "`assetRelationalMetadataUrl` and skip design-time Views / "
+            "Analytic Models listing. If False (default), also discover "
+            "unexposed Views / Analytic Models via dwaas-core."
         ),
     )
     convert_urns_to_lowercase: bool = Field(

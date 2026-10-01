@@ -40,9 +40,7 @@ class SapDatasphereReport(StaleEntityRemovalSourceReport):
     # metadata URL was available (e.g. analytic models).
     assets_schema_from_csn: int = 0
     local_tables_emitted: int = 0
-    # Views / Analytic Models discovered via dwaas-core because they are not
-    # Expose for Consumption (absent from the consumption catalog). Counted
-    # only for names that were not already emitted from the catalog listing.
+    # Design-time Views / Analytic Models not already emitted from the catalog.
     non_consumption_views_emitted: int = 0
     columns_filtered: int = 0
     assets_schema_failed: LossyList[str] = field(default_factory=LossyList)

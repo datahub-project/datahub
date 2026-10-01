@@ -392,8 +392,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._emit_space(space_name, space_label)
                 yield from self._emit_assets_in_space(space_name)
 
-                # After the catalog pass so names already emitted (with EDMX /
-                # labels) are skipped rather than re-emitted as CSN-only stubs.
                 if not self.config.expose_for_consumption_only:
                     yield from self._emit_non_consumption_views_for_space(space_name)
 
@@ -459,16 +457,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
     def _emit_non_consumption_views_for_space(
         self, space_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit Views / Analytic Models absent from the consumption catalog.
-
-        The catalog only returns Expose for Consumption assets. Listing the
-        design-time ``views`` / ``analyticmodels`` types closes dangling
-        lineage edges that point at intermediate modelling objects the SAP
-        team deliberately keeps unexposed.
-        """
-        # Managed Views / Analytic Models share the tenant HANA Cloud routing
-        # with Local Tables; fail the space's design-time pass once if that
-        # mapping is missing rather than per-object.
+        """Emit design-time Views / Analytic Models missing from the catalog."""
         resolved = self._resolve_managed_or_warn(
             space_name,
             "non-consumption Views / Analytic Models",
@@ -502,12 +491,7 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                     self._dataset_urn(resolved, dataset_name)
                     in self._emitted_dataset_urns
                 ):
-                    # Prefer the catalog emit (EDMX schema + label) when both
-                    # surfaces list the same name.
                     continue
-                # Synthetic catalog-shaped record so the shared emit path can
-                # reuse schema / lineage / subtype handling. No metadata URL —
-                # schema comes from CSN.
                 asset: JsonDict = {
                     CATALOG_FIELD_NAME: technical_name,
                     CATALOG_FIELD_LABEL: technical_name,
@@ -1378,9 +1362,8 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         *,
         require_csn: bool = False,
     ) -> AssetCsn:
-        # Fetch the View / Analytic Model CSN (for lineage, view definitions,
-        # schema when there is no EDMX URL, or @remote.source detection) and
-        # resolve the routing connection.
+        # CSN is used for lineage, view definitions, schema without EDMX, and
+        # @remote.source routing.
         csn_obj: Optional[JsonDict] = None
         csn_def: Optional[JsonDict] = None
         if (
@@ -1465,8 +1448,6 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.assets_filtered += 1
             return
 
-        # No EDMX URL means schema (and typically lineage) must come from CSN —
-        # design-time-only Views / Analytic Models never have a consumption URL.
         asset_csn = self._fetch_asset_csn(
             space_name,
             asset,

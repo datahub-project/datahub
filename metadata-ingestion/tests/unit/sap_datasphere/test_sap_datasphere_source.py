@@ -70,12 +70,7 @@ from tests.unit.sap_datasphere.sap_datasphere_test_helpers import (
 
 @pytest.fixture(autouse=True)
 def _default_csn_endpoint_404(requests_mock):
-    """Low-priority fallbacks for dwaas-core object endpoints:
-    - empty list for design-time Views / Analytic Models listing (runs by
-      default when expose_for_consumption_only is false)
-    - 404 for per-object CSN fetches that a test does not mock specifically
-    A test's own more-specific mock overrides these (requests_mock matches in
-    reverse registration order)."""
+    """Default empty design-time lists + 404 CSN fallback; tests override."""
     requests_mock.get(
         re.compile(
             r"https://[^/]+/dwaas-core/api/v1/spaces/[^/]+/(views|analyticmodels)$"
@@ -1585,9 +1580,7 @@ def test_association_lineage_emitted_from_csn_elements(requests_mock):
 
 
 def test_lineage_not_fetched_when_include_lineage_false(requests_mock):
-    """When both include_lineage and include_view_definitions are False, CSN is
-    not fetched for catalog assets that already have an EDMX URL (schema comes
-    from EDMX). Assets without a consumption URL still fetch CSN for schema."""
+    """EDMX-backed assets skip CSN when lineage and view definitions are off."""
     fixture_xml = (
         Path(__file__).parent / "fixtures" / "sap_datasphere_dimension_day.xml"
     ).read_text()
@@ -3591,16 +3584,12 @@ def test_include_local_tables_off_by_default(requests_mock):
 
 
 def test_expose_false_emits_non_consumption_views(requests_mock):
-    """With expose_for_consumption_only=false (default), design-time Views
-    absent from the consumption catalog are emitted with CSN schema + lineage
-    so dangling upstream edges become real nodes."""
+    """Default mode emits design-time Views missing from the catalog."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
         json={"value": [{"name": "S1", "label": "S1"}]},
     )
-    # Catalog only returns the exposed downstream view — the upstream is
-    # deliberately unexposed.
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
         json={
@@ -3676,7 +3665,6 @@ def test_expose_false_emits_non_consumption_views(requests_mock):
         f"Expected design-time-only upstream view; got: {dataset_urns}"
     )
     assert any("downstream_view" in u for u in dataset_urns)
-    # Catalog already emitted DOWNSTREAM_VIEW; only the missing upstream counts.
     assert source.report.non_consumption_views_emitted == 1
 
     schema_paths_by_urn: Dict[str, set] = {}
@@ -3699,8 +3687,7 @@ def test_expose_false_emits_non_consumption_views(requests_mock):
 
 
 def test_expose_false_emits_non_consumption_analytic_model(requests_mock):
-    """Unexposed Analytic Models are listed under analyticmodels and get the
-    Analytic Model subtype when expose_for_consumption_only is false."""
+    """Design-time Analytic Models get the Analytic Model subtype."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3746,8 +3733,7 @@ def test_expose_false_emits_non_consumption_analytic_model(requests_mock):
 
 
 def test_non_consumption_views_skips_catalog_duplicates(requests_mock):
-    """A name present in both the catalog and dwaas-core is emitted once (catalog
-    path wins); non_consumption_views_emitted stays zero."""
+    """Catalog names are not re-emitted from the design-time list."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3807,8 +3793,7 @@ def test_non_consumption_views_skips_catalog_duplicates(requests_mock):
 
 
 def test_expose_for_consumption_only_skips_design_time_listing(requests_mock):
-    """expose_for_consumption_only=true skips the dwaas-core Views /
-    Analytic Models listing."""
+    """expose_for_consumption_only=true does not call design-time list APIs."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3819,8 +3804,6 @@ def test_expose_for_consumption_only_skips_design_time_listing(requests_mock):
         json={"value": []},
     )
     requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
-    # Override the autouse empty-list mock with a failure so any design-time
-    # list call would surface as a warning / exception rather than succeeding.
     requests_mock.get(
         f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
         status_code=500,
@@ -3843,8 +3826,7 @@ def test_expose_for_consumption_only_skips_design_time_listing(requests_mock):
 
 
 def test_non_consumption_views_managed_unresolvable_skips_space(requests_mock):
-    """When _managed is disabled, design-time Views cannot be emitted; warn once
-    and do not hit the per-object CSN endpoints."""
+    """Unresolvable _managed skips the design-time pass with a warning."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
@@ -3864,8 +3846,6 @@ def test_non_consumption_views_managed_unresolvable_skips_space(requests_mock):
         json={"value": []},
     )
     requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
-    # List endpoints intentionally unmocked — resolve-fail must return before
-    # listing, or requests_mock would raise.
 
     source = SapDatasphereSource(PipelineContext(run_id="ncv-managed"), cfg)
     list(source.get_workunits())

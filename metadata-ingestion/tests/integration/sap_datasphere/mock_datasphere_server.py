@@ -152,9 +152,6 @@ def register_handlers(
             content_type="application/json",
         )
 
-    # Design-time listing (expose_for_consumption_only=false). Names already
-    # in the catalog are skipped by the connector; emit the known inventory
-    # so the list shape matches a live tenant.
     httpserver.expect_request(
         f"/dwaas-core/api/v1/spaces/{SPACE}/views",
         method="GET",

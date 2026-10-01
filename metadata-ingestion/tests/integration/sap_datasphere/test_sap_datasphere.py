@@ -59,8 +59,6 @@ def _install_mocks(m: rm_module.Mocker) -> None:
         f"{TENANT_URL}/api/v1/datasphere/spaces/S2/connections",
         json=[],
     )
-    # Default expose_for_consumption_only=false also lists design-time Views /
-    # Analytic Models; empty arrays keep this path a no-op for golden files.
     for _space in ("S1", "S2"):
         m.get(f"{TENANT_URL}/dwaas-core/api/v1/spaces/{_space}/views", json=[])
         m.get(
