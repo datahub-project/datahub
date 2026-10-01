@@ -10,12 +10,17 @@ from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeSoftError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau import (
     SiteIdContentUrl,
     TableauConfig,
     TableauProject,
     TableauSiteSource,
     TableauSourceReport,
+    parse_database_server_hostname,
+)
+from datahub.ingestion.source.tableau.tableau_common import (
+    database_servers_graphql_query,
 )
 
 logger = logging.getLogger(__name__)
@@ -241,3 +246,32 @@ class TableauMetadataProbe:
             f"no project with path '{project_path}' on this site; "
             f"`probe run projects` lists them"
         )
+
+    @probe_method(row_limit_param="limit")
+    def database_servers(self, limit: int = 200) -> List[Dict[str, object]]:
+        """Upstream database servers the Metadata API knows for this site: id,
+        name, host (reduced as ingestion reduces it) and connection type. These
+        are the keys of database_id_to_platform_instance_map and
+        database_hostname_to_platform_instance_map, so a server whose tables
+        would land in the wrong platform instance is visible before a run.
+        Needs the Metadata API to be enabled; an error there is raised, not
+        treated as empty."""
+        out: List[Dict[str, object]] = []
+        for server in self._site.get_connection_objects(
+            query=database_servers_graphql_query,
+            connection_type=c.DATABASE_SERVERS_CONNECTION,
+            page_size=self._config.effective_database_server_page_size,
+        ):
+            out.append(
+                {
+                    "id": server.get(c.ID),
+                    "name": server.get(c.NAME),
+                    "host_name": parse_database_server_hostname(
+                        server.get(c.HOST_NAME)
+                    ),
+                    "connection_type": server.get(c.CONNECTION_TYPE),
+                }
+            )
+            if len(out) >= limit:
+                break
+        return out

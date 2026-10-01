@@ -1064,6 +1064,14 @@ class TableauSourceReport(
     num_email_fallback_to_username: int = 0
 
 
+def parse_database_server_hostname(server_connection: Optional[str]) -> Optional[str]:
+    """A connection string that is a URL is reduced to its host; anything else
+    is returned as is. The key database_hostname_to_platform_instance_map uses."""
+    if server_connection is None:
+        return None
+    return urlparse(server_connection).hostname or server_connection
+
+
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
     title: str = "Insufficient Permissions"
     message: str = "The user must have the `Site Administrator Explorer` role to perform metadata ingestion."
@@ -1363,14 +1371,6 @@ class TableauSiteSource:
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _populate_database_server_hostname_map(self) -> None:
-        def maybe_parse_hostname():
-            # If the connection string is a URL instead of a hostname, parse it
-            # and extract the hostname, otherwise just return the connection string.
-            parsed_host_name = urlparse(server_connection).hostname
-            if parsed_host_name:
-                return parsed_host_name
-            return server_connection
-
         for database_server in self.get_connection_objects(
             query=database_servers_graphql_query,
             connection_type=c.DATABASE_SERVERS_CONNECTION,
@@ -1378,7 +1378,7 @@ class TableauSiteSource:
         ):
             database_server_id = database_server.get(c.ID)
             server_connection = database_server.get(c.HOST_NAME)
-            host_name = maybe_parse_hostname()
+            host_name = parse_database_server_hostname(server_connection)
             name = database_server.get(c.NAME) or ""
             connection_type = database_server.get(c.CONNECTION_TYPE) or ""
 

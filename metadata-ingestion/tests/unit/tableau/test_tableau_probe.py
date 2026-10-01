@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 from unittest import mock
 
 import pytest
@@ -8,7 +8,10 @@ from tableauserverclient.server.endpoint.exceptions import ServerResponseError
 
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeSoftError
-from datahub.ingestion.source.tableau.tableau import TableauConfig
+from datahub.ingestion.source.tableau.tableau import (
+    TableauConfig,
+    parse_database_server_hostname,
+)
 from datahub.ingestion.source.tableau.tableau_probe import TableauMetadataProbe
 
 _RECIPE: Dict[str, object] = {
@@ -179,3 +182,48 @@ def test_a_project_name_with_a_comma_is_not_sent_as_a_server_filter() -> None:
     assert _probe(server).workbooks("Sales, EMEA", limit=10) == ["Revenue"]
     options = server.workbooks.get.call_args[0][0]
     assert list(options.filter) == []
+
+
+def test_a_url_connection_is_reduced_to_its_host_as_ingestion_does() -> None:
+    assert (
+        parse_database_server_hostname("https://db.example.com:5432/x")
+        == "db.example.com"
+    )
+    assert parse_database_server_hostname("db.example.com") == "db.example.com"
+    assert parse_database_server_hostname(None) is None
+
+
+def test_database_servers_report_what_the_routing_maps_key_on() -> None:
+    probe = _probe(_server())
+    rows: List[Dict[str, object]] = [
+        {
+            "id": "ds1",
+            "name": "warehouse",
+            "hostName": "https://db.example.com",
+            "connectionType": "snowflake",
+        },
+        {
+            "id": "ds2",
+            "name": "mart",
+            "hostName": "mart.example.com",
+            "connectionType": "postgres",
+        },
+    ]
+    consumed: List[str] = []
+
+    def objects(**_: object) -> Iterator[Dict[str, object]]:
+        for row in rows:
+            consumed.append(str(row["id"]))
+            yield row
+
+    with mock.patch.object(probe._site, "get_connection_objects", side_effect=objects):
+        assert probe.database_servers(limit=1) == [
+            {
+                "id": "ds1",
+                "name": "warehouse",
+                "host_name": "db.example.com",
+                "connection_type": "snowflake",
+            }
+        ]
+    # Stops at the limit rather than paging everything.
+    assert consumed == ["ds1"]
