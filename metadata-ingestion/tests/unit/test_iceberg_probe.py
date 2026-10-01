@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 import pytest
 from pyiceberg.catalog.noop import NoopCatalog
@@ -14,9 +14,14 @@ from pyiceberg.table import Table
 from pyiceberg.table.metadata import TableMetadataV2
 from pyiceberg.types import LongType, NestedField, StringType
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.iceberg.iceberg import IcebergSource
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 Identifier = Tuple[str, ...]
 
@@ -306,3 +311,104 @@ def test_table_metadata_never_exposes_file_io_properties(
     assert isinstance(metadata, dict)
     assert metadata["properties"] == {"owner": "someone", "comment": "a table"}
     assert metadata["format_version"] == 2
+
+
+_PARITY_CATALOG: Dict[Identifier, Sequence[str]] = {
+    ("sales",): ["orders", "orders_tmp", "refunds"],
+    ("ops",): ["jobs"],
+}
+_PARITY_PATTERNS: Dict[str, object] = {
+    "namespace_pattern": {"deny": ["^ops$"]},
+    # Written against the qualified name, which is what ingestion matches.
+    "table_pattern": {"allow": [r"^sales\.orders.*"], "deny": [r".*_tmp$"]},
+}
+
+
+def _ingested_dataset_names(monkeypatch: pytest.MonkeyPatch) -> Set[str]:
+    _patch_catalog(monkeypatch, _FakeCatalog(_PARITY_CATALOG))
+    config = IcebergSourceConfig.model_validate(_config_dict(**_PARITY_PATTERNS))
+    source = IcebergSource(config, PipelineContext(run_id="iceberg-probe-parity"))
+    names: Set[str] = set()
+    for wu in source.get_workunits_internal():
+        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        urn = wu.metadata.entityUrn
+        if urn and urn.startswith("urn:li:dataset:"):
+            names.add(DatasetUrn.from_string(urn).name)
+    return names
+
+
+def _probe_included_dataset_names(monkeypatch: pytest.MonkeyPatch) -> Set[str]:
+    _patch_catalog(monkeypatch, _FakeCatalog(_PARITY_CATALOG))
+    config_dict = _config_dict(**_PARITY_PATTERNS)
+    namespaces = run_probe_method("iceberg", config_dict, "namespaces", {}).result
+    assert isinstance(namespaces, list)
+    included: Set[str] = set()
+    for namespace in namespaces:
+        listing = run_probe_method(
+            "iceberg", config_dict, "tables", {"namespace": namespace}
+        )
+        assert isinstance(listing.result, list)
+        verdicts = check_filters(
+            source_type="iceberg",
+            config_dict=config_dict,
+            kind=str(listing.kind),
+            parent_path=listing.parent_path,
+            names=listing.result,
+        )
+        # A degraded verdict (bare-name match, ignored parent) would agree
+        # with ingestion here only by accident.
+        assert not [w for w in verdicts.warnings if "bare name" in w]
+        assert not [w for w in verdicts.warnings if "does not declare" in w]
+        included |= {f"{namespace}.{r.name}" for r in verdicts.results if r.included}
+    return included
+
+
+def test_probe_filter_agrees_with_ingestion(monkeypatch: pytest.MonkeyPatch) -> None:
+    ingested = _ingested_dataset_names(monkeypatch)
+
+    # Pinned so a broken fake cannot make both sides agree on an empty set.
+    assert ingested == {"sales.orders"}
+    assert _probe_included_dataset_names(monkeypatch) == ingested
+
+
+def test_a_table_is_judged_on_its_qualified_name() -> None:
+    result = check_filters(
+        source_type="iceberg",
+        config_dict=_config_dict(**_PARITY_PATTERNS),
+        kind="Table",
+        parent_path=["sales"],
+        names=["orders"],
+    )
+
+    assert result.pattern_field == "table_pattern"
+    assert result.results[0].target == "sales.orders"
+    assert result.results[0].included
+
+
+def test_a_table_in_a_denied_namespace_is_excluded_by_the_namespace() -> None:
+    result = check_filters(
+        source_type="iceberg",
+        config_dict=_config_dict(**_PARITY_PATTERNS),
+        kind="Table",
+        parent_path=["ops"],
+        names=["jobs"],
+    )
+
+    assert not result.results[0].included
+    assert result.results[0].excluded_by == "namespace_pattern"
+
+
+def test_a_namespace_is_judged_on_its_own_name() -> None:
+    result = check_filters(
+        source_type="iceberg",
+        config_dict=_config_dict(**_PARITY_PATTERNS),
+        kind="Namespace",
+        parent_path=[],
+        names=["sales", "ops"],
+    )
+
+    assert result.pattern_field == "namespace_pattern"
+    assert [(r.target, r.included) for r in result.results] == [
+        ("sales", True),
+        ("ops", False),
+    ]
