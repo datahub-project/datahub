@@ -659,7 +659,11 @@ public class MultiEntityMappingsBuilderTest {
     Map<String, Object> aspectTitle = getAspectFieldMapping(properties, "chartInfo", "title");
 
     assertWordGramSearchMapping(rootTitle);
-    assertWordGramSearchMapping(aspectTitle);
+    // The aspect copy stays unanalyzed: full-text search reads the root field
+    @SuppressWarnings("unchecked")
+    Map<String, Object> aspectTitleFields = (Map<String, Object>) aspectTitle.get("fields");
+    assertEquals(aspectTitle.get("type"), "keyword");
+    assertEquals(aspectTitleFields.keySet(), Set.of("keyword"));
     assertEquals(
         rootTitle.get("copy_to"),
         List.of("_search.tier_1", "_search.entityName"),

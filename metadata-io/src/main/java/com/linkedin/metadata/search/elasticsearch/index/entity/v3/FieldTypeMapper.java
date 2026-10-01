@@ -337,6 +337,34 @@ public class FieldTypeMapper {
     return getMappingsForFieldType(fieldType, partialNgramConfig);
   }
 
+  /**
+   * Creates the mapping for a field's copy under {@code _aspects.<aspect>}. Full-text search reads
+   * the root projection fields, so the aspect copy is never analyzed: string values map to keywords
+   * guarded by {@code ignore_above}, and other types keep their standard mapping.
+   *
+   * @param fieldType the DataHub field type
+   * @param searchableFieldSpec the searchable field spec containing the underlying PDL schema
+   * @return mapping configuration for the aspect copy of the field
+   */
+  @Nonnull
+  public static Map<String, Object> getAspectMappingsForFieldType(
+      @Nonnull FieldType fieldType, @Nonnull SearchableFieldSpec searchableFieldSpec) {
+    switch (fieldType) {
+      case KEYWORD:
+      case TEXT:
+      case TEXT_PARTIAL:
+      case WORD_GRAM:
+      case BROWSE_PATH:
+      case BROWSE_PATH_V2:
+        return getMappingsForKeywordWithIgnoreAbove();
+      case URN:
+      case URN_PARTIAL:
+        return getMappingsForUrn();
+      default:
+        return getMappingsForFieldType(fieldType, searchableFieldSpec);
+    }
+  }
+
   @Nonnull
   public static Map<String, Object> getRichestCompatibleMapping(
       @Nonnull List<SearchableFieldSpec> sourceFieldSpecs,

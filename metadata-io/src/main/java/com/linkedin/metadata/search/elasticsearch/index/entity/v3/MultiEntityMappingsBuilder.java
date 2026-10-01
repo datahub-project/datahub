@@ -617,7 +617,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     // Create aspect mappings using AspectMappingBuilder
     Map<String, Object> aspectMappings =
         AspectMappingBuilder.createAspectMappings(
-            entitySpec, finalFieldNameConflicts, fieldNameAliasConflicts, partialNgramConfig);
+            entitySpec, finalFieldNameConflicts, fieldNameAliasConflicts);
 
     // Log aspect mappings
     for (Map.Entry<String, Object> entry : aspectMappings.entrySet()) {
@@ -636,18 +636,20 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
     // Process searchable ref fields - they will be grouped under _aspects
     final Map<String, Object> refFieldMappings = new HashMap<>();
+    final Map<String, Object> aspectRefFieldMappings = new HashMap<>();
     entitySpec
         .getSearchableRefFieldSpecs()
         .forEach(
             searchableRefFieldSpec -> {
+              final int depth = searchableRefFieldSpec.getSearchableRefAnnotation().getDepth();
               refFieldMappings.putAll(
                   getMappingForSearchableRefField(
-                      entityRegistry,
-                      searchableRefFieldSpec,
-                      searchableRefFieldSpec.getSearchableRefAnnotation().getDepth(),
-                      partialNgramConfig));
+                      entityRegistry, searchableRefFieldSpec, depth, partialNgramConfig, false));
+              aspectRefFieldMappings.putAll(
+                  getMappingForSearchableRefField(
+                      entityRegistry, searchableRefFieldSpec, depth, partialNgramConfig, true));
             });
-    finalAspectsMappings.putAll(refFieldMappings);
+    finalAspectsMappings.putAll(aspectRefFieldMappings);
     // The projector writes reference fields at the root too, where V2 queries and filters read them
     mappings.putAll(refFieldMappings);
 
@@ -1230,6 +1232,38 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       @Nonnull final String aspectName,
       final boolean includeSearchCopyTo,
       @Nonnull final Map<String, String> partialNgramConfig) {
+    // Use the enhanced mapping that considers the underlying PDL field type for more precise
+    // numeric types
+    return buildFieldMappings(
+        searchableFieldSpec,
+        aspectName,
+        includeSearchCopyTo,
+        FieldTypeMapper.getMappingsForFieldType(
+            searchableFieldSpec.getSearchableAnnotation().getFieldType(),
+            searchableFieldSpec,
+            partialNgramConfig));
+  }
+
+  /**
+   * Gets the mappings for a field's copy under {@code _aspects.<aspect>}, which stays unanalyzed
+   * (see {@link FieldTypeMapper#getAspectMappingsForFieldType}) and copies into no {@code _search}
+   * field.
+   */
+  public static Map<String, Object> getAspectMappingsForField(
+      @Nonnull final SearchableFieldSpec searchableFieldSpec, @Nonnull final String aspectName) {
+    return buildFieldMappings(
+        searchableFieldSpec,
+        aspectName,
+        false,
+        FieldTypeMapper.getAspectMappingsForFieldType(
+            searchableFieldSpec.getSearchableAnnotation().getFieldType(), searchableFieldSpec));
+  }
+
+  private static Map<String, Object> buildFieldMappings(
+      @Nonnull final SearchableFieldSpec searchableFieldSpec,
+      @Nonnull final String aspectName,
+      final boolean includeSearchCopyTo,
+      @Nonnull final Map<String, Object> fieldTypeMapping) {
     FieldType fieldType = searchableFieldSpec.getSearchableAnnotation().getFieldType();
     String baseFieldName = searchableFieldSpec.getSearchableAnnotation().getFieldName();
 
@@ -1239,14 +1273,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         "Processing field '{}' of type '{}' for aspect '{}'", baseFieldName, fieldType, aspectName);
 
     Map<String, Object> mappings = new HashMap<>();
-    Map<String, Object> mappingForField = new HashMap<>();
-
-    // Use FieldTypeMapper to get the appropriate mapping for the field type
-    // Use the enhanced mapping that considers the underlying PDL field type for more precise
-    // numeric types
-    mappingForField.putAll(
-        FieldTypeMapper.getMappingsForFieldType(
-            fieldType, searchableFieldSpec, partialNgramConfig));
+    Map<String, Object> mappingForField = new HashMap<>(fieldTypeMapping);
 
     // Handle eagerGlobalOrdinals - set eager_global_ordinals to true if specified and field type is
     // appropriate
@@ -1320,21 +1347,27 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    * @param entityRegistry entity registry for resolving referenced entity specifications
    * @param searchableRefFieldSpec the reference field specification
    * @param depth the maximum depth of nested references to include
+   * @param aspectCopy whether the mapping is for the unanalyzed copy under {@code _aspects}
    * @return map containing the reference field mapping configuration
    */
   private static Map<String, Object> getMappingForSearchableRefField(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final SearchableRefFieldSpec searchableRefFieldSpec,
       @Nonnull final int depth,
-      @Nonnull final Map<String, String> partialNgramConfig) {
+      @Nonnull final Map<String, String> partialNgramConfig,
+      final boolean aspectCopy) {
     Map<String, Object> mappings = new HashMap<>();
     Map<String, Object> mappingForField = new HashMap<>();
     Map<String, Object> mappingForProperty = new HashMap<>();
 
     String baseFieldName = searchableRefFieldSpec.getSearchableRefAnnotation().getFieldName();
 
+    final Map<String, Object> urnMapping =
+        aspectCopy
+            ? FieldTypeMapper.getMappingsForUrn()
+            : FieldTypeMapper.getMappingsForUrn(partialNgramConfig);
     if (depth == 0) {
-      mappings.put(baseFieldName, FieldTypeMapper.getMappingsForUrn(partialNgramConfig));
+      mappings.put(baseFieldName, urnMapping);
       return mappings;
     }
 
@@ -1346,9 +1379,11 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         .forEach(
             searchableFieldSpec ->
                 mappingForField.putAll(
-                    getMappingsForField(
-                        // Referenced fields must not copy into this entity's _search fields
-                        searchableFieldSpec, "ref_" + entityType, false, partialNgramConfig)));
+                    aspectCopy
+                        ? getAspectMappingsForField(searchableFieldSpec, "ref_" + entityType)
+                        : getMappingsForField(
+                            // Referenced fields must not copy into this entity's _search fields
+                            searchableFieldSpec, "ref_" + entityType, false, partialNgramConfig)));
     // Process searchable reference fields recursively
     for (SearchableRefFieldSpec refFieldSpec : entitySpec.getSearchableRefFieldSpecs()) {
       int configuredDepth = refFieldSpec.getSearchableRefAnnotation().getDepth();
@@ -1356,12 +1391,12 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
 
       Map<String, Object> refFieldMappings =
           getMappingForSearchableRefField(
-              entityRegistry, refFieldSpec, remainingDepth, partialNgramConfig);
+              entityRegistry, refFieldSpec, remainingDepth, partialNgramConfig, aspectCopy);
 
       mappingForField.putAll(refFieldMappings);
     }
 
-    mappingForField.put("urn", FieldTypeMapper.getMappingsForUrn(partialNgramConfig));
+    mappingForField.put("urn", urnMapping);
     mappingForProperty.put("properties", mappingForField);
 
     mappings.put(baseFieldName, mappingForProperty);

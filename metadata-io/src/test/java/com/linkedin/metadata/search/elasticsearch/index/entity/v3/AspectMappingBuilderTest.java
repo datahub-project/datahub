@@ -3,9 +3,10 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.ESUtils.ALIAS_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.PATH;
+import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -14,15 +15,14 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
-@ExtendWith(MockitoExtension.class)
 public class AspectMappingBuilderTest {
 
   @Mock private EntitySpec mockEntitySpec;
@@ -41,8 +41,9 @@ public class AspectMappingBuilderTest {
 
   @Mock private SearchableAnnotation mockAnnotation2;
 
-  @BeforeEach
+  @BeforeMethod
   public void setUp() {
+    MockitoAnnotations.openMocks(this);
     // Setup common mocks
     when(mockEntitySpec.getAspectSpecs()).thenReturn(Collections.singletonList(mockAspectSpec1));
     when(mockAspectSpec1.getName()).thenReturn("testAspect");
@@ -108,15 +109,18 @@ public class AspectMappingBuilderTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   public void testCreateAspectMappingsWithEmptyAspectFields() {
-    // Test with aspect that has no searchable fields
+    // An aspect with no searchable fields still maps the system metadata the projector writes
     when(mockAspectSpec1.getSearchableFieldSpecs()).thenReturn(Collections.emptyList());
 
     Map<String, Object> result =
         AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null);
 
-    assertNotNull(result);
-    assertFalse(result.containsKey("testAspect"));
+    Map<String, Object> aspect = (Map<String, Object>) result.get("testAspect");
+    assertEquals(
+        ((Map<String, Object>) aspect.get(PROPERTIES)).keySet(),
+        Set.of(V3SearchDocumentProjector.SYSTEM_METADATA_FIELD));
   }
 
   @Test
@@ -134,6 +138,50 @@ public class AspectMappingBuilderTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
+  public void testAspectFieldsStayUnanalyzed() {
+    List<SearchableFieldSpec> fieldSpecs =
+        List.of(
+            mockField("description", FieldType.TEXT),
+            mockField("name", FieldType.WORD_GRAM),
+            mockField("browsePathV2", FieldType.BROWSE_PATH_V2),
+            mockField("platform", FieldType.URN_PARTIAL),
+            mockField("lastModified", FieldType.DATETIME),
+            mockField("removed", FieldType.BOOLEAN));
+    when(mockAspectSpec1.getSearchableFieldSpecs()).thenReturn(fieldSpecs);
+
+    Map<String, Object> aspect =
+        (Map<String, Object>)
+            AspectMappingBuilder.createAspectMappings(mockEntitySpec, null, null).get("testAspect");
+    Map<String, Object> fields = (Map<String, Object>) aspect.get(PROPERTIES);
+
+    // Full-text search reads the root fields, so the aspect copies are not analyzed a second time
+    for (String stringField : List.of("description", "name", "browsePathV2")) {
+      Map<String, Object> mapping = (Map<String, Object>) fields.get(stringField);
+      assertEquals(mapping.get(TYPE), "keyword", stringField);
+      assertEquals(mapping.get("ignore_above"), 8191, stringField);
+      assertEquals(
+          ((Map<String, Object>) mapping.get("fields")).keySet(), Set.of("keyword"), stringField);
+    }
+    assertEquals(fields.get("platform"), Map.of(TYPE, "keyword", "ignore_above", 255));
+    assertEquals(fields.get("lastModified"), Map.of(TYPE, "date"));
+    assertEquals(fields.get("removed"), Map.of(TYPE, "boolean"));
+    String mapping = fields.toString();
+    for (String analysis : List.of("analyzer", "=text", "search_as_you_type", "token_count")) {
+      assertFalse(mapping.contains(analysis), mapping);
+    }
+  }
+
+  private static SearchableFieldSpec mockField(String fieldName, FieldType fieldType) {
+    SearchableAnnotation annotation = mock(SearchableAnnotation.class);
+    when(annotation.getFieldName()).thenReturn(fieldName);
+    when(annotation.getFieldType()).thenReturn(fieldType);
+    SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
+    when(fieldSpec.getSearchableAnnotation()).thenReturn(annotation);
+    return fieldSpec;
+  }
+
+  @Test
   public void testCreateRootLevelAliasesWithNoConflicts() {
     // Test basic root level alias creation
     when(mockAnnotation1.getFieldNameAliases()).thenReturn(Collections.singletonList("aliasField"));
@@ -146,8 +194,8 @@ public class AspectMappingBuilderTest {
 
     @SuppressWarnings("unchecked")
     Map<String, Object> aliasMapping = (Map<String, Object>) result.get("aliasField");
-    assertEquals(ALIAS_FIELD_TYPE, aliasMapping.get(TYPE));
-    assertEquals("_aspects.testAspect.testField", aliasMapping.get(PATH));
+    assertEquals(aliasMapping.get(TYPE), ALIAS_FIELD_TYPE);
+    assertEquals(aliasMapping.get(PATH), "_aspects.testAspect.testField");
   }
 
   @Test
@@ -319,8 +367,8 @@ public class AspectMappingBuilderTest {
 
     @SuppressWarnings("unchecked")
     Map<String, Object> aliasMapping = (Map<String, Object>) result.get("hasErroringAssertions");
-    assertEquals(ALIAS_FIELD_TYPE, aliasMapping.get(TYPE));
-    assertEquals("_aspects.testAspect.hasErroringAssertions", aliasMapping.get(PATH));
+    assertEquals(aliasMapping.get(TYPE), ALIAS_FIELD_TYPE);
+    assertEquals(aliasMapping.get(PATH), "_aspects.testAspect.hasErroringAssertions");
   }
 
   @Test
@@ -338,8 +386,8 @@ public class AspectMappingBuilderTest {
 
     @SuppressWarnings("unchecked")
     Map<String, Object> aliasMapping = (Map<String, Object>) result.get("numErroringAssertions");
-    assertEquals(ALIAS_FIELD_TYPE, aliasMapping.get(TYPE));
-    assertEquals("_aspects.testAspect.numErroringAssertions", aliasMapping.get(PATH));
+    assertEquals(aliasMapping.get(TYPE), ALIAS_FIELD_TYPE);
+    assertEquals(aliasMapping.get(PATH), "_aspects.testAspect.numErroringAssertions");
   }
 
   @Test
@@ -359,13 +407,13 @@ public class AspectMappingBuilderTest {
 
     @SuppressWarnings("unchecked")
     Map<String, Object> hasAliasMapping = (Map<String, Object>) result.get("hasErroringAssertions");
-    assertEquals(ALIAS_FIELD_TYPE, hasAliasMapping.get(TYPE));
-    assertEquals("_aspects.testAspect.hasErroringAssertions", hasAliasMapping.get(PATH));
+    assertEquals(hasAliasMapping.get(TYPE), ALIAS_FIELD_TYPE);
+    assertEquals(hasAliasMapping.get(PATH), "_aspects.testAspect.hasErroringAssertions");
 
     @SuppressWarnings("unchecked")
     Map<String, Object> numAliasMapping = (Map<String, Object>) result.get("numErroringAssertions");
-    assertEquals(ALIAS_FIELD_TYPE, numAliasMapping.get(TYPE));
-    assertEquals("_aspects.testAspect.numErroringAssertions", numAliasMapping.get(PATH));
+    assertEquals(numAliasMapping.get(TYPE), ALIAS_FIELD_TYPE);
+    assertEquals(numAliasMapping.get(PATH), "_aspects.testAspect.numErroringAssertions");
   }
 
   @Test
