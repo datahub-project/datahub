@@ -155,6 +155,25 @@ def enforced_budget(budget: QueryBudget, settings: ProbeEngineSettings) -> Query
     return budget if settings.timeout_applies else replace(budget, timeout_seconds=None)
 
 
+def build_probe_engine(
+    config: SQLCommonConfig, url: str, settings: ProbeEngineSettings
+) -> Engine:
+    """An engine for `url` carrying the config's probe settings, prepared
+    before any Inspector exists so a replaced dialect takes effect.
+
+    One function because a provider may open several (one per database, as
+    some connectors' ingestion does), and each must be bounded and labelled
+    like the first.
+    """
+    # lazy: keep sqlalchemy engine construction off the config import path
+    from sqlalchemy import create_engine
+
+    engine = create_engine(url, **probe_engine_options(config, settings))
+    if settings.prepare is not None:
+        settings.prepare(engine)
+    return engine
+
+
 class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     """Metadata-only probe methods backed by the SQLAlchemy Inspector.
 
@@ -275,34 +294,32 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
         """Build over an engine of this recipe's own making."""
-        # lazy: keep sqlalchemy engine construction off the config import path
-        from sqlalchemy import create_engine
-
         # On the engine, so the Inspector's listings are bounded as well as
         # `sql`; how is the config's to declare.
         settings = config.probe_engine_settings(cls.query_budget)
-        engine = create_engine(
-            probe_url(config), **probe_engine_options(config, settings)
-        )
-        # Before the Inspector is built, so a replaced dialect takes effect.
-        if settings.prepare is not None:
-            settings.prepare(engine)
-        probe = cls(engine)
-        probe.sql_dialect = config.probe_sqlglot_dialect()
-        probe.query_budget = enforced_budget(cls.query_budget, settings)
+        probe = cls(build_probe_engine(config, probe_url(config), settings))
+        probe.prime_from_config(config, settings)
+        return probe
+
+    def prime_from_config(
+        self, config: SQLCommonConfig, settings: ProbeEngineSettings
+    ) -> None:
+        """The per-recipe state for_config sets, apart from the engine, so a
+        subclass with a constructor of its own primes the same."""
+        self.sql_dialect = config.probe_sqlglot_dialect()
+        self.query_budget = enforced_budget(type(self).query_budget, settings)
         # Per dialect, so from the config rather than the class; a config's
         # own scope still withholds MYSQL_SESSION_TEXT_RELATIONS.
         scope = config.probe_catalog_scope()
-        probe.catalog_scope = replace(
+        self.catalog_scope = replace(
             scope,
             excluded_relations=scope.excluded_relations | MYSQL_SESSION_TEXT_RELATIONS,
         )
-        probe.container_kind = declared_kind_overrides(config).get(
-            "containers", probe.container_kind
+        self.container_kind = declared_kind_overrides(config).get(
+            "containers", self.container_kind
         )
-        probe.pinned_containers = _pinned_containers(config, probe.container_kind)
-        probe.container_normalizer = staticmethod(_container_normalizer(config))  # type: ignore[assignment]
-        return probe
+        self.pinned_containers = _pinned_containers(config, self.container_kind)
+        self.container_normalizer = staticmethod(_container_normalizer(config))  # type: ignore[assignment]
 
     def __exit__(self, *exc: object) -> None:
         self._engine.dispose()

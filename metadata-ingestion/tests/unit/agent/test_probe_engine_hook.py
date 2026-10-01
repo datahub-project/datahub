@@ -34,7 +34,10 @@ from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
 )
 from datahub.ingestion.source.sql.sql_generic import SQLAlchemyGenericConfig
-from datahub.ingestion.source.sql.sqlalchemy_probe import SqlAlchemyMetadataProbe
+from datahub.ingestion.source.sql.sqlalchemy_probe import (
+    SqlAlchemyMetadataProbe,
+    build_probe_engine,
+)
 from datahub.ingestion.source.sql.starrocks import StarRocksConfig
 from datahub.ingestion.source.sql.tidb import TiDBConfig
 from datahub.ingestion.source.sql.timescaledb import TimescaleDBConfig
@@ -459,3 +462,19 @@ def test_a_config_may_declare_the_sqlglot_dialect_its_queries_parse_as(
 
     assert SqlAlchemyMetadataProbe.for_config(_PlainConfig()).sql_dialect == "postgres"
     assert SqlAlchemyMetadataProbe.for_config(_Declaring()).sql_dialect == "duckdb"
+
+
+def test_build_probe_engine_runs_the_settings_on_every_engine_it_builds(tmp_path):
+    """A provider opening several engines (one per database) builds each
+    through build_probe_engine, so none skips the connector's setup."""
+    prepared: List[object] = []
+    url = f"sqlite:///{tmp_path}/x.db"
+    settings = ProbeEngineSettings(prepare=prepared.append)
+
+    engines = [build_probe_engine(_PlainConfig(), url, settings) for _ in range(2)]
+    try:
+        assert prepared == engines
+        assert all(str(engine.url) == url for engine in engines)
+    finally:
+        for engine in engines:
+            engine.dispose()
