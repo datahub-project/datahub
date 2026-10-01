@@ -44,6 +44,16 @@ _DB_LINEAGE_FALLBACK_ERRORS = (
 )
 
 
+def _failure_label(exc: Exception) -> str:
+    """Class name, plus the HTTP status when there is one; never the text,
+    which comes from the remote service and is not scrubbed in a warning."""
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if isinstance(status, int):
+        return f"{type(exc).__name__}, HTTP {status}"
+    return type(exc).__name__
+
+
 def _connector_from_listed(listed: FivetranListedConnection) -> Connector:
     # Field mapping from FivetranLogRestReader._build_connector, without its
     # lineage fetch and without connected_by, which the probe never reports.
@@ -149,7 +159,7 @@ class FivetranMetadataProbe:
                 # auth failures alike, which would otherwise read as exit 2.
                 raise ProbeConnectionError(
                     f"could not open the Fivetran log warehouse "
-                    f"({log_config.destination_platform}): {exc}"
+                    f"({log_config.destination_platform}): {type(exc).__name__}"
                 ) from exc
         return self._db_reader
 
@@ -205,7 +215,9 @@ class FivetranMetadataProbe:
                 f"{context}: the reply did not have the expected shape ({problems})"
             ) from None
         except ValueError as exc:
-            raise ProbeReadFailed(f"{context}: {exc}") from exc
+            raise ProbeReadFailed(
+                f"{context}: the reply was unusable ({type(exc).__name__})"
+            ) from None
 
     def _group_connections(self, group_id: str) -> List[FivetranListedConnection]:
         with soft_on_status(
@@ -252,7 +264,7 @@ class FivetranMetadataProbe:
                 self._unlisted_groups.append(group_id)
                 self._warn(
                     f"could not list the connections of destination "
-                    f"'{group_id}' ({type(exc).__name__}: {exc}); skipped, as "
+                    f"'{group_id}' ({_failure_label(exc)}); skipped, as "
                     f"ingestion skips it"
                 )
                 continue
@@ -330,7 +342,7 @@ class FivetranMetadataProbe:
             except _DB_LINEAGE_FALLBACK_ERRORS as exc:
                 self._warn(
                     f"the log warehouse's lineage tables could not be read "
-                    f"({type(exc).__name__}: {exc}); ingestion falls back to "
+                    f"({type(exc).__name__}); ingestion falls back to "
                     f"the REST schemas endpoint here, and so did this"
                 )
                 from_log = []
@@ -353,7 +365,7 @@ class FivetranMetadataProbe:
             # ingestion emits the connector without lineage, so this does too.
             self._warn(
                 f"could not read the schemas of connector "
-                f"'{target.connector_id}' ({type(exc).__name__}: {exc}); "
+                f"'{target.connector_id}' ({_failure_label(exc)}); "
                 f"ingestion emits it without table or column lineage"
             )
             return [], "rest_schemas"
