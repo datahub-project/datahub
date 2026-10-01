@@ -2,6 +2,8 @@
 and a disclosure allowlist whose absences are the point."""
 
 import base64
+import json
+import logging
 from typing import Dict, Iterable, List, Tuple
 
 import pytest
@@ -10,7 +12,8 @@ import requests_mock
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.filter_check import check_filters
-from datahub.ingestion.agent.probe_methods import _iter_specs
+from datahub.ingestion.agent.probe_methods import _iter_specs, run_probe_method
+from datahub.ingestion.agent.redact import SENSITIVE_KEY_HINTS
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
@@ -19,6 +22,7 @@ from datahub.ingestion.source.kafka_connect.common import (
 )
 from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
 from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
+    DISCLOSED_CONFIG_KEYS,
     PROBE_REQUEST_TIMEOUT_SECONDS,
     KafkaConnectMetadataProbe,
 )
@@ -255,3 +259,142 @@ def test_connector_verdicts_match_ingestions_own_predicate() -> None:
     ]
     assert result.pattern_field == "connector_patterns"
     assert result.filtering == "by_pattern"
+
+
+_WITHHELD = (PLANTED_CRED, PLANTED_URL_CRED, ROW_VALUE, PLANTED_SR_CRED, "svc_writer")
+_RECIPE: Dict[str, object] = {
+    "connect_uri": CONNECT,
+    "username": "connect-user",
+    "password": "test_password",
+}
+
+# A JDBC sink whose URL names no platform DataHub knows: ingestion's handler
+# reports it with the raw connection.url as the warning context, and
+# report.warning() logs that context to the console.
+UNKNOWN_JDBC_SINK_CONFIG: Dict[str, str] = {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "topics": "orders",
+    "connection.url": f"jdbc:exampledb://db.example:7000/sales?password={PLANTED_URL_CRED}",
+}
+
+
+def test_connector_reports_what_ingestion_resolves_for_it() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            detail = probe.connector("orders-sink")
+    assert detail["name"] == "orders-sink"
+    assert detail["type"] == "sink"
+    assert detail["connector_class"] == "PostgresSink"
+    assert detail["handled_by"] == "JdbcSinkConnector"
+    assert detail["platform"] == "postgres"
+    assert detail["emitted"] is True
+    assert detail["lineage_edges"] == 2
+    assert detail["flow_urn"] == (
+        "urn:li:dataFlow:(kafka-connect,orders-sink,PROD)"
+    )
+    # Key names are disclosed so the caller can see what is set...
+    config_keys = detail["config_keys"]
+    assert isinstance(config_keys, list) and "connection.password" in config_keys
+    # ...values only for lineage-relevant keys.
+    lineage_config = detail["lineage_config"]
+    assert isinstance(lineage_config, dict)
+    assert lineage_config["topics"] == "orders,users"
+    assert lineage_config["transforms.route.regex"] == "(.*)"
+    assert "connection.url" not in lineage_config
+
+
+def test_an_unsupported_source_connector_is_reported_as_not_emitted() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            detail = probe.connector("legacy-source")
+        ingested = _ingested_io(_recipe())
+    assert detail["emitted"] is False
+    assert detail["handled_by"] is None
+    assert not any("legacy-source" in urn for urn in ingested)
+
+
+@pytest.mark.parametrize(
+    "command,kwargs",
+    [
+        ("connectors", {}),
+        ("connector", {"connector": "orders-sink"}),
+        ("connector", {"connector": "legacy-source"}),
+        ("connector", {"connector": "unknown-jdbc-sink"}),
+        pytest.param(
+            "connector_topics",
+            {"connector": "orders-sink"},
+            marks=pytest.mark.xfail(strict=True, reason="added in Task 4"),
+        ),
+        pytest.param(
+            "connector_lineage",
+            {"connector": "unknown-jdbc-sink"},
+            marks=pytest.mark.xfail(strict=True, reason="added in Task 5"),
+        ),
+        pytest.param(
+            "connector_lineage",
+            {"connector": "orders-sink"},
+            marks=pytest.mark.xfail(strict=True, reason="added in Task 5"),
+        ),
+    ],
+)
+def test_no_command_returns_or_logs_a_credential_from_connector_config(
+    command: str, kwargs: Dict[str, object], caplog: pytest.LogCaptureFixture
+) -> None:
+    # Before the CLI's recipe-secret masking: these values are not in the recipe,
+    # so that masking could never have caught them -- not in the result, and not
+    # in a log line on stderr either.
+    cluster = {**CLUSTER, "unknown-jdbc-sink": ("sink", UNKNOWN_JDBC_SINK_CONFIG)}
+    caplog.set_level(logging.DEBUG)
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, cluster, TOPICS)
+        result = run_probe_method("kafka-connect", dict(_RECIPE), command, kwargs)
+    serialized = json.dumps(result.to_dict(), default=str)
+    for value in _WITHHELD:
+        assert value not in serialized, f"{command} returned {value!r}"
+        assert value not in caplog.text, f"{command} logged {value!r}"
+
+
+def test_the_log_check_above_would_catch_ingestions_logging() -> None:
+    # Guards the guard: the same connector through a real ingestion run does
+    # log the raw URL, so an empty caplog above is the probe's doing.
+    config = _recipe()
+    cluster = {"unknown-jdbc-sink": ("sink", UNKNOWN_JDBC_SINK_CONFIG)}
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, cluster, {})
+        logger = logging.getLogger("datahub")
+        records: List[str] = []
+
+        class _Collect(logging.Handler):
+            def emit(self, record: logging.LogRecord) -> None:
+                records.append(record.getMessage())
+
+        handler = _Collect(level=logging.DEBUG)
+        logger.addHandler(handler)
+        try:
+            _ingested_io(config)
+        finally:
+            logger.removeHandler(handler)
+    assert any(PLANTED_URL_CRED in r for r in records)
+
+
+def test_no_disclosed_key_names_a_credential() -> None:
+    # Pins the allowlist against the two denylists that already exist: the
+    # recipe hints and ingestion's own sink property-bag markers.
+    ingestion_markers = ("secret", "token", "credential", "password", ".key")
+    for key in DISCLOSED_CONFIG_KEYS:
+        lowered = key.lower()
+        assert not any(h in lowered for h in SENSITIVE_KEY_HINTS), key
+        assert not any(mk in lowered for mk in ingestion_markers), key
+    # Credential-bearing by value, not by name.
+    assert not {"connection.url", "connection.uri", "query"} & DISCLOSED_CONFIG_KEYS
+
+
+def test_a_connector_deleted_after_listing_is_a_bad_argument() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        m.get(f"{CONNECT}/connectors/orders-sink", status_code=404, json={})
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            with pytest.raises(ValueError):
+                probe.connector("orders-sink")
