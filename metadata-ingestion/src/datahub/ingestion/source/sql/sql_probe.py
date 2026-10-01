@@ -642,9 +642,12 @@ def _identifier_target(ctx: ClassifyContext) -> str:
         # check_filters' warn closure), so including ctx.fqn here
         # would defeat that dedupe and flood ProbeMethodResult.warnings with one
         # near-identical entry per table.
+        # Class and attribute name only: the exception text is not ours (a
+        # pydantic or driver AttributeError can quote config or server values).
+        missing = f" {exc.name!r}" if isinstance(exc.name, str) else ""
         ctx.warn(
             f"{source_cls.__name__}.get_identifier {IDENTIFIER_DEGRADE_MARKER} "
-            f"({exc}); using the plain fqn as the filter target instead"
+            f"({type(exc).__name__}{missing}); using the plain fqn as the filter target instead"
         )
         return ctx.fqn
     assert isinstance(target, str)

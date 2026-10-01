@@ -90,6 +90,10 @@ def test_a_broken_provider_is_not_quietly_downgraded_to_the_marker():
         _matches_a_qualified_name(_Config())
 
 
+# Planted in an AttributeError's text: foreign text must not reach the warning.
+_SENTINEL = "PLANTED-exception-text"
+
+
 def _ignore_warn(message: str) -> None:
     """Default `warn` sink for tests that don't exercise a degrade path."""
 
@@ -322,7 +326,9 @@ def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypat
 
     class _FakeSource:
         def get_identifier(self, *, schema, entity, inspector):
-            raise AttributeError("'_FakeSource' object has no attribute '_never_set'")
+            raise AttributeError(
+                f"no attribute '_never_set' on {_SENTINEL}", name="_never_set"
+            )
 
     monkeypatch.setattr(
         sql_probe_module, "_source_class_for", lambda config: _FakeSource
@@ -339,6 +345,7 @@ def test_attribute_error_fallback_message_excludes_fqn_so_dedupe_works(monkeypat
     assert len(warn.messages) == 1
     assert "_FakeSource" in warn.messages[0]
     assert "_never_set" in warn.messages[0]
+    assert _SENTINEL not in warn.messages[0]
 
 
 def test_redshift_probe_filter_target_includes_the_database_segment():
