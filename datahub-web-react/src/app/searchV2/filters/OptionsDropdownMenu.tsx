@@ -1,4 +1,3 @@
-import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +6,7 @@ import styled, { useTheme } from 'styled-components/macro';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Loader } from '@components';
 
 const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
 
@@ -46,11 +46,6 @@ const LoadingWrapper = styled.div`
     display: flex;
     justify-content: center;
     padding: 9px;
-
-    svg {
-        height: 16px;
-        width: 16px;
-    }
 `;
 
 interface Props {
@@ -110,7 +105,7 @@ export default function OptionsDropdownMenu({
                 {React.cloneElement(menu as React.ReactElement, { style: STYLE_NO_SHADOW })}
                 {isLoading && (
                     <LoadingWrapper>
-                        <LoadingOutlined />
+                        <Loader size="xs" />
                     </LoadingWrapper>
                 )}
             </ScrollableContent>

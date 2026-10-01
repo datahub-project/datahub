@@ -1,4 +1,4 @@
-import { FilterOutlined } from '@ant-design/icons';
+import { Funnel } from '@phosphor-icons/react/dist/csr/Funnel';
 import { Tooltip } from '@components';
 import { Button } from 'antd';
 import React from 'react';
@@ -10,12 +10,6 @@ const StyledButton = styled(Button)`
         margin: 0px;
         margin-left: 6px;
         padding: 0px;
-    }
-`;
-
-const StyledFilterOutlined = styled(FilterOutlined)`
-    && {
-        font-size: 12px;
     }
 `;
 
@@ -46,7 +40,7 @@ export const SaveAsViewButton = ({ onClick }: Props) => {
             }
         >
             <StyledButton type="link" onClick={onClick}>
-                <StyledFilterOutlined />
+                <Funnel size={12} />
                 <SaveAsViewText>{t('saveAsView.label')}</SaveAsViewText>
             </StyledButton>
         </Tooltip>

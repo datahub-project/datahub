@@ -1,5 +1,5 @@
-import { CloseCircleFilled } from '@ant-design/icons';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { AutoComplete, Input } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -98,7 +98,7 @@ const StyledSearchBar = styled(Input)<{
     }
 `;
 
-const ClearIcon = styled(CloseCircleFilled)`
+const ClearIcon = styled(XCircle).attrs({ weight: 'fill' })`
     svg {
         height: 15px;
         width: 15px;

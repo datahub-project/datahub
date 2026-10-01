@@ -1,4 +1,4 @@
-import { FolderOutlined } from '@ant-design/icons';
+import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import { Loader } from '@components';
 import { Typography } from 'antd';
 import React, { CSSProperties } from 'react';
@@ -27,8 +27,7 @@ import { EntityType } from '@types';
 
 const TRIANGLE_BUTTON_STYLE: CSSProperties = { display: 'block', width: 18 };
 
-const FolderStyled = styled(FolderOutlined)`
-    font-size: 16px;
+const FolderStyled = styled(Folder).attrs({ size: 16 })`
     color: ${(props) => props.theme.colors.text};
     margin-right: 4px;
 `;
