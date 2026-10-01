@@ -631,9 +631,7 @@ def test_an_operators_pgconnect_timeout_wins(monkeypatch: pytest.MonkeyPatch) ->
     assert "connect_timeout" not in connect_args
 
 
-def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() -> (
-    None
-):
+def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() -> None:
     """The Redshift provider holds a bare redshift_connector connection rather
     than an engine, so the ceiling has to be applicable without the engine
     listener -- and must not leave the session's autocommit changed."""
