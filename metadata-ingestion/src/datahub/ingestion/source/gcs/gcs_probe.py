@@ -3,15 +3,23 @@ client config and the s3:// path_spec rewrite GCSSource ingests with. The
 listings live in the shared S3-compatible base; this adds the bucket listing
 and builds the base from a GCS recipe."""
 
-from typing import List
+from contextlib import contextmanager
+from typing import Iterator, List, Optional, Sequence
+
+import google.auth.exceptions
+import requests
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.object_store_probe import (
     S3CompatibleMetadataProbe,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.gcs.gcs_source import (
+    GCSAuthType,
+    GCSOAuthAwsConnectionConfig,
     GCSSourceConfig,
     build_gcs_aws_connection_config,
     equivalent_s3_path_specs,
@@ -22,6 +30,39 @@ class GCSMetadataProbe(S3CompatibleMetadataProbe):
     """Lists GCS the way GCSSource does, and never reads an object's contents."""
 
     display_scheme = "gs://"
+
+    def __init__(
+        self,
+        aws_config: AwsConnectionConfig,
+        path_specs: Sequence[PathSpec],
+        auth_type: GCSAuthType,
+        refusal: Optional[str] = None,
+    ) -> None:
+        super().__init__(aws_config, path_specs, refusal=refusal)
+        self._auth_type = auth_type
+
+    @contextmanager
+    def _storage_errors(self, context: str, whole: bool) -> Iterator[None]:
+        """The base's split, plus the OAuth token refresh (WIF / ADC), which
+        fails outside botocore's error types. google-auth's text carries the
+        subject-token path, the token endpoint's response body and the
+        principal, so only the class name is reported."""
+        try:
+            # Refreshed here, before botocore sends anything: a refresh that
+            # fails inside the before-send hook is logged by botocore with
+            # google-auth's text, which no message scrubbing here can reach.
+            if isinstance(self._aws_config, GCSOAuthAwsConnectionConfig):
+                self._aws_config.refresh_token_if_needed()
+            with super()._storage_errors(context, whole):
+                yield
+        except (
+            google.auth.exceptions.GoogleAuthError,
+            requests.exceptions.RequestException,
+        ) as exc:
+            raise ProbeConnectionError(
+                f"{context}: could not refresh GCS credentials for auth_type "
+                f"'{self._auth_type}' ({type(exc).__name__})"
+            ) from None
 
     @classmethod
     def for_config(cls, config: GCSSourceConfig) -> "GCSMetadataProbe":
@@ -41,6 +82,7 @@ class GCSMetadataProbe(S3CompatibleMetadataProbe):
         return cls(
             aws_config=aws_config,
             path_specs=equivalent_s3_path_specs(config.path_specs),
+            auth_type=config.auth_type,
         )
 
     @probe_method(kind=DatasetContainerSubTypes.GCS_BUCKET, row_limit_param="limit")

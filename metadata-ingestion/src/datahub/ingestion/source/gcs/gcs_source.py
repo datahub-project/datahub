@@ -86,6 +86,15 @@ _GCS_OAUTH_S3_OPERATIONS = (
 )
 
 
+def _refresh_if_needed(credentials: Credentials) -> None:
+    need_refresh = not getattr(credentials, "token", None)
+    expiry = getattr(credentials, "expiry", None)
+    if not need_refresh and expiry is not None:
+        need_refresh = expiry.timestamp() < time.time()
+    if need_refresh:
+        credentials.refresh(Request())
+
+
 def _register_gcs_oauth_before_send(
     client: Any,
     credentials: Credentials,
@@ -94,12 +103,7 @@ def _register_gcs_oauth_before_send(
     # boto3 uses SigV4 by default; GCS XML API accepts Bearer tokens instead.
 
     def inject_bearer(request: Any, **kwargs: Any) -> None:
-        need_refresh = not getattr(credentials, "token", None)
-        expiry = getattr(credentials, "expiry", None)
-        if not need_refresh and expiry is not None:
-            need_refresh = expiry.timestamp() < time.time()
-        if need_refresh:
-            credentials.refresh(Request())
+        _refresh_if_needed(credentials)
         request.headers["Authorization"] = f"Bearer {credentials.token}"
         if project_id:
             request.headers["x-goog-project-id"] = project_id
@@ -137,6 +141,14 @@ class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
                 "_gcs_oauth_credentials must be set before calling get_s3_client/get_s3_resource"
             )
         _register_gcs_oauth_before_send(boto3_client, creds, self._gcs_oauth_project_id)
+
+    def refresh_token_if_needed(self) -> None:
+        """Refresh the OAuth token now, as the before-send hook otherwise
+        would on the next request. A caller that must classify a refresh
+        failure itself calls this first: raised inside the hook, the failure
+        is also logged by botocore with google-auth's full text."""
+        if self._gcs_oauth_credentials is not None:
+            _refresh_if_needed(self._gcs_oauth_credentials)
 
     def get_s3_client(
         self, verify_ssl: Optional[Union[bool, str]] = None
