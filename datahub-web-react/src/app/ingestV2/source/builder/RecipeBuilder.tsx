@@ -1,4 +1,3 @@
-import { CodeOutlined, FormOutlined } from '@ant-design/icons';
 import { Typography, message } from 'antd';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +16,8 @@ import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestion
 import { Button } from '@src/alchemy-components';
 
 import { IngestionSource } from '@types';
+import { Code } from '@phosphor-icons/react/dist/csr/Code';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -131,7 +132,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(true)}
                         data-testid="recipe-builder-form-button"
                     >
-                        <FormOutlined /> {t('recipeBuilder.formView')}
+                        <PencilLine /> {t('recipeBuilder.formView')}
                     </StyledButton>
                     <StyledButton
                         variant="text"
@@ -140,7 +141,7 @@ function RecipeBuilder(props: Props) {
                         onClick={() => switchViews(false)}
                         data-testid="recipe-builder-yaml-button"
                     >
-                        <CodeOutlined /> {t('recipeBuilder.yamlView')}
+                        <Code /> {t('recipeBuilder.yamlView')}
                     </StyledButton>
                 </ButtonsWrapper>
             </HeaderContainer>

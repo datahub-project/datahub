@@ -1,8 +1,9 @@
-import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import { Input, InputRef } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 
 import { DataPlatformCard } from '@app/ingestV2/source/builder/DataPlatformCard';
 import { CUSTOM } from '@app/ingestV2/source/builder/constants';
@@ -40,7 +41,7 @@ const StyledSearchBar = styled(Input)`
     font-size: 16px;
 `;
 
-const StyledSearchOutlined = styled(SearchOutlined)`
+const StyledSearchOutlined = styled(MagnifyingGlass)`
     color: ${(props) => props.theme.colors.textTertiary};
 `;
 
@@ -76,7 +77,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
     const logoUrl = useGetSourceLogoUrl(name);
     let logoComponent;
     if (name === CUSTOM) {
-        logoComponent = <FormOutlined style={{ color: theme.colors.textSecondary, fontSize: 28 }} />;
+        logoComponent = <PencilLine style={{ color: theme.colors.textSecondary, fontSize: 28 }} />;
     }
 
     return (

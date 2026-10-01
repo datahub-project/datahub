@@ -1,7 +1,8 @@
-import { FormOutlined, SearchOutlined } from '@ant-design/icons';
 import { Input } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
+import { PencilLine } from '@phosphor-icons/react/dist/csr/PencilLine';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
@@ -41,7 +42,7 @@ const StyledSearchBar = styled(Input)`
     font-size: 16px;
 `;
 
-const StyledSearchOutlined = styled(SearchOutlined)`
+const StyledSearchOutlined = styled(MagnifyingGlass)`
     color: #a9adbd;
 `;
 
@@ -65,7 +66,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
     const logoUrl = useGetSourceLogoUrl(name);
     let logoComponent;
     if (name === CUSTOM) {
-        logoComponent = <FormOutlined style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
+        logoComponent = <PencilLine style={{ color: ANTD_GRAY[8], fontSize: 28 }} />;
     }
 
     return (

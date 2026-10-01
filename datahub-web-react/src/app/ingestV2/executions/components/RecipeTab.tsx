@@ -1,8 +1,8 @@
-import { DownloadOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 import YAML from 'yamljs';
+import { DownloadSimple } from '@phosphor-icons/react/dist/csr/DownloadSimple';
 
 import { DetailsContainer, SectionBase } from '@app/ingestV2/executions/components/BaseTab';
 import { downloadFile } from '@app/search/utils/csvUtils';
@@ -45,7 +45,7 @@ export const RecipeTab = ({ urn, data }: { urn: string; data: GetIngestionExecut
                 <SubHeaderParagraph>{t('executions.recipeSubtitle')}</SubHeaderParagraph>
                 <Tooltip title={t('executions.downloadRecipe')}>
                     <Button variant="text" onClick={downloadRecipe}>
-                        <DownloadOutlined />
+                        <DownloadSimple />
                     </Button>
                 </Tooltip>
             </SectionSubHeader>

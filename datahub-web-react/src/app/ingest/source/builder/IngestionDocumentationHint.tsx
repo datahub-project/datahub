@@ -1,5 +1,5 @@
-import { CloseOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -32,7 +32,7 @@ const Description = styled.div`
     max-width: 90%;
 `;
 
-const StyledCloseOutlined = styled(CloseOutlined)`
+const StyledCloseOutlined = styled(X)`
     color: ${ANTD_GRAY[6]};
 `;
 

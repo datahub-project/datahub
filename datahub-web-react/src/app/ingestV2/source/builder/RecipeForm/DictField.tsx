@@ -1,5 +1,7 @@
-import { DeleteOutlined, PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Button, Form, Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -18,7 +20,7 @@ const StyledButton = styled(Button)`
     width: calc(100% - 72px);
 `;
 
-export const StyledQuestion = styled(QuestionCircleOutlined)`
+export const StyledQuestion = styled(Question)`
     color: ${(props) => props.theme.colors.icon};
     margin-left: 4px;
 `;
@@ -95,11 +97,11 @@ export default function DictField({ field, removeMargin }: Props) {
                                 ))}
                             </FieldsWrapper>
                             <StyledDeleteButton onClick={() => remove(name)} type="text" shape="circle" danger>
-                                <DeleteOutlined />
+                                <Trash />
                             </StyledDeleteButton>
                         </SectionWrapper>
                     ))}
-                    <StyledButton type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
+                    <StyledButton type="dashed" onClick={() => add()} icon={<Plus />}>
                         {field.buttonLabel}
                     </StyledButton>
                     <ErrorWrapper>{errors}</ErrorWrapper>
