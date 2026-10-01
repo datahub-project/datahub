@@ -199,6 +199,10 @@ _RELATIONS: Route = (
     ],
 )
 
+# What a schema-taking listing reads: the database type, the schema listing it
+# checks the caller's schema against, and the relations.
+_LISTING: List[Route] = [_DB_DETAILS, _RELATIONS, _SCHEMAS]
+
 # Each one a way out of a quoted SQL literal or statement: a closing quote, a
 # UNION, a second statement, and both comment markers.
 _HOSTILE_NAMES = [
@@ -224,7 +228,7 @@ def test_containers_are_the_schemas_ingestion_walks() -> None:
 
 
 def test_tables_and_views_split_like_ingestion() -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    conn = _FakeConnection(routes=_LISTING)
     probe = _probe(conn)
     assert probe.tables(schema="public", limit=200) == ["orders", "f_orders"]
     assert probe.views(schema="public", limit=200) == ["v_orders", "mv_orders"]
@@ -234,30 +238,31 @@ def test_tables_and_views_split_like_ingestion() -> None:
 def test_listing_never_enriches_from_operational_history() -> None:
     # get_tables_and_views would first run enrich_tables (svv_table_info joined
     # to stl_insert): grants a metadata probe should not need.
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    conn = _FakeConnection(routes=_LISTING)
     _probe(conn).tables(schema="public", limit=200)
     assert not any("stl_insert" in q or "svv_table_info" in q for q in conn.executed)
 
 
 @pytest.mark.parametrize("hostile", _HOSTILE_NAMES)
 @pytest.mark.parametrize("command", ["tables", "views"])
-def test_listing_filters_the_schema_in_python_not_in_sql(
+def test_listing_refuses_a_schema_the_catalog_does_not_list(
     command: str, hostile: str
 ) -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
-    assert getattr(_probe(conn), command)(schema=hostile, limit=200) == []
+    conn = _FakeConnection(routes=_LISTING)
+    with pytest.raises(ValueError):
+        getattr(_probe(conn), command)(schema=hostile, limit=200)
     _assert_never_sent(conn, hostile)
 
 
 def test_skip_external_tables_is_honoured() -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    conn = _FakeConnection(routes=_LISTING)
     _probe(conn, skip_external_tables=True).tables(schema="ext_schema", limit=200)
     listing = [q for q in conn.executed if "tabletype" in q][0]
     assert "svv_external_tables" not in listing
 
 
 def test_external_tables_are_listed_by_default() -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    conn = _FakeConnection(routes=_LISTING)
     assert _probe(conn).tables(schema="ext_schema", limit=200) == ["clicks"]
     listing = [q for q in conn.executed if "tabletype" in q][0]
     assert "svv_external_tables" in listing
@@ -269,12 +274,12 @@ def test_shared_database_lists_through_svv_redshift_tables() -> None:
         _REL_COLUMNS,
         [["TABLE", "public", "orders", None]],
     )
-    conn = _FakeConnection(routes=[_SHARED_DB, shared])
+    conn = _FakeConnection(routes=[_SHARED_DB, shared, _SCHEMAS])
     assert _probe(conn).tables(schema="public", limit=200) == ["orders"]
 
 
 def test_database_type_is_read_once_per_probe() -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    conn = _FakeConnection(routes=_LISTING)
     probe = _probe(conn)
     probe.tables(schema="public", limit=200)
     probe.views(schema="public", limit=200)
@@ -282,14 +287,48 @@ def test_database_type_is_read_once_per_probe() -> None:
 
 
 def test_an_empty_schema_says_why_rather_than_looking_empty() -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    schemas: Route = (
+        "schema_type",
+        _SCHEMAS[1],
+        [["empty_schema", "local", None, None, None, None]],
+    )
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS, schemas])
     probe = _probe(conn)
-    assert probe.views(schema="nothing_here", limit=200) == []
+    assert probe.views(schema="empty_schema", limit=200) == []
     assert probe.warnings
 
 
+@pytest.mark.parametrize("command", ["tables", "views"])
+def test_an_unlisted_schema_is_a_bad_argument_for_listings_too(
+    monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    from datahub.ingestion.agent.probe_methods import run_probe_method
+
+    _connect_with(monkeypatch, _FakeConnection(routes=_LISTING))
+
+    # The same answer `columns` gives (exit 2), not an empty listing at exit 0.
+    with pytest.raises(ValueError):
+        run_probe_method("redshift", dict(_RECIPE), command, {"schema": "missing"})
+
+
+def test_a_schema_differing_only_in_case_points_at_the_listed_one() -> None:
+    conn = _FakeConnection(routes=_LISTING)
+    with pytest.raises(ValueError) as refused:
+        _probe(conn).tables(schema="Public", limit=200)
+    assert "'public'" in str(refused.value)
+
+
+def test_a_drifted_table_listing_is_a_defect_not_a_bad_argument() -> None:
+    from datahub.ingestion.agent.verdicts import ProbeInternalError
+
+    drifted: Route = ("tabletype", ["tabletype", "schema", "relname"], [])
+    conn = _FakeConnection(routes=[_DB_DETAILS, drifted, _SCHEMAS])
+    with pytest.raises(ProbeInternalError):
+        _probe(conn).tables(schema="public", limit=200)
+
+
 def test_a_failing_catalog_query_propagates() -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS], fail_on="tabletype")
+    conn = _FakeConnection(routes=_LISTING, fail_on="tabletype")
     with pytest.raises(RuntimeError):
         _probe(conn).tables(schema="public", limit=200)
 
@@ -297,7 +336,7 @@ def test_a_failing_catalog_query_propagates() -> None:
 def test_run_reports_kind_and_parent(monkeypatch: pytest.MonkeyPatch) -> None:
     from datahub.ingestion.agent.probe_methods import run_probe_method
 
-    _connect_with(monkeypatch, _FakeConnection(routes=[_DB_DETAILS, _RELATIONS]))
+    _connect_with(monkeypatch, _FakeConnection(routes=_LISTING))
 
     result = run_probe_method(
         "redshift", dict(_RECIPE), "views", {"schema": "public", "limit": 1}
@@ -327,7 +366,7 @@ def test_a_catalog_timeout_is_not_reported_as_an_empty_listing(
 
     _connect_with(
         monkeypatch,
-        _FakeConnection(routes=[_DB_DETAILS, _RELATIONS], fail_on="tabletype"),
+        _FakeConnection(routes=_LISTING, fail_on="tabletype"),
     )
 
     with pytest.raises(RuntimeError, match="statement timeout"):
@@ -384,7 +423,7 @@ def test_columns_come_from_ingestion_column_query() -> None:
 @pytest.mark.parametrize("hostile", _HOSTILE_NAMES)
 def test_columns_refuses_a_schema_the_catalog_does_not_list(hostile: str) -> None:
     conn = _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
-    with pytest.raises(ValueError, match="containers"):
+    with pytest.raises(ValueError):
         _probe(conn).columns(schema=hostile, table="orders")
     _assert_never_sent(conn, hostile)
     # Refused before the column query is even built.
@@ -427,6 +466,13 @@ def test_columns_on_a_shared_database_use_svv_redshift_columns() -> None:
     assert [c["name"] for c in cols] == ["id"]
 
 
+def test_a_table_differing_only_in_case_points_at_the_listed_one() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
+    probe = _probe(conn)
+    assert probe.columns(schema="public", table="Orders") == []
+    assert any("'orders'" in w for w in probe.warnings)
+
+
 def test_columns_of_an_unknown_table_are_empty_with_a_reason() -> None:
     conn = _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
     probe = _probe(conn)
@@ -455,7 +501,7 @@ def test_an_unknown_schema_exits_as_a_bad_argument(
 
 
 def test_view_definition_is_the_ddl_ingestion_publishes() -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    conn = _FakeConnection(routes=_LISTING)
     probe = _probe(conn)
     assert probe.view_definition(schema="public", view="v_orders") == (
         "select * from orders"
@@ -465,9 +511,10 @@ def test_view_definition_is_the_ddl_ingestion_publishes() -> None:
 
 @pytest.mark.parametrize("hostile", _HOSTILE_NAMES)
 def test_view_definition_matches_names_in_python_not_in_sql(hostile: str) -> None:
-    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    conn = _FakeConnection(routes=_LISTING)
     probe = _probe(conn)
-    assert probe.view_definition(schema=hostile, view="v_orders") is None
+    with pytest.raises(ValueError):
+        probe.view_definition(schema=hostile, view="v_orders")
     assert probe.view_definition(schema="public", view=hostile) is None
     _assert_never_sent(conn, hostile)
 
