@@ -1,5 +1,5 @@
 import { grey } from '@ant-design/colors';
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { ApolloError } from '@apollo/client';
 import { Text } from '@components';
 import { Button, Divider, Typography, message } from 'antd';
@@ -452,7 +452,7 @@ export default function TagStyleEntity({
                             </Text>
                         )}
                         <Button type={ownersEmpty ? 'default' : 'text'} onClick={() => setShowAddModal(true)}>
-                            <PlusOutlined />
+                            <Plus />
                             {ownersEmpty ? (
                                 <OwnerButtonEmptyTitle>{t('addOwners')}</OwnerButtonEmptyTitle>
                             ) : (

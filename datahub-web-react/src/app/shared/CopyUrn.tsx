@@ -1,4 +1,5 @@
-import { CheckOutlined, CopyOutlined } from '@ant-design/icons';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { Tooltip } from '@components';
 import { Button } from 'antd';
 import React from 'react';
@@ -16,7 +17,7 @@ export default function CopyUrn({ urn, isActive, onClick }: CopyUrnProps) {
         return (
             <Tooltip title={t('copyUrn.tooltip')}>
                 <Button
-                    icon={isActive ? <CheckOutlined /> : <CopyOutlined />}
+                    icon={isActive ? <Check /> : <Copy />}
                     onClick={() => {
                         navigator.clipboard.writeText(urn);
                         onClick?.();

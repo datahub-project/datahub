@@ -1,5 +1,5 @@
-import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -50,12 +50,8 @@ const ButtonContainer = styled.div<{ left?: boolean; right?: boolean }>`
     ${({ right }) => right && 'right: -10px;'}
 `;
 
-const NavigateBeforeOutlinedIconStyle = styled(NavigateBeforeOutlinedIcon)`
-    font-size: 14px !important;
-`;
-const NavigateNextOutlinedIconStyle = styled(NavigateNextOutlinedIcon)`
-    font-size: 14px !important;
-`;
+const NavigateBeforeOutlinedIconStyle = styled(CaretLeft).attrs({ size: 14 })``;
+const NavigateNextOutlinedIconStyle = styled(CaretRight).attrs({ size: 14 })``;
 
 type Props = {
     children: React.ReactNode;

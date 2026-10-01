@@ -1,5 +1,5 @@
-import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -53,13 +53,13 @@ const Wrapper = styled.div`
     }
 `;
 
-const StyledNavigateBeforeOutlinedIcon = styled(NavigateBeforeOutlinedIcon)<{ buttonSize: number }>`
-    font-size: ${(props) => props.buttonSize}px !important;
-`;
+const StyledNavigateBeforeOutlinedIcon = styled(CaretLeft).attrs<{ buttonSize: number }>(({ buttonSize }) => ({
+    size: buttonSize,
+}))<{ buttonSize: number }>``;
 
-const StyledNavigateNextOutlinedIcon = styled(NavigateNextOutlinedIcon)<{ buttonSize: number }>`
-    font-size: ${(props) => props.buttonSize}px !important;
-`;
+const StyledNavigateNextOutlinedIcon = styled(CaretRight).attrs<{ buttonSize: number }>(({ buttonSize }) => ({
+    size: buttonSize,
+}))<{ buttonSize: number }>``;
 
 type Props = {
     children: React.ReactNode;

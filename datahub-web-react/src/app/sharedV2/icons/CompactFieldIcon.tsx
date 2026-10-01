@@ -1,12 +1,10 @@
-import {
-    BoldOutlined,
-    CalendarOutlined,
-    ClockCircleOutlined,
-    FieldBinaryOutlined,
-    FontColorsOutlined,
-    NumberOutlined,
-    ProfileOutlined,
-} from '@ant-design/icons';
+import { Binary } from '@phosphor-icons/react/dist/csr/Binary';
+import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Hash } from '@phosphor-icons/react/dist/csr/Hash';
+import { IdentificationCard } from '@phosphor-icons/react/dist/csr/IdentificationCard';
+import { TextAa } from '@phosphor-icons/react/dist/csr/TextAa';
+import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
 import { Tooltip } from '@components';
 import React from 'react';
 
@@ -14,24 +12,24 @@ import { SchemaFieldDataType } from '@types';
 
 function CompactFieldIcon(type?: SchemaFieldDataType): JSX.Element | null {
     if (type === SchemaFieldDataType.Number) {
-        return <NumberOutlined />;
+        return <Hash />;
     }
     if (type === SchemaFieldDataType.String) {
-        return <FontColorsOutlined />;
+        return <TextAa />;
     }
     if (type === SchemaFieldDataType.Date) {
-        return <CalendarOutlined />;
+        return <CalendarBlank />;
     }
     if (type === SchemaFieldDataType.Time) {
-        return <ClockCircleOutlined />;
+        return <Clock />;
     }
     if (type === SchemaFieldDataType.Boolean) {
-        return <BoldOutlined />;
+        return <TextB />;
     }
     if (type === SchemaFieldDataType.Bytes) {
-        return <FieldBinaryOutlined />;
+        return <Binary />;
     }
-    return <ProfileOutlined />;
+    return <IdentificationCard />;
 }
 
 export function CompactFieldIconWithTooltip({
