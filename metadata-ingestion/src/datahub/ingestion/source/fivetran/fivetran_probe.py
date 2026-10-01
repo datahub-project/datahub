@@ -2,6 +2,8 @@ import itertools
 import logging
 from typing import Callable, Dict, List, Optional, Tuple, TypeVar
 
+import pydantic
+import requests
 import sqlalchemy.exc
 
 from datahub.ingestion.agent.probe_methods import probe_method
@@ -185,6 +187,19 @@ class FivetranMetadataProbe:
         not a ValueError and passes through to exit 3 unchanged."""
         try:
             return call()
+        except pydantic.ValidationError as exc:
+            # str(exc) quotes each rejected input value, and the payload can
+            # carry user ids (connected_by). Name where and how the reply was
+            # wrong, keep the values in the debug log only.
+            logger.debug("Fivetran reply failed validation: %s", context, exc_info=True)
+            problems = "; ".join(
+                f"{'.'.join(str(part) for part in error['loc']) or '<root>'}: "
+                f"{error['type']}"
+                for error in exc.errors()
+            )
+            raise ProbeReadFailed(
+                f"{context}: the reply did not have the expected shape ({problems})"
+            ) from None
         except ValueError as exc:
             raise ProbeReadFailed(f"{context}: {exc}") from exc
 
@@ -222,6 +237,19 @@ class FivetranMetadataProbe:
                 # A destination deleted between the groups listing and this
                 # call. Ingestion skips the group with a warning too.
                 self._warn(str(exc))
+                continue
+            except (ProbeReadFailed, requests.RequestException) as exc:
+                # The errors ingestion recovers from per group
+                # (_RECOVERABLE_REST_ERRORS; ValueError arrives here as
+                # ProbeReadFailed). Asked for this one destination, the caller
+                # gets the failure itself rather than an empty listing.
+                if destination is not None:
+                    raise
+                self._warn(
+                    f"could not list the connections of destination "
+                    f"'{group_id}' ({type(exc).__name__}: {exc}); skipped, as "
+                    f"ingestion skips it"
+                )
                 continue
             found.extend(_connector_from_listed(item) for item in listed)
             # Every group is one more request, so stop once the limit is met.
