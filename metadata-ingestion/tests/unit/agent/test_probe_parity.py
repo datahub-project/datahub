@@ -1,0 +1,209 @@
+from pathlib import Path
+from typing import Dict, List, Set
+
+import pytest
+
+from datahub.emitter.mce_builder import make_container_urn, make_dataset_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.sink.file import write_metadata_file
+from datahub.metadata.schema_classes import (
+    ContainerPropertiesClass,
+    StatusClass,
+    SubTypesClass,
+)
+from datahub.metadata.urns import DatasetUrn
+from tests.test_helpers.probe_parity import (
+    EmittedIndex,
+    FanOut,
+    JudgedRecord,
+    ParityListing,
+    assert_probe_parity,
+    pipeline_ingestion,
+)
+from tests.unit.agent._parity_fake_source import (
+    DROP_ITEM_A,
+    GROUP_KIND,
+    IGNORE_ITEM_PATTERN,
+    SOURCE_TYPE,
+)
+
+
+def _item_names(index: EmittedIndex) -> Set[str]:
+    return {DatasetUrn.from_string(urn).name for urn in index.urns("dataset")}
+
+
+def _qualified(record: JudgedRecord) -> str:
+    return f"{record.parent_path[-1]}.{record.name}"
+
+
+_GROUPS = ParityListing(
+    "groups", "groups", emitted=lambda index: index.container_names(GROUP_KIND)
+)
+_ITEMS = ParityListing(
+    "items",
+    "items",
+    emitted=_item_names,
+    fan_out=FanOut("groups", "group"),
+    identity=_qualified,
+)
+
+
+def test_agreeing_source_passes_and_reports_each_exclusion(tmp_path: Path) -> None:
+    report = assert_probe_parity(
+        SOURCE_TYPE,
+        {"item_pattern": {"deny": ["^b$"]}},
+        pipeline_ingestion(SOURCE_TYPE, tmp_path),
+        [_GROUPS, _ITEMS],
+    )
+    assert report.kinds["items"].included == {"g1.a", "g2.c"}
+    assert report.excluded_by("items") == {"g1.b": "item_pattern"}
+    assert report.excluded_by("groups") == {}
+
+
+def test_children_of_a_dropped_parent_are_judged(tmp_path: Path) -> None:
+    report = assert_probe_parity(
+        SOURCE_TYPE,
+        {"group_pattern": {"deny": ["^g2$"]}},
+        pipeline_ingestion(SOURCE_TYPE, tmp_path),
+        [_GROUPS, _ITEMS],
+    )
+    # Listed under the excluded g2 and excluded through it, not skipped.
+    assert report.excluded_by("items") == {"g2.c": "group_pattern"}
+
+
+def test_an_object_ingestion_emits_but_the_probe_excludes_fails(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(AssertionError, match="g1.b"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"item_pattern": {"deny": ["^b$"]}, "drift": IGNORE_ITEM_PATTERN},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_ITEMS],
+        )
+
+
+def test_an_object_the_probe_includes_but_ingestion_skips_fails(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(AssertionError, match="g1.a"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"drift": DROP_ITEM_A},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_ITEMS],
+        )
+
+
+def test_an_empty_kind_fails_unless_expected(tmp_path: Path) -> None:
+    with pytest.raises(AssertionError, match="groups"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"group_pattern": {"deny": [".*"]}},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_GROUPS],
+        )
+
+
+def test_expect_empty_accepts_a_kind_the_recipe_switches_off(tmp_path: Path) -> None:
+    switched_off = ParityListing(
+        "groups",
+        "groups",
+        emitted=lambda index: index.container_names(GROUP_KIND),
+        expect_empty=True,
+    )
+    report = assert_probe_parity(
+        SOURCE_TYPE,
+        {"group_pattern": {"deny": [".*"]}},
+        pipeline_ingestion(SOURCE_TYPE, tmp_path),
+        [switched_off],
+    )
+    assert report.excluded_by("groups") == {
+        "g1": "group_pattern",
+        "g2": "group_pattern",
+    }
+
+
+def test_a_truncated_listing_is_refused(tmp_path: Path) -> None:
+    capped = ParityListing(
+        "groups",
+        "groups",
+        emitted=lambda index: index.container_names(GROUP_KIND),
+        kwargs={"limit": 1},
+    )
+    with pytest.raises(AssertionError, match="limit"):
+        assert_probe_parity(
+            SOURCE_TYPE, {}, pipeline_ingestion(SOURCE_TYPE, tmp_path), [capped]
+        )
+
+
+def test_a_redacted_name_is_refused(tmp_path: Path) -> None:
+    # A recipe secret equal to item "a" masks that name in the round trip.
+    with pytest.raises(AssertionError, match="redact"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"password": "a"},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [_ITEMS],
+        )
+
+
+def test_conflicting_verdicts_for_one_identity_fail(tmp_path: Path) -> None:
+    one_identity = ParityListing(
+        "items",
+        "items",
+        emitted=lambda index: {"same"},
+        fan_out=FanOut("groups", "group"),
+        identity=lambda record: "same",
+    )
+    with pytest.raises(AssertionError, match="different verdicts"):
+        assert_probe_parity(
+            SOURCE_TYPE,
+            {"item_pattern": {"deny": ["^b$"]}},
+            pipeline_ingestion(SOURCE_TYPE, tmp_path),
+            [one_identity],
+        )
+
+
+def _workunits() -> List[MetadataWorkUnit]:
+    container = make_container_urn("g1")
+    return [
+        MetadataChangeProposalWrapper(
+            entityUrn=container, aspect=ContainerPropertiesClass(name="g1")
+        ).as_workunit(),
+        MetadataChangeProposalWrapper(
+            entityUrn=container, aspect=SubTypesClass(typeNames=["Group"])
+        ).as_workunit(),
+        MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn("fake", "g1.a"),
+            aspect=SubTypesClass(typeNames=["Table"]),
+        ).as_workunit(),
+        MetadataChangeProposalWrapper(
+            entityUrn=make_dataset_urn("fake", "g1.lineage_only"),
+            aspect=StatusClass(removed=False),
+        ).as_workunit(),
+    ]
+
+
+def test_emitted_index_reads_workunits_and_a_file_sink_alike(tmp_path: Path) -> None:
+    out = tmp_path / "out.json"
+    write_metadata_file(out, [wu.metadata for wu in _workunits()])
+    for index in (
+        EmittedIndex.from_workunits(_workunits()),
+        EmittedIndex.from_file(out),
+    ):
+        assert index.container_names("Group") == {"g1"}
+        assert index.container_names("Schema") == set()
+        assert len(index.urns("dataset")) == 2
+        assert index.urns("dataset", with_aspect=SubTypesClass) == {
+            make_dataset_urn("fake", "g1.a")
+        }
+
+
+def test_emitted_index_by_type_is_keyed_by_urn() -> None:
+    index = EmittedIndex.from_workunits(_workunits())
+    by_type: Dict[str, int] = {
+        entity: len(index.urns(entity)) for entity in ("container", "dataset")
+    }
+    assert by_type == {"container": 1, "dataset": 2}

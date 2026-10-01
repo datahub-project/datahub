@@ -1,0 +1,388 @@
+"""One assertion for "the probe's verdicts are ingestion's".
+
+Runs ingestion, lists the same fixture with the probe, judges every listing
+the way `probe run --report-to` then `probe filter --from-run` would, and
+compares per kind in both directions. Every connector's hand-written parity
+test re-implemented these steps: the redacted JSON round trip, the fan-out
+under every parent (kept or not), the identity a listing record shares with
+an emitted URN, and the guard against two empty sets agreeing about nothing.
+
+The harness patches nothing. Wrap the call in the connector's own mocks so
+that ingestion and the probe read the same content.
+"""
+
+import json
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import (
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterable,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    Union,
+)
+
+from datahub._codegen.aspect import _Aspect
+from datahub.cli.recipe_cli import _json_default, _secrets_in_recipe
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
+from datahub.ingestion.agent.probe_methods import run_probe_method
+from datahub.ingestion.agent.redact import redact
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.file import read_metadata_file
+from datahub.metadata.schema_classes import (
+    ContainerPropertiesClass,
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+    SubTypesClass,
+)
+from datahub.metadata.urns import Urn
+
+_Metadata = Union[
+    MetadataChangeEventClass, MetadataChangeProposalClass, MetadataChangeProposalWrapper
+]
+
+
+@dataclass
+class EmittedIndex:
+    """What one ingestion run emitted, as aspects by entity URN."""
+
+    aspects: Dict[str, List[_Aspect]] = field(default_factory=dict)
+
+    @classmethod
+    def from_workunits(cls, workunits: Iterable[MetadataWorkUnit]) -> "EmittedIndex":
+        index = cls()
+        for workunit in workunits:
+            index.add(workunit.metadata)
+        return index
+
+    @classmethod
+    def from_file(cls, path: Path) -> "EmittedIndex":
+        index = cls()
+        for item in read_metadata_file(path):
+            index.add(item)
+        return index
+
+    def add(self, item: _Metadata) -> None:
+        if isinstance(item, MetadataChangeEventClass):
+            urn = item.proposedSnapshot.urn
+            found: List[_Aspect] = [a for a in item.proposedSnapshot.aspects]
+        else:
+            if not item.entityUrn:
+                return
+            urn = item.entityUrn
+            wrapper = (
+                item
+                if isinstance(item, MetadataChangeProposalWrapper)
+                else MetadataChangeProposalWrapper.try_from_mcpc(item)
+            )
+            found = (
+                [wrapper.aspect]
+                if wrapper is not None and wrapper.aspect is not None
+                else []
+            )
+        # setdefault even with no decodable aspect: the URN was still emitted.
+        self.aspects.setdefault(urn, []).extend(found)
+
+    def urns(
+        self, entity_type: str, *, with_aspect: Optional[Type[_Aspect]] = None
+    ) -> Set[str]:
+        """Every emitted URN of `entity_type`. `with_aspect` keeps only those
+        carrying that aspect. Some sources emit an aspect onto an entity they
+        merely reference (a lineage upstream), and that entity is not one of
+        their own listings."""
+        return {
+            urn
+            for urn, aspects in self.aspects.items()
+            if Urn.from_string(urn).entity_type == entity_type
+            and (
+                with_aspect is None or any(isinstance(a, with_aspect) for a in aspects)
+            )
+        }
+
+    def container_names(self, sub_type: Optional[str] = None) -> Set[str]:
+        """The containerProperties name of every emitted container, optionally
+        only those whose subTypes include `sub_type`. Container URNs are
+        GUIDs, so the name is the only thing a listing can be compared on."""
+        names: Set[str] = set()
+        for aspects in self.aspects.values():
+            properties = next(
+                (a for a in aspects if isinstance(a, ContainerPropertiesClass)), None
+            )
+            if properties is None:
+                continue
+            if sub_type is not None and not any(
+                isinstance(a, SubTypesClass) and sub_type in a.typeNames
+                for a in aspects
+            ):
+                continue
+            names.add(properties.name)
+        return names
+
+
+def pipeline_ingestion(
+    source_type: str, tmp_path: Path, **pipeline: object
+) -> Callable[[Dict[str, object]], EmittedIndex]:
+    """Run ingestion as `datahub ingest` does: a Pipeline with a file sink.
+    `pipeline` adds top-level keys such as pipeline_name."""
+
+    def run(recipe: Dict[str, object]) -> EmittedIndex:
+        out = tmp_path / f"{source_type.rsplit('.', 1)[-1]}-parity.json"
+        ingestion = Pipeline.create(
+            {
+                "run_id": "probe-parity",
+                **pipeline,
+                "source": {"type": source_type, "config": recipe},
+                "sink": {"type": "file", "config": {"filename": str(out)}},
+            }
+        )
+        ingestion.run()
+        # A failed run compared against the probe would report a drift that
+        # is really an ingestion error, or agree about a half-empty run.
+        ingestion.raise_from_status()
+        return EmittedIndex.from_file(out)
+
+    return run
+
+
+@dataclass(frozen=True)
+class JudgedRecord:
+    name: str
+    parent_path: Tuple[str, ...]
+    attributes: Mapping[str, str]
+    included: bool
+    excluded_by: Optional[str]
+
+
+def by_name(record: JudgedRecord) -> str:
+    return record.name
+
+
+@dataclass(frozen=True)
+class FanOut:
+    """Run the listing once per record of `parent_command`, every one of them
+    kept or not, passing that record's name as `param`. A child of a dropped
+    parent must read as excluded on its own listing's facts, so the excluded
+    parents are the point."""
+
+    parent_command: str
+    param: str
+    parent_kwargs: Mapping[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ParityListing:
+    # Names this kind in failures and in ParityReport.kinds.
+    label: str
+    command: str
+    # The identities ingestion emitted for this kind.
+    emitted: Callable[[EmittedIndex], Set[str]]
+    kwargs: Mapping[str, object] = field(default_factory=dict)
+    fan_out: Optional[FanOut] = None
+    # Maps a judged record to the identity `emitted` returns.
+    identity: Callable[[JudgedRecord], str] = by_name
+    # True when the recipe switches this kind off, so ingestion emitting none
+    # is the expected answer rather than a vacuous one.
+    expect_empty: bool = False
+
+
+@dataclass(frozen=True)
+class KindParity:
+    emitted: FrozenSet[str]
+    included: FrozenSet[str]
+    excluded_by: Mapping[str, Optional[str]]
+    warnings: Tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ParityReport:
+    kinds: Mapping[str, KindParity]
+
+    def excluded_by(self, label: str) -> Mapping[str, Optional[str]]:
+        return self.kinds[label].excluded_by
+
+
+def _listing(
+    source_type: str,
+    recipe: Mapping[str, object],
+    secrets: Set[str],
+    command: str,
+    kwargs: Mapping[str, object],
+) -> RunListing:
+    run = run_probe_method(source_type, dict(recipe), command, dict(kwargs))
+    # What --report-to writes and --from-run reads: the CLI normalizes the
+    # envelope to JSON types, redacts it with the recipe's secrets, then
+    # serializes it.
+    safe = json.loads(json.dumps(run.to_dict(), default=_json_default))
+    listing = listing_from_run(json.loads(json.dumps(redact(safe, secrets))))
+    where = f"`probe run {command}` with {dict(kwargs)}"
+    if listing.truncated:
+        raise AssertionError(
+            f"{where} stopped at its limit, so the names past it were never "
+            f"judged; pass a larger limit in the listing's kwargs"
+        )
+    if listing.incomplete:
+        raise AssertionError(
+            f"{where} recorded failures, so part of the fixture was never "
+            f"listed: {run.failures}"
+        )
+    if listing.skipped or listing.masked_attributes or listing.parent_redacted:
+        raise AssertionError(
+            f"{where} had values redacted because a fixture secret equals an "
+            f"identifier; change the fixture's secret"
+        )
+    return listing
+
+
+def _judge(
+    source_type: str,
+    recipe: Mapping[str, object],
+    secrets: Set[str],
+    command: str,
+    kwargs: Mapping[str, object],
+) -> Tuple[List[JudgedRecord], List[str]]:
+    listing = _listing(source_type, recipe, secrets, command, kwargs)
+    kind = listing.kind
+    if kind is None:
+        raise AssertionError(
+            f"`probe run {command}` declares no kind, so probe filter cannot judge it"
+        )
+    result = check_filters(
+        source_type=source_type,
+        config_dict=dict(recipe),
+        kind=kind,
+        parent_path=listing.parent_path,
+        names=listing.names,
+        attributes=listing.attributes,
+    )
+    records = [
+        JudgedRecord(
+            name=verdict.name,
+            parent_path=tuple(listing.parent_path),
+            attributes=attributes,
+            included=verdict.included,
+            excluded_by=verdict.excluded_by,
+        )
+        for verdict, attributes in zip(result.results, listing.attributes, strict=True)
+    ]
+    # The run's own warnings travel with the listing, as `probe filter
+    # --from-run` reports them alongside its verdicts.
+    return records, [*result.warnings, *listing.run_warnings]
+
+
+def _judged(
+    source_type: str,
+    recipe: Mapping[str, object],
+    secrets: Set[str],
+    listing: ParityListing,
+) -> Tuple[List[JudgedRecord], List[str]]:
+    if listing.fan_out is None:
+        return _judge(source_type, recipe, secrets, listing.command, listing.kwargs)
+    fan_out = listing.fan_out
+    parents = _listing(
+        source_type, recipe, secrets, fan_out.parent_command, fan_out.parent_kwargs
+    ).names
+    records: List[JudgedRecord] = []
+    warnings: List[str] = []
+    for parent in parents:
+        found, said = _judge(
+            source_type,
+            recipe,
+            secrets,
+            listing.command,
+            {**listing.kwargs, fan_out.param: parent},
+        )
+        records.extend(found)
+        warnings.extend(w for w in said if w not in warnings)
+    return records, warnings
+
+
+def _compare(
+    listing: ParityListing,
+    records: List[JudgedRecord],
+    warnings: List[str],
+    emitted: Set[str],
+    problems: List[str],
+) -> KindParity:
+    label = listing.label
+    verdicts: Dict[str, JudgedRecord] = {}
+    for record in records:
+        identity = listing.identity(record)
+        first = verdicts.setdefault(identity, record)
+        if first.included != record.included:
+            problems.append(
+                f"{label}: '{identity}' was listed more than once with different "
+                f"verdicts; its identity function must tell those records apart"
+            )
+    included = {i for i, r in verdicts.items() if r.included}
+    excluded_by = {i: r.excluded_by for i, r in verdicts.items() if not r.included}
+    if not records:
+        problems.append(f"{label}: the probe listed nothing, so nothing was compared")
+    elif not emitted and not listing.expect_empty:
+        problems.append(
+            f"{label}: ingestion emitted none, so agreement proves nothing; give "
+            f"the fixture one the recipe keeps, or set expect_empty"
+        )
+    for identity in sorted(emitted - included):
+        if identity in excluded_by:
+            problems.append(
+                f"{label}: ingestion emitted '{identity}', but probe filter "
+                f"excludes it (excluded_by={excluded_by[identity]})"
+            )
+        else:
+            problems.append(
+                f"{label}: ingestion emitted '{identity}', but no probe listing "
+                f"returned it"
+            )
+    for identity in sorted(included - emitted):
+        problems.append(
+            f"{label}: probe filter includes '{identity}', but ingestion did not "
+            f"emit it"
+        )
+    return KindParity(
+        emitted=frozenset(emitted),
+        included=frozenset(included),
+        excluded_by=excluded_by,
+        warnings=tuple(warnings),
+    )
+
+
+def assert_probe_parity(
+    source_type: str,
+    recipe: Mapping[str, object],
+    run_ingestion: Callable[[Dict[str, object]], EmittedIndex],
+    listings: Sequence[ParityListing],
+) -> ParityReport:
+    """Assert that ingestion and `probe filter` agree on every listed kind.
+
+    For each listing, every identity ingestion emitted must be included by
+    the probe, every identity the probe includes must have been emitted, and
+    the comparison must not be vacuous. Raises one AssertionError naming every
+    disagreement. Returns the per-kind verdicts so that a test can also pin
+    which rule excluded what.
+    """
+    emitted = run_ingestion(dict(recipe))
+    secrets = _secrets_in_recipe(
+        {"source": {"type": source_type, "config": dict(recipe)}}
+    )
+    problems: List[str] = []
+    kinds: Dict[str, KindParity] = {}
+    for listing in listings:
+        records, warnings = _judged(source_type, recipe, secrets, listing)
+        kinds[listing.label] = _compare(
+            listing, records, warnings, listing.emitted(emitted), problems
+        )
+    if problems:
+        raise AssertionError(
+            "probe filter and ingestion disagree:\n  " + "\n  ".join(problems)
+        )
+    return ParityReport(kinds=kinds)
