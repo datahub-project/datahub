@@ -405,8 +405,8 @@ def isolated_secret_registry(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 def test_an_error_echoing_the_hmac_secret_is_masked_by_the_cli(
     seeded_bucket: None, isolated_secret_registry: None, tmp_path: pathlib.Path
 ) -> None:
-    # An error the probe does not classify reaches the CLI's fallback, which
-    # prints its text; the recipe's secret must be masked there.
+    # An error the probe does not classify is reported by class name only;
+    # its text, and the recipe's secret with it, must not reach the output.
     secret = "GOOG1EXAMPLEhmacSecretValue0123456789abcd"
     recipe_file = tmp_path / "gcs.yml"
     recipe_file.write_text(
@@ -426,8 +426,9 @@ def test_an_error_echoing_the_hmac_secret_is_masked_by_the_cli(
         result = CliRunner().invoke(
             recipe_cli, ["probe", "run", "buckets", "--recipe", str(recipe_file)]
         )
-    assert result.exit_code != 0
-    assert "was refused" in result.output
+    assert result.exit_code == 3
+    assert "RuntimeError" in result.output
+    assert "was refused" not in result.output
     assert secret not in result.output
 
 
