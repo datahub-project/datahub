@@ -1,5 +1,5 @@
-import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Cube } from '@phosphor-icons/react/dist/csr/Cube';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import i18next from 'i18next';
 import * as React from 'react';
@@ -98,7 +98,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                 {
                     name: i18next.t('entity.types:tab.lineage'),
                     component: LineageTab,
-                    icon: PartitionOutlined,
+                    icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
@@ -161,7 +161,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
-            icon: UnorderedListOutlined,
+            icon: ListBullets,
         },
     ];
 

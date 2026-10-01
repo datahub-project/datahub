@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import CloseIcon from '@mui/icons-material/Close';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { FadersHorizontal } from '@phosphor-icons/react/dist/csr/FadersHorizontal';
 import { Button } from 'antd';
 import React from 'react';
@@ -96,8 +96,7 @@ const CloseButtonContainer = styled.div`
     padding: 5px;
 `;
 
-const CloseIconStyle = styled(CloseIcon)`
-    font-size: 10px !important;
+const CloseIconStyle = styled(X).attrs({ size: 10 })`
     color: ${(props) => props.theme.colors.iconBrand};
 `;
 

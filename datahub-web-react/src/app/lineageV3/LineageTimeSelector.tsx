@@ -1,4 +1,3 @@
-import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Space } from 'antd';
 import i18next from 'i18next';
@@ -9,6 +8,8 @@ import styled from 'styled-components';
 import DatePicker from '@utils/DayjsDatePicker';
 import dayjs from '@utils/dayjs';
 import type { Dayjs } from '@utils/dayjs';
+import { CalendarBlank } from '@phosphor-icons/react/dist/csr/CalendarBlank';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 
 const { RangePicker } = DatePicker;
 
@@ -28,7 +29,7 @@ const TimeRangeTrigger = styled.button`
     cursor: pointer;
 `;
 
-const TriggerCaret = styled(CaretDownOutlined)`
+const TriggerCaret = styled(CaretDown)`
     font-size: 10px;
     color: ${(props) => props.theme.colors.icon};
 `;
@@ -109,7 +110,7 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
             {showText ? (
                 <Tooltip title={t('timeSelector.filterTooltip')} placement="topLeft" showArrow={false}>
                     <TimeRangeTrigger type="button" onClick={() => handleOpenChange(true)}>
-                        <CalendarOutlined style={{ marginRight: '4px' }} />
+                        <CalendarBlank style={{ marginRight: '4px' }}  />
                         {getTimeRangeDescription(startDate, endDate)}
                         <TriggerCaret />
                     </TimeRangeTrigger>

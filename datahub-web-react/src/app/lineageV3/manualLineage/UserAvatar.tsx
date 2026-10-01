@@ -1,4 +1,3 @@
-import { PartitionOutlined } from '@ant-design/icons';
 import { Avatar, Popover } from '@components';
 import React from 'react';
 import { Trans } from 'react-i18next';
@@ -10,8 +9,9 @@ import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpUser, EntityType } from '@types';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 
-const LineageIcon = styled(PartitionOutlined)`
+const LineageIcon = styled(TreeStructure)`
     font-size: 16px;
     margin-right: 4px;
 `;

@@ -1,4 +1,3 @@
-import { ReadOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -11,6 +10,7 @@ import { Message } from '@app/shared/Message';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 
 const DomainsWrapper = styled.div`
     overflow: auto;
@@ -47,7 +47,7 @@ export default function RootDomains({ setIsCreatingDomain }: Props) {
             {error && <Message type="error" content={t('list.loadError')} />}
             {hasInitialized && domains.length === 0 && (
                 <EmptyDomainsSection
-                    icon={<ReadOutlined />}
+                    icon={<BookOpen  />}
                     title={t('empty.organizeTitle')}
                     description={<EmptyDomainDescription />}
                     setIsCreatingDomain={setIsCreatingDomain}
