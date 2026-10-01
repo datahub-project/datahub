@@ -52,6 +52,23 @@ class PowerBiMetadataProbe(RestApiPassthrough):
 
     warnings: List[str]
 
+    # Regular-API listings only. What is deliberately absent, and why:
+    #   /admin/groups (any form) -- raw records name personal workspaces after
+    #       their owner, which `workspaces` withholds; a raw path would not.
+    #   $expand on anything      -- $expand=users returns email addresses.
+    #   /groups/{id}/datasets    -- each record carries configuredBy (an email).
+    #   .../datasets/{id}/parameters, .../reports/{id}/datasources -- parameter
+    #       values and connection details.
+    #   /admin/workspaces/getInfo|scanStatus|scanResult -- the scanner; its
+    #       result embeds M expressions, DAX and native SQL, a route for WHERE
+    #       literals (the rule hex_probe applies to /cells).
+    #   executeQueries, Export*, users, activityevents -- rows, content, PII.
+    api_allowlist = (
+        "GET /groups?$top&$skip&$filter",
+        "GET /groups/{id}/reports",
+        "GET /groups/{id}/dashboards",
+    )
+
     def __init__(self, config: PowerBiDashboardSourceConfig) -> None:
         self._config = config
         # Built lazily: DataResolverBase.__init__ fetches an MSAL token, and a
@@ -73,6 +90,16 @@ class PowerBiMetadataProbe(RestApiPassthrough):
     def __exit__(self, *exc: object) -> None:
         for resolver in self._resolvers.values():
             resolver.request_session.close()
+
+    def api_fetch_json(self, url: str) -> object:
+        # The connector's retrying, timed session and its token refresh, so a
+        # probe request behaves as an ingestion request does on 429/5xx.
+        resolver = self._resolver(RegularAPIResolver)
+        response = resolver.request_session.get(
+            url, headers=resolver.get_authorization_header()
+        )
+        response.raise_for_status()
+        return response.json()
 
     def _resolver(self, resolver_cls: Type[_R]) -> _R:
         if resolver_cls not in self._resolvers:
