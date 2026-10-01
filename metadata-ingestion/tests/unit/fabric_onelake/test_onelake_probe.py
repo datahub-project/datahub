@@ -2,13 +2,15 @@
 listings that say when they could not look."""
 
 from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple, cast
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
 from azure.core.exceptions import ClientAuthenticationError
 
 from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.filter_input import listing_from_run
+from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -279,7 +281,7 @@ def test_an_unknown_workspace_is_the_callers_error() -> None:
 
 def test_a_name_shared_by_a_lakehouse_and_a_warehouse_asks_for_item_type() -> None:
     probe, _ = _probe()
-    with pytest.raises(ValueError, match="item_type"):
+    with pytest.raises(ValueError, match="--item-type Lakehouse"):
         probe.tables(workspace="sales-ws", item="shared_name", schema="dbo")
     assert probe.tables(
         workspace="sales-ws", item="shared_name", schema="dbo", item_type="Warehouse"
@@ -289,7 +291,7 @@ def test_a_name_shared_by_a_lakehouse_and_a_warehouse_asks_for_item_type() -> No
 def test_an_unknown_item_type_is_the_callers_error() -> None:
     probe, _ = _probe()
     ws = probe._workspace("sales-ws")
-    with pytest.raises(ValueError, match="item_type"):
+    with pytest.raises(ValueError, match="--item-type"):
         probe._item(ws, "lh_main", "Notebook")
 
 
@@ -300,7 +302,7 @@ def test_a_refused_rest_read_is_recorded_without_the_response_text() -> None:
     response.url = "https://api.fabric.microsoft.com/v1/workspaces?token=secret-ish"
     client.workspaces_error = requests.HTTPError("403 for url ...", response=response)
 
-    with pytest.raises(Exception) as excinfo:
+    with pytest.raises(FabricReadError) as excinfo:
         probe.workspaces()
 
     # Recorded, so run_probe_method reports a read failure (exit 3), and
@@ -370,6 +372,7 @@ class _FakeSchemaClient:
     def __init__(self) -> None:
         self.closed = False
         self.views_error: Optional[Exception] = None
+        self.close_error: Optional[Exception] = None
 
     def get_all_views(self, workspace_id: str, item_id: str) -> List[FabricView]:
         if self.views_error is not None:
@@ -403,6 +406,8 @@ class _FakeSchemaClient:
         }
 
     def close(self) -> None:
+        if self.close_error is not None:
+            raise self.close_error
         self.closed = True
 
 
@@ -531,3 +536,76 @@ def test_a_kind_switched_off_by_the_recipe_is_excluded_by_that_switch() -> None:
         names=["wh_main"],
     )
     assert warehouse.results[0].excluded_by == "extract_warehouses"
+
+
+def test_a_workspace_given_by_id_warns_that_the_parent_path_carries_the_id() -> None:
+    probe, _ = _probe()
+    probe.lakehouses(workspace=WS.id)
+    assert len(probe.warnings) == 1
+    assert "resolved by id to workspace 'sales-ws'" in probe.warnings[0]
+    assert "--workspace 'sales-ws'" in probe.warnings[0]
+
+
+def test_an_item_given_by_id_warns_too() -> None:
+    probe, _ = _probe()
+    probe.tables(workspace="sales-ws", item=LH_ID, schema="dbo")
+    assert len(probe.warnings) == 1
+    assert "resolved by id to Lakehouse 'lh_main'" in probe.warnings[0]
+    assert "--item 'lh_main'" in probe.warnings[0]
+
+
+def test_display_names_resolve_without_a_warning() -> None:
+    probe, _ = _probe()
+    probe.lakehouses(workspace="sales-ws")
+    probe.tables(workspace="sales-ws", item="lh_main", schema="dbo")
+    assert probe.warnings == []
+
+
+def test_a_run_by_display_name_judges_as_ingestion_does_from_run() -> None:
+    config: Dict[str, object] = {
+        "workspace_pattern": {"allow": ["^sales-.*"]},
+        "table_pattern": {"deny": ["^staging\\..*"]},
+    }
+    client = _FakeClient()
+
+    def _for_config(
+        cls: object, cfg: FabricOneLakeSourceConfig
+    ) -> FabricOneLakeMetadataProbe:
+        return FabricOneLakeMetadataProbe(cast(OneLakeClient, client), cfg)
+
+    def _judged(command: str, kwargs: Dict[str, object]) -> Dict[str, bool]:
+        with patch.object(
+            FabricOneLakeMetadataProbe, "for_config", classmethod(_for_config)
+        ):
+            run = run_probe_method(SOURCE, config, command, kwargs)
+        assert run.warnings == []
+        listing = listing_from_run(run.to_dict())
+        assert listing.kind is not None
+        verdicts = check_filters(
+            source_type=SOURCE,
+            config_dict=config,
+            kind=listing.kind,
+            parent_path=listing.parent_path,
+            names=listing.names,
+            attributes=listing.attributes,
+        )
+        return {v.name: v.included for v in verdicts.results}
+
+    # The lakehouse sits in an allowed workspace, so ingestion reaches it.
+    assert _judged("lakehouses", {"workspace": "sales-ws"}) == {
+        "lh_main": True,
+        "shared_name": True,
+    }
+    assert _judged(
+        "tables", {"workspace": "sales-ws", "item": "lh_main", "schema": "staging"}
+    ) == {"tmp_load": False}
+
+
+def test_exit_closes_the_rest_session_even_if_a_sql_client_close_fails() -> None:
+    probe, schema_client = _sql_probe()
+    probe.views(workspace="sales-ws", item="lh_main", schema="reporting")
+    schema_client.close_error = RuntimeError("engine dispose failed")
+    rest = cast(_FakeClient, probe._client)
+    with pytest.raises(RuntimeError):
+        probe.__exit__(None, None, None)
+    assert rest.closed

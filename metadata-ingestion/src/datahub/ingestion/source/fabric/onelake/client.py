@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 # OneLake Delta Table APIs base URL
 ONELAKE_TABLE_API_BASE_URL = "https://onelake.table.fabric.microsoft.com"
 
+# HTTP errors are logged with their status and operation, never the response
+# body: an error body can echo request details, and these logs reach stderr of
+# both ingestion and `datahub recipe probe`.
+
 
 def _parse_table_name(full_name: str) -> tuple[str, str]:
     """Parse schema and table name from fully qualified name.
@@ -243,7 +247,7 @@ class OneLakeClient(BaseFabricClient):
         except requests.exceptions.HTTPError as e:
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing schemas for lakehouse {lakehouse_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing schemas for lakehouse {lakehouse_id}"
             )
             raise
         except Exception as e:
@@ -310,7 +314,7 @@ class OneLakeClient(BaseFabricClient):
         except requests.exceptions.HTTPError as e:
             self.report.report_error()
             logger.error(
-                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for lakehouse {lakehouse_id}: {e.response.text}"
+                f"HTTP error {e.response.status_code} listing tables in schema {schema_name} for lakehouse {lakehouse_id}"
             )
             raise
         except Exception as e:
@@ -369,8 +373,8 @@ class OneLakeClient(BaseFabricClient):
                 if e.response.status_code in (401, 403):
                     logger.warning(
                         f"OneLake Delta Table APIs require additional permissions or different authentication. "
-                        f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id}. "
-                        f"Error: {e.response.text}. "
+                        f"Unable to list tables for schemas-enabled lakehouse {lakehouse_id} "
+                        f"(HTTP {e.response.status_code}). "
                         f"Please ensure your identity has 'Lakehouse.Read.All' or 'Lakehouse.ReadWrite.All' permissions."
                     )
                     if on_degraded is not None:
@@ -461,7 +465,7 @@ class OneLakeClient(BaseFabricClient):
                 else:
                     self.report.report_error()
                     logger.error(
-                        f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}: {e.response.text}"
+                        f"HTTP error {e.response.status_code} listing tables for lakehouse {lakehouse_id}"
                     )
                     raise
             except Exception as e:

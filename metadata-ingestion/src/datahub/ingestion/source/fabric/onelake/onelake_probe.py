@@ -107,13 +107,16 @@ class FabricOneLakeMetadataProbe:
         return self
 
     def __exit__(self, *exc: object) -> None:
-        for schema_client in self._schema_clients.values():
-            # close() is on SqlAnalyticsEndpointClient, not on the
-            # SchemaExtractionClient protocol it is handed out as.
-            close = getattr(schema_client, "close", None)
-            if callable(close):
-                close()
-        self._client.close()
+        # The REST session closes even when disposing a SQL engine raises.
+        try:
+            for schema_client in self._schema_clients.values():
+                # close() is on SqlAnalyticsEndpointClient, not on the
+                # SchemaExtractionClient protocol it is handed out as.
+                close = getattr(schema_client, "close", None)
+                if callable(close):
+                    close()
+        finally:
+            self._client.close()
 
     def _warn(self, message: str) -> None:
         if message not in self.warnings:
@@ -396,8 +399,8 @@ class FabricOneLakeMetadataProbe:
             self._warn(
                 "extract_schema.enabled is false: ingestion emits no column metadata"
             )
-        ws = self._workspace(workspace)
-        fabric_item = self._item(ws, item, item_type)
+        ws = self._workspace(workspace, in_parent_path=False)
+        fabric_item = self._item(ws, item, item_type, in_parent_path=False)
         schema_client = self._schema_client(ws, fabric_item)
         with self._reading(
             f"reading INFORMATION_SCHEMA.COLUMNS of {fabric_item.type} "
@@ -431,8 +434,8 @@ class FabricOneLakeMetadataProbe:
         """The stored CREATE VIEW text (DDL, not query results) that ingestion
         parses for view lineage. Null, with a warning, when the credential
         lacks VIEW DEFINITION permission on it."""
-        ws = self._workspace(workspace)
-        fabric_item = self._item(ws, item, item_type)
+        ws = self._workspace(workspace, in_parent_path=False)
+        fabric_item = self._item(ws, item, item_type, in_parent_path=False)
         for v in self._item_views(ws, fabric_item):
             if effective_schema_name(v.schema_name) == schema and v.name == view:
                 if v.view_definition is None:
@@ -461,8 +464,8 @@ class FabricOneLakeMetadataProbe:
                 "sql_endpoint is not enabled in this recipe, so ingestion "
                 "connects to no SQL Analytics Endpoint"
             )
-        ws = self._workspace(workspace)
-        fabric_item = self._item(ws, item, item_type)
+        ws = self._workspace(workspace, in_parent_path=False)
+        fabric_item = self._item(ws, item, item_type, in_parent_path=False)
         # Swallows every error into None itself, so there is nothing for
         # _reading to scrub; the warning below names both possible causes.
         host = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
@@ -476,7 +479,24 @@ class FabricOneLakeMetadataProbe:
             )
         return {"item": fabric_item.name, "item_type": fabric_item.type, "host": host}
 
-    def _workspace(self, workspace: str) -> FabricWorkspace:
+    def _warn_if_resolved_by_id(
+        self, arg: str, param: str, label: str, name: str, obj_id: str
+    ) -> None:
+        # run_probe_method builds the listing's parent_path from the raw
+        # arguments, so a GUID given here travels into `probe filter
+        # --from-run`, which matches the patterns against display names. The
+        # provider cannot rewrite that path, so it says so instead.
+        if arg == obj_id and arg != name:
+            self._warn(
+                f"'{arg}' was resolved by id to {label} '{name}'; this "
+                f"listing's parent_path carries the id, and probe filter "
+                f"matches display names -- re-run with --{param} '{name}' "
+                f"before using it with probe filter --from-run"
+            )
+
+    def _workspace(
+        self, workspace: str, *, in_parent_path: bool = True
+    ) -> FabricWorkspace:
         with self._reading("listing workspaces"):
             matches = [
                 ws
@@ -493,14 +513,24 @@ class FabricOneLakeMetadataProbe:
                 f"'{workspace}' matches {len(matches)} workspaces; pass the "
                 f"workspace GUID instead"
             )
+        if in_parent_path:
+            self._warn_if_resolved_by_id(
+                workspace, "workspace", "workspace", matches[0].name, matches[0].id
+            )
         return matches[0]
 
     def _item(
-        self, ws: FabricWorkspace, item: str, item_type: Optional[str]
+        self,
+        ws: FabricWorkspace,
+        item: str,
+        item_type: Optional[str],
+        *,
+        in_parent_path: bool = True,
     ) -> FabricItem:
         if item_type is not None and item_type not in _ITEM_TYPES:
             raise ValueError(
-                f"item_type must be one of {', '.join(_ITEM_TYPES)}, got '{item_type}'"
+                f"--item-type must be one of {', '.join(_ITEM_TYPES)}, got "
+                f"'{item_type}'"
             )
         matches: List[FabricItem] = []
         if item_type in (None, "Lakehouse"):
@@ -525,7 +555,11 @@ class FabricOneLakeMetadataProbe:
             raise ValueError(
                 f"'{item}' names more than one item "
                 f"({', '.join(m.type for m in matches)}) in workspace "
-                f"'{ws.name}'; pass item_type=Lakehouse or "
-                f"item_type=Warehouse, or the item's GUID"
+                f"'{ws.name}'; pass --item-type Lakehouse or "
+                f"--item-type Warehouse, or the item's GUID"
+            )
+        if in_parent_path:
+            self._warn_if_resolved_by_id(
+                item, "item", matches[0].type, matches[0].name, matches[0].id
             )
         return matches[0]
