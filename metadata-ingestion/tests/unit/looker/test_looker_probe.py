@@ -5,12 +5,14 @@ from unittest import mock
 import looker_sdk.rtl.requests_transport as looker_requests_transport
 import pytest
 from looker_sdk.error import SDKError
+from looker_sdk.sdk.api40.models import DashboardElement, LookWithQuery, Query
 
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_probe import (
     LookerMetadataProbe,
+    _ingestion_can_read,
     sdk_error_status,
 )
 from datahub.ingestion.source.looker.looker_source import (
@@ -136,6 +138,7 @@ def test_methods_are_advertised_with_their_kinds() -> None:
     kinds = {spec.command: spec.kind for spec in list_probe_methods("looker")}
     assert kinds["permissions"] is None
     assert kinds["dashboards"] == "Dashboard"
+    assert kinds["charts"] == "Look"
 
 def test_folder_path_joins_ancestors_and_the_folder() -> None:
     assert looker_folder_path(["Shared"], "Sales") == "Shared/Sales"
@@ -197,3 +200,44 @@ def test_the_limit_bounds_folder_lookups_and_skips_the_deleted_listing() -> None
     client.search_dashboards.assert_not_called()
     # Dashboards 1 and 2 share f-sales: one lookup, cached.
     assert client.folder_ancestors.call_count == 1
+
+
+def test_charts_report_the_facts_ingestion_reads_from_each_element() -> None:
+    run = _run("charts", {"dashboard": "1"})
+    assert run["kind"] == "Look"
+    assert run["parent_path"] == ["1"]
+    by_id = {r["name"]: r for r in run["result"]}
+    assert by_id["11"] == {
+        "name": "11",
+        "title": "chart 11",
+        "type": "vis",
+        "has_query": True,
+        "look_id": None,
+        "model": "sales",
+        "explore": "orders",
+    }
+    assert by_id["12"]["type"] == "text"
+    assert by_id["12"]["has_query"] is False
+
+
+def test_charts_of_an_unknown_dashboard_are_a_bad_argument() -> None:
+    with fake_looker(), pytest.raises(ValueError, match="no dashboard with id"):
+        run_probe_method("looker", recipe(), "charts", {"dashboard": "999"})
+
+
+def test_charts_warn_when_ingestion_drops_their_dashboard() -> None:
+    personal = _run("charts", {"dashboard": "3"}, skip_personal_folders=True)
+    assert any("skip_personal_folders" in w for w in personal["warnings"])
+    archived = _run(
+        "charts", {"dashboard": "5"}, folder_path_pattern={"deny": ["^Shared/Archive"]}
+    )
+    assert any("folder_path_pattern" in w for w in archived["warnings"])
+    deleted = _run("charts", {"dashboard": "4"})
+    assert any("include_deleted" in w for w in deleted["warnings"])
+    assert PERSONAL_FOLDER_NAME not in json.dumps(personal)
+
+
+def test_an_element_whose_look_has_no_query_is_unreadable_to_ingestion() -> None:
+    assert _ingestion_can_read(DashboardElement(id="1", query=Query(model="m", view="v")))
+    assert not _ingestion_can_read(DashboardElement(id="2", look=LookWithQuery()))
+    assert not _ingestion_can_read(DashboardElement(id="3"))
