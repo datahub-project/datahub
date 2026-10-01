@@ -11,6 +11,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.ShimConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -18,6 +19,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -652,5 +654,31 @@ public class OpenSearchSearchClientShimTest {
     ShimConfiguration nullEngine = mock(ShimConfiguration.class);
     when(nullEngine.getEngineType()).thenReturn(null);
     assertThrows(IllegalArgumentException.class, () -> new OpenSearchSearchClientShim(nullEngine));
+  }
+
+  @Test
+  public void registerConnectionPoolMetricsExposesPoolGauges() throws Exception {
+    ShimConfiguration config = mock(ShimConfiguration.class);
+    when(config.getEngineType()).thenReturn(SearchEngineType.OPENSEARCH_2);
+    when(config.getHost()).thenReturn("localhost");
+    when(config.getPort()).thenReturn(9200);
+    when(config.getThreadCount()).thenReturn(2);
+    when(config.getConnectionRequestTimeout()).thenReturn(1000);
+
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    try (OpenSearchSearchClientShim shim = new OpenSearchSearchClientShim(config)) {
+      shim.registerConnectionPoolMetrics(registry, "primary");
+
+      for (String state : List.of("leased", "waiting")) {
+        assertEquals(
+            registry
+                .get(SearchConnectionPoolMetrics.CONNECTIONS_METRIC)
+                .tags("cluster", "primary", "state", state)
+                .gauge()
+                .value(),
+            0.0,
+            state);
+      }
+    }
   }
 }

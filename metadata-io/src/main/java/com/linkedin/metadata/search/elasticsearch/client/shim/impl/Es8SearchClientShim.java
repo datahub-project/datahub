@@ -85,7 +85,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.SearchConnectionPoolMetrics;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchHttpProxyConfigurator;
+import com.linkedin.metadata.search.elasticsearch.client.shim.WaitTrackingConnectionManager;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
@@ -99,6 +101,7 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
@@ -134,7 +137,6 @@ import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.util.PublicSuffixMatcherLoader;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
-import org.apache.http.impl.nio.conn.PoolingNHttpClientConnectionManager;
 import org.apache.http.impl.nio.reactor.DefaultConnectingIOReactor;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.nio.conn.NHttpClientConnectionManager;
@@ -266,6 +268,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   private final ElasticsearchClient client;
   private final ObjectMapper objectMapper;
   private final JacksonJsonpMapper jacksonJsonpMapper;
+
+  /** Set while the client is built; kept so pool stats can be exported as gauges. */
+  @Nullable private WaitTrackingConnectionManager connectionManager;
 
   static {
     try {
@@ -411,8 +416,8 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
         };
     ioReactor.setExceptionHandler(ioReactorExceptionHandler);
 
-    PoolingNHttpClientConnectionManager connectionManager =
-        new PoolingNHttpClientConnectionManager(
+    WaitTrackingConnectionManager connectionManager =
+        new WaitTrackingConnectionManager(
             ioReactor,
             RegistryBuilder.<SchemeIOSessionStrategy>create()
                 .register("http", NoopIOSessionStrategy.INSTANCE)
@@ -422,6 +427,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     // Set maxConnectionsPerRoute to match threadCount (minimum 2)
     int maxConnectionsPerRoute = Math.max(2, config.getThreadCount());
     connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
+    this.connectionManager = connectionManager;
 
     log.info(
         "Configured connection pool: maxPerRoute={} (threadCount={})",
@@ -1910,6 +1916,14 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   public ElasticsearchClient getNativeClient() {
     return client;
+  }
+
+  @Override
+  public void registerConnectionPoolMetrics(
+      @Nonnull MeterRegistry registry, @Nonnull String clusterName) {
+    if (connectionManager != null) {
+      SearchConnectionPoolMetrics.register(registry, clusterName, connectionManager);
+    }
   }
 
   @Override
