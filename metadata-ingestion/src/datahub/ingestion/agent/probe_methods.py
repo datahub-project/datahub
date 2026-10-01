@@ -875,6 +875,16 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
             # close failure out of the displayed chain.
             raise body_error from body_error.__cause__
         if is_authored(exc, call.provider_files):
+            if isinstance(exc, DEFECT_TYPES):
+                # As on the call path: a TypeError or KeyError the provider
+                # raised itself is a defect, not the CLI's bad-input family.
+                detail = scrub_text(
+                    withhold_foreign_text(exc, call.provider_files), set()
+                )
+                raise ProbeInternalError(
+                    f"closing source '{call.source_type}' failed inside the "
+                    f"connector ({type(exc).__name__}: {detail}); this is a defect"
+                ) from None
             _reraise_authored(exc, call.provider_files)
         raise ProbeConnectionError(
             f"closing source '{call.source_type}' failed ({type(exc).__name__})"

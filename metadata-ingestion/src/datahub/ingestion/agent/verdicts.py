@@ -177,10 +177,12 @@ class ProbeArgumentError(ValueError):
     ValueError raised from code the provider did not write is reported by its
     class name only -- raise this to keep your message.
 
-    A plain ValueError keeps its message only when raised lexically in the file
-    that defines the provider class. From a shared base class or a helper
-    module, or around stdlib/SDK validation of a caller's argument (int(),
-    a URL parser), raise this instead.
+    A plain ValueError keeps its message only when raised lexically in a
+    provider file: the one defining the provider class, or one defining a base
+    class that is itself a probe provider (declares for_config or a
+    @probe_method) and is not an ingestion Source. From a helper module, an
+    ingestion Source base, or around stdlib/SDK validation of a caller's
+    argument (int(), a URL parser), raise this instead.
 
     If the provider already recorded read failures before raising, the call
     reports ProbeReadFailed (exit 3) instead: the recorded failure is what

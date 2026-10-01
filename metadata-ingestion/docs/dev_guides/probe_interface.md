@@ -131,7 +131,9 @@ every call site:
   reused ingestion code, a driver or an SDK keeps its exit code but loses its text:
 
   - while the provider is being built or closed (its `__exit__`):
-    `ProbeConnectionError` (exit 3). A failure while closing never replaces the
+    `ProbeConnectionError` (exit 3). An authored failure while closing keeps its
+    type, except that a defect type (`TypeError`, `KeyError`, ...) is reported as
+    `ProbeInternalError` (exit 1). A failure while closing never replaces the
     command's own failure;
   - during a command: Python defects (`TypeError`, `KeyError`, `AttributeError`,
     `AssertionError`, `IndexError`, `NameError`) exit 1, the `ValueError` family

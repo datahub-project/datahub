@@ -69,6 +69,8 @@ class _Provider:
             _foreign_errors.close()
         if self.mode == "exit-authored":
             raise ProbeConnectionError("closing the session timed out")
+        if self.mode == "exit-authored-defect":
+            raise TypeError("close bookkeeping broke")
         return None
 
     def _raise_wrapped(self, name: str) -> None:
@@ -88,6 +90,11 @@ class _Provider:
                 _foreign_errors.query()
             except Exception as exc:
                 raise _OddError(500, f"fetch said {exc}") from exc
+        if self.mode == "wraps-foreign-unprintable":
+            try:
+                _foreign_errors.unprintable()
+            except Exception as exc:
+                raise ProbeConnectionError("listing failed") from exc
         if self.mode == "recorded-wraps-foreign":
             self.failures = ["GET /things returned 401"]
             try:
@@ -288,6 +295,8 @@ def test_an_authored_argument_error_while_opening_exits_2(run: RunFn) -> None:
         ("wraps-foreign-value-implicitly", 2),
         ("wraps-foreign-odd-ctor", 3),
         ("recorded-wraps-foreign", 3),
+        ("exit-authored-defect", 1),
+        ("wraps-foreign-unprintable", 3),
     ],
 )
 def test_the_cli_never_prints_foreign_text_from_the_exception_chain(
@@ -444,3 +453,17 @@ def test_foreign_text_wrapped_in_an_authored_message_is_withheld(
     assert SENTINEL not in str(info.value)
     assert kept in str(info.value)
     assert "Error)" in str(info.value)
+
+
+def test_an_authored_defect_closing_the_source_is_internal(run: RunFn) -> None:
+    # As on the call path: a TypeError the provider raised itself is a defect
+    # (exit 1), not the CLI's "your input was wrong" family.
+    with pytest.raises(ProbeInternalError) as info:
+        run("exit-authored-defect")
+    assert "close bookkeeping broke" in str(info.value)
+
+
+def test_a_foreign_error_that_cannot_render_is_skipped(run: RunFn) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run("wraps-foreign-unprintable")
+    assert str(info.value) == "listing failed"

@@ -127,7 +127,14 @@ def withhold_foreign_text(exc: BaseException, provider_files: AbstractSet[str]) 
     swaps = []
     for foreign in _foreign_in_chain(exc, provider_files):
         name = f"({type(foreign).__name__})"
-        for rendering in (repr(foreign), str(foreign)):
+        for render in (repr, str):
+            try:
+                rendering = render(foreign)
+            except Exception:
+                # A rendering that raises cannot have reached the message
+                # either, so there is nothing to substitute -- and the
+                # render's own exception text is never shown.
+                continue
             if rendering:
                 swaps.append((rendering, name))
     # Longest first: a repr contains its str, and replacing the str first

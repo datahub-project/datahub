@@ -46,3 +46,16 @@ def close() -> None:
 
 def parse_name(name: str) -> None:
     raise ValueError(f"cannot parse name {SENTINEL}: {name}")
+
+
+class Unprintable(Exception):
+    """A driver error whose rendering itself fails, quoting what it held."""
+
+    def __str__(self) -> str:
+        raise RuntimeError(f"cannot render {SENTINEL}")
+
+    __repr__ = __str__
+
+
+def unprintable() -> None:
+    raise Unprintable()
