@@ -179,6 +179,11 @@ class _FakeClient:
         self.lakehouse_tables: List[FabricTable] = _tables()
         self.degrade_message: str = ""
         self.workspaces_error: Optional[Exception] = None
+        self.lakehouses_error: Optional[Exception] = None
+        # The item GET the SQL endpoint lookup makes: a response body, or an
+        # error to raise.
+        self.item_body: Dict[str, object] = {}
+        self.item_error: Optional[Exception] = None
 
     def list_workspaces(self) -> Iterator[FabricWorkspace]:
         self.calls.append("workspaces")
@@ -189,6 +194,8 @@ class _FakeClient:
 
     def list_lakehouses(self, workspace_id: str) -> Iterator[FabricLakehouse]:
         self.calls.append("lakehouses")
+        if self.lakehouses_error is not None:
+            raise self.lakehouses_error
         yield FabricLakehouse(
             id=LH_ID, name="lh_main", type="Lakehouse", workspace_id=workspace_id
         )
@@ -237,8 +244,23 @@ class _FakeClient:
             ]
         )
 
+    def get(self, endpoint: str) -> MagicMock:
+        self.calls.append(f"get {endpoint}")
+        if self.item_error is not None:
+            raise self.item_error
+        response = MagicMock()
+        response.json.return_value = self.item_body
+        return response
+
     def close(self) -> None:
         self.closed = True
+
+
+def _http_error(status: int) -> requests.HTTPError:
+    response = requests.Response()
+    response.status_code = status
+    response.url = "https://api.fabric.microsoft.com/v1/placeholder?token=secret-ish"
+    return requests.HTTPError(f"{status} for url ...", response=response)
 
 
 def _probe(**config: object) -> Tuple[FabricOneLakeMetadataProbe, _FakeClient]:
@@ -325,6 +347,64 @@ def test_a_credential_failure_says_so_without_the_sdk_text() -> None:
     assert "credential" in probe.failures[0]
     assert "secret-ish" not in probe.failures[0]
     assert "placeholder-tenant" not in probe.failures[0]
+
+
+def test_a_failed_lakehouse_listing_still_resolves_a_warehouse() -> None:
+    probe, client = _probe()
+    client.lakehouses_error = _http_error(403)
+
+    assert probe.tables(workspace="sales-ws", item="wh_main", schema="dbo") == ["facts"]
+    # Answered, so not a read failure; but a same-named lakehouse could not be
+    # ruled out, and the caller is told so.
+    assert probe.failures == []
+    assert any(
+        "listing lakehouses" in w and "HTTP 403" in w and "wh_main" in w
+        for w in probe.warnings
+    )
+    assert not any("secret-ish" in w for w in probe.warnings)
+
+
+def test_an_item_not_found_because_a_listing_failed_is_a_read_failure() -> None:
+    probe, client = _probe()
+    client.lakehouses_error = _http_error(403)
+
+    with pytest.raises(FabricReadError):
+        probe.tables(workspace="sales-ws", item="lh_main", schema="dbo")
+    assert probe.failures == [
+        "listing lakehouses in workspace 'sales-ws' failed: HTTP 403"
+    ]
+
+
+def test_sql_endpoint_reports_a_failed_item_read_as_a_failure() -> None:
+    probe, client = _probe(sql_endpoint={"enabled": True})
+    client.item_error = _http_error(403)
+
+    with pytest.raises(FabricReadError) as excinfo:
+        probe.sql_endpoint(workspace="sales-ws", item="lh_main")
+    assert len(probe.failures) == 1
+    assert "HTTP 403" in probe.failures[0]
+    assert "secret-ish" not in str(excinfo.value)
+
+
+def test_sql_endpoint_is_null_only_when_the_item_has_none() -> None:
+    probe, client = _probe(sql_endpoint={"enabled": True})
+    client.item_body = {"properties": {}}
+    assert probe.sql_endpoint(workspace="sales-ws", item="lh_main")["host"] is None
+    assert probe.failures == []
+    assert any("not provisioned" in w for w in probe.warnings)
+
+    client.item_body = {
+        "properties": {
+            "sqlEndpointProperties": {
+                "provisioningStatus": "Success",
+                "connectionString": "placeholder.datawarehouse.fabric.microsoft.com",
+            }
+        }
+    }
+    assert (
+        probe.sql_endpoint(workspace="sales-ws", item="lh_main")["host"]
+        == "placeholder.datawarehouse.fabric.microsoft.com"
+    )
 
 
 def test_exit_closes_the_client() -> None:
@@ -415,10 +495,8 @@ def _sql_probe(
     **config: object,
 ) -> Tuple[FabricOneLakeMetadataProbe, _FakeSchemaClient]:
     schema_client = _FakeSchemaClient()
-    opened: List[str] = []
 
     def _factory(ws: FabricWorkspace, item: FabricItem) -> SchemaExtractionClient:
-        opened.append(item.id)
         # Structural fake: implements only what the probe calls.
         return cast(SchemaExtractionClient, schema_client)
 

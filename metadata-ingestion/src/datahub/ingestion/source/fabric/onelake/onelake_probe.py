@@ -7,7 +7,7 @@ reads in DataHub carry GUIDs.
 """
 
 from contextlib import contextmanager
-from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterable, Iterator, List, Optional, Set, Tuple
 
 import requests
 from azure.core.exceptions import ClientAuthenticationError
@@ -454,10 +454,10 @@ class FabricOneLakeMetadataProbe:
         self, workspace: str, item: str, item_type: Optional[str] = None
     ) -> Dict[str, object]:
         """The SQL Analytics Endpoint host ingestion would connect to for one
-        lakehouse or warehouse, or null. Null means ingestion skips columns,
-        views and usage for it: the endpoint is not provisioned, or the
-        credential cannot read the item (the connector cannot tell which).
-        Makes REST calls only; opens no SQL connection."""
+        lakehouse or warehouse, or null when the item has none (not
+        provisioned), in which case ingestion skips its columns, views and
+        usage. A failed read of the item is a read failure, not null. Makes
+        REST calls only; opens no SQL connection."""
         sql_endpoint = self._config.sql_endpoint
         if sql_endpoint is None or not sql_endpoint.enabled:
             self._warn(
@@ -466,16 +466,21 @@ class FabricOneLakeMetadataProbe:
             )
         ws = self._workspace(workspace, in_parent_path=False)
         fabric_item = self._item(ws, item, item_type, in_parent_path=False)
-        # Swallows every error into None itself, so there is nothing for
-        # _reading to scrub; the warning below names both possible causes.
-        host = SqlAnalyticsEndpointClient.get_sql_analytics_endpoint_url(
-            self._client, ws.id, fabric_item.id, fabric_item.type
-        )
+        # The non-swallowing variant of the lookup ingestion makes: ingestion
+        # turns a failed read into None too, but a probe reporting "no
+        # endpoint" for "could not look" is the confusion it exists to prevent.
+        with self._reading(
+            f"reading {fabric_item.type} '{fabric_item.name}' for its SQL "
+            f"Analytics Endpoint"
+        ):
+            host = SqlAnalyticsEndpointClient.fetch_sql_analytics_endpoint_url(
+                self._client, ws.id, fabric_item.id, fabric_item.type
+            )
         if host is None:
             self._warn(
-                f"no SQL Analytics Endpoint resolvable for {fabric_item.type} "
-                f"'{fabric_item.name}': it is not provisioned, or this credential "
-                f"cannot read the item"
+                f"{fabric_item.type} '{fabric_item.name}' has no SQL Analytics "
+                f"Endpoint (not provisioned, or not yet provisioned); ingestion "
+                f"skips its columns, views and usage"
             )
         return {"item": fabric_item.name, "item_type": fabric_item.type, "host": host}
 
@@ -532,21 +537,32 @@ class FabricOneLakeMetadataProbe:
                 f"--item-type must be one of {', '.join(_ITEM_TYPES)}, got "
                 f"'{item_type}'"
             )
+        listers: Dict[str, Callable[[str], Iterable[FabricItem]]] = {
+            "Lakehouse": self._client.list_lakehouses,
+            "Warehouse": self._client.list_warehouses,
+        }
         matches: List[FabricItem] = []
-        if item_type in (None, "Lakehouse"):
-            with self._reading(f"listing lakehouses in workspace '{ws.name}'"):
+        # Each type is listed on its own: a 403 on lakehouses must not hide a
+        # warehouse the caller can read. A failure only fails the call when
+        # nothing was found, since then the item may be in the unread listing.
+        failed: List[str] = []
+        for type_name in (item_type,) if item_type else _ITEM_TYPES:
+            operation = f"listing {type_name.lower()}s in workspace '{ws.name}'"
+            try:
                 matches += [
-                    i
-                    for i in self._client.list_lakehouses(ws.id)
-                    if item in (i.name, i.id)
+                    i for i in listers[type_name](ws.id) if item in (i.name, i.id)
                 ]
-        if item_type in (None, "Warehouse"):
-            with self._reading(f"listing warehouses in workspace '{ws.name}'"):
-                matches += [
-                    i
-                    for i in self._client.list_warehouses(ws.id)
-                    if item in (i.name, i.id)
-                ]
+            except Exception as exc:
+                failed.append(_scrubbed(operation, exc))
+        if failed and not matches:
+            self.failures.extend(failed)
+            raise FabricReadError("; ".join(failed))
+        for message in failed:
+            self._warn(
+                f"{message}; '{item}' was resolved to {matches[0].type} "
+                f"'{matches[0].name}', and an item of the other type with the "
+                f"same name could not be ruled out"
+            )
         if not matches:
             raise ValueError(
                 f"no lakehouse or warehouse '{item}' in workspace '{ws.name}'"
