@@ -4,8 +4,10 @@ import logging
 from dataclasses import dataclass
 from json import JSONDecodeError
 from typing import (
+    AbstractSet,
     Any,
     Dict,
+    FrozenSet,
     Iterable,
     List,
     MutableMapping,
@@ -109,6 +111,29 @@ class DashboardProcessingResult:
     end_time: datetime.datetime
 
 
+# What test_connection checks, at module level so the probe's `permissions`
+# command reports against the same sets.
+BASIC_INGEST_REQUIRED_PERMISSIONS: FrozenSet[str] = frozenset(
+    {
+        # TODO: Make this a bit more granular.
+        "access_data",
+        "explore",
+        "manage_models",
+        "see_datagroups",
+        "see_lookml",
+        "see_lookml_dashboards",
+        "see_looks",
+        "see_pdts",
+        "see_queries",
+        "see_schedules",
+        "see_sql",
+        "see_user_dashboards",
+        "see_users",
+    }
+)
+USAGE_INGEST_REQUIRED_PERMISSIONS: FrozenSet[str] = frozenset({"see_system_activity"})
+
+
 @platform_name("Looker")
 @support_status(SupportStatus.GA)
 @config_class(LookerDashboardSourceConfig)
@@ -190,27 +215,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             test_report.basic_connectivity = CapabilityReport(capable=True)
             test_report.capability_report = {}
 
-            BASIC_INGEST_REQUIRED_PERMISSIONS = {
-                # TODO: Make this a bit more granular.
-                "access_data",
-                "explore",
-                "manage_models",
-                "see_datagroups",
-                "see_lookml",
-                "see_lookml_dashboards",
-                "see_looks",
-                "see_pdts",
-                "see_queries",
-                "see_schedules",
-                "see_sql",
-                "see_user_dashboards",
-                "see_users",
-            }
-
-            USAGE_INGEST_REQUIRED_PERMISSIONS = {
-                "see_system_activity",
-            }
-
             LookerDashboardSource._set_test_connection_capability(
                 test_report,
                 permissions,
@@ -246,7 +250,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         test_report: TestConnectionReport,
         permissions: Set[str],
         perm: SourceCapability,
-        required: Set[str],
+        required: AbstractSet[str],
     ) -> None:
         assert test_report.capability_report is not None
 

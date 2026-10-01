@@ -352,6 +352,14 @@ class LookerDashboardSourceConfig(
     )
 
     @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: looker_probe imports this module and looker_source,
+        # which imports this module too, so a top-level import is circular.
+        from datahub.ingestion.source.looker.looker_probe import LookerMetadataProbe
+
+        return LookerMetadataProbe
+
+    @classmethod
     def probe_rule_filtered_kinds(cls) -> Mapping[str, str]:
         """Explores and their LookML models follow from what dashboards and
         looks query (_make_explore_containers), not from a pattern."""
