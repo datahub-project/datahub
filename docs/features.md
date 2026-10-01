@@ -32,7 +32,7 @@ This extensible metadata management platform is built for developers to tame the
 
 <p align="center">
   <a href="https://demo.datahub.com">
-    <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/demos/datahub-tour.gif" alt="DataHub Product Tour" />
+    <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/demos/datahub-tour.gif" alt="DataHub Product Tour" />
   </a>
 </p>
 
@@ -75,7 +75,7 @@ This extensible metadata management platform is built for developers to tame the
 **The DataHub Solution:** DataHub acts as the central nervous system for your data stack—connecting all your tools through real-time streaming or batch ingestion to create a unified metadata graph. Unlike static catalogs, DataHub keeps your metadata fresh and actionable—powering both human teams and AI agents.
 
 <p align="center">
-  <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/datahub_for_human_and_ai.png" alt="DataHub for Humans and AI" />
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/datahub_for_human_and_ai.png" alt="DataHub for Humans and AI" />
 </p>
 
 - **🚀 Battle-Tested at Scale:** Born at LinkedIn to handle hyperscale data, now proven at thousands of organizations worldwide managing millions of data assets

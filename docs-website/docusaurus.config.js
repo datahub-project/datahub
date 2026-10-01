@@ -419,7 +419,14 @@ module.exports = {
           },
           {
             // The root README is no longer built into the docs site.
-            from: '/docs/introduction',
+            from: [
+              '/docs/introduction',
+              '/docs/next/introduction',
+              '/docs/0.13.0/introduction',
+              '/docs/0.12.1/introduction',
+              '/docs/0.11.0/introduction',
+              '/docs/0.10.5/introduction',
+            ],
             to: '/docs/features',
           },
         ],

@@ -175,16 +175,10 @@ function get_id(filepath: string): string {
   return id;
 }
 
-const hardcoded_slugs: Record<string, string> = {};
-
 function get_slug(filepath: string): string {
   // The slug is the URL path to the page.
   // In the actual site, all slugs are prefixed with /docs.
   // There's no need to do this cleanup, but it does make the URLs a bit more aesthetic.
-
-  if (filepath in hardcoded_slugs) {
-    return hardcoded_slugs[filepath as keyof typeof hardcoded_slugs];
-  }
 
   let slug = get_id(filepath);
   if (slug.startsWith("docs/")) {
@@ -211,10 +205,6 @@ const sidebarsjs_hardcoded_titles = [
   "metadata-ingestion/source_docs/s3.md",
   "docs/api/graphql/overview.md",
 ];
-const hardcoded_hide_title: string[] = [];
-
-// Only applied if title is also overridden.
-const hardcoded_descriptions: Record<string, string> = {};
 
 // FIXME: Eventually, we'd like to fix all of the broken links within these files.
 const allowed_broken_links = [
@@ -241,13 +231,6 @@ function markdown_guess_title(
   let title: string;
   if (filepath in hardcoded_titles) {
     title = hardcoded_titles[filepath as keyof typeof hardcoded_titles];
-    if (filepath in hardcoded_descriptions) {
-      contents.data.description =
-        hardcoded_descriptions[filepath as keyof typeof hardcoded_descriptions];
-    }
-    if (hardcoded_hide_title.includes(filepath)) {
-      contents.data.hide_title = true;
-    }
   } else {
     // Find first h1 header and use it as the title.
     const headers = contents.content.match(/^# (.+)$/gm);
