@@ -562,7 +562,10 @@ def test_connection(recipe_path: str) -> None:
         source_cls = source_registry.get(source_type)
         if not issubclass(source_cls, TestableSource):
             _fail(f"source '{source_type}' does not support test-connection", EXIT_USER)
-        report = source_cls.test_connection(resolved)
+        # SECURITY: test_connection runs the source's own connect code, which
+        # logs connection strings and request URLs like any reused fetcher.
+        with quiet_reused_logs(secret_values):
+            report = source_cls.test_connection(resolved)
         # SECURITY: normalize to pure JSON types before redacting, so a raw
         # exception/driver object nested in the report cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).

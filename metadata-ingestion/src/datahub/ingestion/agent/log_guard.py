@@ -6,14 +6,25 @@ from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
 
-# Loggers of code a probe reuses: ingestion sources and the SDKs/drivers they
-# call. Their DEBUG output and tracebacks quote connection strings, request
-# URLs and token-endpoint bodies (botocore logged google-auth's refresh error
-# with the subject-token path; Kafka Connect's fetchers log raw connect URLs).
-#
-# Not the framework's own `datahub.ingestion.agent` or the CLI's loggers: what
-# they log is written here, and flooring them would hide the probe's own
-# diagnostics from `--debug`.
+# Loggers whose text the framework writes itself, and so may show as logged,
+# tracebacks included. Every other record reaching a guarded handler is reused
+# code -- a source, a driver, an SDK, or one of datahub's shared modules a
+# provider calls into -- and is scrubbed with its traceback dropped. Default
+# deny: a library nobody thought to list is still covered.
+FRAMEWORK_LOGGERS: Tuple[str, ...] = (
+    "datahub.ingestion.agent",
+    "datahub.cli",
+    "datahub.masking",
+    "datahub.entrypoints",
+    "datahub.telemetry",
+)
+
+# Loggers of reused code known to be noisy: ingestion sources and the
+# SDKs/drivers they call. On top of the scrubbing every non-framework record
+# gets, these are floored at WARNING, because their DEBUG output is volume as
+# well as risk (botocore logged google-auth's refresh error with the
+# subject-token path; Kafka Connect's fetchers log raw connect URLs). That
+# includes a provider's own `logger.debug` under `datahub.ingestion.source`.
 REUSED_LOGGERS: Tuple[str, ...] = (
     "datahub.ingestion.source",
     "botocore",
@@ -37,15 +48,21 @@ REUSED_LOGGERS: Tuple[str, ...] = (
 )
 
 
+def _under(name: str, prefixes: Tuple[str, ...]) -> bool:
+    return any(name == g or name.startswith(g + ".") for g in prefixes)
+
+
 def _is_reused(name: str) -> bool:
-    return any(name == g or name.startswith(g + ".") for g in REUSED_LOGGERS)
+    return _under(name, REUSED_LOGGERS)
 
 
 class _ScrubFilter(logging.Filter):
-    """Holds a reused logger's records to scrubbed WARNING-or-above text.
+    """Scrubs every record not logged by the framework, dropping its traceback,
+    and holds the noisy reused loggers to WARNING or above.
 
     Installed on handlers as well as loggers, so it sees records from every
-    logger that reaches those handlers and must leave the others untouched.
+    logger that reaches those handlers; only the framework's own pass
+    untouched.
     """
 
     def __init__(self, secret_values: Set[str]) -> None:
@@ -55,12 +72,12 @@ class _ScrubFilter(logging.Filter):
         self._secrets = secret_values
 
     def filter(self, record: logging.LogRecord) -> bool:
-        if not _is_reused(record.name):
+        if _under(record.name, FRAMEWORK_LOGGERS):
             return True
         # The level floor on the logger stops most of these before a record is
         # built; this catches a child logger created inside the guard with its
         # own DEBUG level, which no floor was applied to.
-        if record.levelno < logging.WARNING:
+        if _is_reused(record.name) and record.levelno < logging.WARNING:
             return False
         try:
             message = record.getMessage()
@@ -112,17 +129,19 @@ def _reachable_handlers(loggers: List[logging.Logger]) -> List[logging.Handler]:
 
 @contextmanager
 def quiet_reused_logs(secret_values: Set[str]) -> Iterator[None]:
-    """Keep reused code's logs to scrubbed warnings while a probe runs.
+    """Keep reused code's logs scrubbed, without tracebacks, while a probe runs.
+
+    Every record not from FRAMEWORK_LOGGERS that reaches a handler is scrubbed
+    and loses its traceback; REUSED_LOGGERS are also floored at WARNING.
+    datahub's shared modules a provider calls into (datahub.utilities,
+    datahub.ingestion.api) are scrubbed but not floored: they also serve the
+    framework and the CLI, and flooring them would hide the probe's own
+    diagnostics from `--debug`.
 
     Every change is undone in reverse order on exit, exception or not, so a
     nested guard (or two probes in one process) leaves logging exactly as it
     found it. Not safe against two guards on different threads exiting out of
     order: each restores the levels it saw on entry.
-
-    Not covered: datahub's shared modules a provider calls into
-    (datahub.utilities, datahub.ingestion.api), because they also serve the
-    framework and the CLI, and flooring them wholesale would hide the probe's
-    own diagnostics; their records still go through the CLI's masking filter.
     """
     if get_probe_verbose_logs():
         yield
@@ -138,8 +157,15 @@ def quiet_reused_logs(secret_values: Set[str]) -> Iterator[None]:
             logger.addFilter(guard)
             undo.append(partial(logger.removeFilter, guard))
         # A logger created inside the guard (a lazy import) has no filter of
-        # its own; the handlers its records reach do.
-        handlers = _reachable_handlers(loggers)
+        # its own; the handlers its records reach do. Every existing logger's
+        # chain, not just the guarded ones': a library that attached its own
+        # handler and stopped propagation is reused code too.
+        existing = [
+            obj
+            for obj in list(logging.Logger.manager.loggerDict.values())
+            if isinstance(obj, logging.Logger)
+        ]
+        handlers = _reachable_handlers([*loggers, *existing])
         # Written to when a record finds no handler on its chain at all: a
         # logger created inside the guard with propagate off, say. Not covered:
         # a handler added inside the guard to such a logger.

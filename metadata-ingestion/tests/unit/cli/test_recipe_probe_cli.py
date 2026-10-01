@@ -1772,3 +1772,80 @@ def test_reused_code_debug_tracebacks_are_dropped_under_the_debug_flag(
     assert _LOG_SENTINEL not in res.stderr
     assert _REGISTERED_SENTINEL not in res.output
     assert _REGISTERED_SENTINEL not in res.stderr
+
+
+class _UtilityLoggingProvider(_DebugLeakingProvider):
+    @probe_method()
+    def tables(self) -> list:
+        "Tables."
+        import logging
+
+        logging.getLogger("datahub.utilities.some_helper").debug(
+            "helper saw password=%s", _LOG_SENTINEL
+        )
+        return [{"name": "t"}]
+
+
+class _UtilityLoggingConfig(_DebugLeakingConfig):
+    @classmethod
+    def probe_provider_class(cls):
+        return _UtilityLoggingProvider
+
+
+def test_a_shared_datahub_module_debug_line_is_scrubbed_under_the_debug_flag(
+    monkeypatch, tmp_path, _real_cli_logging
+):
+    import datahub.ingestion.agent.probe_methods as pm
+
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("leaky", {}, set()))
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _UtilityLoggingProvider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _UtilityLoggingConfig)
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    res = CliRunner().invoke(
+        _real_cli_logging,
+        ["--debug", "recipe", "probe", "run", "tables", "--recipe"]
+        + [_recipe_file(tmp_path)],
+    )
+    assert res.exit_code == 0, res.output
+    assert "helper saw" in res.stderr
+    assert _LOG_SENTINEL not in res.stderr
+
+
+class _LoggingTestableSource:
+    @staticmethod
+    def test_connection(config_dict):
+        import logging
+
+        from datahub.ingestion.api.source import (
+            CapabilityReport,
+            TestConnectionReport,
+        )
+
+        logging.getLogger("datahub.ingestion.source.leaky_tc").warning(
+            "connect retry password=%s", _LOG_SENTINEL
+        )
+        return TestConnectionReport(basic_connectivity=CapabilityReport(capable=True))
+
+
+@pytest.mark.parametrize("debug", [False, True])
+def test_test_connection_keeps_reused_logs_scrubbed(
+    monkeypatch, tmp_path, _real_cli_logging, debug
+):
+    monkeypatch.setattr(rc, "_resolve_for_probe", lambda r: ("postgres", {}, set()))
+    monkeypatch.setattr(
+        "datahub.ingestion.source.source_registry.source_registry.get",
+        lambda st: _LoggingTestableSource,
+    )
+    monkeypatch.setattr(
+        "datahub.ingestion.api.source.TestableSource",
+        _LoggingTestableSource,
+        raising=False,
+    )
+    args = ["--debug"] if debug else []
+    res = CliRunner().invoke(
+        _real_cli_logging,
+        [*args, "recipe", "test-connection", "--recipe", _recipe_file(tmp_path)],
+    )
+    assert res.exit_code == 0, res.output
+    assert _LOG_SENTINEL not in res.stderr
+    assert _LOG_SENTINEL not in res.output

@@ -296,3 +296,72 @@ def test_auth_and_driver_loggers_are_floored(
     caplog.set_level(logging.DEBUG)
     with quiet_reused_logs(set()):
         assert logging.getLogger(name).getEffectiveLevel() >= logging.WARNING
+
+
+@pytest.mark.parametrize("name", ["pymysql", "kafka.conn", "some_new_sdk.auth"])
+def test_an_unlisted_library_logger_is_scrubbed_and_loses_its_traceback(
+    name: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Default-deny: a library nobody thought to list is reused code too.
+    caplog.set_level(logging.DEBUG)
+    with quiet_reused_logs(set()):
+        try:
+            raise RuntimeError(f"token endpoint said {SENTINEL}")
+        except RuntimeError:
+            logging.getLogger(name).warning(
+                "connect failed password=%s", SENTINEL, exc_info=True
+            )
+    assert "connect failed" in caplog.text
+    assert SENTINEL not in caplog.text
+    assert "Traceback" not in caplog.text
+
+
+def test_a_shared_datahub_module_is_scrubbed_but_not_floored(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    with quiet_reused_logs(set()):
+        try:
+            raise RuntimeError(SENTINEL)
+        except RuntimeError:
+            logging.getLogger("datahub.utilities.some_helper").debug(
+                "helper saw password=%s", SENTINEL, exc_info=True
+            )
+    assert "helper saw" in caplog.text
+    assert SENTINEL not in caplog.text
+    assert "Traceback" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "name", ["datahub.cli.recipe_cli", "datahub.masking.x", "datahub.entrypoints"]
+)
+def test_framework_owned_loggers_keep_their_tracebacks(
+    name: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    with quiet_reused_logs(set()):
+        try:
+            raise ValueError("own")
+        except ValueError:
+            logging.getLogger(name).debug("framework debug", exc_info=True)
+    assert "framework debug" in caplog.text
+    assert "Traceback" in caplog.text
+
+
+def test_a_library_handler_that_stops_propagation_is_scrubbed() -> None:
+    import io
+
+    stream = io.StringIO()
+    lib = logging.getLogger("some_driver_with_its_own_handler")
+    handler = logging.StreamHandler(stream)
+    lib.addHandler(handler)
+    lib.propagate = False
+    try:
+        with quiet_reused_logs(set()):
+            lib.warning("login password=%s", SENTINEL)
+        assert "login" in stream.getvalue()
+        assert SENTINEL not in stream.getvalue()
+        assert handler.filters == []
+    finally:
+        lib.removeHandler(handler)
+        lib.propagate = True
