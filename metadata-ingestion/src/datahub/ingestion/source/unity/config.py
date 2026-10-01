@@ -278,15 +278,15 @@ class UnityCatalogSourceConfig(
         description="Regex patterns for tables to filter in ingestion. Specify regex to match the entire table name in `catalog.schema.table` format. e.g. to match all tables starting with customer in Customer catalog and public schema, use the regex `Customer\\.public\\.customer.*`.",
     )
 
-    notebook_pattern: Annotated[
-        AllowDenyPattern, Filters(DatasetSubTypes.NOTEBOOK)
-    ] = Field(
-        default=AllowDenyPattern.allow_all(),
-        description=(
-            "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
-            " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
-            " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
-        ),
+    notebook_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.NOTEBOOK)] = (
+        Field(
+            default=AllowDenyPattern.allow_all(),
+            description=(
+                "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
+                " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
+                " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+            ),
+        )
     )
 
     # view_pattern and include_views are inherited from SQLCommonConfig and applied
