@@ -31,8 +31,8 @@ from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.common.gcp_project_filter import (
     GcpProject,
-    _search_all_projects,
-    _search_projects_by_labels,
+    _iter_all_projects,
+    _iter_projects_by_labels,
 )
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DATAPLEX_ASPECT_TYPE_KIND,
@@ -234,12 +234,17 @@ class DataplexMetadataProbe:
         # reported, not hidden.
         labels = self._config.project_labels
         with _scrubbed("search_projects"):
-            found: List[GcpProject] = (
-                _search_projects_by_labels(frozenset(labels), self._projects)
+            # Lazy, so the pager stops at the limit instead of walking every
+            # project the credential can see.
+            found: Iterator[GcpProject] = (
+                _iter_projects_by_labels(frozenset(labels), self._projects)
                 if labels
-                else _search_all_projects(self._projects)
+                else _iter_all_projects(self._projects)
             )
-        return [{"name": p.id, "display_name": p.name} for p in found[:limit]]
+            return [
+                {"name": p.id, "display_name": p.name}
+                for p in itertools.islice(found, limit)
+            ]
 
     @probe_method(
         kind=DATAPLEX_ENTRY_GROUP_KIND,

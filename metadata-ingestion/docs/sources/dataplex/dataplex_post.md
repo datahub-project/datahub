@@ -247,7 +247,7 @@ source:
 #       attribution_source: "urn:li:dataPlatform:dataplex"
 ```
 
-### Checking a recipe before running it
+#### Checking a recipe before running it
 
 `datahub recipe probe` lists what the catalog holds and judges it against your recipe's filters before you run ingestion:
 

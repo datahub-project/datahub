@@ -94,6 +94,9 @@ DEFAULT_LINEAGE_LOCATIONS = [
 ]
 
 
+_SPANNER_ENTRY_GROUP = "@spanner"
+
+
 def _looks_like_spanner(ctx: VerdictContext) -> bool:
     """Whether a judged entry is one ingestion reads via search_entries.
 
@@ -104,7 +107,10 @@ def _looks_like_spanner(ctx: VerdictContext) -> bool:
     return (
         ctx.name.startswith("spanner:")
         or "spanner" in entry_type
-        or any("/entryGroups/@spanner" in p for p in (ctx.name, *ctx.parent_path))
+        or any(
+            f"/entryGroups/{_SPANNER_ENTRY_GROUP}" in p
+            for p in (ctx.name, *ctx.parent_path)
+        )
     )
 
 
@@ -601,20 +607,43 @@ class DataplexConfig(
         reach it past the group.
         """
         if ctx.kind == DATAPLEX_PROJECT_KIND:
-            return self._probe_project_verdict(ctx.name, ctx)
-        if ctx.kind == DATAPLEX_ENTRY_GROUP_KIND and self.extraction_method != "api":
+            # A `probe run projects` record was listed with project_labels
+            # applied; a bare name was not.
+            return self._probe_project_verdict(
+                ctx.name, ctx, labels_checked=bool(ctx.attributes)
+            )
+        if ctx.kind == DATAPLEX_ENTRY_GROUP_KIND:
+            return self._probe_entry_group_verdict(ctx)
+        if ctx.kind in (DATAPLEX_ENTRY_KIND, DATAPLEX_ENTRY_FQN_KIND):
+            return self._probe_entry_verdict(ctx)
+        return None
+
+    def _probe_entry_group_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Included wherever ingestion reads a group's entries without the
+        group pattern, so an entry below it is not dropped by parent exclusion
+        (which the framework applies after this override, and only by kind)."""
+        if self.extraction_method != "api":
             ctx.warn(
                 f"extraction_method is '{self.extraction_method}', which reads "
                 f"entries from a metadata export and does not apply "
                 f"filter_config.entry_groups.pattern; filter entries with "
                 f"filter_config.entries instead"
             )
-        if ctx.kind in (DATAPLEX_ENTRY_KIND, DATAPLEX_ENTRY_FQN_KIND):
-            return self._probe_entry_verdict(ctx)
-        return None
+            return Verdict(True)
+        if not ctx.name.endswith(f"/entryGroups/{_SPANNER_ENTRY_GROUP}"):
+            return None
+        if pattern_verdict(self, ctx.pattern_field, ctx.target).included:
+            return None
+        ctx.warn(
+            f"filter_config.entry_groups.pattern denies {_SPANNER_ENTRY_GROUP}, "
+            f"but Spanner entries are read through search_entries, which does "
+            f"not apply it, so they are ingested anyway; filter them with "
+            f"filter_config.entries instead"
+        )
+        return Verdict(True)
 
     def _probe_project_verdict(
-        self, project: str, ctx: VerdictContext
+        self, project: str, ctx: VerdictContext, *, labels_checked: bool
     ) -> Optional[Verdict]:
         if self.project_ids:
             if self.project_id_pattern != AllowDenyPattern.allow_all():
@@ -625,14 +654,14 @@ class DataplexConfig(
             if project in self.project_ids:
                 return Verdict(True)
             return Verdict(False, "project_ids")
-        if self.project_labels and not ctx.attributes:
+        if self.project_labels and not labels_checked:
             # Labels narrow the Resource Manager search before the pattern
-            # runs, and a bare name carries no labels to check.
+            # runs, and neither a bare name nor an entry record carries them.
             ctx.warn(
-                "project_labels is set, and a project named on its own carries "
-                "no labels, so it was judged by project_id_pattern alone; list "
-                "projects with `probe run projects` (which applies the labels) "
-                "and judge that output with --from-run"
+                f"project_labels is set, and '{project}' was not listed with "
+                f"them applied, so it was judged by project_id_pattern alone; "
+                f"list projects with `probe run projects` (which applies the "
+                f"labels) and judge that output with --from-run"
             )
         return None
 
@@ -653,9 +682,9 @@ class DataplexConfig(
         if self.extraction_method != "export" or not ctx.parent_path:
             return None
         project = ctx.parent_path[0]
-        verdict = self._probe_project_verdict(project, ctx) or pattern_verdict(
-            self, "project_id_pattern", project
-        )
+        verdict = self._probe_project_verdict(
+            project, ctx, labels_checked=False
+        ) or pattern_verdict(self, "project_id_pattern", project)
         if verdict.included:
             return None
         ctx.warn(
