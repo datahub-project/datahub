@@ -35,6 +35,7 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     _search_projects_by_labels,
 )
 from datahub.ingestion.source.dataplex.dataplex_config import (
+    DATAPLEX_ASPECT_TYPE_KIND,
     DATAPLEX_ENTRY_FQN_KIND,
     DATAPLEX_ENTRY_GROUP_KIND,
     DATAPLEX_ENTRY_KIND,
@@ -53,6 +54,9 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     extract_entry_type_short_name,
 )
 from datahub.ingestion.source.dataplex.dataplex_mappers import ENTRY_MAPPERS
+from datahub.ingestion.source.dataplex.dataplex_properties import (
+    aspect_type_short_name,
+)
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 
 T = TypeVar("T")
@@ -352,3 +356,21 @@ class DataplexMetadataProbe:
         )
         with self._entries_scrubbed(entry_group):
             return list(itertools.islice(fqns, limit))
+
+    @probe_method(kind=DATAPLEX_ASPECT_TYPE_KIND)
+    def entry_aspect_types(self, entry: str) -> List[str]:
+        """Aspect types attached to one entry, as the bare ids
+        aspect_type_pattern is matched against (the default denies datahub-*,
+        the aspects DataHub's sync-back writes). A denied aspect is dropped from
+        custom properties only; the entry itself is still ingested. Pass the
+        entry's full resource name as `entries` returns it. Names only -- aspect
+        data is never returned."""
+        with _scrubbed(
+            "get_entry",
+            not_found=f"no entry named '{entry}'; list them with `entries` and "
+            f"pass a name exactly as it is returned",
+        ):
+            # Ingestion's own get_entry(view=ALL) fetch, so the aspect keys are
+            # the ones ingestion sees.
+            detail = self._entries_processor._fetch_entry_detail(entry)
+        return sorted({aspect_type_short_name(key) for key in detail.aspects})
