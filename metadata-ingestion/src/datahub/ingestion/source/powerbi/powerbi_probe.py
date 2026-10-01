@@ -159,7 +159,8 @@ class PowerBiMetadataProbe(RestApiPassthrough):
             # filtered.
             raise ValueError(
                 f"PowerBI refused modified_since="
-                f"{self._config.modified_since!r}: {exc} Ingestion would log "
+                f"{self._config.modified_since!r} ({type(exc).__name__} from "
+                f"the modified-workspaces request). Ingestion would log "
                 f"this and fall back to listing every workspace."
             ) from exc
         except requests.exceptions.RequestException as exc:
