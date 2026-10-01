@@ -890,10 +890,11 @@ class PowerBiDashboardSourceConfig(
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
         """get_allowed_workspaces also requires workspace_id_pattern on the id
-        and `type in workspace_type_filter`. Neither is knowable from a name,
-        so both are judged from the per-name attributes the probe's
-        `workspaces` listing emits, and a missing one is warned about rather
-        than passed silently."""
+        and `type in workspace_type_filter`, and the scan drops a workspace
+        whose state is not Active. None is knowable from a name, so they are
+        judged from the per-name attributes the probe's `workspaces` listing
+        emits; a missing id or type is warned about rather than passed
+        silently."""
         if ctx.kind != BIContainerSubTypes.POWERBI_WORKSPACE:
             return None
         if ctx.structural is not None:
@@ -920,6 +921,12 @@ class PowerBiDashboardSourceConfig(
             )
         elif workspace_type not in self.workspace_type_filter:
             return Verdict(False, "workspace_type_filter")
+        # Only the admin API reports a state, so its absence says nothing.
+        # The scan drops every workspace that is not Active
+        # (PowerBiAPI.fill_metadata_from_scan_result).
+        state = ctx.attributes.get("state")
+        if state is not None and state != Constant.ACTIVE:
+            return Verdict(False, "workspace_state")
         return Verdict.include()
 
     @model_validator(mode="after")

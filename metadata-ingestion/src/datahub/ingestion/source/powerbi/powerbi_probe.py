@@ -135,6 +135,18 @@ class PowerBiMetadataProbe(RestApiPassthrough):
                 f"{self._config.modified_since!r}: {exc} Ingestion would log "
                 f"this and fall back to listing every workspace."
             ) from exc
+        except requests.exceptions.RequestException as exc:
+            # Anything else -- a 401/403 without admin API access, a timeout --
+            # PowerBiAPI.get_modified_workspaces swallows, and ingestion lists
+            # every workspace unfiltered. Do the same, and say so.
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            reason = f"HTTP {status}" if status is not None else type(exc).__name__
+            self._warn(
+                f"could not read the workspaces modified since modified_since "
+                f"({reason}), so ingestion would log this and fall back to "
+                f"listing every workspace; this listing does the same"
+            )
+            return {}
         if not ids:
             self._warn(
                 "modified_since is set but PowerBI reports no workspace modified "
@@ -185,9 +197,10 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         workspace must pass workspace_name_pattern, workspace_id_pattern and
         workspace_type_filter together: save this listing with `--report-to`
         and judge it with `probe filter --kind Workspace --from-run <report>`,
-        which applies all three. `type_allowed` is the workspace_type_filter
-        verdict per record. `state` is set by the admin API only; ingestion's
-        scan also skips workspaces that are not Active. Narrowed by
+        which applies all three, and also excludes a workspace whose `state`
+        is not Active, as ingestion's scan does. `type_allowed` is the
+        workspace_type_filter verdict per record. `state` is set by the admin
+        API only. Narrowed by
         modified_since exactly as ingestion narrows it. Personal workspaces
         the recipe does not ingest are counted in a warning, not listed.
         Metadata only."""
