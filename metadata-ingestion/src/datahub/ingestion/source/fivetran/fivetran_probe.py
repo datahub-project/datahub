@@ -1,11 +1,18 @@
+import itertools
 import logging
-from typing import Dict, List, Optional
+from typing import Callable, Dict, List, Optional, TypeVar
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.verdicts import ProbeConnectionError
+from datahub.ingestion.agent.verdicts import (
+    ProbeConnectionError,
+    ProbeReadFailed,
+    ProbeSoftError,
+    soft_on_status,
+)
 from datahub.ingestion.source.fivetran.config import (
     FIVETRAN_CONNECTOR_KIND,
     FIVETRAN_DESTINATION_KIND,
+    REST_CONNECTOR_MATCH_NOTE,
     Constant,
     FivetranSourceConfig,
     FivetranSourceReport,
@@ -13,8 +20,27 @@ from datahub.ingestion.source.fivetran.config import (
 from datahub.ingestion.source.fivetran.data_classes import Connector
 from datahub.ingestion.source.fivetran.fivetran_log_db_reader import FivetranLogDbReader
 from datahub.ingestion.source.fivetran.fivetran_rest_api import FivetranAPIClient
+from datahub.ingestion.source.fivetran.response_models import FivetranListedConnection
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+def _connector_from_listed(listed: FivetranListedConnection) -> Connector:
+    # Field mapping from FivetranLogRestReader._build_connector, without its
+    # lineage fetch and without connected_by, which the probe never reports.
+    return Connector(
+        connector_id=listed.id,
+        connector_name=listed.schema_,
+        connector_type=listed.service,
+        paused=listed.paused,
+        sync_frequency=listed.sync_frequency,
+        destination_id=listed.group_id,
+        user_id="",
+        lineage=[],
+        jobs=[],
+    )
 
 
 class FivetranMetadataProbe:
@@ -128,10 +154,73 @@ class FivetranMetadataProbe:
             if destination is None or row[Constant.DESTINATION_ID] == destination
         ]
 
+    def _api(self) -> FivetranAPIClient:
+        # validate_log_source_credentials guarantees api_config in rest_api mode.
+        assert self._api_client is not None
+        return self._api_client
+
+    def _rest(self, context: str, call: Callable[[], T]) -> T:
+        """Run one REST read, keeping a bad reply apart from bad input.
+
+        FivetranAPIClient raises ValueError for a reply it cannot use: a
+        non-Success envelope, a missing `data`, or a pydantic ValidationError
+        (a ValueError subclass). The CLI reads ValueError as exit 2 and would
+        send the caller to fix an argument that was never wrong. HTTPError is
+        not a ValueError and passes through to exit 3 unchanged."""
+        try:
+            return call()
+        except ValueError as exc:
+            raise ProbeReadFailed(f"{context}: {exc}") from exc
+
+    def _group_connections(self, group_id: str) -> List[FivetranListedConnection]:
+        with soft_on_status(
+            404, context=f"connections listing for destination '{group_id}'"
+        ):
+            return self._rest(
+                f"listing connections of destination '{group_id}'",
+                lambda: list(self._api().list_connections(group_id)),
+            )
+
+    def _rest_connectors(
+        self, destination: Optional[str], stop_after: Optional[int]
+    ) -> List[Connector]:
+        if destination is not None:
+            group_ids = [destination]
+        else:
+            group_ids = [
+                g.id
+                for g in self._rest(
+                    "listing Fivetran groups", lambda: list(self._api().list_groups())
+                )
+            ]
+        found: List[Connector] = []
+        for group_id in group_ids:
+            try:
+                listed = self._group_connections(group_id)
+            except ProbeSoftError as exc:
+                if destination is not None:
+                    raise ValueError(
+                        f"no Fivetran destination with id '{destination}'; list "
+                        f"them with `probe run destinations`"
+                    ) from exc
+                # A destination deleted between the groups listing and this
+                # call. Ingestion skips the group with a warning too.
+                self._warn(str(exc))
+                continue
+            found.extend(_connector_from_listed(item) for item in listed)
+            # Every group is one more request, so stop once the limit is met.
+            if stop_after is not None and len(found) >= stop_after:
+                break
+        return found
+
     def _list_connectors(
         self, destination: Optional[str], stop_after: Optional[int] = None
     ) -> List[Connector]:
-        found = self._db_connectors(destination)
+        found = (
+            self._rest_connectors(destination, stop_after)
+            if self._uses_rest
+            else self._db_connectors(destination)
+        )
         return found if stop_after is None else found[:stop_after]
 
     def _connector_record(self, connector: Connector) -> Dict[str, object]:
@@ -164,7 +253,18 @@ class FivetranMetadataProbe:
         including ids the pattern would exclude. In log_database mode these
         are the destinations of the connectors present in the log, so a
         destination with no connector there does not appear; it would filter
-        nothing anyway."""
+        nothing anyway. In rest_api mode these are the API key's groups, each
+        with its display name."""
+        if self._uses_rest:
+            groups = self._rest(
+                "listing Fivetran groups",
+                # islice stops list_groups paging once the limit is met.
+                lambda: list(itertools.islice(self._api().list_groups(), limit)),
+            )
+            return [
+                {**self._destination_record(group.id), "group_name": group.name}
+                for group in groups
+            ]
         ids = sorted(
             {c.destination_id for c in self._list_connectors(destination=None)}
         )
@@ -188,6 +288,8 @@ class FivetranMetadataProbe:
         backend ingestion uses (log_source). Metadata only: the connecting
         user is never returned."""
         found = self._list_connectors(destination, stop_after=limit)
+        if self._uses_rest:
+            self._warn(REST_CONNECTOR_MATCH_NOTE)
         if destination is not None and not found:
             self._warn(
                 f"no connector on destination '{destination}' was found; check "
