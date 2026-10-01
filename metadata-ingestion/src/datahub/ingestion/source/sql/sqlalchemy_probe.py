@@ -12,6 +12,7 @@ from typing import (
 
 from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
+from sqlalchemy.exc import DBAPIError
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_passthrough import CatalogRows, SqlCatalogPassthrough
@@ -139,7 +140,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
 
     # SECURITY: every caller-supplied schema/table/view passes through the
     # resolvers below before any Inspector reflection call. Several dialects
-    # (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid) format these
+    # (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid, Databricks) format these
     # arguments into their reflection SQL, which the `sql` gate never sees;
     # resolving against the server's own listing means reflection only ever
     # receives a string the server produced.
@@ -148,27 +149,46 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
             self._schema_listing = list(self._insp.get_schema_names())
         return self._schema_listing
 
-    def _listed(self, schema: str, listing: _Listing) -> List[str]:
+    def _listed(
+        self, schema: str, listing: _Listing, *, fallback: bool = False
+    ) -> List[str]:
         if self._relation_listings is None:
             self._relation_listings = {}
         key = (schema, listing)
         cached = self._relation_listings.get(key)
         if cached is None:
-            cached = self._fetch_listing(schema, listing)
+            cached = self._fetch_listing(schema, listing, fallback=fallback)
             self._relation_listings[key] = cached
         return cached
 
-    def _fetch_listing(self, schema: str, listing: _Listing) -> List[str]:
-        if listing == "tables":
-            return list(self._insp.get_table_names(schema=schema))
-        if listing == "views":
-            return list(self._insp.get_view_names(schema=schema))
+    def _fetch_listing(
+        self, schema: str, listing: _Listing, *, fallback: bool
+    ) -> List[str]:
+        """One relation listing.
+
+        A fallback listing is consulted only after the primary one missed and
+        can only turn a refusal into a match, so when it cannot be read it
+        counts as empty and a typo still exits 2. Some dialects inherit a
+        listing query their server cannot run (Redshift's materialized-view
+        query names a column Redshift lacks). The primary listing keeps its
+        errors: those are a connection problem (exit 3), not a bad argument.
+        """
         try:
+            if listing == "tables":
+                return list(self._insp.get_table_names(schema=schema))
+            if listing == "views":
+                return list(self._insp.get_view_names(schema=schema))
             return list(self._insp.get_materialized_view_names(schema=schema))
         except NotImplementedError:
-            # The base Dialect's default: this dialect lists no materialized
-            # views separately, so it has none to resolve against.
-            return []
+            # The base Dialect's default for materialized views: this dialect
+            # lists none separately, so it has none to resolve against.
+            if listing == "materialized_views" or fallback:
+                return []
+            raise
+        except DBAPIError:
+            if fallback:
+                return []
+            raise
 
     def _container_label(self) -> str:
         return str(self.kind_overrides.get("containers", "schema")).lower()
@@ -197,15 +217,16 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         candidates = (
             listed
             for listing in listings
-            for listed in self._listed(on_schema, listing)
+            for listed in self._listed(
+                on_schema, listing, fallback=listing != listings[0]
+            )
         )
-        lister = "tables" if "tables" in listings else "views"
         relation = resolve_listed_name(
             name,
             candidates,
-            what=what,
+            what="table, view or materialized view" if what == "table" else what,
             where=f"in {self._container_label()} {on_schema!r}",
-            list_command=f"{lister} --schema {on_schema!r}",
+            list_command=f"tables --schema {on_schema!r}` or `views --schema {on_schema!r}",
         )
         return on_schema, relation
 

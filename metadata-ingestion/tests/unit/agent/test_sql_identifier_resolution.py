@@ -7,11 +7,12 @@ normalizer's spelling, names with quotes in them, and one listing per probe.
 """
 
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Tuple, cast
+from typing import Callable, Dict, Iterator, List, Optional, Tuple, cast
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, Inspector
+from sqlalchemy.exc import DBAPIError, ProgrammingError
 
 from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
@@ -275,3 +276,68 @@ def test_a_dialect_that_cannot_list_schemas_exits_on_the_unsupported_code(
     assert not isinstance(info.value, ProbeArgumentError)
     assert "tables" in str(info.value)
     assert reflected == []
+
+
+class _FallbackInspector(_MatviewInspector):
+    """Primary listings answer; the named listings fail the way a dialect's can."""
+
+    def __init__(
+        self,
+        *,
+        matviews: Optional[Exception] = None,
+        views: Optional[Exception] = None,
+        tables: Optional[Exception] = None,
+    ) -> None:
+        super().__init__(has_matviews=True)
+        self._matviews, self._views, self._tables = matviews, views, tables
+
+    def get_table_names(self, schema: str) -> List[str]:
+        if self._tables:
+            raise self._tables
+        return ["orders"]
+
+    def get_view_names(self, schema: str) -> List[str]:
+        if self._views:
+            raise self._views
+        return []
+
+    def get_materialized_view_names(self, schema: str) -> List[str]:
+        if self._matviews:
+            raise self._matviews
+        return []
+
+
+def _fallback_probe(inspector: _FallbackInspector) -> SqlAlchemyMetadataProbe:
+    probe = SqlAlchemyMetadataProbe.__new__(SqlAlchemyMetadataProbe)
+    probe._insp = cast(Inspector, inspector)
+    return probe
+
+
+def _db_error() -> DBAPIError:
+    return ProgrammingError("SELECT 1", {}, Exception("column does not exist"))
+
+
+def test_a_failing_materialized_view_listing_still_refuses_a_typo() -> None:
+    fake = _FallbackInspector(matviews=_db_error())
+    with pytest.raises(ProbeArgumentError) as info:
+        _fallback_probe(fake).columns(schema="public", table="ordrs")
+    assert "tables" in str(info.value)
+    assert fake.reflected == []
+
+
+def test_an_unimplemented_view_fallback_still_refuses_a_typo() -> None:
+    fake = _FallbackInspector(views=NotImplementedError())
+    with pytest.raises(ProbeArgumentError):
+        _fallback_probe(fake).columns(schema="public", table="ordrs")
+    assert fake.reflected == []
+
+
+def test_a_failing_fallback_does_not_hide_a_primary_hit() -> None:
+    fake = _FallbackInspector(matviews=_db_error())
+    assert _fallback_probe(fake).columns(schema="public", table="orders")
+
+
+def test_a_failing_primary_table_listing_still_propagates() -> None:
+    fake = _FallbackInspector(tables=_db_error())
+    with pytest.raises(DBAPIError):
+        _fallback_probe(fake).columns(schema="public", table="orders")

@@ -1,9 +1,9 @@
 """Map a caller-supplied SQL identifier to the catalog's own string.
 
 Several SQLAlchemy dialects build their reflection SQL by string formatting --
-sqlalchemy-redshift, Vertica, Teradata, ClickHouse and Druid among them -- so a
-schema or table name handed to an Inspector method is SQL the probe's gate
-never saw. Passing reflection only a string the server itself listed closes
+sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid and Databricks
+among them -- so a schema or table name handed to an Inspector method is SQL
+the probe's gate never saw. Passing reflection only a string the server itself listed closes
 that for every dialect, whatever its reflection does, and without a
 per-dialect quoting rule to get wrong.
 """
