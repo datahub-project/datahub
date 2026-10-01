@@ -204,6 +204,7 @@ def _build_valid_pipeline_config() -> dict:
         "action": {"type": "test_action", "config": {"config1": "value1"}},
         "options": {
             "retry_count": 3,
+            "retry_backoff_seconds": 0,
             "failure_mode": "CONTINUE",
             "failed_events_dir": "/tmp/datahub/test",
         },
@@ -227,6 +228,7 @@ def _build_basic_pipeline_config() -> dict:
         "action": {"type": "test_action", "config": {"config1": "value1"}},
         "options": {
             "retry_count": 3,
+            "retry_backoff_seconds": 0,
             "failure_mode": "CONTINUE",
             "failed_events_dir": "/tmp/datahub/test",
         },
@@ -241,6 +243,7 @@ def _build_stoppable_pipeline_config() -> dict:
         "action": {"type": "test_action", "config": {"config1": "value1"}},
         "options": {
             "retry_count": 3,
+            "retry_backoff_seconds": 0,
             "failure_mode": "CONTINUE",
             "failed_events_dir": "/tmp/datahub/test",
         },
@@ -257,6 +260,7 @@ def _build_throwing_transformer_pipeline_config(failure_mode: str = "CONTINUE") 
         "action": {"type": "test_action", "config": {"config1": "value1"}},
         "options": {
             "retry_count": 3,
+            "retry_backoff_seconds": 0,
             "failure_mode": failure_mode,
             "failed_events_dir": "/tmp/datahub/test",
         },
@@ -273,6 +277,7 @@ def _build_throwing_action_pipeline_config(
         "action": {"type": "throwing_test_action", "config": {"config1": "value1"}},
         "options": {
             "retry_count": 3,
+            "retry_backoff_seconds": 0,
             "failure_mode": failure_mode,
             "failed_events_dir": "/tmp/datahub/test",
         },

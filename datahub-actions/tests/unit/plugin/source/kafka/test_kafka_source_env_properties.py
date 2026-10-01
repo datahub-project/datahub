@@ -70,6 +70,18 @@ def test_env_properties_are_mapped_to_consumer_config(
     assert "kafka.bootstrap.server" not in config
 
 
+def test_max_poll_interval_leaves_room_for_slow_actions_and_retries() -> None:
+    # The pipeline polls again only after act() and its retries return; a short
+    # interval evicts the consumer from its group mid-event.
+    assert _consumer_config({})["max.poll.interval.ms"] == "300000"
+    assert (
+        _consumer_config(
+            {"connection": {"consumer_config": {"max.poll.interval.ms": "600000"}}}
+        )["max.poll.interval.ms"]
+        == "600000"
+    )
+
+
 def test_recipe_consumer_config_takes_precedence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -56,7 +56,14 @@ class ActionConfig(ConfigModel):
 
 
 class PipelineOptions(BaseModel):
-    retry_count: Optional[int] = Field(default=None)
+    retry_count: Optional[int] = Field(
+        default=None,
+        description="How many times to retry an event whose processing raised. Defaults to 3.",
+    )
+    retry_backoff_seconds: Optional[float] = Field(
+        default=None,
+        description="Wait before the first retry, doubled for each later one and capped at 60 seconds. Defaults to 1.",
+    )
     failure_mode: Optional[FailureMode] = Field(default=None)
     failed_events_dir: Optional[str] = Field(
         default=None, description="The path where failed events should be logged."
