@@ -228,6 +228,12 @@ def kafka_messages_observer(pipeline_name: str) -> Callable:
 # never connect (wrong protocol, bad credentials) fails the process instead of idling.
 _STARTUP_CONNECT_TIMEOUT_SECONDS = 60.0
 
+# auto.offset.reset values (and librdkafka aliases) that name a partition end.
+_RESET_TO_END = frozenset({"latest", "largest", "end"})
+_RESET_TO_BEGINNING = frozenset({"earliest", "smallest", "beginning"})
+_INITIAL_POSITION_TIMEOUT_SECONDS = 10.0
+
+
 # librdkafka recovers from these on its own, but while they persist nothing is consumed.
 _SEVERE_CLIENT_ERRORS = frozenset(
     {KafkaError._AUTHENTICATION, KafkaError._ALL_BROKERS_DOWN}
@@ -284,6 +290,11 @@ class KafkaEventSource(EventSource):
             }
         )
 
+        self._auto_offset_reset = str(
+            {**env_consumer_config, **recipe_consumer_config}.get(
+                "auto.offset.reset", "latest"
+            )
+        ).lower()
         self.consumer: confluent_kafka.Consumer = confluent_kafka.DeserializingConsumer(
             {
                 # Provide a custom group id to subscribe to multiple partitions via separate actions pods.
@@ -514,6 +525,54 @@ class KafkaEventSource(EventSource):
                 )
                 raise last_error
 
+    def _commit_initial_positions(
+        self, consumer: Any, partitions: List[TopicPartition]
+    ) -> None:
+        """Commit a starting position for assigned partitions the group has never
+        committed. Until the first commit, a partition's position exists only in
+        memory: a pipeline that stops before then (for example, without acking an
+        event that failed) restarts from auto.offset.reset, which by default skips
+        every event produced in between."""
+        if self._auto_offset_reset in _RESET_TO_END:
+            use_high_watermark = True
+        elif self._auto_offset_reset in _RESET_TO_BEGINNING:
+            use_high_watermark = False
+        else:
+            return  # e.g. "error": nothing to resolve the position to
+        try:
+            starting_positions = []
+            for tp in consumer.committed(
+                partitions, timeout=_INITIAL_POSITION_TIMEOUT_SECONDS
+            ):
+                if tp.offset >= 0:
+                    continue
+                low, high = consumer.get_watermark_offsets(
+                    tp, timeout=_INITIAL_POSITION_TIMEOUT_SECONDS
+                )
+                starting_positions.append(
+                    TopicPartition(
+                        tp.topic, tp.partition, high if use_high_watermark else low
+                    )
+                )
+            if starting_positions:
+                consumer.commit(offsets=starting_positions, asynchronous=False)
+                logger.info(
+                    f"Committed starting positions for pipeline '{self._pipeline_name}': "
+                    + ", ".join(
+                        f"{tp.topic}[{tp.partition}]@{tp.offset}"
+                        for tp in starting_positions
+                    )
+                )
+        except Exception:
+            # Raising here would surface from poll() and fail the pipeline. Without the
+            # commit the consumer behaves as before, so log and carry on.
+            logger.warning(
+                f"Could not commit the starting position for pipeline "
+                f"'{self._pipeline_name}'; until its first commit, a restart resumes "
+                f"from auto.offset.reset={self._auto_offset_reset}.",
+                exc_info=True,
+            )
+
     def events(self) -> Iterable[EventEnvelope]:
         self.running = True
         self._wait_until_connected()
@@ -523,7 +582,9 @@ class KafkaEventSource(EventSource):
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
         topics_to_subscribe = list(topic_routes.values())
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
-        self.consumer.subscribe(topics_to_subscribe)
+        self.consumer.subscribe(
+            topics_to_subscribe, on_assign=self._commit_initial_positions
+        )
 
         # Start lag monitoring after subscription
         if self._lag_monitor is not None:
