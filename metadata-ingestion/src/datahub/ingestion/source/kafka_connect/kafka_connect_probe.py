@@ -386,9 +386,7 @@ class KafkaConnectMetadataProbe:
         # (unlike get_connectors_manifest's) raises on 401/5xx.
         self._refuse_misparsed_connect_uri()
         with self._userinfo_scrubbed():
-            payload: object = (
-                self._source._get_connector_names_for_endpoint_discovery()
-            )
+            payload: object = self._source._get_connector_names_for_endpoint_discovery()
         if isinstance(payload, list):
             return [str(name) for name in payload]
         raise ProbeReadFailed(
@@ -507,7 +505,9 @@ class KafkaConnectMetadataProbe:
         }
 
     @probe_method(
-        kind=DatasetSubTypes.TOPIC, row_limit_param="limit", parent_params=("connector",)
+        kind=DatasetSubTypes.TOPIC,
+        row_limit_param="limit",
+        parent_params=("connector",),
     )
     def connector_topics(self, connector: str, limit: int = 500) -> List[str]:
         """Topics ingestion resolves for one connector from Connect's runtime

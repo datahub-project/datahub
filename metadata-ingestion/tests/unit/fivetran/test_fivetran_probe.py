@@ -120,7 +120,9 @@ def _execute(clause: Any, *args: Any, **kwargs: Any) -> MagicMock:
     # and reads each row through `row._mapping`.
     query = clause.text if hasattr(clause, "text") else str(clause)
     result = MagicMock()
-    result.__iter__.return_value = iter([MagicMock(_mapping=row) for row in _route(query)])
+    result.__iter__.return_value = iter(
+        [MagicMock(_mapping=row) for row in _route(query)]
+    )
     return result
 
 
@@ -217,9 +219,7 @@ def test_log_database_mode_judges_a_connector_on_its_name_alone() -> None:
     assert result.warnings == []
 
 
-def test_a_connector_on_a_denied_destination_is_excluded_by_that_destination() -> (
-    None
-):
+def test_a_connector_on_a_denied_destination_is_excluded_by_that_destination() -> None:
     result = check_filters(
         source_type="fivetran",
         config_dict=_db_recipe(destination_patterns={"deny": ["^dest_b$"]}),

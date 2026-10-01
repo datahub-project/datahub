@@ -435,8 +435,7 @@ def _blob_ls(name: str = "blob_ls") -> adf.LinkedServiceResource:
         name,
         adf.AzureBlobStorageLinkedService(
             connection_string=_raw(
-                "DefaultEndpointsProtocol=https;AccountName=acct;"
-                f"AccountKey={PLANTED}"
+                f"DefaultEndpointsProtocol=https;AccountName=acct;AccountKey={PLANTED}"
             ),
             connect_via=adf.IntegrationRuntimeReference(
                 type="IntegrationRuntimeReference", reference_name="my-ir"
@@ -480,7 +479,11 @@ def test_linked_services_resolve_the_platform_and_instance_ingestion_uses() -> N
 def test_an_unmapped_linked_service_type_reports_no_platform() -> None:
     client = _FakeClient()
     client.linked_services["my-factory"] = iter(
-        [_linked_service("odata_ls", adf.ODataLinkedService(url=_raw("https://x.invalid")))]
+        [
+            _linked_service(
+                "odata_ls", adf.ODataLinkedService(url=_raw("https://x.invalid"))
+            )
+        ]
     )
     [record] = _probe(client).linked_services("my-factory")
     assert record["platform"] is None
@@ -555,9 +558,7 @@ def test_datasets_resolve_to_the_urn_ingestion_emits() -> None:
     assert "prod_mssql" in str(record["urn"])
 
 
-def test_a_dataset_on_an_unmapped_linked_service_says_why_it_will_not_resolve() -> (
-    None
-):
+def test_a_dataset_on_an_unmapped_linked_service_says_why_it_will_not_resolve() -> None:
     client = _FakeClient()
     client.datasets["my-factory"] = iter(
         [
