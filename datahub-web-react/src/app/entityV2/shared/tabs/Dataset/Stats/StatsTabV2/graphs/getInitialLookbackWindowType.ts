@@ -80,12 +80,29 @@ function usageWindowStart(range: TimeRange): number | undefined {
 }
 
 /**
+ * `undefined` means the last-month count is still unknown. Missing stats and an
+ * in-flight usage query must not be treated as "no queries", or the chart widens
+ * and then snaps back to a month when the count arrives.
+ */
+export function resolveHasRecentUsage(
+    queryCountLast30Days: number | null | undefined,
+    totalSqlQueries: number | null | undefined,
+    lastMonthUsageLoaded: boolean,
+): boolean | undefined {
+    if (typeof queryCountLast30Days === 'number') return queryCountLast30Days > 0;
+    if (!lastMonthUsageLoaded) return undefined;
+    return (totalSqlQueries ?? 0) > 0;
+}
+
+/**
  * Query-count ranges use calendar windows, matching `useQueryCountData`.
- * Recent usage stays on a month. With no queries in that month, widen to the
- * oldest known usage instead of leaving the chart empty.
+ * Recent usage stays on a month. Widen only after the last month is known to be
+ * empty and older usage exists.
  */
 export function getInitialUsageTimeRange(oldestUsageTimeMillis?: number | null, hasRecentUsage?: boolean): TimeRange {
-    if (hasRecentUsage || oldestUsageTimeMillis == null || oldestUsageTimeMillis <= 0) return TimeRange.Month;
+    if (hasRecentUsage !== false || oldestUsageTimeMillis == null || oldestUsageTimeMillis <= 0) {
+        return TimeRange.Month;
+    }
 
     return smallestWindowContaining(USAGE_RANGES_FROM_MONTH, oldestUsageTimeMillis, usageWindowStart, TimeRange.Year);
 }

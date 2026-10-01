@@ -7,6 +7,7 @@ import {
     getInitialUsageTimeRange,
     isProfileOutsideMaxLookback,
     latestProfileTimeWithField,
+    resolveHasRecentUsage,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
 import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { TimeRange } from '@src/types.generated';
@@ -89,5 +90,28 @@ describe('getInitialUsageTimeRange', () => {
         const ancient = Date.now() - 200 * DAY_MS;
 
         expect(getInitialUsageTimeRange(ancient, false)).not.toBe(TimeRange.Month);
+    });
+
+    it('stays on a month while the last-month count is still unknown', () => {
+        const ancient = Date.now() - 200 * DAY_MS;
+
+        expect(getInitialUsageTimeRange(ancient, undefined)).toBe(TimeRange.Month);
+    });
+});
+
+describe('resolveHasRecentUsage', () => {
+    it('does not treat a missing count as empty while the usage query is in flight', () => {
+        expect(resolveHasRecentUsage(undefined, undefined, false)).toBeUndefined();
+        expect(resolveHasRecentUsage(null, undefined, false)).toBeUndefined();
+    });
+
+    it('uses the summary count without waiting for the usage query', () => {
+        expect(resolveHasRecentUsage(4, undefined, false)).toBe(true);
+        expect(resolveHasRecentUsage(0, undefined, false)).toBe(false);
+    });
+
+    it('uses the loaded last-month total when the summary count is missing', () => {
+        expect(resolveHasRecentUsage(undefined, 12, true)).toBe(true);
+        expect(resolveHasRecentUsage(undefined, 0, true)).toBe(false);
     });
 });

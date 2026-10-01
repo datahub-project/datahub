@@ -1,6 +1,9 @@
 import { useGetEntityWithSchema } from '@app/entityV2/shared/tabs/Dataset/Schema/useGetEntitySchema';
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
-import { latestProfileTimeWithField } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
+import {
+    latestProfileTimeWithField,
+    resolveHasRecentUsage,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
 import { getIsSiblingsMode } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
@@ -20,7 +23,7 @@ export const useGetStatsData = () => {
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
     const isSiblingsMode = baseEntity && getIsSiblingsMode(baseEntity, isSeparateSiblingsMode);
 
-    const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
+    const { data: usageStatsData, loading: lastMonthUsageLoading } = useGetLastMonthUsageAggregationsQuery({
         variables: { urn: statsEntityUrn as string },
         skip: !statsEntityUrn,
     });
@@ -60,6 +63,10 @@ export const useGetStatsData = () => {
         profileTimestampMillis: latestProfile?.timestampMillis as number | undefined,
         latestRowCountProfileTime: latestProfileTimeWithField(profiles, 'rowCount'),
         latestStorageSizeProfileTime: latestProfileTimeWithField(profiles, 'sizeInBytes'),
-        hasRecentUsage: (recentQueryCount ?? 0) > 0,
+        hasRecentUsage: resolveHasRecentUsage(
+            queryCountLast30Days,
+            totalSqlQueries,
+            Boolean(statsEntityUrn) && !lastMonthUsageLoading && usageStatsData !== undefined,
+        ),
     };
 };
