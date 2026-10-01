@@ -10,13 +10,14 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Float, Integer, String, create_engine
+from sqlalchemy.dialects.postgresql import CITEXT
 
-from datahub.ingestion.source.ge_profiling_config import (
+from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
+from datahub.ingestion.source.profiling.config import (
     ProfilingConfig,
     ProfilingIsolationLevel,
 )
-from datahub.ingestion.source.profiling.common import Cardinality, ProfilerRequest
-from datahub.ingestion.source.sql.postgres.source import BOX, CITEXT, LTREE, XML
+from datahub.ingestion.source.sql.postgres.source import BOX, LTREE, XML
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
     SQLAlchemyProfiler,
@@ -310,7 +311,7 @@ class TestSQLAlchemyProfiler:
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
-                "database error", None, None
+                "database error", None, Exception("database error")
             )
             mock_get_adapter.return_value = mock_adapter
 
@@ -350,7 +351,7 @@ class TestSQLAlchemyProfiler:
             mock_engine.connect.return_value.__enter__.return_value = conn
             mock_adapter = MagicMock()
             mock_adapter.setup_profiling.side_effect = sa.exc.OperationalError(
-                "database error", None, None
+                "database error", None, Exception("database error")
             )
             mock_get_adapter.return_value = mock_adapter
 
@@ -652,8 +653,8 @@ class TestSQLAlchemyProfiler:
         Test that profiling returns None when row_count metric fails.
 
         This prevents empty profiles from being emitted when we can't get basic
-        metrics like row count (e.g., due to permission errors). This matches
-        GE profiler behavior which asserts that profile.rowCount is not None.
+        metrics like row count (e.g., due to permission errors): a profile is
+        only emitted when profile.rowCount is not None.
 
         The row_count extraction includes explicit exception handling and early
         return logic to prevent emitting profiles without this critical metric.
@@ -706,7 +707,7 @@ class TestSQLAlchemyProfiler:
         """
         Test that empty tables (row_count == 0) skip column profiling but return basic profile.
 
-        This optimization matches GE profiler behavior:
+        This optimization:
         - Empty tables get a basic profile with rowCount=0
         - Column profiling is skipped (no field profiles generated)
         - No wasted queries on empty tables

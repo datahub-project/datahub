@@ -105,6 +105,29 @@ authorization:
     recommendations:
       # Currently limited to the actor only, see TODO: DataHubAuthorizer
       peerGroupEnabled: ${VIEW_AUTHORIZATION_RECOMMENDATIONS_PEER_GROUP_ENABLED:true}
+    queryEntities:
+      # Enforcement of VIEW_ENTITY_QUERIES on Query entity reads (GraphQL and REST), independent
+      # of the view-authorization switch above. Enabled by default so the privilege is actually
+      # enforced wherever it is granted. Disabling is the escape valve: query reads then perform
+      # no subject-dataset authorization lookups at all (e.g. if the added lookup ever regresses
+      # read performance). Does not override VIEW_AUTHORIZATION_ENABLED if enabled.
+      enabled: ${QUERY_ENTITY_AUTHORIZATION_ENABLED:true}
+      # Subject-match mode for query reads: TRUE, FALSE, or COMPAT.
+      # - TRUE: reading a query requires VIEW_ENTITY_QUERIES on ALL of its subject datasets
+      #   everywhere (a query's SQL reveals information about every dataset it touches), and
+      #   topSqlQueries is denied outright without VIEW_ALL_QUERIES (bare strings, nothing to
+      #   check per statement). VIEW_AUTHORIZATION_ENABLED does not change either.
+      # - FALSE: the privilege on any single subject dataset suffices everywhere, and
+      #   topSqlQueries needs VIEW_ENTITY_QUERIES on that dataset. VIEW_AUTHORIZATION_ENABLED does
+      #   not change either.
+      # - COMPAT (the default): follows VIEW_AUTHORIZATION_ENABLED. Off -> any-subject on every
+      #   path (same as FALSE, and as the pre-privilege behavior). On -> require-all on every
+      #   Query-entity read (direct reads, listQueries, REST/OpenAPI, search/related-entity
+      #   masking), which is the rule view authorization already applied to Query entities before
+      #   this privilege existed. topSqlQueries keeps the FALSE rule in both states (never denied
+      #   outright) -- the one way COMPAT-with-view-auth differs from TRUE. A no-op relative to the
+      #   old default for deployments that never turn on VIEW_AUTHORIZATION_ENABLED.
+      requireAllSubjects: ${QUERY_ENTITY_AUTHORIZATION_REQUIRE_ALL_SUBJECTS:compat}
     # Entity types that bypass view authorization when enabled. All other types are restricted by
     # default. Baseline comes from entity-registry.yml (`viewUnrestricted: true`) plus `value`.
     # Operator `add` / `remove` always mutate that list.
@@ -674,9 +697,6 @@ postgres:
       aggressiveRetention: ${DATAHUB_PGQUEUE_TOPIC_DEFAULT_AGGRESSIVE_RETENTION:false}
     # Per-topic overlays on kafka.topics.* (same logical keys). Prefer inheritKafkaTopics + kafka.topics for names/partitions/retention; use this block for pg-only limits or extra topics.
     topics:
-      datahubUpgradeHistory:
-        # Soft cap on completed upgrade-history rows (not expressible in Kafka topic config).
-        maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_DATAHUB_UPGRADE_HISTORY_MAX_ROWS_PER_TOPIC:10}
       failedMetadataChangeProposal:
         maxRowsPerTopic: ${DATAHUB_PGQUEUE_TOPIC_FAILED_MCP_MAX_ROWS_PER_TOPIC:100}
       metadataChangeProposal:
@@ -798,6 +818,16 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_SSL_KEY_PASSWORD:}
+      # Optional HTTP proxy for this cluster only. An explicit host wins; otherwise JVM
+      # http(s).proxyHost / http.nonProxyHosts are honored when useSystemProxyProperties is true.
+      # Apache HttpAsyncClientBuilder.useSystemProperties() is never called.
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_HOST:${ELASTICSEARCH_PROXY_HOST:}}
+        port: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PORT:${ELASTICSEARCH_PROXY_PORT:}}
+        scheme: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_SCHEME:${ELASTICSEARCH_PROXY_SCHEME:http}}
+        username: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USERNAME:${ELASTICSEARCH_PROXY_USERNAME:}}
+        password: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PASSWORD:${ELASTICSEARCH_PROXY_PASSWORD:}}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
     # Optional second cluster. Its engine is resolved independently — an unset shim block
     # auto-detects rather than copying primary's engineType, since primary may be pinned to an
     # older version.
@@ -831,6 +861,13 @@ elasticsearch:
         keyStoreType: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_TYPE:}
         keyStorePassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_PASSWORD:}
         keyPassword: ${ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEY_PASSWORD:}
+      proxy:
+        host: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_HOST:}
+        port: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PORT:}
+        scheme: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_SCHEME:http}
+        username: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USERNAME:}
+        password: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PASSWORD:}
+        useSystemProxyProperties: ${ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES:true}
 
   # Which cluster hosts each subsystem; values are cluster names from `clusters` above. Startup
   # fails if a component names a cluster with a blank uri. searchV2 and searchV3 are separately
@@ -860,6 +897,9 @@ elasticsearch:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
       keywordReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED:false}
+      # Semantic (kNN) search reads document vectors from V3 indices instead of the V2 semantic
+      # indices. Independent of keywordReadEnabled; turn on once V3 holds the document embeddings.
+      semanticReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_SEMANTIC_READ_ENABLED:false}
       analyzerConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_ANALYZER_CONFIG:search_entity_analyzer_config.yaml}
       mappingConfig: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAPPING_CONFIG:search_entity_mapping_config.yaml}
       maxFieldsLimit: ${ELASTICSEARCH_ENTITY_INDEX_V3_MAX_FIELDS_LIMIT:5000}
@@ -1228,14 +1268,6 @@ kafka:
       partitions: ${PLATFORM_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
       replicationFactor: ${PLATFORM_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
-    datahubUpgradeHistory:
-      name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
-      displayName: DataHubUpgradeHistory_v1
-      partitions: ${DATAHUB_UPGRADE_HISTORY_TOPIC_PARTITIONS:1}
-      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
-      configProperties:
-        retention.ms: -1
-
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
       displayName: DataHubUsageEvent_v1
@@ -1505,6 +1537,7 @@ systemUpdate:
   initialBackOffMs: ${BOOTSTRAP_SYSTEM_UPDATE_INITIAL_BACK_OFF_MILLIS:5000}
   maxBackOffs: ${BOOTSTRAP_SYSTEM_UPDATE_MAX_BACK_OFFS:50}
   backOffFactor: ${BOOTSTRAP_SYSTEM_UPDATE_BACK_OFF_FACTOR:2} # Multiplicative factor for back off, default values will result in waiting 5min 15s
+  # Unused: GMS/MAE/MCE no longer wait on DataHubUpgradeHistory_v1. Binding kept so existing Helm values are no-ops.
   waitForSystemUpdate: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:true}
   cdcMode: ${SYSTEM_UPDATE_CDC_MODE:false}
   bootstrap:
@@ -1582,6 +1615,20 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_POLICY_FIELDS:false}
+  viewEntityQueriesPrivilege:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ENTITY_QUERIES_PRIVILEGE_BATCH_SIZE:5000}
+    reprocess:
+      enabled: ${REPROCESS_VIEW_ENTITY_QUERIES_PRIVILEGE:false}
+  # VIEW_ALL_QUERIES is a distinct, platform-level privilege from VIEW_ENTITY_QUERIES above — see
+  # BackfillViewAllQueriesPrivilegeStep's javadoc. Disabling this leaves existing installs unable
+  # to view orphan queries (no recorded subject dataset) after upgrade; it does not affect
+  # VIEW_ENTITY_QUERIES or normal per-dataset query visibility in any way.
+  viewAllQueriesPrivilege:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_VIEW_ALL_QUERIES_PRIVILEGE_BATCH_SIZE:5000}
+    reprocess:
+      enabled: ${REPROCESS_VIEW_ALL_QUERIES_PRIVILEGE:false}
   ownershipTypes:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_OWNERSHIP_TYPES_BATCH_SIZE:1000}
@@ -1859,10 +1906,11 @@ featureFlags:
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page
   datasetSummaryPageV1: ${DATASET_SUMMARY_PAGE_V1:false} # Enables displaying the dataset summary page
-  metricsEnabled: ${METRICS_ENABLED:false} # If turned on, enables the Metrics feature end-to-end (Metrics page in nav, /metrics route, and downstream backend wiring once the Metric entity ships). Defaults off in OSS while the feature is in development.
+  metricsEnabled: ${METRICS_ENABLED:true} # If turned on, enables the Metrics feature end-to-end (Metrics page in nav, /metrics route, and backend wiring for Metric / Semantic Model). Defaults on; set METRICS_ENABLED=false to hide the feature.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  documentExplicitSaveEnabled: ${DOCUMENT_EXPLICIT_SAVE_ENABLED:false} # If turned on, document body edits stay local until the user saves instead of auto-saving
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   structuredPropertiesInPoliciesEnabled: ${STRUCTURED_PROPERTIES_IN_POLICIES_ENABLED:true} # Enables structured properties as criteria in policies
@@ -2012,8 +2060,14 @@ graphQL:
     # Set > 0 only if you want an ArrayBlockingQueue of that capacity.
     queueSize: ${GRAPHQL_CONCURRENCY_QUEUE_SIZE:0}
     keepAlive: ${GRAPHQL_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
+  documentCache:
+    # Shared cache of parsed/validated GraphQL documents, reused across the rate-limit parse
+    # path and query execution so a given query text is parsed at most once per process.
+    enabled: ${GRAPHQL_DOCUMENT_CACHE_ENABLED:true}
+    # Maximum cache weight in bytes, approximated as 5x the cached queries' UTF-8 byte length.
+    maximumWeightBytes: ${GRAPHQL_DOCUMENT_CACHE_MAX_BYTES:26214400}
   query:
-    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
+    complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2010}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
     # Parent chain traversal (glossary, domains, containers, documents)

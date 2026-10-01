@@ -1,7 +1,7 @@
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import PropagationEntityLink from '@app/entity/shared/propagation/PropagationEntityLink';
 import { PropagateThunderbolt, PropagateThunderboltFilled } from '@app/entity/shared/propagation/PropagationIcon';
@@ -18,13 +18,13 @@ const PopoverTitle = styled.div`
     font-weight: bold;
     font-size: 14px;
     padding: 6px 0px;
-    color: ${(props) => props.theme.colors.textOnFillDefault};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const PopoverDescription = styled.div`
     max-width: 340px;
     font-size: 14px;
-    color: ${(props) => props.theme.colors.textOnFillDefault};
+    color: ${(props) => props.theme.colors.text};
     display: inline;
     padding: 0px 0px 8px 0px;
 `;
@@ -40,7 +40,7 @@ const PopoverAttribute = styled.div`
 
 const PopoverAttributeTitle = styled.div`
     font-size: 14px;
-    color: ${(props) => props.theme.colors.textOnFillDefault};
+    color: ${(props) => props.theme.colors.text};
     font-weight: bold;
     margin: 8px 0px;
     overflow: hidden;
@@ -57,7 +57,6 @@ interface Props {
 
 export default function PropagationDetails({ sourceDetail }: Props) {
     const { t } = useTranslation('shared.propagation');
-    const theme = useTheme();
     const {
         isPropagated,
         origin: { entity: originEntity },
@@ -103,7 +102,6 @@ export default function PropagationDetails({ sourceDetail }: Props) {
 
     return (
         <Popover
-            overlayInnerStyle={{ backgroundColor: theme.colors.bgTooltip }}
             showArrow={false}
             title={
                 <PopoverTitle>

@@ -308,6 +308,28 @@ def main():
             f.write("\n")
         print(f"Wrote {len(weights)} {label} weights to: {output_path}")
 
+    # Persist the fallback weight that smoke-test/conftest.py assigns to tests absent from
+    # the weights file. Recomputed on every regeneration so the default tracks real
+    # durations over time and is reviewed in the same PR as the weights themselves.
+    if pytest_weights:
+        pytest_meta_output = args.pytest_output.parent / (
+            args.pytest_output.stem + "_meta.json"
+        )
+        default_weight = statistics.median(
+            float(w["duration"][:-1]) for w in pytest_weights
+        )
+        with open(pytest_meta_output, "w") as f:
+            json.dump(
+                {
+                    "defaultTestWeightSeconds": round(default_weight, 3),
+                    "weightedTestCount": len(pytest_weights),
+                },
+                f,
+                indent=2,
+            )
+            f.write("\n")
+        print(f"Wrote Pytest weights metadata to: {pytest_meta_output}")
+
     print("\n" + "=" * 60)
     print("Done!")
     print("=" * 60)

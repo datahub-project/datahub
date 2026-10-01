@@ -55,7 +55,7 @@ services:
       retries: 5
 
   minio:
-    image: quay.io/minio/minio
+    image: docker.io/pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     container_name: test_flink_minio
     ports:
       - "9000:9000"
@@ -75,16 +75,16 @@ services:
   # mc: MinIO Client — creates the 'warehouse' S3 bucket that iceberg-rest and
   # Flink's S3A plugin use for Iceberg data file storage.
   mc:
-    image: quay.io/minio/mc
+    image: docker.io/pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     container_name: test_flink_mc
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      /usr/bin/mc alias set minio http://minio:9000 admin password &&
-      /usr/bin/mc mb --ignore-existing minio/warehouse &&
-      /usr/bin/mc anonymous set public minio/warehouse &&
+      mc alias set minio http://minio:9000 admin password &&
+      mc mb --ignore-existing minio/warehouse &&
+      mc anonymous set public minio/warehouse &&
       touch /tmp/mc_done &&
       tail -f /dev/null
       "

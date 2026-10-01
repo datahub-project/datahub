@@ -716,11 +716,124 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
 
     assertTrue(
         query.filter().stream()
-            .filter(TermsQueryBuilder.class::isInstance)
-            .map(TermsQueryBuilder.class::cast)
+            .filter(BoolQueryBuilder.class::isInstance)
+            .flatMap(bool -> ((BoolQueryBuilder) bool).should().stream())
+            .filter(TermQueryBuilder.class::isInstance)
+            .map(TermQueryBuilder.class::cast)
             .anyMatch(
-                terms ->
-                    terms.fieldName().equals("_entityType") && terms.values().contains("dataset")));
+                term -> term.fieldName().equals("_entityType") && term.value().equals("dataset")));
+  }
+
+  /**
+   * V3 entity indices keep keyword fields at the root, so filters and value counts skip .keyword.
+   */
+  @Test
+  public void testV3FiltersAndValueCountsUseRootKeywordFields() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform", Condition.EQUAL, "urn:li:dataPlatform:hive")))));
+
+    String v3Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                entityIndex)
+            .toString();
+    String v2Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    assertFalse(v3Filter.contains("platform.keyword"), v3Filter);
+    assertTrue(v3Filter.contains("\"platform\""), v3Filter);
+    assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
+
+    SearchRequestHandler v3Handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec("dataset"),
+            testQueryConfig.toBuilder().entityIndex(entityIndex).build(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+    String valueCounts =
+        v3Handler.getAggregationRequest(operationContext, "platform", null, 10).source().toString();
+    assertTrue(valueCounts.contains("\"field\":\"platform\""), valueCounts);
+    // A caller that names the V2 .keyword subfield counts the V3 root field
+    String keywordValueCounts =
+        v3Handler
+            .getAggregationRequest(operationContext, "platform.keyword", null, 10)
+            .source()
+            .toString();
+    assertTrue(keywordValueCounts.contains("\"field\":\"platform\""), keywordValueCounts);
+  }
+
+  /**
+   * Callers that name the V2 .keyword subfield, or send entity type enum names as the UI does,
+   * still match the V3 fields.
+   */
+  @Test
+  public void testV3FilterNormalizesCallerFilters() {
+    EntityIndexConfiguration entityIndex =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform.keyword",
+                                    Condition.EQUAL,
+                                    "urn:li:dataPlatform:hive"),
+                                buildCriterion("_entityType", Condition.EQUAL, "DATA_PRODUCT")))));
+
+    String v3Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY,
+                entityIndex)
+            .toString();
+    String v2Filter =
+        SearchRequestHandler.getFilterQuery(
+                operationContext,
+                List.of("dataset"),
+                filter,
+                new HashMap<>(),
+                QueryFilterRewriteChain.EMPTY)
+            .toString();
+    assertFalse(v3Filter.contains(".keyword"), v3Filter);
+    assertTrue(v3Filter.contains("\"platform\""), v3Filter);
+    assertTrue(v2Filter.contains("platform.keyword"), v2Filter);
+    // V3 stores the registry entity name in _entityType
+    assertTrue(v3Filter.contains("\"dataProduct\""), v3Filter);
+    assertFalse(v3Filter.contains("DATA_PRODUCT"), v3Filter);
+    // The caller's filter is left as given
+    assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "platform.keyword");
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)

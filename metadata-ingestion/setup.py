@@ -53,6 +53,9 @@ gcp_sm_common = {
 
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
+    # Floor stays Airflow-satisfiable: 3.0.x/3.1.x constraints pin click==8.2.1,
+    # 3.2.x pins 8.3.1. CVE-2026-7246 (>=8.3.3) is applied at lock time via
+    # pyproject [tool.uv] constraint-dependencies.
     "click>=7.1.2,!=8.2.0,<9.0.0",
     "click-default-group<2.0.0",
     "PyYAML<7.0.0",
@@ -77,7 +80,7 @@ framework_common = {
     # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
     # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
     # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
-    # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
+    # airflow-plugin CI installs with -c constraints-3.11.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
     # 3.2.0 is the first release with ijson.parse(use_float=...), which the JSON
@@ -109,7 +112,11 @@ framework_common = {
     # streams) used to supervise ingestion subprocesses in
     # datahub.executor.execution.runner. Previously only available transitively
     # via httpx/openai/starlette; declare it explicitly.
-    "anyio>=3.0.0,<5.0.0",
+    # Floor 4.10.0 — the highest the airflow-plugin CI tolerates (Airflow 3.0.x
+    # constraints pin anyio==4.10.0; 3.1.x pins 4.11.0; 3.2.x pins 4.13.0).
+    # CVE-2026-64847 (>=4.14.2) is applied at lock time via pyproject
+    # [tool.uv] constraint-dependencies.
+    "anyio>=4.10.0,<5.0.0",
 }
 
 rest_common = {
@@ -129,8 +136,7 @@ kafka_common = {
     # and no prebuilt wheels.
     # See https://github.com/confluentinc/confluent-kafka-python/issues/1927
     # RegisteredSchema#guid is being used and was introduced in 2.10.1 https://github.com/confluentinc/confluent-kafka-python/pull/1978
-    # 2.13.0 introduced some breaking changes that require some development
-    "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
+    "confluent_kafka[schemaregistry,avro]>=2.15.1,<3.0.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -190,11 +196,7 @@ pyarrow_common = {
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
-    # <2 held by databricks-sql-connector and great-expectations (sqlalchemy-redshift
-    # >=1.0.0 now supports SQLAlchemy 2). Lifting this cap unblocks pkg_resources-free
-    # dialect releases (sqlalchemy-redshift, sqlalchemy-cockroachdb), then delete the
-    # pkg_resources shim; test_sqlalchemy_stays_below_2_until_shim_removed enforces it.
-    "sqlalchemy>=1.4.39,<2",
+    "sqlalchemy>=2.0.0,<2.1",
     # greenlet is imported directly by
     # datahub.ingestion.source.sqlalchemy_profiler.query_combiner, which is used
     # by the SQLAlchemy profiler (and surfaced in sql_report.py).
@@ -240,7 +242,8 @@ looker_common = {
 bigquery_common = {
     # Google cloud logging library
     "google-cloud-logging<4.0.0",
-    "google-cloud-bigquery<4.0.0",
+    # >=3.14.0 for QueryJobConfig.job_timeout_ms (partition-fetch probe timeout).
+    "google-cloud-bigquery>=3.14.0,<4.0.0",
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
@@ -254,7 +257,7 @@ clickhouse_common = {
     # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
     # zstd needs to be pinned because the latest version causes issues on arm
     "zstd<1.5.6.8",
-    "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
+    "clickhouse-sqlalchemy>=0.3.0,<0.4.0",
 }
 
 datacatalog_lineage_common = {
@@ -286,7 +289,7 @@ dataplex_common = {
 
 redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
-    "sqlalchemy-redshift>=0.8.3,<=0.8.14",
+    "sqlalchemy-redshift>=1.0.0,<2.0.0",
     "GeoAlchemy2<0.19.0",
     "redshift-connector>=2.1.14,<3.0.0",
     *path_spec_common,
@@ -298,8 +301,9 @@ snowflake_common = {
     # Original lower bound 1.4.3 was due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     #
     # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
-    # table column name reflection for non-uppercase table names. While we do not
-    # use this method directly, it is used by great-expectations during profiling.
+    # table column name reflection for non-uppercase table names. The original reason for
+    # this cap was the (now removed) Great Expectations profiler, which relied on that
+    # reflection. Re-validate against the SQLAlchemy profiler before lifting the cap.
     #
     # See: https://github.com/snowflakedb/snowflake-sqlalchemy/compare/v1.7.3...v1.7.4
     #
@@ -317,11 +321,18 @@ snowflake_common = {
     # in https://github.com/datahub-project/datahub/pull/16188 for fixing CVE
     #
     # 1.8.x allows snowflake-connector-python 4.x (required for cryptography>=46 / cffi>=2.0).
-    "snowflake-sqlalchemy>=1.8.0,<2.0.0",
+    # >=1.11.0 for CVE-2026-15736: SQL injection via MERGE INTO column keys and via
+    # literal-rendered DDL bound params, plus a local file read from connection params
+    # forwarded out of the URL query string. 1.11.x still requires only sqlalchemy>=1.4.19,
+    # so this does not disturb the sqlalchemy<2 pin.
+    "snowflake-sqlalchemy>=1.11.0,<2.0.0",
     # >=4.0.0 required for cffi>=2.0 (needed by cryptography>=46). 3.x pins cffi<2.0 and is
     # incompatible with cryptography 46+. 3.8.0 was yanked.
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
-    "snowflake-connector-python>=4.4.0,<5.0.0",
+    # >= 4.7.1 for CVE-2026-15925: the connector accepted a certificate signed by any
+    # trusted CA for any domain without matching the requested host. 4.7.0 was yanked.
+    # Floor is 4.7.3: 4.7.1/4.7.2 reject valid certificates for account locators with underscores.
+    "snowflake-connector-python>=4.7.3,<5.0.0",
     "pandas<3.0.0",
     # >=50.0.0 for CVE-2026-69247; >=49.0.0 covered CVE-2026-69249 (path-building DoS).
     # <51 aligns with pyOpenSSL/msal. Prior floor >=48.0.1 covered GHSA-537c-gmf6-5ccf.
@@ -379,7 +390,7 @@ iceberg_common = {
 
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
-    "sqlalchemy-pytds>=0.3,<2.0.0",
+    "sqlalchemy-pytds>=1.0.0,<2.0.0",
     # >=26.4.0: pyOpenSSL 26.0-26.3 crash on import against cryptography>=49
     # (AttributeError: module 'lib' has no attribute 'GEN_EMAIL'), which the
     # cryptography>=49.0.0,<51.0.0 range above can resolve to.
@@ -467,17 +478,14 @@ databricks_common = {
     # TODO: When upgrading to >=3.0.0, remove proxy authentication monkey patching
     # in src/datahub/ingestion/source/unity/proxy.py (_patch_databricks_sql_proxy_auth)
     # as the fix was included natively in 3.0.0 via https://github.com/databricks/databricks-sql-python/pull/354
-    # TODO: When upgrading to >=3.0.0, also drop the get_columns type-map patch in
-    # src/datahub/ingestion/source/sqlalchemy_profiler/adapters/databricks.py -- v2 of
-    # the dialect replaced the local _type_map with parse_column_info_from_tgetcolumnsresponse.
-    "databricks-sql-connector>=2.8.0,<3.0.0",
+    "databricks-sql-connector>=4.1.2,<5.0.0",
+    # connector 4.x split the SQLAlchemy dialect into a separate package; required so
+    # create_engine("databricks://...") can load the dialect for SQLAlchemy profiling.
+    "databricks-sqlalchemy>=2.0.0,<3.0.0",
 }
 
 databricks = {
     "requests<3.0.0",
-    # Due to https://github.com/databricks/databricks-sql-python/issues/326
-    # databricks-sql-connector<3.0.0 requires pandas<2.2.0
-    "pandas<2.2.0",
 }
 
 mysql = {"pymysql>=1.0.2,<2.0.0"}
@@ -521,9 +529,10 @@ onnx_embeddings = {
 
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    "unstructured[md]==0.18.24",
-    # Unstructured ingest framework for pipeline orchestration
-    "unstructured-ingest==0.7.2",
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
+    "unstructured[md]==0.24.1",
+    # unstructured 0.24.x requires ingest >=1.4.0
+    "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
     # Transitive via unstructured, which requires plain `nltk`. 3.10.1 added an
@@ -542,12 +551,12 @@ unstructured_lib = {
 
 notion_common = {
     # Notion-specific connector adds notion-client and related dependencies
-    "unstructured-ingest[notion]==0.7.2",
+    "unstructured-ingest[notion]==1.4.28",
 } | unstructured_lib
 
 confluence_common = {
     # Confluence-specific connector adds atlassian-python-api and related dependencies
-    "unstructured-ingest[confluence]==0.7.2",
+    "unstructured-ingest[confluence]==1.4.28",
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
     # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
     "markdownify>=0.14.1,<2.0.0",
@@ -574,11 +583,21 @@ plugins: Dict[str, Set[str]] = {
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
+    # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
+    # in its own extra below.
     "datahub-lite": {
-        "duckdb>=1.0.0,<2.0.0",
-        "fastapi<0.129.0",
+        # >=0.133.0: older fastapi caps starlette<1.0, blocking its CVE fixes.
+        "fastapi>=0.133.0,<0.142.0",
+        # CVE-2026-48710, CVE-2026-48817, CVE-2026-48818, CVE-2026-54282,
+        # CVE-2026-54283; fixed in 1.3.1.
+        "starlette>=1.3.1,<2.0.0",
         "uvicorn<0.41.0",
     },
+    # Alternative DataHub Lite storage engine, selected with `lite.type: duckdb`.
+    # The extra is named after the lite implementation key so that the plugin
+    # registry's "pip install acryl-datahub[duckdb]" hint is accurate.
+    "duckdb": {"duckdb>=1.0.0,<2.0.0"},
     # Integrations.
     "airbyte": {"requests"},
     "airflow": {
@@ -605,7 +624,7 @@ plugins: Dict[str, Set[str]] = {
     # this version has missing dependency asyncio
     # https://github.com/jd/tenacity/issues/471
     | {
-        "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
+        "PyAthena[SQLAlchemy]>=3.0.0,<4.0.0",
         "sqlalchemy-bigquery>=1.5.0,<2.0.0",
         "tenacity!=8.4.0,<9.0.0",
     },
@@ -640,14 +659,14 @@ plugins: Dict[str, Set[str]] = {
     "cockroachdb": sql_common
     | postgres_common
     | aws_common
-    | {"sqlalchemy-cockroachdb<2.0.0"},
+    | {"sqlalchemy-cockroachdb>=2.0.0,<3.0.0"},
     "datahub-lineage-file": set(),
     "datahub-business-glossary": set(),
     "dataplex": dataplex_common | cachetools_lib,
     "delta-lake": {*delta_lake},
     "db2": {
         # The underlying ibm_db library and Db2 clidriver don't work on Linux ARM
-        "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
+        "ibm_db_sa>=0.4.4,<0.5.0; platform_machine == 'x86_64' or platform_system == 'Darwin'",
         "pyodbc<6.0.0",
         *sql_common,
     },
@@ -682,6 +701,8 @@ plugins: Dict[str, Set[str]] = {
     "feast": {
         # Note: feast>=0.48 requires numpy>=2, so numpy<2 below constrains feast to <=0.47.0 automatically
         "feast>=0.34.0,<1",
+        # feast pulls starlette via fastapi; same CVE floor as datahub-lite.
+        "starlette>=1.3.1,<2.0.0",
         "flask-openid>=1.3.0,<2.0.0",
         "dask[dataframe]<2024.7.0",
         # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
@@ -698,7 +719,7 @@ plugins: Dict[str, Set[str]] = {
     "hana": sql_common
     | {
         # Note: sqlalchemy-hana>=4.0 requires SQLAlchemy>=2, so constrained to 3.x automatically
-        "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "sqlalchemy-hana>=4.0.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "defusedxml>=0.7.1,<0.8.0",
     },
@@ -769,6 +790,7 @@ plugins: Dict[str, Set[str]] = {
     "doris": mysql_common,
     "odcs": aws_common | {"GitPython>=3.1.58,<4.0.0"},
     "okta": {"okta~=1.7.0,<2.0.0", "nest-asyncio<2.0.0", "flatdict!=4.0.1"},
+    "openapi": {"requests<3.0.0"},
     "oracle": sql_common | {"oracledb<4.0.0"},
     "postgres": sql_common | postgres_common | aws_common,
     "presto": sql_common | pyhive_common | trino,
@@ -791,7 +813,7 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | {"db-dtypes"}  # Pandas extension data types
     | cachetools_lib,
-    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
+    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common (urllib3 1.x lock-in).
     "redshift-slim": redshift_common
     | usage_common
     | sqlglot_lib
@@ -839,7 +861,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         # On 2024-10-30, teradatasqlalchemy 20.0.0.2 was released. This version seemed to cause issues
         # in our CI, so we're pinning the version for now.
-        "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+        "teradatasqlalchemy>=20.0.0.9,<21.0.0.0",
     },
     # aws_common is needed for the inherited PostgresSource RDS IAM auth.
     "timescaledb": sql_common | postgres_common | aws_common,
@@ -853,7 +875,7 @@ plugins: Dict[str, Set[str]] = {
         | sqlglot_lib
     ),
     "powerbi-report-server": powerbi_report_server,
-    "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
+    "vertica": sql_common | {"sqlalchemy-vertica-python>=0.6.3,<0.7.0"},
     "unity-catalog": databricks_common | databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks_common | databricks | sql_common,
@@ -878,7 +900,9 @@ plugins: Dict[str, Set[str]] = {
     "quicksight": aws_common | sqlglot_lib,
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
-    "sigma": sqlglot_lib | usage_common | {"requests<3.0.0"},
+    # requests>=2.27 for requests.exceptions.JSONDecodeError, which the
+    # source references at import time to classify a malformed response.
+    "sigma": sqlglot_lib | usage_common | {"requests>=2.27,<3.0.0"},
     # pycarlo is Monte Carlo's official sgqlc-based GraphQL client over the MCD API.
     "montecarlo": {"pycarlo>=0.15.262,<1.0.0", "tenacity>=8.0.1,!=8.4.0,<9.0.0"},
     "sac": sac,
@@ -888,8 +912,10 @@ plugins: Dict[str, Set[str]] = {
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
-        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError)
-        "vcrpy>=8.0.0,<9.0",
+        # vcrpy 8.x required for urllib3 2.x compatibility (fixes replay TypeError);
+        # 8.2.0+ required for aiohttp 3.14, which removed streams.AsyncStreamReaderMixin
+        # that older vcrpy aiohttp stubs subclass.
+        "vcrpy>=8.2.0,<9.0",
         # responses library for HTTP replay - better compatibility with custom SDK transports
         # (e.g., Looker SDK) that break with VCR's urllib3 patching
         "responses>=0.25.0,<1.0",
@@ -916,9 +942,12 @@ all_exclude_plugins: Set[str] = {
     # SQL Server ODBC requires additional drivers, and so we don't want to keep
     # it included in the default "all" installation.
     "mssql-odbc",
-    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
-    # simply exclude it.
+    # DataHub Lite is an opt-in local tool, and its `serve` command pulls in a
+    # whole web stack, so we keep it out of the default "all" installation.
     "datahub-lite",
+    # duckdb doesn't have a prebuilt wheel for Linux arm7l or aarch64, so we
+    # simply exclude it. DataHub Lite works without it, on sqlite.
+    "duckdb",
     # Feast tends to have overly restrictive dependencies and hence doesn't
     # play nice with the "all" installation.
     "feast",
@@ -931,6 +960,15 @@ all_exclude_plugins: Set[str] = {
     # opt-in feature, so keep it out of "all" (and the bundled ingestion image).
     # Install explicitly with acryl-datahub[onnx-embeddings].
     "onnx-embeddings",
+    # unstructured 0.24.x / unstructured-ingest 1.4.x require Python 3.11+. Keep
+    # them out of "all" so uv can lock acryl-datahub for requires-python >=3.10.
+    # Install explicitly: acryl-datahub[datahub-documents], [notion], [confluence],
+    # or [unstructured]. Managed ingestion still maps source type to those extras.
+    # The full ingestion image re-adds them: [all,datahub-documents,notion,confluence].
+    "datahub-documents",
+    "unstructured",
+    "notion",
+    "confluence",
 }
 
 mypy_stubs = {
@@ -960,7 +998,8 @@ mypy_stubs = {
     "types-ujson>=5.2.0,<6.0.0",
     "types-Deprecated<2.0.0",
     "types-protobuf>=4.21.0.1,<7.0.0",
-    "sqlalchemy2-stubs<0.1.0",
+    # No sqlalchemy stubs: SQLAlchemy 2.0 ships inline (PEP 561) types, and its mypy
+    # plugin refuses to load when sqlalchemy2-stubs/sqlalchemy-stubs are installed.
 }
 
 
@@ -970,8 +1009,9 @@ test_api_requirements = {
     # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
-    # Missing numpy requirement in 8.0.0
-    "deepdiff!=8.0.0,<9.0.0",
+    # CVE-2026-33155: pickle Delta memory-exhaustion DoS; fixed in 8.6.2.
+    # 8.0.0 is also excluded (missing numpy requirement).
+    "deepdiff>=8.6.2,<9.0.0",
     "orderly-set!=5.4.0,<6.0.0",  # 5.4.0 uses invalid types on older Python versions
     "PyYAML<7.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
@@ -1046,6 +1086,7 @@ base_dev_requirements = {
             "matillion-dpc",
             "odcs",
             "okta",
+            "openapi",
             "oracle",
             "postgres",
             "sagemaker",
@@ -1053,6 +1094,7 @@ base_dev_requirements = {
             "kinesis",
             "datahub-rest",
             "datahub-lite",
+            "duckdb",
             "presto",
             "rdf",
             "redash",
@@ -1105,7 +1147,7 @@ dev_requirements = {
 }
 
 # Documentation generation requirements
-# Includes datahub-documents which requires Python 3.10+ (due to unstructured library)
+# Includes datahub-documents which requires Python 3.11+ (due to unstructured library)
 docs_requirements = {
     *base_dev_requirements,
     *plugins["datahub-documents"],
@@ -1156,9 +1198,11 @@ full_test_dev_requirements = {
 entry_points = {
     "console_scripts": ["datahub = datahub.entrypoints:main"],
     "datahub.token_provider.plugins": [
+        "pat = datahub.ingestion.auth.pat:PatTokenProvider",
         "k8s_oidc = datahub.ingestion.auth.k8s_projected:K8sProjectedTokenProvider",
         "azure_entra = datahub.ingestion.auth.azure_entra:AzureEntraTokenProvider",
         "oidc_client_credentials = datahub.ingestion.auth.oidc_client_credentials:OidcClientCredentialsTokenProvider",
+        "oauth_session = datahub.ingestion.auth.oauth_session:OAuthSessionTokenProvider",
     ],
     "sqlalchemy.dialects": [
         "doris.pymysql = datahub.ingestion.source.sql.doris.doris_dialect:DorisDialect",
@@ -1436,7 +1480,7 @@ setuptools.setup(
         "dev": list(dev_requirements),
         "docs": list(
             docs_requirements
-        ),  # For documentation generation (requires Python 3.10+)
+        ),  # For documentation generation (requires Python 3.11+)
         "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),

@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { ViewBuilderForm } from '@app/entityV2/view/builder/ViewBuilderForm';
 import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
 import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entityV2/view/types';
+import { hasAtLeastOneValidCondition } from '@app/entityV2/view/utils';
 import ClickOutside from '@app/shared/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Modal } from '@src/alchemy-components';
@@ -28,12 +29,16 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
     const { t: tc } = useTranslation('common.actions');
     const [viewBuilderState, setViewBuilderState] = useState<ViewBuilderState>(initialState || DEFAULT_BUILDER_STATE);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+    const previousUrnRef = useRef<string | undefined>(urn);
 
     useEffect(() => {
-        setViewBuilderState(initialState || DEFAULT_BUILDER_STATE);
-    }, [initialState]);
+        if (urn !== previousUrnRef.current) {
+            setViewBuilderState(initialState || DEFAULT_BUILDER_STATE);
+            previousUrnRef.current = urn;
+        }
+    }, [urn, initialState]);
 
-    const hasFilters = (viewBuilderState?.definition?.filter?.filters?.length ?? 0) > 0;
+    const hasFilters = hasAtLeastOneValidCondition(viewBuilderState?.definition?.logicalPredicate);
     const canSave = viewBuilderState.name && viewBuilderState.viewType && hasFilters;
 
     const titleText = useMemo(() => {

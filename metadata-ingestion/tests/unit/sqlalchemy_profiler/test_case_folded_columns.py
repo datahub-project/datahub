@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import sqlalchemy as sa
 
-from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.snowflake import (
     SnowflakeAdapter,
@@ -93,7 +93,7 @@ class TestRestoreCaseFoldedColumns:
             rebuilt = adapter._use_stored_column_names(table, snowflake_engine)
 
         rendered = [
-            str(sa.select([sa.func.min(c)]).compile(dialect=snowflake_engine.dialect))
+            str(sa.select(sa.func.min(c)).compile(dialect=snowflake_engine.dialect))
             for c in rebuilt.columns
         ]
         assert any('"col"' in sql for sql in rendered)

@@ -1,6 +1,6 @@
 import { CodeOutlined, FormOutlined } from '@ant-design/icons';
 import { Typography, message } from 'antd';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
@@ -12,6 +12,8 @@ import RecipeForm from '@app/ingestV2/source/builder/RecipeForm/RecipeForm';
 import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
 import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
 import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
+import { SnowflakePasswordAuthDeprecationWarning } from '@app/sharedV2/ingestionSources/SnowflakePasswordAuthDeprecationWarning';
 import { Button } from '@src/alchemy-components';
 
 import { IngestionSource } from '@types';
@@ -86,6 +88,17 @@ function RecipeBuilder(props: Props) {
     const [isViewingForm, setIsViewingForm] = useState(true);
     const [hideDocsHint, setHideDocsHint] = useState(false);
 
+    // Only the Snowflake banner consumes parsedRecipe; skip YAML parsing for
+    // other source types so editing a non-Snowflake recipe doesn't pay the cost.
+    const parsedRecipe = useMemo(() => {
+        if (type !== SNOWFLAKE || !displayRecipe) return null;
+        try {
+            return YAML.parse(displayRecipe);
+        } catch {
+            return null;
+        }
+    }, [displayRecipe, type]);
+
     function switchViews(isFormView: boolean) {
         try {
             YAML.parse(displayRecipe);
@@ -105,6 +118,7 @@ function RecipeBuilder(props: Props) {
             ) : null}
             {(type === LOOKER || type === LOOK_ML) && <LookerWarning type={type} />}
             {type === CSV && <CSVInfo />}
+            {type === SNOWFLAKE && <SnowflakePasswordAuthDeprecationWarning recipe={parsedRecipe} />}
             <HeaderContainer>
                 <Title style={{ marginBottom: 0 }} level={5}>
                     {t('recipeBuilder.detailsTitle', { displayName: sourceConfigs?.displayName ?? '' })}

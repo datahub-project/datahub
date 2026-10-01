@@ -10,7 +10,10 @@ export default {
 	},
 	stories: [
 		'../src/alchemy-components/.docs/*.mdx',
-		'../src/alchemy-components/components/**/*.stories.@(js|jsx|mjs|ts|tsx)'
+		'../src/alchemy-components/components/**/*.stories.@(js|jsx|mjs|ts|tsx)',
+		// App-level compositions (e.g. the entity hover card) that build on alchemy components but
+		// depend on GraphQL types, so they can't live under `alchemy-components`.
+		'../src/app/**/*.stories.@(js|jsx|mjs|ts|tsx)',
 	],
 	addons: [
 		'@storybook/addon-onboarding',

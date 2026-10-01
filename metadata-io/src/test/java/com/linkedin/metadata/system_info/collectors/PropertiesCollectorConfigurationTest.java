@@ -102,7 +102,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.password",
           "elasticsearch.clusters.*.sslContext.keyPassword",
           "elasticsearch.clusters.*.sslContext.trustStorePassword",
-          "elasticsearch.clusters.*.sslContext.keyStorePassword");
+          "elasticsearch.clusters.*.sslContext.keyStorePassword",
+          "elasticsearch.clusters.*.proxy.password");
 
   /**
    * Template patterns for non-sensitive configuration properties that contain dynamic parts. Use
@@ -194,6 +195,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.clusters.*.sslContext.trustStoreType",
           "elasticsearch.clusters.*.sslContext.keyStoreFile",
           "elasticsearch.clusters.*.sslContext.keyStoreType",
+          "elasticsearch.clusters.*.proxy.host",
+          "elasticsearch.clusters.*.proxy.port",
+          "elasticsearch.clusters.*.proxy.scheme",
+          "elasticsearch.clusters.*.proxy.username",
+          "elasticsearch.clusters.*.proxy.useSystemProxyProperties",
           // Postgres PgQueue configuration (non-credential settings)
           "postgres.pgQueue.topicDefaults.*",
           "postgres.pgQueue.topics.*.*",
@@ -238,6 +244,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "authentication.tokenService.signingAlgorithm",
           "authorization.defaultAuthorizer.enabled",
           "authorization.view.enabled",
+          "authorization.view.queryEntities.enabled",
+          "authorization.view.queryEntities.requireAllSubjects",
           "authorization.view.unrestrictedEntityTypes.value",
           "authorization.view.unrestrictedEntityTypes.add",
           "authorization.view.unrestrictedEntityTypes.remove",
@@ -839,6 +847,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.concurrency.scaleWithProcessors",
           "graphQL.concurrency.separateThreadPool",
           "graphQL.concurrency.stackSize",
+          "graphQL.documentCache.enabled",
+          "graphQL.documentCache.maximumWeightBytes",
           "graphQL.metrics.enabled",
           "graphQL.metrics.fieldLevelEnabled",
           "graphQL.metrics.fieldLevelOperations",
@@ -947,6 +957,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "systemUpdate.policyFields.batchSize",
           "systemUpdate.policyFields.enabled",
           "systemUpdate.policyFields.reprocess.enabled",
+          "systemUpdate.viewAllQueriesPrivilege.batchSize",
+          "systemUpdate.viewAllQueriesPrivilege.enabled",
+          "systemUpdate.viewAllQueriesPrivilege.reprocess.enabled",
+          "systemUpdate.viewEntityQueriesPrivilege.batchSize",
+          "systemUpdate.viewEntityQueriesPrivilege.enabled",
+          "systemUpdate.viewEntityQueriesPrivilege.reprocess.enabled",
           "systemUpdate.processInstanceHasRunEvents.batchSize",
           "systemUpdate.processInstanceHasRunEvents.delayMs",
           "systemUpdate.processInstanceHasRunEvents.enabled",
@@ -1192,6 +1208,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.v3.mappingConfig",
           "elasticsearch.entityIndex.v3.cleanup",
           "elasticsearch.entityIndex.v3.keywordReadEnabled",
+          "elasticsearch.entityIndex.v3.semanticReadEnabled",
           "elasticsearch.entityIndex.v3.maxFieldsLimit",
           // Semantic search configuration
           "elasticsearch.entityIndex.semanticSearch.enabled",
