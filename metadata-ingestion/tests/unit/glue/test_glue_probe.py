@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, Iterator, List
+from typing import TYPE_CHECKING, Dict, Iterator, List, Optional
 
 import boto3
 import pytest
@@ -42,7 +42,7 @@ def glue(monkeypatch: pytest.MonkeyPatch) -> Iterator[Stubber]:
 def test_probe_methods_advertises_the_glue_commands() -> None:
     commands = {spec.command: spec for spec in list_probe_methods("glue")}
 
-    assert {"databases"} <= set(commands)
+    assert {"databases", "tables", "columns"} <= set(commands)
     assert commands["databases"].kind == "Database"
 
 
@@ -168,3 +168,238 @@ def test_the_glue_client_is_closed_after_the_command(
     run_probe_method("glue", _RECIPE, "databases", {})
 
     assert closed == [True]
+
+
+_SALES: Dict[str, object] = {"Name": "sales", "CatalogId": "123456789012"}
+
+
+def _databases(
+    glue: Stubber,
+    *databases: Dict[str, object],
+    params: Optional[Dict[str, str]] = None,
+) -> None:
+    glue.add_response(
+        "get_databases", {"DatabaseList": list(databases)}, dict(params or {})
+    )
+
+
+def test_tables_lists_tables_and_views_with_their_subtype(glue: Stubber) -> None:
+    _databases(glue, _SALES)
+    glue.add_response(
+        "get_tables",
+        {
+            "TableList": [
+                {
+                    "Name": "orders",
+                    "CatalogId": "123456789012",
+                    "TableType": "EXTERNAL_TABLE",
+                    "StorageDescriptor": {"Columns": [{"Name": "id", "Type": "int"}]},
+                    "PartitionKeys": [{"Name": "dt", "Type": "string"}],
+                    "Parameters": {"secret_hint": "never shown"},
+                    "Owner": "someone@example.com",
+                },
+                {
+                    "Name": "orders_view",
+                    "TableType": "VIRTUAL_VIEW",
+                    "ViewOriginalText": "SELECT 1",
+                },
+                {
+                    "Name": "shared_orders",
+                    "TargetTable": {
+                        "CatalogId": _OTHER_ACCOUNT,
+                        "DatabaseName": "owner_db",
+                        "Name": "orders",
+                    },
+                },
+            ]
+        },
+        {"DatabaseName": "sales"},
+    )
+
+    result = run_probe_method("glue", _RECIPE, "tables", {"database": "sales"})
+
+    assert result.kind == "Table"
+    assert result.parent_path == ["sales"]
+    assert result.result == [
+        {
+            "name": "orders",
+            "subtype": "Table",
+            "table_type": "EXTERNAL_TABLE",
+            "catalog_id": "123456789012",
+            "resource_link": False,
+            "column_count": 2,
+            "database_resource_link": False,
+            "database_catalog_id": "123456789012",
+        },
+        {
+            "name": "orders_view",
+            "subtype": "View",
+            "table_type": "VIRTUAL_VIEW",
+            "catalog_id": "",
+            "resource_link": False,
+            "column_count": 0,
+            "database_resource_link": False,
+            "database_catalog_id": "123456789012",
+        },
+        {
+            "name": "shared_orders",
+            "subtype": "Table",
+            "table_type": None,
+            "catalog_id": "",
+            "resource_link": True,
+            "column_count": 0,
+            "database_resource_link": False,
+            "database_catalog_id": "123456789012",
+        },
+    ]
+    assert "never shown" not in str(result.to_dict())
+    assert "someone@example.com" not in str(result.to_dict())
+    assert "SELECT 1" not in str(result.to_dict())
+
+
+def test_an_unknown_database_is_a_caller_error(glue: Stubber) -> None:
+    _databases(glue, _SALES)
+
+    with pytest.raises(ValueError, match="no database named 'nope'"):
+        run_probe_method("glue", _RECIPE, "tables", {"database": "nope"})
+
+
+def test_a_denied_table_listing_degrades_to_a_warning(glue: Stubber) -> None:
+    _databases(glue, _SALES)
+    glue.add_client_error(
+        "get_tables",
+        service_error_code="AccessDeniedException",
+        service_message=_PRINCIPAL_MESSAGE,
+        http_status_code=400,
+        expected_params={"DatabaseName": "sales"},
+    )
+
+    result = run_probe_method("glue", _RECIPE, "tables", {"database": "sales"})
+
+    assert result.result == []
+    assert any("glue:GetTables on database 'sales'" in w for w in result.warnings)
+    assert any("skips this database's tables" in w for w in result.warnings)
+    assert "someone@example.com" not in str(result.to_dict())
+
+
+def test_tables_warns_when_ingestion_never_lists_the_database(glue: Stubber) -> None:
+    link: Dict[str, object] = {
+        "Name": "shared_link",
+        "CatalogId": "123456789012",
+        "TargetDatabase": {"CatalogId": _OTHER_ACCOUNT, "DatabaseName": "owner_db"},
+    }
+    _databases(glue, link)
+    glue.add_response(
+        "get_tables", {"TableList": [{"Name": "t1"}]}, {"DatabaseName": "shared_link"}
+    )
+
+    result = run_probe_method(
+        "glue",
+        {**_RECIPE, "ignore_resource_links": True},
+        "tables",
+        {"database": "shared_link"},
+    )
+
+    assert isinstance(result.result, list)
+    assert result.result[0]["database_resource_link"] is True
+    assert any("ignore_resource_links is true" in w for w in result.warnings)
+
+
+def test_tables_warns_when_the_database_belongs_to_another_catalog(
+    glue: Stubber,
+) -> None:
+    _databases(
+        glue,
+        {"Name": "sales", "CatalogId": "333333333333"},
+        params={"CatalogId": _OTHER_ACCOUNT},
+    )
+    glue.add_response(
+        "get_tables",
+        {"TableList": [{"Name": "orders"}]},
+        {"DatabaseName": "sales", "CatalogId": _OTHER_ACCOUNT},
+    )
+
+    result = run_probe_method(
+        "glue",
+        {**_RECIPE, "catalog_id": _OTHER_ACCOUNT},
+        "tables",
+        {"database": "sales"},
+    )
+
+    assert isinstance(result.result, list)
+    assert result.result[0]["database_catalog_id"] == "333333333333"
+    assert any("not catalog_id" in w for w in result.warnings)
+
+
+def test_columns_are_columns_then_partition_keys(glue: Stubber) -> None:
+    glue.add_response(
+        "get_tables",
+        {
+            "TableList": [
+                {
+                    "Name": "orders",
+                    "StorageDescriptor": {
+                        "Columns": [
+                            {
+                                "Name": "id",
+                                "Type": "bigint",
+                                "Comment": "order id",
+                                "Parameters": {"x": "hidden"},
+                            }
+                        ]
+                    },
+                    "PartitionKeys": [{"Name": "dt", "Type": "string"}],
+                }
+            ]
+        },
+        {"DatabaseName": "sales"},
+    )
+
+    result = run_probe_method(
+        "glue", _RECIPE, "columns", {"database": "sales", "table": "orders"}
+    )
+
+    assert result.result == [
+        {"name": "id", "type": "bigint", "comment": "order id", "partition_key": False},
+        {"name": "dt", "type": "string", "comment": None, "partition_key": True},
+    ]
+    assert "hidden" not in str(result.to_dict())
+
+
+def test_columns_of_a_resource_link_say_where_the_schema_lives(
+    glue: Stubber,
+) -> None:
+    glue.add_response(
+        "get_tables",
+        {
+            "TableList": [
+                {
+                    "Name": "shared_orders",
+                    "TargetTable": {
+                        "CatalogId": _OTHER_ACCOUNT,
+                        "DatabaseName": "owner_db",
+                        "Name": "orders",
+                    },
+                }
+            ]
+        },
+        {"DatabaseName": "sales"},
+    )
+
+    result = run_probe_method(
+        "glue", _RECIPE, "columns", {"database": "sales", "table": "shared_orders"}
+    )
+
+    assert result.result == []
+    assert any("resource link" in w for w in result.warnings)
+
+
+def test_columns_of_an_unknown_table_is_a_caller_error(glue: Stubber) -> None:
+    glue.add_response(
+        "get_tables", {"TableList": [{"Name": "orders"}]}, {"DatabaseName": "sales"}
+    )
+
+    with pytest.raises(ValueError, match="no table 'nope'"):
+        run_probe_method(
+            "glue", _RECIPE, "columns", {"database": "sales", "table": "nope"}
+        )
