@@ -852,3 +852,28 @@ class TestMixedFindings:
         assert "## Upgrade Steps in Window" in md
         assert "## Reindex Triggers" in md
         assert "## Schema Version Gaps" in md
+
+
+class TestMainTargetDefault:
+    def test_target_defaults_to_latest_release(self, tmp_path):
+        out = tmp_path / "report.md"
+        with patch.object(
+            ra.rac, "resolve_base", return_value="v1.2.0"
+        ) as resolve, patch.object(
+            ra, "run", return_value=([], "abc1234567", "def1234567")
+        ) as run:
+            ra.main(["--current", "abc123", "--output", str(out)])
+        resolve.assert_called_once()
+        run.assert_called_once_with("abc123", "v1.2.0")
+        assert "v1.2.0" in out.read_text()
+
+    def test_explicit_target_skips_resolution(self, tmp_path):
+        out = tmp_path / "report.md"
+        with patch.object(ra.rac, "resolve_base") as resolve, patch.object(
+            ra, "run", return_value=([], "abc1234567", "def1234567")
+        ) as run:
+            ra.main(
+                ["--current", "abc123", "--target", "v1.1.0", "--output", str(out)]
+            )
+        resolve.assert_not_called()
+        run.assert_called_once_with("abc123", "v1.1.0")

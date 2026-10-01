@@ -752,7 +752,7 @@ def run(
     return findings, current_sha, target_sha
 
 
-def main() -> None:
+def main(argv: Optional[list[str]] = None) -> None:
     parser = argparse.ArgumentParser(
         description=(
             "Rollback compatibility report between two DataHub releases."
@@ -763,8 +763,11 @@ def main() -> None:
         help="Current build (N) — tag, branch, or SHA",
     )
     parser.add_argument(
-        "--target", required=True,
-        help="Target build (N-1) — tag, branch, or SHA",
+        "--target", default=None,
+        help=(
+            "Target build (N-1) — tag, branch, or SHA (default: latest stable "
+            "release tag — v*-cloud in acryl-fork repos, v* in OSS DataHub)"
+        ),
     )
     parser.add_argument(
         "--output", default=None,
@@ -774,7 +777,12 @@ def main() -> None:
         "--json", dest="emit_json", action="store_true",
         help="Also emit a JSON report alongside markdown",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+
+    # Same baseline rule as the PDL change report, so both tools agree on N-1.
+    if args.target is None:
+        args.target = rac.resolve_base()
+        print(f"Resolved target (N-1): {args.target}", file=sys.stderr)
 
     findings, current_sha, target_sha = run(args.current, args.target)
 
