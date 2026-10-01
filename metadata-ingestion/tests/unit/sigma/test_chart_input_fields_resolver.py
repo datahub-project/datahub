@@ -26,7 +26,7 @@ from datahub.ingestion.source.sigma.formula_parser import (
     extract_bracket_refs,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource, _workbook_dm_url_ids
-from datahub.metadata.schema_classes import InputFieldsClass
+from datahub.metadata.schema_classes import ChartInfoClass, InputFieldsClass
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -97,6 +97,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.sigma_api.get_workbook_lineage = MagicMock(return_value=[])
     source._workbook_customsql_registered_urns = set()
     source._workbook_customsql_formula_fields = {}
+    source._loaded_dm_chart_inputs = {}
     source._dm_element_field_paths = {}
     source._folded_index_memo = None
     source._dm_key_by_element_urn = {}
@@ -1480,6 +1481,32 @@ class TestChartRefStrategies:
         assert self._chart_fields([chart, loader], "chart-1") == [
             f"urn:li:schemaField:({_OWNER_URN},Sku)"
         ]
+
+    def test_a_loaded_data_model_resolution_is_an_entity_input(self) -> None:
+        """A column edge to a DM element the chart does not list as an input
+        would be invisible to dataset-level lineage and impact analysis."""
+        chart = _make_element_with_formula(
+            "chart-1", "Chart", {"Sku": "[Owner El/Sku]"}
+        )
+        chart.upstream_sources = {
+            "dm1/y": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")
+        }
+        loader = _make_element("loader", "Loader")
+        loader.upstream_sources = {
+            "dm1/x": DataModelElementUpstream(name="Join El", data_model_url_id="dm1")
+        }
+        self.src.dataset_upstream_urn_mapping = {}
+        self.src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({}, [])
+        )
+        workbook = _make_workbook_with_elements([[chart, loader]])
+        inputs = [
+            aspect.inputs
+            for wu in self.src._gen_pages_workunit(workbook, paths=[])
+            if (aspect := wu.get_aspect_of_type(ChartInfoClass)) is not None
+            and "chart-1" in wu.get_urn()
+        ]
+        assert inputs == [[_OWNER_URN]]
 
     @pytest.mark.parametrize(
         "lineage", ["none", "unnamed-dataset", "customsql", "dropped-source"]

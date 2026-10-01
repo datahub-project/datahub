@@ -498,6 +498,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Merged at drain time so warehouse-resolved fields supplement
         # (not replace) formula-derived column entries.
         self._workbook_customsql_formula_fields: Dict[str, List[InputFieldClass]] = {}
+        # Data Model element URNs the loaded-DM lookup resolved, per chart
+        # element id, so ChartInfo can carry the entity edge too.
+        self._loaded_dm_chart_inputs: Dict[str, Set[str]] = {}
         # DM element Dataset URN -> its schema field paths, recorded by
         # _prepopulate_dm_bridge_maps before anything is emitted, so a chart ref
         # to a DM element can be checked against its real columns. Only complete
@@ -3963,7 +3966,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             and chart_source_names is not None
             and _fold_name(ref.source) not in chart_source_names
         ):
-            return self._resolve_in_loaded_data_models(ref, workbook_dm_url_ids)
+            owner = self._resolve_in_loaded_data_models(ref, workbook_dm_url_ids)
+            if owner is not None:
+                self._loaded_dm_chart_inputs.setdefault(chart_element_id, set()).add(
+                    owner[0]
+                )
+            return owner
         return None
 
     def _resolve_join_chain_ref(
@@ -3976,8 +3984,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         column belongs to the segment before it. Sigma's write API accepts any
         such path, so every segment after the first must name exactly one
         table the join element's /lineage lists as a source, and the owner
-        must have the column. A relationship's target is not a source, so
-        ``[Element/Relationship/Column]`` stays unresolved.
+        must have the column. Only names are compared, and relationships are
+        not ingested, so ``[Element/Relationship/Column]`` stays unresolved
+        unless the relationship shares a joined table's name.
         """
         join_urns = _dm_upstream_urns(ref.segments[0], dm_upstream_urn_by_element_name)
         if len(join_urns) != 1:
@@ -4653,26 +4662,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if warehouse_urn not in dataset_inputs:
                     dataset_inputs[warehouse_urn] = []
 
-            yield MetadataChangeProposalWrapper(
-                entityUrn=chart_urn,
-                aspect=ChartInfoClass(
-                    title=element.name,
-                    description="",
-                    lastModified=ChangeAuditStampsClass(),
-                    customProperties=custom_properties,
-                    externalUrl=element.url,
-                    inputs=list(dataset_inputs.keys()),
-                    inputEdges=(
-                        [
-                            EdgeClass(destinationUrn=urn, sourceUrn=chart_urn)
-                            for urn in chart_input_urns
-                        ]
-                        if chart_input_urns
-                        else None
-                    ),
-                ),
-            ).as_workunit()
-
             if workbook.workspaceId:
                 self.reporter.workspaces.increment_elements_count(workbook.workspaceId)
 
@@ -4796,6 +4785,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 workbook_dm_url_ids=workbook_dm_url_ids,
                 chart_source_names=self._chart_source_names(element, chart_urn),
             )
+
+            # After the input fields, so a Data Model element the loaded-DM
+            # lookup resolved is an entity input as well as a column input.
+            for dm_urn in sorted(self._loaded_dm_chart_inputs.pop(element.elementId, ())):
+                dataset_inputs.setdefault(dm_urn, [])
+            yield MetadataChangeProposalWrapper(
+                entityUrn=chart_urn,
+                aspect=ChartInfoClass(
+                    title=element.name,
+                    description="",
+                    lastModified=ChangeAuditStampsClass(),
+                    customProperties=custom_properties,
+                    externalUrl=element.url,
+                    inputs=list(dataset_inputs.keys()),
+                    inputEdges=(
+                        [
+                            EdgeClass(destinationUrn=urn, sourceUrn=chart_urn)
+                            for urn in chart_input_urns
+                        ]
+                        if chart_input_urns
+                        else None
+                    ),
+                ),
+            ).as_workunit()
 
             # Stash formula-derived fields for customSQL charts so we can merge at
             # drain time, ensuring warehouse-resolved entries supplement rather than
