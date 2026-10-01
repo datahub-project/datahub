@@ -10,7 +10,7 @@ return configs, and /status returns stack traces.
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, List, Optional
+from typing import Any, Dict, FrozenSet, List, Optional
 
 import requests
 from typing_extensions import LiteralString
@@ -23,9 +23,14 @@ from datahub.ingestion.api.source import (
     StructuredLogs,
 )
 from datahub.ingestion.source.kafka_connect.common import (
+    CONNECTOR_CLASS,
     KAFKA_CONNECT_CONNECTOR_KIND,
+    ConnectorManifest,
     KafkaConnectSourceConfig,
     KafkaConnectSourceReport,
+)
+from datahub.ingestion.source.kafka_connect.connector_registry import (
+    ConnectorRegistry,
 )
 from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
 
@@ -40,6 +45,104 @@ _URL_SIGNIFICANT = ("/", "?", "#", "%")
 
 # The package every reused ingestion step logs under.
 _CONNECTOR_LOGGER = "datahub.ingestion.source.kafka_connect"
+
+# Config keys whose VALUES the probe may return: what lineage inference reads,
+# and nothing that authenticates. An allowlist on purpose -- Connect plugins name
+# their secrets freely, so a denylist would admit the next plugin's credential
+# by default. Deliberately absent:
+#   connection.url / connection.uri -- carry passwords (JDBC ?password=, Mongo
+#       userinfo); the resolved dataset URNs in connector_lineage answer the
+#       "which database" question without them
+#   query                           -- JDBC query mode's raw SQL; a WHERE literal
+#       is a row value (the rule hex_probe applies to /cells)
+#   *.hostname / *.host / *.port     -- environment detail, not needed to judge
+#       lineage once URNs are shown
+DISCLOSED_CONFIG_KEYS: FrozenSet[str] = frozenset(
+    {
+        "connector.class",
+        "tasks.max",
+        "mode",
+        "topics",
+        "topics.regex",
+        "topic",
+        "kafka.topic",
+        "topic.prefix",
+        "table.whitelist",
+        "table.blacklist",
+        "table.include.list",
+        "table.exclude.list",
+        "table.name.format",
+        "schema.include.list",
+        "schema.exclude.list",
+        "database.include.list",
+        "database.server.name",
+        "database.dbname",
+        "database.name",
+        "database.names",
+        "database.default.schema",
+        "database",
+        "db.name",
+        "db.schema",
+        "snowflake.database.name",
+        "snowflake.schema.name",
+        "snowflake.topic2table.map",
+        "topic2table.map",
+        "topic2TableMap",
+        "project",
+        "defaultDataset",
+        "datasets",
+        "topicsToTables",
+        "sanitizeTopics",
+        "s3.bucket.name",
+        "topics.dir",
+        "iceberg.tables",
+        "iceberg.tables.dynamic-enabled",
+        "transforms",
+    }
+)
+
+# For `transforms.<alias>.<prop>`: the properties transform_plugins and the
+# routers read to rename topics. Other SMT properties are not disclosed -- a
+# custom SMT may take its own credential.
+DISCLOSED_TRANSFORM_PROPERTIES: FrozenSet[str] = frozenset(
+    {
+        "type",
+        "regex",
+        "replacement",
+        "topic.format",
+        "timestamp.format",
+        "route.by.field",
+        "route.topic.regex",
+        "route.topic.replacement",
+    }
+)
+
+
+def disclosed_config(config: Dict[str, str]) -> Dict[str, str]:
+    """The subset of a connector config the probe may return, sorted by key."""
+    out: Dict[str, str] = {}
+    for key, value in config.items():
+        if key in DISCLOSED_CONFIG_KEYS:
+            out[key] = value
+            continue
+        # split(".", 2): the property may itself be dotted ("topic.format").
+        parts = key.split(".", 2)
+        if (
+            len(parts) == 3
+            and parts[0] == "transforms"
+            and parts[2] in DISCLOSED_TRANSFORM_PROPERTIES
+        ):
+            out[key] = value
+    return dict(sorted(out.items()))
+
+
+@dataclass
+class _Resolved:
+    manifest: Optional[ConnectorManifest]
+    # Snapshotted before provided_configs substitution: a ${provider:path:key}
+    # reference is not a secret, the value substituted into it may be.
+    raw_config: Dict[str, str]
+    emitted: bool
 
 
 class _UnloggedStructuredLogs(StructuredLogs):
@@ -195,3 +298,83 @@ class KafkaConnectMetadataProbe:
     def _warn(self, message: str) -> None:
         if message not in self.warnings:
             self.warnings.append(message)
+
+    def _resolve(self, connector: str) -> _Resolved:
+        """One connector through ingestion's own steps, minus connector_patterns.
+
+        The fetch is the probe's own so a 401/5xx raises instead of degrading to
+        a warning as ingestion's _get_connector_manifest does; the parse and the
+        enrichment are ingestion's."""
+        self._require_listed(connector)
+        self._warn_unreproduced()
+        source = self._source
+        url = f"{source.config.connect_uri}/connectors/{connector}"
+        response = source.session.get(url)
+        if response.status_code == 404:
+            raise ValueError(f"connector '{connector}' was listed but no longer exists")
+        response.raise_for_status()
+        manifest = source._parse_connector_manifest(connector, response.json())
+        if manifest is None:
+            # Ingestion drops it; the parse recorded why on the report.
+            return _Resolved(manifest=None, raw_config={}, emitted=False)
+        raw_config = dict(manifest.config)
+        emitted = source._enrich_manifest(connector, manifest, url)
+        return _Resolved(manifest=manifest, raw_config=raw_config, emitted=emitted)
+
+    def _warn_unreproduced(self) -> None:
+        """Say where the probe's answer can differ from ingestion's."""
+        config = self._source.config
+        if config.use_schema_resolver:
+            self._warn(
+                "use_schema_resolver is on (Confluent Cloud turns it on unless it "
+                "is set to false), but the probe has no DataHub connection: table "
+                "patterns are not expanded from DataHub and no column-level "
+                "lineage is computed, so ingestion may emit more tables and "
+                "column edges than shown"
+            )
+        if (
+            config.confluent_catalog.enabled
+            and config.confluent_catalog.include_lineage
+        ):
+            self._warn(
+                "confluent_catalog.include_lineage is on: ingestion takes source "
+                "connectors' topics from the Stream Catalog, and keeps an "
+                "unsupported source connector the catalog resolves. The probe "
+                "does not read the catalog and shows config-inferred lineage"
+            )
+
+    @probe_method()
+    def connector(self, connector: str) -> Dict[str, object]:
+        """One connector as ingestion would treat it: its type and class, the
+        handler that infers its lineage (null when none does), whether ingestion
+        emits it at all (`emitted: false` for an unsupported source connector,
+        whatever connector_patterns says), its DataFlow URN, and counts of
+        lineage edges, runtime topics and tasks. `name` is the string
+        connector_patterns is matched against. `config_keys` lists every
+        configured key NAME; `lineage_config` gives values only for keys lineage
+        inference reads. Credentials, connection URLs and query text are never
+        returned."""
+        resolved = self._resolve(connector)
+        manifest = resolved.manifest
+        if manifest is None:
+            return {"name": connector, "emitted": False}
+        source = self._source
+        handler = ConnectorRegistry.get_connector_for_manifest(
+            manifest, source.config, source.report, None
+        )
+        return {
+            "name": manifest.name,
+            "type": manifest.type,
+            "connector_class": resolved.raw_config.get(CONNECTOR_CLASS),
+            "handled_by": type(handler).__name__ if handler else None,
+            "platform": handler.get_platform() if handler else None,
+            "emitted": resolved.emitted,
+            # Only the URN: the aspect's customProperties is the flow property
+            # bag, which is a per-connector denylist and not safe to return.
+            "flow_urn": source.construct_flow_workunit(manifest).get_urn(),
+            "lineage_edges": len(manifest.lineages),
+            "runtime_topics": len(manifest.topic_names),
+            "tasks": len(manifest.tasks),
+            "config_keys": sorted(resolved.raw_config),
+            "lineage_config": disclosed_config(resolved.raw_config),
+        }
