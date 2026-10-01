@@ -1,5 +1,5 @@
 ---
-title: Slack Integration
+title: Slack Community
 ---
 
 # Slack

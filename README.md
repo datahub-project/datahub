@@ -159,7 +159,7 @@ Production-grade integrations across your full data stack.
   <a href="https://docs.datahub.com/integrations"><b>See all 150+ integrations →</b></a>
 </p>
 
-Missing a source? [Build a custom connector](https://docs.datahub.com/docs/how/add-custom-ingestion-source) . [DataHub Skills](https://github.com/datahub-project/datahub-skills) can help your AI coding assistant plan and review it.
+Missing a source? [Build a custom connector](https://docs.datahub.com/docs/how/add-custom-ingestion-source). [DataHub Skills](https://github.com/datahub-project/datahub-skills) can help your AI coding assistant plan and review it.
 
 ## DataHub ecosystem
 
