@@ -494,17 +494,8 @@ container above the schema when the caller supplied one — so a three-argument 
 Call `warn` if you fall back to something less precise than your real ingestion identifier; it
 feeds the same warnings list, deduplicated by message so one connector-wide reason is reported once.
 
-### Checklist
-
-- [ ] `probe_provider_class()` on the config, `for_config(config)` on the provider
-- [ ] `@probe_method` on each listing, with `kind=` and `row_limit_param=` where they apply
-- [ ] `sql_dialect` / `api_allowlist` present if any method declares a scoped parameter
-- [ ] `Filters(...)` on any pattern field whose name does not follow the subtype
-- [ ] verdicts checked against what ingestion computes for the same inputs
-- [ ] `pytest tests/unit/agent/test_probe_contract.py` — the registry-wide scan covers you now
-- [ ] listings return metadata only, and report degradation as a warning instead of an empty result
-- [ ] every caller-supplied identifier is resolved against a catalog listing before it reaches a
-      driver or reflection call (`resolve_listed_name`)
+Before opening the PR, go through the
+[connector-author checklist](#connector-author-checklist) at the end of this guide.
 
 ## Hook reference
 
@@ -808,6 +799,55 @@ say so; auth failures and 5xx should raise. `soft_on_status(403, 404, context=�
 split. An empty result **with** warnings means "part of this could not be read" — never "this is
 empty".
 
+### Patterns match from the start (`re.match`)
+
+`AllowDenyPattern` runs `re.match` on each entry. A match is anchored at the
+start of the string but not at the end, and case is ignored unless the recipe
+sets `ignoreCase: false`. The same applies to `deny`:
+
+| Entry      | Target             | Matches                     |
+| ---------- | ------------------ | --------------------------- |
+| `prod`     | `production`       | yes: a prefix is enough     |
+| `^prod$`   | `production`       | no                          |
+| `orders`   | `analytics.orders` | no: the match starts at `a` |
+| `.*orders` | `analytics.orders` | yes                         |
+| deny `tmp` | `stg_tmp`          | no: the deny does not match |
+
+Two consequences for a probe:
+
+- **The target decides the verdict.** When ingestion matches `schema.table`, a
+  bare-name target turns `^orders$` into a silent no-match, so resolve the
+  target through the hooks in [Making verdicts match ingestion](#making-verdicts-match-ingestion).
+- **Never re-implement matching.** A `probe_verdict_override` that uses
+  `re.search`, `re.fullmatch` or `in` disagrees with ingestion on exactly these
+  rows. Call `pattern_verdict(self, field, target)` or `pattern.allowed(target)`.
+  To ask whether a pattern filters anything at all, call `pattern.is_allow_all()`.
+  It is true only for a literal `.*` allow entry with an empty deny list, so
+  treat `False` as "unknown", not "restricted". Don't compare with
+  `AllowDenyPattern.allow_all()`: `__eq__` compares the compiled-regex cache
+  too, so a pattern that has judged one name stops equalling a fresh default.
+
+### Connector docs allow only `Capabilities` / `Limitations` / `Troubleshooting` H3 headings
+
+A connector's `docs/sources/<platform>/<plugin>_post.md` must have exactly the
+H3 headings `Capabilities`, `Limitations` and `Troubleshooting`, once each and in
+that order, and no H1 or H2. `<plugin>_pre.md` has the same rule with
+`Overview` and `Prerequisites`. Put probe documentation under `### Capabilities`
+as an H4 (`#### Probe support`). A new `### Probe support` breaks the build.
+
+`validate_source_doc_headings` in `metadata-ingestion/scripts/docgen.py`
+enforces this when `:metadata-ingestion:docGen` runs. In CI that is the
+docs-website build, so `tests/unit/test_source_doc_headings.py` runs the same
+function over every file in seconds:
+
+```bash
+cd metadata-ingestion && venv/bin/python -m pytest tests/unit/test_source_doc_headings.py -q
+```
+
+The full per-file rules are in `metadata-ingestion/docs/sources/AGENTS.md`
+("Heading-level rules by file type"). It is named as a path, not linked, because
+the docs site does not publish it.
+
 ## Testing expectations
 
 - **The gate, adversarially.** Anything touching `sql_gate` needs attack cases, not happy paths:
@@ -827,3 +867,80 @@ empty".
   failures and 5xx raise.
 - **The connector's existing suites must pass unedited.** A probe adds to a connector; it does
   not change it.
+
+### Testing configs: patch the class, not the instance
+
+Configs are pydantic v2 models with `extra="forbid"`, so setting anything that is
+not a field on an instance raises `ValueError: "MyConfig" object has no field ...`.
+That includes a hook method, and it includes `monkeypatch.setattr(config, ...)`.
+`object.__setattr__` gets past the check silently, which makes it worse: the
+test then exercises an object pydantic never validated.
+
+```python
+def test_a_switched_off_kind_is_reported_excluded(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A hook: patch it on the class. monkeypatch restores it after the test.
+    monkeypatch.setattr(
+        MySourceConfig,
+        "probe_kind_switches",
+        classmethod(lambda cls: {"Notebook": "include_notebooks"}),
+    )
+    config = MySourceConfig.model_validate(RECIPE)
+    ...
+
+
+def test_a_hypothetical_pattern() -> None:
+    # A field: build a new config. model_validate runs the validators;
+    # model_copy(update=...) does not, which matters when a validator
+    # normalizes the field you are changing.
+    narrowed = MySourceConfig.model_validate(
+        {**RECIPE, "table_pattern": {"allow": ["^orders$"]}}
+    )
+    ...
+```
+
+Patching the class affects every instance and subclass until the test ends, so
+when the class is shared with other connectors, define a small subclass in the
+test that overrides the hook instead.
+
+## Connector-author checklist
+
+Every item has cost a review round on at least one connector.
+
+- [ ] **The hooks.** `probe_provider_class()` on the config, `for_config(config)`
+      on the provider, and any optional hook copied from the
+      [hook reference](#hook-reference) with its exact signature.
+- [ ] **The methods.** `@probe_method` on each listing, with `kind=` and
+      `row_limit_param=` where they apply. `sql_dialect` / `api_allowlist` are
+      present if any method declares a scoped parameter. `Filters(...)` is on
+      any pattern field whose name does not follow the subtype.
+- [ ] **Metadata only.** Listings return names and structure, never row data.
+      Degradation is a warning, not an empty result.
+- [ ] **Caller errors.** A caller's bad argument raises `ProbeArgumentError`
+      (exit 2); a plain `ValueError` keeps its text only in a provider file. See
+      [Errors, logs and secrets](#errors-logs-and-secrets).
+- [ ] **No foreign `{exc}`.** Never interpolate the text of an exception you did
+      not raise; name the operation and the class instead.
+- [ ] **Reused-code logs.** They are scrubbed and capped while a probe runs, so
+      don't log responses, URLs or exception text from the provider. Use
+      `DATAHUB_PROBE_VERBOSE_LOGS=1` to read them locally.
+- [ ] **SQL identifier commands.** A SQL provider that overrides one resolves
+      names against the catalog listing and joins `_RESOLVES_ITS_OWN`
+      (see [the SQL family](#the-sql-familys-listings-come-from-the-inspector-not-from-a-query)).
+- [ ] **PII withheld.** Owner names, emails and personal workspaces are left out
+      or masked (`mask_identity_columns`, `WITHHELD_COLUMN_NAMES`), and a
+      warning says something was withheld.
+- [ ] **Exit codes.** 2 = the caller's input is wrong, 3 = the source could not
+      be reached or read, 1 = a defect. A test covers each code your provider
+      can produce.
+- [ ] **Verdicts match ingestion.** A parity test runs ingestion and the probe
+      on the same recipe and asserts that they agree in both directions, per kind.
+      `tests/unit/agent/test_sql_filter_target.py` is the SQL family's.
+      Patterns match from the start (see above).
+- [ ] **A real-instance test.** Where the connector has a docker-backed
+      integration suite, add a probe test against that instance next to it
+      (see `tests/integration/agent/test_probe_methods_sqlalchemy.py`).
+- [ ] **The contract scan.** `pytest tests/unit/agent/test_probe_contract.py`
+      passes. The registry-wide scan covers a new connector automatically.
+- [ ] **Docs headings.** Probe docs sit under `### Capabilities` as an H4, and
+      `pytest tests/unit/test_source_doc_headings.py` passes.
+- [ ] **Existing suites untouched.** The connector's own tests pass unedited.
