@@ -95,19 +95,13 @@ def _scrubbed(method: str, not_found: Optional[str] = None) -> Iterator[None]:
     """
     try:
         yield
-    except exceptions.NotFound as exc:
-        if not_found is not None:
-            raise ValueError(not_found) from None
-        raise ProbeConnectionError(
-            f"Dataplex {method} failed: {_status(exc)}"
-        ) from None
     except exceptions.GoogleAPICallError as exc:
-        raise ProbeConnectionError(
-            f"Dataplex {method} failed: {_status(exc)}"
-        ) from None
+        if not_found is not None and isinstance(exc, exceptions.NotFound):
+            raise ValueError(not_found) from None
+        raise ProbeConnectionError(f"GCP {method} failed: {_status(exc)}") from None
     except GoogleAuthError as exc:
         raise ProbeConnectionError(
-            f"Dataplex {method} could not authenticate ({type(exc).__name__})"
+            f"GCP {method} could not authenticate ({type(exc).__name__})"
         ) from None
 
 
