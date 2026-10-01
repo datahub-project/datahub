@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_passthrough import (
@@ -18,6 +18,11 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.redshift.redshift_schema import RedshiftSchema
 
 logger = logging.getLogger(__name__)
+
+# Characters that end or escape a Redshift string literal. A name containing one
+# is refused before it can reach RedshiftCommonQuery's f-strings, even when the
+# catalog itself returned it.
+_LITERAL_BREAKING = ("'", "\\")
 
 
 @dataclass(frozen=True)
@@ -224,3 +229,80 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
         """Views and materialized views in one schema, judged by view_pattern.
         Separate from `tables` for the reason given there."""
         return [r.name for r in self._relations(schema) if r.is_view][:limit]
+
+    def _listed_schema(self, schema: str) -> "RedshiftSchema":
+        """The catalog's own RedshiftSchema for `schema`, or ValueError.
+
+        list_columns interpolates the schema name into its SQL, so the caller's
+        string is never passed on: it is looked up in the catalog listing first,
+        and only the name the server returned goes into the query.
+        """
+        match = next((s for s in self._schemas() if s.name == schema), None)
+        if match is None:
+            raise ValueError(
+                f"no schema named '{schema}' in database "
+                f"'{self._config.database}'; run `containers` for the names "
+                f"this recipe can see"
+            )
+        if any(ch in match.name for ch in _LITERAL_BREAKING):
+            # Ingestion would send this name as written and fail on it; the
+            # probe refuses instead of sending a query whose literal it no
+            # longer controls.
+            raise ValueError(
+                f"schema '{schema}' has a quote or backslash in its name, which "
+                f"the Redshift column query cannot take safely; use `sql` "
+                f"against svv_redshift_columns instead"
+            )
+        return match
+
+    @probe_method()
+    def columns(self, schema: str, table: str) -> List[Dict[str, object]]:
+        """Columns of one table or view as ingestion reads them: name, type,
+        nullability, default expression and comment. Covers late-binding views
+        and external (Spectrum) tables, and reads SVV_REDSHIFT_COLUMNS on a
+        datashare-consumer database. Structural metadata only -- no cell
+        values are read. `schema` must be one `containers` lists."""
+        from datahub.ingestion.source.redshift.redshift_schema import (
+            RedshiftDataDictionary,
+        )
+
+        listed = self._listed_schema(schema)
+        by_table = RedshiftDataDictionary.get_columns_for_schema(
+            conn=self._connection,
+            database=self._config.database,
+            schema=listed,
+            is_shared_database=self._is_shared_database(),
+        )
+        # Matched in Python: the table name is the caller's and never reaches
+        # SQL.
+        found = by_table.get(table, [])
+        if not found:
+            self.warnings.append(
+                f"no columns visible for '{schema}.{table}': it may not exist, "
+                f"or this user may lack privileges on it; `tables` and `views` "
+                f"list what this schema holds"
+            )
+        return [
+            {
+                "name": c.name,
+                "type": c.data_type,
+                "nullable": c.is_nullable,
+                "default": c.default,
+                "comment": c.comment,
+            }
+            for c in found
+        ]
+
+    @probe_method()
+    def view_definition(self, schema: str, view: str) -> Optional[str]:
+        """The stored view SQL (DDL, not query results) that ingestion publishes
+        as the view's logic. Null for a table, or where the catalog exposes
+        none -- as on a datashare-consumer database."""
+        return next(
+            (
+                r.definition
+                for r in self._relations(schema)
+                if r.name == view and r.is_view
+            ),
+            None,
+        )
