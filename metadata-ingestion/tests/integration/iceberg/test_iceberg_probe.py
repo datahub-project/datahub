@@ -1,19 +1,18 @@
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Set
+from typing import Any, Dict, Iterator, List
 
 import pytest
 import yaml
 from pyiceberg.catalog import Catalog
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.iceberg.iceberg import IcebergSource
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
-from datahub.utilities.urns.dataset_urn import DatasetUrn
 from tests.test_helpers.docker_helpers import wait_for_port
+from tests.test_helpers.iceberg_probe_helpers import (
+    ingested_dataset_names,
+    probe_included_dataset_names,
+)
 
 pytestmark = pytest.mark.integration_batch_5
 
@@ -30,15 +29,15 @@ _SEEDED_COLUMNS = [
     "fare_amount",
     "store_and_fwd_flag",
 ]
-# Keys pyiceberg uses for storage and catalog credentials, plus the recipe's
-# secret value. None may appear in any probe output: the REST catalog hands
-# its FileIO these properties, and the recipe carries them inline.
-_CREDENTIAL_MARKERS = [
+# Keys pyiceberg uses for storage and catalog credentials. None may appear in
+# any probe output: the REST catalog hands its FileIO these properties, and the
+# recipe carries them inline. The recipe's own values for them are checked too
+# (_recipe_secret_values), so a leak that drops the key name is still caught.
+_CREDENTIAL_KEYS = [
     "access-key-id",
     "secret-access-key",
     "session-token",
     "s3.endpoint",
-    "password",
 ]
 
 
@@ -73,10 +72,28 @@ def iceberg_catalog(
         yield recipe["source"]["config"]
 
 
-def _assert_no_credentials(result: ProbeMethodResult) -> None:
+def _recipe_secret_values(config_dict: Dict[str, object]) -> List[str]:
+    catalogs = config_dict["catalog"]
+    assert isinstance(catalogs, dict)
+    values = [
+        str(value)
+        for properties in catalogs.values()
+        for key, value in properties.items()
+        # The endpoint is a key to keep out, not a secret value.
+        if key != "s3.endpoint"
+        and any(credential in key for credential in _CREDENTIAL_KEYS)
+    ]
+    # Pinned so the check below cannot pass on an empty list after a recipe edit.
+    assert len(values) >= 2
+    return values
+
+
+def _assert_no_credentials(
+    result: ProbeMethodResult, config_dict: Dict[str, object]
+) -> None:
     assert result.failures == []
     rendered = repr(result.to_dict())
-    for marker in _CREDENTIAL_MARKERS:
+    for marker in [*_CREDENTIAL_KEYS, *_recipe_secret_values(config_dict)]:
         assert marker not in rendered, f"'{marker}' leaked from {result.command}"
 
 
@@ -108,7 +125,7 @@ def test_every_probe_command_reads_the_live_catalog(
             command=command,
             kwargs=kwargs,
         )
-        _assert_no_credentials(result)
+        _assert_no_credentials(result, iceberg_catalog)
         return result
 
     namespaces = _run("namespaces")
@@ -146,50 +163,15 @@ _PATTERNS: Dict[str, object] = {
 }
 
 
-def _ingested_dataset_names(config_dict: Dict[str, object]) -> Set[str]:
-    config = IcebergSourceConfig.model_validate(config_dict)
-    source = IcebergSource(config, PipelineContext(run_id="iceberg-probe-parity"))
-    names: Set[str] = set()
-    for wu in source.get_workunits_internal():
-        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        urn = wu.metadata.entityUrn
-        if urn and urn.startswith("urn:li:dataset:"):
-            names.add(DatasetUrn.from_string(urn).name)
-    assert not source.report.failures
-    return names
-
-
-def _probe_included_dataset_names(config_dict: Dict[str, object]) -> Set[str]:
-    namespaces = run_probe_method("iceberg", config_dict, "namespaces", {}).result
-    assert isinstance(namespaces, list)
-    included: Set[str] = set()
-    for namespace in namespaces:
-        listing = run_probe_method(
-            "iceberg", config_dict, "tables", {"namespace": namespace}
-        )
-        assert isinstance(listing.result, list)
-        verdicts = check_filters(
-            source_type="iceberg",
-            config_dict=config_dict,
-            kind=str(listing.kind),
-            parent_path=listing.parent_path,
-            names=listing.result,
-        )
-        assert not [w for w in verdicts.warnings if "bare name" in w]
-        assert not [w for w in verdicts.warnings if "does not declare" in w]
-        included |= {f"{namespace}.{r.name}" for r in verdicts.results if r.included}
-    return included
-
-
 def test_probe_filter_agrees_with_ingestion_on_the_live_catalog(
     iceberg_catalog: Dict[str, object],
 ) -> None:
     config_dict = {**iceberg_catalog, **_PATTERNS}
 
-    ingested = _ingested_dataset_names(config_dict)
+    ingested = ingested_dataset_names(config_dict)
 
     # nyc.fares fails table_pattern's allow, nyc.taxis_tmp its deny, and
     # ops.jobs sits in a denied namespace. Pinned so the parity below cannot
     # hold vacuously on an empty set.
     assert ingested == {"nyc.taxis"}
-    assert _probe_included_dataset_names(config_dict) == ingested
+    assert probe_included_dataset_names(config_dict) == ingested
