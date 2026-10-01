@@ -14,6 +14,8 @@ Each rule below is proved to fire against a deliberately-bad provider, because a
 lint whose failure path is never exercised is a lint nobody can trust.
 """
 
+import re
+from pathlib import Path
 from typing import Annotated, Dict, Iterator, List, Mapping, Optional, Set, Tuple
 
 import pytest
@@ -260,7 +262,6 @@ _CONFIG_HOOKS = frozenset(
         "probe_verdict_override",
         "probe_prepare_engine",
         "probe_unfiltered_kinds",
-        "probe_schema_needs_parent",
         # Read by sqlalchemy_probe._container_normalizer: how a listed
         # container is spelled for ingestion.
         "probe_normalize_container",
@@ -315,6 +316,72 @@ def test_no_config_declares_a_probe_hook_the_framework_will_never_read():
         "these look like probe hooks but the framework reads none of them, so they "
         f"do nothing; expected one of {sorted(_CONFIG_HOOKS)}: {unknown}"
     )
+
+
+_GUIDE = (
+    Path(__file__).resolve().parents[3] / "docs" / "dev_guides" / "probe_interface.md"
+)
+_HOOK_REFERENCE_HEADING = "## Hook reference"
+# The first cell of a table row. Prose and other tables mention `probe_report`,
+# `probe_method` and friends, which are not config hooks.
+_HOOK_ROW = re.compile(r"^\|\s*`(probe_\w+)`", re.MULTILINE)
+
+
+def _documented_config_hooks(markdown: str) -> Set[str]:
+    """Hook names in the first column of the guide's hook reference table."""
+    start = markdown.find(f"\n{_HOOK_REFERENCE_HEADING}\n")
+    if start == -1:
+        raise ValueError(f"the guide has no '{_HOOK_REFERENCE_HEADING}' section")
+    body = markdown[start + len(_HOOK_REFERENCE_HEADING) + 2 :]
+    # "\n## " does not match "\n### ", so subsections stay in the section.
+    end = body.find("\n## ")
+    return set(_HOOK_ROW.findall(body if end == -1 else body[:end]))
+
+
+def test_the_guide_documents_exactly_the_hooks_the_framework_reads():
+    """probe_interface.md went stale three times while _CONFIG_HOOKS moved on.
+
+    A hook missing from the guide is one a connector author cannot find. A
+    name the guide lists that the framework does not read is one they
+    implement for nothing.
+    """
+    documented = _documented_config_hooks(_GUIDE.read_text(encoding="utf-8"))
+    undocumented = sorted(_CONFIG_HOOKS - documented)
+    unread = sorted(documented - _CONFIG_HOOKS)
+    assert not undocumented and not unread, (
+        f"{_GUIDE.name} '{_HOOK_REFERENCE_HEADING}' and _CONFIG_HOOKS disagree. "
+        f"In _CONFIG_HOOKS but missing from the guide: {undocumented}. "
+        f"In the guide but not in _CONFIG_HOOKS: {unread}."
+    )
+
+
+def test_only_the_hook_reference_table_counts_as_documentation():
+    markdown = "\n".join(
+        [
+            "# Guide",
+            "Prose naming `probe_report` and `probe_ancestor_kinds`.",
+            "",
+            _HOOK_REFERENCE_HEADING,
+            "",
+            "| Hook | Signature |",
+            "| --- | --- |",
+            "| `probe_provider_class` | `(cls) -> type`; see `probe_report` |",
+            "",
+            "### A subsection",
+            "",
+            "| `probe_kind_switches` | `(cls) -> Mapping[str, str]` |",
+            "",
+            "## Next section",
+            "",
+            "| `probe_match_target` | not in the reference |",
+        ]
+    )
+    assert _documented_config_hooks(markdown) == {
+        "probe_provider_class",
+        "probe_kind_switches",
+    }
+    with pytest.raises(ValueError):
+        _documented_config_hooks("# Guide\n\nNo reference here.\n")
 
 
 def test_the_tripwire_fires_on_an_undeclared_query_parameter():
