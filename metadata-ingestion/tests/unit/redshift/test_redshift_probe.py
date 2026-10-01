@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 import pytest
 
 from datahub.ingestion.agent.sql_passthrough import PROBE_QUERY_LABEL
+from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
 from datahub.ingestion.source.redshift.redshift_probe import RedshiftMetadataProbe
@@ -369,8 +370,11 @@ def test_a_catalog_timeout_is_not_reported_as_an_empty_listing(
         _FakeConnection(routes=_LISTING, fail_on="tabletype"),
     )
 
-    with pytest.raises(RuntimeError, match="statement timeout"):
+    # The driver's text is withheld as foreign, but the listing still fails
+    # (exit 3) rather than coming back empty.
+    with pytest.raises(ProbeConnectionError, match=r"\(RuntimeError\)") as caught:
         run_probe_method("redshift", dict(_RECIPE), "tables", {"schema": "public"})
+    assert "statement timeout" not in str(caught.value)
 
 
 def test_probe_methods_advertises_what_the_provider_serves() -> None:

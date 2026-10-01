@@ -7,6 +7,7 @@ from sqlalchemy.sql import quoted_name
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.sql_passthrough import CatalogRows
+from datahub.ingestion.agent.verdicts import ProbeArgumentError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -15,6 +16,7 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.mssql.query import MSSQLQuery
 from datahub.ingestion.source.sql.mssql.source import SQLServerConfig, SQLServerSource
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_identifier_resolver import _echoed
 from datahub.ingestion.source.sql.sqlalchemy_probe import (
     SqlAlchemyMetadataProbe,
     build_probe_engine,
@@ -34,6 +36,12 @@ def _server_spelling(name: str, known: List[str], what: str, hint: str) -> str:
     case-insensitively, which is what the default collation does -- but only
     to a single listed name. Two that fold together can only come from a
     case-sensitive collation, where the caller's spelling names neither.
+
+    This deliberately departs from sql_identifier_resolver.resolve_listed_name,
+    which the base class uses and which refuses a case-only mismatch: SQL
+    Server's default collation is case-insensitive, so ingestion itself treats
+    `Sales` and `sales` as one object here. Only a listed string is returned,
+    and callers warn with the server's spelling when it differs.
     """
     if name in known:
         return name
@@ -42,11 +50,12 @@ def _server_spelling(name: str, known: List[str], what: str, hint: str) -> str:
     if len(candidates) == 1:
         return candidates[0]
     if candidates:
-        raise ValueError(
-            f"'{name}' matches {what}s {', '.join(sorted(candidates))} only by "
+        raise ProbeArgumentError(
+            f"{_echoed(name)} matches {what}s "
+            f"{', '.join(_echoed(c) for c in sorted(candidates))} only by "
             f"case, and this server tells them apart; pass one exactly"
         )
-    raise ValueError(f"no {what} '{name}' here; {hint}")
+    raise ProbeArgumentError(f"no {what} {_echoed(name)} here; {hint}")
 
 
 class _Located(NamedTuple):
@@ -151,7 +160,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         if config.is_single_database_recipe():
             return self._insp, self._check_pin(database)
         if database is None:
-            raise ValueError(
+            raise ProbeArgumentError(
                 "this recipe sets no `database`, so ingestion walks every database "
                 "the login can see; pass --database (the `databases` command "
                 "lists them)"
@@ -185,13 +194,13 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             return pinned
         source = "sqlalchemy_uri" if config.sqlalchemy_uri else "database"
         if not pinned:
-            raise ValueError(
+            raise ProbeArgumentError(
                 f"this recipe's connection ({source}) names no database, so "
                 f"ingestion reads only the login's default one; omit --database"
             )
-        raise ValueError(
-            f"this recipe reads only database '{pinned}' (set by {source}); "
-            f"ingestion never opens '{database}'"
+        raise ProbeArgumentError(
+            f"this recipe reads only database {_echoed(pinned)} (set by {source}); "
+            f"ingestion never opens {_echoed(database)}"
         )
 
     def _schema_arg(self, schema: str) -> Union[str, quoted_name]:
@@ -389,7 +398,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         at = self._schema(schema, database)
         if not at.database:
             # Ingestion would query `[].[sys].[procedures]` here and fail.
-            raise ValueError(
+            raise ProbeArgumentError(
                 "this recipe's connection names no database, and procedures are "
                 "read by database name; name the database in sqlalchemy_uri"
             )
