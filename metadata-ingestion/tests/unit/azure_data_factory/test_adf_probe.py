@@ -410,3 +410,81 @@ def test_activities_report_factory_and_pipeline_as_parents() -> None:
     spec = dict(_iter_specs(AzureDataFactoryMetadataProbe))["activities"]
     assert spec.parent_params == ("factory", "pipeline")
     assert spec.kind == ADF_ACTIVITY_KIND
+
+
+def _linked_service(name: str, props: Any) -> adf.LinkedServiceResource:
+    resource = adf.LinkedServiceResource(properties=props)
+    resource.name = name
+    return resource
+
+
+def _blob_ls(name: str = "blob_ls") -> adf.LinkedServiceResource:
+    return _linked_service(
+        name,
+        adf.AzureBlobStorageLinkedService(
+            connection_string=(
+                "DefaultEndpointsProtocol=https;AccountName=acct;"
+                f"AccountKey={PLANTED}"
+            ),
+            connect_via=adf.IntegrationRuntimeReference(
+                type="IntegrationRuntimeReference", reference_name="my-ir"
+            ),
+        ),
+    )
+
+
+def _sql_ls(name: str = "sql_ls") -> adf.LinkedServiceResource:
+    return _linked_service(
+        name,
+        adf.AzureSqlDatabaseLinkedService(
+            connection_string="Server=tcp:example.invalid;Database=my_db;",
+            password=adf.SecureString(value=PLANTED),
+        ),
+    )
+
+
+def test_linked_services_resolve_the_platform_and_instance_ingestion_uses() -> None:
+    client = _FakeClient()
+    client.linked_services["my-factory"] = iter([_blob_ls(), _sql_ls()])
+    probe = _probe(client, platform_instance_map={"sql_ls": "prod_mssql"})
+    assert probe.linked_services("my-factory") == [
+        {
+            "name": "blob_ls",
+            "type": "AzureBlobStorage",
+            "platform": "abs",
+            "platform_instance": None,
+            "integration_runtime": "my-ir",
+        },
+        {
+            "name": "sql_ls",
+            "type": "AzureSqlDatabase",
+            "platform": "mssql",
+            "platform_instance": "prod_mssql",
+            "integration_runtime": None,
+        },
+    ]
+
+
+def test_an_unmapped_linked_service_type_reports_no_platform() -> None:
+    client = _FakeClient()
+    client.linked_services["my-factory"] = iter(
+        [_linked_service("odata_ls", adf.ODataLinkedService(url="https://x.invalid"))]
+    )
+    [record] = _probe(client).linked_services("my-factory")
+    assert record["platform"] is None
+
+
+def test_a_linked_service_record_never_carries_its_connection_details() -> None:
+    client = _FakeClient()
+    client.linked_services["my-factory"] = iter([_blob_ls(), _sql_ls()])
+    out = json.dumps(_probe(client).linked_services("my-factory"))
+    assert PLANTED not in out
+    assert "AccountKey" not in out and "Server=" not in out
+
+
+def test_linked_services_say_when_ingestion_will_not_read_them() -> None:
+    client = _FakeClient()
+    client.linked_services["my-factory"] = iter([_blob_ls()])
+    probe = _probe(client, include_lineage=False)
+    probe.linked_services("my-factory")
+    assert any("include_lineage" in w for w in probe.warnings)
