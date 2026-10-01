@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 import requests_mock as rm
 
+from datahub.ingestion.agent.api_gate import ApiScopeError, check_api_request
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
@@ -525,3 +526,55 @@ def test_admin_access_unexpected_status_raises(requests_mock: rm.Mocker) -> None
     with pytest.raises(Exception) as excinfo, _probe() as probe:
         probe.admin_api_access()
     assert "400" in str(excinfo.value)
+
+
+def test_api_reaches_a_listed_endpoint_through_the_connector_session(
+    requests_mock: rm.Mocker,
+) -> None:
+    requests_mock.get(f"{_ORG}/groups/ws-1/reports", json={"value": []})
+    result = run_probe_method(
+        "powerbi", dict(_RECIPE), "api", {"path": "/groups/ws-1/reports"}
+    )
+    assert result.result == {"value": []}
+    assert requests_mock.request_history[0].headers["Authorization"] == "Bearer dummy"
+
+
+def test_api_allows_paging_the_member_workspace_listing() -> None:
+    check_api_request(
+        "GET",
+        "/groups?$top=10&$skip=0",
+        PowerBiMetadataProbe.api_allowlist,
+        base_url=_ORG,
+    )
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/admin/groups?$top=10",  # personal-workspace owner names
+        "/groups?$expand=users",  # user emails
+        "/groups/ws-1/datasets",  # configuredBy emails
+        "/groups/ws-1/datasets/d-1/parameters",  # parameter values
+        "/groups/ws-1/reports/r-1/datasources",  # connection details
+        "/admin/workspaces/scanResult/s-1",  # M / DAX / native SQL
+        "/groups/ws-1/users",
+    ],
+)
+def test_api_withholds_pii_and_expression_bearing_endpoints(path: str) -> None:
+    with pytest.raises(ApiScopeError):
+        check_api_request(
+            "GET", path, PowerBiMetadataProbe.api_allowlist, base_url=_ORG
+        )
+
+
+def test_api_base_follows_the_environment(requests_mock: rm.Mocker) -> None:
+    gov = "https://api.powerbigov.us/v1.0/myorg"
+    requests_mock.get(f"{gov}/groups/ws-1/dashboards", json={"value": []})
+    result = run_probe_method(
+        "powerbi",
+        {**_RECIPE, "environment": "GOVERNMENT"},
+        "api",
+        {"path": "/groups/ws-1/dashboards"},
+    )
+    assert result.result == {"value": []}
+    assert all("powerbigov.us" in r.url for r in requests_mock.request_history)
