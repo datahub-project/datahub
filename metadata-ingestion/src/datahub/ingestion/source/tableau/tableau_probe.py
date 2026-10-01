@@ -186,3 +186,58 @@ class TableauMetadataProbe:
                 :limit
             ]
         )
+
+    # Tableau REST filter expressions are "field:op:value" joined by commas, so
+    # a value containing either delimiter cannot be sent as a filter.
+    _FILTER_DELIMITERS = (",", ":")
+
+    @probe_method(
+        kind=BIContainerSubTypes.TABLEAU_WORKBOOK,
+        row_limit_param="limit",
+        parent_params=("project_path",),
+    )
+    def workbooks(self, project_path: str, limit: int = 200) -> List[str]:
+        """Workbooks directly in one project, addressed by its path as
+        `projects` reports it. Workbooks in nested projects are not included;
+        ask for each project. Workbooks have no name filter: one is ingested
+        exactly when its project is, so judge with `probe filter --kind
+        Workbook --parent <project_path>`. Resolved by the project's LUID,
+        because project names repeat across parents."""
+
+        def fetch() -> List[str]:
+            project = self._project_or_raise(project_path)
+            options = TSC.RequestOptions()
+            if not any(d in project.name for d in self._FILTER_DELIMITERS):
+                # Only narrows the listing; the LUID check below decides.
+                options.filter.add(
+                    TSC.Filter(
+                        TSC.RequestOptions.Field.ProjectName,
+                        TSC.RequestOptions.Operator.Equals,
+                        project.name,
+                    )
+                )
+            names: List[str] = []
+            with _soft_on_tsc(f"workbooks listing for project '{project_path}'"):
+                for item in TSC.Pager(self._site.server.workbooks, options):
+                    # As _init_workbook_registry: membership is by project id.
+                    if item.project_id != project.id or not item.name:
+                        continue
+                    names.append(item.name)
+                    if len(names) >= limit:
+                        break
+            return names
+
+        # _project_or_raise runs inside fetch, so a 403 on the projects listing
+        # degrades through _listing rather than reading as a bad argument.
+        return self._listing(fetch)
+
+    def _project_or_raise(self, project_path: str) -> TableauProject:
+        for project in self._all_projects().values():
+            if self._path(project) == project_path:
+                return project
+        # A plain ValueError: the caller named a project that is not there,
+        # which is a bad argument (exit 2), not a degraded read.
+        raise ValueError(
+            f"no project with path '{project_path}' on this site; "
+            f"`probe run projects` lists them"
+        )
