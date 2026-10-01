@@ -452,9 +452,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 exc=e,
             )
             return None
-        return self._parse_connector_manifest(
-            connector_name, connector_response.json()
-        )
+        return self._parse_connector_manifest(connector_name, connector_response.json())
 
     def _parse_connector_manifest(
         self, connector_name: str, manifest: Dict[str, Any]

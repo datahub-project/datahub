@@ -56,9 +56,7 @@ def _activity_record(activity: Activity) -> Dict[str, object]:
         "subtype": str(ACTIVITY_SUBTYPE_MAP.get(activity_type, activity_type)),
         "depends_on": [d.activity for d in activity.depends_on or []],
         "inputs": [r.reference_name for r in getattr(activity, "inputs", None) or []],
-        "outputs": [
-            r.reference_name for r in getattr(activity, "outputs", None) or []
-        ],
+        "outputs": [r.reference_name for r in getattr(activity, "outputs", None) or []],
     }
     nested = _nested_activity_count(activity)
     if nested:
@@ -161,9 +159,7 @@ class AzureDataFactoryMetadataProbe:
             out.append(
                 {
                     "name": factory.name,
-                    "resource_group": self._source._extract_resource_group(
-                        factory.id
-                    ),
+                    "resource_group": self._source._extract_resource_group(factory.id),
                     "location": factory.location,
                 }
             )
@@ -412,9 +408,7 @@ class AzureDataFactoryMetadataProbe:
             ls_name = ref.reference_name if ref else None
             ls = services.get(ls_name) if ls_name else None
             ls_type = ls.properties.type if ls and ls.properties else None
-            platform = (
-                ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type) if ls_type else None
-            )
+            platform = ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type) if ls_type else None
             urn = self._source._resolve_dataset_urn(dataset.name or "", key)
             reason = (
                 None

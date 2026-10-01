@@ -402,9 +402,7 @@ def test_connector_reports_what_ingestion_resolves_for_it() -> None:
     assert detail["platform"] == "postgres"
     assert detail["emitted"] is True
     assert detail["lineage_edges"] == 2
-    assert detail["flow_urn"] == (
-        "urn:li:dataFlow:(kafka-connect,orders-sink,PROD)"
-    )
+    assert detail["flow_urn"] == ("urn:li:dataFlow:(kafka-connect,orders-sink,PROD)")
     # Key names are disclosed so the caller can see what is set...
     config_keys = detail["config_keys"]
     assert isinstance(config_keys, list) and "connection.password" in config_keys

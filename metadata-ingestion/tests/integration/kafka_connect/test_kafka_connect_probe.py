@@ -141,7 +141,9 @@ def test_probe_commands_answer_from_the_live_cluster_without_disclosing_secrets(
     provided = RECIPE["provided_configs"]
     assert isinstance(provided, list)
     withheld = _withheld_values(provided)
-    assert withheld, "fixture seeds no credential-bearing config, so this proves nothing"
+    assert withheld, (
+        "fixture seeds no credential-bearing config, so this proves nothing"
+    )
 
     outputs: List[Dict[str, object]] = []
 
