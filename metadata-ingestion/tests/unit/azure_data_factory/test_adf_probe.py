@@ -488,3 +488,103 @@ def test_linked_services_say_when_ingestion_will_not_read_them() -> None:
     probe = _probe(client, include_lineage=False)
     probe.linked_services("my-factory")
     assert any("include_lineage" in w for w in probe.warnings)
+
+
+def _dataset(name: str, props: Any) -> adf.DatasetResource:
+    resource = adf.DatasetResource(properties=props)
+    resource.name = name
+    return resource
+
+
+def _ls_ref(name: str) -> adf.LinkedServiceReference:
+    return adf.LinkedServiceReference(
+        type="LinkedServiceReference", reference_name=name
+    )
+
+
+def _factory_with_datasets(datasets: List[Any]) -> _FakeClient:
+    client = _FakeClient()
+    client.datasets["my-factory"] = iter(datasets)
+    client.linked_services["my-factory"] = iter([_blob_ls(), _sql_ls()])
+    return client
+
+
+def _orders_table() -> adf.DatasetResource:
+    return _dataset(
+        "orders_ds",
+        adf.AzureSqlTableDataset(
+            linked_service_name=_ls_ref("sql_ls"),
+            schema_type_properties_schema="dbo",
+            table="orders",
+        ),
+    )
+
+
+def test_datasets_resolve_to_the_urn_ingestion_emits() -> None:
+    table = _orders_table()
+    probe = _probe(
+        _factory_with_datasets([table]),
+        platform_instance_map={"sql_ls": "prod_mssql"},
+    )
+    [record] = probe.datasets("my-factory")
+    assert record["platform"] == "mssql"
+    assert record["unresolved_reason"] is None
+    # Resolved by the ingestion function on an identically primed source, so the
+    # probe cannot drift from what a run emits.
+    source = AzureDataFactorySource.for_probe(
+        _config(platform_instance_map={"sql_ls": "prod_mssql"}),
+        cast(AzureDataFactoryClient, _FakeClient()),
+    )
+    source._datasets_cache["my-rg/my-factory"] = {"orders_ds": table}
+    source._linked_services_cache["my-rg/my-factory"] = {"sql_ls": _sql_ls()}
+    assert record["urn"] == str(
+        source._resolve_dataset_urn("orders_ds", "my-rg/my-factory")
+    )
+    assert "prod_mssql" in str(record["urn"])
+
+
+def test_a_dataset_on_an_unmapped_linked_service_says_why_it_will_not_resolve() -> (
+    None
+):
+    client = _FakeClient()
+    client.datasets["my-factory"] = iter(
+        [
+            _dataset(
+                "feed_ds", adf.ODataResourceDataset(linked_service_name=_ls_ref("o"))
+            )
+        ]
+    )
+    client.linked_services["my-factory"] = iter(
+        [_linked_service("o", adf.ODataLinkedService(url="https://x.invalid"))]
+    )
+    probe = _probe(client)
+    [record] = probe.datasets("my-factory")
+    assert record["urn"] is None
+    assert "OData" in str(record["unresolved_reason"])
+    # The connector's own report.warning() reaches the result through probe_report.
+    assert len(probe.probe_report.warnings) == 1
+
+
+def test_a_dataset_whose_linked_services_could_not_be_listed_says_so() -> None:
+    client = _FakeClient()
+    client.datasets["my-factory"] = iter([_orders_table()])
+    client.linked_services["my-factory"] = _forbidden()
+    probe = _probe(client)
+    [record] = probe.datasets("my-factory")
+    assert record["urn"] is None
+    assert "could not be listed" in str(record["unresolved_reason"])
+    assert any("403" in w for w in probe.warnings)
+
+
+def test_a_dataset_record_never_carries_request_headers() -> None:
+    http = _dataset(
+        "api_ds",
+        adf.HttpDataset(
+            linked_service_name=_ls_ref("blob_ls"),
+            relative_url="/v1/items",
+            additional_headers=f"Authorization: Bearer {PLANTED}",
+            request_body=PLANTED,
+        ),
+    )
+    out = _probe(_factory_with_datasets([http])).datasets("my-factory")
+    assert PLANTED not in json.dumps(out)

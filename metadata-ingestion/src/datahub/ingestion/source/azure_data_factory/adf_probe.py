@@ -66,6 +66,23 @@ def _activity_record(activity: Activity) -> Dict[str, object]:
     return record
 
 
+def _unresolved_reason(
+    ls_name: Optional[str], ls_type: Optional[str], found: bool, listed: bool
+) -> str:
+    # _extract_table_name falls back to the ADF dataset name, so once a mapped
+    # platform is known _resolve_dataset_urn always returns a URN: these are
+    # the only ways it returns None.
+    if not ls_name:
+        return "no linked service reference"
+    if not listed:
+        return "this factory's linked services could not be listed"
+    if not found:
+        return f"linked service '{ls_name}' not found in this factory"
+    if not ls_type:
+        return f"linked service '{ls_name}' has no type"
+    return f"linked service type '{ls_type}' has no DataHub platform mapping"
+
+
 class AzureDataFactoryMetadataProbe:
     """Metadata-only probe over Azure Data Factory's management API.
 
@@ -194,18 +211,19 @@ class AzureDataFactoryMetadataProbe:
             )
         return groups[0]
 
-    def _listing(
+    def _try_listing(
         self,
         context: str,
         items: Callable[[], Iterable[_T]],
         limit: Optional[int],
-    ) -> List[_T]:
-        """Named items from one per-factory listing.
+    ) -> Optional[List[_T]]:
+        """Named items from one per-factory listing, or None when it could not
+        be read.
 
         The soft_on_status block wraps the iteration, not just the call: an
         Azure pager raises HttpResponseError while being iterated. Nameless
         items are skipped as ingestion skips them, and counted so the gap is
-        visible. A 403/404 becomes [] plus a warning -- "could not look",
+        visible. A 403/404 becomes None plus a warning -- "could not look",
         never "nothing here".
         """
         out: List[_T] = []
@@ -221,13 +239,22 @@ class AzureDataFactoryMetadataProbe:
                         break
         except ProbeSoftError as exc:
             self._warn(str(exc))
-            return []
+            return None
         if nameless:
             self._warn(
                 f"{context}: {nameless} item(s) had no name and were skipped, "
                 f"as ingestion skips them"
             )
         return out
+
+    def _listing(
+        self,
+        context: str,
+        items: Callable[[], Iterable[_T]],
+        limit: Optional[int],
+    ) -> List[_T]:
+        listed = self._try_listing(context, items, limit)
+        return listed if listed is not None else []
 
     @probe_method(
         kind=ADF_PIPELINE_KIND, row_limit_param="limit", parent_params=("factory",)
@@ -335,6 +362,70 @@ class AzureDataFactoryMetadataProbe:
                     "integration_runtime": (
                         connect_via.reference_name if connect_via else None
                     ),
+                }
+            )
+        self._note_lineage_off()
+        return records
+
+    @probe_method(row_limit_param="limit")
+    def datasets(self, factory: str, limit: int = 200) -> List[Dict[str, object]]:
+        """ADF datasets in one factory, by factory name, each with the DataHub
+        URN ingestion resolves it to for lineage -- through the connector's own
+        resolver, so the URN (platform_instance_map included) is the one a run
+        emits. A null urn carries unresolved_reason: no linked service, a
+        linked service missing from this factory, or a linked-service type
+        with no DataHub platform mapping -- the usual reason lineage is absent.
+        Dataset settings (headers, request bodies, parameters) are withheld."""
+        rg = self._resource_group_of(factory)
+        key = f"{rg}/{factory}"
+        datasets = self._listing(
+            f"datasets listing for factory '{factory}'",
+            lambda: self._client.get_datasets(rg, factory),
+            limit,
+        )
+        # Every linked service, not `limit` of them: any dataset may reference any.
+        listed_services = self._try_listing(
+            f"linked services listing for factory '{factory}'",
+            lambda: self._client.get_linked_services(rg, factory),
+            None,
+        )
+        services = {ls.name: ls for ls in listed_services or [] if ls.name}
+        # Primed as _cache_factory_resources primes them, so
+        # _resolve_dataset_urn reads what it reads during a run.
+        self._source._datasets_cache[key] = {d.name: d for d in datasets if d.name}
+        self._source._linked_services_cache[key] = services
+        records: List[Dict[str, object]] = []
+        for dataset in datasets:
+            # Only type and the linked-service reference are read from the
+            # definition; type properties carry headers and request bodies.
+            props = dataset.properties
+            ref = props.linked_service_name if props else None
+            ls_name = ref.reference_name if ref else None
+            ls = services.get(ls_name) if ls_name else None
+            ls_type = ls.properties.type if ls and ls.properties else None
+            platform = (
+                ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type) if ls_type else None
+            )
+            urn = self._source._resolve_dataset_urn(dataset.name or "", key)
+            reason = (
+                None
+                if urn
+                else _unresolved_reason(
+                    ls_name=ls_name,
+                    ls_type=ls_type,
+                    found=ls is not None,
+                    listed=listed_services is not None,
+                )
+            )
+            records.append(
+                {
+                    "name": dataset.name,
+                    "type": props.type if props else None,
+                    "linked_service": ls_name,
+                    "linked_service_type": ls_type,
+                    "platform": platform,
+                    "urn": str(urn) if urn else None,
+                    "unresolved_reason": reason,
                 }
             )
         self._note_lineage_off()
