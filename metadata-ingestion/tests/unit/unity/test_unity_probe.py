@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any, Dict, Iterator, List
 from unittest.mock import MagicMock
 
@@ -338,59 +339,77 @@ def _notebook(object_id: int, path: str) -> ObjectInfo:
     return ObjectInfo(object_type=ObjectType.NOTEBOOK, object_id=object_id, path=path)
 
 
-def test_notebooks_list_shared_paths_even_while_include_notebooks_is_off() -> None:
-    ws = _fake_ws()
-    ws.workspace.list.return_value = [
-        ObjectInfo(object_type=ObjectType.DIRECTORY, object_id=2, path="/Shared"),
-        _notebook(1, "/Shared/etl"),
-        ObjectInfo(object_type=ObjectType.FILE, object_id=3, path="/Shared/a.csv"),
-        _notebook(4, "/Repos/team/report"),
-    ]
-    assert _probe(ws).notebooks(limit=10) == ["/Shared/etl", "/Repos/team/report"]
-    assert _probe(ws).notebooks(limit=1) == ["/Shared/etl"]
+# Every spelling a personal path takes, each naming a placeholder principal.
+_PERSONAL = {
+    "/Users/person.one@example.com/pipeline": "person.one",
+    "/users/lower@example.com/n": "lower@",
+    "/Repos/repouser@example.com/r/nb": "repouser",
+    "/Workspace/Users/wsuser@example.com/n": "wsuser",
+    "//Users/dbl@example.com/n": "dbl@",
+    "/Shared/../Users/dotdot@example.com/n": "dotdot",
+}
+_SHARED = ["/Shared/x", "/Workspace/Shared/x", "//Shared//x", "/shared/lower"]
 
 
-def _user_folder_ws() -> MagicMock:
+def _notebook_ws(paths: List[str]) -> MagicMock:
     ws = _fake_ws()
     ws.workspace.list.return_value = [
-        _notebook(1, "/Shared/etl"),
-        _notebook(2, "/Users/person.one@example.com/pipeline"),
-        _notebook(3, "/Users/person.two@example.com/scratch"),
+        _notebook(i, path) for i, path in enumerate(paths, start=1)
     ]
     return ws
 
 
-def test_a_user_folder_notebook_the_recipe_ingests_is_listed() -> None:
+@pytest.mark.parametrize("path", _SHARED)
+def test_shared_notebooks_are_listed_raw_even_while_include_notebooks_is_off(
+    path: str,
+) -> None:
+    probe = _probe(_notebook_ws([path]))
+    # The raw path, not the normalised form: it is what notebook_pattern sees.
+    assert probe.notebooks() == [path]
+    assert probe.warnings == []
+
+
+@pytest.mark.parametrize("path", [*_PERSONAL, "/Repos/team/report"])
+def test_a_path_outside_shared_is_withheld_unless_ingestion_reads_it(
+    path: str,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    _serve(monkeypatch, _notebook_ws(["/Shared/etl", path]))
+    result = run_probe_method("unity-catalog", BASE, "notebooks", {})
+    assert result.result == ["/Shared/etl"]
+    assert any(w.startswith("1 notebook outside") for w in result.warnings)
+    principal = _PERSONAL.get(path, "team")
+    assert principal not in json.dumps(result.to_dict())
+    assert principal not in caplog.text
+
+
+def test_a_personal_notebook_the_recipe_ingests_is_listed() -> None:
+    paths = list(_PERSONAL)
     probe = _probe(
-        _user_folder_ws(),
+        _notebook_ws(["/Shared/etl", *paths]),
         include_notebooks=True,
-        notebook_pattern={"deny": [".*/scratch$"]},
+        notebook_pattern={"allow": ["^/Shared/.*", "^/Repos/repouser@example.com/.*"]},
     )
+    # notebook_pattern allows /Shared/../Users/... too: ingestion would read
+    # it, so it is no secret from this recipe.
     assert probe.notebooks() == [
         "/Shared/etl",
-        "/Users/person.one@example.com/pipeline",
+        "/Repos/repouser@example.com/r/nb",
+        "/Shared/../Users/dotdot@example.com/n",
     ]
-    assert any("1 notebook" in w for w in probe.warnings)
+    assert any(w.startswith(f"{len(paths) - 2} notebooks") for w in probe.warnings)
 
 
-@pytest.mark.parametrize(
-    "extra",
-    [
-        # include_notebooks is off by default: ingestion reads none of them.
-        {},
-        {"include_notebooks": True, "notebook_pattern": {"allow": ["^/Shared/.*"]}},
-    ],
-)
-def test_user_folder_notebooks_ingestion_would_not_read_are_withheld(
-    extra: Dict[str, Any],
-) -> None:
-    probe = _probe(_user_folder_ws(), **extra)
-    result = probe.notebooks()
-    assert result == ["/Shared/etl"]
-    assert any("2 notebooks" in w for w in probe.warnings)
-    # A user folder is named after its owner: a withheld one leaves no trace.
-    leaked = json.dumps({"result": result, "warnings": probe.warnings})
-    assert "person." not in leaked and "example.com" not in leaked
+def test_a_walk_cut_at_the_limit_reports_the_withheld_count_as_a_lower_bound() -> (
+    None
+):
+    probe = _probe(
+        _notebook_ws(["/Users/a@example.com/n", "/Shared/a", "/Shared/b", "/Shared/c"])
+    )
+    assert probe.notebooks(limit=2) == ["/Shared/a", "/Shared/b"]
+    assert any(w.startswith("at least 1 notebook") for w in probe.warnings)
 
 
 def test_notebooks_the_credential_cannot_list_degrade_with_a_warning() -> None:
