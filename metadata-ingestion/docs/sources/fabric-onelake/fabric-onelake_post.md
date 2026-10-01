@@ -342,6 +342,47 @@ When enabled, the connector will:
 - Remove entities from DataHub that no longer exist in Fabric
 - Maintain state across ingestion runs
 
+#### Probing a recipe
+
+`datahub recipe probe` lists what the recipe's credential can see and judges it
+the way ingestion will, without running an ingestion. Commands take display
+names, which every `*_pattern` matches, and also accept GUIDs (the ids in
+DataHub URNs). `datahub recipe probe methods --recipe recipe.yml` lists every
+command and its parameters.
+
+```bash
+datahub recipe probe run workspaces --recipe recipe.yml
+datahub recipe probe run tables --recipe recipe.yml \
+  --workspace sales-ws --item lh_main --schema dbo
+datahub recipe probe filter --recipe recipe.yml --kind Table \
+  --parent sales-ws --parent lh_main --parent dbo --name orders
+```
+
+- `workspaces`, `lakehouses` and `warehouses` return each item's `name` and
+  `id`. `schemas`, `tables` and `views` return names, and `columns`,
+  `view_definition` and `sql_endpoint` describe one object.
+- Tables of a schemas-disabled lakehouse are under `dbo`. `table_pattern` and
+  `view_pattern` match `<schema>.<name>`.
+- Pass `--item-type Lakehouse` or `--item-type Warehouse` only when a lakehouse
+  and a warehouse share a name.
+- A table or view verdict applies `schema_pattern` and `table_pattern` or
+  `view_pattern`. It does not apply `lakehouse_pattern`, `warehouse_pattern` or
+  `workspace_pattern`, because a parent path cannot say whether the item is a
+  lakehouse or a warehouse, and the result carries a warning saying so. Judge
+  those levels with `--kind "Fabric Lakehouse"`, `--kind "Fabric Warehouse"` or
+  `--kind "Fabric Workspace"`.
+- `extract_lakehouses`, `extract_warehouses` and `extract_views` set to `false`
+  are reported as the reason a lakehouse, warehouse or view is excluded.
+- `views`, `columns` and `view_definition` connect to the item's SQL Analytics
+  Endpoint. They need `sql_endpoint.enabled: true` and the ODBC driver on the
+  machine running the probe. `sql_endpoint` makes REST calls only, and reports
+  the endpoint host ingestion would connect to.
+- An empty `tables` result with a warning means the listing was refused (HTTP
+  403 on a schemas-enabled lakehouse, or 404 on a staging warehouse). It does
+  not mean there are no tables. Ingestion skips these items silently.
+- The probe reads metadata only: no rows, no `queryinsights` query history, and
+  no item definitions.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
