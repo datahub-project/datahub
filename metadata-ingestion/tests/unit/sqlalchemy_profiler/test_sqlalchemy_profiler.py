@@ -530,6 +530,7 @@ class TestSQLAlchemyProfiler:
             column_profile=mock_column_profile,
             col_type=ProfilerDataType.FLOAT,
             cardinality=Cardinality.MANY,
+            non_null_count=10,
             numeric_stats_futures=numeric_stats_futures,
             pretty_name="test.table",
         )
@@ -566,6 +567,7 @@ class TestSQLAlchemyProfiler:
                     "col_name": "value_col",
                     "col_type": ProfilerDataType.FLOAT,
                     "cardinality": Cardinality.MANY,
+                    "non_null_count": 10,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
                 },
@@ -581,6 +583,7 @@ class TestSQLAlchemyProfiler:
                     "col_name": "value_col",
                     "col_type": ProfilerDataType.FLOAT,
                     "cardinality": Cardinality.MANY,
+                    "non_null_count": 10,
                     "numeric_stats_futures": {},
                     "pretty_name": "test.table",
                 },
