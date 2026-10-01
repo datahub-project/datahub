@@ -103,7 +103,7 @@ class IcebergMetadataProbe:
             # an environment problem, not caller input, so exit 3 rather than 2.
             raise ProbeConnectionError(
                 f"could not load the FileIO implementation for "
-                f"'{namespace}.{table}': {exc}"
+                f"'{namespace}.{table}' ({type(exc).__name__} from load_table)"
             ) from exc
 
     @probe_method()
