@@ -9,8 +9,10 @@ return configs, and /status returns stack traces.
 """
 
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, List, Optional
+from typing import Any, Dict, FrozenSet, Iterator, List, Optional
+from urllib.parse import urlsplit
 
 import requests
 from typing_extensions import LiteralString
@@ -269,10 +271,35 @@ class KafkaConnectMetadataProbe:
         which `probe run connector` reports as `emitted: false`. Names only."""
         return sorted(self._listed_names())[:limit]
 
+    @contextmanager
+    def _userinfo_scrubbed(self) -> Iterator[None]:
+        """Re-raise a requests error without connect_uri's userinfo.
+
+        requests keeps `user:password@` in Response.url, so raise_for_status()
+        writes a password embedded in connect_uri into the error text. The CLI
+        masks only recipe values a key hint marks secret, and `connect_uri` is
+        not one, so that text would reach stderr as-is."""
+        userinfo = urlsplit(self._source.config.connect_uri).netloc.rpartition("@")[0]
+        try:
+            yield
+        except requests.RequestException as exc:
+            if not userinfo or userinfo not in str(exc):
+                raise
+            # from None: the original, unscrubbed message must not ride along as
+            # __cause__ into a traceback.
+            raise type(exc)(
+                str(exc).replace(f"{userinfo}@", ""),
+                request=exc.request,
+                response=exc.response,
+            ) from None
+
     def _listed_names(self) -> List[str]:
         # The GET /connectors ingestion's endpoint discovery already makes, which
         # (unlike get_connectors_manifest's) raises on 401/5xx.
-        payload: object = self._source._get_connector_names_for_endpoint_discovery()
+        with self._userinfo_scrubbed():
+            payload: object = (
+                self._source._get_connector_names_for_endpoint_discovery()
+            )
         if isinstance(payload, list):
             return [str(name) for name in payload]
         raise ProbeReadFailed(
@@ -312,10 +339,13 @@ class KafkaConnectMetadataProbe:
         self._warn_unreproduced()
         source = self._source
         url = f"{source.config.connect_uri}/connectors/{connector}"
-        response = source.session.get(url)
-        if response.status_code == 404:
-            raise ValueError(f"connector '{connector}' was listed but no longer exists")
-        response.raise_for_status()
+        with self._userinfo_scrubbed():
+            response = source.session.get(url)
+            if response.status_code == 404:
+                raise ValueError(
+                    f"connector '{connector}' was listed but no longer exists"
+                )
+            response.raise_for_status()
         manifest = source._parse_connector_manifest(connector, response.json())
         if manifest is None:
             # Ingestion drops it; the parse recorded why on the report.

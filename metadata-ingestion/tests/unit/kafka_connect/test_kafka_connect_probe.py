@@ -212,6 +212,32 @@ def test_an_auth_failure_raises_instead_of_listing_nothing() -> None:
                 probe.connectors()
 
 
+URI_CRED = "mk-3b8e-planted-uri-userinfo"
+
+
+@pytest.mark.parametrize(
+    "command,kwargs,failing_path",
+    [
+        ("connectors", {}, "/connectors"),
+        ("connector", {"connector": "orders-sink"}, "/connectors/orders-sink"),
+    ],
+)
+def test_an_http_error_does_not_echo_userinfo_from_connect_uri(
+    command: str, kwargs: Dict[str, object], failing_path: str
+) -> None:
+    # requests keeps userinfo in Response.url, so raise_for_status() puts a
+    # connect_uri's embedded password into the error text, and the CLI masks
+    # only recipe values a key hint marks secret -- `connect_uri` is not one.
+    authed = f"http://connect-user:{URI_CRED}@connect.example:8083"
+    with requests_mock.Mocker() as m:
+        m.get(f"{authed}/connectors", json=["orders-sink"])
+        m.get(f"{authed}{failing_path}", status_code=500, json={})
+        with pytest.raises(requests.HTTPError) as raised:
+            run_probe_method("kafka-connect", {"connect_uri": authed}, command, kwargs)
+    assert URI_CRED not in str(raised.value)
+    assert "connect.example:8083" in str(raised.value)
+
+
 @pytest.mark.parametrize(
     "name", ["orders-sink/config", "orders-sink?expand=info", "orders-sink#", "a%2Fb"]
 )
