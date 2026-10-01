@@ -316,13 +316,26 @@ class ProbeProviderBase:
     __exit__ closes last-opened first and runs every closer even when one
     fails; that failure then propagates, and the framework reports it as it
     reports any close failure (by class name when foreign, never replacing
-    the command's own failure). A subclass that overrides __exit__ calls
-    super().__exit__(*exc) last.
+    the command's own failure). When several closers fail, the
+    earliest-registered one's failure is reported, because it runs last;
+    the earlier-run failures are not shown. A subclass that overrides __exit__
+    calls super().__exit__(*exc) last.
     """
 
     _probe_warnings: Optional[List[str]] = None
     _probe_opened: Optional[Dict[Hashable, object]] = None
     _probe_closers: Optional[ExitStack] = None
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        # A class-level list replaces the warnings property with one list
+        # shared by every instance, so one probe's warnings would carry into
+        # the next. An annotation alone, or assignment in __init__, is fine.
+        if isinstance(vars(cls).get("warnings"), list):
+            raise TypeError(
+                f"{cls.__name__} sets a class-level `warnings` list; assign "
+                f"it in __init__ or leave it to ProbeProviderBase"
+            )
 
     @property
     def warnings(self) -> List[str]:

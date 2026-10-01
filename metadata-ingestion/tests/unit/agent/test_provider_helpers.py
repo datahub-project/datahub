@@ -1,5 +1,6 @@
 """agent.provider_helpers: the plumbing every probe provider used to hand-write."""
 
+import functools
 from dataclasses import dataclass
 from typing import Callable, Iterator, List, Optional
 
@@ -441,6 +442,9 @@ class _RunProvider(ProbeProviderBase):
         provider = cls(getattr(config, "mode", ""))
         if provider.mode.startswith("close-foreign"):
             provider._on_exit(_foreign_errors.close)
+        if provider.mode == "close-c-callable":
+            # int is C code: the innermost Python frame is the helper's closer.
+            provider._open_once("c", lambda: f"x-{SENTINEL}", close=int)
         return provider
 
     @probe_method(name="things")
@@ -452,6 +456,10 @@ class _RunProvider(ProbeProviderBase):
             resolve_name(name, _foreign_listing(), key=str, kind="thing")
         if self.mode == "warn":
             self._warn("one listing degraded")
+        if self.mode == "open-c-callable":
+            self._open_once("p", functools.partial(open, f"/nonexistent-{SENTINEL}/x"))
+        if self.mode == "take-c-iterator":
+            take(map(int, [f"x-{SENTINEL}"]), 5)
         return []
 
 
@@ -514,3 +522,44 @@ def test_a_foreign_failure_while_resolving_reports_only_its_class(
 
 def test_base_warnings_reach_the_result(run: Callable[..., ProbeMethodResult]) -> None:
     assert run("warn").warnings == ["one listing degraded"]
+
+
+# Helpers call back into provider-supplied callables. When one is C code (a
+# DB-API close, functools.partial over a driver's connect, a cursor iterated
+# by take), the innermost Python frame is the helper's -- which must not
+# vouch for the foreign text.
+
+
+def test_a_c_closer_registered_by_open_once_is_foreign(
+    run: Callable[..., ProbeMethodResult],
+) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run("close-c-callable")
+    assert SENTINEL not in str(info.value)
+    assert "ValueError" in str(info.value)
+
+
+def test_a_c_opener_is_foreign(run: Callable[..., ProbeMethodResult]) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run("open-c-callable")
+    assert SENTINEL not in str(info.value)
+    assert "FileNotFoundError" in str(info.value)
+
+
+def test_a_c_iterator_failing_inside_take_is_reported_by_class_only(
+    run: Callable[..., ProbeMethodResult],
+) -> None:
+    # A foreign ValueError keeps its exit family (2) but not its text.
+    with pytest.raises(ProbeArgumentError) as info:
+        run("take-c-iterator")
+    assert SENTINEL not in str(info.value)
+    assert "ValueError" in str(info.value)
+
+
+def test_a_class_level_warnings_list_is_refused() -> None:
+    # It would replace the base's property with one list shared by every
+    # instance, so one probe's warnings would leak into the next.
+    with pytest.raises(TypeError):
+
+        class _Shared(ProbeProviderBase):
+            warnings: List[str] = []

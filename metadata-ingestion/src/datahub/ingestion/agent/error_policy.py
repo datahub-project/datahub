@@ -15,6 +15,18 @@ from datahub.ingestion.agent.verdicts import (
 # such as `agent_extras/` cannot match by prefix.
 _FRAMEWORK_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "")
 
+# Framework files whose frames do NOT vouch for an exception. These modules
+# are trampolines: they call back into provider-supplied callables (openers,
+# closers, `keep`/`key` functions, listings to iterate). When that callable is
+# C code -- sqlite3.Connection.close, functools.partial over a driver's
+# connect, a DB-API cursor -- no Python frame of its own is recorded, so the
+# innermost frame is the helper's and the driver's text would pass as
+# authored. What these modules raise on purpose is a framework type, trusted
+# by type wherever it is raised.
+_TRAMPOLINE_FILES = frozenset(
+    os.path.join(_FRAMEWORK_DIR, name) for name in ("provider_helpers.py",)
+)
+
 # Exceptions whose text the framework vouches for: raised deliberately, by code
 # that knows the message is safe to show. SqlScopeError / ApiScopeError live in
 # sql_gate / api_gate under the framework package, so is_authored covers them by
@@ -47,8 +59,9 @@ def is_authored(exc: BaseException, provider_files: AbstractSet[str]) -> bool:
 
     True for framework types, and for an exception whose innermost raising
     Python frame is in one of the provider's own source files (see
-    probe_methods.provider_source_files) or in the framework package: a
-    message the provider wrote on purpose. Anything raised inside
+    probe_methods.provider_source_files) or in the framework package (minus
+    the trampoline modules in _TRAMPOLINE_FILES): a message the provider
+    wrote on purpose. Anything raised inside
     reused ingestion code or a third-party library is foreign -- that is where
     text quoting a JDBC URL, a YAML node or a token endpoint body comes from.
 
@@ -71,7 +84,7 @@ def is_authored(exc: BaseException, provider_files: AbstractSet[str]) -> bool:
     # From the code object rather than traceback.extract_tb, which reads
     # source lines through linecache for every frame.
     innermost = os.path.realpath(tb.tb_frame.f_code.co_filename)
-    if innermost.startswith(_FRAMEWORK_DIR):
+    if innermost.startswith(_FRAMEWORK_DIR) and innermost not in _TRAMPOLINE_FILES:
         return True
     return any(innermost == os.path.realpath(f) for f in provider_files if f)
 
