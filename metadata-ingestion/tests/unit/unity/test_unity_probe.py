@@ -9,6 +9,7 @@ from databricks.sdk.service import catalog as sdk_catalog
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     ColumnInfo,
+    GetMetastoreSummaryResponse,
     SchemaInfo,
     TableInfo,
     TableType,
@@ -91,6 +92,48 @@ def test_catalogs_adds_hive_metastore_when_ingestion_would_read_it() -> None:
     ]
     probe = _probe(ws, warehouse_id="w1", include_hive_metastore=True)
     assert probe.catalogs(limit=10) == ["hive_metastore", "main"]
+
+
+def test_catalogs_names_the_metastore_the_patterns_are_prefixed_with() -> None:
+    # With include_metastore, catalog_pattern and schema_pattern match
+    # `metastore.catalog[.schema]`; an agent needs the metastore name to pass
+    # it as --parent, and nothing else in the probe returns it.
+    ws = _fake_ws()
+    ws.catalogs.list.return_value = [CatalogInfo(name="main")]
+    ws.metastores.summary.return_value = GetMetastoreSummaryResponse(
+        name="my metastore"
+    )
+    probe = _probe(ws, include_metastore=True)
+    assert probe.catalogs(limit=10) == ["main"]
+    assert any("'my metastore'" in w and "--parent" in w for w in probe.warnings)
+
+
+def test_catalogs_reads_no_metastore_when_it_is_not_part_of_the_id() -> None:
+    ws = _fake_ws()
+    ws.catalogs.list.return_value = [CatalogInfo(name="main")]
+    probe = _probe(ws)
+    assert probe.catalogs(limit=10) == ["main"]
+    ws.metastores.summary.assert_not_called()
+    assert probe.warnings == []
+
+
+def test_catalogs_still_lists_when_the_metastore_may_not_be_read() -> None:
+    ws = _fake_ws()
+    ws.catalogs.list.return_value = [CatalogInfo(name="main")]
+    ws.metastores.summary.side_effect = PermissionDenied("secret-detail")
+    probe = _probe(ws, include_metastore=True)
+    assert probe.catalogs(limit=10) == ["main"]
+    assert any("metastore" in w for w in probe.warnings)
+    assert not any("secret-detail" in w for w in probe.warnings)
+
+
+def test_catalogs_warns_when_no_metastore_is_assigned() -> None:
+    ws = _fake_ws()
+    ws.catalogs.list.return_value = [CatalogInfo(name="main")]
+    ws.metastores.summary.return_value = GetMetastoreSummaryResponse()
+    probe = _probe(ws, include_metastore=True)
+    assert probe.catalogs(limit=10) == ["main"]
+    assert any("no assigned metastore" in w for w in probe.warnings)
 
 
 def test_catalogs_stops_paging_at_the_limit() -> None:
