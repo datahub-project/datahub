@@ -455,6 +455,17 @@ def get_probe_disabled() -> bool:
     return os.getenv("DATAHUB_PROBE_DISABLED", "").lower() in ("true", "1")
 
 
+def get_probe_verbose_logs() -> bool:
+    """Let reused ingestion code log at its own level while a probe runs.
+
+    Off by default: during a probe, the loggers of ingestion sources and the
+    SDKs they call are held to scrubbed WARNING records with no traceback
+    (see agent.log_guard), because their DEBUG output quotes connection strings
+    and request URLs. For a person debugging a connector, not for an agent.
+    """
+    return os.getenv("DATAHUB_PROBE_VERBOSE_LOGS", "").lower() in ("true", "1")
+
+
 # ============================================================================
 # Data Processing Configuration
 # ============================================================================

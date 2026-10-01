@@ -15,6 +15,7 @@ from datahub.ingestion.agent.probe_methods import (
     ProbeMethodSpec,
     ProbeParam,
     _coerce,
+    probe_method,
 )
 from datahub.ingestion.agent.redact import collect_nested_secret_values, redact
 from datahub.ingestion.agent.verdicts import ProbeSoftError
@@ -1634,7 +1635,8 @@ def test_test_connection_scrubs_credential_shapes_from_driver_text(
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(
                     capable=False,
-                    failure_reason="GET http://admin:" + "PLANTED-pw@host:8083/x failed",
+                    failure_reason="GET http://admin:"
+                    + "PLANTED-pw@host:8083/x failed",
                     mitigation_message="check client_secret=PLANTED-cs",
                 )
             )
@@ -1660,3 +1662,113 @@ def test_redacted_payload_scrubs_without_mutating_the_input_and_says_so():
     assert payload["warnings"] == ["token=abcdef1"]
     assert "abcdef1" not in str(out)
     assert len(out["warnings"]) == 2
+
+
+_LOG_SENTINEL = "PLANTED-cli-log-secret"
+_REGISTERED_SENTINEL = "plainregisteredvalue42"
+
+
+class _DebugLeakingProvider:
+    @classmethod
+    def for_config(cls, config):
+        return cls()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+    @probe_method()
+    def tables(self) -> list:
+        "Tables."
+        import logging
+
+        log = logging.getLogger("datahub.ingestion.source.leaky_cli.fetcher")
+        try:
+            raise ConnectionError(f"GET http://connect/?token={_LOG_SENTINEL}")
+        except ConnectionError:
+            log.debug("fetch failed", exc_info=True)
+        log.warning("retrying with %s", _REGISTERED_SENTINEL)
+        return [{"name": "t"}]
+
+
+class _DebugLeakingConfig:
+    @classmethod
+    def probe_provider_class(cls):
+        return _DebugLeakingProvider
+
+    @classmethod
+    def model_validate(cls, d):
+        return cls()
+
+
+@pytest.fixture
+def _real_cli_logging(monkeypatch):
+    """Run the real `configure_logging` that `datahub --debug` installs, then
+    put the process-wide logging state back for the tests after this one."""
+    import logging
+
+    import datahub.entrypoints as entrypoints
+    from datahub.utilities.logging_manager import DATAHUB_PACKAGES
+
+    monkeypatch.setenv("DATAHUB_SUPPRESS_LOGGING_MANAGER", "0")
+    root = logging.getLogger()
+    saved_root = (root.level, list(root.handlers))
+    saved_libs = {
+        lib: (
+            logging.getLogger(lib).level,
+            logging.getLogger(lib).propagate,
+            list(logging.getLogger(lib).handlers),
+        )
+        for lib in DATAHUB_PACKAGES
+    }
+    yield entrypoints.datahub
+    if entrypoints._logging_configured is not None:
+        entrypoints._logging_configured.__exit__(None, None, None)
+        entrypoints._logging_configured = None
+    root.setLevel(saved_root[0])
+    root.handlers[:] = saved_root[1]
+    for lib, (level, propagate, handlers) in saved_libs.items():
+        lib_logger = logging.getLogger(lib)
+        lib_logger.setLevel(level)
+        lib_logger.propagate = propagate
+        lib_logger.handlers[:] = handlers
+
+
+def test_reused_code_debug_tracebacks_are_dropped_under_the_debug_flag(
+    monkeypatch, tmp_path, _real_cli_logging
+):
+    """`datahub --debug` routes every datahub.* DEBUG record, tracebacks
+    included, to stderr. A connector's reused fetcher logging its failed
+    request URL must still not reach it while a probe runs -- and a registered
+    secret with no credential shape is masked because the CLI hands the
+    recipe's secrets to the guard."""
+    import datahub.ingestion.agent.probe_methods as pm
+
+    monkeypatch.setattr(
+        rc,
+        "_resolve_for_probe",
+        lambda r: ("leaky", {}, {_REGISTERED_SENTINEL}),
+    )
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _DebugLeakingProvider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _DebugLeakingConfig)
+    monkeypatch.setattr(rc, "_ping_probe", lambda *a, **k: None)
+    res = CliRunner().invoke(
+        _real_cli_logging,
+        [
+            "--debug",
+            "recipe",
+            "probe",
+            "run",
+            "tables",
+            "--recipe",
+            _recipe_file(tmp_path),
+        ],
+    )
+    assert res.exit_code == 0, res.output
+    assert "retrying with" in res.stderr
+    assert _LOG_SENTINEL not in res.output
+    assert _LOG_SENTINEL not in res.stderr
+    assert _REGISTERED_SENTINEL not in res.output
+    assert _REGISTERED_SENTINEL not in res.stderr

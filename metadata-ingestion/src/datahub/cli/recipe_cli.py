@@ -17,6 +17,7 @@ from datahub.configuration.config_loader import (
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import RunListing, listing_from_run
 from datahub.ingestion.agent.introspect import describe_source
+from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.models import FieldKind
 from datahub.ingestion.agent.probe_methods import (
     BARE_FLAG,
@@ -504,9 +505,9 @@ def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
     if redacted == payload:
         return redacted
     warnings = redacted.get("warnings")
-    redacted["warnings"] = [*warnings, _MASKED_NOTICE] if isinstance(
-        warnings, list
-    ) else [_MASKED_NOTICE]
+    redacted["warnings"] = (
+        [*warnings, _MASKED_NOTICE] if isinstance(warnings, list) else [_MASKED_NOTICE]
+    )
     return redacted
 
 
@@ -886,7 +887,12 @@ def probe_run_cmd(
         # that did not work.
         _ping_probe("run", source_type, probe_command=command)
         call_kwargs: Dict[str, object] = dict(_parse_extra_params(params))
-        result = run_probe_method(source_type, resolved, command, call_kwargs)
+        # SECURITY: reused ingestion code logs connection strings and request
+        # URLs at DEBUG, which `datahub --debug` prints. Guarded here as well as
+        # inside run_probe_method because only this caller holds the recipe's
+        # secret values, which have no credential shape for scrub_text to find.
+        with quiet_reused_logs(secret_values):
+            result = run_probe_method(source_type, resolved, command, call_kwargs)
         # SECURITY: normalize to pure JSON types before redacting, so a raw
         # exception/driver object nested in the result cannot smuggle a secret
         # past the redactor (which only inspects str/dict/list values).

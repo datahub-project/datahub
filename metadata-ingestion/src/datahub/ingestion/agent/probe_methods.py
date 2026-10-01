@@ -26,6 +26,7 @@ from datahub.configuration.env_vars import (
 from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
 from datahub.ingestion.agent.config_validation import validate_source_config
 from datahub.ingestion.agent.error_policy import classify_foreign, is_authored
+from datahub.ingestion.agent.log_guard import quiet_reused_logs
 from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.agent.verdicts import (
     ProbeConnectionError,
@@ -826,7 +827,12 @@ def run_probe_method(
         )
     # The same class discovery described, so the two cannot disagree about what
     # this source can do.
-    with ExitStack() as stack:
+    #
+    # The log guard is outermost so it also covers the provider's __exit__.
+    # No secret set here: the CLI wraps this call in its own guard holding the
+    # recipe's secret values, and scrub_text still masks credential shapes for
+    # any other caller.
+    with quiet_reused_logs(set()), ExitStack() as stack:
         try:
             provider = stack.enter_context(builder(config))
         except Exception as exc:
