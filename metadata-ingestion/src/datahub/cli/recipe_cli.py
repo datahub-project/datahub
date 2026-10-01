@@ -690,6 +690,10 @@ def _listing_warnings(listing: RunListing) -> List[str]:
             "the run that wrote that listing recorded failures, so the listing "
             "is incomplete and names it could not read were not judged"
         )
+    warnings.extend(
+        f"the run that wrote that listing warned, so it may be partial: {w}"
+        for w in listing.run_warnings
+    )
     return warnings
 
 

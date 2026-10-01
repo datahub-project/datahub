@@ -33,6 +33,9 @@ class RunListing:
     truncated: bool = False
     # The run recorded failures, so part of the source was not listed at all.
     incomplete: bool = False
+    # The run's own warnings: a degraded sub-fetch (ProbeSoftError) leaves the
+    # listing possibly partial without recording a failure.
+    run_warnings: List[str] = field(default_factory=list)
 
 
 def _as_attribute(value: object) -> Optional[str]:
@@ -97,22 +100,23 @@ def listing_from_run(envelope: object) -> RunListing:
             text = _as_attribute(value) if key != "name" else None
             if text is None:
                 continue
-            if MASK in text:
+            # The redactor masks keys as well as values; a value kept under
+            # "***" is one no verdict reads, so the real field is just missing.
+            if MASK in key or MASK in text:
                 if key not in masked_keys:
                     masked_keys.append(key)
                 continue
             kept[key] = text
         names.append(name)
         attributes.append(kept)
-    kind = envelope.get("kind")
-    source_type = envelope.get("source_type")
+    kind = _unmasked(envelope.get("kind"))
+    source_type = _unmasked(envelope.get("source_type"))
     failures = envelope.get("failures")
+    warnings = envelope.get("warnings")
     parent_path = _parent_path(envelope.get("parent_path"))
     return RunListing(
-        kind=kind if isinstance(kind, str) and kind else None,
-        source_type=source_type
-        if isinstance(source_type, str) and source_type
-        else None,
+        kind=kind,
+        source_type=source_type,
         parent_path=parent_path,
         names=names,
         attributes=attributes,
@@ -121,7 +125,19 @@ def listing_from_run(envelope: object) -> RunListing:
         parent_redacted=any(MASK in segment for segment in parent_path),
         truncated=envelope.get("truncated") is True,
         incomplete=isinstance(failures, list) and len(failures) > 0,
+        run_warnings=[w for w in warnings if isinstance(w, str)]
+        if isinstance(warnings, list)
+        else [],
     )
+
+
+def _unmasked(value: object) -> Optional[str]:
+    # A redacted kind or source_type is not one the source has: "***" as a
+    # kind resolves to no filters and judges every name included. Absent makes
+    # the CLI ask for --kind instead.
+    if isinstance(value, str) and value and MASK not in value:
+        return value
+    return None
 
 
 def _parent_path(parent: object) -> List[str]:

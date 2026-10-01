@@ -1544,6 +1544,33 @@ def test_a_truncated_or_failed_listing_is_judged_with_warnings(monkeypatch, tmp_
     assert any("incomplete" in w for w in warnings), warnings
 
 
+def test_a_listing_whose_run_warned_is_judged_with_those_warnings(
+    monkeypatch, tmp_path
+):
+    _capturing_check_filters(monkeypatch)
+    run = _run_file(
+        tmp_path,
+        {"kind": "Table", "result": ["t1"], "warnings": ["could not read x"]},
+    )
+    res = _filter_from_run(tmp_path, run)
+    assert res.exit_code == 0, res.output
+    warnings = _warnings_of(res)
+    assert any("could not read x" in w for w in warnings), warnings
+
+
+def test_a_redacted_listing_kind_asks_for_kind(monkeypatch, tmp_path):
+    seen = _capturing_check_filters(monkeypatch)
+    run = _run_file(tmp_path, {"kind": "***", "result": ["t1"]})
+    refused = _filter_from_run(tmp_path, run)
+    assert refused.exit_code == 2, refused.output
+    assert "--kind" in refused.output
+    assert seen == {}
+
+    accepted = _filter_from_run(tmp_path, run, "--kind", "table")
+    assert accepted.exit_code == 0, accepted.output
+    assert seen["kind"] == "table"
+
+
 def test_redacted_entries_are_skipped_with_a_warning(monkeypatch, tmp_path):
     seen = _capturing_check_filters(monkeypatch)
     run = _run_file(

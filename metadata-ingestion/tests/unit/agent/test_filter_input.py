@@ -109,3 +109,31 @@ def test_a_redacted_parent_path_is_flagged_not_used() -> None:
         listing_from_run({"result": ["a"], "parent_path": ["db"]}).parent_redacted
         is False
     )
+
+
+def test_a_redacted_attribute_key_is_dropped_and_reported() -> None:
+    # The redactor masks dict keys too: an attribute stored under "***" is one
+    # no verdict reads, so the real field would be missing without a word.
+    listing = listing_from_run(
+        {"kind": "Workspace", "result": [{"name": "Sales", "***": "ws-1", "t": "x"}]}
+    )
+    assert listing.attributes == [{"t": "x"}]
+    assert listing.masked_attributes == ["***"]
+
+
+def test_a_redacted_kind_or_source_type_is_treated_as_absent() -> None:
+    listing = listing_from_run({"kind": "***", "source_type": "x***y", "result": ["a"]})
+    # "***" is not a kind the source has; reading it as one would judge every
+    # name against a kind with no filters.
+    assert listing.kind is None
+    assert listing.source_type is None
+
+
+def test_the_runs_warnings_travel_with_the_listing() -> None:
+    listing = listing_from_run(
+        {"result": ["a"], "warnings": ["could not list owners of x", 3]}
+    )
+    # A degraded sub-fetch means the listing may be partial even though the
+    # run recorded no failures.
+    assert listing.run_warnings == ["could not list owners of x"]
+    assert listing_from_run({"result": ["a"]}).run_warnings == []
