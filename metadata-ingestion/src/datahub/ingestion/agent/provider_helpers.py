@@ -13,8 +13,9 @@ and no message is ever built from the text of an exception this module did
 not raise.
 """
 
+import itertools
 from dataclasses import dataclass
-from typing import Callable, Generic, Iterable, List, Optional, TypeVar
+from typing import Callable, Generic, Iterable, Iterator, List, Optional, TypeVar
 
 from datahub.ingestion.agent.verdicts import ProbeArgumentError
 
@@ -168,3 +169,61 @@ def _ambiguous_message(
     if remedy:
         message += f"; {remedy}"
     return message
+
+
+def take(
+    items: Iterable[T],
+    limit: Optional[int],
+    *,
+    keep: Optional[Callable[[T], bool]] = None,
+) -> List[T]:
+    """The first `limit` items `keep` admits (every one when limit is None).
+
+    Pulls nothing past the limit: on a paged API the discarded pages are real
+    requests, and the framework asks for limit+1 to detect truncation, so
+    returning exactly what was asked is correct. The source is closed
+    explicitly, finished or not, rather than left to the garbage collector:
+    some SDK generators hold patched state while suspended.
+    """
+    iterator = iter(items)
+    try:
+        kept: Iterator[T] = iterator if keep is None else filter(keep, iterator)
+        if limit is None:
+            return list(kept)
+        return list(itertools.islice(kept, limit))
+    finally:
+        close = getattr(iterator, "close", None)
+        if callable(close):
+            close()
+
+
+@dataclass
+class PersonalWithholding(Generic[T]):
+    """Leaves out records that name people and that ingestion would not emit,
+    and counts them so the listing can say how many.
+
+    `is_personal` must fail closed -- True when unsure -- because what it
+    misses is printed. Databricks lists notebook paths from an allowlist
+    (/Shared/) for exactly that reason. A record the recipe ingests is shown
+    whatever it is: ingestion emits it anyway.
+
+    A predicate rather than a filtered list, so it works on a raw body
+    (`[r for r in body if w.keep(r)]`) and on a listing that must stop at the
+    limit (`take(pages, limit, keep=w.keep)`). Only the count is kept, never
+    a withheld record.
+    """
+
+    is_personal: Callable[[T], bool]
+    would_ingest: Callable[[T], bool]
+    withheld: int = 0
+
+    def keep(self, record: T) -> bool:
+        if self.is_personal(record) and not self.would_ingest(record):
+            self.withheld += 1
+            return False
+        return True
+
+    def count_text(self, *, stopped_early: bool) -> str:
+        """The count for a warning. A walk that stopped at the limit saw only
+        part of the source, so its count is a lower bound."""
+        return f"at least {self.withheld}" if stopped_early else str(self.withheld)

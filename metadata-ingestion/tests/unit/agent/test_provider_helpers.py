@@ -5,7 +5,13 @@ from typing import Iterator, List
 
 import pytest
 
-from datahub.ingestion.agent.provider_helpers import Resolved, echoed, resolve_name
+from datahub.ingestion.agent.provider_helpers import (
+    PersonalWithholding,
+    Resolved,
+    echoed,
+    resolve_name,
+    take,
+)
 from datahub.ingestion.agent.verdicts import ProbeArgumentError, ProbeReadFailed
 
 
@@ -166,3 +172,79 @@ def test_hinted_and_distinguishing_values_are_clipped_and_escaped() -> None:
 def test_echoed_matches_the_w2_resolver_rendering() -> None:
     assert echoed("public") == "'public'"
     assert echoed("y" * 70) == repr("y" * 64 + "...")
+
+
+def test_take_stops_pulling_at_the_limit() -> None:
+    pulled: List[int] = []
+
+    def pages() -> Iterator[int]:
+        for n in range(100):
+            pulled.append(n)
+            yield n
+
+    assert take(pages(), 3) == [0, 1, 2]
+    assert pulled == [0, 1, 2]
+
+
+def test_take_closes_a_generator_it_stops_early() -> None:
+    # proxy.tables patches an SDK class for as long as its loop is
+    # suspended; only an explicit close runs its finally deterministically.
+    state: List[str] = []
+
+    def listing() -> Iterator[int]:
+        state.append("patched")
+        try:
+            yield from range(10)
+        finally:
+            state.append("restored")
+
+    assert take(listing(), 2) == [0, 1]
+    assert state == ["patched", "restored"]
+
+
+def test_take_closes_the_source_when_keep_raises() -> None:
+    state: List[str] = []
+
+    def listing() -> Iterator[int]:
+        try:
+            yield from range(10)
+        finally:
+            state.append("closed")
+
+    def keep(n: int) -> bool:
+        raise KeyError(n)
+
+    with pytest.raises(KeyError):
+        take(listing(), 5, keep=keep)
+    assert state == ["closed"]
+
+
+def test_take_filters_before_counting_and_takes_all_without_a_limit() -> None:
+    assert take(range(10), 2, keep=lambda n: n % 2 == 1) == [1, 3]
+    assert take(iter([1, 2, 3]), None) == [1, 2, 3]
+
+
+def _notebooks() -> PersonalWithholding[str]:
+    return PersonalWithholding[str](
+        is_personal=lambda path: not path.startswith("/Shared/"),
+        would_ingest=lambda path: path.startswith("/Users/ingested"),
+    )
+
+
+def test_withholding_drops_personal_records_ingestion_would_not_read() -> None:
+    withholding = _notebooks()
+    paths = ["/Shared/a", "/Users/someone/b", "/Users/ingested/c", "/Repos/x/d"]
+    assert [p for p in paths if withholding.keep(p)] == [
+        "/Shared/a",
+        "/Users/ingested/c",
+    ]
+    assert withholding.withheld == 2
+
+
+def test_withholding_counts_only_what_a_cut_short_walk_saw() -> None:
+    withholding = _notebooks()
+    paths = ["/Users/a", "/Shared/b", "/Users/c", "/Shared/d", "/Users/e"]
+    assert take(paths, 1, keep=withholding.keep) == ["/Shared/b"]
+    assert withholding.withheld == 1
+    assert withholding.count_text(stopped_early=True) == "at least 1"
+    assert withholding.count_text(stopped_early=False) == "1"
