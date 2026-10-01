@@ -35,7 +35,9 @@ DataHub transforms enterprise data into trusted context, enabling intelligent de
   </a>
 </p>
 
-Trusted in production by teams at Netflix, Visa, Etsy, Slack, Apple, FIS, Miro, and [3,000+ organizations worldwide →](https://datahub.com/resources/customer-stories/) · [See all adopters](ADOPTERS.md)
+<p align="center">
+  Trusted in production by teams at Netflix, Visa, Etsy, Slack, Apple, FIS, Miro, and <a href="https://datahub.com/resources/customer-stories/">3,000+ organizations worldwide →</a> · <a href="ADOPTERS.md">See all adopters</a>
+</p>
 
 ## Pick your path
 
@@ -118,7 +120,7 @@ Know when something breaks before your users do.
 
   [MCP server setup →](https://docs.datahub.com/docs/features/feature-guides/mcp)
 
-**Next steps:** [Ingest metadata](https://docs.datahub.com/docs/metadata-ingestion/cli-ingestion) · [Search with the Python SDK](https://docs.datahub.com/docs/api/tutorials/sdk/search_client) · [Query lineage with GraphQL](https://docs.datahub.com/docs/api/tutorials/lineage) · [Add documentation with the Python SDK](https://docs.datahub.com/docs/api/tutorials/descriptions)
+**Next steps:** [Ingest metadata](https://docs.datahub.com/docs/metadata-ingestion/cli-ingestion) · [Search the catalog](https://docs.datahub.com/docs/api/tutorials/sdk/search_client) · [Query lineage](https://docs.datahub.com/docs/api/tutorials/lineage) · [Add documentation](https://docs.datahub.com/docs/api/tutorials/descriptions)
 
 ## Why DataHub
 
@@ -126,11 +128,11 @@ Know when something breaks before your users do.
 
 - **Battle-tested at scale.** Born at LinkedIn to handle one of the largest data estates in the world. Manages 10M+ assets in production today.
 
-- **Accuracy you can measure.** Context Intelligence mines your existing query history to build a semantic index from day one with no manual authoring, no months of workshops. Customers report text-to-SQL accuracy improving from 50% to 90% after connecting DataHub. 119% more AI/ML models reach production when teams can trust their data. _([IDC, March 2026](https://datahub.com/roi/))_
+- **Accuracy you can measure.** Customers report text-to-SQL accuracy improving from 50% to 90% after connecting DataHub. 119% more AI/ML models reach production when teams can trust their data. _([IDC, March 2026](https://datahub.com/roi/))_
 
 - **Discovery that actually works.** Business users find trusted data in five minutes, down from 50 — a 91% reduction in search time. _([IDC, March 2026](https://datahub.com/roi/))_
 
-- **Open by default, extensible by design.** Apache 2.0. Built on open standards: MCP for agent delivery, GraphQL and REST APIs. Bring your own agents, your own LLM, your own stack. Join our Slack community with 16,000+ members.
+- **Open by default, extensible by design.** Apache 2.0. Built on open standards: MCP for agent delivery, GraphQL and REST APIs. Bring your own agents, your own LLM, your own stack.
 
 [Compare DataHub Core and DataHub Cloud →](https://datahub.com/products/cloud-vs-core/)
 
@@ -157,7 +159,7 @@ Production-grade integrations across your full data stack.
   <a href="https://docs.datahub.com/integrations"><b>See all 150+ integrations →</b></a>
 </p>
 
-Missing a source? [Build a custom connector](https://docs.datahub.com/docs/how/add-custom-ingestion-source). [DataHub Skills](https://github.com/datahub-project/datahub-skills) can help your AI coding assistant plan and review it.
+Missing a source? [Build a custom connector](https://docs.datahub.com/docs/how/add-custom-ingestion-source) . [DataHub Skills](https://github.com/datahub-project/datahub-skills) can help your AI coding assistant plan and review it.
 
 ## DataHub ecosystem
 
@@ -169,7 +171,7 @@ Missing a source? [Build a custom connector](https://docs.datahub.com/docs/how/a
 
 ## Built by the community
 
-DataHub has 16,000+ community members and 750+ contributors across 3,600+ organizations. Every connector, integration, and improvement you use was built by people like you.
+DataHub has 16,000+ community members and 750+ contributors across 3,000+ organizations. Every connector, integration, and improvement you use was built by people like you.
 
 - Join [Slack](https://datahub.com/slack) community
 - Watch demos and events on [YouTube](https://www.youtube.com/@DataHubCloud)
