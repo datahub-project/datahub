@@ -358,7 +358,25 @@ _PEM_BLOCK = re.compile(
 # authentication failed", "access_key: field required"). Masking it would
 # swallow the explanation the caller needs. Kept short on purpose.
 _DIAGNOSTIC_WORDS = frozenset(
-    ["required", "missing", "invalid", "failed", "not", "none", "null", "empty", "expired", "denied", "incorrect", "authentication", "is", "was", "must", "field", "token"]
+    [
+        "required",
+        "missing",
+        "invalid",
+        "failed",
+        "not",
+        "none",
+        "null",
+        "empty",
+        "expired",
+        "denied",
+        "incorrect",
+        "authentication",
+        "is",
+        "was",
+        "must",
+        "field",
+        "token",
+    ]
 )
 
 

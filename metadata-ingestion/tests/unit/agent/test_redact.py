@@ -435,7 +435,8 @@ def test_a_registered_secret_is_removed_whole_before_structural_passes(
         "SharedAccessSignature=PLANTEDvalue",
         "token%3DPLANTEDvalue",
         'secret="PLANTED\\"value"',
-        "x\n-----BEGIN RSA PRIVATE" + " KEY-----\nPLANTEDvalue\n-----END RSA PRIVATE KEY-----\ny",
+        "x\n-----BEGIN RSA PRIVATE"
+        + " KEY-----\nPLANTEDvalue\n-----END RSA PRIVATE KEY-----\ny",
         "-----BEGIN PRIVATE" + " KEY-----\nPLANTEDvalue",
     ],
 )
