@@ -192,3 +192,81 @@ def test_describe_lists_the_nested_filters_under_their_dotted_names() -> None:
     assert fields["filter_config.entries.fqn_pattern"] == DATAPLEX_ENTRY_FQN_KIND
     assert fields["aspect_type_pattern"] == DATAPLEX_ASPECT_TYPE_KIND
     assert fields["project_id_pattern"] == DATAPLEX_PROJECT_KIND
+
+
+READ_EXPORT_MODE: Dict[str, object] = {
+    "extraction_method": "read_export",
+    "read_export_config": {"export_paths": {"us": "gs://exports-us/run"}},
+}
+GROUP_B = "projects/proj-b/locations/us/entryGroups/sales"
+ENTRY_B = f"{GROUP_B}/entries/orders"
+
+
+def test_export_mode_judges_the_project_above_an_entry() -> None:
+    # `export` submits jobs scoped to the resolved projects (run_exports), so an
+    # entry from an unlisted project is never in the export.
+    config: Dict[str, object] = {**EXPORT_MODE, "project_ids": ["proj-a"]}
+    for kind, name in (
+        (DATAPLEX_ENTRY_KIND, ENTRY_B),
+        (DATAPLEX_ENTRY_FQN_KIND, "bigquery:proj-b.sales.orders"),
+    ):
+        excluded = _judge(config, kind, [name], parents=["proj-b", GROUP_B])
+        assert [(r.included, r.excluded_by) for r in excluded.results] == [
+            (False, "project_ids")
+        ]
+    included = _judge(
+        config, DATAPLEX_ENTRY_KIND, [ENTRY_ORDERS], parents=["proj-a", GROUP_SALES]
+    )
+    assert included.results[0].included is True
+
+
+def test_export_mode_judges_a_discovered_project_by_its_pattern() -> None:
+    config: Dict[str, object] = {
+        **EXPORT_MODE,
+        "project_id_pattern": {"allow": ["^proj-a$"]},
+    }
+    result = _judge(
+        config, DATAPLEX_ENTRY_KIND, [ENTRY_B], parents=["proj-b", GROUP_B]
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (False, "project_id_pattern")
+    ]
+
+
+def test_read_export_mode_says_the_export_scope_decides_the_project() -> None:
+    config: Dict[str, object] = {**READ_EXPORT_MODE, "project_ids": ["proj-a"]}
+    result = _judge(
+        config, DATAPLEX_ENTRY_KIND, [ENTRY_B], parents=["proj-b", GROUP_B]
+    )
+    assert result.results[0].included is True
+    assert any("read_export" in w for w in result.warnings)
+
+
+def test_a_spanner_entry_warns_that_the_entry_group_pattern_is_bypassed() -> None:
+    config: Dict[str, object] = {"project_ids": ["proj-a"]}
+    spanner = _judge(
+        config,
+        DATAPLEX_ENTRY_FQN_KIND,
+        ["spanner:proj-a.regional-us.inst.db.orders"],
+    )
+    plain = _judge(config, DATAPLEX_ENTRY_FQN_KIND, ["bigquery:proj-a.sales.orders"])
+    assert any("search_entries" in w for w in spanner.warnings)
+    assert not any("search_entries" in w for w in plain.warnings)
+
+
+def test_project_labels_with_a_bare_name_warn_that_labels_were_not_checked() -> (
+    None
+):
+    config: Dict[str, object] = {"project_labels": ["env:prod"]}
+    bare = _judge(config, DATAPLEX_PROJECT_KIND, ["prod-a"])
+    assert bare.results[0].included is True
+    assert any("project_labels" in w for w in bare.warnings)
+    listed = check_filters(
+        source_type="dataplex",
+        config_dict=config,
+        kind=DATAPLEX_PROJECT_KIND,
+        parent_path=[],
+        names=["prod-a"],
+        attributes=[{"display_name": "prod-a"}],
+    )
+    assert not any("project_labels" in w for w in listed.warnings)

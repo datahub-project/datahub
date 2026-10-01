@@ -2,6 +2,8 @@
 run_probe_method so kind, parent_path, truncation and warnings are the
 framework's real ones."""
 
+import json
+import logging
 from typing import Dict, Iterator, List, Optional
 from unittest.mock import Mock
 
@@ -472,3 +474,38 @@ def test_an_unknown_entry_is_a_bad_argument(monkeypatch: pytest.MonkeyPatch) -> 
     with pytest.raises(ValueError) as info:
         _run(monkeypatch, "entry_aspect_types", {"entry": ENTRY}, catalog=client)
     assert SERVER_DETAIL not in str(info.value)
+
+
+SENTINEL_VALUE = "sentinel-aspect-value-7f3a"
+
+
+def test_a_retry_error_is_scrubbed(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = Mock(spec=dataplex_v1.CatalogServiceClient)
+    client.get_entry.side_effect = exceptions.RetryError(
+        f"Timeout of 60s exceeded, last exception: {SERVER_DETAIL}",
+        exceptions.ServiceUnavailable(SERVER_DETAIL),
+    )
+    with pytest.raises(ProbeConnectionError) as info:
+        _run(monkeypatch, "entry_aspect_types", {"entry": ENTRY}, catalog=client)
+    assert "get_entry" in str(info.value)
+    assert SERVER_DETAIL not in str(info.value)
+    assert info.value.__cause__ is None
+
+
+def test_aspect_values_are_neither_returned_nor_logged(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    client = Mock(spec=dataplex_v1.CatalogServiceClient)
+    client.get_entry.return_value = dataplex_v1.Entry(
+        name=ENTRY,
+        aspects={
+            "proj-a.us.owners": dataplex_v1.Aspect(data={"owner": SENTINEL_VALUE})
+        },
+    )
+    with caplog.at_level(logging.DEBUG):
+        result = _run(
+            monkeypatch, "entry_aspect_types", {"entry": ENTRY}, catalog=client
+        )
+    assert _strings(result) == ["owners"]
+    assert SENTINEL_VALUE not in json.dumps(result.to_dict())
+    assert SENTINEL_VALUE not in caplog.text

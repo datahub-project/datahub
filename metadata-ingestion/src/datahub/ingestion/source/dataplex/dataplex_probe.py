@@ -75,8 +75,10 @@ _EXPLICIT_PROJECTS_NOTE = (
 )
 
 
-def _status(exc: exceptions.GoogleAPICallError) -> str:
-    code = f"HTTP {exc.code}" if exc.code is not None else "no HTTP status"
+def _status(exc: exceptions.GoogleAPIError) -> str:
+    # RetryError is a GoogleAPIError without a status of its own.
+    status = getattr(exc, "code", None)
+    code = f"HTTP {status}" if status is not None else "no HTTP status"
     return f"{code} ({type(exc).__name__})"
 
 
@@ -95,7 +97,9 @@ def _scrubbed(method: str, not_found: Optional[str] = None) -> Iterator[None]:
     """
     try:
         yield
-    except exceptions.GoogleAPICallError as exc:
+    # GoogleAPIError, not GoogleAPICallError: RetryError subclasses only the
+    # former and embeds the last server error in its text.
+    except exceptions.GoogleAPIError as exc:
         if not_found is not None and isinstance(exc, exceptions.NotFound):
             raise ValueError(not_found) from None
         raise ProbeConnectionError(f"GCP {method} failed: {_status(exc)}") from None
@@ -249,9 +253,11 @@ class DataplexMetadataProbe:
         (projects/<p>/locations/<l>/entryGroups/<g>) -- the exact string
         filter_config.entry_groups.pattern is matched against, returned as the
         API returns it (the project segment may be a number). Omit --location to
-        sweep every entries_locations entry as ingestion does; a location that
-        cannot be read is skipped with a warning. Includes system groups such as
-        @bigquery and groups the pattern denies."""
+        sweep every entries_locations entry as ingestion does. The sweep skips,
+        with a warning, only a location answering NotFound or PermissionDenied
+        (ingestion skips a location on any error), so a 503 or Unauthenticated
+        in one location fails the whole sweep with exit 3. Includes system
+        groups such as @bigquery and groups the pattern denies."""
         located = self._sweep_locations(
             project,
             location,
@@ -364,7 +370,12 @@ class DataplexMetadataProbe:
             not_found=f"no entry named '{entry}'; list them with `entries` and "
             f"pass a name exactly as it is returned",
         ):
-            # Ingestion's own get_entry(view=ALL) fetch, so the aspect keys are
-            # the ones ingestion sees.
-            detail = self._entries_processor._fetch_entry_detail(entry)
+            # The request ingestion's _fetch_entry_detail sends, so the aspect
+            # keys are the ones ingestion sees -- but not that method, which
+            # logs the whole entry, aspect data included, at DEBUG.
+            detail = self._catalog.get_entry(
+                request=dataplex_v1.GetEntryRequest(
+                    name=entry, view=dataplex_v1.EntryView.ALL
+                )
+            )
         return sorted({aspect_type_short_name(key) for key in detail.aspects})
