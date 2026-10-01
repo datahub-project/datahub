@@ -247,6 +247,21 @@ source:
 #       attribution_source: "urn:li:dataPlatform:dataplex"
 ```
 
+### Checking a recipe before running it
+
+`datahub recipe probe` lists what the catalog holds and judges it against your recipe's filters before you run ingestion:
+
+```bash
+datahub recipe probe run entry_groups --recipe recipe.yml --project my-project
+datahub recipe probe run entries --recipe recipe.yml --project my-project \
+  --entry_group projects/my-project/locations/us/entryGroups/my-group
+datahub recipe probe filter --recipe recipe.yml --kind Entry \
+  --parent my-project --parent projects/my-project/locations/us/entryGroups/my-group \
+  --name projects/my-project/locations/us/entryGroups/my-group/entries/my-entry
+```
+
+The `filter_config` patterns match full resource names exactly as the API returns them, and a pattern must match from the start of the name. Copy names from the `entry_groups` and `entries` output instead of writing them by hand, because the project segment may be a project number. An entry is ingested only when both its name (`--kind Entry`) and its fully-qualified name (`--kind EntryFqn`) are included. The `export` and `read_export` extraction methods do not apply `filter_config.entry_groups.pattern`.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
