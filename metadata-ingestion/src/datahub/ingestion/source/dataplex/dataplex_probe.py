@@ -8,7 +8,7 @@ aspect data, descriptions or glossary content leaves this module.
 """
 
 import itertools
-from contextlib import contextmanager
+from contextlib import AbstractContextManager, contextmanager
 from functools import cached_property
 from typing import (
     Callable,
@@ -35,7 +35,9 @@ from datahub.ingestion.source.common.gcp_project_filter import (
     _search_projects_by_labels,
 )
 from datahub.ingestion.source.dataplex.dataplex_config import (
+    DATAPLEX_ENTRY_FQN_KIND,
     DATAPLEX_ENTRY_GROUP_KIND,
+    DATAPLEX_ENTRY_KIND,
     DATAPLEX_PROJECT_KIND,
     DataplexConfig,
 )
@@ -47,6 +49,10 @@ from datahub.ingestion.source.dataplex.dataplex_entries import (
 from datahub.ingestion.source.dataplex.dataplex_export import (
     build_service_account_credentials,
 )
+from datahub.ingestion.source.dataplex.dataplex_ids import (
+    extract_entry_type_short_name,
+)
+from datahub.ingestion.source.dataplex.dataplex_mappers import ENTRY_MAPPERS
 from datahub.ingestion.source.dataplex.dataplex_report import DataplexReport
 
 T = TypeVar("T")
@@ -268,3 +274,81 @@ class DataplexMetadataProbe:
                 }
                 for loc, group in itertools.islice(located, limit)
             ]
+
+    def _list_entries(self, entry_group: str) -> Iterator[dataplex_v1.Entry]:
+        # The call _list_entry_stubs makes, without its filter: that method
+        # drops denied and FQN-less entries, which is ingestion's policy, and a
+        # probe must report both.
+        request = dataplex_v1.ListEntriesRequest(parent=entry_group)
+        yield from self._catalog.list_entries(request=request)
+
+    @staticmethod
+    def _entries_scrubbed(entry_group: str) -> AbstractContextManager[None]:
+        return _scrubbed(
+            "list_entries",
+            not_found=f"no entry group named '{entry_group}'; list them with "
+            f"`entry_groups` and pass a name exactly as it is returned",
+        )
+
+    @probe_method(
+        kind=DATAPLEX_ENTRY_KIND,
+        row_limit_param="limit",
+        parent_params=("project", "entry_group"),
+    )
+    def entries(
+        self, project: str, entry_group: str, limit: int = 200
+    ) -> List[Dict[str, object]]:
+        """Entries in one entry group, named by full resource name -- the
+        string filter_config.entries.pattern is matched against. Pass
+        entry_group exactly as `entry_groups` returns it, and project as the
+        recipe names it (it is used to judge project_id_pattern, not to fetch).
+        Each record also carries fully_qualified_name, which
+        filter_config.entries.fqn_pattern judges separately (use `entry_fqns`
+        and --kind EntryFqn), and whether ingestion has a mapper for its type.
+        An entry with an empty FQN or an unsupported type is never ingested,
+        whatever the patterns say. Metadata only: no aspect data."""
+        records: List[Dict[str, object]] = []
+        with self._entries_scrubbed(entry_group):
+            for entry in itertools.islice(self._list_entries(entry_group), limit):
+                short = extract_entry_type_short_name(entry.entry_type)
+                records.append(
+                    {
+                        "name": entry.name,
+                        "fully_qualified_name": entry.fully_qualified_name,
+                        "entry_type": short or entry.entry_type,
+                        "supported": short is not None and short in ENTRY_MAPPERS,
+                    }
+                )
+        if any(not r["fully_qualified_name"] for r in records):
+            self.warnings.append(
+                "some entries have no fully_qualified_name; ingestion skips those "
+                "whatever filter_config says"
+            )
+        if any(not r["supported"] for r in records):
+            self.warnings.append(
+                "some entries have an entry_type ingestion has no mapper for "
+                "(supported: false); ingestion skips those whatever filter_config "
+                "says"
+            )
+        return records
+
+    @probe_method(
+        kind=DATAPLEX_ENTRY_FQN_KIND,
+        row_limit_param="limit",
+        parent_params=("project", "entry_group"),
+    )
+    def entry_fqns(
+        self, project: str, entry_group: str, limit: int = 200
+    ) -> List[str]:
+        """Fully-qualified names of the entries in one entry group -- the
+        strings filter_config.entries.fqn_pattern is matched against
+        (e.g. bigquery:<project>.<dataset>.<table>). Entries without one are
+        left out; `entries` shows them. An entry is ingested only if both its
+        name (--kind Entry) and its FQN (--kind EntryFqn) are included."""
+        fqns = (
+            entry.fully_qualified_name
+            for entry in self._list_entries(entry_group)
+            if entry.fully_qualified_name
+        )
+        with self._entries_scrubbed(entry_group):
+            return list(itertools.islice(fqns, limit))
