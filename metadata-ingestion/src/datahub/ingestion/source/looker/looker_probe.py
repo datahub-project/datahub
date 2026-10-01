@@ -1,6 +1,7 @@
 import re
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from functools import partial
 from typing import (
     Callable,
     Dict,
@@ -9,6 +10,7 @@ from typing import (
     Optional,
     Sequence,
     Set,
+    Tuple,
     TypeVar,
     Union,
 )
@@ -28,7 +30,7 @@ from looker_sdk.sdk.api40.models import (
 )
 
 from datahub.configuration.common import ConfigurationError
-from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.probe_methods import MAX_PROBE_ITEMS, probe_method
 from datahub.ingestion.agent.verdicts import (
     ProbeConnectionError,
     ProbeReadFailed,
@@ -43,7 +45,9 @@ from datahub.ingestion.source.looker.looker_probe_verdicts import (
     ATTR_FOLDER_PATH_ALLOWED,
     ATTR_FOLDER_PERSONAL,
     ATTR_HAS_QUERY,
+    ATTR_ON_KEPT_DASHBOARD,
     ATTR_TYPE,
+    ATTR_USED,
     DASHBOARD_KIND,
     EXPLORE_KIND,
     LOOK_KIND,
@@ -146,6 +150,72 @@ def _look_record(look: Look, deleted: bool) -> Dict[str, object]:
             and (folder.is_personal or folder.is_personal_descendant)
         ),
     }
+
+# How many dashboard and look reads one --trace-charts run may make before it
+# stops and leaves what it has not seen undetermined. Ingestion reads them
+# all; a probe command stays bounded.
+_TRACE_FETCH_LIMIT = MAX_PROBE_ITEMS
+# The element queries carry the explores; user fields are not read.
+_TRACE_DASHBOARD_FIELDS = ["id", "folder", "dashboard_elements"]
+_TRACE_INCOMPLETE = (
+    "the chart trace did not read everything ingestion would (a read was "
+    "refused or failed, see above, or it stopped after {limit} reads), so "
+    "what it did not find in use is left undetermined (null)"
+)
+
+ExploreRef = Tuple[str, str]
+
+
+def _element_explores(element: DashboardElement) -> List[ExploreRef]:
+    """The (model, explore) pairs _get_looker_dashboard_element records with
+    add_reachable_explore, with the same precedence: query, else look, else
+    result_maker (its query and its filterables)."""
+    queries: List[Optional[Query]] = []
+    pairs: List[ExploreRef] = []
+    if element.query is not None:
+        queries.append(element.query)
+    elif element.look is not None:
+        queries.append(element.look.query)
+    elif element.result_maker is not None:
+        queries.append(element.result_maker.query)
+        for filterable in element.result_maker.filterables or []:
+            if filterable.model is not None and filterable.view is not None:
+                pairs.append((filterable.model, filterable.view))
+    for query in queries:
+        # A pair without a model names no explore any listing holds.
+        if query is not None and query.model is not None and query.view is not None:
+            pairs.append((query.model, query.view))
+    return pairs
+
+
+@dataclass
+class _Reachability:
+    """What ingestion's reachable_explores and reachable_look_registry would
+    hold, as far as one bounded trace could tell."""
+
+    explores: Set[ExploreRef] = field(default_factory=set)
+    looks: Set[str] = field(default_factory=set)
+    # Every dashboard ingestion reads was read, so a look or explore not
+    # found on one is not on one.
+    dashboards_complete: bool = True
+    # Every standalone look ingestion reads was read (or none are read).
+    looks_complete: bool = True
+    reads: int = 0
+
+    def explore_used(self, model: str, explore: str) -> Optional[bool]:
+        if (model, explore) in self.explores:
+            return True
+        return False if self.dashboards_complete and self.looks_complete else None
+
+    def model_used(self, model: str) -> Optional[bool]:
+        if any(used_model == model for used_model, _ in self.explores):
+            return True
+        return False if self.dashboards_complete and self.looks_complete else None
+
+    def on_kept_dashboard(self, look_id: str) -> Optional[bool]:
+        if look_id in self.looks:
+            return True
+        return False if self.dashboards_complete else None
 
 
 def sdk_error_status(exc: SDKError) -> Optional[int]:
@@ -464,7 +534,9 @@ class LookerMetadataProbe:
             )
 
     @probe_method(kind=LOOK_KIND, row_limit_param="limit")
-    def looks(self, limit: int = 200) -> List[Dict[str, object]]:
+    def looks(
+        self, limit: int = 200, trace_charts: bool = False
+    ) -> List[Dict[str, object]]:
         """Saved looks, by look id, as extract_independent_looks reads them:
         live ones, and deleted ones (`deleted: true`), which it reads only with
         include_deleted. Ingestion emits a look as a standalone chart only when
@@ -472,9 +544,12 @@ class LookerMetadataProbe:
         under skip_personal_folders, it is not in a personal folder
         (`folder_personal`). chart_pattern does not apply to these. A look that
         is also on a dashboard ingestion reads is emitted as that dashboard's
-        chart instead, which this listing cannot tell. Judge with `probe filter
-        --kind Look --from-run <report>` and no --parent. Metadata only: no
-        owners and no folder names."""
+        chart instead; only `trace_charts` tells that: it reads every
+        dashboard dashboard_pattern keeps, as ingestion does (bounded), and
+        sets `on_kept_dashboard`, computed from this recipe at run time (null
+        when the trace could not settle it).
+        Judge with `probe filter --kind Look --from-run <report>` and no
+        --parent. Metadata only: no owners and no folder names."""
         if not self._config.extract_independent_looks:
             self._warn(
                 "extract_independent_looks is false, so ingestion emits none of "
@@ -495,6 +570,10 @@ class LookerMetadataProbe:
                 lambda: api.search_looks(fields=_LOOK_LIST_FIELDS, deleted=True),
             )
             self._extend_looks(rows, seen, deleted, deleted=True, limit=limit)
+        if trace_charts:
+            reach = self._trace(with_standalone_looks=False)
+            for row in rows:
+                row[ATTR_ON_KEPT_DASHBOARD] = reach.on_kept_dashboard(str(row["name"]))
         return rows
 
     @staticmethod
@@ -515,15 +594,18 @@ class LookerMetadataProbe:
             rows.append(_look_record(look, deleted=deleted))
 
     @probe_method(kind=MODEL_KIND)
-    def models(self) -> List[Dict[str, object]]:
+    def models(self, trace_charts: bool = False) -> List[Dict[str, object]]:
         """LookML models, as ingestion lists them for explores
         (list_all_explores), with `explore_count`. Ingestion emits a model's
         container only when it emits one of its explores: with
         emit_used_explores_only (the default) only explores a kept chart or
         look queries; otherwise every explore. A model with no explores is
-        never emitted. Metadata only."""
+        never emitted. `trace_charts` settles the first case: it reads what
+        ingestion reads to find them (see `explores`) and sets `used`,
+        computed from this recipe at run time (null when the trace could not
+        settle it). Metadata only."""
         api = self._api()
-        return [
+        rows: List[Dict[str, object]] = [
             {
                 "name": model.name,
                 "project": model.project_name,
@@ -532,22 +614,38 @@ class LookerMetadataProbe:
             for model in self._fetch("LookML model listing", api.all_lookml_models)
             if model.name is not None
         ]
+        if trace_charts:
+            reach = self._trace(with_standalone_looks=True)
+            for row in rows:
+                row[ATTR_USED] = reach.model_used(str(row["name"]))
+        return rows
 
     @probe_method(kind=EXPLORE_KIND, parent_params=("model",))
-    def explores(self, model: str) -> List[Dict[str, object]]:
+    def explores(
+        self, model: str, trace_charts: bool = False
+    ) -> List[Dict[str, object]]:
         """Explores of one LookML model, by name, from the same model listing
         ingestion reads (list_all_explores), hidden ones included as ingestion
         includes them. With emit_used_explores_only (the default) ingestion
-        emits only those a kept chart or look queries -- see `charts` for the
-        explore each chart uses; otherwise all of them. Metadata only."""
+        emits only those a kept chart or look queries; `trace_charts` finds
+        them as ingestion does -- it reads every dashboard dashboard_pattern
+        keeps and, with extract_independent_looks, every standalone look's
+        query (bounded) -- and sets `used`, computed from this recipe at run
+        time (null when the trace could not settle it). Without it, `charts` shows the explore each chart of one
+        dashboard uses. Metadata only."""
         api = self._api()
         for lookml_model in self._fetch("LookML model listing", api.all_lookml_models):
             if lookml_model.name == model:
-                return [
+                rows: List[Dict[str, object]] = [
                     {"name": explore.name, "hidden": bool(explore.hidden)}
                     for explore in lookml_model.explores or []
                     if explore.name is not None
                 ]
+                if trace_charts:
+                    reach = self._trace(with_standalone_looks=True)
+                    for row in rows:
+                        row[ATTR_USED] = reach.explore_used(model, str(row["name"]))
+                return rows
         if self.warnings:
             # The listing was refused and the warning says so; "no such model"
             # would blame the caller for what is a permissions gap.
@@ -555,3 +653,145 @@ class LookerMetadataProbe:
         raise ValueError(
             f"no LookML model named '{model}'; pass a name from the `models` listing"
         )
+
+    def _trace(self, with_standalone_looks: bool) -> _Reachability:
+        """Replay what get_workunits_internal records while it reads
+        dashboards (and, when the recipe extracts them, standalone looks), so
+        `used` and `on_kept_dashboard` follow ingestion's own reachability.
+
+        Like `folder_path_allowed`, the result is a run-time fact: it reflects
+        this recipe's dashboard_pattern, chart_pattern, skip_personal_folders,
+        include_deleted and extract_independent_looks, and is stale for a
+        `probe filter` against a recipe that changes them."""
+        reach = _Reachability()
+        api = self._api()
+        for dashboard_id in self._traced_dashboard_ids(reach):
+            if reach.reads >= _TRACE_FETCH_LIMIT:
+                reach.dashboards_complete = False
+                break
+            reach.reads += 1
+            detail = self._trace_read(
+                reach,
+                f"dashboard '{dashboard_id}' for the chart trace",
+                partial(
+                    api.dashboard,
+                    dashboard_id=dashboard_id,
+                    fields=_TRACE_DASHBOARD_FIELDS,
+                ),
+            )
+            if detail is not None:
+                self._trace_dashboard(reach, detail)
+        if with_standalone_looks and self._config.extract_independent_looks:
+            self._trace_standalone_looks(reach)
+        if not (reach.dashboards_complete and reach.looks_complete):
+            self._warn(_TRACE_INCOMPLETE.format(limit=_TRACE_FETCH_LIMIT))
+        return reach
+
+    def _trace_read(
+        self,
+        reach: _Reachability,
+        context: str,
+        call: Callable[[], _T],
+        looks: bool = False,
+    ) -> Optional[_T]:
+        """One trace read. A refused or failed one leaves the trace
+        incomplete instead of failing the listing it decorates."""
+        try:
+            with _looker_call(context):
+                return call()
+        except (ProbeSoftError, ProbeReadFailed) as exc:
+            self._warn(str(exc))
+            if looks:
+                reach.looks_complete = False
+            else:
+                reach.dashboards_complete = False
+            return None
+
+    def _traced_dashboard_ids(self, reach: _Reachability) -> List[str]:
+        """get_workunits_internal's dashboard ids: live, deleted ones only
+        under include_deleted, then dashboard_pattern on the id."""
+        api = self._api()
+        listed: List[Union[Dashboard, DashboardBase]] = list(
+            self._trace_read(
+                reach,
+                "dashboard listing for the chart trace",
+                lambda: api.all_dashboards(fields="id"),
+            )
+            or []
+        )
+        if self._config.include_deleted:
+            listed.extend(
+                self._trace_read(
+                    reach,
+                    "deleted dashboard listing for the chart trace",
+                    lambda: api.search_dashboards(fields="id", deleted="true"),
+                )
+                or []
+            )
+        return [
+            dashboard.id
+            for dashboard in listed
+            if dashboard.id is not None
+            and self._config.dashboard_pattern.allowed(dashboard.id)
+        ]
+
+    def _trace_dashboard(self, reach: _Reachability, detail: Dashboard) -> None:
+        """What process_dashboard records for one dashboard. folder_path_pattern
+        is deliberately not applied: process_dashboard checks it only after
+        _get_looker_dashboard has recorded the dashboard's looks and explores,
+        so a dashboard it drops still makes them reachable."""
+        folder = detail.folder
+        if (
+            self._config.skip_personal_folders
+            and folder is not None
+            and (folder.is_personal or folder.is_personal_descendant)
+        ):
+            return
+        for element in detail.dashboard_elements or []:
+            if element.id is None or not self._config.chart_pattern.allowed(
+                element.id
+            ):
+                continue
+            if element.look_id is not None:
+                reach.looks.add(element.look_id)
+            reach.explores.update(_element_explores(element))
+
+    def _trace_standalone_looks(self, reach: _Reachability) -> None:
+        """The explores extract_independent_looks records, with its skips."""
+        api = self._api()
+        looks = (
+            self._trace_read(
+                reach,
+                "look listing for the chart trace",
+                lambda: api.all_looks(
+                    fields=_LOOK_LIST_FIELDS,
+                    soft_deleted=self._config.include_deleted,
+                ),
+                looks=True,
+            )
+            or []
+        )
+        for look in looks:
+            look_id = look.id
+            if look_id is None or look_id in reach.looks or look.query_id is None:
+                continue
+            folder = look.folder
+            if (
+                self._config.skip_personal_folders
+                and folder is not None
+                and (folder.is_personal or folder.is_personal_descendant)
+            ):
+                continue
+            if reach.reads >= _TRACE_FETCH_LIMIT:
+                reach.looks_complete = False
+                return
+            reach.reads += 1
+            detail = self._trace_read(
+                reach,
+                f"look '{look_id}' for the chart trace",
+                partial(api.get_look, look_id, fields=["query"]),
+                looks=True,
+            )
+            query = detail.query if detail is not None else None
+            if query is not None and query.model is not None and query.view is not None:
+                reach.explores.add((query.model, query.view))

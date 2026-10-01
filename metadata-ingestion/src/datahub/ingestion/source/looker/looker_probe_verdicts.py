@@ -34,12 +34,17 @@ ATTR_FOLDER_PATH_ALLOWED = "folder_path_allowed"
 ATTR_TYPE = "type"
 ATTR_HAS_QUERY = "has_query"
 ATTR_EXPLORE_COUNT = "explore_count"
+# Written only by a `--trace-charts` listing, and only when the trace could
+# settle the question; absent means undetermined.
+ATTR_USED = "used"
+ATTR_ON_KEPT_DASHBOARD = "on_kept_dashboard"
 
 # excluded_by values that name a rule rather than a config field.
 NOT_A_VIS_ELEMENT = "element_type"
 ELEMENT_HAS_NO_QUERY = "element_has_no_query"
 LOOK_HAS_NO_QUERY = "look_has_no_query"
 MODEL_HAS_NO_EXPLORES = "model_has_no_explores"
+ON_A_KEPT_DASHBOARD = "on_a_kept_dashboard"
 
 _NO_DASHBOARD_FACTS = (
     "dashboards named without their listing were judged on dashboard_pattern "
@@ -65,14 +70,21 @@ _CHART_PATTERN_NOT_APPLIED = (
 )
 _ON_A_DASHBOARD_NOT_JUDGED = (
     "a look that is also on a dashboard ingestion reads is emitted as that "
-    "dashboard's chart instead of as a standalone look; that is not judged here"
+    "dashboard's chart instead of as a standalone look; that was not judged "
+    "for looks listed without `--trace-charts`, so some reported included may "
+    "be emitted only as dashboard charts. Save `probe run looks --trace-charts "
+    "--report-to` and pass it with `probe filter --from-run` to judge it"
 )
-_USED_EXPLORES_ONLY = (
+_USED_EXPLORES_UNDETERMINED = (
     "emit_used_explores_only is true (the default), so ingestion emits an "
     "explore, and its LookML model, only when a dashboard chart or standalone "
-    "look it keeps queries it. A name cannot show that, so these are reported "
-    "as not ingested on their own; `probe run charts --dashboard <id>` shows "
-    "the model and explore each chart queries"
+    "look it keeps queries it. For names without that fact -- named bare, "
+    "listed without `--trace-charts`, or left undetermined by an interrupted "
+    "trace -- only that switch was judged, not whether anything queries them: "
+    "they are reported excluded, which is right only for unused ones. Save "
+    "`probe run explores --model <name> --trace-charts --report-to` (or "
+    "`models --trace-charts`) and pass it with `probe filter --from-run` for "
+    "the verdict ingestion makes"
 )
 
 
@@ -143,15 +155,19 @@ def _standalone_look(
     if not config.extract_independent_looks:
         return Verdict(False, "extract_independent_looks")
     ctx.warn(_CHART_PATTERN_NOT_APPLIED)
-    ctx.warn(_ON_A_DASHBOARD_NOT_JUDGED)
     attributes = ctx.attributes
+    if ATTR_ON_KEPT_DASHBOARD not in attributes:
+        ctx.warn(_ON_A_DASHBOARD_NOT_JUDGED)
     if ATTR_DELETED not in attributes:
         ctx.warn(_NO_LOOK_FACTS)
         return Verdict.include()
     # extract_independent_looks: all_looks(soft_deleted=include_deleted),
-    # then query_id is None, then the personal-folder skip.
+    # then reachable_look_registry, then query_id is None, then the
+    # personal-folder skip.
     if _flag(attributes, ATTR_DELETED) and not config.include_deleted:
         return Verdict(False, "include_deleted")
+    if _flag(attributes, ATTR_ON_KEPT_DASHBOARD):
+        return Verdict(False, ON_A_KEPT_DASHBOARD)
     if attributes.get(ATTR_HAS_QUERY) == "false":
         return Verdict(False, LOOK_HAS_NO_QUERY)
     if config.skip_personal_folders and _flag(attributes, ATTR_FOLDER_PERSONAL):
@@ -163,7 +179,11 @@ def _used_explores_rule(
     config: "LookerDashboardSourceConfig", ctx: VerdictContext
 ) -> Verdict:
     if config.emit_used_explores_only:
-        ctx.warn(_USED_EXPLORES_ONLY)
+        used = ctx.attributes.get(ATTR_USED)
+        if used == "true":
+            return Verdict.include()
+        if used != "false":
+            ctx.warn(_USED_EXPLORES_UNDETERMINED)
         return Verdict(False, "emit_used_explores_only")
     # list_all_explores yields nothing for a model without explores, so
     # _make_explore_containers never emits its container.

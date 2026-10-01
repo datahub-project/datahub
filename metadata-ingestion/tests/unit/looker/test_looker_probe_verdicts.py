@@ -212,3 +212,43 @@ def test_every_explore_and_non_empty_model_is_included_when_not_used_only() -> N
         emit_used_explores_only=False,
     )
     assert _reasons(models) == {"sales": None, "empty": "model_has_no_explores"}
+
+
+def test_a_traced_explore_is_judged_on_whether_kept_content_queries_it() -> None:
+    result = _judge(
+        "Explore",
+        ["orders", "unused", "untraced"],
+        parent=["sales"],
+        attributes=[{"used": "true"}, {"used": "false"}, {}],
+    )
+    assert _reasons(result) == {
+        "orders": None,
+        "unused": "emit_used_explores_only",
+        "untraced": "emit_used_explores_only",
+    }
+    assert any("--trace-charts" in w for w in result.warnings)
+
+
+def test_a_fully_traced_listing_carries_no_undetermined_warning() -> None:
+    result = _judge(
+        "LookML Model",
+        ["sales", "empty"],
+        attributes=[{"used": "true"}, {"used": "false"}],
+    )
+    assert _reasons(result) == {"sales": None, "empty": "emit_used_explores_only"}
+    assert result.warnings == []
+
+
+def test_a_traced_look_on_a_kept_dashboard_is_not_a_standalone_chart() -> None:
+    look = {"deleted": "false", "has_query": "true", "folder_personal": "false"}
+    result = _judge(
+        "Look",
+        ["105", "101"],
+        attributes=[
+            {**look, "on_kept_dashboard": "true"},
+            {**look, "on_kept_dashboard": "false"},
+        ],
+        **_LOOKS_ON,
+    )
+    assert _reasons(result) == {"105": "on_a_kept_dashboard", "101": None}
+    assert not any("on a dashboard" in w for w in result.warnings)

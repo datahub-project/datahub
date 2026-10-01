@@ -242,7 +242,7 @@ def test_looks_list_live_and_deleted_with_the_facts_ingestion_skips_on() -> None
     assert run["kind"] == "Look"
     assert run["parent_path"] == []
     by_id = {r["name"]: r for r in run["result"]}
-    assert set(by_id) == {"101", "102", "103", "104"}
+    assert set(by_id) == {"101", "102", "103", "104", "105"}
     assert by_id["102"]["folder_personal"] is True
     assert by_id["103"]["has_query"] is False
     assert by_id["104"]["deleted"] is True
@@ -259,7 +259,7 @@ def test_models_and_their_explores() -> None:
     models = _run("models", {})
     assert models["kind"] == "LookML Model"
     assert models["result"] == [
-        {"name": "sales", "project": "proj", "explore_count": 3},
+        {"name": "sales", "project": "proj", "explore_count": 4},
         {"name": "empty", "project": "proj", "explore_count": 0},
     ]
     explores = _run("explores", {"model": "sales"})
@@ -268,6 +268,7 @@ def test_models_and_their_explores() -> None:
     assert explores["result"] == [
         {"name": "orders", "hidden": False},
         {"name": "customers", "hidden": False},
+        {"name": "archived", "hidden": False},
         {"name": "unused", "hidden": True},
     ]
 
@@ -317,3 +318,99 @@ def test_no_listing_carries_credentials_users_or_personal_folders() -> None:
             '"7"',
         ):
             assert withheld not in dumped, (command, withheld)
+
+
+def _used(command: str, params: Dict[str, Any], **overrides: Any) -> Dict[str, Any]:
+    run = _run(command, {**params, "trace_charts": True}, **overrides)
+    return {r["name"]: r["used"] for r in run["result"]}
+
+
+def test_traced_explores_mark_what_kept_charts_and_looks_query() -> None:
+    assert _used("explores", {"model": "sales"}) == {
+        "orders": True,
+        "customers": True,
+        "archived": True,
+        "unused": False,
+    }
+    # The only chart querying `archived` is dropped, or its dashboard is.
+    assert _used("explores", {"model": "sales"}, chart_pattern={"deny": ["^51$"]})[
+        "archived"
+    ] is False
+    assert _used("explores", {"model": "sales"}, dashboard_pattern={"deny": ["^5$"]})[
+        "archived"
+    ] is False
+    # folder_path_pattern drops the dashboard only after its explores count.
+    assert _used(
+        "explores", {"model": "sales"}, folder_path_pattern={"deny": ["^Shared/Archive"]}
+    )["archived"] is True
+
+
+def test_traced_models_are_used_when_any_of_their_explores_is() -> None:
+    assert _used("models", {}) == {"sales": True, "empty": False}
+
+
+def test_standalone_looks_count_toward_use_only_when_extracted() -> None:
+    client = install(mock.MagicMock())
+    # Everything on dashboards is dropped, so only look 101's query can count.
+    client.look.side_effect = lambda look_id, fields=None, transport_options=None: (
+        LookWithQuery(query=Query(model="sales", view="unused", fields=["unused.id"]))
+    )
+    config = recipe(dashboard_pattern={"deny": [".*"]})
+    with mock.patch("looker_sdk.init40", return_value=client):
+        off = run_probe_method(
+            "looker", config, "explores", {"model": "sales", "trace_charts": True}
+        )
+        on = run_probe_method(
+            "looker",
+            {**config, **_LOOKS_ON},
+            "explores",
+            {"model": "sales", "trace_charts": True},
+        )
+    assert {r["name"]: r["used"] for r in off.result}["unused"] is False
+    assert {r["name"]: r["used"] for r in on.result}["unused"] is True
+
+
+def test_traced_looks_mark_the_ones_on_a_kept_dashboard() -> None:
+    run = _run("looks", {"trace_charts": True}, **_LOOKS_ON)
+    on_dashboard = {r["name"]: r["on_kept_dashboard"] for r in run["result"]}
+    assert on_dashboard["105"] is True
+    assert on_dashboard["101"] is False
+
+
+def test_an_interrupted_trace_leaves_unfound_use_undetermined() -> None:
+    client = install(mock.MagicMock())
+    client.all_dashboards.side_effect = sdk_error(403)
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method(
+            "looker", recipe(), "explores", {"model": "sales", "trace_charts": True}
+        )
+    assert {r["name"]: r["used"] for r in run.result} == {
+        "orders": None,
+        "customers": None,
+        "archived": None,
+        "unused": None,
+    }
+    assert any("HTTP 403" in w for w in run.warnings)
+    assert any("undetermined" in w for w in run.warnings)
+
+
+def test_the_trace_stops_at_its_bound_and_says_so() -> None:
+    with (
+        fake_looker(),
+        mock.patch(
+            "datahub.ingestion.source.looker.looker_probe._TRACE_FETCH_LIMIT", 1
+        ),
+    ):
+        run = run_probe_method(
+            "looker", recipe(), "explores", {"model": "sales", "trace_charts": True}
+        )
+    used = {r["name"]: r["used"] for r in run.result}
+    # Dashboard 1 was read before the bound; what only later ones use is unknown.
+    assert used["orders"] is True
+    assert used["unused"] is None
+    assert any("undetermined" in w for w in run.warnings)
+
+
+def test_untraced_listings_carry_no_use_facts() -> None:
+    explores = _run("explores", {"model": "sales"})
+    assert all("used" not in r for r in explores["result"])

@@ -3,6 +3,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Set, Tuple
 from unittest import mock
 
+import pytest
+
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import run_probe_method
@@ -121,7 +123,7 @@ def test_dashboards_and_charts_match_ingestion(tmp_path: Path) -> None:
     for dashboard in sorted(included):
         kept, _ = _probe(config, "charts", {"dashboard": dashboard})
         charts |= kept
-    assert charts == _chart_ids(emitted) == {"11", "61"}
+    assert charts == _chart_ids(emitted) == {"11", "61", "62"}
 
 
 def test_deleted_dashboards_and_a_withheld_personal_path_match_ingestion(
@@ -158,14 +160,18 @@ def test_standalone_looks_match_ingestion(
     standalone = {
         c.removeprefix("looks_") for c in _chart_ids(emitted) if c.startswith("looks_")
     }
-    included, reasons = _probe(config, "looks", {})
+    included, reasons = _probe(config, "looks", {"trace_charts": True})
     assert included == standalone == {"101"}
     assert reasons == {
         "101": None,
         "102": "skip_personal_folders",
         "103": "look_has_no_query",
         "104": "include_deleted",
+        "105": "on_a_kept_dashboard",
     }
+    # Untraced, the look on a dashboard is the one name it cannot judge.
+    untraced, _ = _probe(config, "looks", {})
+    assert untraced - standalone == {"105"}
 
 
 def test_explores_and_models_match_ingestion_when_not_used_only(
@@ -177,8 +183,31 @@ def test_explores_and_models_match_ingestion_when_not_used_only(
     assert explores == _explore_names(emitted, "sales") == {
         "orders",
         "customers",
+        "archived",
         "unused",
     }
     models, reasons = _probe(config, "models", {})
     assert models == _model_names(emitted) == {"sales"}
     assert reasons["empty"] == "model_has_no_explores"
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        # Ingestion records an explore as used before folder_path_pattern
+        # drops the dashboard, so `archived` is still emitted here.
+        {"dashboard_pattern": {"deny": ["^2$"]}, "folder_path_pattern": {"deny": ["^Shared/Archive"]}},
+        {"chart_pattern": {"deny": ["^51$"]}},
+        {"dashboard_pattern": {"deny": ["^5$", "^6$"]}},
+    ],
+)
+def test_traced_explores_and_models_match_ingestion_by_default(
+    tmp_path: Path, filters: Dict[str, Any]
+) -> None:
+    config = recipe(**filters)
+    emitted = _ingest(tmp_path, config)
+    explores, _ = _probe(config, "explores", {"model": "sales", "trace_charts": True})
+    assert explores == _explore_names(emitted, "sales")
+    models, reasons = _probe(config, "models", {"trace_charts": True})
+    assert models == _model_names(emitted) == {"sales"}
+    assert reasons["empty"] == "emit_used_explores_only"

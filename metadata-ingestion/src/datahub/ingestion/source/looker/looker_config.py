@@ -370,16 +370,23 @@ class LookerDashboardSourceConfig(
 
     @classmethod
     def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
-        """A chart is read only from a dashboard ingestion keeps, and an
-        explore only from its model. Dashboards have no container kind:
-        folder_path_pattern is a regex over the folder path, not a hierarchy,
-        so a denied parent folder does not deny its children. Folder facts
-        travel as dashboard attributes instead."""
+        """A chart is read only from a dashboard ingestion keeps.
+
+        Dashboards have no container kind: folder_path_pattern is a regex over
+        the folder path, not a hierarchy, so a denied parent folder does not
+        deny its children. Folder facts travel as dashboard attributes instead.
+
+        An explore has none either, though it is listed under its model: no
+        rule drops a model and with it its explores. The dependency runs the
+        other way -- _make_explore_containers emits a model because one of its
+        explores is emitted -- so judging the --parent model first would
+        exclude every explore whenever the model, named bare, cannot be shown
+        to be used."""
         ancestors: Dict[str, Tuple[str, ...]] = {
             DASHBOARD_KIND: (),
             LOOK_KIND: (DASHBOARD_KIND,),
             MODEL_KIND: (),
-            EXPLORE_KIND: (MODEL_KIND,),
+            EXPLORE_KIND: (),
         }
         return ancestors.get(kind)
 
