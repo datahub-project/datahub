@@ -38,13 +38,16 @@ from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceC
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.looker_probe_verdicts import (
     ATTR_DELETED,
+    ATTR_EXPLORE_COUNT,
     ATTR_FOLDER_PATH,
     ATTR_FOLDER_PATH_ALLOWED,
     ATTR_FOLDER_PERSONAL,
     ATTR_HAS_QUERY,
     ATTR_TYPE,
     DASHBOARD_KIND,
+    EXPLORE_KIND,
     LOOK_KIND,
+    MODEL_KIND,
 )
 from datahub.ingestion.source.looker.looker_source import (
     BASIC_INGEST_REQUIRED_PERMISSIONS,
@@ -510,3 +513,45 @@ class LookerMetadataProbe:
                 continue
             seen.add(look.id)
             rows.append(_look_record(look, deleted=deleted))
+
+    @probe_method(kind=MODEL_KIND)
+    def models(self) -> List[Dict[str, object]]:
+        """LookML models, as ingestion lists them for explores
+        (list_all_explores), with `explore_count`. Ingestion emits a model's
+        container only when it emits one of its explores: with
+        emit_used_explores_only (the default) only explores a kept chart or
+        look queries; otherwise every explore. A model with no explores is
+        never emitted. Metadata only."""
+        api = self._api()
+        return [
+            {
+                "name": model.name,
+                "project": model.project_name,
+                ATTR_EXPLORE_COUNT: len(model.explores or []),
+            }
+            for model in self._fetch("LookML model listing", api.all_lookml_models)
+            if model.name is not None
+        ]
+
+    @probe_method(kind=EXPLORE_KIND, parent_params=("model",))
+    def explores(self, model: str) -> List[Dict[str, object]]:
+        """Explores of one LookML model, by name, from the same model listing
+        ingestion reads (list_all_explores), hidden ones included as ingestion
+        includes them. With emit_used_explores_only (the default) ingestion
+        emits only those a kept chart or look queries -- see `charts` for the
+        explore each chart uses; otherwise all of them. Metadata only."""
+        api = self._api()
+        for lookml_model in self._fetch("LookML model listing", api.all_lookml_models):
+            if lookml_model.name == model:
+                return [
+                    {"name": explore.name, "hidden": bool(explore.hidden)}
+                    for explore in lookml_model.explores or []
+                    if explore.name is not None
+                ]
+        if self.warnings:
+            # The listing was refused and the warning says so; "no such model"
+            # would blame the caller for what is a permissions gap.
+            return []
+        raise ValueError(
+            f"no LookML model named '{model}'; pass a name from the `models` listing"
+        )
