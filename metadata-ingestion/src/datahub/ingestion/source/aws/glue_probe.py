@@ -38,7 +38,10 @@ from datahub.ingestion.source.aws.glue import (
     GlueSourceReport,
     glue_catalog_kwargs,
 )
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+)
 
 if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
@@ -164,6 +167,40 @@ def _database_record(database: Mapping[str, Any]) -> Dict[str, object]:
     }
 
 
+def _table_record(
+    table: Mapping[str, Any], database: Mapping[str, Any]
+) -> Dict[str, object]:
+    table_type = table.get("TableType")
+    descriptor = table.get("StorageDescriptor") or {}
+    is_view = table_type == GlueSource._VIRTUAL_VIEW_TABLE_TYPE
+    return {
+        "name": table["Name"],
+        # The subtype _gen_table_wu gives it.
+        "subtype": str(DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE),
+        "table_type": table_type,
+        "catalog_id": table.get("CatalogId") or "",
+        # Membership, as get_tables_from_database tests it.
+        "resource_link": "TargetTable" in table,
+        "column_count": len(descriptor.get("Columns") or [])
+        + len(table.get("PartitionKeys") or []),
+        # The database's facts, carried on each table: `probe filter` judges a
+        # --parent container by name only, so a rule decided by them -- a
+        # table under an ignored resource-link database -- can only be judged
+        # from the table's own record.
+        "database_resource_link": bool(database.get("TargetDatabase")),
+        "database_catalog_id": database.get("CatalogId") or "",
+    }
+
+
+def _column_record(column: Mapping[str, Any], partition_key: bool) -> Dict[str, object]:
+    return {
+        "name": column["Name"],
+        "type": column.get("Type"),
+        "comment": column.get("Comment"),
+        "partition_key": partition_key,
+    }
+
+
 class GlueMetadataProbe:
     """Metadata-only probe over the AWS Glue Data Catalog and Glue jobs.
 
@@ -272,3 +309,126 @@ class GlueMetadataProbe:
         link, target as "<account>/<database>". Database parameters and
         descriptions are withheld. Metadata only."""
         return [_database_record(db) for db in self._list_databases(limit)]
+
+    def _list_tables(
+        self, database: str, limit: Optional[int], action: str
+    ) -> List[Dict[str, Any]]:
+        """One database's GetTables listing, paged as get_tables_from_database
+        pages it. An access denial raises ProbeSoftError for the caller to
+        record: ingestion skips such a database's tables with a warning."""
+        with aws_call(action, soft_on_denied=True):
+            pages = (
+                self._glue()
+                .get_paginator("get_tables")
+                .paginate(
+                    DatabaseName=database,
+                    **glue_catalog_kwargs(self._config.catalog_id),
+                )
+            )
+            return _take(pages.search("TableList"), limit)
+
+    def _note_database_rules(self, database: Mapping[str, Any]) -> None:
+        name = database["Name"]
+        if self._config.ignore_resource_links and database.get("TargetDatabase"):
+            self._warn(
+                f"database '{name}' is a Lake Formation resource link and "
+                f"ignore_resource_links is true, so ingestion never lists it "
+                f"or any table in it"
+            )
+        owner = database.get("CatalogId")
+        if self._config.catalog_id and owner and owner != self._config.catalog_id:
+            self._warn(
+                f"database '{name}' belongs to catalog {owner}, not catalog_id "
+                f"{self._config.catalog_id}, so ingestion drops it and every "
+                f"table in it"
+            )
+
+    @probe_method(
+        kind=DatasetSubTypes.TABLE,
+        row_limit_param="limit",
+        parent_params=("database",),
+    )
+    def tables(self, database: str, limit: int = 500) -> List[Dict[str, object]]:
+        """Tables and views in one Glue database, in catalog order, including
+        ones table_pattern or ignore_resource_links would drop -- a dropped
+        table is reported, not hidden. table_pattern is matched against
+        "<database>.<table>" for tables and views alike; `probe filter` builds
+        that from the database this command reports as the parent. subtype is
+        the DataHub subtype ingestion gives each (View for VIRTUAL_VIEW,
+        otherwise Table). Each record also carries the facts the recipe's
+        non-pattern rules read -- whether the table is itself a Lake Formation
+        resource link, and whether its database is one or belongs to another
+        catalog -- so judge this output with `probe filter --from-run`. Lake
+        Formation hides tables this principal may not describe; they are
+        absent here exactly as they are absent from ingestion. When the
+        listing is denied outright, ingestion skips this database's tables
+        with a warning, and so does this command. Table parameters, view SQL,
+        storage and SerDe settings and the owner are withheld."""
+        record = self._database(database)
+        self._note_database_rules(record)
+        action = f"glue:GetTables on database '{database}'"
+        try:
+            tables = self._list_tables(database, limit, action)
+        except ProbeSoftError as exc:
+            self._warn(
+                f"{exc}. Ingestion skips this database's tables with a warning "
+                f"('Failed to get tables from database') and still emits the "
+                f"database itself"
+            )
+            return []
+        return [_table_record(table, record) for table in tables]
+
+    @probe_method()
+    def columns(self, database: str, table: str) -> List[Dict[str, object]]:
+        """Columns of one Glue table or view as the catalog stores them --
+        name, Hive type, comment, and partition_key for partition columns --
+        in the order ingestion emits them (storage-descriptor columns, then
+        partition keys). Found through the same glue:GetTables listing
+        ingestion reads, so it needs no permission ingestion does not.
+        Column parameters are withheld. A resource link has no columns of its
+        own, and a Delta table may keep its real schema in table parameters;
+        both are reported as warnings, since ingestion reads those schemas
+        from elsewhere."""
+        action = f"glue:GetTables on database '{database}'"
+        try:
+            listed = self._list_tables(database, None, action)
+        except ProbeSoftError as exc:
+            self._warn(str(exc))
+            return []
+        found = next((t for t in listed if t.get("Name") == table), None)
+        if found is None:
+            raise ValueError(
+                f"no table '{table}' in database '{database}'; `probe run "
+                f"tables --database {database}` lists them"
+            )
+        qualified = f"{database}.{table}"
+        if "TargetTable" in found:
+            self._warn(
+                f"'{qualified}' is a Lake Formation resource link and has no "
+                f"columns of its own; with resolve_resource_link_schema on, "
+                f"ingestion takes them from the owning table"
+            )
+        descriptor = found.get("StorageDescriptor") or {}
+        if not descriptor:
+            if "TargetTable" not in found:
+                self._warn(
+                    f"'{qualified}' has no storage descriptor, so ingestion "
+                    f"emits no schema for it"
+                )
+            return []
+        if self._ingestion_source()._is_delta_schema(found):
+            self._warn(
+                f"'{qualified}' keeps its Delta schema in table parameters and "
+                f"extract_delta_schema_from_parameters is on, so ingestion "
+                f"reads its columns from there; these are the catalog's "
+                f"placeholder columns"
+            )
+        columns = [
+            _column_record(column, partition_key=False)
+            for column in descriptor.get("Columns") or []
+        ]
+        columns.extend(
+            _column_record(key, partition_key=True)
+            for key in found.get("PartitionKeys") or []
+        )
+        return columns
