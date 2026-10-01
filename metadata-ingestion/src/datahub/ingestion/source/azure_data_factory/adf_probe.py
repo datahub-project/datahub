@@ -5,6 +5,7 @@ from azure.mgmt.datafactory.models import Activity
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
+from datahub.ingestion.source.azure.constants import ADF_LINKED_SERVICE_PLATFORM_MAP
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
 )
@@ -285,4 +286,56 @@ class AzureDataFactoryMetadataProbe:
                 f"ingestion emits only top-level activities, so these will not "
                 f"appear as DataJobs"
             )
+        return records
+
+    def _note_lineage_off(self) -> None:
+        if not self._config.include_lineage:
+            self._warn(
+                "include_lineage is false, so ingestion reads neither datasets "
+                "nor linked services and emits no dataset lineage; these are "
+                "listed for inspection only"
+            )
+
+    @probe_method(row_limit_param="limit")
+    def linked_services(
+        self, factory: str, limit: int = 200
+    ) -> List[Dict[str, object]]:
+        """Linked services (ADF's connections) in one factory, by factory name,
+        each with the DataHub platform ingestion maps its type to -- null means
+        no lineage resolves through it -- and the platform_instance that
+        platform_instance_map assigns it (keyed by linked-service name). The
+        connection definition itself (connection strings, hosts, users, keys,
+        Key Vault references, encrypted credentials) is always withheld: ADF
+        stores credentials there."""
+        rg = self._resource_group_of(factory)
+        services = self._listing(
+            f"linked services listing for factory '{factory}'",
+            lambda: self._client.get_linked_services(rg, factory),
+            limit,
+        )
+        records: List[Dict[str, object]] = []
+        for ls in services:
+            # Only type and connect_via are read from the definition; every
+            # type-specific property is where a credential can live.
+            props = ls.properties
+            ls_type = props.type if props else None
+            connect_via = props.connect_via if props else None
+            records.append(
+                {
+                    "name": ls.name,
+                    "type": ls_type,
+                    "platform": (
+                        ADF_LINKED_SERVICE_PLATFORM_MAP.get(ls_type)
+                        if ls_type
+                        else None
+                    ),
+                    "platform_instance": self._config.platform_instance_map.get(
+                        ls.name or ""
+                    ),
+                    "integration_runtime": (
+                        connect_via.reference_name if connect_via else None
+                    ),
+                }
+            )
+        self._note_lineage_off()
         return records
