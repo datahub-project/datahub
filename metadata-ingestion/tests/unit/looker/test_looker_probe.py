@@ -5,7 +5,13 @@ from unittest import mock
 import looker_sdk.rtl.requests_transport as looker_requests_transport
 import pytest
 from looker_sdk.error import SDKError
-from looker_sdk.sdk.api40.models import DashboardElement, LookWithQuery, Query
+from looker_sdk.sdk.api40.models import (
+    Dashboard,
+    DashboardElement,
+    FolderBase,
+    LookWithQuery,
+    Query,
+)
 
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError, ProbeReadFailed
@@ -172,7 +178,10 @@ def test_unreadable_ancestors_degrade_as_ingestion_does() -> None:
     with mock.patch("looker_sdk.init40", return_value=client):
         run = run_probe_method("looker", recipe(), "dashboards", {})
     first = next(r for r in run.result if r["name"] == "1")
-    assert first["folder_path"] == "Sales"
+    # Without its ancestors a folder's path is just its own name, which for a
+    # personal folder is its user's name: withheld, with the verdict kept.
+    assert first["folder_path"] is None
+    assert first["folder_path_allowed"] is True
     assert any("ancestors" in w for w in run.warnings)
 
 
@@ -209,6 +218,10 @@ def test_charts_report_the_facts_ingestion_reads_from_each_element() -> None:
         "look_id": None,
         "model": "sales",
         "explore": "orders",
+        "dashboard_deleted": False,
+        "dashboard_folder_path": "Shared/Sales",
+        "dashboard_folder_personal": False,
+        "dashboard_folder_path_allowed": True,
     }
     assert by_id["12"]["type"] == "text"
     assert by_id["12"]["has_query"] is False
@@ -242,9 +255,12 @@ def test_looks_list_live_and_deleted_with_the_facts_ingestion_skips_on() -> None
     assert run["kind"] == "Look"
     assert run["parent_path"] == []
     by_id = {r["name"]: r for r in run["result"]}
-    assert set(by_id) == {"101", "102", "103", "104", "105"}
+    assert set(by_id) == {"101", "102", "103", "104", "105", "106"}
     assert by_id["102"]["folder_personal"] is True
     assert by_id["103"]["has_query"] is False
+    # A query id whose look reads back without a query is no query either.
+    assert by_id["106"]["has_query"] is False
+    assert by_id["101"]["has_query"] is True
     assert by_id["104"]["deleted"] is True
     assert PERSONAL_FOLDER_NAME not in json.dumps(run)
     assert run["warnings"] == []
@@ -416,3 +432,54 @@ def test_the_trace_stops_at_its_bound_and_says_so() -> None:
 def test_untraced_listings_carry_no_use_facts() -> None:
     explores = _run("explores", {"model": "sales"})
     assert all("used" not in r for r in explores["result"])
+
+
+def test_charts_carry_their_dashboards_facts_without_a_personal_path() -> None:
+    run = _run("charts", {"dashboard": "3"}, folder_path_pattern={"deny": ["^Users/"]})
+    record = run["result"][0]
+    assert record["dashboard_folder_personal"] is True
+    assert record["dashboard_folder_path"] is None
+    assert record["dashboard_folder_path_allowed"] is False
+    assert PERSONAL_FOLDER_NAME not in json.dumps(run)
+
+
+def test_a_folder_under_the_users_root_is_withheld_even_without_flags() -> None:
+    client = install(mock.MagicMock())
+    unflagged = FolderBase(id="f-anon", name=PERSONAL_FOLDER_NAME, parent_id="f-users")
+    client.all_dashboards.side_effect = lambda fields=None, transport_options=None: [
+        Dashboard(id="9", title="Unflagged", folder=unflagged)
+    ]
+    client.folder_ancestors.side_effect = (
+        lambda folder_id, fields=None, transport_options=None: [
+            FolderBase(id="f-users", name="Users")
+        ]
+    )
+    config = recipe(folder_path_pattern={"deny": ["^Users/"]})
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method("looker", config, "dashboards", {})
+    record = next(r for r in run.result if r["name"] == "9")
+    assert record["folder_path"] is None
+    assert record["folder_path_allowed"] is False
+    assert PERSONAL_FOLDER_NAME not in json.dumps(run.to_dict())
+
+
+def test_listings_ask_for_the_personal_folder_flags() -> None:
+    client = install(mock.MagicMock())
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run_probe_method("looker", recipe(), "dashboards", {})
+        run_probe_method("looker", recipe(**_LOOKS_ON), "looks", {})
+    for listing in (client.all_dashboards, client.all_looks):
+        assert "is_personal_descendant" in listing.call_args.kwargs["fields"]
+
+
+def test_an_unreadable_look_leaves_the_trace_undetermined_not_failed() -> None:
+    client = install(mock.MagicMock())
+    client.look.side_effect = TypeError("boom")
+    config = recipe(dashboard_pattern={"deny": [".*"]}, **_LOOKS_ON)
+    with mock.patch("looker_sdk.init40", return_value=client):
+        run = run_probe_method(
+            "looker", config, "explores", {"model": "sales", "trace_charts": True}
+        )
+    assert {r["used"] for r in run.result} == {None}
+    assert any("undetermined" in w for w in run.warnings)
+    assert not any("boom" in w for w in run.warnings)

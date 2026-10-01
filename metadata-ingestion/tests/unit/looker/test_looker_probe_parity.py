@@ -119,8 +119,10 @@ def test_dashboards_and_charts_match_ingestion(tmp_path: Path) -> None:
         "5": "folder_path_pattern",
         "6": None,
     }
+    # Every listed dashboard, kept or not: the charts of one ingestion drops
+    # must read excluded on their own listing's facts.
     charts: Set[str] = set()
-    for dashboard in sorted(included):
+    for dashboard in sorted(reasons):
         kept, _ = _probe(config, "charts", {"dashboard": dashboard})
         charts |= kept
     assert charts == _chart_ids(emitted) == {"11", "61", "62"}
@@ -168,6 +170,7 @@ def test_standalone_looks_match_ingestion(
         "103": "look_has_no_query",
         "104": "include_deleted",
         "105": "on_a_kept_dashboard",
+        "106": "look_has_no_query",
     }
     # Untraced, the look on a dashboard is the one name it cannot judge.
     untraced, _ = _probe(config, "looks", {})
@@ -196,7 +199,10 @@ def test_explores_and_models_match_ingestion_when_not_used_only(
     [
         # Ingestion records an explore as used before folder_path_pattern
         # drops the dashboard, so `archived` is still emitted here.
-        {"dashboard_pattern": {"deny": ["^2$"]}, "folder_path_pattern": {"deny": ["^Shared/Archive"]}},
+        {
+            "dashboard_pattern": {"deny": ["^2$"]},
+            "folder_path_pattern": {"deny": ["^Shared/Archive"]},
+        },
         {"chart_pattern": {"deny": ["^51$"]}},
         {"dashboard_pattern": {"deny": ["^5$", "^6$"]}},
     ],

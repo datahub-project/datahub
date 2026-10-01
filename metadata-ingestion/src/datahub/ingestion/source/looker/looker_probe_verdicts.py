@@ -34,6 +34,13 @@ ATTR_FOLDER_PATH_ALLOWED = "folder_path_allowed"
 ATTR_TYPE = "type"
 ATTR_HAS_QUERY = "has_query"
 ATTR_EXPLORE_COUNT = "explore_count"
+# A chart's own dashboard, stamped on each `charts` record: `probe filter`
+# judges a --parent with no facts of its own, so a dashboard ingestion drops
+# would otherwise leave its charts reading included.
+ATTR_DASHBOARD_DELETED = "dashboard_deleted"
+ATTR_DASHBOARD_FOLDER_PATH = "dashboard_folder_path"
+ATTR_DASHBOARD_FOLDER_PERSONAL = "dashboard_folder_personal"
+ATTR_DASHBOARD_FOLDER_PATH_ALLOWED = "dashboard_folder_path_allowed"
 # Written only by a `--trace-charts` listing, and only when the trace could
 # settle the question; absent means undetermined.
 ATTR_USED = "used"
@@ -53,9 +60,11 @@ _NO_DASHBOARD_FACTS = (
     "dashboards --report-to` and pass it with `probe filter --from-run` to judge those"
 )
 _NO_ELEMENT_FACTS = (
-    "charts named without their listing were judged on chart_pattern alone; "
-    "ingestion also skips elements that are not `vis` or have no query. Save "
-    "`probe run charts --report-to` and pass it with `probe filter --from-run`"
+    "charts named without their listing were judged on dashboard_pattern (for "
+    "the --parent dashboard) and chart_pattern alone; ingestion also skips "
+    "every chart of a deleted, personal-folder or folder_path_pattern-denied "
+    "dashboard, and elements that are not `vis` or have no query. Save `probe "
+    "run charts --report-to` and pass it with `probe filter --from-run`"
 )
 _NO_LOOK_FACTS = (
     "standalone looks named without their listing were judged on "
@@ -94,7 +103,10 @@ def _flag(attributes: Mapping[str, str], key: str) -> bool:
 
 
 def _folder_path_allowed(
-    config: "LookerDashboardSourceConfig", attributes: Mapping[str, str]
+    config: "LookerDashboardSourceConfig",
+    attributes: Mapping[str, str],
+    path_key: str = ATTR_FOLDER_PATH,
+    allowed_key: str = ATTR_FOLDER_PATH_ALLOWED,
 ) -> bool:
     """_should_skip_dashboard_by_folder_path, from a listing's facts.
 
@@ -103,10 +115,10 @@ def _folder_path_allowed(
     listing computed at run time stands in. No folder at all means ingestion
     applies no folder rule.
     """
-    path = attributes.get(ATTR_FOLDER_PATH)
+    path = attributes.get(path_key)
     if path is not None:
         return config.folder_path_pattern.allowed(path)
-    return attributes.get(ATTR_FOLDER_PATH_ALLOWED) != "false"
+    return attributes.get(allowed_key) != "false"
 
 
 def _dashboard(
@@ -130,9 +142,40 @@ def _dashboard(
     return Verdict.include()
 
 
+def _parent_dashboard(
+    config: "LookerDashboardSourceConfig", ctx: VerdictContext
+) -> Optional[Verdict]:
+    """process_dashboard's rules for the chart's own dashboard, in _dashboard's
+    order, from the facts `charts` stamped on the chart. None: it is kept."""
+    attributes = ctx.attributes
+    if _flag(attributes, ATTR_DASHBOARD_DELETED) and not config.include_deleted:
+        return Verdict(False, "include_deleted")
+    by_dashboard = pattern_verdict(config, "dashboard_pattern", ctx.parent_path[-1])
+    if not by_dashboard.included:
+        return by_dashboard
+    if ATTR_DASHBOARD_DELETED not in attributes:
+        ctx.warn(_NO_ELEMENT_FACTS)
+        return None
+    if config.skip_personal_folders and _flag(
+        attributes, ATTR_DASHBOARD_FOLDER_PERSONAL
+    ):
+        return Verdict(False, "skip_personal_folders")
+    if not _folder_path_allowed(
+        config,
+        attributes,
+        ATTR_DASHBOARD_FOLDER_PATH,
+        ATTR_DASHBOARD_FOLDER_PATH_ALLOWED,
+    ):
+        return Verdict(False, "folder_path_pattern")
+    return None
+
+
 def _dashboard_element(
     config: "LookerDashboardSourceConfig", ctx: VerdictContext
 ) -> Optional[Verdict]:
+    dropped_with_dashboard = _parent_dashboard(config, ctx)
+    if dropped_with_dashboard is not None:
+        return dropped_with_dashboard
     by_id = pattern_verdict(config, ctx.pattern_field, ctx.target)
     if not by_id.included:
         return by_id

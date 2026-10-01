@@ -370,7 +370,14 @@ class LookerDashboardSourceConfig(
 
     @classmethod
     def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
-        """A chart is read only from a dashboard ingestion keeps.
+        """None of these kinds declares a container for the framework to
+        re-judge.
+
+        A chart is read only from a dashboard ingestion keeps, but the
+        framework would judge that --parent on its id alone, with none of the
+        facts (deleted, personal folder, folder path) that also drop it.
+        `charts` stamps those facts on every chart instead, and the override
+        applies the dashboard's rules, dashboard_pattern included.
 
         Dashboards have no container kind: folder_path_pattern is a regex over
         the folder path, not a hierarchy, so a denied parent folder does not
@@ -384,7 +391,7 @@ class LookerDashboardSourceConfig(
         to be used."""
         ancestors: Dict[str, Tuple[str, ...]] = {
             DASHBOARD_KIND: (),
-            LOOK_KIND: (DASHBOARD_KIND,),
+            LOOK_KIND: (),
             MODEL_KIND: (),
             EXPLORE_KIND: (),
         }

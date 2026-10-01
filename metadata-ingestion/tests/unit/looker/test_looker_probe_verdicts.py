@@ -252,3 +252,49 @@ def test_a_traced_look_on_a_kept_dashboard_is_not_a_standalone_chart() -> None:
     )
     assert _reasons(result) == {"105": "on_a_kept_dashboard", "101": None}
     assert not any("on a dashboard" in w for w in result.warnings)
+
+
+def _element(**dashboard: str) -> Dict[str, str]:
+    facts = {
+        "type": "vis",
+        "has_query": "true",
+        "dashboard_deleted": "false",
+        "dashboard_folder_personal": "false",
+        "dashboard_folder_path": "Shared/Sales",
+        "dashboard_folder_path_allowed": "true",
+    }
+    facts.update(dashboard)
+    return facts
+
+
+def test_charts_of_a_dashboard_ingestion_drops_are_excluded_by_its_rule() -> None:
+    cases = {
+        "deleted": (_element(dashboard_deleted="true"), "include_deleted"),
+        "personal": (
+            _element(
+                dashboard_folder_personal="true",
+                dashboard_folder_path="",
+                dashboard_folder_path_allowed="false",
+            ),
+            "skip_personal_folders",
+        ),
+        "archived": (
+            _element(dashboard_folder_path="Shared/Archive"),
+            "folder_path_pattern",
+        ),
+        "kept": (_element(), None),
+    }
+    for name, (attributes, reason) in cases.items():
+        if name == "personal":
+            attributes.pop("dashboard_folder_path")
+        result = _judge(
+            "Look",
+            ["11"],
+            parent=["1"],
+            attributes=[attributes],
+            skip_personal_folders=True,
+            folder_path_pattern={"deny": ["^Shared/Archive"]},
+        )
+        assert _reasons(result) == {"11": reason}, name
+        # The listing carried the dashboard's facts, so nothing is undetermined.
+        assert result.warnings == [], name

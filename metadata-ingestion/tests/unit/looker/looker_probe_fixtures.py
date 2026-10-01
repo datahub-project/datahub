@@ -144,7 +144,11 @@ LIVE_LOOKS: List[Look] = [
     Look(id="102", title="Personal look", query_id="q-102", folder=PERSONAL),
     Look(id="103", title="No query", query_id=None, folder=SALES),
     Look(id="105", title="Also on a dashboard", query_id="q-105", folder=SALES),
+    # Has a query id, but its look reads back without a query, so ingestion's
+    # _get_looker_dashboard_element yields nothing for it.
+    Look(id="106", title="Query unreadable", query_id="q-106", folder=SALES),
 ]
+_LOOKS_WITHOUT_QUERY = {"106"}
 DELETED_LOOKS: List[Look] = [
     Look(id="104", title="Deleted look", query_id="q-104", folder=SALES, deleted=True)
 ]
@@ -159,7 +163,10 @@ MODELS: List[LookmlModel] = [
             LookmlModelNavExplore(name="unused", hidden=True),
         ],
     ),
-    LookmlModel(name="empty", project_name="proj", explores=[]),
+    # An unnamed explore, which list_all_explores skips: still no explores.
+    LookmlModel(
+        name="empty", project_name="proj", explores=[LookmlModelNavExplore(name=None)]
+    ),
 ]
 
 
@@ -225,13 +232,18 @@ def install(client: mock.MagicMock) -> mock.MagicMock:
         LIVE_LOOKS
     )
     client.search_looks.side_effect = search_looks
-    client.look.side_effect = lambda look_id, fields=None, transport_options=None: (
-        LookWithQuery(
+    def look(
+        look_id: str, fields: Optional[str] = None, transport_options: Any = None
+    ) -> LookWithQuery:
+        if look_id in _LOOKS_WITHOUT_QUERY:
+            return LookWithQuery(query=None)
+        return LookWithQuery(
             query=Query(
                 id=f"q-{look_id}", model="sales", view="orders", fields=["orders.id"]
             )
         )
-    )
+
+    client.look.side_effect = look
     client.all_lookml_models.side_effect = lambda transport_options=None: list(MODELS)
     client.lookml_model.side_effect = (
         lambda model_name, fields=None, transport_options=None: LookmlModel(

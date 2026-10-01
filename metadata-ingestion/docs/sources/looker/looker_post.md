@@ -49,8 +49,9 @@ ingested and says the verdict is undetermined. Add `--trace-charts` to
 `explores`, `models` or `looks`: the probe then reads every dashboard the
 recipe keeps (and, with `extract_independent_looks`, every standalone look's
 query), as ingestion does, and records which explores are used and which looks
-are already on a kept dashboard. That reads one API call per dashboard, up to
-a bound; whatever it could not read is left undetermined.
+are already on a kept dashboard. That costs one API call per kept dashboard
+plus one per standalone look, and stops after 1000 reads; whatever it could not
+read is left undetermined.
 
 ```shell
 datahub recipe probe run explores --model <model> --trace-charts --recipe looker.yml --report-to explores.json
