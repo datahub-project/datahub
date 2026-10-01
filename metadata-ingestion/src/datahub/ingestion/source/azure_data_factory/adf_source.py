@@ -210,6 +210,26 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
         ]
 
     @classmethod
+    def for_probe(
+        cls, config: AzureDataFactoryConfig, client: AzureDataFactoryClient
+    ) -> "AzureDataFactorySource":
+        """An uninitialized source for the probe, which needs a few of this
+        class's helpers but must not run __init__ (stateful ingestion, telemetry).
+
+        Primes only what _extract_resource_group, _extract_table_name and
+        _resolve_dataset_urn read. Keep it next to __init__: if one of those
+        starts reading a new attribute, prime it here too, or the probe fails
+        with AttributeError (reported as a defect, exit 1).
+        """
+        source = cls.__new__(cls)
+        source.config = config
+        source.report = AzureDataFactorySourceReport()
+        source.client = client
+        source._datasets_cache = {}
+        source._linked_services_cache = {}
+        return source
+
+    @classmethod
     def create(
         cls, config_dict: dict, ctx: PipelineContext
     ) -> "AzureDataFactorySource":
