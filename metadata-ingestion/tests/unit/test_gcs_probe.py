@@ -1,12 +1,17 @@
+import logging
+import pathlib
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest import mock
 
 import boto3
 import google.auth.exceptions
 import pytest
+import requests
 from botocore.exceptions import ClientError
+from click.testing import CliRunner
 from moto import mock_aws
 
+from datahub.cli.recipe_cli import recipe as recipe_cli
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.probe_methods import (
     ProbeMethodResult,
@@ -374,23 +379,106 @@ def test_bad_signature_is_a_connection_error_without_the_error_text(
     assert "some-account-detail" not in str(raised.value)
 
 
-def test_a_wrong_hmac_secret_never_appears_in_output(seeded_bucket: None) -> None:
+def test_an_error_echoing_the_hmac_secret_is_masked_by_the_cli(
+    seeded_bucket: None, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The masking registry is process-global; keep this test's secret out of
+    # later tests, as tests/unit/cli/test_recipe_probe_cli.py does.
+    import datahub.cli.recipe_cli as rc
+    from datahub.masking.secret_registry import SecretRegistry
+
+    SecretRegistry.get_instance().clear()
+    monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    # An error the probe does not classify reaches the CLI's fallback, which
+    # prints its text; the recipe's secret must be masked there.
+    secret = "GOOG1EXAMPLEhmacSecretValue0123456789abcd"
+    recipe_file = tmp_path / "gcs.yml"
+    recipe_file.write_text(
+        "source:\n"
+        "  type: gcs\n"
+        "  config:\n"
+        "    credential:\n"
+        "      hmac_access_id: my-access-id\n"
+        f"      hmac_access_secret: {secret}\n"
+        "    path_specs:\n"
+        "      - include: gs://my-bucket/raw/*.csv\n"
+    )
+    with mock.patch(
+        "datahub.ingestion.source.data_lake_common.object_store_probe.list_buckets",
+        side_effect=RuntimeError(f"request signed with {secret} was refused"),
+    ):
+        result = CliRunner().invoke(
+            recipe_cli, ["probe", "run", "buckets", "--recipe", str(recipe_file)]
+        )
+    assert result.exit_code != 0
+    assert "was refused" in result.output
+    assert secret not in result.output
+    SecretRegistry.get_instance().clear()
+
+
+class _RefreshFailingCredentials:
+    """OAuth credentials whose first refresh fails the way google-auth does,
+    with the subject-token path and the STS response body in the text."""
+
+    token: Optional[str] = None
+    expiry: Optional[object] = None
+
+    def __init__(self, error: Exception) -> None:
+        self._error = error
+
+    def refresh(self, request: object) -> None:
+        raise self._error
+
+
+_LEAKY_TEXT = ("/var/run/secrets/subject-token.json", "sa-name@my-project.iam")
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        google.auth.exceptions.RefreshError(
+            f"File '{_LEAKY_TEXT[0]}' was not found.",
+            f'{{"error_description":"principal {_LEAKY_TEXT[1]}"}}',
+        ),
+        requests.exceptions.ConnectionError(
+            f"token endpoint for {_LEAKY_TEXT[1]} via {_LEAKY_TEXT[0]}"
+        ),
+    ],
+    ids=["refresh_error", "transport_error"],
+)
+@pytest.mark.parametrize(
+    "command,recipe_include",
+    [
+        ("buckets", "gs://my-bucket/raw/*.csv"),
+        # the per-prefix listing inside _table_folders
+        ("datasets", "gs://my-bucket/data/{table}/*/*.parquet"),
+    ],
+)
+def test_a_failed_token_refresh_is_a_scrubbed_connection_error(
+    seeded_bucket: None,
+    caplog: pytest.LogCaptureFixture,
+    error: Exception,
+    command: str,
+    recipe_include: str,
+) -> None:
     recipe: Dict[str, object] = {
-        "credential": {
-            "hmac_access_id": "id",
-            "hmac_access_secret": "my-hmac-secret-value",
-        },
-        "path_specs": [{"include": "gs://my-bucket/raw/*.csv"}],
+        "auth_type": "workload_identity",
+        "path_specs": [{"include": recipe_include}],
     }
+    caplog.set_level(logging.DEBUG)
     with (
         mock.patch(
-            "datahub.ingestion.source.data_lake_common.object_store_probe.list_buckets",
-            side_effect=_client_error("SignatureDoesNotMatch", 403),
+            "google.auth.default",
+            return_value=(_RefreshFailingCredentials(error), "my-project"),
         ),
         pytest.raises(ProbeConnectionError) as raised,
     ):
-        _run(recipe, "buckets")
-    assert "my-hmac-secret-value" not in str(raised.value)
+        _run(recipe, command)
+    message = str(raised.value)
+    assert "workload_identity" in message
+    for leaky in _LEAKY_TEXT:
+        assert leaky not in message
+        assert leaky not in caplog.text
 
 
 def test_prefix_budget_stops_and_warns(

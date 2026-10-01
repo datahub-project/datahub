@@ -189,8 +189,8 @@ datahub recipe probe filter --recipe gcs.yml --kind Table --name gs://my-bucket/
   folder whose files all fail them is reported as included, with a warning. Use `objects` to
   check its files.
 - A credential that is rejected (a wrong HMAC secret, or WIF / ADC credentials that cannot be
-  loaded) is reported as a connection error. The error names the failure type only, never
-  the credential material.
+  loaded or refreshed) is reported as a connection error. The error names the failure type
+  only, never the credential material, token file paths or the token endpoint's response.
 
 ### Limitations
 

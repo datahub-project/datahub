@@ -180,6 +180,11 @@ def test_probe_verdicts_match_ingestion(storage: None, name: str) -> None:
     # Every case but the extensionless one must emit something, or it checks
     # nothing.
     assert bool(ingested) is (name != "extensionless")
+    if not ingested:
+        # Then the probe must list the candidate and judge it excluded, not
+        # agree by listing nothing.
+        listing = run_probe_method("gcs", recipe, "datasets", {})
+        assert isinstance(listing.result, list) and listing.result
     probed, warnings = _probed(recipe)
     renamed = set(_named_after_a_file_in(ingested, probed, warnings).values())
     for urn in set(probed) - ingested:
