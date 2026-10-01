@@ -155,7 +155,11 @@ def test_every_sqlalchemy_provider_inherits_the_resolving_commands() -> None:
     """The fix lives in the shared class, so it covers a source only while the
     source's provider still runs these commands from it. A subclass that
     overrides one must resolve its identifiers the same way and be listed in
-    _RESOLVES_ITS_OWN."""
+    _RESOLVES_ITS_OWN.
+
+    This checks only the base commands, by identity. A subclass's NEW
+    identifier-taking `@probe_method` must follow the same rule and is not
+    checked automatically."""
     guarded = {c for c, _ in _CASES}
     found: List[str] = []
     load_failures: List[Tuple[str, str]] = []
@@ -189,9 +193,10 @@ def test_every_sqlalchemy_provider_inherits_the_resolving_commands() -> None:
     )
     assert not unreviewed, (
         f"{unreviewed}: these providers override identifier-taking commands. "
-        "Resolve every schema/table/view through "
-        "sql_identifier_resolver.resolve_listed_name, then list the source in "
-        "_RESOLVES_ITS_OWN."
+        "Only a catalog-listed string may reach reflection: resolve every "
+        "schema/table/view through sql_identifier_resolver.resolve_listed_name "
+        "or an equivalent that only returns a listed string, then add the "
+        "source to _RESOLVES_ITS_OWN after review."
     )
 
 

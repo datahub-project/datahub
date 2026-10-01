@@ -325,14 +325,20 @@ beyond convenience:
   `primary_key`, `table_comment` and `view_definition` is looked up in `get_schema_names` /
   `get_table_names` / `get_view_names` (and `get_materialized_view_names` where the dialect has
   it), and reflection receives the catalog's own string, never the caller's. An unlisted name is
-  refused with exit 2 before any reflection runs. This is a security boundary: several dialects
-  (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid) format these arguments straight
+  refused with exit 2 before any reflection runs; if the listing itself fails, that is a
+  connection error (exit 3). This is a security boundary: several dialects
+  (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid, and Databricks, whose
+  unity-catalog dialect formats `` `{catalog}`.`{schema}` `` into SHOW TABLES/VIEWS) format these arguments straight
   into their reflection SQL, which the `sql` gate never sees. Matching is exact. A name that
   differs only in case is refused with the listed spelling as a hint, because ingestion reflects
-  and pattern-matches the listed spelling. A provider that overrides one of these commands must
-  resolve its identifiers the same way, with `resolve_listed_name` in
-  `sql/sql_identifier_resolver.py`. `test_sql_identifier_hostile_input.py` fails for one that
-  does not.
+  and pattern-matches the listed spelling. Names the server lists still go into each dialect's own
+  SQL: a hostile name created by someone with DDL rights can break that dialect's reflection,
+  which is outside this protection (it guards caller input). The rule for a provider is that
+  only a catalog-listed string may reach reflection: resolve every schema, table and view
+  through `resolve_listed_name` in `sql/sql_identifier_resolver.py`, or an equivalent that only
+  returns a listed string, then add the source to `_RESOLVES_ITS_OWN` in
+  `test_sql_identifier_hostile_input.py` after review. That test fails for a provider that
+  overrides one of these commands without doing so.
 
 `containers` declares no `kind`, because the same Inspector call means different things
 per tier: three-tier sources return schemas filtered by `schema_pattern`, two-tier ones
