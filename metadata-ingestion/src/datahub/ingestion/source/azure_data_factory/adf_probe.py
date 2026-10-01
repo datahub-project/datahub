@@ -265,7 +265,10 @@ class AzureDataFactoryMetadataProbe:
         the bare pipeline name, not factory-qualified, so a same-named
         pipeline in another factory gets the same verdict. Each record is
         name, folder and activity count; parameter defaults are withheld
-        because they can hold secrets."""
+        because they can hold secrets. Listing pipelines does not prove the
+        factory is ingested: ingestion skips the whole factory when it cannot
+        list its triggers or, with include_lineage on, its datasets, linked
+        services or data flows, and this command reads none of those."""
         rg = self._resource_group_of(factory)
         pipelines = self._listing(
             f"pipelines listing for factory '{factory}'",
@@ -335,11 +338,15 @@ class AzureDataFactoryMetadataProbe:
         Key Vault references, encrypted credentials) is always withheld: ADF
         stores credentials there."""
         rg = self._resource_group_of(factory)
-        services = self._listing(
+        services = self._try_listing(
             f"linked services listing for factory '{factory}'",
             lambda: self._client.get_linked_services(rg, factory),
             limit,
         )
+        if services is None:
+            # The read failed and _try_listing said so; a note about what
+            # ingestion would do with these is noise next to that.
+            return []
         records: List[Dict[str, object]] = []
         for ls in services:
             # Only type and connect_via are read from the definition; every
@@ -378,11 +385,13 @@ class AzureDataFactoryMetadataProbe:
         Dataset settings (headers, request bodies, parameters) are withheld."""
         rg = self._resource_group_of(factory)
         key = f"{rg}/{factory}"
-        datasets = self._listing(
+        datasets = self._try_listing(
             f"datasets listing for factory '{factory}'",
             lambda: self._client.get_datasets(rg, factory),
             limit,
         )
+        if datasets is None:
+            return []
         # Every linked service, not `limit` of them: any dataset may reference any.
         listed_services = self._try_listing(
             f"linked services listing for factory '{factory}'",
@@ -428,5 +437,6 @@ class AzureDataFactoryMetadataProbe:
                     "unresolved_reason": reason,
                 }
             )
-        self._note_lineage_off()
+        if listed_services is not None:
+            self._note_lineage_off()
         return records

@@ -35,6 +35,14 @@ _BASE_RECIPE: Dict[str, Any] = {
 }
 
 
+def _raw(value: object) -> Any:
+    # ARM returns these properties as untyped JSON -- a connection string or a
+    # header arrives as a plain string -- so the SDK's declared types
+    # (MutableMapping, Key Vault references) don't describe what this fixture
+    # must imitate.
+    return value
+
+
 def _factory_id(rg: str, name: str) -> str:
     return (
         f"/subscriptions/{SUB}/resourceGroups/{rg}"
@@ -46,7 +54,9 @@ def _factory(name: Optional[str], rg: str = "my-rg") -> adf.Factory:
     factory = adf.Factory(
         location="westeurope",
         global_parameters={
-            "api_key": adf.GlobalParameterSpecification(type="String", value=PLANTED)
+            "api_key": adf.GlobalParameterSpecification(
+                type="String", value=_raw(PLANTED)
+            )
         },
     )
     # name/id are readonly on the SDK model, so they are set after construction,
@@ -245,7 +255,9 @@ def _pipeline(
         activities=activities or [],
         folder=adf.PipelineFolder(name=folder) if folder else None,
         parameters={
-            "token": adf.ParameterSpecification(type="String", default_value=PLANTED)
+            "token": adf.ParameterSpecification(
+                type="String", default_value=_raw(PLANTED)
+            )
         },
     )
     pipeline.name = name
@@ -324,7 +336,7 @@ def _copy(name: str, source_ds: str, sink_ds: str) -> adf.CopyActivity:
         ],
         outputs=[adf.DatasetReference(type="DatasetReference", reference_name=sink_ds)],
         source=adf.AzureSqlSource(
-            sql_reader_query=f"SELECT * FROM t WHERE k = '{PLANTED}'"
+            sql_reader_query=_raw(f"SELECT * FROM t WHERE k = '{PLANTED}'")
         ),
         sink=adf.AzureSqlSink(),
     )
@@ -334,8 +346,8 @@ def _web(name: str, depends_on: str) -> adf.WebActivity:
     return adf.WebActivity(
         name=name,
         method="GET",
-        url="https://example.invalid/hook",
-        headers={"Authorization": f"Bearer {PLANTED}"},
+        url=_raw("https://example.invalid/hook"),
+        headers=_raw({"Authorization": f"Bearer {PLANTED}"}),
         depends_on=[
             adf.ActivityDependency(
                 activity=depends_on, dependency_conditions=["Succeeded"]
@@ -422,7 +434,7 @@ def _blob_ls(name: str = "blob_ls") -> adf.LinkedServiceResource:
     return _linked_service(
         name,
         adf.AzureBlobStorageLinkedService(
-            connection_string=(
+            connection_string=_raw(
                 "DefaultEndpointsProtocol=https;AccountName=acct;"
                 f"AccountKey={PLANTED}"
             ),
@@ -437,8 +449,8 @@ def _sql_ls(name: str = "sql_ls") -> adf.LinkedServiceResource:
     return _linked_service(
         name,
         adf.AzureSqlDatabaseLinkedService(
-            connection_string="Server=tcp:example.invalid;Database=my_db;",
-            password=adf.SecureString(value=PLANTED),
+            connection_string=_raw("Server=tcp:example.invalid;Database=my_db;"),
+            password=_raw(adf.SecureString(value=PLANTED)),
         ),
     )
 
@@ -468,7 +480,7 @@ def test_linked_services_resolve_the_platform_and_instance_ingestion_uses() -> N
 def test_an_unmapped_linked_service_type_reports_no_platform() -> None:
     client = _FakeClient()
     client.linked_services["my-factory"] = iter(
-        [_linked_service("odata_ls", adf.ODataLinkedService(url="https://x.invalid"))]
+        [_linked_service("odata_ls", adf.ODataLinkedService(url=_raw("https://x.invalid")))]
     )
     [record] = _probe(client).linked_services("my-factory")
     assert record["platform"] is None
@@ -514,8 +526,8 @@ def _orders_table() -> adf.DatasetResource:
         "orders_ds",
         adf.AzureSqlTableDataset(
             linked_service_name=_ls_ref("sql_ls"),
-            schema_type_properties_schema="dbo",
-            table="orders",
+            schema_type_properties_schema=_raw("dbo"),
+            table=_raw("orders"),
         ),
     )
 
@@ -555,7 +567,7 @@ def test_a_dataset_on_an_unmapped_linked_service_says_why_it_will_not_resolve() 
         ]
     )
     client.linked_services["my-factory"] = iter(
-        [_linked_service("o", adf.ODataLinkedService(url="https://x.invalid"))]
+        [_linked_service("o", adf.ODataLinkedService(url=_raw("https://x.invalid")))]
     )
     probe = _probe(client)
     [record] = probe.datasets("my-factory")
@@ -581,10 +593,21 @@ def test_a_dataset_record_never_carries_request_headers() -> None:
         "api_ds",
         adf.HttpDataset(
             linked_service_name=_ls_ref("blob_ls"),
-            relative_url="/v1/items",
-            additional_headers=f"Authorization: Bearer {PLANTED}",
-            request_body=PLANTED,
+            relative_url=_raw("/v1/items"),
+            additional_headers=_raw(f"Authorization: Bearer {PLANTED}"),
+            request_body=_raw(PLANTED),
         ),
     )
     out = _probe(_factory_with_datasets([http])).datasets("my-factory")
     assert PLANTED not in json.dumps(out)
+
+
+def test_a_forbidden_listing_reports_the_failure_not_the_lineage_note() -> None:
+    client = _FakeClient()
+    client.linked_services["my-factory"] = _forbidden()
+    client.datasets["my-factory"] = _forbidden()
+    probe = _probe(client, include_lineage=False)
+    assert probe.linked_services("my-factory") == []
+    assert probe.datasets("my-factory") == []
+    assert any("403" in w for w in probe.warnings)
+    assert not any("include_lineage" in w for w in probe.warnings)
