@@ -4,6 +4,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
 import com.linkedin.metadata.config.telemetry.RequestAttributionConfiguration;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -62,10 +63,27 @@ public class ElasticSearchBulkProcessorFactory {
   }
 
   /**
+   * Bulk-write attribution settings from {@code telemetry.requestAttribution}: batch spans when
+   * {@code enabled} (and a tracer is available), the batch id header when {@code
+   * opensearchOpaqueId} too. {@link BulkTelemetryConfig#DISABLED} when {@code attribution} is null.
+   */
+  @Nonnull
+  static BulkTelemetryConfig bulkTelemetry(
+      @Nullable RequestAttributionConfiguration attribution, @Nullable Tracer tracer) {
+    if (attribution == null) {
+      return BulkTelemetryConfig.DISABLED;
+    }
+    return BulkTelemetryConfig.builder()
+        .tracer(tracer)
+        .batchSpans(attribution.isEnabled())
+        .opaqueId(attribution.isEnabled() && attribution.isOpensearchOpaqueId())
+        .serviceName(attribution.getServiceName())
+        .build();
+  }
+
+  /**
    * As {@link #build(SearchClientShim, BulkProcessorConfiguration, int, MetricUtils)}, with
-   * bulk-write attribution from {@code telemetry.requestAttribution}: batch spans when {@code
-   * enabled}, the batch id header when {@code opensearchOpaqueId} too. Off when {@code attribution}
-   * is null.
+   * bulk-write attribution per {@link #bulkTelemetry(RequestAttributionConfiguration, Tracer)}.
    */
   @Nonnull
   static ESBulkProcessor build(
@@ -90,11 +108,7 @@ public class ElasticSearchBulkProcessorFactory {
         .ackAfterTransfer(config.isAckAfterTransfer())
         .ackAfterTransferTimeoutSeconds(config.getAckAfterTransferTimeoutSeconds())
         .byQueryRequestOptions(byQueryOpts)
-        .tracer(tracer)
-        .bulkBatchSpans(attribution != null && attribution.isEnabled())
-        .bulkOpaqueId(
-            attribution != null && attribution.isEnabled() && attribution.isOpensearchOpaqueId())
-        .serviceName(attribution != null ? attribution.getServiceName() : null)
+        .bulkTelemetry(bulkTelemetry(attribution, tracer))
         .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(config.getRefreshPolicy()))
         .build();
   }

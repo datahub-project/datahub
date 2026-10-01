@@ -100,7 +100,9 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
-    telemetry.afterBulk(request, response.getTook().getMillis(), countFailures(response));
+    if (telemetry.isEnabled()) {
+      telemetry.afterBulk(request, response.getTook().getMillis(), countFailures(response));
+    }
     String ingestTook = "";
     long ingestTookInMillis = response.getIngestTookInMillis();
     if (ingestTookInMillis != BulkResponse.NO_INGEST_TOOK) {

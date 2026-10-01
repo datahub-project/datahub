@@ -4,7 +4,7 @@ import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
-import io.opentelemetry.api.trace.Tracer;
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
@@ -73,9 +73,8 @@ public abstract class AbstractBulkProcessorShim<T> {
     this.itemRequeueMaxAttempts = itemRequeueMaxAttempts;
   }
 
-  public void configureBulkTelemetry(
-      @Nullable Tracer tracer, boolean batchSpans, boolean opaqueId, @Nullable String serviceName) {
-    this.bulkTelemetry = BulkTelemetry.create(tracer, batchSpans, opaqueId, serviceName);
+  public void configureBulkTelemetry(@Nonnull BulkTelemetryConfig config) {
+    this.bulkTelemetry = BulkTelemetry.create(config);
   }
 
   /**
@@ -141,6 +140,8 @@ public abstract class AbstractBulkProcessorShim<T> {
             ? writeRequest.id()
             : String.valueOf(writeRequest.index()) + ":" + System.identityHashCode(writeRequest);
     int index = Math.floorMod(routingKey.hashCode(), threadCount);
+    // Re-added from the flush thread, so the retry batch would otherwise lose the request's link.
+    bulkTelemetry.onRequeue(writeRequest);
     addToProcessor(bulkProcessors[index], writeRequest);
   }
 

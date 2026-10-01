@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import com.linkedin.metadata.utils.elasticsearch.BulkTelemetryConfig;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -446,18 +447,14 @@ public class ESBulkProcessorTest {
   @Test
   public void testBuilderConfiguresBulkTelemetryOnTheShim() {
     Tracer tracer = OpenTelemetry.noop().getTracer("test");
-    ESBulkProcessor.builder(mockSearchClient, mockMetricUtils)
-        .tracer(tracer)
-        .bulkBatchSpans(true)
-        .bulkOpaqueId(true)
-        .serviceName("gms")
-        .build();
-    verify(mockSearchClient).configureBulkTelemetry(tracer, true, true, "gms");
+    BulkTelemetryConfig config = BulkTelemetryConfig.of(tracer, true, true, "gms");
+    ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).bulkTelemetry(config).build();
+    verify(mockSearchClient).configureBulkTelemetry(config);
   }
 
   @Test
   public void testBuilderDefaultsBulkTelemetryOff() {
     ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
-    verify(mockSearchClient).configureBulkTelemetry(null, false, false, "datahub");
+    verify(mockSearchClient).configureBulkTelemetry(BulkTelemetryConfig.DISABLED);
   }
 }

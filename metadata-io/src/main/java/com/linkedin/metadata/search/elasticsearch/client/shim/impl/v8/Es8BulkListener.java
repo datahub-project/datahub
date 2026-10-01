@@ -18,6 +18,18 @@ import org.apache.commons.lang3.StringUtils;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.core.rest.RestStatus;
 
+/**
+ * Bulk listener for the Elasticsearch 8 {@code BulkIngester}; item bookkeeping mirrors {@link
+ * BulkListener}.
+ *
+ * <p>Bulk-write attribution is partial here, by construction of the ingester: {@link BulkTelemetry}
+ * produces the {@code index bulk} span (batch id, action count, indices, took, failures, links to
+ * the actions' origins) from {@code beforeBulk}/{@code afterBulk}, but the ingester owns the HTTP
+ * call. Its builder exposes no per-request {@code TransportOptions} or header hook, only a client
+ * and fixed global settings, so no {@code X-Opaque-Id} is sent for the batch, and the span is never
+ * made current around the call, so an agent's client span for the bulk request stays a separate
+ * span rather than nesting under the batch span. The OpenSearch client path does both.
+ */
 @Slf4j
 public class Es8BulkListener
     implements co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> {
@@ -60,8 +72,10 @@ public class Es8BulkListener
       co.elastic.clients.elasticsearch.core.BulkRequest request,
       List<Object> objects) {
     // The ingester owns the client, so no per-batch X-Opaque-Id here; the span still carries the
-    // batch id and links to the actions' origins.
-    telemetry.beforeBulk(request, writeRequests(objects));
+    // batch id and links to the actions' origins. Guarded so the disabled path allocates nothing.
+    if (telemetry.isEnabled()) {
+      telemetry.beforeBulk(request, writeRequests(objects));
+    }
   }
 
   @Override
@@ -70,7 +84,9 @@ public class Es8BulkListener
       co.elastic.clients.elasticsearch.core.BulkRequest request,
       List<Object> objects,
       co.elastic.clients.elasticsearch.core.BulkResponse response) {
-    telemetry.afterBulk(request, response.took(), countFailures(response));
+    if (telemetry.isEnabled()) {
+      telemetry.afterBulk(request, response.took(), countFailures(response));
+    }
     String ingestTook = "";
     Long ingestTookInMillis = response.ingestTook();
     if (ingestTookInMillis != null) {
