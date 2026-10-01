@@ -169,6 +169,7 @@ def test_probe_commands_answer_from_the_live_cluster_without_disclosing_secrets(
     # mysql_source4 a password in its URL and a query.
     for name in (
         "debezium-mysql-connector",
+        "debezium-postgres-connector",
         "debezium-sqlserver-connector",
         "mysql_source4",
         "source_mongodb_connector",
