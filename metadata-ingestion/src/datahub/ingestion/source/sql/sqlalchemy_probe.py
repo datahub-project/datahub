@@ -1,4 +1,14 @@
-from typing import Callable, Dict, FrozenSet, List, Optional, Set
+from typing import (
+    Callable,
+    Dict,
+    FrozenSet,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+)
 
 from sqlalchemy import inspect
 from sqlalchemy.engine import Engine
@@ -10,6 +20,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_identifier_resolver import resolve_listed_name
 
 # SQLAlchemy and sqlglot disagree on a handful of dialect names. An unmapped
 # name is passed through so the scope check refuses it rather than guessing a
@@ -28,6 +39,15 @@ def sqlglot_dialect_for(sqlalchemy_dialect_name: str) -> str:
     return _SQLALCHEMY_TO_SQLGLOT_DIALECT.get(
         sqlalchemy_dialect_name, sqlalchemy_dialect_name
     )
+
+
+# Which Inspector listing a relation name is resolved against.
+_Listing = Literal["tables", "views", "materialized_views"]
+# A `table` argument may name any relation ingestion reflects: `columns`
+# documents views, and SQLAlchemy 2's Postgres lists materialized views apart
+# from both. Tried in order, each only on a miss in the one before.
+_TABLE_LISTINGS: Tuple[_Listing, ...] = ("tables", "views", "materialized_views")
+_VIEW_LISTINGS: Tuple[_Listing, ...] = ("views", "materialized_views")
 
 
 def _pinned_containers(config: object, container_kind: str) -> FrozenSet[str]:
@@ -110,6 +130,84 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     # How a listed container is spelled for ingestion; see
     # _container_normalizer. Identity unless the connector says otherwise.
     container_normalizer: Callable[[str], str] = staticmethod(lambda name: name)
+
+    # Listing caches. Created on first use, not in __init__: tests build this
+    # class with __new__ and subclasses may bring their own constructor. One
+    # probe instance serves one command, so they never go stale.
+    _schema_listing: Optional[List[str]] = None
+    _relation_listings: Optional[Dict[Tuple[str, str], List[str]]] = None
+
+    # SECURITY: every caller-supplied schema/table/view passes through the
+    # resolvers below before any Inspector reflection call. Several dialects
+    # (sqlalchemy-redshift, Vertica, Teradata, ClickHouse, Druid) format these
+    # arguments into their reflection SQL, which the `sql` gate never sees;
+    # resolving against the server's own listing means reflection only ever
+    # receives a string the server produced.
+    def _listed_schemas(self) -> List[str]:
+        if self._schema_listing is None:
+            self._schema_listing = list(self._insp.get_schema_names())
+        return self._schema_listing
+
+    def _listed(self, schema: str, listing: _Listing) -> List[str]:
+        if self._relation_listings is None:
+            self._relation_listings = {}
+        key = (schema, listing)
+        cached = self._relation_listings.get(key)
+        if cached is None:
+            cached = self._fetch_listing(schema, listing)
+            self._relation_listings[key] = cached
+        return cached
+
+    def _fetch_listing(self, schema: str, listing: _Listing) -> List[str]:
+        if listing == "tables":
+            return list(self._insp.get_table_names(schema=schema))
+        if listing == "views":
+            return list(self._insp.get_view_names(schema=schema))
+        try:
+            return list(self._insp.get_materialized_view_names(schema=schema))
+        except NotImplementedError:
+            # The base Dialect's default: this dialect lists no materialized
+            # views separately, so it has none to resolve against.
+            return []
+
+    def _container_label(self) -> str:
+        return str(self.kind_overrides.get("containers", "schema")).lower()
+
+    def _resolve_schema(self, schema: str) -> str:
+        def accepted() -> Iterator[str]:
+            for raw in self._listed_schemas():
+                yield raw
+                # What `containers` reports, which callers pass straight
+                # back. Derived from the server's string, so still never the
+                # caller's.
+                yield self.container_normalizer(raw)
+
+        return resolve_listed_name(
+            schema,
+            accepted(),
+            what=self._container_label(),
+            where="on this connection",
+            list_command="containers",
+        )
+
+    def _resolve_relation(
+        self, schema: str, name: str, listings: Tuple[_Listing, ...], what: str
+    ) -> Tuple[str, str]:
+        on_schema = self._resolve_schema(schema)
+        candidates = (
+            listed
+            for listing in listings
+            for listed in self._listed(on_schema, listing)
+        )
+        lister = "tables" if "tables" in listings else "views"
+        relation = resolve_listed_name(
+            name,
+            candidates,
+            what=what,
+            where=f"in {self._container_label()} {on_schema!r}",
+            list_command=f"{lister} --schema {on_schema!r}",
+        )
+        return on_schema, relation
 
     @classmethod
     def for_config(cls, config: SQLCommonConfig) -> "SqlAlchemyMetadataProbe":
@@ -223,7 +321,7 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         # as two.
         seen: Set[str] = set()
         names = []
-        for raw in self._insp.get_schema_names():
+        for raw in self._listed_schemas():
             name = self.container_normalizer(raw)
             if name not in seen:
                 seen.add(name)
@@ -242,8 +340,9 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
         information_schema.tables returns both kinds together, so judging that listing
         as tables gives views a verdict from the wrong pattern.
 
-        The schema travels with the result, so `probe filter` needs no --parent."""
-        return self._insp.get_table_names(schema=schema)[:limit]
+        The schema travels with the result, so `probe filter` needs no --parent.
+        An unlisted schema is refused (exit 2) rather than passed to the dialect."""
+        return self._listed(self._resolve_schema(schema), "tables")[:limit]
 
     @probe_method(
         kind=DatasetSubTypes.VIEW, row_limit_param="limit", parent_params=("schema",)
@@ -251,37 +350,54 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
     def views(self, schema: str, limit: int = 200) -> List[str]:
         """Views in one schema, judged by view_pattern. Separate from `tables` for the
         reason given there."""
-        return self._insp.get_view_names(schema=schema)[:limit]
+        return self._listed(self._resolve_schema(schema), "views")[:limit]
 
     @probe_method()
     def foreign_keys(self, schema: str, table: str) -> List[Dict[str, object]]:
         """Foreign-key constraints on a table: each entry lists the local
         constrained columns and the referred schema/table/columns. Use to
         understand cross-table relationships. Metadata only — no row data."""
-        return [dict(fk) for fk in self._insp.get_foreign_keys(table, schema=schema)]
+        on_schema, relation = self._resolve_relation(
+            schema, table, _TABLE_LISTINGS, "table"
+        )
+        return [
+            dict(fk) for fk in self._insp.get_foreign_keys(relation, schema=on_schema)
+        ]
 
     @probe_method(name="view_definition")
     def view_definition(self, schema: str, view: str) -> Optional[str]:
         """The stored CREATE VIEW SQL text for a view (DDL, not query results).
         Returns null if the engine does not expose it."""
-        return self._insp.get_view_definition(view, schema=schema)
+        on_schema, relation = self._resolve_relation(
+            schema, view, _VIEW_LISTINGS, "view"
+        )
+        return self._insp.get_view_definition(relation, schema=on_schema)
 
     @probe_method()
     def primary_key(self, schema: str, table: str) -> Dict[str, object]:
         """The primary-key constraint on a table: the constrained column names
         and the constraint name."""
-        return dict(self._insp.get_pk_constraint(table, schema=schema))
+        on_schema, relation = self._resolve_relation(
+            schema, table, _TABLE_LISTINGS, "table"
+        )
+        return dict(self._insp.get_pk_constraint(relation, schema=on_schema))
 
     @probe_method()
     def indexes(self, schema: str, table: str) -> List[Dict[str, object]]:
         """Indexes on a table: name, indexed column names, and uniqueness."""
-        return [dict(ix) for ix in self._insp.get_indexes(table, schema=schema)]
+        on_schema, relation = self._resolve_relation(
+            schema, table, _TABLE_LISTINGS, "table"
+        )
+        return [dict(ix) for ix in self._insp.get_indexes(relation, schema=on_schema)]
 
     @probe_method()
     def columns(self, schema: str, table: str) -> List[Dict[str, object]]:
         """Columns of a table or view: name, data type, nullability, default.
         Structural metadata only — no cell values are read. (schema is the
         container name: the SQL schema, or the database for two-tier sources.)"""
+        on_schema, relation = self._resolve_relation(
+            schema, table, _TABLE_LISTINGS, "table"
+        )
         return [
             {
                 "name": c["name"],
@@ -289,10 +405,13 @@ class SqlAlchemyMetadataProbe(SqlCatalogPassthrough):
                 "nullable": c.get("nullable"),
                 "default": str(c["default"]) if c.get("default") is not None else None,
             }
-            for c in self._insp.get_columns(table, schema=schema)
+            for c in self._insp.get_columns(relation, schema=on_schema)
         ]
 
     @probe_method()
     def table_comment(self, schema: str, table: str) -> Dict[str, object]:
         """The table's stored comment/description, if any."""
-        return dict(self._insp.get_table_comment(table, schema=schema))
+        on_schema, relation = self._resolve_relation(
+            schema, table, _TABLE_LISTINGS, "table"
+        )
+        return dict(self._insp.get_table_comment(relation, schema=on_schema))
