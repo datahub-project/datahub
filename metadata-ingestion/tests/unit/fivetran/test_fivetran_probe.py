@@ -11,6 +11,7 @@ import pytest
 import requests
 
 from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeReadFailed
 from datahub.ingestion.source.fivetran.config import FivetranSourceConfig
@@ -505,3 +506,36 @@ def test_a_rest_only_recipe_has_no_sync_history_and_says_why() -> None:
     with _rest_api(routes), _probe({"api_config": _API}) as probe:
         assert probe.sync_history("conn_a1") == []
         assert any("fivetran_log_config" in w for w in probe.warnings)
+
+
+def test_a_rest_listing_judged_from_run_applies_the_id_or_name_rule() -> None:
+    # The round trip the REST note tells the caller to make: the listing's
+    # connector_id reaches the verdict, so a connector whose name is denied but
+    # whose id is allowed reads as kept, as ingestion keeps it.
+    routes = {
+        "/groups": _page({"id": "dest_a", "name": "Warehouse A"}),
+        "/groups/dest_a/connections": _page(
+            _listed("conn_a1", "sales_pg", "dest_a"),
+            _listed("conn_a2", "hr_pg", "dest_a"),
+        ),
+    }
+    recipe: Dict[str, object] = {
+        "api_config": _API,
+        "connector_patterns": {"allow": ["^conn_a1$", "^nothing$"]},
+    }
+    with _rest_api(routes):
+        run = run_probe_method("fivetran", recipe, "connectors", {})
+    listing = listing_from_run(run.to_dict())
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=recipe,
+        kind="Connector",
+        parent_path=listing.parent_path,
+        names=listing.names,
+        attributes=listing.attributes,
+    )
+    assert {r.name: r.included for r in result.results} == {
+        "sales_pg": True,
+        "hr_pg": False,
+    }
+    assert result.warnings == []
