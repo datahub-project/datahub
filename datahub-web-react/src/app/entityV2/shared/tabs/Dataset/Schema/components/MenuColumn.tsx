@@ -1,12 +1,14 @@
-import { CopyOutlined } from '@ant-design/icons';
+import { Menu } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
-import { Dropdown, Menu } from 'antd';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { VscGraphLeft } from 'react-icons/vsc';
 import styled from 'styled-components/macro';
+
+import { ItemType } from '@components/components/Menu/types';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useMutationUrn, useRefetch, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -24,22 +26,8 @@ import { SchemaField, SchemaFieldDataType, SubResourceType } from '@types';
 
 const LINEAGE_TAB = 'Lineage';
 
-export const ImpactAnalysisIcon = styled(VscGraphLeft)`
-    transform: scaleX(-1);
-    font-size: 18px;
-`;
-
-const CopyOutlinedIcon = styled(CopyOutlined)`
-    transform: scaleX(-1);
-    font-size: 16px;
-`;
-
-const MenuItem = styled.div`
-    align-items: center;
-    display: flex;
-    font-size: 12px;
-    padding: 0 4px;
-    color: ${(props) => props.theme.colors.text};
+export const ImpactAnalysisIcon = styled(TreeStructure).attrs({ size: 18 })`
+    flex-shrink: 0;
 `;
 
 interface Props {
@@ -82,61 +70,69 @@ export default function MenuColumn({ field }: Props) {
         refetch: () => Promise.all([refetch?.(), schemaRefetch?.()]),
     });
 
+    const items: ItemType[] = [
+        {
+            type: 'item',
+            key: 'column-lineage',
+            title: t('menuColumn.seeColumnLineage'),
+            icon: ImpactAnalysisIcon,
+            onClick: () => routeToTab({ tabName: LINEAGE_TAB, tabParams: { column: field.fieldPath } }),
+        },
+    ];
+
+    if (navigator.clipboard) {
+        items.push({
+            type: 'item',
+            key: 'copy-field-path',
+            title: t('menuColumn.copyColumnFieldPath'),
+            icon: Copy,
+            onClick: () => navigator.clipboard.writeText(field.fieldPath),
+        });
+        items.push({
+            type: 'item',
+            key: 'copy-column-urn',
+            title: t('menuColumn.copyColumnUrn'),
+            icon: Copy,
+            onClick: () => navigator.clipboard.writeText(selectedColumnUrn || ''),
+        });
+    }
+
+    if (showLogicalActions) {
+        items.push({
+            type: 'item',
+            key: 'edit-column',
+            title: tl('editColumn.menuLabel'),
+            icon: PencilSimple,
+            dataTestId: 'edit-logical-model-column',
+            onClick: () => setEditOpen(true),
+        });
+        items.push({
+            type: 'item',
+            key: 'delete-column',
+            title: tl('deleteColumn.menuLabel'),
+            icon: Trash,
+            danger: true,
+            dataTestId: 'delete-logical-model-column',
+            onClick: () => setDeleteOpen(true),
+        });
+    }
+
+    if (isDeprecated && canUndeprecate) {
+        items.push({
+            type: 'item',
+            key: 'un-deprecate-column',
+            title: te('deprecation.markUnDeprecated'),
+            icon: Prohibit,
+            dataTestId: 'un-deprecate-column',
+            onClick: () => undeprecateField(),
+        });
+    }
+
     return (
         <>
-            <Dropdown
-                overlay={
-                    <Menu>
-                        <Menu.Item key="0" onClick={(e) => e.domEvent.stopPropagation()}>
-                            <MenuItem
-                                onClick={() =>
-                                    routeToTab({ tabName: LINEAGE_TAB, tabParams: { column: field.fieldPath } })
-                                }
-                            >
-                                <ImpactAnalysisIcon /> &nbsp; {t('menuColumn.seeColumnLineage')}
-                            </MenuItem>
-                        </Menu.Item>
-                        {navigator.clipboard && (
-                            <Menu.Item key="1" onClick={(e) => e.domEvent.stopPropagation()}>
-                                <MenuItem onClick={() => navigator.clipboard.writeText(field.fieldPath)}>
-                                    <CopyOutlinedIcon /> &nbsp; {t('menuColumn.copyColumnFieldPath')}
-                                </MenuItem>
-                            </Menu.Item>
-                        )}
-                        {navigator.clipboard && (
-                            <Menu.Item key="2" onClick={(e) => e.domEvent.stopPropagation()}>
-                                <MenuItem onClick={() => navigator.clipboard.writeText(selectedColumnUrn || '')}>
-                                    <CopyOutlinedIcon /> &nbsp; {t('menuColumn.copyColumnUrn')}
-                                </MenuItem>
-                            </Menu.Item>
-                        )}
-                        {showLogicalActions && (
-                            <Menu.Item key="3" onClick={(e) => e.domEvent.stopPropagation()}>
-                                <MenuItem onClick={() => setEditOpen(true)} data-testid="edit-logical-model-column">
-                                    <PencilSimple size={16} /> &nbsp; {tl('editColumn.menuLabel')}
-                                </MenuItem>
-                            </Menu.Item>
-                        )}
-                        {showLogicalActions && (
-                            <Menu.Item key="4" onClick={(e) => e.domEvent.stopPropagation()}>
-                                <MenuItem onClick={() => setDeleteOpen(true)} data-testid="delete-logical-model-column">
-                                    <Trash size={16} /> &nbsp; {tl('deleteColumn.menuLabel')}
-                                </MenuItem>
-                            </Menu.Item>
-                        )}
-                        {isDeprecated && canUndeprecate && (
-                            <Menu.Item key="5" onClick={(e) => e.domEvent.stopPropagation()}>
-                                <MenuItem onClick={() => undeprecateField()} data-testid="un-deprecate-column">
-                                    <Prohibit size={16} /> &nbsp; {te('deprecation.markUnDeprecated')}
-                                </MenuItem>
-                            </Menu.Item>
-                        )}
-                    </Menu>
-                }
-                trigger={['click']}
-            >
+            <Menu items={items} trigger={['click']}>
                 <MenuIcon fontSize={16} onClick={(e) => e.stopPropagation()} />
-            </Dropdown>
+            </Menu>
             {editOpen && (
                 <EditLogicalModelColumnModal
                     datasetUrn={urn}

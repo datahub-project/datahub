@@ -1,5 +1,5 @@
-import { PlusOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -20,8 +20,15 @@ const AddButton = ({ buttonLabel, isButtonDisabled, dataTestId, onButtonClick }:
                 t('queriesTab.addHighlightedQueryTooltip')
             }
         >
-            <Button disabled={isButtonDisabled} variant="outline" onClick={onButtonClick} data-testid={dataTestId}>
-                <PlusOutlined /> {buttonLabel}
+            <Button
+                disabled={isButtonDisabled}
+                variant="outline"
+                size="sm"
+                icon={{ icon: Plus }}
+                onClick={onButtonClick}
+                data-testid={dataTestId}
+            >
+                {buttonLabel}
             </Button>
         </Tooltip>
     );

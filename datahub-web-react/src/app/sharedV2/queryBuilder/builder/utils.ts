@@ -1,3 +1,4 @@
+import { resolveFilterValues } from '@app/entityV2/view/builder/utils';
 import { LogicalOperatorType, LogicalPredicate, PropertyPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 import { combineOrFilters } from '@src/app/searchV2/utils/filterUtils';
 import { AndFilterInput, FilterOperator } from '@src/types.generated';
@@ -15,16 +16,24 @@ export const isLogicalPredicate = (predicate: LogicalPredicate | PropertyPredica
 
 function mapOperator(operator: string): FilterOperator {
     const operatorMap: { [key: string]: FilterOperator } = {
-        contains: FilterOperator.Contain,
+        // Direct matches from OperatorId enum
         equals: FilterOperator.Equal,
         equal: FilterOperator.Equal,
-        exists: FilterOperator.Exists,
-        within: FilterOperator.DescendantsIncl,
-        descendantsincl: FilterOperator.DescendantsIncl,
-        greaterthan: FilterOperator.GreaterThan,
-        greaterthanorequalto: FilterOperator.GreaterThanOrEqualTo,
+        startswith: FilterOperator.StartWith,
+        containsstr: FilterOperator.Contain,
+        contains: FilterOperator.Contain,
+        containsany: FilterOperator.In,
         in: FilterOperator.In,
+        regexmatch: FilterOperator.Contain, // Regex match treated as contains
+        greaterthan: FilterOperator.GreaterThan,
         lessthan: FilterOperator.LessThan,
+        exists: FilterOperator.Exists,
+        istrue: FilterOperator.Equal,
+        isfalse: FilterOperator.Equal,
+        within: FilterOperator.DescendantsIncl,
+        // Legacy/shorthand forms
+        descendantsincl: FilterOperator.DescendantsIncl,
+        greaterthanorequalto: FilterOperator.GreaterThanOrEqualTo,
         lessthanorequalto: FilterOperator.LessThanOrEqualTo,
     };
 
@@ -57,7 +66,7 @@ export function convertLogicalPredicateToOrFilters(
                 and: [
                     {
                         field: pred.property,
-                        values: pred.values || [],
+                        values: resolveFilterValues(pred),
                         condition: pred.operator ? mapOperator(pred.operator) : undefined,
                         ...(isNegated && { negated: true }),
                     },
@@ -69,17 +78,32 @@ export function convertLogicalPredicateToOrFilters(
         // it's a LogicalPredicate
         switch (pred.operator) {
             case LogicalOperatorType.AND: {
+                // De Morgan's Law: if negated, NOT(AND) acts like OR
+                if (isNegated) {
+                    return (pred as LogicalPredicate).operands
+                        .flatMap((op) => convertLogicalPredicateToOrFilters(op, true))
+                        .filter((andFilter): andFilter is AndFilterInput => !!andFilter);
+                }
                 const andResults = (pred as LogicalPredicate).operands
                     .map((op) => convertLogicalPredicateToOrFilters(op, isNegated))
                     .filter((filters): filters is AndFilterInput[] => !!filters);
                 return andResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
             }
-            case LogicalOperatorType.OR:
+            case LogicalOperatorType.OR: {
+                // De Morgan's Law: if negated, NOT(OR) acts like AND
+                if (isNegated) {
+                    const orResults = (pred as LogicalPredicate).operands
+                        .map((op) => convertLogicalPredicateToOrFilters(op, true))
+                        .filter((filters): filters is AndFilterInput[] => !!filters);
+                    return orResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);
+                }
                 return (pred as LogicalPredicate).operands
                     .flatMap((op) => convertLogicalPredicateToOrFilters(op, isNegated))
                     .filter((andFilter): andFilter is AndFilterInput => !!andFilter);
+            }
             case LogicalOperatorType.NOT: {
-                const notResults = (pred as LogicalPredicate).operands
+                const logicalOp = pred as LogicalPredicate;
+                const notResults = logicalOp.operands
                     .map((op) => convertLogicalPredicateToOrFilters(op, !isNegated))
                     .filter((filters): filters is AndFilterInput[] => !!filters);
                 return notResults.reduce((acc, curr) => combineOrFilters(acc, curr), [{ and: [] }]);

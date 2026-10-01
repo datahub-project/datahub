@@ -46,10 +46,9 @@ export class UserEntity implements Entity<CorpUser> {
 
     renderProfile = (urn: string) => <UserProfile urn={urn} />;
 
-    renderPreview = (previewType: PreviewType, data: CorpUser) => (
+    renderPreview = (_previewType: PreviewType, data: CorpUser) => (
         <Preview
             urn={data.urn}
-            previewType={previewType}
             name={this.displayName(data)}
             title={data.editableProperties?.title || data.info?.title || ''}
         />

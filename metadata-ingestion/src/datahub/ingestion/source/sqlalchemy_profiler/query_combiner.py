@@ -29,7 +29,6 @@ import sqlalchemy.sql.elements
 import sqlalchemy.sql.functions
 import sqlalchemy.sql.operators
 import sqlalchemy.sql.visitors
-from packaging import version
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
@@ -37,12 +36,6 @@ from datahub.ingestion.api.report import Report
 from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-# The type annotations for SA 1.3.x don't have the __version__ attribute,
-# so we need to ignore the error here.
-SQLALCHEMY_VERSION = sqlalchemy.__version__  # type: ignore[attr-defined]
-IS_SQLALCHEMY_1_4 = version.parse(SQLALCHEMY_VERSION) >= version.parse("1.4.0")
-
 
 MAX_QUERIES_TO_COMBINE_AT_ONCE = 40
 
@@ -139,10 +132,9 @@ def is_single_row_query(query: Any) -> bool:
     Total by design: this is called on whatever reached Connection.execute, so
     it answers False for a non-statement rather than raising.
 
-    In practice a raw SQL string is the only non-Executable that gets this far.
-    SQLAlchemy itself rejects every other kind (None, a Table, an int) with
-    ObjectNotExecutableError, so there is nothing extra to report about them. A
-    raw string executes fine, simply never batches, and shows up in
+    SQLAlchemy 2.0 rejects every non-Executable (a raw string, None, a Table)
+    with ObjectNotExecutableError, so the isinstance check is only a guard. An
+    untagged text() clause executes fine, simply never batches, and shows up in
     uncombined_queries_in_greenlet like any other unbatched query.
     """
     if not isinstance(query, sqlalchemy.sql.Executable):
@@ -198,8 +190,8 @@ class _RowProxyFake(collections.OrderedDict):
 
 
 class _ResultProxyFake:
-    # This imitates the interface provided by sqlalchemy.engine.result.ResultProxy (sqlalchemy 1.3.x)
-    # or sqlalchemy.engine.Result (1.4.x).
+    # This imitates the subset of sqlalchemy.engine.CursorResult that the
+    # profiler reads from combined-query results.
     # Adapted from https://github.com/rajivsarvepalli/mock-alchemy/blob/2eba95588e7693aab973a6d60441d2bc3c4ea35d/src/mock_alchemy/mocking.py#L213
 
     def __init__(self, result: List[_RowProxyFake]) -> None:
@@ -268,12 +260,12 @@ class _QueryFuture:
 
 
 def get_query_columns(query: Any) -> List[Any]:
-    try:
-        # inner_columns will be more accurate if the column names are unnamed,
-        # since .columns will remove the "duplicates".
-        return list(query.inner_columns)
-    except AttributeError:
-        return list(query.columns)
+    # On SQLAlchemy 2.0 a Select exposes `selected_columns`; a CTE/subquery
+    # exposes its columns via `.columns`.
+    cols = getattr(query, "selected_columns", None)
+    if cols is not None:
+        return list(cols)
+    return list(query.columns)
 
 
 @dataclasses.dataclass
@@ -317,6 +309,10 @@ class SQLAlchemyQueryCombinerReport(Report):
     flat_group_serial_fallbacks: int = 0
 
     query_exceptions: int = 0
+
+    # Rollbacks before a retry that raised. Non-zero means the retried queries
+    # likely ran in an aborted transaction, so their failures are collateral.
+    rollback_failures: int = 0
 
 
 @dataclasses.dataclass
@@ -560,18 +556,15 @@ class SQLAlchemyQueryCombiner:
             k: query_future.query.cte(k) for k, query_future in pending_queue.items()
         }
 
-        combined_cols = itertools.chain(
-            *[
-                [
-                    col  # .label(self._generate_sql_safe_identifier())
-                    for col in get_query_columns(cte)
-                ]
-                for _, cte in ctes.items()
-            ]
+        combined_cols = list(
+            itertools.chain.from_iterable(
+                get_query_columns(cte) for cte in ctes.values()
+            )
         )
-        combined_query = sqlalchemy.select(combined_cols)
+        # SA 2.0 removed the list form of select() and Select.append_from().
+        combined_query = sqlalchemy.select(*combined_cols)
         for cte in ctes.values():
-            combined_query.append_from(cte)
+            combined_query = combined_query.select_from(cte)
 
         query_id = SQLAlchemyQueryCombiner._generate_query_id()
         self.report.combined_queries_issued += 1
@@ -591,23 +584,19 @@ class SQLAlchemyQueryCombiner:
         assert len(results) == 1
         row = results[0]
 
-        # Extract the results into a result for each query.
+        # Extract the results into a result for each query. Use the CTE's
+        # columns (not the original query's) because the combined select was
+        # built from them, and on SA 2.0 the original query may contain
+        # unlabeled BindParameters without a .name. CTE columns always have
+        # stable string names.
         index = 0
-        for _, query_future in pending_queue.items():
-            query = query_future.query
-            if IS_SQLALCHEMY_1_4:
-                # On 1.4, it prints a warning if we don't call subquery.
-                query = query.subquery()  # type: ignore
-            cols = query.columns
-
+        for k, query_future in pending_queue.items():
             data = {}
-            for col in cols:
+            for col in get_query_columns(ctes[k]):
                 data[col.name] = row[index]
                 index += 1
 
-            res = _ResultProxyFake([_RowProxyFake(data)])
-
-            query_future.res = res
+            query_future.res = _ResultProxyFake([_RowProxyFake(data)])
 
         # Assert before marking done: a wrong-but-done future is skipped by
         # the recovery paths' `if not fut.done` filters.
@@ -703,6 +692,10 @@ class SQLAlchemyQueryCombiner:
                 logger.debug("Failed to execute flat group", exc_info=e)
                 group_queue = {k: fut for k, fut in members if not fut.done}
                 if group_queue:
+                    # Without a rollback the failed flat query leaves Postgres/
+                    # Redshift in an aborted transaction (25P02), so the CTE
+                    # re-route would always fail too.
+                    self._rollback_quietly(members[0][1].conn)
                     try:
                         self._execute_cte_combine(group_queue)
                         self.report.flat_group_cte_recoveries += 1
@@ -780,9 +773,9 @@ class SQLAlchemyQueryCombiner:
         # All members share the same FROM by signature; use one representative
         # so we append exactly one table and avoid a cross-join.
         rep_froms = members[0][1].query.get_final_froms()
-        combined_query = sqlalchemy.select(labeled_cols)
+        combined_query = sqlalchemy.select(*labeled_cols)
         for f in rep_froms:
-            combined_query.append_from(f)
+            combined_query = combined_query.select_from(f)
 
         query_id = SQLAlchemyQueryCombiner._generate_query_id()
         self.report.combined_queries_issued += 1
@@ -826,6 +819,29 @@ class SQLAlchemyQueryCombiner:
         # N queued aggregates collapsed into one scan over the same table.
         self.report.scans_avoided += len(members) - 1
 
+    def _rollback_quietly(self, conn: Connection) -> None:
+        # SA 2.0 has no autocommit, so after a failed statement e.g. Postgres/
+        # Redshift return 25P02 ("current transaction is aborted") for every
+        # later statement until a rollback. Everything the combiner runs is a
+        # read-only profiling SELECT whose results are already materialized, so
+        # rolling back loses nothing.
+        try:
+            conn.rollback()
+        except Exception as rollback_err:
+            self.report.rollback_failures += 1
+            # Warn once per combiner: this runs before every fallback query, so
+            # a dead connection would otherwise emit one warning per query. The
+            # counter carries the total.
+            if self.report.rollback_failures == 1:
+                logger.warning(
+                    f"Rollback before retrying queries failed "
+                    f"({type(rollback_err).__name__}: {rollback_err}); retried "
+                    f"queries may fail on an aborted transaction. Further "
+                    f"rollback failures are counted in rollback_failures."
+                )
+            else:
+                logger.debug(f"Rollback before retrying queries failed: {rollback_err}")
+
     def _execute_futures_serially(self, futures: List["_QueryFuture"]) -> None:
         # Scoped to specific futures, so a failed flat group resolves only its
         # own. The skip-done guard is load-bearing for the whole-queue caller,
@@ -841,6 +857,10 @@ class SQLAlchemyQueryCombiner:
             logger.info(f"[{query_id}] Executing fallback query")
             logger.debug(f"[{query_id}] SQL: {str(query_future.query)}")
 
+            # The failed combined query (or a preceding fallback query) may have
+            # left the transaction aborted.
+            self._rollback_quietly(query_future.conn)
+
             with PerfTimer() as timer:
                 try:
                     res = _sa_execute_underlying_method(
@@ -850,9 +870,7 @@ class SQLAlchemyQueryCombiner:
                         **query_future.params,
                     )
 
-                    # The actual execute method returns a CursorResult on SQLAlchemy 1.4.x
-                    # and a ResultProxy on SQLAlchemy 1.3.x. Both interfaces are shimmed
-                    # by _ResultProxyFake.
+                    # CursorResult's interface is shimmed by _ResultProxyFake.
                     query_future.res = cast(_ResultProxyFake, res)
 
                     logger.info(
