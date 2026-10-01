@@ -97,11 +97,7 @@ class DataResolverBase(ABC):
         environment: PowerBiEnvironment = PowerBiEnvironment.COMMERCIAL,
     ):
         self._environment = environment
-        urls = (
-            self.GOVERNMENT_URLS
-            if environment == PowerBiEnvironment.GOVERNMENT
-            else self.COMMERCIAL_URLS
-        )
+        urls = self.urls_for(environment)
 
         self._scope = urls["SCOPE"]
         self._my_org_url = self.my_org_url_for(environment)
@@ -141,13 +137,16 @@ class DataResolverBase(ABC):
         )
 
     @classmethod
+    def urls_for(cls, environment: PowerBiEnvironment) -> Dict[str, str]:
+        """The one environment-to-URL mapping: the resolver's scope and
+        authority and the probe's API base all read from it."""
+        if environment == PowerBiEnvironment.GOVERNMENT:
+            return cls.GOVERNMENT_URLS
+        return cls.COMMERCIAL_URLS
+
+    @classmethod
     def my_org_url_for(cls, environment: PowerBiEnvironment) -> str:
-        urls = (
-            cls.GOVERNMENT_URLS
-            if environment == PowerBiEnvironment.GOVERNMENT
-            else cls.COMMERCIAL_URLS
-        )
-        return urls["MY_ORG_URL"]
+        return cls.urls_for(environment)["MY_ORG_URL"]
 
     @property
     def request_session(self) -> requests.Session:

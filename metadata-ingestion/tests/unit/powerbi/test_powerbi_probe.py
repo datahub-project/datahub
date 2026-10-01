@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple
 from unittest import mock
 
@@ -14,6 +15,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiEnvironment,
 )
 from datahub.ingestion.source.powerbi.powerbi_probe import PowerBiMetadataProbe
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import ReportType
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     DataResolverBase,
 )
@@ -584,6 +586,33 @@ def test_api_reaches_a_listed_endpoint_through_the_connector_session(
     assert requests_mock.request_history[0].headers["Authorization"] == "Bearer dummy"
 
 
+def test_api_withholds_personal_workspaces_from_the_raw_groups_listing(
+    requests_mock: rm.Mocker,
+) -> None:
+    # The raw route must not undo what `workspaces` withholds: a personal
+    # workspace is named after its owner.
+    requests_mock.get(
+        f"{_ORG}/groups", json={"@odata.count": 4, "value": list(_GROUPS)}
+    )
+    result = run_probe_method(
+        "powerbi", dict(_RECIPE), "api", {"path": "/groups?$top=10"}
+    )
+    assert "Some Person" not in json.dumps(result.result)
+    assert "ws-3" not in json.dumps(result.result)
+    body = result.result
+    assert isinstance(body, dict)
+    assert [g["id"] for g in body["value"]] == ["ws-1", "ws-2", "ws-4"]
+    assert any("1 personal workspace" in w for w in result.warnings)
+
+    opted_in = run_probe_method(
+        "powerbi",
+        {**_RECIPE, "workspace_type_filter": ["Workspace", "PersonalGroup"]},
+        "api",
+        {"path": "/groups"},
+    )
+    assert "ws-3" in json.dumps(opted_in.result)
+
+
 def test_api_allows_paging_the_member_workspace_listing() -> None:
     check_api_request(
         "GET",
@@ -657,3 +686,13 @@ def test_a_saved_workspaces_run_judges_all_three_workspace_rules(
         "Archive": "workspace_id_pattern",
     }
     assert result.warnings == []
+
+
+def test_the_paginated_report_kind_is_the_subtype_ingestion_emits() -> None:
+    # config.py restates the value to avoid an import cycle; this keeps the
+    # restatement from drifting from the enum.
+    kind = ReportType.PaginatedReport.value
+    config_cls = PowerBiDashboardSourceConfig
+    assert kind in config_cls.probe_unfiltered_kinds()
+    assert config_cls.probe_kind_switches()[kind] == "extract_reports"
+    assert config_cls.probe_ancestor_kinds(kind) == ("Workspace",)

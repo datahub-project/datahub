@@ -9,6 +9,7 @@ from typing import (
     TypeVar,
     cast,
 )
+from urllib.parse import urlparse
 
 import requests
 
@@ -53,8 +54,9 @@ class PowerBiMetadataProbe(RestApiPassthrough):
     warnings: List[str]
 
     # Regular-API listings only. What is deliberately absent, and why:
-    #   /admin/groups (any form) -- raw records name personal workspaces after
-    #       their owner, which `workspaces` withholds; a raw path would not.
+    #   /admin/groups (any form) -- the whole tenant's personal workspaces,
+    #       named after their owners. /groups is allowed because
+    #       api_fetch_json withholds those records as `workspaces` does.
     #   $expand on anything      -- $expand=users returns email addresses.
     #   /groups/{id}/datasets    -- each record carries configuredBy (an email).
     #   .../datasets/{id}/parameters, .../reports/{id}/datasources -- parameter
@@ -77,6 +79,7 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         self._withheld_personal = 0
         self.warnings = []
         self.api_base_url = DataResolverBase.my_org_url_for(config.environment)
+        self._groups_path = urlparse(self.api_base_url).path.rstrip("/") + "/groups"
 
     @classmethod
     def for_config(cls, config: PowerBiDashboardSourceConfig) -> "PowerBiMetadataProbe":
@@ -97,7 +100,33 @@ class PowerBiMetadataProbe(RestApiPassthrough):
             url, headers=resolver.get_authorization_header()
         )
         response.raise_for_status()
-        return response.json()
+        body = response.json()
+        if urlparse(url).path.rstrip("/") == self._groups_path:
+            return self._without_withheld_groups(body)
+        return body
+
+    def _withholds(self, workspace_type: Optional[str]) -> bool:
+        """A personal workspace the recipe does not ingest: named after its
+        owner, and never emitted by ingestion."""
+        return (
+            workspace_type in NON_ADDRESSABLE_WORKSPACE_TYPES
+            and workspace_type not in self._config.workspace_type_filter
+        )
+
+    def _without_withheld_groups(self, body: object) -> object:
+        # The raw listing must withhold what `workspaces` withholds, or the
+        # `api` route would hand back the owner names that command keeps out.
+        if not isinstance(body, dict) or not isinstance(body.get("value"), list):
+            return body
+        kept: List[object] = []
+        self._withheld_personal = 0
+        for group in body["value"]:
+            if isinstance(group, dict) and self._withholds(group.get("type")):
+                self._withheld_personal += 1
+            else:
+                kept.append(group)
+        self._note_withheld()
+        return {**body, "value": kept}
 
     def _resolver(self, resolver_cls: Type[_R]) -> _R:
         if resolver_cls not in self._resolvers:
@@ -170,10 +199,7 @@ class PowerBiMetadataProbe(RestApiPassthrough):
         for page in pages:
             for group in page:
                 workspace = workspace_from_group(group, self._config.environment)
-                if (
-                    workspace.type in NON_ADDRESSABLE_WORKSPACE_TYPES
-                    and workspace.type not in self._config.workspace_type_filter
-                ):
+                if self._withholds(workspace.type):
                     self._withheld_personal += 1
                     continue
                 yield workspace, group.get(Constant.STATE)
@@ -265,8 +291,10 @@ class PowerBiMetadataProbe(RestApiPassthrough):
     @probe_method(kind=BIAssetSubTypes.REPORT, parent_params=("workspace",))
     def reports(self, workspace: str) -> List[Dict[str, object]]:
         """Reports in one workspace, by workspace name. `type` is Report or
-        PaginatedReport, the subtype ingestion emits; filter a paginated one
-        with `--kind PaginatedReport`. App-published duplicates are dropped as
+        PaginatedReport, the subtype ingestion emits. Both kinds share one
+        verdict (their workspace's, and the extract_reports switch), so a
+        saved listing judged with `probe filter --from-run` as Report answers
+        for the paginated rows too. App-published duplicates are dropped as
         ingestion drops them. Read from the workspace's report listing;
         ingestion can also see objects through the admin scan, so a shorter
         list here can point at the credential's workspace membership. Nothing
@@ -304,9 +332,10 @@ class PowerBiMetadataProbe(RestApiPassthrough):
     @probe_method()
     def admin_api_access(self) -> Dict[str, object]:
         """Whether this credential can call PowerBI's read-only admin APIs.
-        Ingestion always uses them for the workspace scan -- lineage,
-        endorsements, apps -- even without admin_apis_only, and on "denied"
-        it still runs but emits none of that. Checked with one single-row
+        Ingestion always uses them for the workspace scan -- scan-derived
+        lineage, endorsements, apps -- even without admin_apis_only, and on
+        "denied" it still runs without those; paginated-report datasource
+        lineage still comes through the regular API. Checked with one single-row
         admin workspace listing; the scanner itself is never called, so
         "granted" is a strong signal rather than proof the scan will
         succeed."""

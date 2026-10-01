@@ -293,7 +293,7 @@ Take into account that the profiling implementation executes a fairly big number
 
 The `profiling_pattern` setting may be used to limit profiling actions to only a certain set of resources in PowerBI. Both allowed and deny rules are matched against the following pattern for every table in a PowerBI Dataset: `workspace_name.dataset_name.table_name`. Users may limit profiling with these settings at table level, dataset level or workspace level.
 
-### Probing a PowerBI recipe
+#### Probing a PowerBI recipe
 
 `datahub recipe probe` checks a PowerBI recipe against the live tenant before a run. It authenticates with the recipe's own service principal and `environment`, uses the same REST endpoints, paging and retries as ingestion, and returns metadata only. It never starts the admin workspace scan. Run it with the read-only service principal that ingestion uses.
 
@@ -317,9 +317,9 @@ datahub recipe probe run reports --recipe recipe.yml --workspace "Sales"
 
 With `--name` instead of `--from-run`, the id and type rules are not judged, and the result warns about them. Reports and dashboards have no filters of their own: their workspace's verdict decides, and `extract_reports` and `extract_dashboards` switch them off.
 
-`admin_api_access: denied` means ingestion still runs but emits no lineage, endorsements or apps, because the workspace scan always uses the admin APIs, even with `admin_apis_only: false`.
+`admin_api_access: denied` means ingestion still runs but gets none of the workspace scan's metadata: no scan-derived lineage, endorsements or apps, because the scan always uses the admin APIs, even with `admin_apis_only: false`. Paginated-report datasource lineage still comes through the regular API.
 
-Personal workspaces are named after their owner. Unless `workspace_type_filter` includes their type, ingestion skips them, and the probe counts them in a warning without listing them. The `api` command does not allow the admin endpoints, `$expand`, datasets, datasources, parameters or users, so it cannot return these names, email addresses or connection details.
+Personal workspaces are named after their owner. Unless `workspace_type_filter` includes their type, ingestion skips them, and the probe counts them in a warning without listing them, in `workspaces` and in the `api` command's `/groups` response alike. The `api` command does not allow the admin endpoints, `$expand`, datasets, datasources, parameters or users, so it cannot return these names, email addresses or connection details.
 
 ### Limitations
 
