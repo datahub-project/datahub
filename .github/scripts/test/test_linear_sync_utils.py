@@ -7,6 +7,8 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
+
 
 MODULE_PATH = Path(__file__).resolve().parent.parent / "utils" / "linear_sync_utils.py"
 spec = importlib.util.spec_from_file_location("linear_sync_utils", MODULE_PATH)
@@ -127,7 +129,7 @@ def test_create_workspace_label_omits_team_id(monkeypatch):
 
 def test_get_or_create_workspace_label_id_reuses_existing(monkeypatch):
     monkeypatch.setattr(
-        utils, "find_workspace_label_by_name", lambda *_args, **_kwargs: "LBL-EXIST"
+        utils, "find_label_id_by_name", lambda *_args, **_kwargs: "LBL-EXIST"
     )
     called = {"create": False}
 
@@ -141,7 +143,7 @@ def test_get_or_create_workspace_label_id_reuses_existing(monkeypatch):
 
 
 def test_get_or_create_workspace_label_id_creates_when_missing(monkeypatch):
-    monkeypatch.setattr(utils, "find_workspace_label_by_name", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(utils, "find_label_id_by_name", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(utils, "random_label_color_hex", lambda: "#00ff00")
 
     def fake_create(_api_key, _label_name, color_hex):
@@ -159,7 +161,7 @@ def test_get_or_create_workspace_label_id_recovers_after_duplicate(monkeypatch):
         calls["n"] += 1
         return "LBL-RACE" if calls["n"] >= 2 else None
 
-    monkeypatch.setattr(utils, "find_workspace_label_by_name", find_twice)
+    monkeypatch.setattr(utils, "find_label_id_by_name", find_twice)
 
     def fake_create(*_args, **_kwargs):
         raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")
@@ -167,6 +169,165 @@ def test_get_or_create_workspace_label_id_recovers_after_duplicate(monkeypatch):
     monkeypatch.setattr(utils, "create_workspace_label", fake_create)
     assert utils.get_or_create_workspace_label_id("k", "main") == "LBL-RACE"
     assert calls["n"] == 2
+
+
+def test_get_or_create_workspace_label_id_reraises_unresolved_duplicate(monkeypatch):
+    monkeypatch.setattr(utils, "find_label_id_by_name", lambda *_args, **_kwargs: None)
+
+    def fake_create(*_args, **_kwargs):
+        raise RuntimeError(
+            "Linear GraphQL errors: [{'message': 'duplicate label name', "
+            "'extensions': {'userPresentableMessage': "
+            "'Label \"v2.3.0-cloud\" already exists in team Product Management.'}}]"
+        )
+
+    monkeypatch.setattr(utils, "create_workspace_label", fake_create)
+    with pytest.raises(RuntimeError, match="duplicate label name"):
+        utils.get_or_create_workspace_label_id("k", "v2.3.0-cloud")
+
+
+def test_find_label_id_by_name_reuses_workspace_label(monkeypatch):
+    def fake_graphql(_api_key, query, variables):
+        assert "FindLabelByName" in query
+        assert variables == {"name": "v2.3.0-cloud"}
+        return {
+            "issueLabels": {"nodes": [{"id": "LBL-W", "isGroup": False}]},
+            "teams": {"nodes": [], "pageInfo": {"hasNextPage": False}},
+        }
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    assert utils.find_label_id_by_name("k", "v2.3.0-cloud") == "LBL-W"
+
+
+def test_find_label_id_by_name_reuses_other_team_label(monkeypatch):
+    def fake_graphql(_api_key, query, variables):
+        assert query.lstrip().startswith("query FindLabelByName")
+        assert variables == {"name": "v2.3.0-cloud"}
+        return {
+            "issueLabels": {"nodes": []},
+            "teams": {
+                "nodes": [
+                    {"labels": {"nodes": [{"id": "LBL-PM", "isGroup": False}]}},
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            },
+        }
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    assert utils.find_label_id_by_name("k", "v2.3.0-cloud") == "LBL-PM"
+
+
+def test_find_label_id_by_name_skips_label_groups(monkeypatch):
+    def fake_graphql(_api_key, _query, _variables):
+        return {
+            "issueLabels": {"nodes": [{"id": "GROUP", "isGroup": True}]},
+            "teams": {
+                "nodes": [
+                    {
+                        "labels": {
+                            "nodes": [
+                                {"id": "GROUP-2", "isGroup": True},
+                                {"id": "LBL-CHILD", "isGroup": False},
+                            ]
+                        }
+                    }
+                ],
+                "pageInfo": {"hasNextPage": False, "endCursor": None},
+            },
+        }
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    assert utils.find_label_id_by_name("k", "v2.3.0-cloud") == "LBL-CHILD"
+
+
+def test_find_label_id_by_name_follows_team_pages(monkeypatch):
+    def fake_graphql(_api_key, query, variables):
+        if "FindTeamLabelByNamePage" in query:
+            assert variables == {"name": "v2.3.0-cloud", "after": "cursor-1"}
+            return {
+                "teams": {
+                    "nodes": [
+                        {"labels": {"nodes": [{"id": "LBL-PAGE2", "isGroup": False}]}}
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        return {
+            "issueLabels": {"nodes": []},
+            "teams": {
+                "nodes": [],
+                "pageInfo": {"hasNextPage": True, "endCursor": "cursor-1"},
+            },
+        }
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    assert utils.find_label_id_by_name("k", "v2.3.0-cloud") == "LBL-PAGE2"
+
+
+def test_find_label_id_by_name_reuses_label_group_child(monkeypatch):
+    seen: list[str] = []
+
+    def fake_graphql(_api_key, query, variables):
+        seen.append(query)
+        assert variables["name"] == "v2.3.0-cloud"
+        if "FindLabelByName" in query:
+            return {
+                "issueLabels": {"nodes": []},
+                "teams": {
+                    "nodes": [{"labels": {"nodes": []}}],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                },
+            }
+        if "WorkspaceGroupChildByName" in query:
+            assert variables["after"] is None
+            return {
+                "issueLabels": {
+                    "nodes": [{"children": {"nodes": [{"id": "LBL-REL"}]}}],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        raise AssertionError(query)
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    assert utils.find_label_id_by_name("k", "v2.3.0-cloud") == "LBL-REL"
+    assert any("WorkspaceGroupChildByName" in query for query in seen)
+    assert all("TeamGroupChildByName" not in query for query in seen)
+
+
+def test_find_label_id_by_name_reuses_team_group_child(monkeypatch):
+    def fake_graphql(_api_key, query, variables):
+        assert variables["name"] == "v2.3.0-cloud"
+        if "FindLabelByName" in query:
+            return {
+                "issueLabels": {"nodes": []},
+                "teams": {"nodes": [], "pageInfo": {"hasNextPage": False}},
+            }
+        if "WorkspaceGroupChildByName" in query:
+            return {
+                "issueLabels": {
+                    "nodes": [],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        if "TeamGroupChildByName" in query:
+            return {
+                "teams": {
+                    "nodes": [
+                        {
+                            "labels": {
+                                "nodes": [
+                                    {"children": {"nodes": [{"id": "LBL-PM-CHILD"}]}}
+                                ]
+                            }
+                        }
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        raise AssertionError(query)
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    assert utils.find_label_id_by_name("k", "v2.3.0-cloud") == "LBL-PM-CHILD"
 
 
 def test_attach_file_to_issue_uploads_then_attaches(monkeypatch, tmp_path: Path):

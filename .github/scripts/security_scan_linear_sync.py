@@ -23,10 +23,11 @@ Feature summary:
 - Labeling behavior:
   - Apply optional static labels from ``LINEAR_LABEL_IDS`` / ``TRIVY_LINEAR_LABEL_IDS``.
   - Apply component labels mapped from image repositories.
-  - Apply a dynamic ref label using ``SCAN_REF_NAME`` (team-scoped in Linear). CI sets this to the
+  - Apply a dynamic ref label using ``SCAN_REF_NAME``. CI sets this to the
     repository default branch when the scanned image tag is ``quickstart``, ``head``, or ``latest``; otherwise to the
-    image tag (e.g. a release). Reuses an existing label when present or creates one with a random
-    color when absent.
+    image tag (e.g. a release). Reuses an existing label with that name on any team, including a
+    label-group child. Creates a workspace label when none exists. Falls back to a team-scoped
+    ``{name}-sec`` label when that name cannot be created or Linear will not apply it to the issue.
 - Refs comment tracking:
   - Maintain a single marker comment per issue with deduped branch/tag history for where the
     finding was observed.
@@ -64,6 +65,7 @@ from utils.linear_sync_utils import (
     find_team_label_by_name as _find_team_label_by_name_util,
     get_issue_identifier_url as _get_issue_identifier_url_util,
     get_or_create_workspace_label_id as _get_or_create_workspace_label_id_util,
+    is_duplicate_label_error as _is_duplicate_label_error_util,
     get_marker_comment_id as _get_marker_comment_id_util,
     issue_graphql_label_ids as _issue_graphql_label_ids_util,
     issue_update_label_ids as _issue_update_label_ids_util,
@@ -933,15 +935,26 @@ def _create_issue_relations_cve_or_pkg(
     )
 
 
-def _is_label_group_collision(err: RuntimeError) -> bool:
+def _needs_sec_ref_label(err: RuntimeError) -> bool:
+    """The ref label exists, but Linear will not attach it to this issue."""
     msg = str(err).lower()
-    return "not exclusive child labels" in msg or "same group" in msg
+    return any(
+        phrase in msg
+        for phrase in (
+            "not exclusive child labels",
+            "same group",
+            "not available in this team",
+            "not in the same team",
+            "does not belong to the team",
+            "belong to the same team",
+        )
+    )
 
 
 def _get_or_create_fallback_ref_label_id(
     api_key: str, team_id: str, ref_name: str
 ) -> str:
-    """Team-scoped label ``{ref_name}-sec`` to avoid workspace label group collisions."""
+    """Team-scoped ``{ref_name}-sec`` when the shared ref label cannot be applied."""
     fallback_name = f"{ref_name}-sec"
     existing = _find_team_label_by_name_util(api_key, team_id, fallback_name)
     if existing:
@@ -961,6 +974,21 @@ def _get_or_create_fallback_ref_label_id(
             if existing_after:
                 return existing_after
         raise
+
+
+def _resolve_ref_label_id(api_key: str, team_id: str, ref_name: str) -> str:
+    """Reuse ``ref_name`` from any team. Use ``{ref_name}-sec`` only if that fails."""
+    try:
+        return _get_or_create_workspace_label_id_util(api_key, ref_name)
+    except RuntimeError as e:
+        if not _is_duplicate_label_error_util(e):
+            raise
+        print(
+            f"WARNING: could not reuse or create Linear label {ref_name!r} ({e}); "
+            f"using team label {ref_name}-sec",
+            file=sys.stderr,
+        )
+        return _get_or_create_fallback_ref_label_id(api_key, team_id, ref_name)
 
 
 def _comment_has_refs_anchor(body: str) -> bool:
@@ -1158,7 +1186,7 @@ def main() -> int:
         )
         return 1
     scan_ref = ScanRef(kind=kind, name=name)
-    ref_label_id = _get_or_create_workspace_label_id_util(api_key, scan_ref.name)
+    ref_label_id = _resolve_ref_label_id(api_key, team_id, scan_ref.name)
 
     initial_state_id = _resolve_issue_create_state_id_from_linear_util(
         api_key, team_id, os.environ.get("LINEAR_ISSUE_STATE_ID", "").strip()
@@ -1233,7 +1261,7 @@ def main() -> int:
                     try:
                         _issue_update_label_ids_util(api_key, issue_id, merged)
                     except RuntimeError as e:
-                        if not _is_label_group_collision(e):
+                        if not _needs_sec_ref_label(e):
                             raise
                         fallback_id = _get_or_create_fallback_ref_label_id(
                             api_key, team_id, scan_ref.name
@@ -1257,7 +1285,7 @@ def main() -> int:
                     linear_due_date,
                 )
             except RuntimeError as e:
-                if not _is_label_group_collision(e):
+                if not _needs_sec_ref_label(e):
                     raise
                 fallback_id = _get_or_create_fallback_ref_label_id(
                     api_key, team_id, scan_ref.name

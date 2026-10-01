@@ -260,6 +260,162 @@ query WorkspaceIssueLabelByName($name: String!) {
     return str(found) if found else None
 
 
+def _first_usable_label_id(nodes: list[dict[str, Any]] | None) -> str | None:
+    for node in nodes or []:
+        if node.get("isGroup"):
+            continue
+        lid = node.get("id")
+        if lid:
+            return str(lid)
+    return None
+
+
+def _label_id_from_team_nodes(team_nodes: list[dict[str, Any]] | None) -> str | None:
+    for team in team_nodes or []:
+        found = _first_usable_label_id((team.get("labels") or {}).get("nodes"))
+        if found:
+            return found
+    return None
+
+
+def _child_label_id_from_groups(group_nodes: list[dict[str, Any]] | None) -> str | None:
+    for group in group_nodes or []:
+        children = (group.get("children") or {}).get("nodes") or []
+        for child in children:
+            lid = child.get("id")
+            if lid:
+                return str(lid)
+    return None
+
+
+def _find_label_id_by_direct_name(api_key: str, label_name: str) -> str | None:
+    """Match ``label_name`` on workspace labels and on each team's labels."""
+    first = """
+query FindLabelByName($name: String!) {
+  issueLabels(filter: { name: { eq: $name } }, first: 20) {
+    nodes { id isGroup }
+  }
+  teams(first: 50) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      labels(filter: { name: { eq: $name } }, first: 10) {
+        nodes { id isGroup }
+      }
+    }
+  }
+}
+"""
+    page_query = """
+query FindTeamLabelByNamePage($name: String!, $after: String) {
+  teams(first: 50, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      labels(filter: { name: { eq: $name } }, first: 10) {
+        nodes { id isGroup }
+      }
+    }
+  }
+}
+"""
+    data = graphql(api_key, first, {"name": label_name})
+    found = _first_usable_label_id((data.get("issueLabels") or {}).get("nodes"))
+    if found:
+        return found
+    teams = data.get("teams") or {}
+    found = _label_id_from_team_nodes(teams.get("nodes"))
+    if found:
+        return found
+    page = teams.get("pageInfo") or {}
+    cursor = page.get("endCursor")
+    for _ in range(7):
+        if not page.get("hasNextPage") or not cursor:
+            return None
+        data = graphql(api_key, page_query, {"name": label_name, "after": cursor})
+        teams = data.get("teams") or {}
+        found = _label_id_from_team_nodes(teams.get("nodes"))
+        if found:
+            return found
+        page = teams.get("pageInfo") or {}
+        cursor = page.get("endCursor")
+    return None
+
+
+def _find_label_id_under_groups(api_key: str, label_name: str) -> str | None:
+    """Match a label-group child. Root name queries omit those team labels."""
+    workspace_groups = """
+query WorkspaceGroupChildByName($name: String!, $after: String) {
+  issueLabels(filter: { isGroup: { eq: true } }, first: 50, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      children(filter: { name: { eq: $name } }, first: 1) {
+        nodes { id }
+      }
+    }
+  }
+}
+"""
+    team_groups = """
+query TeamGroupChildByName($name: String!, $after: String) {
+  teams(first: 25, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      labels(filter: { isGroup: { eq: true } }, first: 50) {
+        nodes {
+          children(filter: { name: { eq: $name } }, first: 1) {
+            nodes { id }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+    cursor: str | None = None
+    for _ in range(6):
+        data = graphql(api_key, workspace_groups, {"name": label_name, "after": cursor})
+        groups = data.get("issueLabels") or {}
+        found = _child_label_id_from_groups(groups.get("nodes"))
+        if found:
+            return found
+        page = groups.get("pageInfo") or {}
+        cursor = page.get("endCursor")
+        if not page.get("hasNextPage") or not cursor:
+            break
+    cursor = None
+    for _ in range(8):
+        data = graphql(api_key, team_groups, {"name": label_name, "after": cursor})
+        teams = data.get("teams") or {}
+        for team in teams.get("nodes") or []:
+            found = _child_label_id_from_groups((team.get("labels") or {}).get("nodes"))
+            if found:
+                return found
+        page = teams.get("pageInfo") or {}
+        cursor = page.get("endCursor")
+        if not page.get("hasNextPage") or not cursor:
+            break
+    return None
+
+
+def find_label_id_by_name(api_key: str, label_name: str) -> str | None:
+    """Return a non-group label id with this name from any team.
+
+    A release tag such as ``v2.3.0-cloud`` is created as a child of a team label
+    group. The workspace ``issueLabels`` filter used for ref labels does not
+    return that child, but ``issueLabelCreate`` still rejects the name.
+    """
+    found = _find_label_id_by_direct_name(api_key, label_name)
+    if found:
+        return found
+    return _find_label_id_under_groups(api_key, label_name)
+
+
+def is_duplicate_label_error(err: BaseException) -> bool:
+    em = str(err).lower()
+    return any(
+        x in em for x in ("existing", "already", "duplicate", " unique", "constraint")
+    )
+
+
 def create_team_label(
     api_key: str, team_id: str, label_name: str, color_hex: str
 ) -> str:
@@ -323,17 +479,14 @@ mutation IssueLabelCreate($input: IssueLabelCreateInput!) {
 
 
 def get_or_create_workspace_label_id(api_key: str, label_name: str) -> str:
-    existing = find_workspace_label_by_name(api_key, label_name)
+    existing = find_label_id_by_name(api_key, label_name)
     if existing:
         return existing
     try:
         return create_workspace_label(api_key, label_name, random_label_color_hex())
     except RuntimeError as e:
-        em = str(e).lower()
-        if any(
-            x in em for x in ("existing", "already", "duplicate", " unique", "constraint")
-        ):
-            existing_after = find_workspace_label_by_name(api_key, label_name)
+        if is_duplicate_label_error(e):
+            existing_after = find_label_id_by_name(api_key, label_name)
             if existing_after:
                 return existing_after
         raise
