@@ -1,6 +1,8 @@
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 import pytest
+from pyiceberg.catalog import load_catalog
 from pyiceberg.catalog.noop import NoopCatalog
 from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
@@ -324,9 +326,8 @@ _PARITY_PATTERNS: Dict[str, object] = {
 }
 
 
-def _ingested_dataset_names(monkeypatch: pytest.MonkeyPatch) -> Set[str]:
-    _patch_catalog(monkeypatch, _FakeCatalog(_PARITY_CATALOG))
-    config = IcebergSourceConfig.model_validate(_config_dict(**_PARITY_PATTERNS))
+def _ingested_dataset_names(config_dict: Dict[str, object]) -> Set[str]:
+    config = IcebergSourceConfig.model_validate(config_dict)
     source = IcebergSource(config, PipelineContext(run_id="iceberg-probe-parity"))
     names: Set[str] = set()
     for wu in source.get_workunits_internal():
@@ -337,9 +338,7 @@ def _ingested_dataset_names(monkeypatch: pytest.MonkeyPatch) -> Set[str]:
     return names
 
 
-def _probe_included_dataset_names(monkeypatch: pytest.MonkeyPatch) -> Set[str]:
-    _patch_catalog(monkeypatch, _FakeCatalog(_PARITY_CATALOG))
-    config_dict = _config_dict(**_PARITY_PATTERNS)
+def _probe_included_dataset_names(config_dict: Dict[str, object]) -> Set[str]:
     namespaces = run_probe_method("iceberg", config_dict, "namespaces", {}).result
     assert isinstance(namespaces, list)
     included: Set[str] = set()
@@ -364,11 +363,48 @@ def _probe_included_dataset_names(monkeypatch: pytest.MonkeyPatch) -> Set[str]:
 
 
 def test_probe_filter_agrees_with_ingestion(monkeypatch: pytest.MonkeyPatch) -> None:
-    ingested = _ingested_dataset_names(monkeypatch)
+    _patch_catalog(monkeypatch, _FakeCatalog(_PARITY_CATALOG))
+    config_dict = _config_dict(**_PARITY_PATTERNS)
+
+    ingested = _ingested_dataset_names(config_dict)
 
     # Pinned so a broken fake cannot make both sides agree on an empty set.
     assert ingested == {"sales.orders"}
-    assert _probe_included_dataset_names(monkeypatch) == ingested
+    assert _probe_included_dataset_names(config_dict) == ingested
+
+
+def test_probe_filter_agrees_with_ingestion_on_a_real_catalog(
+    tmp_path: Path,
+) -> None:
+    # The same parity, through the real get_catalog/load_catalog path and a
+    # real pyiceberg catalog. The nested namespace's table matches
+    # table_pattern, so it is kept out only because ingestion never descends
+    # below top-level namespaces -- and the probe must not either.
+    pytest.importorskip("pyiceberg.catalog.sql")
+    catalog_properties = {
+        "type": "sql",
+        "uri": f"sqlite:///{tmp_path}/catalog.db",
+        "warehouse": f"file://{tmp_path}/warehouse",
+    }
+    catalog = load_catalog("test", **catalog_properties)
+    schema = Schema(NestedField(1, "id", LongType(), required=True))
+    for namespace, names in {
+        **_PARITY_CATALOG,
+        ("sales", "orders_archive"): ["jan"],
+    }.items():
+        catalog.create_namespace(namespace)
+        for name in names:
+            catalog.create_table((*namespace, name), schema)
+    catalog.close()
+    config_dict: Dict[str, object] = {
+        "catalog": {"test": catalog_properties},
+        **_PARITY_PATTERNS,
+    }
+
+    ingested = _ingested_dataset_names(config_dict)
+
+    assert ingested == {"sales.orders"}
+    assert _probe_included_dataset_names(config_dict) == ingested
 
 
 def test_a_table_is_judged_on_its_qualified_name() -> None:
