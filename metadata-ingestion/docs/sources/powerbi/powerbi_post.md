@@ -305,9 +305,9 @@ The `profiling_pattern` setting may be used to limit profiling actions to only a
 | `admin_api_access` | none        | Whether the credential can call the read-only admin APIs                                                                  |
 | `api`              | `path`      | One raw response from `/groups`, `/groups/{id}/reports` or `/groups/{id}/dashboards`                                      |
 
-The workspace listing follows the recipe: the regular API's member workspaces by default, or the whole tenant with `admin_apis_only`. It is narrowed by `modified_since` the same way ingestion narrows it. If no workspace was modified since that date, ingestion applies no filter and lists every workspace, and the probe does the same and says so. If PowerBI rejects the date, for example because it is more than 30 days ago, the probe fails with an error that names `modified_since`.
+The workspace listing follows the recipe: the regular API's member workspaces by default, or the whole tenant with `admin_apis_only`. It is narrowed by `modified_since` the same way ingestion narrows it. If no workspace was modified since that date, ingestion applies no filter and lists every workspace, and the probe does the same and says so. If PowerBI rejects the date, for example because it is more than 30 days ago, the probe fails with an error that names `modified_since`. If the modified-workspaces list cannot be read at all, for example without admin API access, ingestion lists every workspace, and the probe does the same with a warning.
 
-Ingestion keeps a workspace only when it passes `workspace_name_pattern`, `workspace_id_pattern` and `workspace_type_filter` together. A name alone answers only the first of these, so save the listing and judge all three from it:
+Ingestion keeps a workspace only when it passes `workspace_name_pattern`, `workspace_id_pattern` and `workspace_type_filter` together, and its admin scan also skips any workspace whose state is not `Active`. A name alone answers only the first of these, so save the listing and judge them all from it. The state is judged only when the listing has one, which means with `admin_apis_only`:
 
 ```shell
 datahub recipe probe run workspaces --recipe recipe.yml --report-to workspaces.json

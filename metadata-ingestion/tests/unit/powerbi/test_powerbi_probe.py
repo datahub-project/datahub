@@ -156,6 +156,21 @@ def test_try_allow_reaches_the_name_half_of_the_override() -> None:
     assert verdicts == {"Scratch": (True, None)}
 
 
+def test_a_workspace_that_is_not_active_is_excluded_by_its_state() -> None:
+    # The admin API lists deleted workspaces with their state; the scan
+    # drops every workspace that is not Active.
+    _, verdicts = _judge(
+        "Workspace",
+        ["Sales", "Old"],
+        [],
+        attributes=[
+            {"id": "ws-1", "type": "Workspace", "state": "Active"},
+            {"id": "ws-8", "type": "Workspace", "state": "Deleted"},
+        ],
+    )
+    assert verdicts == {"Sales": (True, None), "Old": (False, "workspace_state")}
+
+
 def test_a_workspace_without_id_or_type_is_kept_with_a_warning() -> None:
     result, verdicts = _judge("Workspace", ["Sales"], [])
     assert verdicts == {"Sales": (True, None)}
@@ -352,14 +367,37 @@ def test_an_auth_failure_is_a_connection_error_not_an_empty_listing() -> None:
 
 
 def test_an_auth_failure_under_modified_since_is_not_blamed_on_the_value() -> None:
-    # The admin resolver is built inside the modified_since lookup; its token
-    # failure is a ConfigurationError too, and must not read as a bad value.
+    # The regular resolver authenticates; the admin one, built for the
+    # modified_since lookup, does not. Its token failure is a
+    # ConfigurationError too, and must not read as a bad modified_since.
+    clients = iter([_mock_msal_cca(), _no_token()])
     recipe = {**_RECIPE, "modified_since": "2026-09-01T00:00:00.0000000Z"}
     with (
-        mock.patch("msal.ConfidentialClientApplication", side_effect=_no_token),
+        mock.patch(
+            "msal.ConfidentialClientApplication",
+            side_effect=lambda *a, **k: next(clients),
+        ),
         pytest.raises(ProbeConnectionError),
     ):
         run_probe_method("powerbi", recipe, "workspaces", {})
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_an_unreadable_modified_list_falls_back_as_ingestion_does(
+    requests_mock: rm.Mocker, status: int
+) -> None:
+    # PowerBiAPI.get_modified_workspaces swallows this and lists everything.
+    requests_mock.get(f"{_ORG}/admin/workspaces/modified", status_code=status)
+    _paged(requests_mock, f"{_ORG}/groups", _GROUPS[:2])
+    with _probe(modified_since="2026-09-01T00:00:00.0000000Z") as probe:
+        assert len(probe.workspaces(limit=10)) == 2
+    groups_call = [
+        r for r in requests_mock.request_history if r.path.endswith("/groups")
+    ][0]
+    assert "$filter" not in groups_call.qs
+    assert any(
+        str(status) in w and "every workspace" in w for w in probe.warnings
+    ), probe.warnings
 
 
 def test_a_forbidden_groups_listing_raises_rather_than_reporting_empty(
