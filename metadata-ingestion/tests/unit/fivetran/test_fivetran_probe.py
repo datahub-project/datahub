@@ -273,6 +273,8 @@ def test_rest_mode_keeps_a_connector_whose_id_is_allowed() -> None:
         attributes=[{"connector_id": "conn_a1"}],
     )
     assert result.results[0].included is True
+    # The id decided, so the id is what the verdict reports matching.
+    assert result.results[0].target == "conn_a1"
     assert result.warnings == []
 
 
@@ -539,3 +541,109 @@ def test_a_rest_listing_judged_from_run_applies_the_id_or_name_rule() -> None:
         "hr_pg": False,
     }
     assert result.warnings == []
+
+
+_DENY_DEST_B: Dict[str, object] = {"deny": ["^dest_b$"]}
+_ON_DEST_B: List[Dict[str, str]] = [
+    {"connector_id": "conn_b1", "destination_id": "dest_b"}
+]
+
+
+@pytest.mark.parametrize(
+    "recipe",
+    [
+        pytest.param(_db_recipe(destination_patterns=_DENY_DEST_B), id="db"),
+        pytest.param(
+            {"api_config": _API, "destination_patterns": _DENY_DEST_B}, id="rest"
+        ),
+    ],
+)
+def test_a_from_run_connector_on_a_denied_destination_is_excluded(
+    recipe: Dict[str, object],
+) -> None:
+    # `probe run connectors` without --destination has no parent path, so the
+    # destination arrives only as the record's destination_id.
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=recipe,
+        kind="Connector",
+        parent_path=[],
+        names=["hr_pg"],
+        attributes=_ON_DEST_B,
+    )
+    verdict = result.results[0]
+    assert (verdict.included, verdict.excluded_by) == (False, "destination_patterns")
+
+
+def test_db_mode_reports_the_connector_pattern_first_when_both_exclude() -> None:
+    # FivetranLogDbReader checks connector_patterns before destination_patterns.
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=_db_recipe(
+            connector_patterns={"deny": ["^hr_pg$"]},
+            destination_patterns=_DENY_DEST_B,
+        ),
+        kind="Connector",
+        parent_path=[],
+        names=["hr_pg"],
+        attributes=_ON_DEST_B,
+    )
+    assert result.results[0].excluded_by == "connector_patterns"
+
+
+def test_a_destination_pattern_that_could_not_be_applied_is_reported() -> None:
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=_db_recipe(destination_patterns=_DENY_DEST_B),
+        kind="Connector",
+        parent_path=[],
+        names=["hr_pg"],
+    )
+    assert result.results[0].included is True
+    assert any("destination_patterns" in w for w in result.warnings)
+
+
+def test_rest_mode_says_nothing_when_the_name_alone_is_kept() -> None:
+    result = check_filters(
+        source_type="fivetran",
+        config_dict={"api_config": _API},
+        kind="Connector",
+        parent_path=[],
+        names=["sales_pg"],
+    )
+    assert result.results[0].included is True
+    assert result.warnings == []
+
+
+@pytest.mark.parametrize(
+    "failing",
+    [
+        pytest.param(_response(status=403), id="forbidden"),
+        pytest.param(_response({"code": "Error", "message": "nope"}), id="bad-reply"),
+    ],
+)
+def test_rest_connectors_skip_a_group_ingestion_would_skip(failing: MagicMock) -> None:
+    routes = {
+        "/groups": _GROUPS,
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/groups/dest_b/connections": failing,
+    }
+    with _rest_api(routes), _probe({"api_config": _API}) as probe:
+        records = probe.connectors()
+        warnings = list(probe.warnings)
+    assert [r["connector_id"] for r in records] == ["conn_a1"]
+    assert any("dest_b" in w for w in warnings)
+
+
+def test_a_malformed_reply_does_not_echo_payload_values() -> None:
+    # The group lacks its required id, so pydantic rejects it -- and its own
+    # message would quote the input dict.
+    bad = _page({"name": "private_value_x"})
+    with (
+        _rest_api({"/groups": bad}),
+        _probe({"api_config": _API}) as probe,
+        pytest.raises(ProbeReadFailed) as raised,
+    ):
+        probe.destinations()
+    assert "private_value_x" not in str(raised.value)
+    assert "missing" in str(raised.value)

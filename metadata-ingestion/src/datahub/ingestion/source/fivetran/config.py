@@ -507,23 +507,64 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         )
 
     def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
-        """REST mode keeps a connector when connector_patterns allows its id OR
-        its name (FivetranLogRestReader.get_allowed_connectors_list). The name is
-        ctx.target; the id arrives as an attribute (`probe filter --from-run`).
-        Without it the name-only verdict stands, with a warning. DB mode matches
-        the name alone, so there is nothing to override."""
-        if ctx.kind != FIVETRAN_CONNECTOR_KIND or self.log_source != "rest_api":
+        """The connector verdict both readers make, from what `probe filter`
+        was given.
+
+        Two rules no single pattern states:
+
+        - destination_patterns drops every connector on a denied destination.
+          With --parent the framework judges that itself; a `--from-run`
+          listing taken without --destination has no parent, so the
+          destination comes from each record's destination_id instead.
+        - REST mode keeps a connector when connector_patterns allows its id OR
+          its name (FivetranLogRestReader.get_allowed_connectors_list); DB mode
+          matches the name alone. The id arrives as the connector_id attribute.
+
+        Which exclusion is reported when both apply follows each reader's
+        order: DB checks connector_patterns first, REST checks the destination
+        before it lists the destination's connectors."""
+        if ctx.kind != FIVETRAN_CONNECTOR_KIND or ctx.structural is not None:
             return None
-        if ctx.structural is not None:
-            return None
+        rest = self.log_source == "rest_api"
+        by_connector = self._probe_connector_verdict(ctx, rest)
+        by_destination = self._probe_destination_verdict(ctx)
+        if by_destination is None or by_destination.included:
+            return by_connector
+        if not by_connector.included and not rest:
+            return by_connector
+        return by_destination
+
+    def _probe_connector_verdict(self, ctx: VerdictContext, rest: bool) -> Verdict:
+        by_name = pattern_verdict(self, "connector_patterns", ctx.target)
+        if by_name.included or not rest:
+            return by_name
         connector_id = ctx.attributes.get("connector_id")
         if connector_id is None:
             ctx.warn(REST_CONNECTOR_MATCH_NOTE)
-            return None
+            return by_name
         by_id = pattern_verdict(self, "connector_patterns", connector_id)
-        return by_id if by_id.included else pattern_verdict(
-            self, "connector_patterns", ctx.target
-        )
+        if by_id.included:
+            # The id decided, so report the id as what was matched.
+            return dataclasses.replace(by_id, matched_target=connector_id)
+        return by_name
+
+    def _probe_destination_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        if ctx.parent_path:
+            # The framework judges the --parent destination itself.
+            return None
+        destination_id = ctx.attributes.get("destination_id")
+        if destination_id is not None:
+            return pattern_verdict(self, "destination_patterns", destination_id)
+        patterns = self.destination_patterns
+        if patterns.deny or patterns.allow != [".*"]:
+            ctx.warn(
+                "destination_patterns is set, but no destination was given for "
+                "these connectors, so it was not applied: ingestion drops every "
+                "connector on a denied destination. Pass --parent "
+                "<destination_id>, or judge a `probe run connectors` listing "
+                "with --from-run, which carries each connector's destination_id."
+            )
+        return None
 
     @classmethod
     def probe_provider_class(cls) -> type:
