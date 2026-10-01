@@ -153,6 +153,7 @@ def _element_record(
         ATTR_DASHBOARD_FOLDER_PATH_ALLOWED: folder.path_allowed,
     }
 
+
 # extract_independent_looks requests user_id too; it is not needed here.
 _LOOK_LIST_FIELDS = ["id", "title", "query_id", _FOLDER_FIELDS]
 
@@ -165,10 +166,10 @@ def _look_record(look: Look, deleted: bool) -> Dict[str, object]:
         ATTR_DELETED: deleted,
         ATTR_HAS_QUERY: look.query_id is not None,
         ATTR_FOLDER_PERSONAL: bool(
-            folder is not None
-            and (folder.is_personal or folder.is_personal_descendant)
+            folder is not None and (folder.is_personal or folder.is_personal_descendant)
         ),
     }
+
 
 # How many dashboard and look reads one --trace-charts run may make before it
 # stops and leaves what it has not seen undetermined. Ingestion reads them
@@ -699,9 +700,7 @@ class LookerMetadataProbe:
             f"no LookML model named '{model}'; pass a name from the `models` listing"
         )
 
-    def _read_look_query(
-        self, look_id: str, what: str
-    ) -> Tuple[bool, Optional[Query]]:
+    def _read_look_query(self, look_id: str, what: str) -> Tuple[bool, Optional[Query]]:
         """(read, query) for one look, as extract_independent_looks reads it.
 
         Like ingestion, which skips a look whose read raises anything, a
@@ -820,9 +819,7 @@ class LookerMetadataProbe:
         ):
             return
         for element in detail.dashboard_elements or []:
-            if element.id is None or not self._config.chart_pattern.allowed(
-                element.id
-            ):
+            if element.id is None or not self._config.chart_pattern.allowed(element.id):
                 continue
             if element.look_id is not None:
                 reach.looks.add(element.look_id)
@@ -862,8 +859,6 @@ class LookerMetadataProbe:
             if not read:
                 reach.looks_complete = False
             elif (
-                query is not None
-                and query.model is not None
-                and query.view is not None
+                query is not None and query.model is not None and query.view is not None
             ):
                 reach.explores.add((query.model, query.view))

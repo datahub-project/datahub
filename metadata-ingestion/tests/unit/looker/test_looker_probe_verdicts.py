@@ -151,7 +151,9 @@ def test_a_chart_is_judged_on_its_element_id_then_its_parse_then_its_type() -> N
     }
 
 
-def test_charts_under_a_denied_dashboard_are_excluded_by_the_dashboard_pattern() -> None:
+def test_charts_under_a_denied_dashboard_are_excluded_by_the_dashboard_pattern() -> (
+    None
+):
     result = _judge(
         "Look",
         ["21"],
@@ -191,7 +193,9 @@ def test_standalone_looks_ignore_chart_pattern_and_say_so() -> None:
     assert any("on a dashboard" in w for w in result.warnings)
 
 
-def test_used_explores_only_reports_explores_and_models_by_rule_with_a_warning() -> None:
+def test_used_explores_only_reports_explores_and_models_by_rule_with_a_warning() -> (
+    None
+):
     for kind, name in (("Explore", "orders"), ("LookML Model", "sales")):
         result = _judge(kind, [name])
         assert result.filtering == "by_rule"
