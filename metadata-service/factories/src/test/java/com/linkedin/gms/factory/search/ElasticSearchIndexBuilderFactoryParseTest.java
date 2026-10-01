@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.search;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import org.testng.annotations.Test;
@@ -41,6 +42,19 @@ public class ElasticSearchIndexBuilderFactoryParseTest {
         (Map<String, Object>)
             ((Map<String, Object>) analysis.get("analyzer")).get("word_delimited");
     assertEquals(analyzer.get("filter"), List.of("lowercase", "min_length_2"));
+  }
+
+  @Test
+  public void testJsonNullInsideArrayPreserved() {
+    Map<String, Map<String, Object>> parsed =
+        ElasticSearchIndexBuilderFactory.parseIndexSettingsMap(
+            "{\"my_index\":{\"analysis\":{\"analyzer\":{\"word_delimited\":"
+                + "{\"filter\":[\"lowercase\",null,\"min_length_2\"]}}}}}");
+    Map<String, Object> analysis = (Map<String, Object>) parsed.get("my_index").get("analysis");
+    Map<String, Object> analyzer =
+        (Map<String, Object>)
+            ((Map<String, Object>) analysis.get("analyzer")).get("word_delimited");
+    assertEquals(analyzer.get("filter"), Arrays.asList("lowercase", null, "min_length_2"));
   }
 
   @Test
