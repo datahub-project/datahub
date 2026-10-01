@@ -1577,3 +1577,20 @@ def test_an_unreadable_run_file_is_a_bad_argument(tmp_path):
             rc._read_run_file(str(run))
     finally:
         run.chmod(0o600)
+
+
+def test_a_redacted_listing_parent_is_refused_unless_parent_is_given(
+    monkeypatch, tmp_path
+):
+    seen = _capturing_check_filters(monkeypatch)
+    run = _run_file(
+        tmp_path, {"kind": "Table", "parent_path": ["***"], "result": ["t1"]}
+    )
+    refused = _filter_from_run(tmp_path, run)
+    assert refused.exit_code == 2, refused.output
+    assert "parent_path was redacted" in refused.output
+    assert seen == {}
+
+    accepted = _filter_from_run(tmp_path, run, "--parent", "real_db")
+    assert accepted.exit_code == 0, accepted.output
+    assert seen["parent_path"] == ["real_db"]

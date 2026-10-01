@@ -98,3 +98,14 @@ def test_a_malformed_parent_path_is_refused(parent: object) -> None:
 def test_an_absent_parent_path_is_empty() -> None:
     assert listing_from_run({"result": ["a"], "parent_path": None}).parent_path == []
     assert listing_from_run({"result": ["a"]}).parent_path == []
+
+
+def test_a_redacted_parent_path_is_flagged_not_used() -> None:
+    listing = listing_from_run(
+        {"kind": "Table", "parent_path": ["db", "***"], "result": ["a"]}
+    )
+    assert listing.parent_redacted is True
+    assert (
+        listing_from_run({"result": ["a"], "parent_path": ["db"]}).parent_redacted
+        is False
+    )

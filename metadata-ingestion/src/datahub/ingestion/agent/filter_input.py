@@ -24,6 +24,11 @@ class RunListing:
     # Attribute keys dropped from at least one entry for the same reason: a
     # verdict matching an id against "***" is a verdict about nothing.
     masked_attributes: List[str] = field(default_factory=list)
+    # A parent_path segment was redacted. Unlike a masked name this taints
+    # every verdict -- each is qualified by the parent -- so the CLI refuses
+    # the listing's parent rather than judging against "***", unless the
+    # caller passes --parent and the listing's is never used.
+    parent_redacted: bool = False
     # The run stopped at its limit, so names beyond it were never listed.
     truncated: bool = False
     # The run recorded failures, so part of the source was not listed at all.
@@ -102,16 +107,18 @@ def listing_from_run(envelope: object) -> RunListing:
     kind = envelope.get("kind")
     source_type = envelope.get("source_type")
     failures = envelope.get("failures")
+    parent_path = _parent_path(envelope.get("parent_path"))
     return RunListing(
         kind=kind if isinstance(kind, str) and kind else None,
         source_type=source_type
         if isinstance(source_type, str) and source_type
         else None,
-        parent_path=_parent_path(envelope.get("parent_path")),
+        parent_path=parent_path,
         names=names,
         attributes=attributes,
         skipped=skipped,
         masked_attributes=masked_keys,
+        parent_redacted=any(MASK in segment for segment in parent_path),
         truncated=envelope.get("truncated") is True,
         incomplete=isinstance(failures, list) and len(failures) > 0,
     )

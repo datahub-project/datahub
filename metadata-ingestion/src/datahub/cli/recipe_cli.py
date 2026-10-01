@@ -786,6 +786,12 @@ def probe_filter_cmd(
                 raise ValueError(
                     "the listing does not say what kind it holds; pass --kind"
                 )
+            if not parents and listing.parent_redacted:
+                raise ValueError(
+                    "that listing's parent_path was redacted, so its names "
+                    "cannot be judged against the right container; pass "
+                    "--parent with the real container names"
+                )
             kind = kind or listing.kind
             parents = parents or tuple(listing.parent_path)
             names = tuple(listing.names)
