@@ -1,4 +1,3 @@
-import { PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, List, Select, Typography } from 'antd';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +18,7 @@ import {
 
 import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
 import { EntityType, Incident, IncidentState } from '@types';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 
 const Header = styled.div`
     border-bottom: 1px solid ${(props) => props.theme.colors.border};
@@ -80,7 +80,7 @@ export const IncidentTab = () => {
         <>
             <Header>
                 <TabToolbar>
-                    <Button icon={<PlusOutlined />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
+                    <Button icon={<Plus  />} onClick={() => setIsRaiseIncidentModalVisible(true)} type="text">
                         {t('modal.title')}
                     </Button>
                     <AddIncidentModal

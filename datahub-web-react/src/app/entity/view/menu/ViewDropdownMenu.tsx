@@ -1,4 +1,3 @@
-import { MoreOutlined } from '@ant-design/icons';
 import { useApolloClient } from '@apollo/client';
 import { Dropdown, Modal, message } from 'antd';
 import React, { useState } from 'react';
@@ -23,8 +22,9 @@ import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
 import { useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated';
 import { useDeleteViewMutation } from '@graphql/view.generated';
 import { DataHubView, DataHubViewType } from '@types';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 
-const MenuButton = styled(MoreOutlined)`
+const MenuButton = styled(DotsThreeVertical)`
     width: 20px;
     &&& {
         padding-left: 0px;

@@ -1,9 +1,9 @@
-import { StopOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { IconItemTitle } from '@app/entity/view/menu/item/IconItemTitle';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 
 type Props = {
     key: string;
@@ -20,7 +20,7 @@ export const RemoveUserDefaultItem = ({ key, onClick }: Props) => {
             <IconItemTitle
                 tip={t('menu.removeDefaultTooltip')}
                 title={t('menu.removeDefault')}
-                icon={<StopOutlined />}
+                icon={<Prohibit  />}
             />
         </MenuItemStyle>
     );
