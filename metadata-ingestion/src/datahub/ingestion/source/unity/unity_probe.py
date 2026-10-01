@@ -1,3 +1,4 @@
+import itertools
 import re
 from contextlib import contextmanager
 from typing import Any, Iterator, List, Optional
@@ -20,6 +21,7 @@ from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.connection import create_workspace_client
 from datahub.ingestion.source.unity.hive_metastore_proxy import HIVE_METASTORE
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+from datahub.ingestion.source.unity.proxy_types import Catalog
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 # Databricks error codes are SCREAMING_SNAKE identifiers ("PERMISSION_DENIED").
@@ -29,6 +31,13 @@ _ERROR_CODE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
 _WITHHELD = (
     "the SDK's error text is withheld because it can carry the request log, "
     "its URL and, with debug headers on, its credentials"
+)
+
+
+_HIVE_NOT_PROBED = (
+    "hive_metastore is read by ingestion through a SQL warehouse "
+    "(HiveMetastoreProxy), which the probe does not start; its contents are "
+    "not listed here"
 )
 
 
@@ -208,3 +217,36 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
             if len(names) >= limit:
                 break
         return names
+
+    def _catalog(self, name: str) -> Catalog:
+        with self._calling(f"reading catalog '{name}'", missing=f"catalog '{name}'"):
+            catalog = self._proxy.catalog(name, metastore=None)
+        if catalog is None:
+            raise _Missing(f"no catalog '{name}' visible to this credential")
+        return catalog
+
+    @probe_method(
+        kind=DatasetContainerSubTypes.SCHEMA,
+        row_limit_param="limit",
+        parent_params=("catalog",),
+    )
+    def schemas(self, catalog: str, limit: int = 200) -> List[str]:
+        """Schemas in one catalog (raw names), including ones schema_pattern
+        would exclude -- information_schema among them, which ingestion always
+        denies. The catalog travels with the result, so `probe filter` needs
+        no --parent. hive_metastore is read by ingestion over a SQL warehouse
+        and is not probed here; it comes back empty with a warning."""
+        if catalog == HIVE_METASTORE:
+            self._warn(_HIVE_NOT_PROBED)
+            return []
+        try:
+            catalog_obj = self._catalog(catalog)
+            with self._calling(f"listing schemas of catalog '{catalog}'"):
+                return [
+                    schema.name
+                    for schema in itertools.islice(
+                        self._proxy.schemas(catalog_obj), limit
+                    )
+                ]
+        except _Degraded:
+            return []
