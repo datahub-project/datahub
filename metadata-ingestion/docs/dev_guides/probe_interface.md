@@ -98,14 +98,15 @@ implement exactly this one hook and nothing else in this guide. Everything below
 
 ### The provider
 
-| Member                         | When you need it                                                                                                                                       |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `__enter__` / `__exit__`       | always — it is the `ProbeProvider` protocol, and `__exit__` is where the connection closes                                                             |
-| at least one `@probe_method`   | always                                                                                                                                                 |
-| `sql_dialect: str`             | if any method declares `scoped_sql_param` — a name sqlglot resolves                                                                                    |
-| `api_allowlist: Sequence[str]` | if any method declares `scoped_path_param` — `("GET /spaces", "GET /spaces/{token}/reports")`                                                          |
-| `warnings: List[str]`          | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                             |
-| `probe_report`                 | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand |
+| Member                              | When you need it                                                                                                                                                                                                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `__enter__` / `__exit__`            | always — it is the `ProbeProvider` protocol, and `__exit__` is where the connection closes                                                                                                                                                                                       |
+| at least one `@probe_method`        | always                                                                                                                                                                                                                                                                           |
+| `sql_dialect: str`                  | if any method declares `scoped_sql_param` — a name sqlglot resolves                                                                                                                                                                                                              |
+| `api_allowlist: Sequence[str]`      | if any method declares `scoped_path_param` — `("GET /spaces", "GET /spaces/{token}/reports")`                                                                                                                                                                                    |
+| `warnings: List[str]`               | if a listing degrades instead of failing; `run_probe_method` reads it back                                                                                                                                                                                                       |
+| `probe_report`                      | if you reuse your ingestion fetchers — return the `SourceReport` and its warnings and failures are read off it, instead of translating entries by hand                                                                                                                           |
+| `silenced_loggers: Tuple[str, ...]` | if reused code logs values read from the source that carry no credential shape (connector configs, response bodies): those loggers' records are dropped, not scrubbed, while a probe runs. Framework loggers cannot be silenced; `DATAHUB_PROBE_VERBOSE_LOGS=1` shows them again |
 
 ### Errors, logs and secrets
 
@@ -163,7 +164,11 @@ every call site:
   `datahub.telemetry`) pass as logged. The known-noisy reused loggers (sources under
   `datahub.ingestion.source`, cloud SDKs, HTTP and database clients; see
   `REUSED_LOGGERS`) are also capped at `WARNING`. That cap covers your provider's own
-  `logger.debug` when it logs under `datahub.ingestion.source`. Set
+  `logger.debug` when it logs under `datahub.ingestion.source`. Scrubbing works by
+  shape, so if your reused code logs values that have none (a cluster's connector
+  config, a response body), list its loggers in the provider's `silenced_loggers` and
+  their records are dropped instead. Never call `setLevel` on them yourself: that is
+  process-global and outlives a failed `__exit__`. Set
   `DATAHUB_PROBE_VERBOSE_LOGS=1` to see those logs unscrubbed when debugging a
   connector locally.
 
@@ -929,7 +934,8 @@ Every item has cost a review round on at least one connector.
       [Errors, logs and secrets](#errors-logs-and-secrets)).
 - [ ] **Reused-code logs.** They are scrubbed and capped while a probe runs, so
       don't log responses, URLs or exception text from the provider, and don't add scrubbers
-      of your own. Use `DATAHUB_PROBE_VERBOSE_LOGS=1` to read them locally.
+      or `setLevel` calls of your own; declare `silenced_loggers` for code that logs unshaped
+      source values. Use `DATAHUB_PROBE_VERBOSE_LOGS=1` to read them locally.
 - [ ] **Identifiers.** Every caller-supplied schema, table, view or other catalog
       identifier reaches a driver, reflection call or SQL builder only as a
       catalog-listed string, via `resolve_listed_name`

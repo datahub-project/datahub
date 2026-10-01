@@ -386,6 +386,25 @@ def config_class_for(source_type: str) -> Any:
     return get_config_class() if get_config_class is not None else None
 
 
+def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
+    """The provider's `silenced_loggers` (see agent.log_guard.quiet_reused_logs).
+
+    Refused unless it is a tuple or list of logger names: a bare string is the
+    likely slip, and iterating it would silence one-letter loggers while the
+    one meant stayed audible.
+    """
+    declared = getattr(provider_cls, "silenced_loggers", ())
+    if not isinstance(declared, (tuple, list)) or not all(
+        isinstance(name, str) and name for name in declared
+    ):
+        raise ProbeInternalError(
+            f"{provider_cls.__name__}.silenced_loggers must be a tuple of "
+            f"logger names, got {type(declared).__name__}; this is a defect in "
+            f"the probe provider"
+        )
+    return tuple(declared)
+
+
 def _provider_class(source_type: str) -> Optional[Type[ProbeProvider]]:
     getter = getattr(config_class_for(source_type), "probe_provider_class", None)
     return getter() if callable(getter) else None
@@ -1044,8 +1063,9 @@ def run_probe_method(
     # The log guard is outermost so it also covers the provider's __exit__.
     # No secret set here: the CLI wraps this call in its own guard holding the
     # recipe's secret values, and scrub_text still masks credential shapes for
-    # any other caller.
-    with quiet_reused_logs(set()):
+    # any other caller. It also drops the records of any logger the provider
+    # lists in `silenced_loggers`.
+    with quiet_reused_logs(set(), silenced=_silenced_loggers(provider_cls)):
         outcome = _open_call_close(
             _ProviderCall(
                 builder=builder,

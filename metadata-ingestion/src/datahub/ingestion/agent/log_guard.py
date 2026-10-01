@@ -1,7 +1,7 @@
 import logging
 from contextlib import contextmanager
 from functools import partial
-from typing import Callable, Dict, Iterator, List, Optional, Set, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Sequence, Set, Tuple
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -58,22 +58,28 @@ def _is_reused(name: str) -> bool:
 
 class _ScrubFilter(logging.Filter):
     """Scrubs every record not logged by the framework, dropping its traceback,
-    and holds the noisy reused loggers to WARNING or above.
+    holds the noisy reused loggers to WARNING or above, and drops a provider's
+    silenced loggers outright.
 
     Installed on handlers as well as loggers, so it sees records from every
     logger that reaches those handlers; only the framework's own pass
     untouched.
     """
 
-    def __init__(self, secret_values: Set[str]) -> None:
+    def __init__(self, secret_values: Set[str], silenced: Tuple[str, ...] = ()) -> None:
         super().__init__()
         # The caller's set, not a copy: the CLI's set is what it masks its own
         # output against, so the two cannot drift.
         self._secrets = secret_values
+        self._silenced = silenced
 
     def filter(self, record: logging.LogRecord) -> bool:
         if _under(record.name, FRAMEWORK_LOGGERS):
             return True
+        # Checked after the framework's own loggers, so a provider can never
+        # hide the probe's diagnostics.
+        if _under(record.name, self._silenced):
+            return False
         # The level floor on the logger stops most of these before a record is
         # built; this catches a child logger created inside the guard with its
         # own DEBUG level, which no floor was applied to.
@@ -128,7 +134,9 @@ def _reachable_handlers(loggers: List[logging.Logger]) -> List[logging.Handler]:
 
 
 @contextmanager
-def quiet_reused_logs(secret_values: Set[str]) -> Iterator[None]:
+def quiet_reused_logs(
+    secret_values: Set[str], silenced: Sequence[str] = ()
+) -> Iterator[None]:
     """Keep reused code's logs scrubbed, without tracebacks, while a probe runs.
 
     Every record not from FRAMEWORK_LOGGERS that reaches a handler is scrubbed
@@ -137,6 +145,11 @@ def quiet_reused_logs(secret_values: Set[str]) -> Iterator[None]:
     datahub.ingestion.api) are scrubbed but not floored: they also serve the
     framework and the CLI, and flooring them would hide the probe's own
     diagnostics from `--debug`.
+
+    `silenced` names loggers whose records are dropped at every level, not
+    scrubbed: reused code a provider knows logs values read from the source
+    (connector configs, response bodies) that have no credential shape for
+    scrub_text to find. A framework logger cannot be silenced.
 
     Every change is undone in reverse order on exit, exception or not, so a
     nested guard (or two probes in one process) leaves logging exactly as it
@@ -148,7 +161,7 @@ def quiet_reused_logs(secret_values: Set[str]) -> Iterator[None]:
         return
     undo: List[Callable[[], None]] = []
     try:
-        guard = _ScrubFilter(secret_values)
+        guard = _ScrubFilter(secret_values, tuple(silenced))
         loggers = _guarded_loggers()
         for logger in loggers:
             if logger.getEffectiveLevel() < logging.WARNING:

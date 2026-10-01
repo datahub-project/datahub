@@ -6,6 +6,7 @@ import pytest
 import datahub.ingestion.agent.probe_methods as pm
 from datahub.ingestion.agent.log_guard import REUSED_LOGGERS, quiet_reused_logs
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.verdicts import ProbeInternalError
 
 SENTINEL = "PLANTED-log-secret"
 # A URL with a password in it, as reused code logs one. Built from parts so a
@@ -365,3 +366,112 @@ def test_a_library_handler_that_stops_propagation_is_scrubbed() -> None:
     finally:
         lib.removeHandler(handler)
         lib.propagate = True
+
+
+def test_a_silenced_logger_is_dropped_at_every_level(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # SENTINEL has no credential shape, so scrubbing alone would pass it.
+    caplog.set_level(logging.DEBUG)
+    with quiet_reused_logs(set(), silenced=("datahub.ingestion.source.leaky",)):
+        child = logging.getLogger("datahub.ingestion.source.leaky.fetcher")
+        child.warning("read %s", SENTINEL)
+        child.error("failed on %s", SENTINEL)
+        logging.getLogger("datahub.ingestion.source.other").warning("kept")
+    assert SENTINEL not in caplog.text
+    assert "kept" in caplog.text
+
+
+def test_a_provider_cannot_silence_the_frameworks_own_loggers(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    with quiet_reused_logs(set(), silenced=("datahub.ingestion.agent",)):
+        logging.getLogger("datahub.ingestion.agent.probe_methods").warning(
+            "framework line"
+        )
+    assert "framework line" in caplog.text
+
+
+def test_silencing_ends_with_the_guard(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.DEBUG)
+    before = _logger_state()
+    with quiet_reused_logs(set(), silenced=("datahub.ingestion.source.leaky",)):
+        pass
+    assert _logger_state() == before
+    logging.getLogger("datahub.ingestion.source.leaky").warning("after the guard")
+    assert "after the guard" in caplog.text
+
+
+def test_the_verbose_switch_lifts_silencing(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
+    caplog.set_level(logging.DEBUG)
+    with quiet_reused_logs(set(), silenced=("datahub.ingestion.source.x",)):
+        logging.getLogger("datahub.ingestion.source.x").warning("kept")
+    assert "kept" in caplog.text
+
+
+class _SilencingProvider:
+    silenced_loggers = ("datahub.ingestion.source.leaky",)
+
+    @classmethod
+    def for_config(cls, config: object) -> "_SilencingProvider":
+        return cls()
+
+    def __enter__(self) -> "_SilencingProvider":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    @probe_method()
+    def tables(self) -> List[Dict[str, str]]:
+        "Tables."
+        logging.getLogger("datahub.ingestion.source.leaky.fetcher").warning(
+            "read %s", SENTINEL
+        )
+        return [{"name": "t"}]
+
+
+class _MisdeclaredProvider:
+    # A bare string: iterating it would silence loggers named "d", "a", "t", ...
+    # Standalone rather than a _SilencingProvider subclass, so mypy does not
+    # reject a str overriding the inherited tuple.
+    silenced_loggers = "datahub.ingestion.source.leaky"
+
+    @classmethod
+    def for_config(cls, config: object) -> "_MisdeclaredProvider":
+        return cls()
+
+    def __enter__(self) -> "_MisdeclaredProvider":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        return None
+
+    @probe_method()
+    def tables(self) -> List[Dict[str, str]]:
+        "Tables."
+        return [{"name": "t"}]
+
+
+def test_run_probe_method_drops_a_providers_silenced_loggers(
+    caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _SilencingProvider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
+    caplog.set_level(logging.DEBUG)
+    res = pm.run_probe_method("x", {}, "tables", {})
+    assert res.result == [{"name": "t"}]
+    assert SENTINEL not in caplog.text
+
+
+def test_a_misdeclared_silenced_loggers_is_a_defect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(pm, "_provider_class", lambda st: _MisdeclaredProvider)
+    monkeypatch.setattr(pm, "config_class_for", lambda st: _LeakyConfig)
+    with pytest.raises(ProbeInternalError):
+        pm.run_probe_method("x", {}, "tables", {})
