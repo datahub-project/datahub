@@ -219,8 +219,9 @@ jobs:
 
       # Linear ref label: use the repo default branch when scanning image tags `quickstart` or `latest`
       # (nightly / default tip); otherwise use the provided docker tag as a tag ref (e.g. release).
-      # Container pulls always use RESOLVED_DOCKER_TAG. Which workspace release label group a
-      # final tag uses (Saas Release vs OSS Release) is decided from the tag's -cloud suffix.
+      # Container pulls always use RESOLVED_DOCKER_TAG. Semantic tags, including RCs, pick
+      # Saas Release vs OSS Release from the -cloud suffix. Non-semantic refs use the
+      # Security Scan team group.
       - name: Resolve git ref (Linear)
         id: git-ref
         env:
@@ -826,9 +827,6 @@ jobs:
           # the script sets stateId to Team.triageIssueState (integrations/non-members triage inbox).
           LINEAR_ISSUE_STATE_ID: ${{ vars.LINEAR_ISSUE_STATE_ID }}
           LINEAR_LABEL_IDS: ${{ vars.LINEAR_LABEL_IDS || '623bed97-f0a8-47aa-b673-2f533251f096' }}
-          # Non-release refs (default branch, rc/sha tags) go under this team label group.
-          # Official tags pick Saas Release vs OSS Release from the tag's -cloud suffix.
-          LINEAR_SECURITY_SCAN_LABEL_GROUP: ${{ vars.LINEAR_SECURITY_SCAN_LABEL_GROUP || 'Security Scan' }}
           SCAN_REF_KIND: ${{ needs.select-runner.outputs.ref_kind }}
           SCAN_REF_NAME: ${{ needs.select-runner.outputs.ref_name }}
           GITHUB_SHA: ${{ needs.select-runner.outputs.ref_sha }}

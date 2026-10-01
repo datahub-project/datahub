@@ -29,7 +29,14 @@ def test_official_release_tags(ref_name):
 
 @pytest.mark.parametrize(
     "ref_name",
-    ["v2.3.0rc1-cloud", "v1.7.0rc1", "sha-abc1234", "master", "acryl-main", "v1.0.0-cx42-06"],
+    [
+        "v2.3.0rc1-cloud",
+        "v1.7.0rc1",
+        "sha-abc1234",
+        "master",
+        "acryl-main",
+        "v1.0.0-cx42-06",
+    ],
 )
 def test_non_release_refs(ref_name):
     assert not sync.is_official_release_tag(ref_name)
@@ -53,23 +60,31 @@ def _stub_groups(monkeypatch, seen: dict):
     [
         ("v2.3.0-cloud", "Saas Release"),
         ("v2.3.0.1-cloud", "Saas Release"),
+        ("v2.3.0rc1-cloud", "Saas Release"),
+        ("v2.3.0-rc1-cloud", "Saas Release"),
         ("v1.7.0", "OSS Release"),
         ("v1.7.0.1", "OSS Release"),
+        ("v1.7.0rc1", "OSS Release"),
+        ("v1.7.0-rc1", "OSS Release"),
     ],
 )
 def test_release_group_follows_cloud_suffix(ref_name, group):
     assert sync.release_label_group_for_tag(ref_name) == group
+    assert sync.is_semantic_version_tag(ref_name)
 
 
-@pytest.mark.parametrize("ref_name", ["v2.3.0rc1-cloud", "sha-abc1234", "master"])
-def test_non_release_has_no_release_group(ref_name):
+@pytest.mark.parametrize(
+    "ref_name", ["sha-abc1234", "master", "acryl-main", "v1.0.0-cx42-06"]
+)
+def test_non_semantic_has_no_release_group(ref_name):
+    assert not sync.is_semantic_version_tag(ref_name)
     assert sync.release_label_group_for_tag(ref_name) is None
 
 
 def test_cloud_release_tag_uses_saas_group(monkeypatch):
     seen: dict = {}
     _stub_groups(monkeypatch, seen)
-    out = sync._resolve_ref_label("k", "team-1", "v2.3.0-cloud", security_scan_group="Security Scan")
+    out = sync._resolve_ref_label("k", "team-1", "v2.3.0-cloud")
     assert out == sync.RefLabel("label:v2.3.0-cloud", "group:Saas Release")
     assert seen["group"] == ("Saas Release", None, False)
     assert seen["child"] == ("group:Saas Release", "v2.3.0-cloud", None)
@@ -78,34 +93,36 @@ def test_cloud_release_tag_uses_saas_group(monkeypatch):
 def test_oss_release_tag_uses_oss_group(monkeypatch):
     seen: dict = {}
     _stub_groups(monkeypatch, seen)
-    out = sync._resolve_ref_label("k", "team-1", "v1.7.0.1", security_scan_group="Security Scan")
+    out = sync._resolve_ref_label("k", "team-1", "v1.7.0.1")
     assert out == sync.RefLabel("label:v1.7.0.1", "group:OSS Release")
     assert seen["group"] == ("OSS Release", None, False)
 
 
-def test_rc_tag_uses_team_security_scan_group(monkeypatch):
+def test_rc_uses_release_group_not_security_scan(monkeypatch):
     seen: dict = {}
     _stub_groups(monkeypatch, seen)
-    out = sync._resolve_ref_label(
-        "k", "team-1", "v2.3.0rc1-cloud", security_scan_group="Security Scan"
-    )
-    assert out == sync.RefLabel("label:v2.3.0rc1-cloud", "group:Security Scan")
+    out = sync._resolve_ref_label("k", "team-1", "v2.3.0rc1-cloud")
+    assert out == sync.RefLabel("label:v2.3.0rc1-cloud", "group:Saas Release")
+    assert seen["group"] == ("Saas Release", None, False)
+    assert seen["child"] == ("group:Saas Release", "v2.3.0rc1-cloud", None)
+
+
+@pytest.mark.parametrize("ref_name", ["master", "acryl-main", "sha-abc1234"])
+def test_non_semantic_uses_security_scan_group(monkeypatch, ref_name):
+    seen: dict = {}
+    _stub_groups(monkeypatch, seen)
+    out = sync._resolve_ref_label("k", "team-1", ref_name)
+    assert out == sync.RefLabel(f"label:{ref_name}", "group:Security Scan")
     assert seen["group"] == ("Security Scan", "team-1", True)
-    assert seen["child"] == ("group:Security Scan", "v2.3.0rc1-cloud", "team-1")
-
-
-def test_default_branch_uses_team_security_scan_group(monkeypatch):
-    seen: dict = {}
-    _stub_groups(monkeypatch, seen)
-    sync._resolve_ref_label("k", "team-1", "master", security_scan_group="Security Scan")
-    assert seen["group"][0] == "Security Scan"
 
 
 def test_missing_release_group_is_not_created(monkeypatch):
     def fail_group(_api_key, group_name, team_id=None, *, create_if_missing):
         assert create_if_missing is False
-        raise RuntimeError(f"Linear label group {group_name!r} not found in the workspace")
+        raise RuntimeError(
+            f"Linear label group {group_name!r} not found in the workspace"
+        )
 
     monkeypatch.setattr(sync, "_get_or_create_label_group_id_util", fail_group)
     with pytest.raises(RuntimeError, match="OSS Release"):
-        sync._resolve_ref_label("k", "team-1", "v1.7.0", security_scan_group="Security Scan")
+        sync._resolve_ref_label("k", "team-1", "v1.7.0")

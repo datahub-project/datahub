@@ -27,13 +27,14 @@ Feature summary:
   - Apply a dynamic ref label named after ``SCAN_REF_NAME``. CI sets this to the repository
     default branch when the scanned image tag is ``quickstart``, ``head``, or ``latest``;
     otherwise to the image tag. The label lives in a label group chosen by the ref:
-    - Official release tags (``vX.Y.Z`` or ``vX.Y.Z.W``) reuse the child of a workspace release
-      group, chosen from the tag itself: a ``-cloud`` suffix uses ``Saas Release``, and a tag
-      without it uses ``OSS Release``. The group is the one the release workflow creates when
-      the tag is cut, and it must already exist.
-    - Every other ref (default branch, RC tags, ``sha-*`` tags, custom builds) goes under the
-      team label group ``LINEAR_SECURITY_SCAN_LABEL_GROUP`` (default ``Security Scan``) on the
-      sync team; both the group and the child are created when missing.
+    - Semantic versions, including release candidates (``vX.Y.Z``, ``vX.Y.Z.W``, optional
+      ``rcN`` / ``-rcN``, optional ``-cloud``), reuse the child of a workspace release group.
+      A ``-cloud`` suffix uses ``Saas Release``; a tag without it uses ``OSS Release``. The
+      group is the one the release workflow creates when a final tag is cut, and it must
+      already exist. An RC child is created under that group when missing.
+    - Non-semantic refs (default branch, ``sha-*`` tags, custom builds) go under the team
+      label group ``Security Scan``. Within that group the last scan wins. The group and the
+      child are created when missing.
     Label groups are exclusive, so on existing issues the previous child of the same group is
     replaced; the refs comment keeps the full history.
 - Refs comment tracking:
@@ -97,13 +98,17 @@ from utils.security_scan_utils import (
 
 SAAS_RELEASE_LABEL_GROUP = "Saas Release"
 OSS_RELEASE_LABEL_GROUP = "OSS Release"
-DEFAULT_SECURITY_SCAN_LABEL_GROUP = "Security Scan"
+SECURITY_SCAN_LABEL_GROUP = "Security Scan"
 CLOUD_RELEASE_SUFFIX = "-cloud"
 
-# Final release tags only: vX.Y.Z or vX.Y.Z.W, optionally with the DataHub Cloud -cloud suffix.
-# RC tags (v1.0.0rc1), sha-* image tags and branch names fall through to the team group.
+# Final release tags: vX.Y.Z or vX.Y.Z.W, optionally with the DataHub Cloud -cloud suffix.
 OFFICIAL_RELEASE_TAG_RE = re.compile(
     rf"^v\d+\.\d+\.\d+(?:\.\d+)?(?:{re.escape(CLOUD_RELEASE_SUFFIX)})?$"
+)
+# Same shape plus an rc marker (v1.2.3rc1, v1.2.3-rc1), still with an optional -cloud suffix.
+# Anything else (sha-*, branch names, custom builds) is non-semantic.
+SEMANTIC_VERSION_TAG_RE = re.compile(
+    rf"^v\d+\.\d+\.\d+(?:\.\d+)?(?:-?rc\d+)?(?:{re.escape(CLOUD_RELEASE_SUFFIX)})?$"
 )
 
 
@@ -139,27 +144,26 @@ def is_official_release_tag(ref_name: str) -> bool:
     return OFFICIAL_RELEASE_TAG_RE.match(ref_name.strip()) is not None
 
 
-def release_label_group_for_tag(ref_name: str) -> str | None:
-    """Workspace release group for an official tag, or ``None`` when it is not one.
+def is_semantic_version_tag(ref_name: str) -> bool:
+    """True for a final release or an RC (``v1.2.3rc1``, ``v1.2.3-rc1``), optional ``-cloud``."""
+    return SEMANTIC_VERSION_TAG_RE.match(ref_name.strip()) is not None
 
-    A ``-cloud`` suffix is a DataHub Cloud release (``Saas Release``); the same version
-    shape without it is OSS (``OSS Release``).
+
+def release_label_group_for_tag(ref_name: str) -> str | None:
+    """Workspace release group for a semantic tag, or ``None`` when it is not one.
+
+    Final releases and RCs share a group. A ``-cloud`` suffix is ``Saas Release``; the same
+    version shape without it is ``OSS Release``.
     """
     name = ref_name.strip()
-    if not is_official_release_tag(name):
+    if not is_semantic_version_tag(name):
         return None
     if name.endswith(CLOUD_RELEASE_SUFFIX):
         return SAAS_RELEASE_LABEL_GROUP
     return OSS_RELEASE_LABEL_GROUP
 
 
-def _resolve_ref_label(
-    api_key: str,
-    team_id: str,
-    ref_name: str,
-    *,
-    security_scan_group: str,
-) -> RefLabel:
+def _resolve_ref_label(api_key: str, team_id: str, ref_name: str) -> RefLabel:
     """Pick the label group for ``ref_name`` and reuse or create the child label under it."""
     release_group = release_label_group_for_tag(ref_name)
     if release_group:
@@ -170,17 +174,20 @@ def _resolve_ref_label(
         print(f"Linear ref label {ref_name!r}: workspace group {release_group!r}")
     else:
         group_id = _get_or_create_label_group_id_util(
-            api_key, security_scan_group, team_id, create_if_missing=True
+            api_key, SECURITY_SCAN_LABEL_GROUP, team_id, create_if_missing=True
         )
         label_id = _get_or_create_group_child_label_id_util(
             api_key, group_id, ref_name, team_id
         )
-        print(f"Linear ref label {ref_name!r}: team group {security_scan_group!r}")
+        print(
+            f"Linear ref label {ref_name!r}: team group {SECURITY_SCAN_LABEL_GROUP!r}"
+        )
     return RefLabel(label_id=label_id, group_id=group_id)
 
 
 def _create_issue_relations_cve_or_pkg(
-    api_key: str, pairs: set[tuple[str, str]],
+    api_key: str,
+    pairs: set[tuple[str, str]],
 ) -> None:
     """``pairs`` = unique (min,max) id tuples; one ``issueRelationCreate`` per edge."""
     if not pairs:
@@ -230,9 +237,10 @@ def _resolve_linear_team_id() -> str:
 
 
 def _resolve_linear_label_ids() -> list[str] | None:
-    raw = os.environ.get("LINEAR_LABEL_IDS", "").strip() or os.environ.get(
-        "TRIVY_LINEAR_LABEL_IDS", ""
-    ).strip()
+    raw = (
+        os.environ.get("LINEAR_LABEL_IDS", "").strip()
+        or os.environ.get("TRIVY_LINEAR_LABEL_IDS", "").strip()
+    )
     return [x.strip() for x in raw.split(",") if x.strip()] or None
 
 
@@ -261,7 +269,9 @@ def _raw_report_paths_for_occurrences(
         name = p.name
         if not any(name.startswith(prefix) for prefix in wanted_prefixes):
             continue
-        if not any(name == f"{prefix}{key}.json" for key in keys for prefix in wanted_prefixes):
+        if not any(
+            name == f"{prefix}{key}.json" for key in keys for prefix in wanted_prefixes
+        ):
             continue
         sp = str(p)
         if sp not in seen:
@@ -333,13 +343,7 @@ def main() -> int:
         )
         return 1
     scan_ref = ScanRef(kind=kind, name=name)
-    ref_label = _resolve_ref_label(
-        api_key,
-        team_id,
-        scan_ref.name,
-        security_scan_group=os.environ.get("LINEAR_SECURITY_SCAN_LABEL_GROUP", "").strip()
-        or DEFAULT_SECURITY_SCAN_LABEL_GROUP,
-    )
+    ref_label = _resolve_ref_label(api_key, team_id, scan_ref.name)
 
     initial_state_id = _resolve_issue_create_state_id_from_linear_util(
         api_key, team_id, os.environ.get("LINEAR_ISSUE_STATE_ID", "").strip()
