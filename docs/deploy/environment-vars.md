@@ -998,10 +998,13 @@ Reference Links:
 
 ### Data Product Assets Configuration
 
-| Environment Variable                                     | Default | Description                                                                                                                          | Components    |
-| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
-| `REPROCESS_DATA_PRODUCT_ASSETS`                          | `false` | Force a re-upsert sweep of all Data Products so `DataProductAssetsSideEffect` re-mirrors membership (missing ADDs and stale REMOVEs) | System Update |
-| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE` | `1000`  | Batch size when scrolling Data Products during the optional reprocess step                                                           | System Update |
+| Environment Variable                                     | Default | Description                                                                                                                                | Components    |
+| -------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_ENABLED`    | `true`  | Run the one-time sweep that writes asset-side `dataProducts` from stored `dataProductProperties` (skips once the upgrade marker SUCCEEDED) | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_BATCH_SIZE` | `1000`  | Batch size when scanning Data Products and ingesting side-effect patches                                                                   | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_DELAY_MS`   | `1000`  | Delay between scan batches and between patch ingest chunks                                                                                 | System Update |
+| `BOOTSTRAP_SYSTEM_UPDATE_DATA_PRODUCT_ASSETS_LIMIT`      | `0`     | Max Data Products to scan (`0` = no limit)                                                                                                 | System Update |
+| `REPROCESS_DATA_PRODUCT_ASSETS`                          | `false` | Force a re-run of the sweep even if the upgrade marker already SUCCEEDED                                                                   | System Update |
 
 ### Ingestion Indices Configuration
 
