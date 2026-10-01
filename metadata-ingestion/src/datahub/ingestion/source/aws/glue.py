@@ -16,6 +16,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Sequence,
     Set,
     Tuple,
 )
@@ -52,6 +53,13 @@ from datahub.emitter.mcp_builder import (
     gen_containers,
 )
 from datahub.emitter.rest_emitter import EmitMode
+from datahub.ingestion.agent.verdicts import (
+    ClassifyContext,
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+    pattern_verdict,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -455,6 +463,107 @@ class GlueSourceConfig(
         Whether they are emitted at all is extract_transforms, which
         probe_verdict_override applies."""
         return {str(FlowContainerSubTypes.GLUE_JOB)}
+
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        """Tables and views sit under their database (_gen_table_wu re-checks
+        database_pattern on it); databases and Glue jobs are top-level."""
+        if kind == FlowContainerSubTypes.GLUE_JOB:
+            return ()
+        return ancestors_in(
+            (str(DatasetContainerSubTypes.DATABASE),),
+            kind,
+            {str(DatasetSubTypes.TABLE), str(DatasetSubTypes.VIEW)},
+        )
+
+    def probe_match_target(self, ctx: ClassifyContext) -> str:
+        """table_pattern is matched against f"{database}.{table}"
+        (_gen_table_wu's full_table_name), for views as for tables. The
+        framework calls this only for Table/View with a parent; databases and
+        jobs are matched on the bare name."""
+        if not ctx.parent_path:
+            return ctx.name
+        return f"{ctx.parent_path[-1]}.{ctx.name}"
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """Glue's exclusions that no single pattern states.
+
+        - A Glue job is emitted only when extract_transforms is truthy
+          (get_workunits_internal). The field is Optional[bool], so it cannot
+          be a probe_kind_switches entry, and `null` switches jobs off too.
+        - A database is dropped when ignore_resource_links hides it (the
+          JMESPath filter in get_all_databases), by database_pattern, or --
+          with catalog_id set -- when its CatalogId names another catalog
+          (also get_all_databases).
+        - A table is dropped when its database would be, judged from the
+          database facts `tables` copies onto each table record, because a
+          --parent container is judged by name only; or when it is itself a
+          resource link and ignore_resource_links is on
+          (get_tables_from_database).
+
+        The facts come from `probe run ... --report-to` via `probe filter
+        --from-run`; with bare names a rule that needs one warns and is not
+        applied.
+        """
+        if ctx.kind == FlowContainerSubTypes.GLUE_JOB:
+            if self.extract_transforms:
+                return None
+            return Verdict(False, "extract_transforms")
+        if ctx.kind == DatasetContainerSubTypes.DATABASE:
+            return self._container_rules_verdict(
+                ctx, link_key="resource_link", catalog_key="catalog_id"
+            )
+        if ctx.kind in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
+            database_rule = self._container_rules_verdict(
+                ctx,
+                link_key="database_resource_link",
+                catalog_key="database_catalog_id",
+            )
+            if database_rule is not None:
+                return database_rule
+            if (
+                self.ignore_resource_links
+                and ctx.attributes.get("resource_link") == "true"
+            ):
+                return Verdict(False, "ignore_resource_links")
+        return None
+
+    def _container_rules_verdict(
+        self, ctx: VerdictContext, link_key: str, catalog_key: str
+    ) -> Optional[Verdict]:
+        """The database-level rules, in get_all_databases' order: the
+        resource-link filter runs first (ingestion never even sees those
+        databases), then database_pattern -- for a Database only; a table's
+        database pattern is the --parent check -- then the catalog_id check.
+        """
+        if self.ignore_resource_links:
+            link = ctx.attributes.get(link_key)
+            if link is None:
+                ctx.warn(
+                    "ignore_resource_links is on, and whether a database is a "
+                    "Lake Formation resource link is not known from a bare "
+                    "name, so resource links were not excluded; judge the "
+                    "output of `probe run databases` or `probe run tables` "
+                    "with --from-run"
+                )
+            elif link == "true":
+                return Verdict(False, "ignore_resource_links")
+        if ctx.kind == DatasetContainerSubTypes.DATABASE:
+            by_pattern = pattern_verdict(self, ctx.pattern_field, ctx.target)
+            if not by_pattern.included:
+                return by_pattern
+        if self.catalog_id:
+            owner = ctx.attributes.get(catalog_key)
+            if owner is None:
+                ctx.warn(
+                    "catalog_id is set, and which catalog a database belongs "
+                    "to is not known from a bare name, so the catalog check "
+                    "was not applied; judge the output of `probe run "
+                    "databases` or `probe run tables` with --from-run"
+                )
+            elif owner and owner != self.catalog_id:
+                return Verdict(False, "catalog_id")
+        return None
 
     @classmethod
     def probe_provider_class(cls) -> type:

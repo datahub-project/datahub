@@ -5,6 +5,8 @@ import boto3
 import pytest
 from botocore.stub import Stubber
 
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.aws.glue import GlueSourceConfig
@@ -460,3 +462,41 @@ def test_jobs_ignore_catalog_id_as_ingestion_does(glue: Stubber) -> None:
     assert isinstance(result.result, list)
     assert [r["name"] for r in result.result] == ["nightly_load"]
     assert any("not cross-account" in w for w in result.warnings)
+
+
+def test_tables_round_trip_through_from_run(glue: Stubber) -> None:
+    recipe: Dict[str, object] = {**_RECIPE, "ignore_resource_links": True}
+    _databases(glue, _SALES)
+    glue.add_response(
+        "get_tables",
+        {
+            "TableList": [
+                {"Name": "orders"},
+                {
+                    "Name": "shared_orders",
+                    "TargetTable": {
+                        "CatalogId": _OTHER_ACCOUNT,
+                        "DatabaseName": "owner_db",
+                        "Name": "orders",
+                    },
+                },
+            ]
+        },
+        {"DatabaseName": "sales"},
+    )
+
+    run = run_probe_method("glue", recipe, "tables", {"database": "sales"})
+    listing = listing_from_run(run.to_dict())
+    verdicts = check_filters(
+        source_type="glue",
+        config_dict=recipe,
+        kind=listing.kind or "",
+        parent_path=listing.parent_path,
+        names=listing.names,
+        attributes=listing.attributes,
+    )
+
+    assert {r.name: r.excluded_by for r in verdicts.results} == {
+        "orders": None,
+        "shared_orders": "ignore_resource_links",
+    }
