@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.source.fivetran.config import FivetranSourceConfig
 from datahub.ingestion.source.fivetran.fivetran_probe import FivetranMetadataProbe
@@ -157,3 +158,98 @@ def test_connectors_under_one_destination_report_it_as_their_parent(
     records = result.result
     assert isinstance(records, list)
     assert [r["name"] for r in records] == ["sales_pg", "sheets"]
+
+
+_API = {"api_key": "k", "api_secret": "s"}
+
+
+def test_log_database_mode_judges_a_connector_on_its_name_alone() -> None:
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=_db_recipe(connector_patterns={"allow": ["^sales_.*"]}),
+        kind="Connector",
+        parent_path=[],
+        names=["sales_pg", "hr_pg"],
+    )
+    assert {r.name: (r.included, r.excluded_by) for r in result.results} == {
+        "sales_pg": (True, None),
+        "hr_pg": (False, "connector_patterns"),
+    }
+    assert result.warnings == []
+
+
+def test_a_connector_on_a_denied_destination_is_excluded_by_that_destination() -> (
+    None
+):
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=_db_recipe(destination_patterns={"deny": ["^dest_b$"]}),
+        kind="Connector",
+        parent_path=["dest_b"],
+        names=["hr_pg"],
+    )
+    verdict = result.results[0]
+    assert (verdict.included, verdict.excluded_by) == (False, "destination_patterns")
+
+
+def test_destinations_are_judged_on_their_id() -> None:
+    result = check_filters(
+        source_type="fivetran",
+        config_dict=_db_recipe(destination_patterns={"allow": ["^dest_a$"]}),
+        kind="Destination",
+        parent_path=[],
+        names=["dest_a", "dest_b"],
+    )
+    assert [r.included for r in result.results] == [True, False]
+
+
+def test_rest_mode_warns_that_the_id_is_matched_too() -> None:
+    result = check_filters(
+        source_type="fivetran",
+        config_dict={
+            "api_config": _API,
+            "connector_patterns": {"deny": ["^sales_pg$"]},
+        },
+        kind="Connector",
+        parent_path=[],
+        names=["sales_pg"],
+    )
+    # The name alone is denied...
+    assert result.results[0].included is False
+    # ...but REST ingestion would still keep it via its id, and the caller
+    # must be told the verdict covers only half of the rule.
+    assert any("connector_id" in w for w in result.warnings)
+
+
+def test_rest_mode_keeps_a_connector_whose_id_is_allowed() -> None:
+    result = check_filters(
+        source_type="fivetran",
+        config_dict={
+            "api_config": _API,
+            "connector_patterns": {"deny": ["^sales_pg$"]},
+        },
+        kind="Connector",
+        parent_path=[],
+        names=["sales_pg"],
+        attributes=[{"connector_id": "conn_a1"}],
+    )
+    assert result.results[0].included is True
+    assert result.warnings == []
+
+
+def test_rest_mode_drops_a_connector_when_neither_id_nor_name_is_allowed() -> None:
+    result = check_filters(
+        source_type="fivetran",
+        config_dict={
+            "api_config": _API,
+            "connector_patterns": {"allow": ["^other$"]},
+        },
+        kind="Connector",
+        parent_path=[],
+        names=["sales_pg"],
+        attributes=[{"connector_id": "conn_a1"}],
+    )
+    assert (result.results[0].included, result.results[0].excluded_by) == (
+        False,
+        "connector_patterns",
+    )

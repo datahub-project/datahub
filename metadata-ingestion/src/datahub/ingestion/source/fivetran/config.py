@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import warnings
-from typing import Annotated, Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional, Sequence
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -17,6 +17,12 @@ from datahub.configuration.common import (
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.ingestion.agent.verdicts import (
+    Verdict,
+    VerdictContext,
+    ancestors_in,
+    pattern_verdict,
+)
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
@@ -98,6 +104,18 @@ DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE
 # HEX_CATEGORY_KIND).
 FIVETRAN_DESTINATION_KIND = "Destination"
 FIVETRAN_CONNECTOR_KIND = "Connector"
+
+# REST ingestion keeps a connector when connector_patterns allows its id OR its
+# name (FivetranLogRestReader.get_allowed_connectors_list); DB ingestion
+# matches the name only. A verdict given only the name is half the REST rule,
+# and the caller has to be told.
+REST_CONNECTOR_MATCH_NOTE = (
+    "log_source is rest_api, so ingestion keeps a connector when "
+    "connector_patterns allows EITHER its connector_id OR its name; this "
+    "verdict judged only the name. Pass the connector's connector_id too "
+    "(`probe run connectors --report-to out.json`, then `probe filter "
+    "--from-run out.json`): the connector is ingested if either is included."
+)
 
 
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
@@ -478,6 +496,34 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
             "if you have very large connectors that legitimately need more."
         ),
     )
+
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        """Connectors sit under a destination: both readers drop every
+        connector on a destination destination_patterns denies, before
+        connector_patterns is consulted."""
+        return ancestors_in(
+            (FIVETRAN_DESTINATION_KIND,), kind, (FIVETRAN_CONNECTOR_KIND,)
+        )
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        """REST mode keeps a connector when connector_patterns allows its id OR
+        its name (FivetranLogRestReader.get_allowed_connectors_list). The name is
+        ctx.target; the id arrives as an attribute (`probe filter --from-run`).
+        Without it the name-only verdict stands, with a warning. DB mode matches
+        the name alone, so there is nothing to override."""
+        if ctx.kind != FIVETRAN_CONNECTOR_KIND or self.log_source != "rest_api":
+            return None
+        if ctx.structural is not None:
+            return None
+        connector_id = ctx.attributes.get("connector_id")
+        if connector_id is None:
+            ctx.warn(REST_CONNECTOR_MATCH_NOTE)
+            return None
+        by_id = pattern_verdict(self, "connector_patterns", connector_id)
+        return by_id if by_id.included else pattern_verdict(
+            self, "connector_patterns", ctx.target
+        )
 
     @classmethod
     def probe_provider_class(cls) -> type:
