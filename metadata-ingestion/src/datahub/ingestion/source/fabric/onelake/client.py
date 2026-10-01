@@ -321,7 +321,11 @@ class OneLakeClient(BaseFabricClient):
             raise
 
     def list_lakehouse_tables(
-        self, workspace_id: str, lakehouse_id: str
+        self,
+        workspace_id: str,
+        lakehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
     ) -> Iterator[FabricTable]:
         """List all tables in a lakehouse.
 
@@ -336,6 +340,8 @@ class OneLakeClient(BaseFabricClient):
         Args:
             workspace_id: Workspace GUID
             lakehouse_id: Lakehouse GUID
+            on_degraded: Told when a refused listing is returned as empty, so
+                a caller that must not mistake that for "no tables" can say so.
 
         Yields:
             FabricTable objects
@@ -367,6 +373,15 @@ class OneLakeClient(BaseFabricClient):
                         f"Error: {e.response.text}. "
                         f"Please ensure your identity has 'Lakehouse.Read.All' or 'Lakehouse.ReadWrite.All' permissions."
                     )
+                    if on_degraded is not None:
+                        # Status and operation only: the response body can
+                        # echo request details.
+                        on_degraded(
+                            f"OneLake table API returned HTTP "
+                            f"{e.response.status_code} for schemas-enabled lakehouse "
+                            f"{lakehouse_id}; its tables could not be listed. The "
+                            f"identity needs Lakehouse.Read.All (or ReadWrite.All)."
+                        )
                     # Return empty iterator instead of raising
                     return
                 else:
@@ -455,7 +470,11 @@ class OneLakeClient(BaseFabricClient):
                 raise
 
     def list_warehouse_tables(
-        self, workspace_id: str, warehouse_id: str
+        self,
+        workspace_id: str,
+        warehouse_id: str,
+        *,
+        on_degraded: Optional[Callable[[str], None]] = None,
     ) -> Iterator[FabricTable]:
         """List all tables in a warehouse.
 
@@ -467,6 +486,8 @@ class OneLakeClient(BaseFabricClient):
         Args:
             workspace_id: Workspace GUID
             warehouse_id: Warehouse GUID
+            on_degraded: Told when a 404 is returned as empty, so a caller
+                that must not mistake that for "no tables" can say so.
 
         Yields:
             FabricTable objects
@@ -500,6 +521,11 @@ class OneLakeClient(BaseFabricClient):
                     f"Warehouse {warehouse_id} tables endpoint returned 404 (Not Found). "
                     "Some warehouse types (e.g. staging) do not expose tables via API. "
                 )
+                if on_degraded is not None:
+                    on_degraded(
+                        f"warehouse {warehouse_id} tables endpoint returned HTTP 404; "
+                        f"some warehouse types (e.g. staging) expose no tables via API"
+                    )
                 return
             logger.error(f"Failed to list tables for warehouse {warehouse_id}: {e}")
             raise
