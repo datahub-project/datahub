@@ -44,3 +44,57 @@ def test_the_probe_dials_the_driver_ingestion_dials(
 ) -> None:
     validated = validate_source_config(SQLServerConfig, source_type, config)
     assert validated.probe_sql_alchemy_url().startswith(f"{scheme}://")
+
+
+@pytest.mark.parametrize(
+    "extra, single, pinned",
+    [
+        ({}, False, ""),
+        ({"database": "DemoData"}, True, "DemoData"),
+        (
+            {
+                "sqlalchemy_uri": "mssql+pyodbc:///?odbc_connect=DRIVER%3D%7Bx%7D%3BDATABASE%3DNewData%3B"
+            },
+            True,
+            "NewData",
+        ),
+        ({"sqlalchemy_uri": "mssql+pytds://u:p@h:1433"}, True, ""),
+    ],
+)
+def test_single_database_detection_matches_get_inspectors(
+    extra: Dict[str, object], single: bool, pinned: str
+) -> None:
+    config = SQLServerConfig.model_validate({**_BASE, **extra})
+    assert config.is_single_database_recipe() is single
+    if single:
+        assert config.pinned_database_name() == pinned
+
+
+def test_database_pattern_is_declared_not_guessed() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, "database_pattern": {"deny": ["^NewData$"]}},
+        kind="Database",
+        parent_path=[],
+        names=["NewData", "DemoData"],
+    )
+    assert result.pattern_field == "database_pattern"
+    assert [v.included for v in result.results] == [False, True]
+    assert result.warnings == []
+
+
+def test_an_odbc_engine_learns_to_read_sql_variant() -> None:
+    """_add_output_converters, applied per connection: the probe never runs
+    SQLServerSource.__init__, where ingestion installs it."""
+    from datahub.ingestion.source.sql.mssql.source import add_sql_variant_converter
+
+    added: Dict[int, object] = {}
+
+    class _DbapiConnection:
+        def add_output_converter(self, sql_type: int, func: object) -> None:
+            added[sql_type] = func
+
+    add_sql_variant_converter(_DbapiConnection())
+    assert list(added) == [-150]
+    # pytds connections have no such method; that must not fail the connection.
+    add_sql_variant_converter(object())
