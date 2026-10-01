@@ -112,8 +112,29 @@ LIVE_DASHBOARDS: List[Dashboard] = [
     ),
     _dashboard("2", "Denied by id", SALES, [_vis("21", "orders")]),
     _dashboard("3", "Personal", PERSONAL, [_vis("31", "orders")]),
-    _dashboard("5", "Archived", ARCHIVE, [_vis("51", "orders")]),
-    _dashboard("6", "No folder", None, [_vis("61", "customers")]),
+    # The only user of the `archived` explore: ingestion records an explore as
+    # used before folder_path_pattern drops the dashboard, so it is emitted
+    # even when Shared/Archive is denied.
+    _dashboard("5", "Archived", ARCHIVE, [_vis("51", "archived")]),
+    _dashboard(
+        "6",
+        "No folder",
+        None,
+        [
+            _vis("61", "customers"),
+            # Saved look 105 placed on this dashboard: ingestion emits it as
+            # this dashboard's chart, never as a standalone look.
+            DashboardElement(
+                id="62",
+                type="vis",
+                title="chart 62",
+                look_id="105",
+                look=LookWithQuery(
+                    query=Query(model="sales", view="customers", fields=["customers.id"])
+                ),
+            ),
+        ],
+    ),
 ]
 DELETED_DASHBOARDS: List[Dashboard] = [
     _dashboard("4", "Deleted", SALES, [_vis("41", "orders")], deleted=True)
@@ -122,6 +143,7 @@ LIVE_LOOKS: List[Look] = [
     Look(id="101", title="Shared look", query_id="q-101", folder=SALES),
     Look(id="102", title="Personal look", query_id="q-102", folder=PERSONAL),
     Look(id="103", title="No query", query_id=None, folder=SALES),
+    Look(id="105", title="Also on a dashboard", query_id="q-105", folder=SALES),
 ]
 DELETED_LOOKS: List[Look] = [
     Look(id="104", title="Deleted look", query_id="q-104", folder=SALES, deleted=True)
@@ -133,6 +155,7 @@ MODELS: List[LookmlModel] = [
         explores=[
             LookmlModelNavExplore(name="orders"),
             LookmlModelNavExplore(name="customers"),
+            LookmlModelNavExplore(name="archived"),
             LookmlModelNavExplore(name="unused", hidden=True),
         ],
     ),
