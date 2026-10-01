@@ -18,3 +18,7 @@ def connect() -> None:
     raise TransportError(
         f"token endpoint said: {{'error': 'invalid', 'sub': '{SENTINEL}'}}"
     )
+
+
+def fetch() -> None:
+    raise RuntimeError(f"fetcher gave up on https://user:{SENTINEL}@host/api")

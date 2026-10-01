@@ -836,7 +836,12 @@ def run_probe_method(
                 (ValueError, ProbeConnectionError, ProbeInternalError, ProbeReadFailed),
             ) and is_authored(exc, provider_file):
                 raise
-            raise classify_foreign(exc, f"opening source '{source_type}'") from None
+            # Always a connection error here, not classify_foreign's split: the
+            # caller's input was all checked above, so a foreign failure while
+            # building the provider is the source's (exit 3), whatever its type.
+            raise ProbeConnectionError(
+                f"opening source '{source_type}' failed ({type(exc).__name__})"
+            ) from None
         _enforce_gates(specs[command], provider, call_kwargs)
         try:
             result = _bound_method(provider, command)(**call_kwargs)

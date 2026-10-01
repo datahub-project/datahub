@@ -37,6 +37,10 @@ class _Provider:
         mode = getattr(config, "mode", "")
         if mode == "open-foreign":
             _foreign_errors.connect()
+        if mode == "open-foreign-value":
+            _foreign_errors.parse_url(f"jdbc:mysql://db?password={SENTINEL}")
+        if mode == "open-foreign-runtime":
+            _foreign_errors.fetch()
         if mode == "open-authored":
             raise ProbeArgumentError("database 'x' is not listed; run `databases`")
         return cls(mode)
@@ -115,6 +119,22 @@ def test_a_foreign_error_while_opening_reports_only_its_class(run: RunFn) -> Non
     assert SENTINEL not in str(info.value)
 
 
+@pytest.mark.parametrize(
+    "mode, class_name",
+    [("open-foreign-value", "ValueError"), ("open-foreign-runtime", "RuntimeError")],
+)
+def test_any_foreign_error_while_opening_is_a_connection_error(
+    run: RunFn, mode: str, class_name: str
+) -> None:
+    # Not only the transport/auth names: the provider is being built, so any
+    # foreign failure there is the source's (exit 3), never "fix your input".
+    with pytest.raises(ProbeConnectionError) as info:
+        run(mode)
+    assert not isinstance(info.value, ValueError)
+    assert SENTINEL not in str(info.value)
+    assert class_name in str(info.value)
+
+
 def test_an_authored_argument_error_while_opening_exits_2(run: RunFn) -> None:
     with pytest.raises(ProbeArgumentError):
         run("open-authored")
@@ -122,7 +142,13 @@ def test_an_authored_argument_error_while_opening_exits_2(run: RunFn) -> None:
 
 @pytest.mark.parametrize(
     "mode, exit_code",
-    [("foreign-value", 1), ("foreign-transport", 3), ("open-foreign", 3)],
+    [
+        ("foreign-value", 1),
+        ("foreign-transport", 3),
+        ("open-foreign", 3),
+        ("open-foreign-value", 3),
+        ("open-foreign-runtime", 3),
+    ],
 )
 def test_the_cli_never_prints_foreign_text_from_the_exception_chain(
     run: RunFn,
