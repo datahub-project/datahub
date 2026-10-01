@@ -50,7 +50,7 @@ def _table_depth(spec: PathSpec) -> int:
 
 
 def _dataset_reason(
-    spec: PathSpec, uri: str, warn: Callable[[str], None]
+    spec: PathSpec, uri: str, warn: Callable[[str], None], ignore_ext: bool
 ) -> Optional[str]:
     """None: this spec includes uri. "": it does not reach uri. Else the field."""
     if spec.emit_folders_only:
@@ -79,8 +79,9 @@ def _dataset_reason(
     dirname, startswith = listing_prefix(spec.include)
     if not uri.startswith(dirname + startswith):
         return ""
-    # GCS never sets use_s3_content_type, so ingestion passes ignore_ext=False.
-    return spec.rejection_reason(uri, ignore_ext=False)
+    # S3Source.get_workunits_internal passes
+    # ignore_ext=is_s3_platform() and use_s3_content_type; GCS never sets it.
+    return spec.rejection_reason(uri, ignore_ext=ignore_ext)
 
 
 def _first_claim(
@@ -99,9 +100,18 @@ def _first_claim(
 
 
 def judge_dataset(
-    path_specs: Sequence[PathSpec], uri: str, warn: Callable[[str], None]
+    path_specs: Sequence[PathSpec],
+    uri: str,
+    warn: Callable[[str], None],
+    *,
+    ignore_ext: bool = False,
 ) -> Verdict:
-    return _first_claim(path_specs, uri, lambda s: _dataset_reason(s, uri, warn))
+    # The templated branch ignores ignore_ext: it decides at the folder, and the
+    # per-file extension check it does not judge is what
+    # TEMPLATED_FILE_RULES_WARNING says.
+    return _first_claim(
+        path_specs, uri, lambda s: _dataset_reason(s, uri, warn, ignore_ext)
+    )
 
 
 def judge_folder(
