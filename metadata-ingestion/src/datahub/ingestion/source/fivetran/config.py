@@ -1,7 +1,7 @@
 import dataclasses
 import logging
 import warnings
-from typing import Any, Dict, Optional
+from typing import Annotated, Any, Dict, Optional
 
 import pydantic
 from pydantic import Field, field_validator, model_validator
@@ -11,6 +11,7 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigModel,
     ConfigurationWarning,
+    Filters,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -89,6 +90,14 @@ KNOWN_DATA_PLATFORM_MAPPING = {
 # Ref: https://fivetran.com/docs/connectors/files/google-sheets#deletingdata
 # TODO: Remove Google Sheets connector type from DISABLE_LINEAGE_FOR_CONNECTOR_TYPES
 DISABLE_COL_LINEAGE_FOR_CONNECTOR_TYPES = [Constant.GOOGLE_SHEETS_CONNECTOR_TYPE]
+
+# Fivetran emits no subtypes for its DataFlows, so there is no DataHub subtype
+# to borrow for these probe levels. `probe filter --kind` still needs a name
+# for each, and declaring it here keeps the probe's `kind=` and the Filters()
+# annotations below from drifting apart (the same arrangement as Hex's
+# HEX_CATEGORY_KIND).
+FIVETRAN_DESTINATION_KIND = "Destination"
+FIVETRAN_CONNECTOR_KIND = "Connector"
 
 
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
@@ -307,11 +316,15 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
             "expose)."
         ),
     )
-    connector_patterns: AllowDenyPattern = Field(
+    connector_patterns: Annotated[
+        AllowDenyPattern, Filters(FIVETRAN_CONNECTOR_KIND)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Filtering regex patterns for connector names.",
     )
-    destination_patterns: AllowDenyPattern = Field(
+    destination_patterns: Annotated[
+        AllowDenyPattern, Filters(FIVETRAN_DESTINATION_KIND)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for destination ids to filter in ingestion. "
         "Fivetran destination IDs are usually two word identifiers e.g. canyon_tolerable, and are not the same as the destination database name. "
@@ -465,6 +478,16 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
             "if you have very large connectors that legitimately need more."
         ),
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Imported here: fivetran_probe imports the log readers, which import
+        # this module, so a top-level import would be circular.
+        from datahub.ingestion.source.fivetran.fivetran_probe import (
+            FivetranMetadataProbe,
+        )
+
+        return FivetranMetadataProbe
 
     @model_validator(mode="after")
     def validate_log_source_credentials(self) -> "FivetranSourceConfig":
