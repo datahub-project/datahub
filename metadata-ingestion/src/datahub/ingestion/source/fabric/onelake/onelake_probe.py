@@ -7,20 +7,24 @@ reads in DataHub carry GUIDs.
 """
 
 from contextlib import contextmanager
-from typing import Callable, Dict, Iterator, List, Optional
+from typing import Callable, Dict, Iterator, List, Optional, Set
 
 import requests
 
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
+    DatasetSubTypes,
     GenericContainerSubTypes,
 )
 from datahub.ingestion.source.fabric.common.auth import FabricAuthHelper
 from datahub.ingestion.source.fabric.common.models import FabricWorkspace
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
-from datahub.ingestion.source.fabric.onelake.models import FabricItem
+from datahub.ingestion.source.fabric.onelake.filter_names import (
+    effective_schema_name,
+)
+from datahub.ingestion.source.fabric.onelake.models import FabricItem, FabricTable
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeClientReport
 from datahub.ingestion.source.fabric.onelake.schema_client import (
     SchemaExtractionClient,
@@ -165,6 +169,84 @@ class FabricOneLakeMetadataProbe:
         with self._reading(f"listing warehouses in workspace '{ws.name}'"):
             items = list(self._client.list_warehouses(ws.id))
         return [{"name": i.name, "id": i.id} for i in items][:limit]
+
+    @probe_method(
+        kind=DatasetContainerSubTypes.FABRIC_SCHEMA,
+        row_limit_param="limit",
+        parent_params=("workspace", "item"),
+    )
+    def schemas(
+        self,
+        workspace: str,
+        item: str,
+        item_type: Optional[str] = None,
+        limit: int = 200,
+    ) -> List[str]:
+        """Schemas in one lakehouse or warehouse (display name or GUID), as
+        ingestion forms them: from the schemas of its tables, and of its views
+        when extract_views is on, with schema-less lakehouse tables under dbo.
+        Judged by schema_pattern. item_type (Lakehouse or Warehouse) is needed
+        only when a lakehouse and a warehouse share the name."""
+        if not self._config.extract_schemas:
+            self._warn(
+                "extract_schemas is false: ingestion emits no schema containers "
+                "(tables sit directly under their item), though schema_pattern "
+                "still filters the tables"
+            )
+        ws = self._workspace(workspace)
+        fabric_item = self._item(ws, item, item_type)
+        names = {
+            effective_schema_name(t.schema_name)
+            for t in self._item_tables(ws, fabric_item)
+        }
+        if self._config.extract_views:
+            names |= self._view_schemas(ws, fabric_item)
+        return sorted(names)[:limit]
+
+    @probe_method(
+        kind=DatasetSubTypes.TABLE,
+        row_limit_param="limit",
+        parent_params=("workspace", "item", "schema"),
+    )
+    def tables(
+        self,
+        workspace: str,
+        item: str,
+        schema: str,
+        item_type: Optional[str] = None,
+        limit: int = 200,
+    ) -> List[str]:
+        """Tables in one schema of a lakehouse or warehouse, including ones
+        table_pattern would exclude. Tables of a schemas-disabled lakehouse are
+        under schema 'dbo'. table_pattern matches '<schema>.<table>', and the
+        result's parent_path lets `probe filter` build that. Empty with a
+        warning means the listing could not be read, not that there are no
+        tables."""
+        ws = self._workspace(workspace)
+        fabric_item = self._item(ws, item, item_type)
+        return [
+            t.name
+            for t in self._item_tables(ws, fabric_item)
+            if effective_schema_name(t.schema_name) == schema
+        ][:limit]
+
+    def _item_tables(self, ws: FabricWorkspace, item: FabricItem) -> List[FabricTable]:
+        with self._reading(f"listing tables of {item.type} '{item.name}'"):
+            if item.type == "Lakehouse":
+                return list(
+                    self._client.list_lakehouse_tables(
+                        ws.id, item.id, on_degraded=self._warn
+                    )
+                )
+            return list(
+                self._client.list_warehouse_tables(
+                    ws.id, item.id, on_degraded=self._warn
+                )
+            )
+
+    def _view_schemas(self, ws: FabricWorkspace, item: FabricItem) -> Set[str]:
+        # Replaced once the SQL Analytics Endpoint commands land.
+        return set()
 
     def _workspace(self, workspace: str) -> FabricWorkspace:
         with self._reading("listing workspaces"):

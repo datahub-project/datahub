@@ -268,7 +268,6 @@ def test_an_unknown_workspace_is_the_callers_error() -> None:
     assert probe.failures == []
 
 
-@pytest.mark.xfail(strict=True, reason="tables lands in the next commit")
 def test_a_name_shared_by_a_lakehouse_and_a_warehouse_asks_for_item_type() -> None:
     probe, _ = _probe()
     with pytest.raises(ValueError, match="item_type"):
@@ -307,3 +306,37 @@ def test_exit_closes_the_client() -> None:
     with probe:
         pass
     assert client.closed
+
+
+def test_tables_are_filtered_to_the_schema_and_schemaless_ones_live_in_dbo() -> None:
+    probe, _ = _probe()
+    assert probe.tables(workspace="sales-ws", item="lh_main", schema="dbo") == [
+        "orders"
+    ]
+    assert probe.tables(workspace="sales-ws", item="lh_main", schema="finance") == [
+        "refunds"
+    ]
+
+
+def test_schemas_are_derived_from_tables_as_ingestion_does() -> None:
+    probe, _ = _probe(extract_views=False)
+    assert probe.schemas(workspace="sales-ws", item="lh_main") == [
+        "dbo",
+        "finance",
+        "staging",
+    ]
+
+
+def test_an_unreadable_table_listing_is_empty_with_a_warning() -> None:
+    probe, client = _probe()
+    client.degrade_message = "OneLake table API returned HTTP 403"
+    assert probe.tables(workspace="sales-ws", item="lh_main", schema="dbo") == []
+    assert probe.warnings == ["OneLake table API returned HTTP 403"]
+
+
+def test_a_tables_command_resolves_the_workspace_once() -> None:
+    probe, client = _probe()
+    probe.tables(
+        workspace="sales-ws", item="lh_main", schema="dbo", item_type="Lakehouse"
+    )
+    assert client.calls.count("workspaces") == 1
