@@ -6,12 +6,14 @@ neither restates the rule.
 """
 
 from dataclasses import dataclass
-from typing import List, Optional, Protocol, Sequence
+from typing import Callable, List, Optional, Protocol, Sequence
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.agent.verdicts import Verdict
 
 PROJECT_PATTERN = "project_pattern"
 PROJECT_PATH_PATTERN = "project_path_pattern"
+INGEST_MULTIPLE_SITES = "ingest_multiple_sites"
 
 
 class ProjectFilterConfig(Protocol):
@@ -20,6 +22,11 @@ class ProjectFilterConfig(Protocol):
     project_path_pattern: AllowDenyPattern
     project_path_separator: str
     extract_project_hierarchy: bool
+
+
+class SiteFilterConfig(Protocol):
+    ingest_multiple_sites: bool
+    site: str
 
 
 @dataclass(frozen=True)
@@ -111,3 +118,64 @@ def project_selection(
         target=path,
         depends_on_rescued_parent=depends,
     )
+
+
+def probe_project_verdict(
+    config: ProjectFilterConfig,
+    name: str,
+    parent_path: Sequence[str],
+    warn: Callable[[str], None],
+) -> Verdict:
+    """`probe filter`'s Project verdict: project_selection, plus the caveats a
+    caller needs to read it the way ingestion will act on it."""
+    selection = project_selection(config, project_segments(config, name, parent_path))
+    # Compared field by field: AllowDenyPattern.__eq__ compares __dict__, which
+    # also holds the regexes it caches once it has matched anything, so a used
+    # allow-all pattern compares unequal to a fresh one.
+    default = AllowDenyPattern.allow_all()
+    if (config.project_pattern.allow, config.project_pattern.deny) != (
+        default.allow,
+        default.deny,
+    ):
+        warn(
+            "this recipe filters projects with the deprecated project_pattern "
+            "(or projects), which is matched on the bare name or the path; "
+            "--try-allow/--try-deny replace project_path_pattern, not it"
+        )
+    if selection.depends_on_rescued_parent:
+        warn(
+            "included only through extract_project_hierarchy, via a parent that "
+            "is itself included only that way; ingestion re-admits these in one "
+            "pass in Tableau's API listing order, so whether it is ingested can "
+            "depend on that order"
+        )
+    if not selection.included:
+        warn(
+            "an excluded project can still appear in DataHub as an empty "
+            "container when an included project below it needs it for its "
+            "browse path; its workbooks are not ingested"
+        )
+    return Verdict(selection.included, selection.excluded_by, selection.target)
+
+
+def probe_site_verdict(
+    config: SiteFilterConfig, name: str, warn: Callable[[str], None]
+) -> Optional[Verdict]:
+    """site_name_pattern applies only with ingest_multiple_sites; without it
+    ingestion reads the recipe's one site (TableauSource.get_workunits_internal)."""
+    if config.ingest_multiple_sites:
+        warn(
+            "sites whose state is not Active are skipped whatever "
+            "site_name_pattern says; `probe run sites` reports each site's state"
+        )
+        # No opinion: site_name_pattern on the site name decides, as in
+        # get_workunits_internal.
+        return None
+    warn(
+        "ingest_multiple_sites is off, so site_name_pattern is not applied: "
+        f"ingestion reads only the site whose content URL is '{config.site}'. "
+        "Judge a site by its content_url here"
+    )
+    if name == config.site:
+        return Verdict.include()
+    return Verdict(False, INGEST_MULTIPLE_SITES)
