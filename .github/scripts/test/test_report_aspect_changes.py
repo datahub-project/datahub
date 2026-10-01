@@ -2689,12 +2689,6 @@ def test_find_mutators_added_uses_hierarchy(monkeypatch):
     def fake_git(*args):
         if args[0] == "log":
             return log_output
-        if args[0] == "diff":
-            return (
-                "metadata-service/factories/src/main/java/com/example/MyNewMutator.java\n"
-                "metadata-service/factories/src/main/java/com/example/UnrelatedClass.java\n"
-                "metadata-service/factories/src/main/java/com/example/AnotherMutator.java\n"
-            )
         if args[0] == "show":
             # The ref looks like "abc123fff:path/to/file.java"
             ref = args[1]
@@ -2722,40 +2716,6 @@ def test_find_mutators_added_uses_hierarchy(monkeypatch):
     assert by_class["MyNewMutator"]["parent"] == "CriterionFilterMutatorBase"
     assert by_class["MyNewMutator"]["pr"] == "9999"
     assert by_class["AnotherMutator"]["parent"] == "AspectMigrationMutator"
-
-
-def test_find_mutators_added_skips_files_already_in_base(monkeypatch):
-    """A root commit in the window re-adds files that already existed at base;
-    only files that are new between the base and head trees count."""
-    new_path = "metadata-service/factories/src/main/java/com/example/NewMutator.java"
-    old_path = "metadata-service/factories/src/main/java/com/example/OldMutator.java"
-    log_output = (
-        "COMMIT abc123fff feat: add mutator (#9999)\n"
-        f"{new_path}\n"
-        "COMMIT def456eee Stacked merge of clean commits\n"
-        f"{old_path}\n"
-    )
-    shown: list[str] = []
-
-    def fake_git(*args):
-        if args[0] == "log" and args[1] == "-1":
-            return "Alice Example\n"
-        if args[0] == "log":
-            return log_output
-        if args[0] == "diff":
-            return f"{new_path}\n"
-        if args[0] == "show":
-            shown.append(args[1])
-            name = args[1].rsplit("/", 1)[-1].removesuffix(".java")
-            return f"public class {name} extends AspectMigrationMutator {{}}"
-        return ""
-
-    monkeypatch.setattr(rac, "_git", fake_git)
-    results = rac.find_mutators_added_in_window(
-        "v1.0", "HEAD", {"AspectMigrationMutator"}
-    )
-    assert [r["class_name"] for r in results] == ["NewMutator"]
-    assert not any(old_path in ref for ref in shown)
 
 
 def test_render_mutator_section_empty_returns_empty_list():

@@ -249,6 +249,91 @@ def _extract_method_return_int(
     return int(m.group(1)) if m else None
 
 
+def java_files_added_between(base: str, head: str) -> set[str]:
+    """Paths of .java files present at `head` but not at `base`.
+
+    `git log --diff-filter=A base..head` also lists files re-added by root
+    commits (history rewrites re-add the whole tree), which can mean tens of
+    thousands of files that already existed at `base`. Filtering log entries
+    through this set keeps only real additions.
+    """
+    try:
+        out = rac._git(
+            "diff", "--diff-filter=A", "--name-only", base, head, "--", "*.java"
+        )
+    except subprocess.CalledProcessError:
+        return set()
+    return {line.strip() for line in out.splitlines() if line.strip()}
+
+
+def find_mutators_added_in_window(
+    base: str, head: str, hierarchy: set[str]
+) -> list[dict]:
+    """Like `rac.find_mutators_added_in_window`, but only for files absent at `base`.
+
+    Rollback cares about mutators N has and N-1 lacks, so mutators backported
+    to N-1 are not new. Kept separate so the PDL change report is unchanged.
+    """
+    results: list[dict] = []
+    constants_map = rac._load_aspect_name_constants()
+    try:
+        out = rac._git(
+            "log", "--diff-filter=A", "--name-only",
+            "--format=COMMIT %H %s", f"{base}..{head}", "--", "*.java",
+        )
+    except subprocess.CalledProcessError:
+        return results
+
+    added = java_files_added_between(base, head)
+    current_sha: Optional[str] = None
+    current_subject: str = ""
+    for line in out.strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("COMMIT "):
+            parts = line.split(" ", 2)
+            current_sha = parts[1] if len(parts) > 1 else None
+            current_subject = parts[2] if len(parts) > 2 else ""
+            continue
+        if (
+            not line.endswith(".java")
+            or "/test/" in line
+            or current_sha is None
+            or line not in added
+        ):
+            continue
+        try:
+            content = rac._git("show", f"{current_sha}:{line}")
+        except subprocess.CalledProcessError:
+            continue
+        cp = rac._extract_class_and_parent(content)
+        if not cp:
+            continue
+        class_name, parent = cp
+        if parent not in hierarchy:
+            continue
+        try:
+            author = rac._git(
+                "log", "-1", "--format=%an", current_sha
+            ).strip() or None
+        except subprocess.CalledProcessError:
+            author = None
+        results.append({
+            "sha": current_sha[:10],
+            "pr": rac._extract_pr_number(current_subject),
+            "path": line,
+            "class_name": class_name,
+            "parent": parent,
+            "author": author,
+            "subject": current_subject,
+            "target_aspect": rac._extract_mutator_target_aspect(
+                content, constants_map
+            ),
+        })
+    return results
+
+
 def classify_mutators_for_rollback(
     current: str, target: str
 ) -> list[RollbackFinding]:
@@ -259,7 +344,7 @@ def classify_mutators_for_rollback(
     the retention window and Kafka replay cover the mutated data.
     """
     hierarchy = rac.discover_mutator_hierarchy()
-    mutators = rac.find_mutators_added_in_window(target, current, hierarchy)
+    mutators = find_mutators_added_in_window(target, current, hierarchy)
 
     # Deduplicate by (path, class_name) — same mutator touched by multiple PRs
     # should be a single finding with merged PR numbers.
@@ -362,7 +447,7 @@ def find_upgrade_steps_added_in_window(
     except subprocess.CalledProcessError:
         return results
 
-    added = rac.java_files_added_between(base, head)
+    added = java_files_added_between(base, head)
     current_sha: Optional[str] = None
     current_subject: str = ""
     for line in out.strip().splitlines():

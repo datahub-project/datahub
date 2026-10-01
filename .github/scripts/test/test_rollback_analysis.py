@@ -406,7 +406,7 @@ class TestClassifyMutatorsForRollback:
             "author": "dev",
         }]
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=mock_mutators), \
              patch.object(ra.rac, "file_at", return_value=mutator_java):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
@@ -432,7 +432,7 @@ class TestClassifyMutatorsForRollback:
             "author": None,
         }]
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=mock_mutators), \
              patch.object(ra.rac, "file_at", return_value=mutator_java):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
@@ -453,7 +453,7 @@ class TestClassifyMutatorsForRollback:
              "target_aspect": "testAspect", "pr": "200", "author": "dev"},
         ]
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=mock_mutators), \
              patch.object(ra.rac, "file_at", return_value=mutator_java):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
@@ -463,7 +463,7 @@ class TestClassifyMutatorsForRollback:
 
     def test_no_mutators_yields_empty(self):
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=[]):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
         assert findings == []
@@ -477,7 +477,7 @@ class TestClassifyMutatorsForRollback:
             "author": None,
         }]
         with patch.object(ra.rac, "discover_mutator_hierarchy", return_value={}), \
-             patch.object(ra.rac, "find_mutators_added_in_window",
+             patch.object(ra, "find_mutators_added_in_window",
                           return_value=mock_mutators), \
              patch.object(ra.rac, "file_at", return_value=None):
             findings = ra.classify_mutators_for_rollback("N", "N-1")
@@ -909,3 +909,40 @@ class TestOrderWarning:
             )
         )
         assert data["warning"] == "swapped"
+
+
+class TestFindMutatorsAddedInWindow:
+    def test_skips_files_already_in_base(self):
+        """A root commit in the window re-adds files that already existed at
+        base; only files that are new between the base and head trees count."""
+        new_path = "metadata-service/factories/src/main/java/com/example/NewMutator.java"
+        old_path = "metadata-service/factories/src/main/java/com/example/OldMutator.java"
+        log_output = (
+            "COMMIT abc123fff feat: add mutator (#9999)\n"
+            f"{new_path}\n"
+            "COMMIT def456eee Stacked merge of clean commits\n"
+            f"{old_path}\n"
+        )
+        shown: list[str] = []
+
+        def fake_git(*args):
+            if args[:2] == ("log", "-1"):
+                return "Alice Example\n"
+            if args[0] == "log":
+                return log_output
+            if args[0] == "diff":
+                return f"{new_path}\n"
+            if args[0] == "show":
+                shown.append(args[1])
+                name = args[1].rsplit("/", 1)[-1].removesuffix(".java")
+                return f"public class {name} extends AspectMigrationMutator {{}}"
+            return ""
+
+        with patch.object(ra.rac, "_git", side_effect=fake_git), \
+             patch.object(ra.rac, "_load_aspect_name_constants", return_value={}):
+            results = ra.find_mutators_added_in_window(
+                "v1.0", "HEAD", {"AspectMigrationMutator"}
+            )
+        assert [r["class_name"] for r in results] == ["NewMutator"]
+        assert results[0]["pr"] == "9999"
+        assert not any(old_path in ref for ref in shown)
