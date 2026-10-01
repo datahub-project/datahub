@@ -128,8 +128,8 @@ modelling Views that lineage edges typically point at are therefore missing
 from the catalog alone, and their downstream edges would render as dangling
 nodes.
 
-When `expose_for_consumption_only` is `false` (the default), the connector
-ALSO discovers Views and Analytic Models via the design-time listing under
+Set `discover_unexposed_views: true` to ALSO discover Views and Analytic
+Models via the design-time listing under
 `/dwaas-core/api/v1/spaces/X/{views,analyticmodels}` — the same object
 surface the official `datasphere` CLI exposes as
 `datasphere objects views list` /
@@ -137,12 +137,10 @@ surface the official `datasphere` CLI exposes as
 [Accessing SAP Datasphere via the Command Line](https://help.sap.com/docs/SAP_DATASPHERE/d0ecd6f297ac40249072a44df0549c1a/f7d5eddf20a34a1aa48d8e2c684e9d33.html)).
 Names already returned by the catalog are not re-emitted (the catalog path
 keeps EDMX schema and labels). Design-time-only assets get schema and
-lineage from their CSN. Set `expose_for_consumption_only: true` to skip
-that design-time pass and keep only catalog assets with an exposure URL.
+lineage from their CSN. No-op when `expose_for_consumption_only: true`.
 
-Cost when the design-time pass runs: one list call per type per space, plus
-one CSN fetch per newly discovered asset. Reported under
-`report.non_consumption_views_emitted`.
+Cost: one list call per type per space, plus one CSN fetch per newly
+discovered asset. Reported under `report.non_consumption_views_emitted`.
 
 #### Local Tables (base tables)
 
@@ -278,9 +276,8 @@ Levers to reduce cost and scope:
   per-asset HTTP calls, so filtered-out assets are nearly free. Scope the run to
   the spaces / assets you actually need.
 - **`expose_for_consumption_only: true`** — skip catalog assets that have no
-  consumption exposure URL and skip the design-time dwaas-core Views /
-  Analytic Models listing. Leave it `false` (default) to ALSO discover
-  unexposed Views / Analytic Models via dwaas-core.
+  consumption exposure URL. To also discover unexposed Views / Analytic
+  Models, set `discover_unexposed_views: true` (no-op when this flag is True).
 - **`include_view_definitions: false` AND `include_lineage: false`** — together
   these skip the per-asset CSN fetch, roughly **halving** the HTTP calls for
   users who only need catalog + schema (no lineage / view definitions).
@@ -405,14 +402,13 @@ space (see **Prerequisites → Space membership**).
 
 A second, common cause is **Expose for Consumption**: the Catalog API only
 lists assets exposed for consumption. Views need that switch enabled;
-Analytic Models are exposed automatically when deployed. With
-`expose_for_consumption_only: false` (default), the connector also lists
-design-time Views / Analytic Models via dwaas-core so unexposed intermediate
-modelling views appear as real nodes. If you set
-`expose_for_consumption_only: true`, that design-time pass is skipped and
-lineage edges to unexposed views can again render as
-_"This entity does not exist"_. `include_local_tables` covers base tables
-only — it does not surface unexposed Views.
+Analytic Models are exposed automatically when deployed. Unexposed
+intermediate modelling views therefore never appear, and lineage edges that
+point at them render as _"This entity does not exist"_. Set
+`discover_unexposed_views: true` (and keep
+`expose_for_consumption_only: false`) to discover those design-time objects
+via dwaas-core. `include_local_tables` covers base tables only — it does not
+surface unexposed Views.
 
 #### HTTP 429 throttling
 

@@ -392,7 +392,10 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._emit_space(space_name, space_label)
                 yield from self._emit_assets_in_space(space_name)
 
-                if not self.config.expose_for_consumption_only:
+                if (
+                    self.config.discover_unexposed_views
+                    and not self.config.expose_for_consumption_only
+                ):
                     yield from self._emit_non_consumption_views_for_space(space_name)
 
                 if self.config.include_local_tables:

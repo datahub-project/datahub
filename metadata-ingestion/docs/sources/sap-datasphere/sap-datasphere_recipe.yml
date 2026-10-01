@@ -126,9 +126,11 @@ source:
       deny:
         - "^STAGING_.*"
 
-    # false (default): also discover unexposed Views / Analytic Models via dwaas-core
-    # true: catalog assets with an exposure URL only
     expose_for_consumption_only: false
+
+    # Also discover Views / Analytic Models absent from the consumption catalog
+    # via dwaas-core (closes dangling lineage to unexposed modelling views).
+    # discover_unexposed_views: true
 
     # HTTP behavior
     request_timeout_sec: 30

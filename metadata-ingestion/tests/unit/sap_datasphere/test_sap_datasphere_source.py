@@ -3583,8 +3583,8 @@ def test_include_local_tables_off_by_default(requests_mock):
     assert source.report.local_tables_emitted == 0
 
 
-def test_expose_false_emits_non_consumption_views(requests_mock):
-    """Default mode emits design-time Views missing from the catalog."""
+def test_discover_unexposed_views_emits_missing_catalog_views(requests_mock):
+    """discover_unexposed_views emits design-time Views missing from the catalog."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3652,6 +3652,7 @@ def test_expose_false_emits_non_consumption_views(requests_mock):
         base_url=tenant,
         token="t",
         include_lineage=True,
+        discover_unexposed_views=True,
     )
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     workunits = list(source.get_workunits())
@@ -3686,7 +3687,7 @@ def test_expose_false_emits_non_consumption_views(requests_mock):
     assert "COL_B" in upstream_schemas[0]
 
 
-def test_expose_false_emits_non_consumption_analytic_model(requests_mock):
+def test_discover_unexposed_views_emits_analytic_model(requests_mock):
     """Design-time Analytic Models get the Analytic Model subtype."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
@@ -3717,6 +3718,7 @@ def test_expose_false_emits_non_consumption_analytic_model(requests_mock):
     config = SapDatasphereConfig(
         base_url=tenant,
         token="t",
+        discover_unexposed_views=True,
     )
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     workunits = list(source.get_workunits())
@@ -3732,7 +3734,7 @@ def test_expose_false_emits_non_consumption_analytic_model(requests_mock):
     assert DatasetSubTypes.SAP_ANALYTICAL_MODEL in subtype_aspects[0].typeNames
 
 
-def test_non_consumption_views_skips_catalog_duplicates(requests_mock):
+def test_discover_unexposed_views_skips_catalog_duplicates(requests_mock):
     """Catalog names are not re-emitted from the design-time list."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
@@ -3777,6 +3779,7 @@ def test_non_consumption_views_skips_catalog_duplicates(requests_mock):
     config = SapDatasphereConfig(
         base_url=tenant,
         token="t",
+        discover_unexposed_views=True,
     )
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
     workunits = list(source.get_workunits())
@@ -3792,8 +3795,8 @@ def test_non_consumption_views_skips_catalog_duplicates(requests_mock):
     assert source.report.non_consumption_views_emitted == 0
 
 
-def test_expose_for_consumption_only_skips_design_time_listing(requests_mock):
-    """expose_for_consumption_only=true does not call design-time list APIs."""
+def test_discover_unexposed_views_noop_when_expose_only(requests_mock):
+    """expose_for_consumption_only=true makes discover_unexposed_views a no-op."""
     tenant = "https://test.eu10.hcs.cloud.sap"
     requests_mock.get(
         f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
@@ -3815,6 +3818,7 @@ def test_expose_for_consumption_only_skips_design_time_listing(requests_mock):
     config = SapDatasphereConfig(
         base_url=tenant,
         token="t",
+        discover_unexposed_views=True,
         expose_for_consumption_only=True,
     )
     source = SapDatasphereSource(PipelineContext(run_id="t"), config)
@@ -3825,12 +3829,41 @@ def test_expose_for_consumption_only_skips_design_time_listing(requests_mock):
     ), "design-time list endpoints must not be called when expose-only"
 
 
-def test_non_consumption_views_managed_unresolvable_skips_space(requests_mock):
+def test_discover_unexposed_views_off_by_default(requests_mock):
+    """Default recipes do not list design-time Views / Analytic Models."""
+    tenant = "https://test.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{tenant}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{tenant}/api/v1/datasphere/spaces/S1/connections", json=[])
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/views",
+        status_code=500,
+    )
+    requests_mock.get(
+        f"{tenant}/dwaas-core/api/v1/spaces/S1/analyticmodels",
+        status_code=500,
+    )
+    config = SapDatasphereConfig(base_url=tenant, token="t")
+    source = SapDatasphereSource(PipelineContext(run_id="t"), config)
+    list(source.get_workunits())
+    assert config.discover_unexposed_views is False
+    assert source.report.non_consumption_views_emitted == 0
+    assert not any("Failed to list" in (w.title or "") for w in source.report.warnings)
+
+
+def test_discover_unexposed_views_managed_unresolvable_skips_space(requests_mock):
     """Unresolvable _managed skips the design-time pass with a warning."""
     cfg = SapDatasphereConfig.model_validate(
         {
             "base_url": "https://myco.eu10.hcs.cloud.sap",
             "token": "tok",
+            "discover_unexposed_views": True,
             "connection_to_platform_map": {
                 "_managed": {"platform": "hana", "enabled": False},
             },

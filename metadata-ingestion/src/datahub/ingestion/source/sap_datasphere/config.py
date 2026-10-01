@@ -251,10 +251,18 @@ class SapDatasphereConfig(
     expose_for_consumption_only: bool = Field(
         default=False,
         description=(
-            "If True, only emit catalog assets with an "
-            "`assetRelationalMetadataUrl` and skip design-time Views / "
-            "Analytic Models listing. If False (default), also discover "
-            "unexposed Views / Analytic Models via dwaas-core."
+            "If True, only emit datasets that have an `assetRelationalMetadataUrl` set "
+            "(i.e., assets exposed for consumption via the SAP Datasphere consumption API). "
+            "Assets without an exposure URL are counted in `assets_filtered`. "
+            "Useful when you want DataHub to only show consumable views."
+        ),
+    )
+    discover_unexposed_views: bool = Field(
+        default=False,
+        description=(
+            "If True, also discover Views / Analytic Models absent from the "
+            "consumption catalog via dwaas-core. No-op when "
+            "`expose_for_consumption_only` is True. Off by default."
         ),
     )
     convert_urns_to_lowercase: bool = Field(
