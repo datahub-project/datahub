@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Set, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 import pytest
 from pyiceberg.catalog import load_catalog
@@ -9,6 +9,7 @@ from pyiceberg.exceptions import (
     NoSuchNamespaceError,
     NoSuchTableError,
 )
+from pyiceberg.io import PY_IO_IMPL, load_file_io
 from pyiceberg.io.pyarrow import PyArrowFileIO
 from pyiceberg.partitioning import PartitionSpec
 from pyiceberg.schema import Schema
@@ -16,14 +17,14 @@ from pyiceberg.table import Table
 from pyiceberg.table.metadata import TableMetadataV2
 from pyiceberg.types import LongType, NestedField, StringType
 
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.iceberg.iceberg import IcebergSource
 from datahub.ingestion.source.iceberg.iceberg_common import IcebergSourceConfig
-from datahub.utilities.urns.dataset_urn import DatasetUrn
+from tests.test_helpers.iceberg_probe_helpers import (
+    ingested_dataset_names,
+    probe_included_dataset_names,
+)
 
 Identifier = Tuple[str, ...]
 
@@ -266,7 +267,12 @@ def test_a_file_io_that_cannot_start_is_a_connection_failure(
     catalog = _FakeCatalog({("sales",): ["orders"]})
 
     def _failing_load_table(identifier: Identifier) -> Table:
-        raise ValueError("Could not initialize FileIO: my_module.MyFileIO")
+        # pyiceberg's own raise, not a copy of its message: it signals this
+        # with a bare ValueError, so the probe (like ingestion) matches the
+        # text, and a pyiceberg rewording must fail here rather than turn
+        # exit 3 into exit 2 unnoticed.
+        load_file_io({PY_IO_IMPL: "no_such_module.NoSuchFileIO"})
+        raise AssertionError("load_file_io loaded a module that does not exist")
 
     monkeypatch.setattr(catalog, "load_table", _failing_load_table)
     _patch_catalog(monkeypatch, catalog)
@@ -324,51 +330,15 @@ _PARITY_PATTERNS: Dict[str, object] = {
 }
 
 
-def _ingested_dataset_names(config_dict: Dict[str, object]) -> Set[str]:
-    config = IcebergSourceConfig.model_validate(config_dict)
-    source = IcebergSource(config, PipelineContext(run_id="iceberg-probe-parity"))
-    names: Set[str] = set()
-    for wu in source.get_workunits_internal():
-        assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
-        urn = wu.metadata.entityUrn
-        if urn and urn.startswith("urn:li:dataset:"):
-            names.add(DatasetUrn.from_string(urn).name)
-    return names
-
-
-def _probe_included_dataset_names(config_dict: Dict[str, object]) -> Set[str]:
-    namespaces = run_probe_method("iceberg", config_dict, "namespaces", {}).result
-    assert isinstance(namespaces, list)
-    included: Set[str] = set()
-    for namespace in namespaces:
-        listing = run_probe_method(
-            "iceberg", config_dict, "tables", {"namespace": namespace}
-        )
-        assert isinstance(listing.result, list)
-        verdicts = check_filters(
-            source_type="iceberg",
-            config_dict=config_dict,
-            kind=str(listing.kind),
-            parent_path=listing.parent_path,
-            names=listing.result,
-        )
-        # A degraded verdict (bare-name match, ignored parent) would agree
-        # with ingestion here only by accident.
-        assert not [w for w in verdicts.warnings if "bare name" in w]
-        assert not [w for w in verdicts.warnings if "does not declare" in w]
-        included |= {f"{namespace}.{r.name}" for r in verdicts.results if r.included}
-    return included
-
-
 def test_probe_filter_agrees_with_ingestion(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_catalog(monkeypatch, _FakeCatalog(_PARITY_CATALOG))
     config_dict = _config_dict(**_PARITY_PATTERNS)
 
-    ingested = _ingested_dataset_names(config_dict)
+    ingested = ingested_dataset_names(config_dict)
 
     # Pinned so a broken fake cannot make both sides agree on an empty set.
     assert ingested == {"sales.orders"}
-    assert _probe_included_dataset_names(config_dict) == ingested
+    assert probe_included_dataset_names(config_dict) == ingested
 
 
 def test_probe_filter_agrees_with_ingestion_on_a_real_catalog(
@@ -399,10 +369,10 @@ def test_probe_filter_agrees_with_ingestion_on_a_real_catalog(
         **_PARITY_PATTERNS,
     }
 
-    ingested = _ingested_dataset_names(config_dict)
+    ingested = ingested_dataset_names(config_dict)
 
     assert ingested == {"sales.orders"}
-    assert _probe_included_dataset_names(config_dict) == ingested
+    assert probe_included_dataset_names(config_dict) == ingested
 
 
 def test_a_table_is_judged_on_its_qualified_name() -> None:
