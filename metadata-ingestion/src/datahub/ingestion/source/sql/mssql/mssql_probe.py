@@ -31,14 +31,21 @@ def _server_spelling(name: str, known: List[str], what: str, hint: str) -> str:
     to. Matching against what the server lists means only real names travel.
 
     Exact first: a case-sensitive collation can hold both spellings. Then
-    case-insensitively, which is what the default collation does.
+    case-insensitively, which is what the default collation does -- but only
+    to a single listed name. Two that fold together can only come from a
+    case-sensitive collation, where the caller's spelling names neither.
     """
     if name in known:
         return name
     folded = name.casefold()
-    for candidate in known:
-        if candidate.casefold() == folded:
-            return candidate
+    candidates = [c for c in known if c.casefold() == folded]
+    if len(candidates) == 1:
+        return candidates[0]
+    if candidates:
+        raise ValueError(
+            f"'{name}' matches {what}s {', '.join(sorted(candidates))} only by "
+            f"case, and this server tells them apart; pass one exactly"
+        )
     raise ValueError(f"no {what} '{name}' here; {hint}")
 
 
@@ -384,7 +391,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
             # Ingestion would query `[].[sys].[procedures]` here and fail.
             raise ValueError(
                 "this recipe's connection names no database, and procedures are "
-                "read by database name; set `database` in the recipe"
+                "read by database name; name the database in sqlalchemy_uri"
             )
         with at.engine.connect() as conn:
             rows = SQLServerSource._get_stored_procedures(conn, at.database, at.schema)

@@ -123,14 +123,19 @@ Server's system databases, so every command except `databases` and `sql` needs `
 probe refuses rather than answer from the login's default database, which ingestion never reads.
 `databases` lists the candidates, including ones `database_pattern` would exclude, so
 `probe filter --kind Database` can explain them. A recipe that sets `database` or
-`sqlalchemy_uri` reads exactly one database, and the probe answers only about that one. Database,
+`sqlalchemy_uri` reads exactly one database, and the probe answers only about that one. When the
+`sqlalchemy_uri` names no database, that one is the login's default, which cannot be named without
+connecting: `probe filter --kind Database` then includes every name with a warning, and reports
+every stored procedure excluded, because ingestion's procedure query needs the database name. Database,
 schema and table names are matched against the server's own listing before they are used, and
 `quote_schemas` is honoured as ingestion honours it. `probe filter --kind "Stored Procedure"`
 judges `procedure_pattern` against `database.schema.procedure`, as ingestion does, and reports
-every procedure excluded when `include_stored_procedures` is off. On a multi-database recipe `sql`
-admits three-part catalog names (`OtherDb.sys.tables`) for any database the login can read,
-including ones `database_pattern` excludes and system databases; it still reads catalog metadata
-only, never table rows.
+every procedure excluded when `include_stored_procedures` is off. `sql` takes no `--database`: it
+runs on the recipe's own connection, so on a multi-database recipe an unqualified name such as
+`sys.tables` reads the login's default database (usually `master`), not one ingestion walks.
+Qualify it instead: `sql` admits three-part catalog names (`OtherDb.sys.tables`) for any database
+the login can read, including ones `database_pattern` excludes and system databases; it still
+reads catalog metadata only, never table rows.
 
 ### Limitations
 
