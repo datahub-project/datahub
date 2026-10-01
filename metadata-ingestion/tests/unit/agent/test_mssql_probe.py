@@ -431,3 +431,107 @@ def test_the_procedure_query_binds_the_schema_and_quotes_the_database() -> None:
     assert "[Odd]]Db].[sys].[procedures]" in statement
     assert "Foo's" not in statement
     assert params == {"schema": "Foo's"}
+
+
+def test_pinned_recipe_database_verdicts_follow_the_pin() -> None:
+    config = {
+        **_BASE,
+        "database": "DemoData",
+        "database_pattern": {"deny": ["^DemoData$"]},
+    }
+    result = check_filters(
+        source_type="mssql",
+        config_dict=config,
+        kind="Database",
+        parent_path=[],
+        names=["demodata", "NewData", "master"],
+    )
+    assert [(v.included, v.excluded_by) for v in result.results] == [
+        (True, None),  # get_inspectors never consults database_pattern when pinned
+        (False, "database"),  # ...and never opens another database
+        (False, "database"),
+    ]
+
+
+def test_a_pinned_system_database_is_read() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, "database": "master"},
+        kind="Database",
+        parent_path=[],
+        names=["master"],
+    )
+    assert result.results[0].included
+
+
+def test_a_multi_database_recipe_still_excludes_system_databases() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict=_BASE,
+        kind="Database",
+        parent_path=[],
+        names=["master", "DemoData"],
+    )
+    assert [(v.included, v.excluded_by) for v in result.results] == [
+        (False, "default_database"),
+        (True, None),
+    ]
+
+
+def test_a_table_under_another_database_is_excluded_on_a_pinned_recipe() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, "database": "DemoData"},
+        kind="Table",
+        parent_path=["NewData", "dbo"],
+        names=["orders"],
+    )
+    assert result.results[0].excluded_by == "database"
+
+
+@pytest.mark.parametrize(
+    "extra, parent_path, target",
+    [
+        # get_identifier prefixes config.database, whatever --parent spells.
+        ({"database": "DemoData"}, ["demodata", "dbo"], "DemoData.dbo.orders"),
+        ({"database": "DemoData"}, ["dbo"], "DemoData.dbo.orders"),
+        # sqlalchemy_uri sets no current_database, so ingestion qualifies
+        # nothing -- a --parent database must not add one.
+        (
+            {
+                "sqlalchemy_uri": "mssql+pyodbc:///?odbc_connect=DRIVER%3D%7Bx%7D%3BDATABASE%3DNewData%3B"
+            },
+            ["NewData", "dbo"],
+            "dbo.orders",
+        ),
+        ({}, ["DemoData", "dbo"], "DemoData.dbo.orders"),
+    ],
+)
+def test_table_targets_are_the_identifier_ingestion_builds(
+    extra: Dict[str, object], parent_path: List[str], target: str
+) -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, **extra},
+        kind="Table",
+        parent_path=parent_path,
+        names=["orders"],
+    )
+    assert result.results[0].target == target
+    assert result.results[0].included
+
+
+def test_multi_database_recipe_warns_when_the_database_parent_is_missing() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={
+            **_BASE,
+            "table_pattern": {"allow": ["^DemoData\\.dbo\\.orders$"]},
+        },
+        kind="Table",
+        parent_path=["dbo"],
+        names=["orders"],
+    )
+    assert any("--parent" in w and "database" in w for w in result.warnings), (
+        result.warnings
+    )

@@ -45,7 +45,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.sql_gate import (
     CatalogScope,
 )
-from datahub.ingestion.agent.verdicts import ClassifyContext
+from datahub.ingestion.agent.verdicts import ClassifyContext, Verdict, VerdictContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -262,6 +262,12 @@ def add_sql_variant_converter(dbapi_connection: Any) -> None:
             "Failed to mount output converter for MSSQL data type -150 due to %s",
             e,
         )
+
+
+# SQLServerSource.get_identifier takes an inspector and never reads it; the
+# probe has none to give, and opening one to satisfy the signature would be a
+# connection for nothing.
+_NO_INSPECTOR = cast(Inspector, None)
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
@@ -588,6 +594,65 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         if kind == JobContainerSubTypes.STORED_PROCEDURE:
             return (DatasetContainerSubTypes.DATABASE, DatasetContainerSubTypes.SCHEMA)
         return super().probe_ancestor_kinds(kind)
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # get_inspectors' single-inspector branch: the pin is read whatever
+        # database_pattern and MSSQL_SYSTEM_DATABASES say, and nothing else
+        # is. Overrules ctx.structural on purpose: a pinned `master` is read.
+        if ctx.kind != DatasetContainerSubTypes.DATABASE:
+            return None
+        if not self.is_single_database_recipe():
+            return None
+        pinned = self.pinned_database_name()
+        if not pinned:
+            # The login's default database: its name is not knowable offline.
+            ctx.warn(
+                "this recipe's connection names no database, so ingestion reads "
+                "only the login's default one; whether that is the one named "
+                "here cannot be told without connecting"
+            )
+            return None
+        if ctx.name.casefold() == pinned.casefold():
+            return Verdict.include()
+        return Verdict(
+            included=False,
+            excluded_by="sqlalchemy_uri" if self.sqlalchemy_uri else "database",
+        )
+
+    def probe_filter_target(
+        self,
+        schema: str,
+        entity: str,
+        warn: Callable[[str], None],
+        database: Optional[str] = None,
+    ) -> Optional[str]:
+        if database is None:
+            if not self.is_single_database_recipe():
+                # get_identifier (the shim, reached by returning None) builds
+                # `schema.table` without a database, which ingestion -- always
+                # carrying current_database on this kind of recipe -- never
+                # matches.
+                warn(
+                    "this recipe sets no `database`, so ingestion qualifies "
+                    "each table with the database it was found in; pass that "
+                    "database as the first --parent (a `tables --database` "
+                    "result carries it) -- judged on 'schema.table' instead"
+                )
+            return None
+        if not self.is_single_database_recipe():
+            return None
+        # A pinned recipe never sets current_database (get_inspectors' single
+        # branch), so the shim's per-database value must not reach
+        # get_identifier: it would prefix a database a sqlalchemy_uri recipe
+        # never names, or the caller's spelling of a `database` one. A
+        # --parent naming another database is excluded by the Database
+        # verdict above, so the target only has to be right for the pin.
+        source = SQLServerSource.__new__(SQLServerSource)
+        source.config = self
+        source.current_database = None
+        return source.get_identifier(
+            schema=schema, entity=entity, inspector=_NO_INSPECTOR
+        )
 
     @classmethod
     def probe_kind_switches(cls) -> Mapping[str, str]:
