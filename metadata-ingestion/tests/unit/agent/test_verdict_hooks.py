@@ -395,3 +395,17 @@ def test_an_inconsistent_override_verdict_is_a_connector_defect(
     _register(monkeypatch, _Contradicts)
     with pytest.raises(ProbeInternalError):
         _judge(str(DatasetContainerSubTypes.DATABASE), ["db"])
+
+
+def test_exclude_names_its_reason_and_keeps_the_matched_target() -> None:
+    verdict = Verdict.exclude("table_pattern", matched_target="db.orders")
+    assert (verdict.included, verdict.excluded_by, verdict.matched_target) == (
+        False,
+        "table_pattern",
+        "db.orders",
+    )
+
+
+def test_exclude_refuses_an_exclusion_without_a_reason() -> None:
+    with pytest.raises(ValueError):
+        Verdict.exclude("")

@@ -38,6 +38,21 @@ class Verdict:
     def include(cls) -> "Verdict":
         return cls(True, None)
 
+    @classmethod
+    def exclude(
+        cls, excluded_by: str, matched_target: Optional[str] = None
+    ) -> "Verdict":
+        """An exclusion, naming the field or rule that decided it.
+
+        Prefer this to `Verdict(False, ...)` in a connector's selection module.
+        Ingestion calls those functions directly, outside probe_verdict_override's
+        consistency check, so an exclusion without a reason would never be
+        caught there.
+        """
+        if not excluded_by:
+            raise ValueError("an excluded verdict must name what excluded it")
+        return cls(False, excluded_by, matched_target)
+
 
 @dataclass(frozen=True)
 class SchemaMatch:
