@@ -44,6 +44,36 @@ DataHub will still create **table-level lineage** for these tables, even though 
 
 **Observability**: The ingestion report tracks these tables using the counter `num_upstream_table_processed_without_columns`.
 
+### Probing a Tableau recipe
+
+`datahub recipe probe` checks a Tableau recipe against the live site before a run. It signs in with the recipe's own credentials, SSL and proxy settings, and returns metadata only.
+
+| Command            | Parameters              | Returns                                                                                                    |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `site`             | none                    | The recipe's site, the credential's site role, and whether that role is enough for a complete ingestion    |
+| `sites`            | `limit`                 | Each visible site's name, content URL and state. Needs server administrator rights; otherwise empty        |
+| `projects`         | `limit`                 | Every project as its full path, joined by `project_path_separator`, including projects the recipe excludes |
+| `workbooks`        | `project_path`, `limit` | The workbooks directly in one project                                                                      |
+| `database_servers` | `limit`                 | Upstream database servers: id, name, host name and connection type                                         |
+
+For example, to see which projects exist, whether one is ingested, and what it holds:
+
+```shell
+datahub recipe probe run projects --recipe recipe.yml
+datahub recipe probe filter --recipe recipe.yml --kind Project --name "Sales/EMEA"
+datahub recipe probe run workbooks --recipe recipe.yml --project-path "Sales/EMEA"
+```
+
+`probe filter` gives the verdict ingestion makes. Keep these rules in mind when you read it:
+
+- Projects are addressed and matched by their path, such as `Sales/EMEA`, not by their bare name. `project_path_pattern` is matched against that path.
+- With `extract_project_hierarchy` (the default), a child of a selected project is included unless a deny pattern names it, even if no allow pattern matches it. Exclusion does not pass down: with `allow: ["^Sales/EMEA$"]`, `Sales` is excluded and `Sales/EMEA` is included.
+- An excluded parent project can still appear in DataHub as an empty container, because an included project below it needs it for its browse path. Its workbooks are not ingested.
+
+`database_servers` lists the ids and host names that `database_id_to_platform_instance_map` and `database_hostname_to_platform_instance_map` are keyed on. It needs the Metadata API to be enabled.
+
+The probe deliberately has no raw REST or Metadata API passthrough. It never returns custom SQL, Initial SQL, view data, workbook or data source downloads, or users and groups.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
