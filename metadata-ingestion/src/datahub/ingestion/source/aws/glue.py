@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
+    TYPE_CHECKING,
+    Annotated,
     Any,
     Dict,
     Iterable,
@@ -29,7 +31,7 @@ from datahub.api.entities.dataset.dataset import Dataset
 from datahub.api.entities.external.lake_formation_external_entites import (
     LakeFormationTag,
 )
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter import mce_builder
@@ -153,6 +155,10 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
 
+if TYPE_CHECKING:
+    from mypy_boto3_glue import GlueClient
+    from mypy_boto3_s3 import S3Client
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "glue"
@@ -220,6 +226,16 @@ def _sanitize_jdbc_url(jdbc_url: str) -> str:
     return f"{JDBC_PREFIX}{parsed.scheme}://{safe_netloc}{parsed.path}"
 
 
+def glue_catalog_kwargs(catalog_id: Optional[str]) -> Dict[str, Any]:
+    """The CatalogId argument every Glue catalog listing passes: the recipe's
+    catalog_id, or nothing for the calling account's own catalog.
+
+    One definition, shared with the probe, so `probe run` pages exactly the
+    catalog ingestion pages.
+    """
+    return {"CatalogId": catalog_id} if catalog_id else {}
+
+
 class TargetPlatformConfig(ConfigModel):
     """Config for aligning dataset URNs with a separately ingested platform."""
 
@@ -266,6 +282,29 @@ class GlueSourceConfig(
     platform: str = Field(
         default=DEFAULT_PLATFORM,
         description=f"The platform to use for the dataset URNs. Must be one of {VALID_PLATFORMS}.",
+    )
+
+    # Redeclared from AwsSourceConfig only to carry Filters(...): pydantic v2
+    # replaces an inherited field's annotation wholesale, and `probe filter`
+    # and `recipe describe` read which level a pattern filters from it.
+    # AwsSourceConfig is shared with DynamoDB and SageMaker, so the
+    # annotation belongs here rather than there.
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for databases to filter in ingestion.",
+    )
+    table_pattern: Annotated[
+        AllowDenyPattern,
+        Filters(DatasetSubTypes.TABLE),
+        Filters(DatasetSubTypes.VIEW),
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "regex patterns for tables and views to filter in ingestion, "
+            "matched against `<database>.<table>`."
+        ),
     )
 
     # https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-owner
@@ -409,6 +448,13 @@ class GlueSourceConfig(
             "`aws-cn` for China, and the `aws-iso*` partitions for isolated regions."
         ),
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: glue_probe imports this module for the config type.
+        from datahub.ingestion.source.aws.glue_probe import GlueMetadataProbe
+
+        return GlueMetadataProbe
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
@@ -997,6 +1043,35 @@ class GlueSource(StatefulIngestionSourceBase):
     def create(cls, config_dict, ctx):
         config = GlueSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    @classmethod
+    def for_probe(
+        cls,
+        config: GlueSourceConfig,
+        glue_client: "GlueClient",
+        s3_client: "S3Client",
+    ) -> "GlueSource":
+        """An uninitialized source whose per-object helpers the probe reuses.
+
+        __init__ builds the stateful-ingestion handler, a SqlParsingAggregator,
+        a Lake Formation client and, with a graph, a platform-resource
+        repository; the probe needs none of them. Only what those helpers read
+        is primed: _is_delta_schema reads source_config; get_dataflow_script,
+        get_dataflow_graph and process_dataflow_graph (with the connection
+        and JDBC resolvers they reach) read the clients, report, env, platform
+        and _glue_connection_cache. A helper reaching for anything else fails
+        with AttributeError, which the probe reports as a defect (exit 1).
+        """
+        source = cls.__new__(cls)
+        source.ctx = PipelineContext(run_id="glue-probe")
+        source.source_config = config
+        source.report = GlueSourceReport()
+        source.report.catalog_id = config.catalog_id
+        source.glue_client = glue_client
+        source.s3_client = s3_client
+        source.env = config.env
+        source._glue_connection_cache = {}
+        return source
 
     @property
     def platform(self) -> str:
@@ -1656,12 +1731,9 @@ class GlueSource(StatefulIngestionSourceBase):
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
         paginator = self.glue_client.get_paginator("get_databases")
 
-        if self.source_config.catalog_id:
-            paginator_response = paginator.paginate(
-                CatalogId=self.source_config.catalog_id
-            )
-        else:
-            paginator_response = paginator.paginate()
+        paginator_response = paginator.paginate(
+            **glue_catalog_kwargs(self.source_config.catalog_id)
+        )
 
         pattern = "DatabaseList"
         if self.source_config.ignore_resource_links:
@@ -1685,12 +1757,10 @@ class GlueSource(StatefulIngestionSourceBase):
         paginator = self.glue_client.get_paginator("get_tables")
         database_name = database["Name"]
 
-        if self.source_config.catalog_id:
-            paginator_response = paginator.paginate(
-                DatabaseName=database_name, CatalogId=self.source_config.catalog_id
-            )
-        else:
-            paginator_response = paginator.paginate(DatabaseName=database_name)
+        paginator_response = paginator.paginate(
+            DatabaseName=database_name,
+            **glue_catalog_kwargs(self.source_config.catalog_id),
+        )
 
         for table in paginator_response.search("TableList"):
             # Lake Formation can share individual tables across accounts as table-level
