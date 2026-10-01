@@ -479,11 +479,11 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 
     # --- Agent probe contract (see datahub.ingestion.agent.probe_methods) ---
     def list_databases(self, conn: Connection) -> List[str]:
-        # Raw database listing shared with get_inspectors() below -- no
-        # database_pattern applied here; callers (get_inspectors() and the
-        # Database-level agent probe below) apply that themselves, so the two
-        # paths query the exact same rows instead of each re-deriving the
-        # listing SQL.
+        # Raw database listing shared by get_inspectors() and the probe's
+        # `databases` command (SqlServerMetadataProbe) -- no database_pattern
+        # applied here; get_inspectors() applies it, and the probe leaves it to
+        # `probe filter`, so the two read the exact same rows instead of each
+        # re-deriving the listing SQL.
         return MSSQLQuery.list_databases(conn)
 
     @classmethod
@@ -491,7 +491,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         # Databases this source drops regardless of database_pattern -- SQL
         # Server's own system databases plus the reporting services pair.
         # Same shape as SQLCommonConfig.default_schemas() one level down: lets
-        # the Database-level probe below report one of these as
+        # `probe filter --kind Database` report one of these as
         # excluded_by: "default_database" instead of it silently never
         # appearing. Reuses MSSQLQuery's own exclusion list so the probe and
         # the query it mirrors cannot drift apart.
@@ -553,6 +553,15 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return source.get_identifier(
             schema=schema, entity=entity, inspector=cast(Inspector, None)
         )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: the provider imports this module
+        from datahub.ingestion.source.sql.mssql.mssql_probe import (
+            SqlServerMetadataProbe,
+        )
+
+        return SqlServerMetadataProbe
 
     @classmethod
     def probe_catalog_scope(cls) -> CatalogScope:
@@ -703,24 +712,7 @@ class SQLServerSource(SQLAlchemySource):
         add_sql_variant_converter(conn.connection)
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
-        # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
-        # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
-        table_metadata = conn.execute(
-            text(
-                """
-            SELECT
-              SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
-              T.NAME AS table_name,
-              EP.VALUE AS table_description
-            FROM sys.tables AS T
-            INNER JOIN sys.extended_properties AS EP
-              ON EP.MAJOR_ID = T.[OBJECT_ID]
-              AND EP.MINOR_ID = 0
-              AND EP.NAME = 'MS_Description'
-              AND EP.CLASS = 1
-            """
-            )
-        ).mappings()
+        table_metadata = conn.execute(text(MSSQLQuery.TABLE_DESCRIPTIONS)).mappings()
         for row in table_metadata:
             self.table_descriptions[
                 f"{db_name}.{row['schema_name']}.{row['table_name']}"
