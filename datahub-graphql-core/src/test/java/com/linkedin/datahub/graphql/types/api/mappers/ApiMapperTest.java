@@ -117,8 +117,7 @@ public class ApiMapperTest {
     assertEquals(result.getSignature().getInputDatasets().get(0).getUrn(), requestUrn.toString());
     assertEquals(result.getSignature().getInputDatasets().get(0).getType(), EntityType.DATASET);
     assertNotNull(result.getSignature().getOutputDatasets());
-    assertEquals(
-        result.getSignature().getOutputDatasets().get(0).getUrn(), responseUrn.toString());
+    assertEquals(result.getSignature().getOutputDatasets().get(0).getUrn(), responseUrn.toString());
 
     assertNotNull(result.getSubTypes());
     assertEquals(result.getSubTypes().getTypeNames().get(0), "MCP_TOOL");
