@@ -1,9 +1,23 @@
-from typing import Dict, Iterator, List, Optional, Tuple, Type, TypeVar, cast
+from typing import (
+    Callable,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
-from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
+from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
+from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
+    BIContainerSubTypes,
+)
 from datahub.ingestion.source.powerbi.config import (
     NON_ADDRESSABLE_WORKSPACE_TYPES,
     Constant,
@@ -166,3 +180,85 @@ class PowerBiMetadataProbe(RestApiPassthrough):
                 break
         self._note_withheld()
         return rows
+
+    def _workspace_or_raise(self, name: str) -> Workspace:
+        """Resolve a workspace name with one groups sweep. Names, not ids,
+        because the name is what workspace_name_pattern and --parent carry."""
+        matches = [ws for ws, _ in self._visible_workspaces() if ws.name == name]
+        if not matches:
+            # Only here: a withheld personal workspace may be the one named.
+            self._note_withheld()
+            raise ValueError(f"no workspace named '{name}' is listed for this recipe")
+        if len(matches) > 1:
+            raise ValueError(
+                f"{len(matches)} workspaces are named '{name}' "
+                f"(ids: {', '.join(ws.id for ws in matches)}); the probe "
+                f"addresses workspaces by name, so rename one to probe it"
+            )
+        workspace = matches[0]
+        # probe filter judges --parent on workspace_name_pattern only, since
+        # --parent carries no id or type; get_allowed_workspaces also requires
+        # these two, so say when either drops the workspace.
+        if not self._config.workspace_id_pattern.allowed(workspace.id):
+            self._warn(
+                f"workspace '{name}' (id {workspace.id}) is excluded by "
+                f"workspace_id_pattern, so ingestion reads nothing in it"
+            )
+        if workspace.type not in self._config.workspace_type_filter:
+            self._warn(
+                f"workspace '{name}' has type '{workspace.type}', which "
+                f"workspace_type_filter excludes, so ingestion reads nothing in it"
+            )
+        return workspace
+
+    def _scoped(
+        self, fetch: Callable[[], List[Dict[str, object]]], context: str
+    ) -> List[Dict[str, object]]:
+        # 403/404 on one workspace's listing degrades; auth and 5xx raise.
+        try:
+            with soft_on_status(403, 404, context=context):
+                return fetch()
+        except ProbeSoftError as exc:
+            self._warn(str(exc))
+            return []
+
+    @probe_method(kind=BIAssetSubTypes.REPORT, parent_params=("workspace",))
+    def reports(self, workspace: str) -> List[Dict[str, object]]:
+        """Reports in one workspace, by workspace name. `type` is Report or
+        PaginatedReport, the subtype ingestion emits; filter a paginated one
+        with `--kind PaginatedReport`. App-published duplicates are dropped as
+        ingestion drops them. Read from the workspace's report listing;
+        ingestion can also see objects through the admin scan, so a shorter
+        list here can point at the credential's workspace membership. Nothing
+        filters reports themselves -- their workspace's verdict decides.
+        Metadata only."""
+        ws = self._workspace_or_raise(workspace)
+        if not self._config.extract_reports:
+            self._warn("extract_reports is false, so ingestion emits none of these")
+        return self._scoped(
+            lambda: [
+                {"name": r.name, "id": r.id, "type": r.type.value}
+                for r in self._listing_resolver().get_reports(ws)
+            ],
+            context=f"reports listing for workspace '{workspace}'",
+        )
+
+    # Kind "Dashboard": PowerBI dashboards are emitted with no SubTypes
+    # aspect, so the entity type is the only name a caller has for them.
+    @probe_method(kind=BIAssetSubTypes.DASHBOARD, parent_params=("workspace",))
+    def dashboards(self, workspace: str) -> List[Dict[str, object]]:
+        """Dashboards in one workspace, by workspace name, with app-published
+        duplicates dropped as ingestion drops them. Nothing filters dashboards
+        themselves -- their workspace's verdict decides. Metadata only."""
+        ws = self._workspace_or_raise(workspace)
+        if not self._config.extract_dashboards:
+            self._warn(
+                "extract_dashboards is false, so ingestion emits none of these"
+            )
+        return self._scoped(
+            lambda: [
+                {"name": d.displayName, "id": d.id}
+                for d in self._listing_resolver().get_dashboards(ws)
+            ],
+            context=f"dashboards listing for workspace '{workspace}'",
+        )
