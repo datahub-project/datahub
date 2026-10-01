@@ -15,6 +15,7 @@ import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
@@ -46,7 +47,8 @@ public class SearchClusterRegistryFactory {
           final Map<String, Map<String, String>> indexSettingOverrides,
       final GitVersion gitVersion,
       final ObjectMapper objectMapper,
-      final MetricUtils metricUtils) {
+      final MetricUtils metricUtils,
+      @Nullable final SystemTelemetryContext systemTelemetryContext) {
 
     ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
     Map<String, SearchClusterRegistry.ClusterConnection> connections = new LinkedHashMap<>();
@@ -73,7 +75,9 @@ public class SearchClusterRegistryFactory {
               cluster.getThreadCount() == null
                   ? esConfig.getThreadCount()
                   : cluster.getThreadCount(),
-              metricUtils);
+              metricUtils,
+              ElasticSearchBulkProcessorFactory.attribution(configurationProvider),
+              systemTelemetryContext != null ? systemTelemetryContext.getTracer() : null);
 
       ESIndexBuilder indexBuilder =
           new ESIndexBuilder(

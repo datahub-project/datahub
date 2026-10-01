@@ -46,10 +46,24 @@ public class BulkListener implements BulkProcessor.Listener {
     return new BulkListener(refreshPolicy, metricUtils, tracker, requeueSupport);
   }
 
+  /**
+   * Like {@link #create(WriteRequest.RefreshPolicy, MetricUtils, BulkWriteResultTracker,
+   * BulkItemRequeueSupport)} with bulk-write attribution (see {@link BulkTelemetry}).
+   */
+  public static BulkListener create(
+      @Nullable WriteRequest.RefreshPolicy refreshPolicy,
+      @Nullable MetricUtils metricUtils,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport,
+      @Nullable BulkTelemetry telemetry) {
+    return new BulkListener(refreshPolicy, metricUtils, tracker, requeueSupport, telemetry);
+  }
+
   private final WriteRequest.RefreshPolicy refreshPolicy;
   private final MetricUtils metricUtils;
   @Nullable private final BulkWriteResultTracker tracker;
   @Nullable private final BulkItemRequeueSupport requeueSupport;
+  @Nonnull private final BulkTelemetry telemetry;
 
   public BulkListener(WriteRequest.RefreshPolicy policy, MetricUtils metricUtils) {
     this(policy, metricUtils, null, null);
@@ -60,10 +74,20 @@ public class BulkListener implements BulkProcessor.Listener {
       MetricUtils metricUtils,
       @Nullable BulkWriteResultTracker tracker,
       @Nullable BulkItemRequeueSupport requeueSupport) {
+    this(policy, metricUtils, tracker, requeueSupport, null);
+  }
+
+  BulkListener(
+      WriteRequest.RefreshPolicy policy,
+      MetricUtils metricUtils,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport,
+      @Nullable BulkTelemetry telemetry) {
     refreshPolicy = policy;
     this.metricUtils = metricUtils;
     this.tracker = tracker;
     this.requeueSupport = requeueSupport;
+    this.telemetry = telemetry != null ? telemetry : BulkTelemetry.disabled();
   }
 
   @Override
@@ -71,10 +95,12 @@ public class BulkListener implements BulkProcessor.Listener {
     if (refreshPolicy != null) {
       request.setRefreshPolicy(refreshPolicy);
     }
+    telemetry.beforeBulk(request, request.requests());
   }
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, BulkResponse response) {
+    telemetry.afterBulk(request, response.getTook().getMillis(), countFailures(response));
     String ingestTook = "";
     long ingestTookInMillis = response.getIngestTookInMillis();
     if (ingestTookInMillis != BulkResponse.NO_INGEST_TOOK) {
@@ -111,6 +137,7 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
+    telemetry.afterBulk(request, failure);
     if (BulkItemFailureClassifier.isDocumentMissing(failure.getMessage())) {
       log.warn(
           "Attempting to bulk load a missing document. executionId: {}. Request: {}",
@@ -259,6 +286,16 @@ public class BulkListener implements BulkProcessor.Listener {
     if (metricUtils != null) {
       metricUtils.increment(BulkListener.class, name, count);
     }
+  }
+
+  private static long countFailures(BulkResponse response) {
+    long failures = 0;
+    for (BulkItemResponse item : response.getItems()) {
+      if (item.isFailed()) {
+        failures++;
+      }
+    }
+    return failures;
   }
 
   private static String buildMetricName(DocWriteRequest.OpType opType, String status) {

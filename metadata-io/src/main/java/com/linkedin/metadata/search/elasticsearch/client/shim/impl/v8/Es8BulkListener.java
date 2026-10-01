@@ -6,8 +6,10 @@ import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemFailureClassifier;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -27,6 +29,7 @@ public class Es8BulkListener
   private final MetricUtils metricUtils;
   @Nullable private final BulkWriteResultTracker tracker;
   @Nullable private final BulkItemRequeueSupport requeueSupport;
+  private final BulkTelemetry telemetry;
 
   public Es8BulkListener(MetricUtils metricUtils) {
     this(metricUtils, null, null);
@@ -36,16 +39,30 @@ public class Es8BulkListener
       MetricUtils metricUtils,
       @Nullable BulkWriteResultTracker tracker,
       @Nullable BulkItemRequeueSupport requeueSupport) {
+    this(metricUtils, tracker, requeueSupport, null);
+  }
+
+  /** With bulk-write attribution (see {@link BulkTelemetry}): a span per flushed batch. */
+  public Es8BulkListener(
+      MetricUtils metricUtils,
+      @Nullable BulkWriteResultTracker tracker,
+      @Nullable BulkItemRequeueSupport requeueSupport,
+      @Nullable BulkTelemetry telemetry) {
     this.metricUtils = metricUtils;
     this.tracker = tracker;
     this.requeueSupport = requeueSupport;
+    this.telemetry = telemetry != null ? telemetry : BulkTelemetry.disabled();
   }
 
   @Override
   public void beforeBulk(
       long executionId,
       co.elastic.clients.elasticsearch.core.BulkRequest request,
-      List<Object> objects) {}
+      List<Object> objects) {
+    // The ingester owns the client, so no per-batch X-Opaque-Id here; the span still carries the
+    // batch id and links to the actions' origins.
+    telemetry.beforeBulk(request, writeRequests(objects));
+  }
 
   @Override
   public void afterBulk(
@@ -53,6 +70,7 @@ public class Es8BulkListener
       co.elastic.clients.elasticsearch.core.BulkRequest request,
       List<Object> objects,
       co.elastic.clients.elasticsearch.core.BulkResponse response) {
+    telemetry.afterBulk(request, response.took(), countFailures(response));
     String ingestTook = "";
     Long ingestTookInMillis = response.ingestTook();
     if (ingestTookInMillis != null) {
@@ -93,6 +111,7 @@ public class Es8BulkListener
       co.elastic.clients.elasticsearch.core.BulkRequest request,
       List<Object> objects,
       Throwable failure) {
+    telemetry.afterBulk(request, failure);
 
     if (failure instanceof ElasticsearchException
         && isDocumentMissing((ElasticsearchException) failure)) {
@@ -216,6 +235,28 @@ public class Es8BulkListener
         requeueSupport.clearAttempts((DocWriteRequest<?>) context);
       }
     }
+  }
+
+  private static List<DocWriteRequest<?>> writeRequests(@Nullable List<Object> objects) {
+    List<DocWriteRequest<?>> out = new ArrayList<>(objects == null ? 0 : objects.size());
+    if (objects != null) {
+      for (Object context : objects) {
+        if (context instanceof DocWriteRequest) {
+          out.add((DocWriteRequest<?>) context);
+        }
+      }
+    }
+    return out;
+  }
+
+  private static long countFailures(co.elastic.clients.elasticsearch.core.BulkResponse response) {
+    long failures = 0;
+    for (BulkResponseItem item : response.items()) {
+      if (item.error() != null) {
+        failures++;
+      }
+    }
+    return failures;
   }
 
   @Nullable

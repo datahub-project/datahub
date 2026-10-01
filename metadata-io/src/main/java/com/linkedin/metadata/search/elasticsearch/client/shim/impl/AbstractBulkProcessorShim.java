@@ -2,7 +2,9 @@ package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemRequeueSupport;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.search.elasticsearch.update.BulkWriteResultTracker;
+import io.opentelemetry.api.trace.Tracer;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
@@ -30,6 +32,9 @@ public abstract class AbstractBulkProcessorShim<T> {
   protected int itemRequeueMaxAttempts = 3;
 
   @Nullable protected BulkItemRequeueSupport bulkItemRequeueSupport;
+
+  /** Bulk-write attribution; the disabled instance unless {@link #configureBulkTelemetry}. */
+  @Getter @Nonnull protected BulkTelemetry bulkTelemetry = BulkTelemetry.disabled();
 
   /**
    * Initialize bulk processor infrastructure with common fields and build the processor array.
@@ -68,6 +73,11 @@ public abstract class AbstractBulkProcessorShim<T> {
     this.itemRequeueMaxAttempts = itemRequeueMaxAttempts;
   }
 
+  public void configureBulkTelemetry(
+      @Nullable Tracer tracer, boolean batchSpans, boolean opaqueId, @Nullable String serviceName) {
+    this.bulkTelemetry = BulkTelemetry.create(tracer, batchSpans, opaqueId, serviceName);
+  }
+
   /**
    * Add a write request using URN-based consistent hashing for entity document consistency.
    * Subclasses must implement the actual processor-specific add logic.
@@ -81,6 +91,7 @@ public abstract class AbstractBulkProcessorShim<T> {
       @Nonnull String urn,
       @Nonnull DocWriteRequest<?> writeRequest) {
     bulkWriteResultTracker.recordEnqueued(1);
+    bulkTelemetry.onAdd(writeRequest);
     int index = Math.floorMod(urn.hashCode(), threadCount);
     addToProcessor(bulkProcessors[index], writeRequest);
   }

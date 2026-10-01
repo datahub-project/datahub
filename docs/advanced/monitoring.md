@@ -981,6 +981,47 @@ an instance of Jaeger with port 16686. The traces should be available at http://
 We recommend using either `grpc` or `http/protobuf`, configured using `OTEL_EXPORTER_OTLP_PROTOCOL`. Avoid using `http` will not work as expected due to the size of
 the generated spans.
 
+### Attributing index writes
+
+Documents reach OpenSearch in batches: GMS and the MAE consumer hand each change to a bulk
+processor, which flushes many changes at once from a background thread. A slow or failed flush
+therefore cannot be credited to a single request. With `TELEMETRY_REQUEST_ATTRIBUTION_ENABLED` on
+(see [Request Attribution](../deploy/environment-vars.md#request-attribution)), every flush is
+recorded as a span of its own so that it can be found, measured and traced back to the changes it
+carried.
+
+**The span.** Named `index bulk`, a root span rather than a child of whatever was running on the
+flushing thread, with these attributes:
+
+| Attribute               | Meaning                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| `datahub.bulk.batch_id` | `<8 hex characters unique to the process>-<counter>`; the same value OpenSearch receives in the header |
+| `datahub.bulk.actions`  | documents in the batch                                                                                 |
+| `datahub.bulk.indices`  | the distinct indices written, up to 32                                                                 |
+| `datahub.bulk.took_ms`  | how long the bulk call took                                                                            |
+| `datahub.bulk.failures` | documents the store rejected; the span is marked as an error when there are any                        |
+
+**The links.** The span carries OpenTelemetry _links_ to the spans that were active when each
+document was added, that is the API requests or Kafka records that caused the writes, up to 64
+distinct traces per batch. A monitoring tool that shows links can list which changes were in a
+slow batch and walk from each to its request and user. Above 64 distinct traces the list is a
+sample; `datahub.bulk.actions` always has the full count.
+
+**The header.** With `TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID` also on, each batch is
+sent with `X-Opaque-Id: bulk|<service>|batch=<batch id>|n=<documents>`, where `<service>` is
+`OTEL_SERVICE_NAME` (default `datahub`), so OpenSearch's task list names the batch. The header is
+sent by the OpenSearch client; the Elasticsearch 8 client's bulk ingester does not allow a
+per-batch header, so there only the span is produced. OpenSearch's indexing slow log does not
+record request headers, so its per-document lines join to a batch by index and time, not by id.
+
+**Using it.** Filter spans named `index bulk` by duration or by `datahub.bulk.failures` to find the
+slow or failing flushes; group by `datahub.bulk.indices` to see which indices they hit; follow the
+links to the changes in a batch. Two things to know when turning it on: each batch span is the
+root of its own trace, so a sampler that keeps a fraction of traces decides per batch (keeping 100%
+on the MAE consumer is cheap, it flushes a few times a second at most); and `datahub.bulk.batch_id`
+is unique per flush, fine on a span and never to be used as a metric label. Off by default; when
+off, nothing is recorded and no header is sent.
+
 ## Micrometer
 
 DataHub is transitioning to Micrometer as its primary metrics framework, representing a significant upgrade in observability

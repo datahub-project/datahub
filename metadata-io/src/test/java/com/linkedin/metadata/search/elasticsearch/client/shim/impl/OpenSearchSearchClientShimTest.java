@@ -1,16 +1,20 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.elasticsearch.update.BulkTelemetryTest;
+import com.linkedin.metadata.search.elasticsearch.update.BulkTelemetry;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.ShimConfiguration;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -18,6 +22,9 @@ import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.context.Scope;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +56,7 @@ import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.Response;
 import org.opensearch.client.ResponseException;
+import org.opensearch.client.ResponseListener;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.ResizeRequest;
@@ -719,5 +727,105 @@ public class OpenSearchSearchClientShimTest {
     assertEquals(
         header,
         "trace=0af7651916cd43dd8448eb211c80319c|actor=urn:li:corpuser:jdoe|req=explain|n=1");
+  }
+
+  private static final String BULK_OK =
+      "{\"took\":5,\"errors\":false,\"items\":[{\"index\":{\"_index\":\"idx\",\"_id\":\"1\","
+          + "\"_version\":1,\"result\":\"created\",\"_shards\":{\"total\":1,\"successful\":1,"
+          + "\"failed\":0},\"_seq_no\":0,\"_primary_term\":1,\"status\":201}}]}";
+
+  @Test
+  public void bulkTelemetryIsOffByDefault() {
+    OpenSearchSearchClientShim shim = shimWith(mock(RestClient.class));
+    assertSame(shim.getBulkTelemetry(), BulkTelemetry.disabled());
+    shim.configureBulkTelemetry(null, true, false, null);
+    assertSame(shim.getBulkTelemetry(), BulkTelemetry.disabled(), "spans need a tracer");
+  }
+
+  @Test
+  public void syncBulkFlushCarriesBatchOpaqueIdAndBatchSpan() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    when(restClient.performRequest(any(Request.class))).thenReturn(ok);
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(BulkTelemetryTest.tracer(collector), true, true, "gms");
+    shim.configureBulkProcessorWriteOptions(false, 0);
+    shim.generateBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      try (Scope ignored =
+          BulkTelemetryTest.remoteSpan("0af7651916cd43dd8448eb211c80319c", "b7ad6b7169203331")
+              .makeCurrent()) {
+        shim.addBulk(
+            OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      }
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+
+    ArgumentCaptor<Request> captor = ArgumentCaptor.forClass(Request.class);
+    org.mockito.Mockito.verify(restClient).performRequest(captor.capture());
+    String header = BulkTelemetryTest.header(captor.getValue().getOptions());
+    assertNotNull(header);
+    assertTrue(header.matches("bulk\\|gms\\|batch=[0-9a-f]{8}-1\\|n=1"), header);
+
+    assertEquals(collector.spans.size(), 1);
+    SpanData span = collector.spans.get(0);
+    assertEquals(span.getName(), "index bulk");
+    assertEquals(
+        header, "bulk|gms|batch=" + span.getAttributes().get(BulkTelemetry.BATCH_ID) + "|n=1");
+    assertEquals(span.getAttributes().get(BulkTelemetry.INDICES), List.of("idx"));
+    // The processor's retry handler rebuilds the response with the measured round trip, not the
+    // store's took, so only its presence is asserted.
+    assertTrue(span.getAttributes().get(BulkTelemetry.TOOK_MS) >= 0L);
+    assertEquals(span.getLinks().size(), 1);
+    assertEquals(
+        span.getLinks().get(0).getSpanContext().getTraceId(), "0af7651916cd43dd8448eb211c80319c");
+    assertFalse(span.getParentSpanContext().isValid());
+  }
+
+  @Test
+  public void asyncBulkFlushCarriesBatchOpaqueIdAndEndsSpanOnFailure() throws Exception {
+    RestClient restClient = mock(RestClient.class);
+    Response ok = jsonResponse(200, BULK_OK);
+    doAnswer(
+            inv -> {
+              inv.getArgument(1, ResponseListener.class).onSuccess(ok);
+              return null;
+            })
+        .doAnswer(
+            inv -> {
+              inv.getArgument(1, ResponseListener.class).onFailure(new IOException("reset"));
+              return null;
+            })
+        .when(restClient)
+        .performRequestAsync(any(Request.class), any(ResponseListener.class));
+    OpenSearchSearchClientShim shim = shimWith(restClient);
+    BulkTelemetryTest.Collector collector = new BulkTelemetryTest.Collector();
+    shim.configureBulkTelemetry(BulkTelemetryTest.tracer(collector), true, true, "mae");
+    shim.configureBulkProcessorWriteOptions(false, 0); // a failed batch would otherwise requeue
+    shim.generateAsyncBulkProcessor(WriteRequest.RefreshPolicy.NONE, null, 100, 600, 1, 0, 1);
+    try {
+      shim.addBulk(OP, "urn:li:dataset:x", new IndexRequest("idx").id("1").source(Map.of("a", 1)));
+      shim.flushBulkProcessor();
+      shim.addBulk(OP, "urn:li:dataset:y", new IndexRequest("idx").id("2").source(Map.of("a", 2)));
+      shim.flushBulkProcessor();
+    } finally {
+      shim.closeBulkProcessor();
+    }
+
+    ArgumentCaptor<Request> captor = ArgumentCaptor.forClass(Request.class);
+    org.mockito.Mockito.verify(restClient, org.mockito.Mockito.times(2))
+        .performRequestAsync(captor.capture(), any(ResponseListener.class));
+    for (Request r : captor.getAllValues()) {
+      String header = BulkTelemetryTest.header(r.getOptions());
+      assertTrue(header != null && header.startsWith("bulk|mae|batch="), String.valueOf(header));
+    }
+    assertEquals(collector.spans.size(), 2);
+    assertEquals(collector.spans.get(0).getStatus().getStatusCode(), StatusCode.UNSET);
+    assertEquals(collector.spans.get(1).getStatus().getStatusCode(), StatusCode.ERROR);
+    assertEquals(
+        collector.spans.get(1).getAttributes().get(BulkTelemetry.FAILURES), Long.valueOf(1));
   }
 }

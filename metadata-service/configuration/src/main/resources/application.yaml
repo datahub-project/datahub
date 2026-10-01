@@ -179,6 +179,7 @@ telemetry:
   requestAttribution:
     enabled: ${TELEMETRY_REQUEST_ATTRIBUTION_ENABLED:false}
     opensearchOpaqueId: ${TELEMETRY_REQUEST_ATTRIBUTION_OPENSEARCH_OPAQUE_ID:false}
+    serviceName: ${OTEL_SERVICE_NAME:datahub}
     postgresActorComment: ${TELEMETRY_REQUEST_ATTRIBUTION_POSTGRES_ACTOR_COMMENT:false}
     startMarker: ${TELEMETRY_REQUEST_ATTRIBUTION_START_MARKER:false}
 
