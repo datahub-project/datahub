@@ -47,6 +47,7 @@
     "executions.someHidden": "Osa suorituksista saattaa olla piilotettuna",
     "executions.summaryAborted": "Sisäänlukutyö keskeytyi työntekijän uudelleenkäynnistyksen vuoksi.",
     "executions.summaryCancelled": "Sisäänluku peruutettiin.",
+    "executions.summaryDuplicate": "Sisäänlukutyö peruutettiin, koska toinen tämän työn instanssi on jo olemassa.",
     "executions.summaryFailure": "Sisäänluku ei valmistunut tai valmistui virheiden kanssa.",
     "executions.summaryRollbackFailed": "Sisäänlukuajon palautus epäonnistui.",
     "executions.summaryRolledBack": "Sisäänlukuajo palautettiin.",

@@ -540,6 +540,20 @@ def _raise_err(exc: Exception) -> NoReturn:
     raise exc
 
 
+def _inspector_connection(inspector: Inspector) -> sqlalchemy.engine.Connection:
+    """Return the Connection backing an Inspector.
+
+    Inspector.bind is typed Engine | Connection, but the inspectors used here
+    are always created from a live Connection (see SQLAlchemySource.get_inspectors,
+    which does inspect(conn)). SQLAlchemy 2.0 removed Engine.execute, so narrow
+    the type to Connection for both mypy and to guarantee an executable bind.
+
+    Use cast rather than an isinstance assert so duck-typed connections (e.g. the
+    MagicMock-backed inspectors in the unit-style tests) are still accepted.
+    """
+    return cast(sqlalchemy.engine.Connection, inspector.bind)
+
+
 def output_type_handler(cursor, name, defaultType, size, precision, scale):
     """Add CLOB and BLOB support to Oracle connection."""
 
@@ -824,9 +838,11 @@ class OracleInspectorObjectWrapper:
     def get_db_name(self) -> str:
         db_name = None
         try:
-            db_name = self._inspector_instance.bind.execute(
-                sql.text(DB_NAME_QUERY)
-            ).scalar()
+            db_name = (
+                _inspector_connection(self._inspector_instance)
+                .execute(sql.text(DB_NAME_QUERY))
+                .scalar()
+            )
             return str(db_name)
         except sqlalchemy.exc.DatabaseError as e:
             self.report.failure(
@@ -838,7 +854,7 @@ class OracleInspectorObjectWrapper:
             return ""
 
     def get_schema_names(self) -> List[str]:
-        cursor = self._inspector_instance.bind.execute(
+        cursor = _inspector_connection(self._inspector_instance).execute(
             sql.text("SELECT username FROM dba_users")
         )
 
@@ -865,7 +881,9 @@ class OracleInspectorObjectWrapper:
 
         sql_str += "OWNER = :owner AND IOT_NAME IS NULL "
 
-        cursor = self._inspector_instance.bind.execute(sql.text(sql_str), owner=schema)
+        cursor = _inspector_connection(self._inspector_instance).execute(
+            sql.text(sql_str), dict(owner=schema)
+        )
 
         return [
             self._inspector_instance.dialect.normalize_name(row[0])
@@ -881,7 +899,7 @@ class OracleInspectorObjectWrapper:
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
-        cursor = self._inspector_instance.bind.execute(
+        cursor = _inspector_connection(self._inspector_instance).execute(
             sql.text(DBA_VIEWS_QUERY),
             dict(owner=self._inspector_instance.dialect.denormalize_name(schema)),
         )
@@ -901,7 +919,7 @@ class OracleInspectorObjectWrapper:
         if schema is None:
             schema = self._inspector_instance.dialect.default_schema_name
 
-        cursor = self._inspector_instance.bind.execute(
+        cursor = _inspector_connection(self._inspector_instance).execute(
             sql.text(DBA_MVIEWS_QUERY),
             dict(owner=self._inspector_instance.dialect.denormalize_name(schema)),
         )
@@ -939,7 +957,11 @@ class OracleInspectorObjectWrapper:
             params["owner"] = schema
             text += "\nAND owner = :owner"
 
-        rp = self._inspector_instance.bind.execute(sql.text(text), params).scalar()
+        rp = (
+            _inspector_connection(self._inspector_instance)
+            .execute(sql.text(text), params)
+            .scalar()
+        )
 
         return rp
 
@@ -1016,7 +1038,9 @@ class OracleInspectorObjectWrapper:
             "identity_cols": identity_cols,
         }
 
-        c = self._inspector_instance.bind.execute(sql.text(text), params)
+        c = _inspector_connection(self._inspector_instance).execute(
+            sql.text(text), params
+        )
 
         for row in c:
             colname = self._inspector_instance.dialect.normalize_name(row[0])
@@ -1036,12 +1060,12 @@ class OracleInspectorObjectWrapper:
                 if precision is None and scale == 0:
                     coltype = INTEGER()
                 else:
-                    coltype = ischema_names.get(coltype)(precision, scale)
+                    coltype = ischema_names[coltype](precision, scale)
             elif coltype == "FLOAT":
                 # TODO: support "precision" here as "binary_precision"
                 coltype = FLOAT()
             elif coltype in ("VARCHAR2", "NVARCHAR2", "CHAR", "NCHAR"):
-                coltype = ischema_names.get(coltype)(length)
+                coltype = ischema_names[coltype](length)
             elif "WITH TIME ZONE" in coltype:
                 coltype = TIMESTAMP(timezone=True)
             else:
@@ -1106,7 +1130,7 @@ class OracleInspectorObjectWrapper:
             AND owner = :schema_name
         """
 
-        c = self._inspector_instance.bind.execute(
+        c = _inspector_connection(self._inspector_instance).execute(
             sql.text(COMMENT_SQL),
             dict(table_name=denormalized_table_name, schema_name=schema),
         )
@@ -1175,8 +1199,10 @@ class OracleInspectorObjectWrapper:
 
         text += "\nORDER BY constraint_name, loc_pos"
 
-        rp = self._inspector_instance.bind.execute(sql.text(text), params)
-        return rp.fetchall()
+        rp = _inspector_connection(self._inspector_instance).execute(
+            sql.text(text), params
+        )
+        return list(rp.fetchall())
 
     def get_pk_constraint(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
@@ -1267,7 +1293,7 @@ class OracleInspectorObjectWrapper:
                 remote_table,
                 remote_column,
                 remote_owner,
-            ) = row[0:2] + tuple(
+            ) = tuple(row[0:2]) + tuple(
                 [self._inspector_instance.dialect.normalize_name(x) for x in row[2:6]]
             )
 
@@ -1339,7 +1365,11 @@ class OracleInspectorObjectWrapper:
             params["owner"] = schema
             text += "\nAND owner = :owner"
 
-        rp = self._inspector_instance.bind.execute(sql.text(text), params).scalar()
+        rp = (
+            _inspector_connection(self._inspector_instance)
+            .execute(sql.text(text), params)
+            .scalar()
+        )
 
         return rp
 
@@ -1580,9 +1610,11 @@ class OracleSource(SQLAlchemySource):
             else:
                 # For ALL mode (regular inspector), query directly
                 try:
-                    db_name_result = inspector.bind.execute(
-                        sql.text(DB_NAME_QUERY)
-                    ).scalar()
+                    db_name_result = (
+                        _inspector_connection(inspector)
+                        .execute(sql.text(DB_NAME_QUERY))
+                        .scalar()
+                    )
                     if db_name_result:
                         db_name = str(db_name_result)
                 except sqlalchemy.exc.DatabaseError as e:
@@ -2051,7 +2083,9 @@ class OracleSource(SQLAlchemySource):
         sql_config: OracleConfig,
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
         """Loop through materialized views in the schema."""
-        if hasattr(inspector, "get_materialized_view_names"):
+        # isinstance, not hasattr: SA 2.0's Inspector has its own
+        # get_materialized_view_names, which doesn't exclude system schemas.
+        if isinstance(inspector, OracleInspectorObjectWrapper):
             mview_names = inspector.get_materialized_view_names(schema=schema)
         else:
             logger.info("Fallback for regular inspector")
@@ -2081,8 +2115,11 @@ class OracleSource(SQLAlchemySource):
     ) -> List[str]:
         """Fallback method to get materialized view names when using regular inspector."""
         try:
-            schema = inspector.dialect.denormalize_name(
-                schema or inspector.dialect.default_schema_name
+            schema_to_denormalize = schema or inspector.dialect.default_schema_name
+            schema = (
+                inspector.dialect.denormalize_name(schema_to_denormalize)
+                if schema_to_denormalize is not None
+                else None
             )
             tables_prefix = self.config.data_dictionary_mode.value
 
@@ -2119,15 +2156,18 @@ class OracleSource(SQLAlchemySource):
         """Process materialized view similar to regular view but with materialized flag."""
         try:
             # Get materialized view definition
-            if hasattr(inspector, "get_materialized_view_definition"):
-                mview_definition = inspector.get_materialized_view_definition(
+            if isinstance(inspector, OracleInspectorObjectWrapper):
+                found_definition = inspector.get_materialized_view_definition(
                     mview_name=mview, schema=schema
                 )
             else:
                 # Fallback for regular inspector
-                mview_definition = self._get_materialized_view_definition_fallback(
+                found_definition = self._get_materialized_view_definition_fallback(
                     inspector=inspector, mview_name=mview, schema=schema
                 )
+            # Like regular views: an unavailable definition is empty, not None
+            # (viewLogic and customProperties require strings).
+            mview_definition = found_definition or ""
 
             description, properties, location_urn = self.get_table_properties(
                 inspector=inspector, schema=schema, table=mview
@@ -2239,8 +2279,11 @@ class OracleSource(SQLAlchemySource):
         """Fallback method to get materialized view definition when using regular inspector."""
         try:
             denormalized_mview_name = inspector.dialect.denormalize_name(mview_name)
-            schema = inspector.dialect.denormalize_name(
-                schema or inspector.dialect.default_schema_name
+            schema_to_denormalize = schema or inspector.dialect.default_schema_name
+            schema = (
+                inspector.dialect.denormalize_name(schema_to_denormalize)
+                if schema_to_denormalize is not None
+                else None
             )
 
             tables_prefix = self.config.data_dictionary_mode.value
@@ -2254,7 +2297,11 @@ class OracleSource(SQLAlchemySource):
                 params["owner"] = schema
                 text += "\nAND owner = :owner"
 
-            result = inspector.bind.execute(sql.text(text), params).scalar()
+            result = (
+                _inspector_connection(inspector)
+                .execute(sql.text(text), params)
+                .scalar()
+            )
             return result
         except Exception as e:
             logger.warning(
@@ -2309,7 +2356,7 @@ class OracleSource(SQLAlchemySource):
                 inspector = inspect(conn)
                 # Get database name once outside the loop since it doesn't change per row
                 db_name = self.get_db_name(inspector)
-                result = conn.execute(sql.text(VSQL_USAGE_QUERY), params)
+                result = conn.execute(sql.text(VSQL_USAGE_QUERY), params).mappings()
 
                 for row in result:
                     sql_text = row["sql_text"]
@@ -2454,7 +2501,7 @@ class OracleSource(SQLAlchemySource):
         # large tables known at stats collection time from profiling candidates.
         # If stats are not available (NULL), such tables are not filtered and are considered
         # as profiling candidates.
-        cursor = inspector.bind.execute(
+        cursor = _inspector_connection(inspector).execute(
             sql.text(
                 PROFILE_CANDIDATES_QUERY.format(tables_table_name=tables_table_name)
             ),

@@ -719,7 +719,7 @@ public class Dataset extends Entity
 
     log.debug(
         "Transforming editableDatasetProperties patch to full aspect for entity: {}",
-        patch.getEntityUrn().toString());
+        patch.getEntityUrn());
 
     // Step 1: Fetch current editableDatasetProperties aspect
     datahub.client.v2.operations.AspectWithMetadata<EditableDatasetProperties> aspectWithMetadata =

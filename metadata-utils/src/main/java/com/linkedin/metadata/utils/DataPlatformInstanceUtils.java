@@ -59,9 +59,7 @@ public class DataPlatformInstanceUtils {
       case "mlModelGroup":
         return ((MLModelGroupKey) keyAspect).getPlatform();
       default:
-        log.debug(
-            String.format(
-                "Failed to generate default platform for unknown entity type %s", entityType));
+        log.debug("Failed to generate default platform for unknown entity type {}", entityType);
         return null;
     }
   }

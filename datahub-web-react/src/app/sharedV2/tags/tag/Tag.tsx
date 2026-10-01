@@ -163,7 +163,7 @@ export default function Tag({
 
     return (
         <>
-            <HoverEntityTooltip entity={tag.tag} width={250} previewContext={previewContext}>
+            <HoverEntityTooltip entity={tag.tag} previewContext={previewContext}>
                 <TagLink
                     data-testid={`tag-${displayName}`}
                     $showOneAndCount={showOneAndCount}

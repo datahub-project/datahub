@@ -29,8 +29,10 @@ export const DEFAULT_APP_CONFIG = {
         queriesTab: {
             queriesTabResultSize: 5,
         },
-        entityProfile: {
-            domainDefaultTab: null,
+        entityProfiles: {
+            domain: {
+                defaultTab: null,
+            },
         },
         searchResult: {
             enableNameHighlight: false,
@@ -107,6 +109,7 @@ export const DEFAULT_APP_CONFIG = {
         metricsEnabled: false,
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
+        documentExplicitSaveEnabled: false,
         hideLineageInSearchCards: false,
         dataProductLineageEnabled: false,
         glossaryBasedPoliciesEnabled: false,

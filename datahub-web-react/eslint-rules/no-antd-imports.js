@@ -4,16 +4,16 @@
  * Disallows importing from `antd` or `antd/…`. New UI should use alchemy
  * components from `@components` instead.
  *
- * Files that already imported antd on the baseline ref (origin/master, or
- * ANTD_IMPORT_BASELINE_REF / options.baselineRef) are grandfathered. 
+ * Files that already imported antd on the baseline ref (origin/HEAD, or
+ * ANTD_IMPORT_BASELINE_REF / options.baselineRef) are grandfathered.
  * Alchemy wrappers, tests, and generated GraphQL are excluded in .eslintrc.js.
  */
 
+/* eslint-disable @typescript-eslint/no-var-requires */
 const { execFileSync } = require('child_process');
 const path = require('path');
 
-const ANTD_IMPORT_GREP =
-    '(from|require\\(|import\\()[[:space:]]*[\'"]antd(/[^\'"]*)?[\'"]';
+const ANTD_IMPORT_GREP = '(from|require\\(|import\\()[[:space:]]*[\'"]antd(/[^\'"]*)?[\'"]';
 
 function isAntdSource(value) {
     return typeof value === 'string' && (value === 'antd' || value.startsWith('antd/'));
@@ -66,7 +66,11 @@ function getAllowedFiles(options) {
         return new Set(options.allowedFiles.map(toPosixAbs));
     }
 
-    const baselineRef = options.baselineRef || process.env.ANTD_IMPORT_BASELINE_REF || 'origin/master';
+    // Default to origin/HEAD (the origin remote's default branch) so the baseline
+    // is correct in both OSS (origin/master) and the cloud fork (origin/acryl-main)
+    // without callers having to set ANTD_IMPORT_BASELINE_REF. CI still overrides it
+    // explicitly with origin/<base_ref> (see .github/workflows/lint-jobs.yml).
+    const baselineRef = options.baselineRef || process.env.ANTD_IMPORT_BASELINE_REF || 'origin/HEAD';
     if (!gitBaselineCache || gitBaselineCache.ref !== baselineRef) {
         gitBaselineCache = { ref: baselineRef, files: loadGitBaseline(baselineRef) };
     }
@@ -79,15 +83,13 @@ function isGrandfathered(filename, allowed) {
     return allowed.has(toPosixAbs(filename));
 }
 
-const MESSAGE =
-    "Don't import from '{{source}}'. Use alchemy components from `@components` instead.";
+const MESSAGE = "Don't import from '{{source}}'. Use alchemy components from `@components` instead.";
 
 module.exports = {
     meta: {
         type: 'suggestion',
         docs: {
-            description:
-                'Disallow imports from antd / antd/*. Use alchemy components from @components instead.',
+            description: 'Disallow imports from antd / antd/*. Use alchemy components from @components instead.',
         },
         schema: [
             {

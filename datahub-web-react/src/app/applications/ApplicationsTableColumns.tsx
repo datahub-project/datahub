@@ -1,11 +1,15 @@
-import { Icon, typography } from '@components';
+import { Button, Menu } from '@components';
+import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
-import { Dropdown } from 'antd';
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
+
+import { ItemType } from '@components/components/Menu/types';
 
 import { CardIcons } from '@app/govern/structuredProperties/styledComponents';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
@@ -38,19 +42,6 @@ const ColumnContainer = styled.div`
     flex-direction: column;
     max-width: 300px;
     width: 100%;
-`;
-
-const MenuItem = styled.div`
-    display: flex;
-    padding: 5px 70px 5px 5px;
-    font-size: 14px;
-    font-weight: 400;
-    color: ${(props) => props.theme.colors.text};
-    font-family: ${typography.fonts.body};
-`;
-
-const DeleteMenuItem = styled(MenuItem)`
-    color: ${(props) => props.theme.colors.textError};
 `;
 
 export const ApplicationNameColumn = React.memo(
@@ -110,42 +101,45 @@ export const ApplicationActionsColumn = React.memo(
         const history = useHistory();
         const url = entityRegistry.getEntityUrl(EntityType.Application, applicationUrn);
 
-        const items = [
+        const items: ItemType[] = [
             {
-                key: '0',
-                label: (
-                    <MenuItem onClick={() => history.push(url)} data-testid="action-edit">
-                        {tc('view')}
-                    </MenuItem>
-                ),
+                type: 'item',
+                key: 'view',
+                title: tc('view'),
+                icon: Eye,
+                onClick: () => history.push(url),
+                dataTestId: 'action-edit',
             },
             {
-                key: '1',
-                label: (
-                    <MenuItem
-                        onClick={() => {
-                            navigator.clipboard.writeText(applicationUrn);
-                        }}
-                    >
-                        {t('applications.copyUrn')}
-                    </MenuItem>
-                ),
+                type: 'item',
+                key: 'copy-urn',
+                title: t('applications.copyUrn'),
+                icon: Copy,
+                onClick: () => {
+                    navigator.clipboard.writeText(applicationUrn);
+                },
             },
             {
-                key: '2',
-                label: (
-                    <DeleteMenuItem onClick={onDelete} data-testid="action-delete">
-                        {tc('delete')}
-                    </DeleteMenuItem>
-                ),
+                type: 'item',
+                key: 'delete',
+                title: tc('delete'),
+                icon: Trash,
+                danger: true,
+                onClick: onDelete,
+                dataTestId: 'action-delete',
             },
         ];
 
         return (
             <CardIcons>
-                <Dropdown menu={{ items }} trigger={['click']} data-testid={`${applicationUrn}-actions-dropdown`}>
-                    <Icon icon={DotsThreeVertical} size="md" data-testid="MoreVertOutlinedIcon" />
-                </Dropdown>
+                <Menu items={items} trigger={['click']} data-testid={`${applicationUrn}-actions-dropdown`}>
+                    <Button
+                        variant="text"
+                        icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'icon' }}
+                        isCircle
+                        data-testid="MoreVertOutlinedIcon"
+                    />
+                </Menu>
             </CardIcons>
         );
     },

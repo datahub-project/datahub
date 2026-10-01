@@ -132,10 +132,14 @@ public class AnalyticsService {
       String dateRangeField) {
 
     log.debug(
-        String.format(
-                "Invoked getTimeseriesChart with indexName: %s, dateRange: %s to %s, granularity: %s, dimension: %s,",
-                indexName, dateRange.getStart(), dateRange.getEnd(), granularity, dimension)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        "Invoked getTimeseriesChart with indexName: {}, dateRange: {} to {}, granularity: {}, dimension: {}, filters: {}, uniqueOn: {}",
+        indexName,
+        dateRange.getStart(),
+        dateRange.getEnd(),
+        granularity,
+        dimension,
+        filters,
+        uniqueOn);
 
     AggregationBuilder filteredAgg =
         getFilteredAggregation(filters, mustNotFilters, Optional.of(dateRange), dateRangeField);
@@ -226,10 +230,12 @@ public class AnalyticsService {
       Optional<String> uniqueOn,
       boolean showMissing) {
     log.debug(
-        String.format(
-                "Invoked getBarChart with indexName: %s, dateRange: %s, dimensions: %s,",
-                indexName, dateRange, dimensions)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        "Invoked getBarChart with indexName: {}, dateRange: {}, dimensions: {}, filters: {}, uniqueOn: {}",
+        indexName,
+        dateRange,
+        dimensions,
+        filters,
+        uniqueOn);
 
     if (!(dimensions.size() == 1 || dimensions.size() == 2)) {
       throw new IllegalArgumentException("Dimensions must have 1 or 2 specified: " + dimensions);
@@ -333,10 +339,12 @@ public class AnalyticsService {
       int maxRows,
       Function<String, Cell> groupByValueToCell) {
     log.debug(
-        String.format(
-                "Invoked getTopNTableChart with indexName: %s, dateRange: %s, groupBy: %s",
-                indexName, dateRange, groupBy)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        "Invoked getTopNTableChart with indexName: {}, dateRange: {}, groupBy: {}, filters: {}, uniqueOn: {}",
+        indexName,
+        dateRange,
+        groupBy,
+        filters,
+        uniqueOn);
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
 
@@ -374,9 +382,11 @@ public class AnalyticsService {
       Map<String, List<String>> mustNotFilters,
       Optional<String> uniqueOn) {
     log.debug(
-        String.format(
-                "Invoked getHighlights with indexName: %s, dateRange: %s", indexName, dateRange)
-            + String.format("filters: %s, uniqueOn: %s", filters, uniqueOn));
+        "Invoked getHighlights with indexName: {}, dateRange: {}, filters: {}, uniqueOn: {}",
+        indexName,
+        dateRange,
+        filters,
+        uniqueOn);
 
     AggregationBuilder filteredAgg = getFilteredAggregation(filters, mustNotFilters, dateRange);
     uniqueOn.ifPresent(s -> filteredAgg.subAggregation(getUniqueQuery(s)));
@@ -406,9 +416,10 @@ public class AnalyticsService {
       Map<String, DateRange> keyedRanges,
       String uniqueOn) {
     log.debug(
-        String.format(
-            "Invoked getUniqueCountsByRange with indexName: %s, ranges: %s, uniqueOn: %s",
-            indexName, keyedRanges.keySet(), uniqueOn));
+        "Invoked getUniqueCountsByRange with indexName: {}, ranges: {}, uniqueOn: {}",
+        indexName,
+        keyedRanges.keySet(),
+        uniqueOn);
 
     if (keyedRanges.isEmpty()) {
       return Collections.emptyMap();
@@ -471,9 +482,7 @@ public class AnalyticsService {
   public Map<EntityType, EntityStats> getEntityStats(
       @Nonnull OperationContext opContext, List<EntityType> entityTypes, List<String> facetFields) {
     log.debug(
-        String.format(
-            "Invoked getEntityStats with entityTypes: %s, facetFields: %s",
-            entityTypes, facetFields));
+        "Invoked getEntityStats with entityTypes: {}, facetFields: {}", entityTypes, facetFields);
 
     // Duplicates would collide as repeated aggregation bucket keys.
     List<EntityType> distinctTypes = entityTypes.stream().distinct().collect(Collectors.toList());

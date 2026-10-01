@@ -144,6 +144,43 @@ public class SemanticEntitySearchServiceTest {
   }
 
   @Test
+  public void testSearchRejectsQueryEmbeddingWithUnexpectedDimension() throws IOException {
+    SemanticEntitySearchService guarded =
+        new SemanticEntitySearchService(
+            searchClientShim,
+            mockEmbeddingProvider,
+            mappingsBuilder,
+            "text_embedding_3_large",
+            TEST_EMBEDDING.length + 1);
+
+    assertThrows(
+        IllegalStateException.class,
+        () ->
+            guarded.search(
+                mockOpContext, List.of(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10));
+    verify(searchClientShim, never())
+        .searchKnn(any(OperationContext.class), any(KnnSearchRequest.class));
+  }
+
+  @Test
+  public void testSearchAcceptsQueryEmbeddingWithExpectedDimension() throws IOException {
+    setupMockKnnResponse(
+        List.of("urn:li:dataset:(urn:li:dataPlatform:test,test.table,PROD)"), List.of(0.95));
+    SemanticEntitySearchService guarded =
+        new SemanticEntitySearchService(
+            searchClientShim,
+            mockEmbeddingProvider,
+            mappingsBuilder,
+            "text_embedding_3_large",
+            TEST_EMBEDDING.length);
+
+    SearchResult result =
+        guarded.search(mockOpContext, List.of(TEST_ENTITY_NAME), TEST_QUERY, null, null, 0, 10);
+
+    assertEquals(result.getEntities().size(), 1);
+  }
+
+  @Test
   public void testSearchWithEmptyEntityNames() {
     SearchResult result =
         service.search(mockOpContext, Collections.emptyList(), TEST_QUERY, null, null, 0, 10);

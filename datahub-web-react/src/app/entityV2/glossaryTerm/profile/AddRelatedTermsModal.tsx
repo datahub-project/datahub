@@ -144,7 +144,7 @@ function AddRelatedTermsModal(props: Props) {
         ]);
     };
 
-    // When a Tag or term search result is deselected, remove the urn from the Owners
+    // When a term search result is deselected, remove its urn from the selected terms
     const onDeselectValue = (urn: string) => {
         const newUrns = selectedUrns.filter((u) => u !== urn);
         setSelectedUrns(newUrns);
