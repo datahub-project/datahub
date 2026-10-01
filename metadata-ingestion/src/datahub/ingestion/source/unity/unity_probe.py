@@ -1,7 +1,7 @@
 import itertools
 import re
-from contextlib import closing, contextmanager
-from typing import Any, Callable, Dict, Iterator, List, Optional
+from contextlib import contextmanager
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, TypeVar
 
 import requests
 from databricks.sdk import WorkspaceClient
@@ -60,6 +60,27 @@ _HIVE_NOT_PROBED = (
     "(HiveMetastoreProxy), which the probe does not start; its contents are "
     "not listed here"
 )
+
+
+_T = TypeVar("_T")
+
+
+def _take(
+    source: Iterable[_T], limit: int, keep: Callable[[_T], bool] = lambda _: True
+) -> List[_T]:
+    """The first `limit` items `keep` admits, stopping the SDK's paging there.
+
+    Closes the source explicitly rather than leaving an abandoned generator to
+    the garbage collector: proxy.tables patches the SDK's TableInfo class for
+    as long as its loop is suspended.
+    """
+    iterator = iter(source)
+    try:
+        return list(itertools.islice(filter(keep, iterator), limit))
+    finally:
+        close = getattr(iterator, "close", None)
+        if callable(close):
+            close()
 
 
 def _describe_failure(exc: BaseException) -> str:
@@ -274,12 +295,7 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         try:
             catalog_obj = self._catalog(catalog)
             with self._calling(f"listing schemas of catalog '{catalog}'"):
-                return [
-                    schema.name
-                    for schema in itertools.islice(
-                        self._proxy.schemas(catalog_obj), limit
-                    )
-                ]
+                return [s.name for s in _take(self._proxy.schemas(catalog_obj), limit)]
         except _Degraded:
             return []
 
@@ -300,15 +316,8 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 comment=None,
                 owner=None,
             )
-            with (
-                self._calling(f"listing tables of '{catalog}.{schema}'"),
-                # Closed explicitly: proxy.tables patches the SDK's TableInfo
-                # around its loop, and a generator abandoned at the limit
-                # would hold that patch until garbage collection.
-                closing(iter(self._proxy.tables(schema_obj))) as listed,
-            ):
-                matching = (table.name for table in listed if keep(table))
-                return list(itertools.islice(matching, limit))
+            with self._calling(f"listing tables of '{catalog}.{schema}'"):
+                return [t.name for t in _take(self._proxy.tables(schema_obj), limit, keep)]
         except _Degraded:
             return []
 
@@ -387,13 +396,8 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         never notebook source. Walks the workspace tree, so a large workspace
         is slow; the walk stops at `limit`."""
         try:
-            with (
-                self._calling("listing workspace notebooks"),
-                closing(iter(self._proxy.workspace_notebooks())) as listed,
-            ):
-                return [
-                    notebook.path for notebook in itertools.islice(listed, limit)
-                ]
+            with self._calling("listing workspace notebooks"):
+                return [n.path for n in _take(self._proxy.workspace_notebooks(), limit)]
         except _Degraded:
             return []
 
