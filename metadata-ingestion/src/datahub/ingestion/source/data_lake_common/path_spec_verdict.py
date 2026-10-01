@@ -174,9 +174,7 @@ def judge_folder(
             return spec.folder_rejection_reason(folder)
         # A folder strictly above the dataset level is a container of datasets.
         leaf = (
-            _table_depth(spec)
-            if TABLE_MARKER in spec.include
-            else len(glob_parts) - 1
+            _table_depth(spec) if TABLE_MARKER in spec.include else len(glob_parts) - 1
         )
         depth = folder.count("/")
         if depth >= leaf or not _reaches(folder, "/".join(glob_parts[: depth + 1])):

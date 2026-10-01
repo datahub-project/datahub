@@ -55,6 +55,7 @@ MAX_RESOLVED_PREFIXES = 1000
 class _ListingBudgetSpent(Exception):
     """Raised from the resolution callback to stop the walk mid-recursion."""
 
+
 _BUCKET_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$")
 _AUTH_ERROR_CODES = frozenset(
     {
@@ -320,9 +321,9 @@ class S3CompatibleMetadataProbe:
                 for folder in list_folders_path(resolved, aws_config=self._aws_config):
                     yield {
                         "name": self._display(folder.path),
-                        "display_name": spec.extract_table_name_and_path(
-                            folder.path
-                        )[0],
+                        "display_name": spec.extract_table_name_and_path(folder.path)[
+                            0
+                        ],
                     }
 
     @probe_method(kind=DatasetContainerSubTypes.FOLDER, row_limit_param="limit")

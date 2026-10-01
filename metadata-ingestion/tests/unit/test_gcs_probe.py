@@ -88,9 +88,7 @@ def test_simple_spec_files_use_the_ingestion_rule() -> None:
 
 def test_gs_excludes_are_rewritten_like_the_include() -> None:
     _, verdicts = _verdicts(
-        _recipe(
-            "gs://my-bucket/raw/*.csv", exclude=["gs://my-bucket/raw/skip_*.csv"]
-        ),
+        _recipe("gs://my-bucket/raw/*.csv", exclude=["gs://my-bucket/raw/skip_*.csv"]),
         "Table",
         ["gs://my-bucket/raw/skip_1.csv"],
     )
@@ -129,9 +127,7 @@ def test_any_including_spec_wins() -> None:
 @pytest.mark.parametrize("kind", ["Table", "Folder"])
 def test_a_non_gs_name_is_a_caller_error(kind: str) -> None:
     with pytest.raises(ValueError, match="gs://"):
-        _verdicts(
-            _recipe("gs://my-bucket/data/*.csv"), kind, ["s3://my-bucket/a.csv"]
-        )
+        _verdicts(_recipe("gs://my-bucket/data/*.csv"), kind, ["s3://my-bucket/a.csv"])
 
 
 def test_a_bucket_name_with_a_slash_is_a_caller_error() -> None:
@@ -181,6 +177,7 @@ def test_a_folders_only_spec_includes_the_folders_above_its_leaves() -> None:
         "gs://my-bucket/media/photos": (True, None),
     }
     assert result.warnings
+
 
 def test_a_folder_above_datasets_is_a_container() -> None:
     result, folders = _verdicts(
@@ -288,7 +285,10 @@ def test_a_listing_is_bounded_and_reports_truncation(seeded_bucket: None) -> Non
 
 def test_folders_lists_one_level_as_gs_uris(seeded_bucket: None) -> None:
     result = _run(
-        _recipe("gs://my-bucket/raw/*.csv"), "folders", bucket="my-bucket", prefix="data"
+        _recipe("gs://my-bucket/raw/*.csv"),
+        "folders",
+        bucket="my-bucket",
+        prefix="data",
     )
     assert set(_names(result)) == {
         "gs://my-bucket/data/events",
@@ -350,7 +350,13 @@ def _client_error(code: str, status: int) -> ClientError:
     return ClientError(
         {
             "Error": {"Code": code, "Message": "principal some-account-detail"},
-            "ResponseMetadata": {"HTTPStatusCode": status},
+            "ResponseMetadata": {
+                "RequestId": "",
+                "HostId": "",
+                "HTTPStatusCode": status,
+                "HTTPHeaders": {},
+                "RetryAttempts": 0,
+            },
         },
         "ListBuckets",
     )

@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, Mapping, Set, Tuple
+from typing import TYPE_CHECKING, Dict, Iterator, Mapping, Set, Tuple
 
 import boto3
 import pytest
@@ -11,6 +11,9 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
 from datahub.metadata.schema_classes import ContainerPropertiesClass, SubTypesClass
 from datahub.metadata.urns import DataFlowUrn, DatasetUrn
+
+if TYPE_CHECKING:
+    from mypy_boto3_glue.type_defs import StorageDescriptorTypeDef
 
 _REGION = "us-east-1"
 _OWNER = "222222222222"
@@ -49,7 +52,9 @@ def catalog() -> Iterator[None]:
                 "TargetDatabase": {"CatalogId": _OWNER, "DatabaseName": "owner_db"},
             }
         )
-        columns = {"Columns": [{"Name": "id", "Type": "int"}]}
+        columns: "StorageDescriptorTypeDef" = {
+            "Columns": [{"Name": "id", "Type": "int"}]
+        }
         for database, table in (
             ("sales", "orders"),
             ("sales", "orders_tmp"),
@@ -106,9 +111,7 @@ def _ingested(recipe: Mapping[str, object]) -> Emitted:
         properties = wu.get_aspect_of_type(ContainerPropertiesClass)
         if properties is not None:
             databases.add(properties.name)
-        elif urn.startswith("urn:li:dataset:") and wu.get_aspect_of_type(
-            SubTypesClass
-        ):
+        elif urn.startswith("urn:li:dataset:") and wu.get_aspect_of_type(SubTypesClass):
             datasets.add(DatasetUrn.from_string(urn).name)
         elif urn.startswith("urn:li:dataFlow:"):
             flows.add(DataFlowUrn.from_string(urn).flow_id)

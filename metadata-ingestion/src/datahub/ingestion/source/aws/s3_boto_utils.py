@@ -32,9 +32,7 @@ class S3ObjectInfo:
     size: int
 
 
-def _bucket_tag_set(
-    s3: "S3ServiceResource", bucket_name: str
-) -> List[Dict[str, str]]:
+def _bucket_tag_set(s3: "S3ServiceResource", bucket_name: str) -> List[Dict[str, str]]:
     return [
         {"Key": tag["Key"], "Value": tag["Value"]}
         for tag in s3.Bucket(bucket_name).Tagging().tag_set

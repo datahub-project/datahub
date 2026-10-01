@@ -43,7 +43,13 @@ def _client_error(
     return ClientError(
         {
             "Error": {"Code": code, "Message": message},
-            "ResponseMetadata": {"HTTPStatusCode": status},
+            "ResponseMetadata": {
+                "RequestId": "",
+                "HostId": "",
+                "HTTPStatusCode": status,
+                "HTTPHeaders": {},
+                "RetryAttempts": 0,
+            },
         },
         operation,
     )

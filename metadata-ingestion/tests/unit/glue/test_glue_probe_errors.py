@@ -51,9 +51,7 @@ def test_access_denied_is_soft_only_when_asked() -> None:
     assert isinstance(hard, ProbeConnectionError)
 
 
-def test_the_message_names_code_action_and_request_id_but_not_the_principal() -> (
-    None
-):
+def test_the_message_names_code_action_and_request_id_but_not_the_principal() -> None:
     error = _raised(_client_error("AccessDeniedException"))
 
     text = str(error)

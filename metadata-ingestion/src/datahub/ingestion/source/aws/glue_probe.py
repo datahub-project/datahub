@@ -527,9 +527,7 @@ class GlueMetadataProbe:
 
     def _find_job(self, name: str) -> Dict[str, Any]:
         # GetJobs rather than GetJob: ingestion's policy grants only the former.
-        found = next(
-            (j for j in self._list_jobs(None) if j.get("Name") == name), None
-        )
+        found = next((j for j in self._list_jobs(None) if j.get("Name") == name), None)
         if found is None:
             raise ValueError(
                 f"no Glue job named '{name}' in this account and region; "

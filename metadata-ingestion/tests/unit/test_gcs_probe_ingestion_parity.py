@@ -214,7 +214,9 @@ def test_a_table_ingestion_cannot_name_is_attributed_to_its_folder(
     # fixture stops hitting it.
     recipe = _recipe(CASES["bucket_wildcard"])
     probed, warnings = _probed(recipe)
-    assert set(_named_after_a_file_in(_ingested(recipe), probed, warnings).values()) == {
+    assert set(
+        _named_after_a_file_in(_ingested(recipe), probed, warnings).values()
+    ) == {
         "gs://my-bucket/data/events",
         "gs://my-bucket/data/users",
     }

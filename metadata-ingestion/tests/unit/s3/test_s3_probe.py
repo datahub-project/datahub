@@ -94,7 +94,13 @@ def test_a_bucket_wildcard_without_list_buckets_is_a_failure(buckets: None) -> N
     denied = ClientError(
         {
             "Error": {"Code": "AccessDenied"},
-            "ResponseMetadata": {"HTTPStatusCode": 403},
+            "ResponseMetadata": {
+                "RequestId": "",
+                "HostId": "",
+                "HTTPStatusCode": 403,
+                "HTTPHeaders": {},
+                "RetryAttempts": 0,
+            },
         },
         "ListBuckets",
     )
@@ -233,7 +239,13 @@ def test_a_denied_object_tag_read_is_a_failure(tagged: None) -> None:
     denied = ClientError(
         {
             "Error": {"Code": "AccessDenied"},
-            "ResponseMetadata": {"HTTPStatusCode": 403},
+            "ResponseMetadata": {
+                "RequestId": "",
+                "HostId": "",
+                "HTTPStatusCode": 403,
+                "HTTPHeaders": {},
+                "RetryAttempts": 0,
+            },
         },
         "GetObjectTagging",
     )

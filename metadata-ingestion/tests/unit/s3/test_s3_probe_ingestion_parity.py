@@ -175,7 +175,9 @@ def _named_after_a_file_in(
     attributed: Dict[str, str] = {}
     for urn in ingested - set(probed):
         path = DatasetUrn.from_string(urn).name
-        folders = [u for u in probed.values() if path.startswith(u[len("s3://") :] + "/")]
+        folders = [
+            u for u in probed.values() if path.startswith(u[len("s3://") :] + "/")
+        ]
         assert len(folders) == 1, f"probe missed {urn}"
         alone = check_filters(
             source_type="s3",
