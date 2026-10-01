@@ -28,7 +28,9 @@ if TYPE_CHECKING:
 _REGION = "us-east-1"
 _RECIPE: Dict[str, object] = {"aws_region": _REGION}
 _OTHER_ACCOUNT = "222222222222"
-_PRINCIPAL_ARN = "arn:aws:sts::123456789012:assumed-role/ingest-role/someone@example.com"
+_PRINCIPAL_ARN = (
+    "arn:aws:sts::123456789012:assumed-role/ingest-role/someone@example.com"
+)
 _PRINCIPAL_MESSAGE = (
     f"User: {_PRINCIPAL_ARN} is not authorized to perform: glue:GetDatabases"
 )
@@ -727,7 +729,13 @@ def test_a_denied_role_assumption_names_sts_not_the_principal(
                     "Message": f"User: {_PRINCIPAL_ARN} is not authorized to perform: "
                     f"sts:AssumeRole",
                 },
-                "ResponseMetadata": {"RequestId": "req-sts"},
+                "ResponseMetadata": {
+                    "RequestId": "req-sts",
+                    "HostId": "",
+                    "HTTPStatusCode": 403,
+                    "HTTPHeaders": {},
+                    "RetryAttempts": 0,
+                },
             },
             "AssumeRole",
         )

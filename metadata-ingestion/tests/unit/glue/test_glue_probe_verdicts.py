@@ -29,9 +29,7 @@ def _judge(
 
 def _verdicts(result: FilterCheckResult) -> Dict[str, str]:
     """name -> excluded_by, or "" when included."""
-    return {
-        r.name: "" if r.included else (r.excluded_by or "") for r in result.results
-    }
+    return {r.name: "" if r.included else (r.excluded_by or "") for r in result.results}
 
 
 def test_table_pattern_is_matched_against_database_dot_table() -> None:
@@ -49,7 +47,10 @@ def test_table_pattern_is_matched_against_database_dot_table() -> None:
 
 def test_a_bare_table_name_pattern_excludes_as_ingestion_does() -> None:
     result = _judge(
-        {"table_pattern": {"allow": ["^orders$"]}}, "Table", ["orders"], parent=["sales"]
+        {"table_pattern": {"allow": ["^orders$"]}},
+        "Table",
+        ["orders"],
+        parent=["sales"],
     )
 
     assert _verdicts(result) == {"orders": "table_pattern"}
