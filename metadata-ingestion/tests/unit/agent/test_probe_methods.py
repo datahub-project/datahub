@@ -832,7 +832,12 @@ def test_a_connect_failure_is_not_reported_as_bad_input(
         if on_open
         else _provider_raising(on_call=error)
     )
-    with pytest.raises(ProbeConnectionError, match="host unreachable") as exc_info:
+    # Opening, only a ValueError the provider raised itself keeps its text
+    # (agent.error_policy); anything else is reported by class name, since a
+    # connect failure's text is the driver's and is where connection strings
+    # leak from.
+    expected = "ConfigurationError" if on_open else "host unreachable"
+    with pytest.raises(ProbeConnectionError, match=expected) as exc_info:
         _run_with(monkeypatch, provider)
     assert not isinstance(exc_info.value, ValueError)
 

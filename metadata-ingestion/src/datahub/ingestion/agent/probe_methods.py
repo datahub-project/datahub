@@ -7,6 +7,7 @@ from typing import (
     Dict,
     List,
     Mapping,
+    NoReturn,
     Optional,
     Protocol,
     Set,
@@ -24,6 +25,8 @@ from datahub.configuration.env_vars import (
 )
 from datahub.ingestion.agent.api_gate import READ_METHOD, check_api_request
 from datahub.ingestion.agent.config_validation import validate_source_config
+from datahub.ingestion.agent.error_policy import classify_foreign, is_authored
+from datahub.ingestion.agent.redact import scrub_text
 from datahub.ingestion.agent.verdicts import (
     ProbeConnectionError,
     ProbeInternalError,
@@ -717,6 +720,49 @@ def _report_entries(report: object, kind: str) -> Set[str]:
     return entries
 
 
+def _raise_call_failure(
+    exc: Exception,
+    provider: object,
+    provider_file: str,
+    command: str,
+    source_type: str,
+) -> NoReturn:
+    """Re-raise a provider call's failure in the shape the CLI reports.
+
+    Foreign text (reused ingestion code, a driver, an SDK) is where connection
+    strings and token-endpoint bodies leak from, so a foreign exception is
+    reported by class name only and not chained (see agent.error_policy).
+    """
+    # lazy: keeps the configuration module off this module's import path
+    from datahub.configuration.common import ConfigurationError
+
+    recorded = set(getattr(provider, "failures", None) or []) | _report_entries(
+        getattr(provider, "probe_report", None), "failures"
+    )
+    authored = is_authored(exc, provider_file)
+    detail = scrub_text(str(exc), set()) if authored else type(exc).__name__
+    if recorded:
+        raise ProbeReadFailed(
+            f"{detail}; the connector recorded: " + "; ".join(sorted(recorded))
+        ) from None
+    if not authored:
+        raise classify_foreign(exc, f"'{command}'") from None
+    if isinstance(exc, ConfigurationError):
+        # A connector that connects lazily, on the first query.
+        raise ProbeConnectionError(
+            f"'{command}' could not reach source '{source_type}': {detail}"
+        ) from exc
+    if isinstance(exc, (TypeError, KeyError, AttributeError, AssertionError)):
+        # Still a defect when the provider raised it itself: after the
+        # arguments were coerced these do not mean "bad input", so they must
+        # not fall through to the CLI's exit-2 family.
+        raise ProbeInternalError(
+            f"'{command}' failed inside the connector ({type(exc).__name__}: "
+            f"{detail}); this is a defect, not a problem with the arguments"
+        ) from exc
+    raise exc
+
+
 def run_probe_method(
     source_type: str,
     config_dict: Dict[str, object],
@@ -764,6 +810,9 @@ def run_probe_method(
     config = validate_source_config(
         config_class_for(source_type), source_type, config_dict
     )
+    # The provider's own source file: an exception raised there carries a
+    # message the provider wrote, so it may be shown (see agent.error_policy).
+    provider_file = inspect.getsourcefile(provider_cls) or ""
     builder = getattr(provider_cls, "for_config", None)
     if not callable(builder):
         raise ValueError(
@@ -773,19 +822,21 @@ def run_probe_method(
         )
     # The same class discovery described, so the two cannot disagree about what
     # this source can do.
-    # lazy: keeps the configuration module off this module's import path
-    from datahub.configuration.common import ConfigurationError
-
     with ExitStack() as stack:
         try:
             provider = stack.enter_context(builder(config))
         except Exception as exc:
-            # Everything the caller could get wrong was checked above, so a
-            # failure opening the provider is the source's -- including the
-            # ConfigurationError Snowflake wraps every connect failure in.
-            raise ProbeConnectionError(
-                f"could not open source '{source_type}': {exc}"
-            ) from exc
+            # A provider refusing the recipe on purpose (an argument it can
+            # explain) keeps its message and exits 2. Anything else -- reused
+            # ingestion code, a driver, an SDK -- is reported by class name
+            # only: that text is where connection strings and token-endpoint
+            # bodies leak from.
+            if isinstance(
+                exc,
+                (ValueError, ProbeConnectionError, ProbeInternalError, ProbeReadFailed),
+            ) and is_authored(exc, provider_file):
+                raise
+            raise classify_foreign(exc, f"opening source '{source_type}'") from None
         _enforce_gates(specs[command], provider, call_kwargs)
         try:
             result = _bound_method(provider, command)(**call_kwargs)
@@ -819,24 +870,7 @@ def run_probe_method(
             # Both shapes, as the success path does. Reading only probe_report
             # here meant a provider using the plain `failures` list and then
             # raising still reached the CLI as a user error.
-            recorded = set(getattr(provider, "failures", None) or []) | _report_entries(
-                getattr(provider, "probe_report", None), "failures"
-            )
-            if recorded:
-                raise ProbeReadFailed(
-                    f"{exc}; the connector recorded: " + "; ".join(sorted(recorded))
-                ) from exc
-            if isinstance(exc, ConfigurationError):
-                # A connector that connects lazily, on the first query.
-                raise ProbeConnectionError(
-                    f"'{command}' could not reach source '{source_type}': {exc}"
-                ) from exc
-            if isinstance(exc, (TypeError, KeyError, AttributeError, AssertionError)):
-                raise ProbeInternalError(
-                    f"'{command}' failed inside the connector ({type(exc).__name__}: "
-                    f"{exc}); this is a defect, not a problem with the arguments"
-                ) from exc
-            raise
+            _raise_call_failure(exc, provider, provider_file, command, source_type)
         # Optional, source-agnostic: a provider that degrades a sub-fetch
         # instead of failing outright (see agent.verdicts.ProbeSoftError) may
         # expose its own `warnings` list to report that here. Duck-typed
