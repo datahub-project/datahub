@@ -30,6 +30,11 @@ from tests.unit.looker.looker_probe_fixtures import (
     sdk_error,
 )
 
+_LOOKS_ON: Dict[str, Any] = {
+    "extract_independent_looks": True,
+    "stateful_ingestion": {"enabled": True},
+}
+
 
 def _run(command: str, params: Dict[str, Any], **overrides: Any) -> Dict[str, Any]:
     with fake_looker():
@@ -139,6 +144,7 @@ def test_methods_are_advertised_with_their_kinds() -> None:
     assert kinds["permissions"] is None
     assert kinds["dashboards"] == "Dashboard"
     assert kinds["charts"] == "Look"
+    assert kinds["looks"] == "Look"
 
 def test_folder_path_joins_ancestors_and_the_folder() -> None:
     assert looker_folder_path(["Shared"], "Sales") == "Shared/Sales"
@@ -241,3 +247,21 @@ def test_an_element_whose_look_has_no_query_is_unreadable_to_ingestion() -> None
     assert _ingestion_can_read(DashboardElement(id="1", query=Query(model="m", view="v")))
     assert not _ingestion_can_read(DashboardElement(id="2", look=LookWithQuery()))
     assert not _ingestion_can_read(DashboardElement(id="3"))
+
+
+def test_looks_list_live_and_deleted_with_the_facts_ingestion_skips_on() -> None:
+    run = _run("looks", {}, **_LOOKS_ON)
+    assert run["kind"] == "Look"
+    assert run["parent_path"] == []
+    by_id = {r["name"]: r for r in run["result"]}
+    assert set(by_id) == {"101", "102", "103", "104"}
+    assert by_id["102"]["folder_personal"] is True
+    assert by_id["103"]["has_query"] is False
+    assert by_id["104"]["deleted"] is True
+    assert PERSONAL_FOLDER_NAME not in json.dumps(run)
+    assert run["warnings"] == []
+
+
+def test_looks_say_ingestion_emits_none_without_the_switch() -> None:
+    run = _run("looks", {})
+    assert any("extract_independent_looks" in w for w in run["warnings"])
