@@ -168,6 +168,17 @@ class ProbeSoftError(ValueError):
     """
 
 
+class ProbeArgumentError(ValueError):
+    """The caller named something that is wrong or does not exist.
+
+    The explicit way for a provider to say "fix your argument" (exit 2) with a
+    message the caller should read. Since the framework stopped echoing the
+    text of exceptions it cannot vouch for (see agent.error_policy), a plain
+    ValueError raised from code the provider did not write is reported by its
+    class name only -- raise this to keep your message.
+    """
+
+
 class ProbeReadFailed(Exception):
     """A command failed and the connector had already recorded why.
 
