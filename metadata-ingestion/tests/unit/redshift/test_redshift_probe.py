@@ -340,3 +340,140 @@ def test_probe_methods_advertises_what_the_provider_serves() -> None:
     commands = {spec.command for spec in list_probe_methods("redshift")}
     assert {"containers", "tables", "views", "sql"} <= commands
     assert not commands & {"foreign_keys", "primary_key", "indexes", "table_comment"}
+
+
+_COLUMN_FIELDS = [
+    "schema",
+    "table_name",
+    "name",
+    "encode",
+    "type",
+    "distkey",
+    "sortkey",
+    "notnull",
+    "comment",
+    "attnum",
+    "default",
+]
+_COLUMNS: Route = (
+    "pg_attribute",
+    _COLUMN_FIELDS,
+    [
+        ["public", "orders", "id", "az64", "integer", True, 1, True, "order key", 1, None],
+        ["public", "orders", "note", "lzo", "varchar(256)", False, 0, False, None, 2, "'n/a'"],
+        ["public", "other", "x", None, "integer", False, 0, False, None, 1, None],
+    ],
+)  # fmt: skip
+
+
+def test_columns_come_from_ingestion_column_query() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
+    cols = _probe(conn).columns(schema="public", table="orders")
+    assert [c["name"] for c in cols] == ["id", "note"]
+    # Upper-cased, as get_columns_for_schema hands it to ingestion.
+    assert cols[0] == {
+        "name": "id",
+        "type": "INTEGER",
+        "nullable": False,
+        "default": None,
+        "comment": "order key",
+    }
+    assert cols[1]["default"] == "'n/a'"
+
+
+@pytest.mark.parametrize("hostile", _HOSTILE_NAMES)
+def test_columns_refuses_a_schema_the_catalog_does_not_list(hostile: str) -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
+    with pytest.raises(ValueError, match="containers"):
+        _probe(conn).columns(schema=hostile, table="orders")
+    _assert_never_sent(conn, hostile)
+    # Refused before the column query is even built.
+    assert not any("pg_attribute" in q for q in conn.executed)
+
+
+@pytest.mark.parametrize("hostile", _HOSTILE_NAMES)
+def test_columns_matches_the_table_in_python_not_in_sql(hostile: str) -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
+    probe = _probe(conn)
+    assert probe.columns(schema="public", table=hostile) == []
+    _assert_never_sent(conn, hostile)
+    assert probe.warnings
+
+
+def test_columns_refuses_a_listed_schema_whose_name_would_break_the_query() -> None:
+    # Validation against the catalog is what keeps caller input out of
+    # list_columns' f-strings; a name the catalog itself returned with a quote
+    # in it would still close the literal, so it is refused too.
+    quoted = "it's_mine"
+    schemas: Route = (
+        "schema_type",
+        _SCHEMAS[1],
+        [[quoted, "local", None, None, None, None]],
+    )
+    conn = _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, schemas])
+    with pytest.raises(ValueError):
+        _probe(conn).columns(schema=quoted, table="orders")
+    assert not any("pg_attribute" in q for q in conn.executed)
+
+
+def test_columns_on_a_shared_database_use_svv_redshift_columns() -> None:
+    shared_cols: Route = (
+        "SVV_REDSHIFT_COLUMNS",
+        _COLUMN_FIELDS,
+        [["public", "orders", "id", None, "integer", None, 0, False, None, 1, None]],
+    )
+    conn = _FakeConnection(routes=[_SHARED_DB, shared_cols, _SCHEMAS])
+    cols = _probe(conn).columns(schema="public", table="orders")
+    assert [c["name"] for c in cols] == ["id"]
+
+
+def test_columns_of_an_unknown_table_are_empty_with_a_reason() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
+    probe = _probe(conn)
+    assert probe.columns(schema="public", table="missing") == []
+    assert probe.warnings
+
+
+def test_an_unknown_schema_exits_as_a_bad_argument(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from datahub.ingestion.agent.probe_methods import run_probe_method
+
+    _connect_with(
+        monkeypatch, _FakeConnection(routes=[_DB_DETAILS, _COLUMNS, _SCHEMAS])
+    )
+
+    # ValueError is the framework's "you named something that isn't there"
+    # (exit 2), not a connection failure.
+    with pytest.raises(ValueError):
+        run_probe_method(
+            "redshift",
+            dict(_RECIPE),
+            "columns",
+            {"schema": "missing", "table": "orders"},
+        )
+
+
+def test_view_definition_is_the_ddl_ingestion_publishes() -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    probe = _probe(conn)
+    assert probe.view_definition(schema="public", view="v_orders") == (
+        "select * from orders"
+    )
+    assert probe.view_definition(schema="public", view="orders") is None
+
+
+@pytest.mark.parametrize("hostile", _HOSTILE_NAMES)
+def test_view_definition_matches_names_in_python_not_in_sql(hostile: str) -> None:
+    conn = _FakeConnection(routes=[_DB_DETAILS, _RELATIONS])
+    probe = _probe(conn)
+    assert probe.view_definition(schema=hostile, view="v_orders") is None
+    assert probe.view_definition(schema="public", view=hostile) is None
+    _assert_never_sent(conn, hostile)
+
+
+def test_probe_methods_advertises_the_per_object_commands() -> None:
+    from datahub.ingestion.agent.probe_methods import list_probe_methods
+
+    commands = {spec.command for spec in list_probe_methods("redshift")}
+    assert {"columns", "view_definition"} <= commands
