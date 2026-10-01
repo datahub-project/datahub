@@ -1,4 +1,5 @@
 import datetime
+import json
 from typing import TYPE_CHECKING, Dict, Iterator, List, Optional
 
 import boto3
@@ -9,11 +10,18 @@ from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.filter_input import listing_from_run
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
-from datahub.ingestion.source.aws.glue import GlueSourceConfig
+from datahub.ingestion.source.aws.glue import GlueSource, GlueSourceConfig
 from datahub.ingestion.source.aws.glue_probe import GlueMetadataProbe
+from tests.unit.glue.test_glue_source_stubs import (
+    get_dataflow_graph_response_1,
+    get_jobs_response,
+    get_object_body_1,
+    get_object_response_1,
+)
 
 if TYPE_CHECKING:
     from mypy_boto3_glue import GlueClient
+    from mypy_boto3_s3 import S3Client
 
 _REGION = "us-east-1"
 _RECIPE: Dict[str, object] = {"aws_region": _REGION}
@@ -45,7 +53,7 @@ def glue(monkeypatch: pytest.MonkeyPatch) -> Iterator[Stubber]:
 def test_probe_methods_advertises_the_glue_commands() -> None:
     commands = {spec.command: spec for spec in list_probe_methods("glue")}
 
-    assert {"databases", "tables", "columns", "jobs"} <= set(commands)
+    assert {"databases", "tables", "columns", "jobs", "job_nodes"} <= set(commands)
     assert commands["databases"].kind == "Database"
 
 
@@ -500,3 +508,134 @@ def test_tables_round_trip_through_from_run(glue: Stubber) -> None:
         "orders": None,
         "shared_orders": "ignore_resource_links",
     }
+
+
+_JOB_ONE: Dict[str, object] = {"Jobs": [get_jobs_response["Jobs"][0]]}
+_JOB_ONE_NAME = str(get_jobs_response["Jobs"][0]["Name"])
+_SCRIPT = {
+    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+    "Key": "scripts/job-1.py",
+}
+
+
+@pytest.fixture
+def s3(monkeypatch: pytest.MonkeyPatch) -> Iterator[Stubber]:
+    client: "S3Client" = boto3.client(
+        "s3",
+        region_name=_REGION,
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
+    )
+    monkeypatch.setattr(
+        GlueSourceConfig, "get_s3_client", lambda self, verify_ssl=None: client
+    )
+    with Stubber(client) as stubber:
+        yield stubber
+        stubber.assert_no_pending_responses()
+
+
+def _stub_one_job(glue: Stubber, s3: Stubber) -> None:
+    glue.add_response("get_jobs", _JOB_ONE, {})
+    s3.add_response("get_object", get_object_response_1(), _SCRIPT)
+    glue.add_response(
+        "get_dataflow_graph",
+        get_dataflow_graph_response_1,
+        {"PythonScript": get_object_body_1},
+    )
+
+
+def test_job_nodes_match_the_datajobs_ingestion_emits(
+    glue: Stubber, s3: Stubber
+) -> None:
+    # Ingestion's own path, on the same stubs: _transform_extraction over a
+    # source whose clients are the stubbed ones.
+    _stub_one_job(glue, s3)
+    config = GlueSourceConfig.model_validate(_RECIPE)
+    # Both getters are patched to return the stubbed clients.
+    source = GlueSource.for_probe(
+        config, glue_client=config.get_glue_client(), s3_client=config.get_s3_client()
+    )
+    emitted = {
+        wu.get_urn()
+        for wu in source._transform_extraction()
+        if wu.get_urn().startswith("urn:li:dataJob:")
+    }
+
+    _stub_one_job(glue, s3)
+    result = run_probe_method("glue", _RECIPE, "job_nodes", {"job": _JOB_ONE_NAME})
+
+    assert isinstance(result.result, list)
+    probed = {r["urn"] for r in result.result if r["emitted_as_datajob"]}
+    assert emitted and probed == emitted
+    assert all("Args" not in r and "args" not in r for r in result.result)
+
+
+def test_a_job_without_a_readable_script_is_one_datajob(
+    glue: Stubber, s3: Stubber
+) -> None:
+    glue.add_response("get_jobs", _JOB_ONE, {})
+    s3.add_client_error(
+        "get_object",
+        service_error_code="NoSuchKey",
+        http_status_code=404,
+        expected_params=_SCRIPT,
+    )
+
+    result = run_probe_method("glue", _RECIPE, "job_nodes", {"job": _JOB_ONE_NAME})
+
+    assert isinstance(result.result, list)
+    assert len(result.result) == 1
+    assert result.result[0]["datajob_name"] == _JOB_ONE_NAME
+    assert result.result[0]["emitted_as_datajob"] is True
+    assert result.warnings  # ingestion's "Unable to download DAG" warning, folded in
+
+
+def test_an_unknown_job_is_a_caller_error(glue: Stubber) -> None:
+    glue.add_response("get_jobs", _JOB_ONE, {})
+
+    with pytest.raises(ValueError, match="no Glue job named 'nope'"):
+        run_probe_method("glue", _RECIPE, "job_nodes", {"job": "nope"})
+
+
+# Built at runtime so the secret scanner does not mistake the fixture for a
+# committed credential; what matters is that a node arg carries one.
+_NODE_SECRET = "-".join(["node", "arg", "sentinel"])
+_SECRET_DAG: Dict[str, object] = {
+    "DagNodes": [
+        {
+            "Id": "source0",
+            "NodeType": "DataSource",
+            "Args": [
+                {"Name": "connection_type", "Value": '"custom"'},
+                {
+                    "Name": "connection_options",
+                    "Value": json.dumps({"password": _NODE_SECRET}),
+                },
+            ],
+            "LineNumber": 1,
+        }
+    ],
+    "DagEdges": [],
+}
+
+
+@pytest.mark.parametrize("ignore_unsupported", [True, False])
+def test_job_node_args_never_reach_the_error_text(
+    glue: Stubber, s3: Stubber, ignore_unsupported: bool
+) -> None:
+    glue.add_response("get_jobs", _JOB_ONE, {})
+    s3.add_response("get_object", get_object_response_1(), _SCRIPT)
+    glue.add_response(
+        "get_dataflow_graph", _SECRET_DAG, {"PythonScript": get_object_body_1}
+    )
+    recipe = {**_RECIPE, "ignore_unsupported_connectors": ignore_unsupported}
+
+    if ignore_unsupported:
+        result = run_probe_method("glue", recipe, "job_nodes", {"job": _JOB_ONE_NAME})
+        assert _NODE_SECRET not in str(result.to_dict())
+    else:
+        with pytest.raises(ValueError) as info:
+            run_probe_method("glue", recipe, "job_nodes", {"job": _JOB_ONE_NAME})
+        assert _NODE_SECRET not in str(info.value)
+        assert info.value.__cause__ is None
+        assert "ignore_unsupported_connectors" in str(info.value)
