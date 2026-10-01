@@ -402,9 +402,7 @@ def test_a_personal_notebook_the_recipe_ingests_is_listed() -> None:
     assert any(w.startswith(f"{len(paths) - 2} notebooks") for w in probe.warnings)
 
 
-def test_a_walk_cut_at_the_limit_reports_the_withheld_count_as_a_lower_bound() -> (
-    None
-):
+def test_a_walk_cut_at_the_limit_reports_the_withheld_count_as_a_lower_bound() -> None:
     probe = _probe(
         _notebook_ws(["/Users/a@example.com/n", "/Shared/a", "/Shared/b", "/Shared/c"])
     )

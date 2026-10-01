@@ -80,6 +80,7 @@ def _is_shared_path(path: str) -> bool:
         return False
     return normal.startswith(_SHARED_ROOT)
 
+
 _HIVE_NOT_PROBED = (
     "hive_metastore is read by ingestion through a SQL warehouse "
     "(HiveMetastoreProxy), which the probe does not start; its contents are "
@@ -180,7 +181,9 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         self.warnings = []
 
     @classmethod
-    def for_config(cls, config: UnityCatalogSourceConfig) -> "UnityCatalogMetadataProbe":
+    def for_config(
+        cls, config: UnityCatalogSourceConfig
+    ) -> "UnityCatalogMetadataProbe":
         """The ingestion's own client builder, so auth, user-agent and
         warehouse_id resolve exactly as UnityCatalogSource.__init__ does."""
         try:
@@ -294,7 +297,9 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
         names: List[str] = []
         for name in pinned:
             try:
-                with self._calling(f"reading catalog '{name}'", missing=f"catalog '{name}'"):
+                with self._calling(
+                    f"reading catalog '{name}'", missing=f"catalog '{name}'"
+                ):
                     catalog = self._proxy.catalog(name, metastore=None)
             except _Missing:
                 self._warn(
@@ -368,7 +373,9 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 f"listing tables of '{catalog}.{schema}'",
                 missing=f"schema '{catalog}.{schema}'",
             ):
-                return [t.name for t in _take(self._proxy.tables(schema_obj), limit, keep)]
+                return [
+                    t.name for t in _take(self._proxy.tables(schema_obj), limit, keep)
+                ]
         except _Degraded:
             return []
 
@@ -455,9 +462,7 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
 
         def shown(notebook: Notebook) -> bool:
             nonlocal withheld
-            if _is_shared_path(notebook.path) or self._ingests_notebook(
-                notebook.path
-            ):
+            if _is_shared_path(notebook.path) or self._ingests_notebook(notebook.path):
                 return True
             withheld += 1
             return False
