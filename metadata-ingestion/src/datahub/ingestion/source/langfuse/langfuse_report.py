@@ -11,7 +11,9 @@ class LangfuseSourceReport(StaleEntityRemovalSourceReport):
     traces_scanned: int = 0
     traces_filtered: int = 0
     generations_scanned: int = 0
-    non_generation_observations_skipped: int = 0
+    # Traces whose root started before the window; only identity aspects are
+    # emitted for these so an earlier full record is not overwritten.
+    partial_traces: int = 0
 
     scores_attached: int = 0
     scores_dropped_unattachable_subject: int = 0

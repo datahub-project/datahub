@@ -52,11 +52,11 @@ class SeededDataSummary:
 
     trace_count: int
     generation_count: int
-    non_generation_observation_count: int
     attachable_score_count: int
     dropped_score_count: int
     prompt_names: List[str]
     prompt_version_count: int
+    prompt_linked_generation_count: int
 
 
 class LangfuseSeeder:
@@ -88,6 +88,8 @@ class LangfuseSeeder:
         session_id: Optional[str] = None,
         user_id: Optional[str] = None,
         tags: Optional[List[str]] = None,
+        prompt_name: Optional[str] = None,
+        prompt_version: Optional[int] = None,
         start_offset_seconds: float = 0.0,
         duration_seconds: float = 1.0,
     ) -> None:
@@ -136,6 +138,21 @@ class LangfuseSeeder:
                     "value": {
                         "arrayValue": {"values": [{"stringValue": t} for t in tags]}
                     },
+                }
+            )
+
+        if prompt_name:
+            attributes.append(
+                {
+                    "key": "langfuse.observation.prompt.name",
+                    "value": {"stringValue": prompt_name},
+                }
+            )
+        if prompt_version is not None:
+            attributes.append(
+                {
+                    "key": "langfuse.observation.prompt.version",
+                    "value": {"intValue": str(prompt_version)},
                 }
             )
 
@@ -265,6 +282,30 @@ class LangfuseSeeder:
 def seed(base_url: str, public_key: str, secret_key: str) -> SeededDataSummary:
     seeder = LangfuseSeeder(base_url, public_key, secret_key)
 
+    # --- Prompts: one text prompt with two versions, one chat prompt with one version.
+    # Created before the traces so generations below can be linked to them. ---
+    seeder.create_prompt_version(
+        name=PROMPT_GREETING,
+        prompt_type="text",
+        prompt="Hello {{name}}, how can I help you today?",
+        labels=["production"],
+        tags=["customer-facing"],
+    )
+    seeder.create_prompt_version(
+        name=PROMPT_GREETING,
+        prompt_type="text",
+        prompt="Hi {{name}}! What can I do for you?",
+        labels=["latest"],
+        tags=["customer-facing"],
+    )
+    seeder.create_prompt_version(
+        name=PROMPT_SYSTEM,
+        prompt_type="chat",
+        prompt=[{"role": "system", "content": "You are a helpful assistant."}],
+        labels=["production"],
+        tags=["system"],
+    )
+
     # --- Trace 1: wrapper span -> one generation -> one tool-ish span ---
     seeder.send_otlp_span(
         trace_id=TRACE_SUPPORT_CHAT,
@@ -285,6 +326,8 @@ def seed(base_url: str, public_key: str, secret_key: str) -> SeededDataSummary:
         genai_model="gpt-4o-mini",
         genai_input_tokens=100,
         genai_output_tokens=50,
+        prompt_name=PROMPT_GREETING,
+        prompt_version=1,
         start_offset_seconds=0.1,
         duration_seconds=1,
     )
@@ -337,6 +380,8 @@ def seed(base_url: str, public_key: str, secret_key: str) -> SeededDataSummary:
         genai_model="gpt-4o-mini",
         genai_input_tokens=150,
         genai_output_tokens=60,
+        prompt_name=PROMPT_SYSTEM,
+        prompt_version=1,
         start_offset_seconds=0.6,
         duration_seconds=1,
     )
@@ -379,37 +424,14 @@ def seed(base_url: str, public_key: str, secret_key: str) -> SeededDataSummary:
     )
     seeder.wait_until_score_visible("it-score-session-level")
 
-    # --- Prompts: one text prompt with two versions, one chat prompt with one version ---
-    seeder.create_prompt_version(
-        name=PROMPT_GREETING,
-        prompt_type="text",
-        prompt="Hello {{name}}, how can I help you today?",
-        labels=["production"],
-        tags=["customer-facing"],
-    )
-    seeder.create_prompt_version(
-        name=PROMPT_GREETING,
-        prompt_type="text",
-        prompt="Hi {{name}}! What can I do for you?",
-        labels=["latest"],
-        tags=["customer-facing"],
-    )
-    seeder.create_prompt_version(
-        name=PROMPT_SYSTEM,
-        prompt_type="chat",
-        prompt=[{"role": "system", "content": "You are a helpful assistant."}],
-        labels=["production"],
-        tags=["system"],
-    )
-
     return SeededDataSummary(
         trace_count=3,
         generation_count=4,
-        non_generation_observation_count=4,
         attachable_score_count=2,
         dropped_score_count=1,
         prompt_names=[PROMPT_GREETING, PROMPT_SYSTEM],
         prompt_version_count=3,
+        prompt_linked_generation_count=2,
     )
 
 

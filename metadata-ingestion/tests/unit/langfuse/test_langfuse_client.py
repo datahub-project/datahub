@@ -148,6 +148,24 @@ class TestAuthentication:
 class TestMalformedRecordIsolation:
     """A single malformed record must not abort the whole paginated fetch."""
 
+    def test_observation_filters_and_prompt_fields_are_sent_to_server(
+        self, client: LangfuseClient, mock_session: MagicMock
+    ) -> None:
+        mock_session.get.return_value = _response(200, {"data": [], "meta": {}})
+
+        now = datetime.now(tz=timezone.utc)
+        list(client.iter_observations(now, now, observation_type="GENERATION"))
+        list(client.iter_observations(now, now, is_root_observation=True))
+
+        generation_params = mock_session.get.call_args_list[0].kwargs["params"]
+        root_params = mock_session.get.call_args_list[1].kwargs["params"]
+        assert generation_params["type"] == "GENERATION"
+        assert "isRootObservation" not in generation_params
+        assert root_params["isRootObservation"] == "true"
+        # Without the `prompt` field group, promptName/promptVersion are
+        # never returned and prompt lineage cannot be built.
+        assert "prompt" in generation_params["fields"].split(",")
+
     def test_observation_missing_required_field_is_skipped_not_fatal(
         self, client: LangfuseClient, mock_session: MagicMock
     ) -> None:
