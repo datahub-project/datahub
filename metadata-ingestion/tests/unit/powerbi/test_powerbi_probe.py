@@ -495,3 +495,33 @@ def test_disabled_extraction_is_explained(requests_mock: rm.Mocker) -> None:
     with _probe(extract_dashboards=False) as probe:
         probe.dashboards("Sales")
     assert any("extract_dashboards" in w for w in probe.warnings)
+
+
+@pytest.mark.parametrize("status", [401, 403])
+def test_admin_access_denied_is_an_answer_not_an_error(
+    requests_mock: rm.Mocker, status: int
+) -> None:
+    requests_mock.get(f"{_ORG}/admin/groups", status_code=status)
+    with _probe() as probe:
+        assert probe.admin_api_access() == {
+            "admin_api": "denied",
+            "status": status,
+            "admin_apis_only": False,
+        }
+
+
+def test_admin_access_reads_a_single_row(requests_mock: rm.Mocker) -> None:
+    requests_mock.get(f"{_ORG}/admin/groups", json={"value": [_GROUPS[0]]})
+    with _probe() as probe:
+        assert probe.admin_api_access()["admin_api"] == "granted"
+    assert requests_mock.call_count == 1
+    assert requests_mock.request_history[0].qs["$top"] == ["1"]
+
+
+def test_admin_access_unexpected_status_raises(requests_mock: rm.Mocker) -> None:
+    # 400 rather than 500: the resolver's retry adapter retries 5xx with
+    # backoff, which would add seconds to the test for the same branch.
+    requests_mock.get(f"{_ORG}/admin/groups", status_code=400)
+    with pytest.raises(Exception) as excinfo, _probe() as probe:
+        probe.admin_api_access()
+    assert "400" in str(excinfo.value)
