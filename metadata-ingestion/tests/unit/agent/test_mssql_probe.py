@@ -1,9 +1,9 @@
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple, cast
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.sql import quoted_name
 
 from datahub.ingestion.agent.config_validation import validate_source_config
@@ -287,3 +287,147 @@ def test_exit_disposes_every_engine_it_opened(tmp_path: Path) -> None:
         probe.tables(schema="main", database="DemoData")
         assert list(probe._database_engines) == ["DemoData"]
     assert probe._database_engines == {}
+
+
+_PROC = "Stored Procedure"
+
+
+def test_procedure_verdicts_match_loop_stored_procedures() -> None:
+    config = {
+        **_BASE,
+        "convert_urns_to_lowercase": True,
+        "procedure_pattern": {
+            "deny": ["^DemoData\\.Foo\\.NewProc$"],
+            "ignoreCase": False,
+        },
+    }
+    result = check_filters(
+        source_type="mssql",
+        config_dict=config,
+        kind=_PROC,
+        parent_path=["DemoData", "Foo"],
+        names=["NewProc", "OtherProc"],
+    )
+    assert result.pattern_field == "procedure_pattern"
+    # Not lowercased: loop_stored_procedures builds the name by hand, unlike
+    # get_identifier, so a case-sensitive deny still bites.
+    assert [(v.target, v.included) for v in result.results] == [
+        ("DemoData.Foo.NewProc", False),
+        ("DemoData.Foo.OtherProc", True),
+    ]
+
+
+def test_a_pinned_recipe_judges_procedures_under_its_pin() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={
+            **_BASE,
+            "database": "DemoData",
+            "procedure_pattern": {"deny": ["^DemoData\\.Foo\\.NewProc$"]},
+        },
+        kind=_PROC,
+        parent_path=["Foo"],
+        names=["NewProc"],
+    )
+    assert result.results[0].target == "DemoData.Foo.NewProc"
+    assert result.results[0].excluded_by == "procedure_pattern"
+
+
+def test_a_procedure_in_an_excluded_schema_is_excluded_by_that_schema() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, "schema_pattern": {"deny": ["^Foo$"]}},
+        kind=_PROC,
+        parent_path=["DemoData", "Foo"],
+        names=["NewProc"],
+    )
+    assert result.results[0].excluded_by == "schema_pattern"
+
+
+def test_a_procedure_in_an_excluded_database_is_excluded_by_that_database() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, "database_pattern": {"deny": ["^DemoData$"]}},
+        kind=_PROC,
+        parent_path=["DemoData", "Foo"],
+        names=["NewProc"],
+    )
+    assert result.results[0].excluded_by == "database_pattern"
+
+
+def test_include_stored_procedures_false_excludes_every_procedure() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_BASE, "include_stored_procedures": False},
+        kind=_PROC,
+        parent_path=["DemoData", "Foo"],
+        names=["NewProc"],
+    )
+    assert result.results[0].excluded_by == "include_stored_procedures"
+
+
+@pytest.mark.parametrize(
+    "schema",
+    [
+        "x' UNION SELECT name FROM sys.sql_logins --",
+        "main'; DROP PROCEDURE p; --",
+        "main]",
+    ],
+)
+def test_procedures_refuses_a_schema_the_server_does_not_list(
+    tmp_path: Path, schema: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datahub.ingestion.source.sql.mssql.source import SQLServerSource
+
+    def _never(conn: object, db_name: str, schema: str) -> List[Dict[str, str]]:
+        raise AssertionError("an unlisted schema reached the procedure query")
+
+    monkeypatch.setattr(SQLServerSource, "_get_stored_procedures", staticmethod(_never))
+    with _probe(tmp_path, database="DemoData") as probe:
+        with pytest.raises(ValueError, match="containers"):
+            probe.procedures(schema=schema)
+
+
+def test_procedures_lists_names_from_the_ingestion_fetcher(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from datahub.ingestion.source.sql.mssql.source import SQLServerSource
+
+    calls: List[object] = []
+
+    def fake(conn: object, db_name: str, schema: str) -> List[Dict[str, str]]:
+        calls.append((db_name, schema))
+        return [{"db": db_name, "schema": schema, "name": "NewProc"}]
+
+    monkeypatch.setattr(SQLServerSource, "_get_stored_procedures", staticmethod(fake))
+    with _probe(tmp_path, database="DemoData") as probe:
+        assert probe.procedures(schema="MAIN") == ["NewProc"]
+    with _probe(tmp_path) as probe:
+        assert probe.procedures(schema="main", database="newdata") == ["NewProc"]
+    # Server spelling of the schema; the pinned name, or the server's
+    # spelling of the named database.
+    assert calls == [("DemoData", "main"), ("NewData", "main")]
+
+
+def test_the_procedure_query_binds_the_schema_and_quotes_the_database() -> None:
+    from datahub.ingestion.source.sql.mssql.source import SQLServerSource
+
+    sent: List[Tuple[str, Dict[str, str]]] = []
+
+    class _Conn:
+        """Records the statement; the one Connection method the fetcher uses."""
+
+        def execute(self, statement: object, params: Dict[str, str]) -> "_Conn":
+            sent.append((str(statement), params))
+            return self
+
+        def mappings(self) -> List[Dict[str, str]]:
+            return []
+
+    SQLServerSource._get_stored_procedures(
+        cast(Connection, _Conn()), "Odd]Db", "Foo's"
+    )
+    statement, params = sent[0]
+    assert "[Odd]]Db].[sys].[procedures]" in statement
+    assert "Foo's" not in statement
+    assert params == {"schema": "Foo's"}

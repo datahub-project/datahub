@@ -45,6 +45,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.agent.sql_gate import (
     CatalogScope,
 )
+from datahub.ingestion.agent.verdicts import ClassifyContext
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -66,6 +67,7 @@ from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
+    JobContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
@@ -274,7 +276,9 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     include_stored_procedures_code: bool = Field(
         default=True, description="Include information about object code."
     )
-    procedure_pattern: AllowDenyPattern = Field(
+    procedure_pattern: Annotated[
+        AllowDenyPattern, Filters(JobContainerSubTypes.STORED_PROCEDURE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for stored procedures to filter in ingestion."
         "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
@@ -562,6 +566,43 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         return source.get_identifier(
             schema=schema, entity=entity, inspector=cast(Inspector, None)
         )
+
+    def probe_match_target(self, ctx: ClassifyContext) -> str:
+        if ctx.pattern_field != "procedure_pattern":
+            return super().probe_match_target(ctx)
+        # loop_stored_procedures: f"{db_name}.{schema}.{name}", by hand and
+        # never lowercased -- get_identifier (the default route) would
+        # lowercase it under convert_urns_to_lowercase, a string ingestion
+        # never matches.
+        schema = ctx.parent_path[-1]
+        if self.is_single_database_recipe():
+            # get_db_name of the one inspector, whatever --parent says; a
+            # --parent naming another database is excluded by the Database
+            # verdict above it.
+            database = self.pinned_database_name()
+        else:
+            database = ctx.parent_path[-2] if len(ctx.parent_path) > 1 else ""
+        if not database:
+            ctx.warn(
+                "no database given, so procedures were judged on their bare "
+                "names; procedure_pattern matches database.schema.procedure, so "
+                "pass the database and the schema as --parent"
+            )
+            return ctx.name
+        return f"{database}.{schema}.{ctx.name}"
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        # loop_stored_procedures runs inside the allowed-schema loop of each
+        # allowed database (SQLAlchemySource.get_schema_level_workunits).
+        if kind == JobContainerSubTypes.STORED_PROCEDURE:
+            return (DatasetContainerSubTypes.DATABASE, DatasetContainerSubTypes.SCHEMA)
+        return super().probe_ancestor_kinds(kind)
+
+    @classmethod
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        # SQLAlchemySource.get_schema_level_workunits reaches
+        # loop_stored_procedures only when this is set.
+        return {str(JobContainerSubTypes.STORED_PROCEDURE): "include_stored_procedures"}
 
     @classmethod
     def probe_provider_class(cls) -> type:
@@ -1553,6 +1594,10 @@ class SQLServerSource(SQLAlchemySource):
     def _get_stored_procedures(
         conn: Connection, db_name: str, schema: str
     ) -> List[Dict[str, str]]:
+        # The schema is bound and the database bracket-quoted (with `]`
+        # doubled), so a name holding a quote or a bracket reads its own
+        # procedures instead of breaking -- or rewriting -- the statement.
+        database = db_name.replace("]", "]]")
         stored_procedures_data = conn.execute(
             text(
                 f"""
@@ -1560,12 +1605,13 @@ class SQLServerSource(SQLAlchemySource):
                 pr.name as procedure_name,
                 s.name as schema_name
             FROM
-                [{db_name}].[sys].[procedures] pr
+                [{database}].[sys].[procedures] pr
             INNER JOIN
-                [{db_name}].[sys].[schemas] s ON pr.schema_id = s.schema_id
-            where s.name = '{schema}'
+                [{database}].[sys].[schemas] s ON pr.schema_id = s.schema_id
+            where s.name = :schema
             """
-            )
+            ),
+            {"schema": str(schema)},
         ).mappings()
         procedures_list = []
         for row in stored_procedures_data:
