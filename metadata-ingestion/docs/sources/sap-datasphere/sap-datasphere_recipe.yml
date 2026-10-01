@@ -128,6 +128,13 @@ source:
 
     expose_for_consumption_only: false
 
+    # Also discover Views / Analytic Models that are not Expose for Consumption
+    # (absent from the consumption catalog) via dwaas-core listing. Needed when
+    # intermediate modelling views must appear as real lineage nodes without
+    # being exposed for OData / SAC consumption. No-op when
+    # expose_for_consumption_only is true.
+    # include_non_consumption_views: true
+
     # HTTP behavior
     request_timeout_sec: 30
     max_retries: 3

@@ -73,12 +73,27 @@ Other typeIds (Snowflake, Kafka, Salesforce, ...) default to
 `platform_type_defaults` in your recipe. The connector reports each
 unmapped-typeId asset once via `report.assets_skipped_unknown_typeid`.
 
+#### Views and Analytic Models not exposed for consumption
+
+The consumption catalog only returns Views and Analytic Models that have
+**Expose for Consumption** enabled in Datasphere. Intermediate modelling
+views that lineage edges typically point at are therefore invisible by
+default, and their downstream edges render as dangling nodes.
+
+Set `include_non_consumption_views: true` to ALSO discover them via the
+supported `/dwaas-core/api/v1/spaces/X/{views,analyticmodels}` listing (the
+same surface the official `datasphere` CLI uses). Names already returned by
+the catalog are not re-emitted — the catalog path keeps EDMX schema and
+labels. Design-time-only assets get schema and lineage from their CSN.
+This flag is a no-op when `expose_for_consumption_only: true`.
+
 #### Local Tables (base tables)
 
 By default the connector emits only Datasphere assets exposed for OData
-consumption (views and analytical models). Base tables — which lineage edges
-typically point at — are not in that surface. Set `include_local_tables: true`
-to ALSO discover them via the supported
+consumption (views and analytical models), unless
+`include_non_consumption_views` is enabled (above). Base tables — which
+lineage edges also typically point at — are not in that surface. Set
+`include_local_tables: true` to ALSO discover them via the supported
 `/dwaas-core/api/v1/spaces/X/localtables` endpoint (the same endpoint the
 official `datasphere` CLI uses; SAP-blessed, no policy caveat).
 

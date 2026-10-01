@@ -219,7 +219,10 @@ _JOB_SUBTYPE_BY_FLOW: Dict[DataFlowSubTypes, DataJobSubTypes] = {
     "Per-connection platform_instance via connection_to_platform_map",
 )
 @capability(SourceCapability.CONTAINERS, "Spaces emitted as containers")
-@capability(SourceCapability.SCHEMA_METADATA, "Columns from OData EDMX")
+@capability(
+    SourceCapability.SCHEMA_METADATA,
+    "Columns from OData EDMX; CSN elements when an asset has no consumption URL",
+)
 @capability(
     SourceCapability.DESCRIPTIONS,
     "Field descriptions from EDMX Common.Label annotations",
@@ -389,6 +392,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._emit_space(space_name, space_label)
                 yield from self._emit_assets_in_space(space_name)
 
+                # After the catalog pass so names already emitted (with EDMX /
+                # labels) are skipped rather than re-emitted as CSN-only stubs.
+                if (
+                    self.config.include_non_consumption_views
+                    and not self.config.expose_for_consumption_only
+                ):
+                    yield from self._emit_non_consumption_views_for_space(space_name)
+
                 if self.config.include_local_tables:
                     yield from self._emit_local_tables_for_space(space_name)
 
@@ -447,6 +458,71 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         else:
             for asset in self._safe_list_assets(space_name):
                 yield from _emit_asset_with_isolation(asset)
+
+    def _emit_non_consumption_views_for_space(
+        self, space_name: str
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit Views / Analytic Models absent from the consumption catalog.
+
+        The catalog only returns Expose for Consumption assets. Listing the
+        design-time ``views`` / ``analyticmodels`` types closes dangling
+        lineage edges that point at intermediate modelling objects the SAP
+        team deliberately keeps unexposed.
+        """
+        # Managed Views / Analytic Models share the tenant HANA Cloud routing
+        # with Local Tables; fail the space's design-time pass once if that
+        # mapping is missing rather than per-object.
+        resolved = self._resolve_managed_or_warn(
+            space_name,
+            "non-consumption Views / Analytic Models",
+            extra_hint=(
+                " Configure connection_to_platform_map to enable design-time "
+                "View discovery."
+            ),
+        )
+        if resolved is None:
+            return
+
+        for object_type, is_analytic in (
+            (OBJECT_TYPE_VIEWS, False),
+            (OBJECT_TYPE_ANALYTIC_MODELS, True),
+        ):
+            entries = self._safe_list_objects(
+                space_name,
+                object_type,
+                entity_label=object_type,
+                impact=(
+                    f"unexposed {object_type} in this space will remain "
+                    f"dangling lineage targets."
+                ),
+            )
+            if not entries:
+                continue
+
+            for technical_name in self._iter_allowed_technical_names(entries):
+                dataset_name = self._build_dataset_name(space_name, technical_name)
+                if (
+                    self._dataset_urn(resolved, dataset_name)
+                    in self._emitted_dataset_urns
+                ):
+                    # Prefer the catalog emit (EDMX schema + label) when both
+                    # surfaces list the same name.
+                    continue
+                # Synthetic catalog-shaped record so the shared emit path can
+                # reuse schema / lineage / subtype handling. No metadata URL —
+                # schema comes from CSN.
+                asset: JsonDict = {
+                    CATALOG_FIELD_NAME: technical_name,
+                    CATALOG_FIELD_LABEL: technical_name,
+                    CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES: is_analytic,
+                }
+                before = self._datasets_emitted
+                yield from self._isolate(
+                    f"{space_name}.{object_type}.{technical_name}",
+                    self._emit_asset(space_name, asset),
+                )
+                if self._datasets_emitted > before:
+                    self.report.non_consumption_views_emitted += 1
 
     def _emit_local_tables_for_space(
         self, space_name: str
@@ -1298,13 +1374,23 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
         return fields
 
     def _fetch_asset_csn(
-        self, space_name: str, asset: JsonDict, asset_name: str
+        self,
+        space_name: str,
+        asset: JsonDict,
+        asset_name: str,
+        *,
+        require_csn: bool = False,
     ) -> AssetCsn:
-        # Fetch the View / Analytic Model CSN (for lineage, view definitions, or
-        # @remote.source detection) and resolve the routing connection.
+        # Fetch the View / Analytic Model CSN (for lineage, view definitions,
+        # schema when there is no EDMX URL, or @remote.source detection) and
+        # resolve the routing connection.
         csn_obj: Optional[JsonDict] = None
         csn_def: Optional[JsonDict] = None
-        if self.config.include_lineage or self.config.include_view_definitions:
+        if (
+            require_csn
+            or self.config.include_lineage
+            or self.config.include_view_definitions
+        ):
             object_type = (
                 OBJECT_TYPE_ANALYTIC_MODELS
                 if asset.get(CATALOG_FLAG_SUPPORTS_ANALYTICAL_QUERIES)
@@ -1382,7 +1468,14 @@ class SapDatasphereSource(StatefulIngestionSourceBase, TestableSource):
             self.report.assets_filtered += 1
             return
 
-        asset_csn = self._fetch_asset_csn(space_name, asset, asset_name)
+        # No EDMX URL means schema (and typically lineage) must come from CSN —
+        # design-time-only Views / Analytic Models never have a consumption URL.
+        asset_csn = self._fetch_asset_csn(
+            space_name,
+            asset,
+            asset_name,
+            require_csn=not bool(metadata_url),
+        )
         csn_obj = asset_csn.csn_obj
         csn_def = asset_csn.csn_def
         connection_name = asset_csn.connection_name

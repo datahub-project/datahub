@@ -42,6 +42,17 @@ fetch). At 1M assets with `max_workers_assets=10`, this adds ~3 hours to the
 total run time. The column-level walker itself is essentially free (in-memory
 tree walk over an already-fetched JSON document).
 
+#### Non-consumption Views and Analytic Models
+
+The consumption catalog only lists assets with **Expose for Consumption**
+enabled. Set `include_non_consumption_views: true` to also list Views and
+Analytic Models from the design-time
+`/dwaas-core/api/v1/spaces/X/{views,analyticmodels}` endpoints and emit any
+name the catalog did not already return. Schema and lineage for those
+design-time-only assets come from CSN (there is no EDMX URL). Cost: one list
+call per type per space, plus one CSN fetch per newly discovered asset.
+Reported under `report.non_consumption_views_emitted`.
+
 #### Flow and Remote Table lineage (ETL)
 
 The query-derived lineage above captures how views are computed, but not how
@@ -156,9 +167,11 @@ Levers to reduce cost and scope:
 - **`space_pattern` / `asset_pattern`** — filtering is applied **before** the
   per-asset HTTP calls, so filtered-out assets are nearly free. Scope the run to
   the spaces / assets you actually need.
-- **`expose_for_consumption_only: true`** — skip assets that have no consumption
-  exposure URL. By default the connector catalogs all assets in each Space
-  regardless of whether they are exposed for OData consumption.
+- **`expose_for_consumption_only: true`** — skip catalog assets that have no
+  consumption exposure URL. The consumption catalog itself only returns
+  Expose for Consumption assets; to also discover unexposed Views /
+  Analytic Models, set `include_non_consumption_views: true` (that flag is
+  a no-op when this one is True).
 - **`include_view_definitions: false` AND `include_lineage: false`** — together
   these skip the per-asset CSN fetch, roughly **halving** the HTTP calls for
   users who only need catalog + schema (no lineage / view definitions).
@@ -270,6 +283,15 @@ to, while the ingestion principal only sees the spaces _it_ belongs to. If a
 space is missing from DataHub, check the `report` warnings for the
 _"Not a member of SAP Datasphere space"_ message and add the principal to that
 space (see **Prerequisites → Space membership**).
+
+A second, common cause is **Expose for Consumption**: the consumption catalog
+only returns Views / Analytic Models with that flag enabled, so unexposed
+intermediate modelling views never appear and lineage edges that point at
+them render as _"This entity does not exist"_. Set
+`include_non_consumption_views: true` (and keep
+`expose_for_consumption_only: false`) to discover those design-time objects
+via dwaas-core. `include_local_tables` covers base tables only — it does not
+surface unexposed Views.
 
 #### HTTP 429 throttling
 
