@@ -3,10 +3,16 @@ and path_specs S3Source ingests with. The listings themselves live in the
 shared S3-compatible base; this adds what only native S3 has."""
 
 import re
-from typing import List
+from typing import Dict, List
+
+from botocore.exceptions import ClientError
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig, aws_error_code
+from datahub.ingestion.source.aws.s3_boto_utils import (
+    get_bucket_tag_set,
+    get_object_tag_set,
+)
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.object_store_probe import (
     S3CompatibleMetadataProbe,
@@ -53,3 +59,53 @@ class S3MetadataProbe(S3CompatibleMetadataProbe):
         credential scoped to named buckets reports a failure, not an empty
         list. S3 Express directory buckets are not listed."""
         return self._list_buckets(limit)
+
+    @probe_method()
+    def tags(self, bucket: str, key: str = "") -> Dict[str, List[str]]:
+        """The tags use_s3_bucket_tags / use_s3_object_tags would attach, as
+        "key:value" strings: the bucket's, and the object's when `key` is given.
+        The one command beyond ListBuckets / ListObjectsV2: it issues
+        GetBucketTagging and GetObjectTagging, and only the lookups the recipe
+        turns on, so it never reads more than ingestion would. Ingestion
+        attaches object tags only to datasets that are a single file (a
+        path_spec without {table}); a denied object-tag read fails an ingestion
+        run, which is what this lets you check first. Metadata only -- object
+        contents are never read."""
+        self._bucket_uri(bucket, "")  # the refusal, then the bucket-name check
+        flags = self._config
+        if not (flags.use_s3_bucket_tags or flags.use_s3_object_tags):
+            raise ValueError(
+                "this recipe sets neither use_s3_bucket_tags nor "
+                "use_s3_object_tags, so ingestion reads no tags and neither "
+                "does the probe"
+            )
+        if key and not flags.use_s3_object_tags:
+            raise ValueError(
+                "`key` asks for object tags, but use_s3_object_tags is off, so "
+                "ingestion would not read them"
+            )
+        found: Dict[str, List[str]] = {"bucket": [], "object": []}
+        if flags.use_s3_bucket_tags:
+            with self._storage_errors(
+                f"reading the tags of bucket '{bucket}'", whole=True
+            ):
+                try:
+                    tag_set = get_bucket_tag_set(
+                        bucket, self._aws_config, flags.verify_ssl
+                    )
+                except ClientError as exc:
+                    # What an untagged bucket answers; ingestion logs it and
+                    # attaches nothing.
+                    if aws_error_code(exc) != "NoSuchTagSet":
+                        raise
+                    tag_set = []
+                found["bucket"] = [f"{t['Key']}:{t['Value']}" for t in tag_set]
+        if key:
+            with self._storage_errors(
+                f"reading the tags of object '{key}'", whole=True
+            ):
+                found["object"] = [
+                    f"{t['Key']}:{t['Value']}"
+                    for t in get_object_tag_set(bucket, key, self._aws_config)
+                ]
+        return found
