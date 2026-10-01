@@ -463,6 +463,82 @@ def test_a_pinned_system_database_is_read() -> None:
     assert result.results[0].included
 
 
+_NO_DATABASE_URI: Dict[str, object] = {"sqlalchemy_uri": "mssql+pytds://u:p@h:1433"}
+
+
+def test_a_recipe_naming_no_database_never_excludes_a_database() -> None:
+    """get_inspectors' single branch reads the login's default database --
+    often `master` -- and consults neither database_pattern nor the system
+    list, so neither may exclude a name here."""
+    result = check_filters(
+        source_type="mssql",
+        config_dict={**_NO_DATABASE_URI, "database_pattern": {"deny": ["^Other$"]}},
+        kind="Database",
+        parent_path=[],
+        names=["master", "Other"],
+    )
+    assert [(v.included, v.excluded_by) for v in result.results] == [
+        (True, None),
+        (True, None),
+    ]
+    assert any("default" in w for w in result.warnings), result.warnings
+
+
+def test_a_table_in_master_is_not_excluded_on_a_recipe_naming_no_database() -> None:
+    result = check_filters(
+        source_type="mssql",
+        config_dict=_NO_DATABASE_URI,
+        kind="Table",
+        parent_path=["master", "dbo"],
+        names=["t1"],
+    )
+    assert result.results[0].included
+
+
+def test_a_recipe_naming_no_database_emits_no_procedures() -> None:
+    """loop_stored_procedures reads `[{get_db_name}].[sys].[procedures]`, and
+    get_db_name is "" here: SQL Server rejects `[]`, so no procedure is
+    emitted, whatever procedure_pattern allows."""
+    result = check_filters(
+        source_type="mssql",
+        config_dict=_NO_DATABASE_URI,
+        kind=_PROC,
+        parent_path=["dbo"],
+        names=["NewProc"],
+    )
+    assert result.results[0].excluded_by == "sqlalchemy_uri"
+    assert any("sqlalchemy_uri" in w for w in result.warnings), result.warnings
+    # include_stored_procedures off is still the reason it states first.
+    switched_off = check_filters(
+        source_type="mssql",
+        config_dict={**_NO_DATABASE_URI, "include_stored_procedures": False},
+        kind=_PROC,
+        parent_path=["dbo"],
+        names=["NewProc"],
+    )
+    assert switched_off.results[0].excluded_by == "include_stored_procedures"
+
+
+def test_a_name_two_server_spellings_fold_to_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A case-sensitive collation can hold `Foo` and `FOO`; `foo` names
+    neither, and picking one would read an object the caller did not name."""
+
+    class _Insp:
+        def get_schema_names(self) -> List[str]:
+            return ["Foo", "FOO"]
+
+        def get_table_names(self, schema: object) -> List[str]:
+            return [f"t_{schema}"]
+
+    with _probe(tmp_path, database="DemoData") as probe:
+        monkeypatch.setattr(probe, "_insp", _Insp())
+        with pytest.raises(ValueError, match="FOO"):
+            probe.tables(schema="foo")
+        assert probe.tables(schema="FOO") == ["t_FOO"]
+
+
 def test_a_multi_database_recipe_still_excludes_system_databases() -> None:
     result = check_filters(
         source_type="mssql",
@@ -574,9 +650,7 @@ def test_the_sql_scope_never_opens_a_user_table(query: str) -> None:
         )
 
 
-def test_sql_reaches_the_driver_with_no_parameter_set(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_sql_reaches_the_driver_with_no_parameter_set(tmp_path: Path) -> None:
     """pytds %-formats a statement whenever it is handed parameters, even an
     empty set, so `LIKE 'P%'` failed after the gate had cleared it. The query
     must reach cursor.execute alone."""
@@ -612,12 +686,16 @@ def test_sql_reaches_the_driver_with_no_parameter_set(
             return _Conn()
 
     with _probe(tmp_path, database="DemoData") as probe:
-        monkeypatch.setattr(probe, "_engine", _Engine())
-        rows = probe.execute_catalog_query(
-            "SELECT name FROM sys.tables WHERE name LIKE 'P%'", limit=5
-        )
-        # The real engine is put back before __exit__ disposes it.
-        monkeypatch.undo()
+        real = probe._engine
+        probe._engine = cast(Engine, _Engine())
+        try:
+            rows = probe.execute_catalog_query(
+                "SELECT name FROM sys.tables WHERE name LIKE 'P%'", limit=5
+            )
+        finally:
+            # Put back before __exit__ disposes it, which the stub cannot do,
+            # so a failure above is reported as itself.
+            probe._engine = real
     assert calls == [("SELECT name FROM sys.tables WHERE name LIKE 'P%'",)]
     assert rows.columns == ["name"] and rows.rows == [["Persons"]]
 

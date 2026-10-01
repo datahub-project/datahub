@@ -572,7 +572,9 @@ def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() 
     seen: List[Tuple[str, bool]] = []
 
     class _Conn:
-        autocommit = False
+        def __init__(self, autocommit: bool, fail: bool = False) -> None:
+            self.autocommit = autocommit
+            self.fail = fail
 
         def cursor(self) -> "_Cursor":
             return _Cursor(self)
@@ -583,12 +585,21 @@ def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() 
 
         def execute(self, sql: str) -> None:
             seen.append((sql, self._conn.autocommit))
+            if self._conn.fail:
+                raise RuntimeError("permission denied")
 
         def close(self) -> None:
             pass
 
-    conn = _Conn()
-    set_redshift_statement_timeout(conn, 30)
+    for prior in (False, True):
+        seen.clear()
+        conn = _Conn(autocommit=prior)
+        set_redshift_statement_timeout(conn, 30)
+        assert seen == [("SET statement_timeout = 30000", True)]
+        assert conn.autocommit is prior
 
-    assert seen == [("SET statement_timeout = 30000", True)]
-    assert conn.autocommit is False
+    # Fails closed, and still hands the session back as it found it.
+    failing = _Conn(autocommit=False, fail=True)
+    with pytest.raises(RuntimeError):
+        set_redshift_statement_timeout(failing, 30)
+    assert failing.autocommit is False

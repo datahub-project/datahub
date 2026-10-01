@@ -579,14 +579,18 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
             database = self.pinned_database_name()
         else:
             database = ctx.parent_path[-2] if len(ctx.parent_path) > 1 else ""
-        if not database:
-            ctx.warn(
-                "no database given, so procedures were judged on their bare "
-                "names; procedure_pattern matches database.schema.procedure, so "
-                "pass the database and the schema as --parent"
-            )
+        if database:
+            return f"{database}.{schema}.{ctx.name}"
+        if self.is_single_database_recipe():
+            # No target to get right: ingestion emits no procedure here, and
+            # probe_verdict_override says so and why.
             return ctx.name
-        return f"{database}.{schema}.{ctx.name}"
+        ctx.warn(
+            "no database given, so procedures were judged on their bare "
+            "names; procedure_pattern matches database.schema.procedure, so "
+            "pass the database and the schema as --parent"
+        )
+        return ctx.name
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         # loop_stored_procedures runs inside the allowed-schema loop of each
@@ -599,25 +603,51 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         # get_inspectors' single-inspector branch: the pin is read whatever
         # database_pattern and MSSQL_SYSTEM_DATABASES say, and nothing else
         # is. Overrules ctx.structural on purpose: a pinned `master` is read.
+        if ctx.kind == JobContainerSubTypes.STORED_PROCEDURE:
+            return self._unpinned_procedure_verdict(ctx)
         if ctx.kind != DatasetContainerSubTypes.DATABASE:
             return None
         if not self.is_single_database_recipe():
             return None
         pinned = self.pinned_database_name()
         if not pinned:
-            # The login's default database: its name is not knowable offline.
+            # The login's default database -- often `master` -- whose name is
+            # not knowable offline. Included rather than left to ctx.structural:
+            # the single branch consults neither database_pattern nor the
+            # system list, so either excluding it would be a verdict ingestion
+            # never makes, and one inherited by every table under it.
             ctx.warn(
                 "this recipe's connection names no database, so ingestion reads "
-                "only the login's default one; whether that is the one named "
-                "here cannot be told without connecting"
+                "only the login's default one, whatever database_pattern and "
+                "the system-database list say; a database named here is read "
+                "only if it is that default, which cannot be told without "
+                "connecting"
             )
-            return None
+            return Verdict.include()
         if ctx.name.casefold() == pinned.casefold():
             return Verdict.include()
         return Verdict(
             included=False,
             excluded_by="sqlalchemy_uri" if self.sqlalchemy_uri else "database",
         )
+
+    def _unpinned_procedure_verdict(self, ctx: VerdictContext) -> Optional[Verdict]:
+        # loop_stored_procedures reads `[{get_db_name}].[sys].[procedures]`;
+        # with no database in the connection that is `[]`, which SQL Server
+        # rejects as an empty identifier, so the schema's procedures are
+        # reported as a failure and none is emitted, whatever
+        # procedure_pattern says.
+        if ctx.structural is not None:
+            return None
+        if not self.is_single_database_recipe() or self.pinned_database_name():
+            return None
+        ctx.warn(
+            "this recipe's connection names no database, so ingestion's "
+            "procedure listing has no database to read and emits no "
+            "procedures; name the database in sqlalchemy_uri (a `database` "
+            "field beside it does not reach that query)"
+        )
+        return Verdict(included=False, excluded_by="sqlalchemy_uri")
 
     def probe_filter_target(
         self,

@@ -17,6 +17,7 @@ import yaml
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import run_probe_method
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.metadata.urns import DatasetUrn
 from tests.integration.mssql.test_sql_server import mssql_runner  # noqa: F401
 
 _PROC = "Stored Procedure"
@@ -126,8 +127,7 @@ def _ingest(config: Dict[str, object], tmp_path: Path) -> Tuple[Set[str], Set[st
             "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot"
         )
         if snapshot:
-            # urn:li:dataset:(urn:li:dataPlatform:mssql,<name>,PROD)
-            datasets.add(str(snapshot["urn"]).split(",")[1])
+            datasets.add(DatasetUrn.from_string(str(snapshot["urn"])).name)
         urn = str(record.get("entityUrn") or "")
         aspect = record.get("aspectName")
         if urn.startswith("urn:li:dataJob:") and aspect == "dataJobInfo":
