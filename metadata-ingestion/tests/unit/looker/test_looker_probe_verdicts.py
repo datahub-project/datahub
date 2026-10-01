@@ -193,6 +193,22 @@ def test_standalone_looks_ignore_chart_pattern_and_say_so() -> None:
     assert any("on a dashboard" in w for w in result.warnings)
 
 
+def test_a_look_whose_query_could_not_be_read_is_excluded_with_a_warning() -> None:
+    # `looks` writes has_query null when its read-back failed, and
+    # listing_from_run drops nulls; ingestion skips a look whose read raises.
+    result = _judge(
+        "Look",
+        ["101", "107"],
+        attributes=[
+            {"deleted": "false", "has_query": "true", "folder_personal": "false"},
+            {"deleted": "false", "folder_personal": "false"},
+        ],
+        **_LOOKS_ON,
+    )
+    assert _reasons(result) == {"101": None, "107": "look_query_unreadable"}
+    assert any("could not be read" in w for w in result.warnings)
+
+
 def test_used_explores_only_reports_explores_and_models_by_rule_with_a_warning() -> (
     None
 ):

@@ -52,6 +52,7 @@ ELEMENT_HAS_NO_QUERY = "element_has_no_query"
 LOOK_HAS_NO_QUERY = "look_has_no_query"
 MODEL_HAS_NO_EXPLORES = "model_has_no_explores"
 ON_A_KEPT_DASHBOARD = "on_a_kept_dashboard"
+LOOK_QUERY_UNREADABLE = "look_query_unreadable"
 
 _NO_DASHBOARD_FACTS = (
     "dashboards named without their listing were judged on dashboard_pattern "
@@ -71,6 +72,12 @@ _NO_LOOK_FACTS = (
     "extract_independent_looks alone; save `probe run looks --report-to` and "
     "pass it with `probe filter --from-run` to judge deleted, personal-folder "
     "and query-less looks"
+)
+_LOOK_QUERY_UNREAD = (
+    "some looks' queries could not be read when they were listed (see that "
+    "listing's warnings); ingestion skips a look whose query read fails, so "
+    "they are reported excluded. Re-run `probe run looks --report-to` once the "
+    "read succeeds to judge them"
 )
 _CHART_PATTERN_NOT_APPLIED = (
     "these are standalone looks (no --parent dashboard): ingestion's "
@@ -215,6 +222,11 @@ def _standalone_look(
         return Verdict(False, LOOK_HAS_NO_QUERY)
     if config.skip_personal_folders and _flag(attributes, ATTR_FOLDER_PERSONAL):
         return Verdict(False, "skip_personal_folders")
+    # `looks` writes has_query null (dropped from the attributes) when its
+    # get_look read-back failed; ingestion's own get_look then `continue`s.
+    if ATTR_HAS_QUERY not in attributes:
+        ctx.warn(_LOOK_QUERY_UNREAD)
+        return Verdict(False, LOOK_QUERY_UNREADABLE)
     return Verdict.include()
 
 
