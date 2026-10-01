@@ -30,6 +30,7 @@ from datahub.ingestion.agent.redact import (
     collect_nested_secret_values,
     collect_secret_values,
     redact,
+    scrub_strings,
     scrub_text,
 )
 from datahub.ingestion.agent.secrets import (
@@ -168,7 +169,7 @@ _USER_ERRORS: Tuple[Type[BaseException], ...] = (
 def _redacted_text(exc: BaseException, secret_values: Set[str]) -> str:
     # SECURITY: exception text is where credentials leak in practice -- a driver
     # echoing a connection string, a pydantic ValidationError echoing its
-    # input_value. Scrub credential shapes, then registered values.
+    # input_value. Mask registered values, then credential shapes.
     return scrub_text(str(exc), secret_values)
 
 
@@ -464,18 +465,6 @@ _MASKED_NOTICE = (
 )
 
 
-def _scrub_strings(obj: object, secret_values: Set[str]) -> object:
-    """scrub_text over every string in a JSON-shaped value (driver text lives in
-    arbitrary fields of a test-connection report)."""
-    if isinstance(obj, str):
-        return scrub_text(obj, secret_values)
-    if isinstance(obj, dict):
-        return {k: _scrub_strings(v, secret_values) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [_scrub_strings(v, secret_values) for v in obj]
-    return obj
-
-
 def _redacted_payload(payload: object, secret_values: Set[str]) -> object:
     """Redact, and say so when redaction changed what the caller is reading.
 
@@ -576,7 +565,7 @@ def test_connection(recipe_path: str) -> None:
         as_obj = getattr(report, "as_obj", None)
         report_obj = as_obj() if callable(as_obj) else report
         safe_report = json.loads(json.dumps(report_obj, default=_json_default))
-        _emit(_scrub_strings(redact(safe_report, secret_values), secret_values))
+        _emit(scrub_strings(redact(safe_report, secret_values), secret_values))
         # The report was emitted but never consulted, so a FAILED connection
         # test exited 0 -- in a CLI whose whole contract is that the caller
         # reads the exit code to tell "your input was wrong" from "I could not

@@ -442,7 +442,8 @@ def test_a_registered_secret_is_removed_whole_before_structural_passes(
 )
 def test_scrub_text_covers_more_credential_shapes(text: str) -> None:
     out = scrub_text(text, set())
-    assert "PLANTED" not in out and "UExBTEVE" not in out
+    # UExBTlRFRHZhbHVl is base64 of the planted value in the Basic header case.
+    assert "PLANTED" not in out and "UExBTlRFRHZhbHVl" not in out
     assert "***" in out
 
 
@@ -467,9 +468,21 @@ def test_scrub_text_stays_linear_on_long_input() -> None:
     import time
 
     start = time.time()
-    for text in ("a.a." * 50000, "password" * 12500, "x://" * 25000):
+    for text in (
+        "a.a." * 50000,
+        "password" * 12500,
+        "x://" * 25000,
+        "pwd={" * 20000,
+        "PWD={" + "a" * 100000,
+        "eyJaaaaa." * 11000,
+        "Authorization: Token " * 5000,
+        "basic " * 17000,
+        "input_value=" * 8000,
+    ):
         scrub_text(text, set())
-    assert time.time() - start < 2
+    # Generous on purpose: this catches catastrophic (quadratic or worse)
+    # backtracking on 100k-character inputs, not a slow CI machine.
+    assert time.time() - start < 10
 
 
 def test_credential_mapping_keys_with_other_suffixes_are_not_secrets() -> None:
@@ -480,3 +493,59 @@ def test_credential_mapping_keys_with_other_suffixes_are_not_secrets() -> None:
         "credential": "client:PLANTED",
     }
     assert collect_nested_secret_values(cfg, _SENSITIVE_KEY_HINTS) == {"client:PLANTED"}
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "DRIVER={ODBC Driver 18};SERVER=h;PWD={a;PLANTEDvalue};UID=u",
+        # Built from parts so a secret scanner does not read this file's
+        # fixtures as real credentials.
+        "token was " + "eyJ" + "hbGciOiJIUzI1NiJ9." + "eyJ" + "zdWIiOiJQTEFOVEVEIn0."
+        "PLANTEDsignature1",
+        "auth with ghp_PLANTEDvalue0123456789abcdef",
+        "posting with xoxb-1234-PLANTEDvalue-abc",
+        "Authorization: Token PLANTEDvalue",
+        "authorization=token PLANTEDvalue",
+        "Authorization: Basic dXNlcjpQTEFOVEVE",
+    ],
+)
+def test_scrub_text_masks_vendor_token_shapes(text: str) -> None:
+    out = scrub_text(text, set())
+    assert "PLANTED" not in out
+    assert "dXNlcjpQTEFOVEVE" not in out
+    assert "***" in out
+
+
+def test_an_odbc_braced_value_is_masked_without_swallowing_its_neighbours() -> None:
+    out = scrub_text("SERVER=h;PWD={a;PLANTEDvalue};UID=u", set())
+    assert out == "SERVER=h;PWD=***;UID=u"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "basic connectivity failed for source x",
+        "Basic configuration is missing",
+        "Authorization: Token required",
+    ],
+)
+def test_scrub_text_keeps_prose_after_scheme_words(text: str) -> None:
+    assert scrub_text(text, set()) == text
+
+
+def test_scrub_strings_walks_json_shapes() -> None:
+    from datahub.ingestion.agent.redact import scrub_strings
+
+    payload = {
+        "a": ["client_secret=PLANTEDvalue", 3, None],
+        "b": {"c": "http://u:" + "PLANTEDvalue@h/x"},
+        "d": True,
+    }
+    out = scrub_strings(payload, set())
+    assert "PLANTED" not in str(out)
+    assert out == {
+        "a": ["client_secret=***", 3, None],
+        "b": {"c": "http://***@h/x"},
+        "d": True,
+    }

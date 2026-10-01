@@ -343,11 +343,36 @@ _SECRET_ASSIGNMENT = re.compile(
     r"|api[_-]?key|access[_-]?key(?:[_-]?id)?|private[_-]?key|account[_-]?key"
     r"|signature|sig|credential"
     r"))([\"']?(?:\s*[=:]\s*|%3[Dd]))"
-    r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|[^\s&;,]+)"
+    # An ODBC braced value (`PWD={a;b}`) may hold `;`, so it is read to its
+    # closing brace. `{` is excluded inside it so an unterminated brace stops
+    # at the next one instead of rescanning the rest of the input.
+    r"(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*'|\{[^{}\n]*\}|[^\s&;,]+)"
 )
 _BEARER = re.compile(r"(?i)\b(bearer)\s+([A-Za-z0-9._~+/=-]+)")
-_BASIC = re.compile(r"(?i)\b(basic)\s+([A-Za-z0-9+/]{8,}={0,2})")
+# The keyword alone is case-insensitive; the token must look like base64 --
+# eight or more characters with a digit, an uppercase letter, `+`, `/` or `=`
+# -- so prose ("basic connectivity failed") is left alone.
+_BASIC = re.compile(
+    r"\b((?i:basic))\s+"
+    r"(?=[A-Za-z0-9+/]*[0-9A-Z+/=])([A-Za-z0-9+/]{8,}={0,2})"
+)
+# `Authorization: Token <value>`, the scheme Django REST and Looker use.
+_AUTHORIZATION_TOKEN = re.compile(
+    r"(?i)\b(authorization[\"']?\s*[:=]\s*[\"']?token)\s+([A-Za-z0-9._~+/=-]+)"
+)
 _AWS_KEY_ID = re.compile(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b")
+# Tokens recognisable by their own prefix, wherever they appear: JWTs (three
+# base64url segments, the first a JSON header), GitHub and Slack tokens.
+#
+# Deliberately NOT here: AWS ARNs and bare 12-digit account ids. Both are
+# identifiers a caller supplies and reads back (a role to assume, a Glue
+# catalog id), so masking them would corrupt answers, and the SDK error text
+# that quotes them is already withheld by the foreign-exception policy.
+_PREFIXED_TOKEN = re.compile(
+    r"\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}"
+    r"|\bgh[pousr]_[A-Za-z0-9]{20,}"
+    r"|\bxox[abprs]-[A-Za-z0-9-]{10,}"
+)
 # The body class stops at the first non-base64 character, so an unterminated
 # or truncated key is still masked without a lazy scan to a missing END marker.
 _PEM_BLOCK = re.compile(
@@ -425,7 +450,21 @@ def scrub_text(text: str, secret_values: Set[str]) -> str:
     out = _SECRET_ASSIGNMENT.sub(_mask_assignment, out)
     out = _BEARER.sub(_mask_scheme, out)
     out = _BASIC.sub(_mask_scheme, out)
+    out = _AUTHORIZATION_TOKEN.sub(_mask_scheme, out)
+    out = _PREFIXED_TOKEN.sub(MASK, out)
     return _AWS_KEY_ID.sub(MASK, out)
+
+
+def scrub_strings(obj: object, secret_values: Set[str]) -> object:
+    """scrub_text over every string in a JSON-shaped value (driver text lives in
+    arbitrary fields of a test-connection report). Keys are left as they are."""
+    if isinstance(obj, str):
+        return scrub_text(obj, secret_values)
+    if isinstance(obj, dict):
+        return {k: scrub_strings(v, secret_values) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [scrub_strings(v, secret_values) for v in obj]
+    return obj
 
 
 def redact(payload: object, secret_values: Set[str]) -> object:

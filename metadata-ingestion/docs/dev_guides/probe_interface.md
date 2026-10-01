@@ -112,15 +112,27 @@ implement exactly this one hook and nothing else in this guide. Everything below
 The framework owns what reaches the caller, so a provider does not have to scrub
 every call site:
 
-- **Your own errors keep their message.** Raise `ProbeArgumentError` when the
-  caller's argument is wrong (exit 2); it keeps its message wherever it is raised.
-  A plain `ValueError` keeps its text only when it is raised in the file that
-  defines your provider class. From a shared base class, a helper module, or around
-  a stdlib or SDK call that validates a caller argument, raise `ProbeArgumentError`.
+- **Your own argument errors keep their message.** Raise `ProbeArgumentError` when
+  the caller's argument is wrong (exit 2); it keeps its message wherever it is raised.
+  A plain `ValueError` keeps its text only when it is raised in a provider file: the
+  file that defines your provider class, or one defining a base class that is itself
+  a provider (declares `for_config` or a `@probe_method`) and is not an ingestion
+  `Source`. From a helper module, an ingestion `Source`, or around a stdlib or SDK call
+  that validates a caller argument, raise `ProbeArgumentError`.
+
+  While the provider is being built, only the `ValueError` family and the framework's
+  own types (`ProbeConnectionError`, `ProbeInternalError`, `ProbeReadFailed`) keep
+  their text. Any other type you raise there, such as `RuntimeError`, is reported by
+  class name as `ProbeConnectionError` (exit 3). During a command, an authored
+  defect type (`TypeError`, `KeyError`, `IndexError`, ...) is reported as
+  `ProbeInternalError` (exit 1) with its message.
+
 - **Everything else is reported by class name only.** An exception raised inside
   reused ingestion code, a driver or an SDK keeps its exit code but loses its text:
 
-  - while the provider is being built: `ProbeConnectionError` (exit 3);
+  - while the provider is being built or closed (its `__exit__`):
+    `ProbeConnectionError` (exit 3). A failure while closing never replaces the
+    command's own failure;
   - during a command: Python defects (`TypeError`, `KeyError`, `AttributeError`,
     `AssertionError`, `IndexError`, `NameError`) exit 1, the `ValueError` family
     exits 2, and everything else (HTTP, cloud SDK, database, Kafka errors) exits 3.
@@ -138,12 +150,19 @@ every call site:
 
 - **All free text is scrubbed.** The recipe's own secret values are masked first,
   then credential shapes (`user:pass@` in URLs, `password=` / `client_secret=` /
-  `token:` pairs including quoted keys, bearer and basic auth headers, PEM private
-  keys, AWS key ids, SAS signatures), so recipes with no inline secrets (ADC, IAM
-  roles) are covered too. This applies to `probe` output and to `test-connection`.
-- **Reused code's logs are capped at scrubbed warnings** while a probe runs, with
-  tracebacks dropped, including under `datahub --debug` and for captured Python
-  warnings. Set `DATAHUB_PROBE_VERBOSE_LOGS=1` to see them when debugging a
+  `token:` pairs including quoted keys and ODBC `PWD={...}` values, bearer, basic
+  and `Authorization: Token` headers, JWTs, GitHub and Slack tokens, PEM private
+  keys, AWS key ids, SAS signatures, pydantic's `input_value=`), so recipes with no
+  inline secrets (ADC, IAM roles) are covered too. This applies to `probe` output and to `test-connection`.
+- **Every log line not written by the framework is scrubbed** while a probe or
+  `test-connection` runs, with its traceback dropped, including under `datahub --debug`
+  and for captured Python warnings. Only the framework's own loggers
+  (`datahub.ingestion.agent`, `datahub.cli`, `datahub.masking`, `datahub.entrypoints`,
+  `datahub.telemetry`) pass as logged. The known-noisy reused loggers (sources under
+  `datahub.ingestion.source`, cloud SDKs, HTTP and database clients; see
+  `REUSED_LOGGERS`) are also capped at `WARNING`. That cap covers your provider's own
+  `logger.debug` when it logs under `datahub.ingestion.source`. Set
+  `DATAHUB_PROBE_VERBOSE_LOGS=1` to see those logs unscrubbed when debugging a
   connector locally.
 
 **A source type that validates differently from its config class.** Some registered
