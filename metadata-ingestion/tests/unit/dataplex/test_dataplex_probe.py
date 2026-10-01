@@ -9,12 +9,14 @@ import pytest
 from google.api_core import exceptions
 from google.cloud import dataplex_v1, resourcemanager_v3
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.probe_methods import ProbeMethodResult, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.common.gcp_project_filter import (
     _search_projects_by_labels,
 )
 from datahub.ingestion.source.dataplex.dataplex_config import (
+    DATAPLEX_ASPECT_TYPE_KIND,
     DATAPLEX_ENTRY_FQN_KIND,
     DATAPLEX_ENTRY_GROUP_KIND,
     DATAPLEX_ENTRY_KIND,
@@ -22,6 +24,9 @@ from datahub.ingestion.source.dataplex.dataplex_config import (
     DataplexConfig,
 )
 from datahub.ingestion.source.dataplex.dataplex_probe import DataplexMetadataProbe
+from datahub.ingestion.source.dataplex.dataplex_properties import (
+    extract_aspects_to_custom_properties,
+)
 
 BASE: Dict[str, object] = {
     "project_ids": ["proj-a"],
@@ -393,4 +398,63 @@ def test_a_forbidden_entry_group_is_scrubbed(monkeypatch: pytest.MonkeyPatch) ->
             catalog=client,
         )
     assert "list_entries" in str(info.value)
+    assert SERVER_DETAIL not in str(info.value)
+
+
+ENTRY = f"{GROUP}/entries/orders"
+ASPECT_KEYS = [
+    "123456.global.schema",
+    "proj-a.us.datahub-tags",
+    "projects/proj-a/locations/us/aspectTypes/owners",
+]
+
+
+def _catalog_with_detail() -> Mock:
+    client = Mock(spec=dataplex_v1.CatalogServiceClient)
+    client.get_entry.return_value = dataplex_v1.Entry(
+        name=ENTRY, aspects={key: dataplex_v1.Aspect() for key in ASPECT_KEYS}
+    )
+    return client
+
+
+def test_aspect_types_are_the_names_aspect_type_pattern_matches(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    result = _run(
+        monkeypatch,
+        "entry_aspect_types",
+        {"entry": ENTRY},
+        catalog=_catalog_with_detail(),
+    )
+    assert result.kind == DATAPLEX_ASPECT_TYPE_KIND
+    assert result.result == ["datahub-tags", "owners", "schema"]
+
+    # The same names ingestion would test: every type the probe reports as
+    # allowed is one ingestion turns into a custom property, and vice versa.
+    props: Dict[str, str] = {}
+    pattern = AllowDenyPattern(deny=["datahub-.*"])
+    extract_aspects_to_custom_properties(
+        {key: dataplex_v1.Aspect() for key in ASPECT_KEYS}, props, pattern
+    )
+    kept = {
+        k.removeprefix("dataplex_aspect_")
+        for k in props
+        if k.startswith("dataplex_aspect_")
+    }
+    assert kept == {t for t in result.result if pattern.allowed(t)}
+
+
+def test_aspect_data_never_leaves_the_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _catalog_with_detail()
+    result = _run(monkeypatch, "entry_aspect_types", {"entry": ENTRY}, catalog=client)
+    assert all(isinstance(t, str) for t in result.result)
+    request = client.get_entry.call_args.kwargs["request"]
+    assert request.view == dataplex_v1.EntryView.ALL  # what ingestion fetches
+
+
+def test_an_unknown_entry_is_a_bad_argument(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = Mock(spec=dataplex_v1.CatalogServiceClient)
+    client.get_entry.side_effect = exceptions.NotFound(SERVER_DETAIL)
+    with pytest.raises(ValueError) as info:
+        _run(monkeypatch, "entry_aspect_types", {"entry": ENTRY}, catalog=client)
     assert SERVER_DETAIL not in str(info.value)
