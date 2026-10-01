@@ -1487,6 +1487,21 @@ def discover_mutator_hierarchy() -> set[str]:
     return hierarchy
 
 
+def java_files_added_between(base: str, head: str) -> set[str]:
+    """Paths of .java files present at `head` but not at `base`.
+
+    `git log --diff-filter=A base..head` also lists files re-added by root
+    commits (history rewrites re-add the whole tree), which can mean tens of
+    thousands of files that already existed at `base`. Filtering log entries
+    through this set keeps only real additions.
+    """
+    try:
+        out = _git("diff", "--diff-filter=A", "--name-only", base, head, "--", "*.java")
+    except subprocess.CalledProcessError:
+        return set()
+    return {line.strip() for line in out.splitlines() if line.strip()}
+
+
 def find_mutators_added_in_window(
     base: str, head: str, hierarchy: set[str]
 ) -> list[dict]:
@@ -1513,6 +1528,7 @@ def find_mutators_added_in_window(
     except subprocess.CalledProcessError:
         return results
 
+    added = java_files_added_between(base, head)
     current_sha: Optional[str] = None
     current_subject: str = ""
     for line in out.strip().splitlines():
@@ -1524,7 +1540,12 @@ def find_mutators_added_in_window(
             current_sha = parts[1] if len(parts) > 1 else None
             current_subject = parts[2] if len(parts) > 2 else ""
             continue
-        if not line.endswith(".java") or "/test/" in line or current_sha is None:
+        if (
+            not line.endswith(".java")
+            or "/test/" in line
+            or current_sha is None
+            or line not in added
+        ):
             continue
         try:
             content = _git("show", f"{current_sha}:{line}")

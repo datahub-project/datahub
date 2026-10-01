@@ -362,6 +362,7 @@ def find_upgrade_steps_added_in_window(
     except subprocess.CalledProcessError:
         return results
 
+    added = rac.java_files_added_between(base, head)
     current_sha: Optional[str] = None
     current_subject: str = ""
     for line in out.strip().splitlines():
@@ -373,7 +374,12 @@ def find_upgrade_steps_added_in_window(
             current_sha = parts[1] if len(parts) > 1 else None
             current_subject = parts[2] if len(parts) > 2 else ""
             continue
-        if not line.endswith(".java") or "/test/" in line or current_sha is None:
+        if (
+            not line.endswith(".java")
+            or "/test/" in line
+            or current_sha is None
+            or line not in added
+        ):
             continue
         try:
             content = rac._git("show", f"{current_sha}:{line}")
@@ -525,6 +531,7 @@ def render_rollback_report(
     target: str,
     current_sha: str,
     target_sha: str,
+    warning: Optional[str] = None,
 ) -> str:
     generated = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     verdict = compute_verdict(findings)
@@ -540,6 +547,10 @@ def render_rollback_report(
         f"**Target (N-1):** `{target}` (sha: `{target_sha[:10]}`)  ",
         f"**Generated:** {generated}",
         "",
+    ]
+    if warning:
+        lines += [f"> ⚠️ **Warning:** {warning}", ""]
+    lines += [
         f"## Verdict: {VERDICT_LABELS[verdict]}",
         "",
         f"> {VERDICT_DESCRIPTIONS[verdict]}",
@@ -700,6 +711,7 @@ def render_json_report(
     target: str,
     current_sha: str,
     target_sha: str,
+    warning: Optional[str] = None,
 ) -> str:
     verdict = compute_verdict(findings)
     data = {
@@ -708,6 +720,7 @@ def render_json_report(
         "target": target,
         "target_sha": target_sha[:10],
         "generated": datetime.now(timezone.utc).isoformat(),
+        "warning": warning,
         "verdict": verdict,
         "verdict_label": VERDICT_LABELS[verdict],
         "summary": {
@@ -728,6 +741,47 @@ def render_json_report(
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
+
+_REF_VERSION_RE = re.compile(r"^v?(\d+(?:\.\d+){2,3})")
+
+
+def _ref_version(ref: str) -> Optional[tuple[int, ...]]:
+    """Version from a release tag or branch name (e.g. v1.7.0.1, releases/v1.8.0)."""
+    name = ref.removeprefix("refs/tags/").removeprefix("origin/")
+    name = name.removeprefix("releases/").removeprefix("hotfixes/")
+    m = _REF_VERSION_RE.match(name)
+    return tuple(int(p) for p in m.group(1).split(".")) if m else None
+
+
+def order_warning(
+    current: str, target: str, current_sha: str, target_sha: str
+) -> Optional[str]:
+    """Warn when N looks older than N-1, i.e. the arguments are probably swapped.
+
+    Compares release versions when both refs carry one. Otherwise falls back to
+    commit dates, since release tags live on parallel branches and ancestry
+    can't order them.
+    """
+    if current_sha == target_sha:
+        return None
+    cur_v, tgt_v = _ref_version(current), _ref_version(target)
+    if cur_v is not None and tgt_v is not None:
+        reversed_order = cur_v < tgt_v
+    else:
+        try:
+            cur_t = int(rac._git("log", "-1", "--format=%ct", current_sha).strip())
+            tgt_t = int(rac._git("log", "-1", "--format=%ct", target_sha).strip())
+        except (subprocess.CalledProcessError, ValueError):
+            return None
+        reversed_order = cur_t < tgt_t
+    if not reversed_order:
+        return None
+    return (
+        f"Current (N) `{current}` is older than target (N-1) `{target}`. "
+        f"--current and --target may be swapped; findings describe the "
+        f"wrong direction."
+    )
 
 
 def run(
@@ -785,9 +839,12 @@ def main(argv: Optional[list[str]] = None) -> None:
         print(f"Resolved target (N-1): {args.target}", file=sys.stderr)
 
     findings, current_sha, target_sha = run(args.current, args.target)
+    warning = order_warning(args.current, args.target, current_sha, target_sha)
+    if warning:
+        print(f"Warning: {warning}", file=sys.stderr)
 
     md = render_rollback_report(
-        findings, args.current, args.target, current_sha, target_sha
+        findings, args.current, args.target, current_sha, target_sha, warning
     )
 
     if args.output:
@@ -801,7 +858,8 @@ def main(argv: Optional[list[str]] = None) -> None:
             ".md", ".json"
         )
         json_out = render_json_report(
-            findings, args.current, args.target, current_sha, target_sha
+            findings, args.current, args.target, current_sha, target_sha,
+            warning,
         )
         Path(json_path).write_text(json_out, encoding="utf-8")
         print(f"JSON report written to {json_path}", file=sys.stderr)

@@ -877,3 +877,35 @@ class TestMainTargetDefault:
             )
         resolve.assert_not_called()
         run.assert_called_once_with("abc123", "v1.1.0")
+
+
+class TestOrderWarning:
+    def test_release_versions_in_order(self):
+        assert ra.order_warning("v1.7.0.1", "v1.7.0", "a" * 10, "b" * 10) is None
+        assert ra.order_warning("v2.3.0-cloud", "v2.2.3-cloud", "a" * 10, "b" * 10) is None
+        assert ra.order_warning("releases/v1.8.0", "v1.7.0.1", "a" * 10, "b" * 10) is None
+
+    def test_release_versions_reversed(self):
+        assert ra.order_warning("v1.6.0", "v1.7.0", "a" * 10, "b" * 10)
+        assert ra.order_warning("v1.7.0rc1", "v1.7.0.1", "a" * 10, "b" * 10)
+
+    def test_same_commit_never_warns(self):
+        assert ra.order_warning("v1.6.0", "v1.7.0", "a" * 10, "a" * 10) is None
+
+    def test_non_release_refs_fall_back_to_commit_dates(self):
+        times = {"newsha": "200\n", "oldsha": "100\n"}
+        with patch.object(ra.rac, "_git", side_effect=lambda *a: times[a[-1]]):
+            assert ra.order_warning("master", "v1.7.0", "newsha", "oldsha") is None
+            assert ra.order_warning("master", "v1.7.0", "oldsha", "newsha")
+
+    def test_warning_is_shown_in_reports(self):
+        md = ra.render_rollback_report(
+            [], "v1.6.0", "v1.7.0", "abc1234567", "def1234567", "swapped"
+        )
+        assert "**Warning:** swapped" in md
+        data = json.loads(
+            ra.render_json_report(
+                [], "v1.6.0", "v1.7.0", "abc1234567", "def1234567", "swapped"
+            )
+        )
+        assert data["warning"] == "swapped"
