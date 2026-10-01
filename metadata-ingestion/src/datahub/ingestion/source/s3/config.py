@@ -177,7 +177,12 @@ class DataLakeSourceConfig(
                 f"URIs, as `probe run datasets` lists them"
             )
         if kind == str(DatasetContainerSubTypes.FOLDER):
-            return judge_folder(self.path_specs, ctx.name, ctx.warn)
+            return judge_folder(
+                self.path_specs,
+                ctx.name,
+                ctx.warn,
+                bucket_kind=str(DatasetContainerSubTypes.S3_BUCKET),
+            )
         # ignore_ext mirrors get_workunits_internal: is_s3_platform() (checked
         # above) and use_s3_content_type.
         return judge_dataset(

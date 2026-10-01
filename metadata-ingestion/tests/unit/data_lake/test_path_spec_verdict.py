@@ -1,9 +1,12 @@
 from typing import Callable, List, Sequence, Tuple
 
+import pytest
+
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.agent.verdicts import Verdict
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
+    CONTAINER_WARNING,
     TEMPLATED_FILE_RULES_WARNING,
     UNPARSED_TABLE_WARNING,
     judge_bucket,
@@ -118,3 +121,26 @@ def test_a_table_folder_ingestion_cannot_name_is_included_with_a_warning() -> No
     assert v.included and UNPARSED_TABLE_WARNING in warnings
     v, warnings = _judge(judge_dataset, [spec], "s3://my-bucket-2/data/events")
     assert v.included and UNPARSED_TABLE_WARNING not in warnings
+
+
+def test_folders_above_a_folders_only_leaf_are_emitted_parents() -> None:
+    # create_folder_containers emits the whole chain above each leaf.
+    spec = PathSpec(include="s3://my-bucket/media/*/*/", emit_folders_only=True)
+    v, warnings = _judge(judge_folder, [spec], "s3://my-bucket/media/videos")
+    assert v.included and CONTAINER_WARNING in warnings
+    v, _ = _judge(judge_folder, [spec], "s3://my-bucket/media")
+    assert v.included
+    v, _ = _judge(judge_folder, [spec], "s3://my-bucket/other")
+    assert v.excluded_by == "path_specs"
+    # Every leaf under a hidden ancestor is hidden, so the ancestor never appears.
+    v, _ = _judge(judge_folder, [spec], "s3://my-bucket/media/_tmp")
+    assert v.excluded_by == "path_specs[0].include_hidden_folders"
+
+
+def test_a_bucket_is_not_a_folder() -> None:
+    with pytest.raises(ValueError, match="S3 bucket"):
+        judge_folder(
+            [FOLDERS], "s3://my-bucket", lambda _: None, bucket_kind="S3 bucket"
+        )
+    with pytest.raises(ValueError, match="bucket"):
+        judge_folder([TEMPLATED], "s3://my-bucket/", lambda _: None)

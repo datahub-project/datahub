@@ -84,6 +84,11 @@ class S3MetadataProbe(S3CompatibleMetadataProbe):
                 "`key` asks for object tags, but use_s3_object_tags is off, so "
                 "ingestion would not read them"
             )
+        if not key and not flags.use_s3_bucket_tags:
+            raise ValueError(
+                "this recipe reads object tags only (use_s3_object_tags), so pass "
+                "`key` to name the object to read them from"
+            )
         found: Dict[str, List[str]] = {"bucket": [], "object": []}
         if flags.use_s3_bucket_tags:
             with self._storage_errors(
