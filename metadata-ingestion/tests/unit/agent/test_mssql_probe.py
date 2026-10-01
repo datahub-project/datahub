@@ -22,12 +22,12 @@ _ODBC: Dict[str, object] = {
 
 
 def test_an_odbc_recipe_validates_as_ingestion_validates_it() -> None:
-    recipe = {"source": {"type": "mssql-odbc", "config": _ODBC}}
+    recipe: Dict[str, object] = {"source": {"type": "mssql-odbc", "config": _ODBC}}
     assert validate_recipe(recipe)["errors"] == []
 
 
 def test_uri_args_are_still_refused_on_the_pytds_source_type() -> None:
-    recipe = {"source": {"type": "mssql", "config": _ODBC}}
+    recipe: Dict[str, object] = {"source": {"type": "mssql", "config": _ODBC}}
     assert validate_recipe(recipe)["valid"] is False
 
 
@@ -425,9 +425,7 @@ def test_the_procedure_query_binds_the_schema_and_quotes_the_database() -> None:
         def mappings(self) -> List[Dict[str, str]]:
             return []
 
-    SQLServerSource._get_stored_procedures(
-        cast(Connection, _Conn()), "Odd]Db", "Foo's"
-    )
+    SQLServerSource._get_stored_procedures(cast(Connection, _Conn()), "Odd]Db", "Foo's")
     statement, params = sent[0]
     assert "[Odd]]Db].[sys].[procedures]" in statement
     assert "Foo's" not in statement
@@ -536,7 +534,6 @@ def test_multi_database_recipe_warns_when_the_database_parent_is_missing() -> No
     assert any("--parent" in w and "database" in w for w in result.warnings), (
         result.warnings
     )
-
 
 
 @pytest.mark.parametrize(

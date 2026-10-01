@@ -561,9 +561,7 @@ def test_the_timeout_stands_alone_when_the_recipe_asked_for_nothing():
     assert sent == "-c statement_timeout=30000"
 
 
-def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() -> (
-    None
-):
+def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() -> None:
     """The Redshift provider holds a bare redshift_connector connection rather
     than an engine, so the ceiling has to be applicable without the engine
     listener -- and must not leave the session's autocommit changed."""

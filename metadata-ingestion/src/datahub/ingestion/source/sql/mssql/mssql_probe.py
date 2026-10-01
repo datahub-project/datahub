@@ -264,9 +264,7 @@ class SqlServerMetadataProbe(SqlAlchemyMetadataProbe):
         return self._list_databases()[:limit]
 
     @probe_method(row_limit_param="limit", parent_params=("database",))
-    def containers(
-        self, database: Optional[str] = None, limit: int = 200
-    ) -> List[str]:
+    def containers(self, database: Optional[str] = None, limit: int = 200) -> List[str]:
         """Schemas in one database, including ones schema_pattern would exclude
         and SQL Server's own (`sys`, `db_owner`, ...), which ingestion does not
         skip either. --database is required unless the recipe pins one."""

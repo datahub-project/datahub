@@ -25,9 +25,7 @@ _PROC = "Stored Procedure"
 def _fixture_password() -> str:
     # The throwaway container's own SA password, read from its compose file so
     # it lives in one place.
-    compose = yaml.safe_load(
-        (Path(__file__).parent / "docker-compose.yml").read_text()
-    )
+    compose = yaml.safe_load((Path(__file__).parent / "docker-compose.yml").read_text())
     return str(compose["services"]["testsqlserver"]["environment"]["SA_PASSWORD"])
 
 
@@ -51,6 +49,14 @@ def _run(
         command=command,
         config_dict=config if config is not None else _config(),
         kwargs=dict(kwargs),
+    ).to_dict()
+
+
+def _run_with(
+    command: str, config: Dict[str, object], params: Dict[str, object]
+) -> Dict[str, object]:
+    return run_probe_method(
+        source_type="mssql", command=command, config_dict=config, kwargs=params
     ).to_dict()
 
 
@@ -166,7 +172,7 @@ def _assert_probe_agrees_with_ingestion(
     for database in databases:
         # A pinned recipe reads its own database through the base connection.
         db_arg: Dict[str, object] = {} if pinned else {"database": database}
-        schemas = _run("containers", config=config, **db_arg)
+        schemas = _run_with("containers", config, db_arg)
         schema_names = _names(schemas)
         assert schemas["parent_path"] == ([] if pinned else [database])
         for schema in schema_names:
@@ -179,7 +185,7 @@ def _assert_probe_agrees_with_ingestion(
                 # covers the quoted form.
                 continue
             for command, kind in (("tables", "Table"), ("views", "View")):
-                listing = _run(command, config=config, schema=schema, **db_arg)
+                listing = _run_with(command, config, {"schema": schema, **db_arg})
                 names = _names(listing)
                 parent = _strings(listing, "parent_path")
                 verdicts = _included(config, kind, parent, names)
@@ -192,7 +198,7 @@ def _assert_probe_agrees_with_ingestion(
                         f"{verdicts[name]}, ingestion emitted {emitted}"
                     )
                     outcomes[kind].add(emitted)
-            listing = _run("procedures", config=config, schema=schema, **db_arg)
+            listing = _run_with("procedures", config, {"schema": schema, **db_arg})
             names = _names(listing)
             parent = _strings(listing, "parent_path")
             verdicts = _included(config, _PROC, parent, names)
@@ -347,7 +353,9 @@ def test_an_odbc_recipe_reads_sql_variant(
             "TrustServerCertificate": "yes",
         }
     )
-    assert "DemoData" in _names(_run("databases", config=config, source_type="mssql-odbc"))
+    assert "DemoData" in _names(
+        _run("databases", config=config, source_type="mssql-odbc")
+    )
     result = _run(
         "sql",
         config=config,
