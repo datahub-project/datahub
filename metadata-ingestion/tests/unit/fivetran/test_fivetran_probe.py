@@ -1,14 +1,17 @@
 """Fivetran's probe: it reads what ingestion reads, reports what the patterns
 would drop instead of hiding it, and never returns user identity."""
 
+from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List
 from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 
 from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
+from datahub.ingestion.agent.verdicts import ProbeReadFailed
 from datahub.ingestion.source.fivetran.config import FivetranSourceConfig
 from datahub.ingestion.source.fivetran.fivetran_probe import FivetranMetadataProbe
 
@@ -253,3 +256,95 @@ def test_rest_mode_drops_a_connector_when_neither_id_nor_name_is_allowed() -> No
         False,
         "connector_patterns",
     )
+
+
+_BASE = "https://api.fivetran.com/v1"
+
+
+def _response(payload: object = None, status: int = 200) -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = status
+    resp.json.return_value = payload
+    if status >= 400:
+        error = requests.HTTPError(f"HTTP {status}")
+        error.response = resp
+        resp.raise_for_status.side_effect = error
+    return resp
+
+
+def _ok(data: object) -> MagicMock:
+    return _response({"code": "Success", "data": data})
+
+
+def _listed(connector_id: str, name: str, group: str) -> Dict[str, object]:
+    return {
+        "id": connector_id,
+        "schema": name,
+        "service": "postgres",
+        "paused": False,
+        "sync_frequency": 360,
+        "group_id": group,
+        "connected_by": "user_x",
+    }
+
+
+def _page(*items: Dict[str, object]) -> MagicMock:
+    return _ok({"items": list(items), "next_cursor": None})
+
+
+_GROUPS = _page(
+    {"id": "dest_a", "name": "Warehouse A"}, {"id": "dest_b", "name": "Warehouse B"}
+)
+
+
+@contextmanager
+def _rest_api(routes: Dict[str, MagicMock]) -> Iterator[None]:
+    def get(url: str, **kwargs: Any) -> MagicMock:
+        return routes[url.removeprefix(_BASE)]
+
+    # Patched on the class: MagicMock is not a descriptor, so `self` is not
+    # passed and `get` sees the URL first.
+    with mock.patch.object(requests.Session, "get", side_effect=get):
+        yield
+
+
+def test_rest_connectors_survive_one_destination_disappearing() -> None:
+    routes = {
+        "/groups": _GROUPS,
+        "/groups/dest_a/connections": _page(_listed("conn_a1", "sales_pg", "dest_a")),
+        "/groups/dest_b/connections": _response(status=404),
+    }
+    with _rest_api(routes), _probe({"api_config": _API}) as probe:
+        records = probe.connectors()
+        warnings = list(probe.warnings)
+    assert [r["connector_id"] for r in records] == ["conn_a1"]
+    assert any("dest_b" in w for w in warnings)
+    assert not any("user" in key for record in records for key in record)
+
+
+def test_rest_connectors_raise_on_an_auth_failure() -> None:
+    with (
+        _rest_api({"/groups": _response(status=401)}),
+        _probe({"api_config": _API}) as probe,
+        pytest.raises(requests.HTTPError),
+    ):
+        probe.connectors()
+
+
+def test_a_non_success_reply_is_a_read_failure_not_bad_input() -> None:
+    bad = _response({"code": "NotFound_Account", "message": "no such account"})
+    with (
+        _rest_api({"/groups": bad}),
+        _probe({"api_config": _API}) as probe,
+        pytest.raises(ProbeReadFailed),
+    ):
+        probe.destinations()
+
+
+def test_rest_destinations_are_group_ids_with_their_names() -> None:
+    with _rest_api({"/groups": _GROUPS}), _probe({"api_config": _API}) as probe:
+        records = probe.destinations()
+    assert [(d["name"], d["group_name"]) for d in records] == [
+        ("dest_a", "Warehouse A"),
+        ("dest_b", "Warehouse B"),
+    ]
