@@ -9,6 +9,8 @@ import com.linkedin.api.ApiProperties;
 import com.linkedin.api.ApiSignature;
 import com.linkedin.api.HttpMethod;
 import com.linkedin.api.RestApiProperties;
+import com.linkedin.common.Edge;
+import com.linkedin.common.EdgeArray;
 import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
@@ -51,6 +53,10 @@ public class ApiMapperTest {
   @Test
   public void testMapApiWithPropertiesAndSignature() {
     Urn apiUrn = UrnUtils.getUrn("urn:li:api:langchain.search");
+    Urn requestUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:grpc,orders.GetOrderRequest,PROD)");
+    Urn responseUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:grpc,orders.Order,PROD)");
 
     // Identity lives on apiProperties.
     ApiProperties properties = new ApiProperties();
@@ -63,6 +69,9 @@ public class ApiMapperTest {
     signature.setSchemaDefinition("{\"type\":\"object\"}");
     signature.setInputFields(new SchemaFieldArray(schemaField("q", false, "the query")));
     signature.setOutputFields(new SchemaFieldArray(schemaField("result", true, "the result")));
+    // Schema-by-reference: the request/response payloads are cataloged datasets.
+    signature.setInputDatasetEdges(new EdgeArray(new Edge().setDestinationUrn(requestUrn)));
+    signature.setOutputDatasetEdges(new EdgeArray(new Edge().setDestinationUrn(responseUrn)));
 
     SubTypes subTypes = new SubTypes();
     subTypes.setTypeNames(new StringArray("MCP_TOOL"));
@@ -101,6 +110,15 @@ public class ApiMapperTest {
     assertEquals(result.getSignature().getInputFields().get(0).getFieldPath(), "q");
     assertNotNull(result.getSignature().getOutputFields());
     assertEquals(result.getSignature().getOutputFields().get(0).getFieldPath(), "result");
+
+    // Dataset references map to stubs (urn + type) for the DataLoader to hydrate.
+    assertNotNull(result.getSignature().getInputDatasets());
+    assertEquals(result.getSignature().getInputDatasets().size(), 1);
+    assertEquals(result.getSignature().getInputDatasets().get(0).getUrn(), requestUrn.toString());
+    assertEquals(result.getSignature().getInputDatasets().get(0).getType(), EntityType.DATASET);
+    assertNotNull(result.getSignature().getOutputDatasets());
+    assertEquals(
+        result.getSignature().getOutputDatasets().get(0).getUrn(), responseUrn.toString());
 
     assertNotNull(result.getSubTypes());
     assertEquals(result.getSubTypes().getTypeNames().get(0), "MCP_TOOL");
