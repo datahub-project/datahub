@@ -539,6 +539,16 @@ class DataplexConfig(
             )
         return self
 
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: the provider imports the Dataplex and Resource Manager gRPC
+        # clients, which `probe filter` and `recipe describe` never need.
+        from datahub.ingestion.source.dataplex.dataplex_probe import (
+            DataplexMetadataProbe,
+        )
+
+        return DataplexMetadataProbe
+
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """What contains each kind, outermost first.
 
