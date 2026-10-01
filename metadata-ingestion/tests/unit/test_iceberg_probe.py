@@ -273,7 +273,7 @@ def test_a_file_io_that_cannot_start_is_a_connection_failure(
     monkeypatch.setattr(catalog, "load_table", _failing_load_table)
     _patch_catalog(monkeypatch, catalog)
 
-    with pytest.raises(ProbeConnectionError, match="FileIO"):
+    with pytest.raises(ProbeConnectionError, match="FileIO implementation"):
         run_probe_method(
             "iceberg",
             _config_dict(),
