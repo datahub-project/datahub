@@ -559,3 +559,38 @@ def test_a_recipes_own_libpq_options_survive_the_timeout():
 def test_the_timeout_stands_alone_when_the_recipe_asked_for_nothing():
     sent = _engine_options("postgresql://h/db")["connect_args"]["options"]
     assert sent == "-c statement_timeout=30000"
+
+
+def test_redshift_ceiling_applies_to_a_raw_connection_and_restores_autocommit() -> (
+    None
+):
+    """The Redshift provider holds a bare redshift_connector connection rather
+    than an engine, so the ceiling has to be applicable without the engine
+    listener -- and must not leave the session's autocommit changed."""
+    from datahub.ingestion.source.sql.protocol_probe_settings import (
+        set_redshift_statement_timeout,
+    )
+
+    seen: List[Tuple[str, bool]] = []
+
+    class _Conn:
+        autocommit = False
+
+        def cursor(self) -> "_Cursor":
+            return _Cursor(self)
+
+    class _Cursor:
+        def __init__(self, conn: _Conn) -> None:
+            self._conn = conn
+
+        def execute(self, sql: str) -> None:
+            seen.append((sql, self._conn.autocommit))
+
+        def close(self) -> None:
+            pass
+
+    conn = _Conn()
+    set_redshift_statement_timeout(conn, 30)
+
+    assert seen == [("SET statement_timeout = 30000", True)]
+    assert conn.autocommit is False
