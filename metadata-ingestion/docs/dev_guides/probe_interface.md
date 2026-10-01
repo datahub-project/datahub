@@ -827,6 +827,35 @@ bare name; asking the shim about a schema would build `analytics..public`.
 before the pattern, so a system catalog reports `default_schema` rather than a verdict
 ingestion never makes.
 
+### One predicate for ingestion and the probe
+
+A rule that `probe_verdict_override` restates will drift from ingestion; every connector in
+the first rollout had at least one. Instead, put the connector's selection decisions in a pure
+module, `<package>/<connector>_selection.py` (`tableau/tableau_selection.py` is the model).
+Each function takes the recipe and facts about one object and returns a `Verdict`:
+
+```python
+def workspace_verdict(config: WorkspaceFilterConfig, facts: WorkspaceFacts) -> Verdict:
+    if not config.workspace_name_pattern.allowed(facts.name):
+        return Verdict.exclude("workspace_name_pattern")
+    ...
+    return Verdict.include()
+```
+
+Ingestion calls it where it used to test the pattern, and maps `excluded_by` back onto the
+report call that branch already made. The override builds the facts from `ctx.attributes`,
+warns when a fact it needs is missing, and calls the same function.
+
+- Type the config as a `Protocol` with read-only properties. The config module imports the
+  selection module, so the selection module must not import the config.
+- Read patterns straight off the config. `probe filter --try-allow` hands the override a
+  copy with the trial pattern in place, so the selection function sees it too.
+- A fact the probe may not have is `Optional`, and `None` skips that rule. Ingestion always
+  passes it.
+- Where ingestion makes a decision by choosing what to list, rather than by filtering a
+  listing (Looker lists deleted dashboards only under `include_deleted`), the function
+  serves only the probe. The parity test is what keeps it honest.
+
 ## The rules that matter
 
 These have each cost a review round.
@@ -928,6 +957,12 @@ the docs site does not publish it.
 - **Filter targets.** If the connector has a `get_identifier` equivalent, assert the probe's
   target equals what ingestion computes for the same inputs. `test_sql_filter_target.py` covers
   the SQLAlchemy family, including the Redshift schema override.
+- **Parity with ingestion.** `assert_probe_parity` (`tests/test_helpers/probe_parity.py`)
+  runs ingestion and the probe on one recipe under the same mocks, judges each listing the
+  way `probe filter --from-run` does, and asserts both directions per kind. Use a
+  `ParityListing` per kind, with `FanOut` for a child kind (every parent, kept or not) and
+  `identity` where a listing's name is not the emitted id. Parametrize over recipes that
+  exercise each rule, and pin the reasons with `report.excluded_by(label)`.
 - **The degrade path.** A 404 on one sub-listing produces an empty result **and** a warning; auth
   failures and 5xx raise.
 - **The connector's existing suites must pass unedited.** A probe adds to a connector; it does
@@ -1009,11 +1044,10 @@ Every item has cost a review round on at least one connector.
 - [ ] **Exit codes.** 2 = the caller's input is wrong, 3 = the source could not
       be reached or read, 1 = a defect. A test covers each code your provider
       can produce.
-- [ ] **Verdicts match ingestion.** A test runs ingestion and the probe
-      on the same recipe and asserts that they agree in both directions, per kind.
-      `tests/unit/agent/test_sql_filter_target.py` is the SQL family's
-      target-equivalence test.
-      Patterns match from the start (see above).
+- [ ] **Verdicts match ingestion.** Selection rules live in `<connector>_selection.py`,
+      called by ingestion and by `probe_verdict_override` alike, and a test runs both
+      through `assert_probe_parity`. `tests/unit/agent/test_sql_filter_target.py` is the
+      SQL family's target-equivalence test. Patterns match from the start (see above).
 - [ ] **A real-instance test.** Where the connector has a docker-backed
       integration suite, add a probe test against that instance next to it
       (see `tests/integration/agent/test_probe_methods_sqlalchemy.py`).
