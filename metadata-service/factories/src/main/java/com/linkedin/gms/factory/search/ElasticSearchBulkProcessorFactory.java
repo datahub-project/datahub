@@ -2,10 +2,14 @@ package com.linkedin.gms.factory.search;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
+import com.linkedin.metadata.config.telemetry.RequestAttributionConfiguration;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.opentelemetry.api.trace.Tracer;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.http.client.config.RequestConfig;
 import org.opensearch.action.support.WriteRequest;
 import org.opensearch.client.RequestOptions;
@@ -23,12 +27,24 @@ public class ElasticSearchBulkProcessorFactory {
   @Bean(name = "elasticSearchBulkProcessor")
   @Nonnull
   protected ESBulkProcessor getInstance(
-      final ConfigurationProvider configurationProvider, MetricUtils metricUtils) {
+      final ConfigurationProvider configurationProvider,
+      MetricUtils metricUtils,
+      @Nullable final SystemTelemetryContext systemTelemetryContext) {
     return build(
         searchClient,
         configurationProvider.getElasticSearch().getBulkProcessor(),
         configurationProvider.getElasticSearch().getThreadCount(),
-        metricUtils);
+        metricUtils,
+        attribution(configurationProvider),
+        systemTelemetryContext != null ? systemTelemetryContext.getTracer() : null);
+  }
+
+  /** The attribution block, or null when the telemetry block is absent (minimal test contexts). */
+  @Nullable
+  static RequestAttributionConfiguration attribution(ConfigurationProvider configurationProvider) {
+    return configurationProvider.getTelemetry() != null
+        ? configurationProvider.getTelemetry().getRequestAttribution()
+        : null;
   }
 
   /**
@@ -42,6 +58,23 @@ public class ElasticSearchBulkProcessorFactory {
       @Nonnull BulkProcessorConfiguration config,
       int threadCount,
       MetricUtils metricUtils) {
+    return build(client, config, threadCount, metricUtils, null, null);
+  }
+
+  /**
+   * As {@link #build(SearchClientShim, BulkProcessorConfiguration, int, MetricUtils)}, with
+   * bulk-write attribution from {@code telemetry.requestAttribution}: batch spans when {@code
+   * enabled}, the batch id header when {@code opensearchOpaqueId} too. Off when {@code attribution}
+   * is null.
+   */
+  @Nonnull
+  static ESBulkProcessor build(
+      @Nonnull SearchClientShim<?> client,
+      @Nonnull BulkProcessorConfiguration config,
+      int threadCount,
+      MetricUtils metricUtils,
+      @Nullable RequestAttributionConfiguration attribution,
+      @Nullable Tracer tracer) {
     RequestOptions byQueryOpts =
         buildByQueryRequestOptions(config.getSlowByQueryOperationTimeoutSeconds());
     return ESBulkProcessor.builder(client, metricUtils)
@@ -57,6 +90,11 @@ public class ElasticSearchBulkProcessorFactory {
         .ackAfterTransfer(config.isAckAfterTransfer())
         .ackAfterTransferTimeoutSeconds(config.getAckAfterTransferTimeoutSeconds())
         .byQueryRequestOptions(byQueryOpts)
+        .tracer(tracer)
+        .bulkBatchSpans(attribution != null && attribution.isEnabled())
+        .bulkOpaqueId(
+            attribution != null && attribution.isEnabled() && attribution.isOpensearchOpaqueId())
+        .serviceName(attribution != null ? attribution.getServiceName() : null)
         .writeRequestRefreshPolicy(WriteRequest.RefreshPolicy.valueOf(config.getRefreshPolicy()))
         .build();
   }

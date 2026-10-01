@@ -25,6 +25,13 @@ public class RequestAttributionConfiguration {
   private boolean opensearchOpaqueId = false;
 
   /**
+   * Service name written into the {@code X-Opaque-Id} of bulk index writes ({@code
+   * bulk|<service>|batch=<id>|n=<actions>}), so a shared store can tell which DataHub service (GMS,
+   * MAE consumer) flushed a batch. Defaults to {@code OTEL_SERVICE_NAME} or {@code datahub}.
+   */
+  private String serviceName = "datahub";
+
+  /**
    * Prefix every SQL statement issued while a request is in scope with {@code
    * /*datahub_actor='<urn>',datahub_op='<operation>'*&#47;} so the database's statement log and
    * {@code pg_stat_activity} name the DataHub actor directly, with no join. Deliberately excludes
