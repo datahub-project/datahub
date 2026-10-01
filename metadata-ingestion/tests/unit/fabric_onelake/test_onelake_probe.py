@@ -493,3 +493,25 @@ def test_a_recipe_without_an_enabled_sql_endpoint_is_told_why() -> None:
         probe.columns(
             workspace="sales-ws", item="lh_main", schema="dbo", table="orders"
         )
+
+
+def test_a_kind_switched_off_by_the_recipe_is_excluded_by_that_switch() -> None:
+    result = check_filters(
+        source_type=SOURCE,
+        config_dict={"extract_views": False},
+        kind=str(DatasetSubTypes.VIEW),
+        parent_path=[WS.name, "lh_main", "reporting"],
+        names=["v_orders"],
+    )
+    assert (result.results[0].included, result.results[0].excluded_by) == (
+        False,
+        "extract_views",
+    )
+    warehouse = check_filters(
+        source_type=SOURCE,
+        config_dict={"extract_warehouses": False},
+        kind=str(DatasetContainerSubTypes.FABRIC_WAREHOUSE),
+        parent_path=[WS.name],
+        names=["wh_main"],
+    )
+    assert warehouse.results[0].excluded_by == "extract_warehouses"

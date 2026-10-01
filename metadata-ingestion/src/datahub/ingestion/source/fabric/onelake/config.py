@@ -1,6 +1,6 @@
 """Configuration classes for Fabric OneLake connector."""
 
-from typing import Annotated, Callable, Literal, Optional, Sequence
+from typing import Annotated, Callable, Literal, Mapping, Optional, Sequence
 
 from pydantic import Field, model_validator
 
@@ -155,7 +155,9 @@ class FabricOneLakeSourceConfig(
     )
 
     # Filtering options
-    workspace_pattern: Annotated[AllowDenyPattern, Filters(GenericContainerSubTypes.FABRIC_WORKSPACE)] = Field(
+    workspace_pattern: Annotated[
+        AllowDenyPattern, Filters(GenericContainerSubTypes.FABRIC_WORKSPACE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter workspaces by name. "
@@ -163,7 +165,9 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    lakehouse_pattern: Annotated[AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_LAKEHOUSE)] = Field(
+    lakehouse_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_LAKEHOUSE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter lakehouses by name. "
@@ -171,7 +175,9 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    warehouse_pattern: Annotated[AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_WAREHOUSE)] = Field(
+    warehouse_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_WAREHOUSE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter warehouses by name. "
@@ -179,7 +185,9 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    schema_pattern: Annotated[AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_SCHEMA)] = Field(
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_SCHEMA)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter schemas by name. "
@@ -281,6 +289,16 @@ class FabricOneLakeSourceConfig(
         )
 
         return FabricOneLakeMetadataProbe
+
+    @classmethod
+    def probe_kind_switches(cls) -> Mapping[str, str]:
+        # source.py _process_workspace_items and _process_lakehouse /
+        # _process_warehouse never list these kinds when the switch is off.
+        return {
+            str(DatasetContainerSubTypes.FABRIC_LAKEHOUSE): "extract_lakehouses",
+            str(DatasetContainerSubTypes.FABRIC_WAREHOUSE): "extract_warehouses",
+            str(DatasetSubTypes.VIEW): "extract_views",
+        }
 
     def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
         """What contains each kind, outermost first.
