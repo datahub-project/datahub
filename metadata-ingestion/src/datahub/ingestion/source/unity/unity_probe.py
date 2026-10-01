@@ -12,16 +12,25 @@ from databricks.sdk.errors import (
     PermissionDenied,
 )
 from databricks.sdk.errors.platform import STATUS_CODE_MAPPING
+from databricks.sql import connect
+from databricks.sql.exc import Error as SqlConnectorError, ServerOperationError
 
 from datahub.ingestion.agent.probe_methods import probe_method
-from datahub.ingestion.agent.sql_passthrough import QueryBudget, SqlCatalogPassthrough
+from datahub.ingestion.agent.sql_passthrough import (
+    CatalogRows,
+    QueryBudget,
+    SqlCatalogPassthrough,
+)
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
-from datahub.ingestion.source.unity.connection import create_workspace_client
+from datahub.ingestion.source.unity.connection import (
+    create_workspace_client,
+    get_sql_connection_params,
+)
 from datahub.ingestion.source.unity.hive_metastore_proxy import HIVE_METASTORE
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_types import (
@@ -36,6 +45,9 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 # Databricks error codes are SCREAMING_SNAKE identifiers ("PERMISSION_DENIED").
 # Anything else in that slot is not one and is dropped with the rest of the text.
 _ERROR_CODE = re.compile(r"[A-Z][A-Z0-9_]{0,63}")
+
+# Spark prefixes an error message with its error class: "[CAST_INVALID_INPUT] ...".
+_SPARK_ERROR_CLASS = re.compile(r"\[([A-Z][A-Z0-9_.]{0,127})\]")
 
 _WITHHELD = (
     "the SDK's error text is withheld because it can carry the request log, "
@@ -66,6 +78,17 @@ def _describe_failure(exc: BaseException) -> str:
     code = getattr(exc, "error_code", None)
     if isinstance(code, str) and _ERROR_CODE.fullmatch(code):
         parts.append(code)
+    return ", ".join(parts)
+
+
+def _describe_warehouse_failure(exc: BaseException) -> str:
+    """What the warehouse refused, without its message: a Spark error can
+    quote a cell value ("The value '...' cannot be cast"), and a request
+    error can quote HTTP headers."""
+    parts = [type(exc).__name__]
+    match = _SPARK_ERROR_CLASS.match(str(exc))
+    if match:
+        parts.append(match.group(1))
     return ", ".join(parts)
 
 
@@ -373,3 +396,67 @@ class UnityCatalogMetadataProbe(SqlCatalogPassthrough):
                 ]
         except _Degraded:
             return []
+
+    @probe_method(
+        name="sql",
+        scoped_sql_param="query",
+        row_limit_param="limit",
+        shapes_own_result=True,
+    )
+    def sql(self, query: str, limit: int = 50) -> Dict[str, object]:
+        """Run a read-only catalog query on the SQL warehouse named by
+        warehouse_id, which this command requires (no other command touches
+        the warehouse). Running it may start a stopped warehouse -- auto-start
+        and serverless warehouses wake for any statement -- which costs money
+        and can take minutes. Only a single SELECT over information_schema
+        (`system.information_schema.*` or `<catalog>.information_schema.*`)
+        is permitted: the framework scope-checks `query` before the warehouse
+        sees it, so query history, audit logs and user tables are refused.
+        The server stops a statement after 30 seconds. Returns `columns` plus
+        positional `rows`, with `truncated` telling you whether more exist
+        beyond `limit`."""
+        return super().sql(query=query, limit=limit)
+
+    def execute_catalog_query(self, query: str, limit: int) -> CatalogRows:
+        if not self._config.warehouse_id:
+            raise ValueError(
+                "`sql` runs on a Databricks SQL warehouse; set warehouse_id in "
+                "the recipe to use it (the other probe commands do not need one)"
+            )
+        try:
+            if self._sql_connection is None:
+                # The params ingestion's own SQL reads use
+                # (proxy._execute_sql_query), so auth and user-agent match.
+                # STATEMENT_TIMEOUT is Databricks SQL's server-side ceiling in
+                # seconds: abandoning the cursor client-side would leave the
+                # warehouse running -- and billing -- the statement.
+                self._sql_connection = connect(
+                    **get_sql_connection_params(self._client),
+                    session_configuration={
+                        "STATEMENT_TIMEOUT": str(self.query_budget.timeout_seconds)
+                    },
+                )
+            with self._sql_connection.cursor() as cursor:
+                cursor.execute(query)
+                rows = cursor.fetchmany(limit)
+                columns = [d[0] for d in cursor.description or []]
+        except ServerOperationError as exc:
+            raise ValueError(
+                f"the warehouse rejected the query "
+                f"({_describe_warehouse_failure(exc)}); its message is withheld "
+                f"because it can quote cell values"
+            ) from None
+        except (
+            SqlConnectorError,
+            DatabricksError,
+            requests.RequestException,
+            # The connector authenticates through the workspace client, whose
+            # OAuth exchange raises ValueError(resp.content).
+            ValueError,
+        ) as exc:
+            raise ProbeConnectionError(
+                f"could not run the query on warehouse "
+                f"'{self._config.warehouse_id}' "
+                f"({_describe_warehouse_failure(exc)}); {_WITHHELD}"
+            ) from None
+        return CatalogRows(columns=columns, rows=[list(row) for row in rows])
