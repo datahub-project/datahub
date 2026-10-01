@@ -161,6 +161,7 @@ def test_get_or_create_group_child_label_id_recovers_after_duplicate(monkeypatch
         return "LBL-RACE" if calls["n"] >= 2 else None
 
     monkeypatch.setattr(utils, "find_group_child_label_id", find_twice)
+    monkeypatch.setattr(utils, "find_label_id_by_name", lambda *_a, **_k: None)
 
     def fake_create(*_args, **_kwargs):
         raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")
@@ -170,8 +171,20 @@ def test_get_or_create_group_child_label_id_recovers_after_duplicate(monkeypatch
     assert calls["n"] == 2
 
 
-def test_get_or_create_group_child_label_id_reraises_name_taken_elsewhere(monkeypatch):
+def test_get_or_create_group_child_label_id_reuses_name_taken_elsewhere(monkeypatch):
     monkeypatch.setattr(utils, "find_group_child_label_id", lambda *_a, **_k: None)
+    monkeypatch.setattr(utils, "find_label_id_by_name", lambda *_a, **_k: "LBL-EXISTING")
+
+    def fake_create(*_args, **_kwargs):
+        raise AssertionError("create should not run when the label name already exists")
+
+    monkeypatch.setattr(utils, "create_group_child_label", fake_create)
+    assert utils.get_or_create_group_child_label_id("k", "GRP", "v1.6.0.3") == "LBL-EXISTING"
+
+
+def test_get_or_create_group_child_label_id_reraises_when_name_still_missing(monkeypatch):
+    monkeypatch.setattr(utils, "find_group_child_label_id", lambda *_a, **_k: None)
+    monkeypatch.setattr(utils, "find_label_id_by_name", lambda *_a, **_k: None)
 
     def fake_create(*_args, **_kwargs):
         raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")

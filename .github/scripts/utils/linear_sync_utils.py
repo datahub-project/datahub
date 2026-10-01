@@ -285,6 +285,27 @@ query WorkspaceLabelGroupByName($name: String!) {
     return str(found) if found else None
 
 
+def find_label_id_by_name(api_key: str, label_name: str) -> str | None:
+    """Id of any issue label with this name, regardless of parent or team.
+
+    Linear label names are unique in the workspace, so a name taken outside the group we
+    intended still identifies the label to reuse.
+    """
+    q = """
+query IssueLabelByName($name: String!) {
+  issueLabels(filter: { name: { eq: $name } }, first: 1) {
+    nodes { id }
+  }
+}
+"""
+    data = graphql(api_key, q, {"name": label_name})
+    nodes = (data.get("issueLabels") or {}).get("nodes") or []
+    if not nodes:
+        return None
+    found = nodes[0].get("id")
+    return str(found) if found else None
+
+
 def find_group_child_label_id(api_key: str, group_id: str, label_name: str) -> str | None:
     q = """
 query GroupChildLabelByName($name: String!, $parentId: ID!) {
@@ -371,17 +392,28 @@ def get_or_create_label_group_id(
         raise
 
 
+def _reuse_existing_label(group_id: str, label_name: str, label_id: str) -> str:
+    print(
+        f"Linear label {label_name!r} already exists ({label_id}); "
+        f"reusing it instead of creating a child of {group_id}"
+    )
+    return label_id
+
+
 def get_or_create_group_child_label_id(
     api_key: str, group_id: str, label_name: str, team_id: str | None = None
 ) -> str:
     """Reuse or create ``label_name`` as a child of ``group_id``.
 
-    Label names are unique per workspace/team, so if the name already exists outside this
-    group the create fails and that error is raised as-is rather than inventing a second label.
+    Label names are unique in the workspace. A child of this group is preferred. If the name
+    already exists outside the group, that label is reused instead of failing the sync.
     """
     existing = find_group_child_label_id(api_key, group_id, label_name)
     if existing:
         return existing
+    existing_by_name = find_label_id_by_name(api_key, label_name)
+    if existing_by_name:
+        return _reuse_existing_label(group_id, label_name, existing_by_name)
     try:
         return create_group_child_label(
             api_key, group_id, label_name, random_label_color_hex(), team_id
@@ -391,6 +423,9 @@ def get_or_create_group_child_label_id(
             existing_after = find_group_child_label_id(api_key, group_id, label_name)
             if existing_after:
                 return existing_after
+            existing_by_name = find_label_id_by_name(api_key, label_name)
+            if existing_by_name:
+                return _reuse_existing_label(group_id, label_name, existing_by_name)
         raise
 
 
