@@ -322,11 +322,7 @@ def test_an_unsupported_source_connector_is_reported_as_not_emitted() -> None:
         ("connector", {"connector": "orders-sink"}),
         ("connector", {"connector": "legacy-source"}),
         ("connector", {"connector": "unknown-jdbc-sink"}),
-        pytest.param(
-            "connector_topics",
-            {"connector": "orders-sink"},
-            marks=pytest.mark.xfail(strict=True, reason="added in Task 4"),
-        ),
+        ("connector_topics", {"connector": "orders-sink"}),
         pytest.param(
             "connector_lineage",
             {"connector": "unknown-jdbc-sink"},
@@ -398,3 +394,73 @@ def test_a_connector_deleted_after_listing_is_a_bad_argument() -> None:
         with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
             with pytest.raises(ValueError):
                 probe.connector("orders-sink")
+
+
+CLOUD_URI = "https://api.confluent.cloud/connect/v1/environments/env-1/clusters/lkc-1"
+KAFKA_REST = "https://pkc-1.example.confluent.cloud"
+
+
+def _cloud_recipe() -> KafkaConnectSourceConfig:
+    return KafkaConnectSourceConfig.model_validate(
+        {
+            "confluent_cloud_environment_id": "env-1",
+            "confluent_cloud_cluster_id": "lkc-1",
+            "username": "cloud-key",
+            "password": "test_password",
+            "kafka_rest_endpoint": KAFKA_REST,
+        }
+    )
+
+
+def test_connector_topics_are_the_runtime_topics_minus_stale_sink_topics() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            # stale_topic is in /topics but not in the sink's `topics`, so
+            # ingestion's SinkTopicFilter drops it.
+            assert sorted(probe.connector_topics("orders-sink")) == ["orders", "users"]
+
+
+def test_empty_topics_on_confluent_cloud_say_why() -> None:
+    with requests_mock.Mocker() as m:
+        m.get(f"{CLOUD_URI}/connectors", json=["orders-sink"])
+        with KafkaConnectMetadataProbe.for_config(_cloud_recipe()) as probe:
+            assert probe.connector_topics("orders-sink") == []
+            assert any("Confluent Cloud" in w for w in probe.warnings)
+
+
+def test_cluster_topics_lists_non_internal_topics_on_confluent_cloud() -> None:
+    with requests_mock.Mocker() as m:
+        m.get(
+            f"{KAFKA_REST}/kafka/v3/clusters/lkc-1/topics",
+            json={
+                "kind": "KafkaTopicList",
+                "data": [
+                    {"topic_name": "orders"},
+                    {"topic_name": "_confluent-internal", "is_internal": True},
+                ],
+                "metadata": {"next": None},
+            },
+        )
+        with KafkaConnectMetadataProbe.for_config(_cloud_recipe()) as probe:
+            assert probe.cluster_topics() == ["orders"]
+
+
+def test_cluster_topics_is_the_wrong_command_on_self_hosted_connect() -> None:
+    with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+        with pytest.raises(ValueError):
+            probe.cluster_topics()
+
+
+def test_a_topic_under_a_denied_connector_is_reported_excluded() -> None:
+    result = check_filters(
+        "kafka-connect",
+        {"connect_uri": CONNECT, "connector_patterns": {"deny": ["^orders-sink$"]}},
+        kind="Topic",
+        parent_path=["orders-sink"],
+        names=["orders"],
+    )
+    assert result.filtering == "unfiltered"
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (False, "connector_patterns")
+    ]
