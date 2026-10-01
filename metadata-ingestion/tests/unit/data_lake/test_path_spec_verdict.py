@@ -5,6 +5,7 @@ from datahub.ingestion.agent.verdicts import Verdict
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.data_lake_common.path_spec_verdict import (
     TEMPLATED_FILE_RULES_WARNING,
+    UNPARSED_TABLE_WARNING,
     judge_bucket,
     judge_dataset,
     judge_folder,
@@ -107,3 +108,13 @@ def test_content_type_mode_skips_the_extension_rules_like_ingestion() -> None:
         [spec], "s3://my-bucket/no_ext/blob", warnings.append, ignore_ext=True
     )
     assert v.included
+
+
+def test_a_table_folder_ingestion_cannot_name_is_included_with_a_warning() -> None:
+    # `my-bucket*` globs `my-bucket`, but parse() needs a character for the
+    # wildcard, so ingestion names that table after a file inside it.
+    spec = PathSpec(include="s3://my-bucket*/data/{table}/*.parquet")
+    v, warnings = _judge(judge_dataset, [spec], "s3://my-bucket/data/events")
+    assert v.included and UNPARSED_TABLE_WARNING in warnings
+    v, warnings = _judge(judge_dataset, [spec], "s3://my-bucket-2/data/events")
+    assert v.included and UNPARSED_TABLE_WARNING not in warnings
