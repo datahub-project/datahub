@@ -293,6 +293,34 @@ Take into account that the profiling implementation executes a fairly big number
 
 The `profiling_pattern` setting may be used to limit profiling actions to only a certain set of resources in PowerBI. Both allowed and deny rules are matched against the following pattern for every table in a PowerBI Dataset: `workspace_name.dataset_name.table_name`. Users may limit profiling with these settings at table level, dataset level or workspace level.
 
+### Probing a PowerBI recipe
+
+`datahub recipe probe` checks a PowerBI recipe against the live tenant before a run. It authenticates with the recipe's own service principal and `environment`, uses the same REST endpoints, paging and retries as ingestion, and returns metadata only. It never starts the admin workspace scan. Run it with the read-only service principal that ingestion uses.
+
+| Command            | Parameters  | Returns                                                                                                                   |
+| ------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `workspaces`       | `limit`     | Each listed workspace's name, id, type, `type_allowed` (the `workspace_type_filter` verdict) and, with the admin API, state |
+| `reports`          | `workspace` | The reports in one workspace, by workspace name, with `type` `Report` or `PaginatedReport`                                |
+| `dashboards`       | `workspace` | The dashboards in one workspace, by workspace name                                                                        |
+| `admin_api_access` | none        | Whether the credential can call the read-only admin APIs                                                                  |
+| `api`              | `path`      | One raw response from `/groups`, `/groups/{id}/reports` or `/groups/{id}/dashboards`                                      |
+
+The workspace listing follows the recipe: the regular API's member workspaces by default, or the whole tenant with `admin_apis_only`. It is narrowed by `modified_since` the same way ingestion narrows it. If no workspace was modified since that date, ingestion applies no filter and lists every workspace, and the probe does the same and says so. If PowerBI rejects the date, for example because it is more than 30 days ago, the probe fails with an error that names `modified_since`.
+
+Ingestion keeps a workspace only when it passes `workspace_name_pattern`, `workspace_id_pattern` and `workspace_type_filter` together. A name alone answers only the first of these, so save the listing and judge all three from it:
+
+```shell
+datahub recipe probe run workspaces --recipe recipe.yml --report-to workspaces.json
+datahub recipe probe filter --recipe recipe.yml --kind Workspace --from-run workspaces.json
+datahub recipe probe run reports --recipe recipe.yml --workspace "Sales"
+```
+
+With `--name` instead of `--from-run`, the id and type rules are not judged, and the result warns about them. Reports and dashboards have no filters of their own: their workspace's verdict decides, and `extract_reports` and `extract_dashboards` switch them off.
+
+`admin_api_access: denied` means ingestion still runs but emits no lineage, endorsements or apps, because the workspace scan always uses the admin APIs, even with `admin_apis_only: false`.
+
+Personal workspaces are named after their owner. Unless `workspace_type_filter` includes their type, ingestion skips them, and the probe counts them in a warning without listing them. The `api` command does not allow the admin endpoints, `$expand`, datasets, datasources, parameters or users, so it cannot return these names, email addresses or connection details.
+
 ### Limitations
 
 - Some metadata and lineage fields are only available through admin APIs or specific tenant settings.
