@@ -182,9 +182,7 @@ def test_a_nested_namespace_is_refused_because_ingestion_never_reads_it(
     )
 
     with pytest.raises(ValueError, match="top-level"):
-        run_probe_method(
-            "iceberg", _config_dict(), "tables", {"namespace": "sales.eu"}
-        )
+        run_probe_method("iceberg", _config_dict(), "tables", {"namespace": "sales.eu"})
 
 
 def test_an_unknown_namespace_is_a_caller_error(
