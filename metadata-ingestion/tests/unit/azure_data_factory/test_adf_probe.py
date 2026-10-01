@@ -5,10 +5,12 @@ import json
 from types import SimpleNamespace
 from typing import Any, Dict, Iterator, List, Optional, cast
 
+import pytest
 from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
 from azure.mgmt.datafactory import models as adf
 
 from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.probe_methods import _iter_specs
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
 )
@@ -232,3 +234,83 @@ def test_activities_are_unfiltered_but_inherit_their_pipelines_exclusion() -> No
     )
     assert result.filtering == "unfiltered"
     assert result.results[0].excluded_by == "pipeline_pattern"
+
+
+def _pipeline(
+    name: Optional[str],
+    activities: Optional[List[Any]] = None,
+    folder: Optional[str] = None,
+) -> adf.PipelineResource:
+    pipeline = adf.PipelineResource(
+        activities=activities or [],
+        folder=adf.PipelineFolder(name=folder) if folder else None,
+        parameters={
+            "token": adf.ParameterSpecification(type="String", default_value=PLANTED)
+        },
+    )
+    pipeline.name = name
+    return pipeline
+
+
+def test_pipelines_include_ones_pipeline_pattern_would_exclude() -> None:
+    client = _FakeClient()
+    client.pipelines["my-factory"] = iter(
+        [_pipeline("sales_pipeline"), _pipeline("hr_pipeline")]
+    )
+    probe = _probe(client, pipeline_pattern={"allow": ["^sales_.*"]})
+    assert [p["name"] for p in probe.pipelines("my-factory")] == [
+        "sales_pipeline",
+        "hr_pipeline",
+    ]
+
+
+def test_a_pipeline_record_never_carries_parameter_defaults() -> None:
+    client = _FakeClient()
+    client.pipelines["my-factory"] = iter(
+        [_pipeline("sales_pipeline", folder="finance")]
+    )
+    [record] = _probe(client).pipelines("my-factory")
+    assert record == {
+        "name": "sales_pipeline",
+        "folder": "finance",
+        "activity_count": 0,
+    }
+    assert PLANTED not in json.dumps(record)
+
+
+def test_a_nameless_pipeline_is_skipped_and_counted() -> None:
+    client = _FakeClient()
+    client.pipelines["my-factory"] = iter(
+        [_pipeline(None), _pipeline("sales_pipeline")]
+    )
+    probe = _probe(client)
+    assert [p["name"] for p in probe.pipelines("my-factory")] == ["sales_pipeline"]
+    assert any("no name" in w for w in probe.warnings)
+
+
+def test_a_forbidden_pipeline_listing_degrades_with_a_warning() -> None:
+    client = _FakeClient()
+    client.pipelines["my-factory"] = _forbidden()
+    probe = _probe(client)
+    assert probe.pipelines("my-factory") == []
+    assert any("403" in w for w in probe.warnings)
+
+
+def test_an_unknown_factory_is_a_bad_argument() -> None:
+    with pytest.raises(ValueError):
+        _probe(_FakeClient()).pipelines("no-such-factory")
+
+
+def test_a_factory_outside_resource_group_is_a_bad_argument_that_names_the_narrowing() -> (
+    None
+):
+    client = _FakeClient([_factory("elsewhere", rg="rg-two")])
+    # The recipe field name is the contract with the caller, not message wording.
+    with pytest.raises(ValueError, match="resource_group"):
+        _probe(client, resource_group="rg-one").pipelines("elsewhere")
+
+
+def test_pipelines_report_their_factory_as_the_parent() -> None:
+    specs = dict(_iter_specs(AzureDataFactoryMetadataProbe))
+    assert specs["pipelines"].parent_params == ("factory",)
+    assert specs["pipelines"].kind == ADF_PIPELINE_KIND

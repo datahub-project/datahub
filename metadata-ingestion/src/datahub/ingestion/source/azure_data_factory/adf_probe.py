@@ -1,10 +1,12 @@
-from typing import Dict, List
+from typing import Callable, Dict, Iterable, List, Optional, TypeVar
 
 from datahub.ingestion.agent.probe_methods import probe_method
+from datahub.ingestion.agent.verdicts import ProbeSoftError, soft_on_status
 from datahub.ingestion.source.azure_data_factory.adf_client import (
     AzureDataFactoryClient,
 )
 from datahub.ingestion.source.azure_data_factory.adf_config import (
+    ADF_PIPELINE_KIND,
     AzureDataFactoryConfig,
 )
 from datahub.ingestion.source.azure_data_factory.adf_report import (
@@ -14,6 +16,8 @@ from datahub.ingestion.source.azure_data_factory.adf_source import (
     AzureDataFactorySource,
 )
 from datahub.ingestion.source.common.subtypes import FlowContainerSubTypes
+
+_T = TypeVar("_T")
 
 
 class AzureDataFactoryMetadataProbe:
@@ -114,3 +118,92 @@ class AzureDataFactoryMetadataProbe:
                 f"rather than reported excluded, and ingestion will not see them"
             )
         return out
+
+    def _resource_group_of(self, factory: str) -> str:
+        """The resource group a factory lives in, from one factory listing.
+
+        Narrowed by resource_group as ingestion narrows it, so a factory the
+        recipe cannot see is out of scope here too rather than silently reached.
+        """
+        rg = self._config.resource_group
+        matches = [
+            f
+            for f in self._client.get_factories(resource_group=rg)
+            if f.name == factory and f.id
+        ]
+        if not matches:
+            where = (
+                f"resource group '{rg}' (the recipe's resource_group)"
+                if rg
+                else f"subscription '{self._config.subscription_id}'"
+            )
+            raise ValueError(f"no data factory named '{factory}' in {where}")
+        groups = sorted(
+            {self._source._extract_resource_group(f.id or "") for f in matches}
+        )
+        if len(groups) > 1:
+            raise ValueError(
+                f"data factory name '{factory}' is in several resource groups "
+                f"({', '.join(groups)}); set resource_group in the recipe"
+            )
+        return groups[0]
+
+    def _listing(
+        self,
+        context: str,
+        items: Callable[[], Iterable[_T]],
+        limit: Optional[int],
+    ) -> List[_T]:
+        """Named items from one per-factory listing.
+
+        The soft_on_status block wraps the iteration, not just the call: an
+        Azure pager raises HttpResponseError while being iterated. Nameless
+        items are skipped as ingestion skips them, and counted so the gap is
+        visible. A 403/404 becomes [] plus a warning -- "could not look",
+        never "nothing here".
+        """
+        out: List[_T] = []
+        nameless = 0
+        try:
+            with soft_on_status(403, 404, context=context):
+                for item in items():
+                    if not getattr(item, "name", None):
+                        nameless += 1
+                        continue
+                    out.append(item)
+                    if limit is not None and len(out) >= limit:
+                        break
+        except ProbeSoftError as exc:
+            self._warn(str(exc))
+            return []
+        if nameless:
+            self._warn(
+                f"{context}: {nameless} item(s) had no name and were skipped, "
+                f"as ingestion skips them"
+            )
+        return out
+
+    @probe_method(
+        kind=ADF_PIPELINE_KIND, row_limit_param="limit", parent_params=("factory",)
+    )
+    def pipelines(self, factory: str, limit: int = 200) -> List[Dict[str, object]]:
+        """Pipelines in one factory, by factory name, including ones
+        pipeline_pattern would exclude. pipeline_pattern is matched against
+        the bare pipeline name, not factory-qualified, so a same-named
+        pipeline in another factory gets the same verdict. Each record is
+        name, folder and activity count; parameter defaults are withheld
+        because they can hold secrets."""
+        rg = self._resource_group_of(factory)
+        pipelines = self._listing(
+            f"pipelines listing for factory '{factory}'",
+            lambda: self._client.get_pipelines(rg, factory),
+            limit,
+        )
+        return [
+            {
+                "name": p.name,
+                "folder": p.folder.name if p.folder else None,
+                "activity_count": len(p.activities or []),
+            }
+            for p in pipelines
+        ]
