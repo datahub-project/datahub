@@ -1,10 +1,10 @@
-import { ExclamationCircleFilled, LoadingOutlined } from '@ant-design/icons';
 import { Modal, Text } from '@components';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Input, Spin, notification } from 'antd';
 import React, { useContext, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled, { useTheme } from 'styled-components';
+import styled, { keyframes, useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -18,6 +18,17 @@ import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/u
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { AndFilterInput, LineageSearchPath } from '@types';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinIcon = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    font-size: 24px;
+`;
 
 const ImpactAnalysisWarning = styled.div`
     gap: 8px;
@@ -99,7 +110,7 @@ export default function DownloadAsCsvModal({
             description,
             placement: 'bottomRight',
             duration: null,
-            icon: <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />,
+            icon: <Spin indicator={<SpinIcon />} />,
         });
     };
 
@@ -221,7 +232,7 @@ export default function DownloadAsCsvModal({
         >
             {lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
+                    <Warning weight="fill" style={{ color: theme.colors.iconWarning, fontSize: 16 }}  />
                     <div>
                         <Text weight="bold" style={{ lineHeight: 'normal' }}>
                             {t('download.resultsMayVaryTitle')}

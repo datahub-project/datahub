@@ -1,11 +1,20 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
 import { Spin } from 'antd';
 import React from 'react';
-import { useTheme } from 'styled-components';
+import styled, { keyframes } from 'styled-components';
+
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinIcon = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+    color: ${(props) => props.theme.colors.textTertiary};
+`;
 
 const SidebarLineageLoadingSection = () => {
-    const theme = useTheme();
-    return <Spin indicator={<LoadingOutlined style={{ color: theme.colors.textTertiary }} />} />;
+    return <Spin indicator={<SpinIcon />} />;
 };
 
 export default SidebarLineageLoadingSection;

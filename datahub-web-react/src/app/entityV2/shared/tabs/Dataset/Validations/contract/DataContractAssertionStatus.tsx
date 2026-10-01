@@ -1,4 +1,3 @@
-import { StopOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +11,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/styledComponents';
 
 import { Assertion, AssertionResultType } from '@types';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 
 const StatusContainer = styled.div`
     width: 100%;
@@ -30,7 +30,7 @@ export const DataContractAssertionStatus = ({ assertion }: Props) => {
 
     return (
         <StatusContainer>
-            {latestResultType === undefined && <StopOutlined />}
+            {latestResultType === undefined && <Prohibit  />}
             <Tooltip title={t('assertionStatus.passing')}>
                 {latestResultType === AssertionResultType.Success && <StyledCheckOutlined />}
             </Tooltip>

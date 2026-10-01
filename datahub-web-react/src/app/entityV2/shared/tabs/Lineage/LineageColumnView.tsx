@@ -1,19 +1,11 @@
-import {
-    ArrowDownOutlined,
-    ArrowUpOutlined,
-    CaretDownFilled,
-    CaretDownOutlined,
-    LoadingOutlined,
-    ReloadOutlined,
-    SubnodeOutlined,
-} from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Select, Typography } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
-import styled, { useTheme } from 'styled-components/macro';
+import { CircleNotch } from '@phosphor-icons/react/dist/csr/CircleNotch';
+import styled, { keyframes, useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
@@ -31,7 +23,20 @@ import ManageLineageMenuForImpactAnalysis from '@src/app/entityV2/shared/tabs/Li
 import { Direction } from '@src/app/lineage/types';
 
 import { EntityType, LineageDirection, LineageSearchPath } from '@types';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
+import { ArrowsClockwise } from '@phosphor-icons/react/dist/csr/ArrowsClockwise';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { Graph } from '@phosphor-icons/react/dist/csr/Graph';
 
+const spin = keyframes`
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+`;
+
+const SpinningCircleNotch = styled(CircleNotch)`
+    animation: ${spin} 1s linear infinite;
+`;
 const StyledTabToolbar = styled(TabToolbar)`
     justify-content: space-between;
     z-index: 2;
@@ -47,13 +52,13 @@ const RightButtonsWrapper = styled.div`
     display: flex;
 `;
 
-const ManageLineageIcon = styled(SubnodeOutlined)`
+const ManageLineageIcon = styled(Graph)`
     &&& {
         margin-right: -2px;
     }
 `;
 
-const StyledCaretDown = styled(CaretDownFilled)`
+const StyledCaretDown = styled(CaretDown)`
     &&& {
         font-size: 10px;
         margin-left: 4px;
@@ -119,7 +124,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
             label: (
                 <Tooltip placement="right" title={t('direction.downstreamTooltip', { entityName })} showArrow={false}>
                     <span data-testid="lineage-tab-direction-select-option-downstream">
-                        <ArrowDownOutlined style={{ marginRight: 4 }} />
+                        <ArrowDown style={{ marginRight: 4 }}  />
                         <b>{t('direction.downstreams')}</b>
                     </span>
                 </Tooltip>
@@ -130,7 +135,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
             label: (
                 <Tooltip placement="right" title={t('direction.upstreamTooltip', { entityName })} showArrow={false}>
                     <span data-testid="lineage-tab-direction-select-option-upstream">
-                        <ArrowUpOutlined style={{ marginRight: 4 }} />
+                        <ArrowUp style={{ marginRight: 4 }}  />
                         <b>{t('direction.upstreams')}</b>
                     </span>
                 </Tooltip>
@@ -148,7 +153,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                         value={lineageDirection}
                         options={directionOptions}
                         onChange={(value) => setLineageDirection(value as LineageDirection)}
-                        suffixIcon={<CaretDownOutlined style={{ color: theme.colors.text }} />}
+                        suffixIcon={<CaretDown style={{ color: theme.colors.text }}  />}
                         data-testid="lineage-tab-direction-select"
                     />
                 </LeftButtonsWrapper>
@@ -179,7 +184,7 @@ export function LineageColumnView({ defaultDirection, setVisualizeViewInEditMode
                     <LineageTabTimeSelector />
                     <Tooltip title={isLoading ? t('refresh.loadingTooltip') : t('refresh.tooltip')} showArrow={false}>
                         <RefreshCacheButton type="text" onClick={() => setSkipCache(true)} disabled={isLoading}>
-                            {isLoading ? <LoadingOutlined /> : <ReloadOutlined />}
+                            {isLoading ? <SpinningCircleNotch /> : <ArrowsClockwise  />}
                             <Typography.Text>
                                 <b>{tcAction('refresh')}</b>
                             </Typography.Text>

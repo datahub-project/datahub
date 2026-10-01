@@ -1,10 +1,10 @@
-import { MoreOutlined } from '@ant-design/icons';
 import { Table } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SchemaMetadata } from '@types';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 
 const TitleText = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
@@ -52,7 +52,7 @@ export const SchemaSummary = ({ schema }: Props) => {
             render: (field) => <>{field.nativeDataType}</>,
         },
         {
-            title: () => <MoreOutlined />,
+            title: () => <DotsThreeVertical  />,
             render: (_) => undefined,
         },
     ];

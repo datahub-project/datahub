@@ -1,4 +1,3 @@
-import { ApiOutlined } from '@ant-design/icons';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -7,8 +6,9 @@ import { AssertionPlatformAvatar } from '@app/entityV2/shared/tabs/Dataset/Valid
 import { AssertionScheduleSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummarySection';
 
 import { Assertion } from '@types';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 
-const StyledApiOutlined = styled(ApiOutlined)`
+const StyledApiOutlined = styled(Plugs)`
     margin-right: 8px;
     font-size: 14px;
 `;
