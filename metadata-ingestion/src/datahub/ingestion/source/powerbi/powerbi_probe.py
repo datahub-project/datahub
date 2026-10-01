@@ -10,6 +10,8 @@ from typing import (
     cast,
 )
 
+import requests
+
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.agent.probe_methods import probe_method
 from datahub.ingestion.agent.rest_passthrough import RestApiPassthrough
@@ -262,3 +264,35 @@ class PowerBiMetadataProbe(RestApiPassthrough):
             ],
             context=f"dashboards listing for workspace '{workspace}'",
         )
+
+    @probe_method()
+    def admin_api_access(self) -> Dict[str, object]:
+        """Whether this credential can call PowerBI's read-only admin APIs.
+        Ingestion always uses them for the workspace scan -- lineage,
+        endorsements, apps -- even without admin_apis_only, and on "denied"
+        it still runs but emits none of that. Checked with one single-row
+        admin workspace listing; the scanner itself is never called, so
+        "granted" is a strong signal rather than proof the scan will
+        succeed."""
+        resolver = self._resolver(AdminAPIResolver)
+        pages = resolver.itr_pages(
+            endpoint=resolver.get_groups_endpoint(), parameter_override={"$top": 1}
+        )
+        try:
+            # First page only: advancing further would page the whole tenant
+            # one row at a time.
+            next(pages, None)
+        except requests.exceptions.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status in (401, 403):
+                return {
+                    "admin_api": "denied",
+                    "status": status,
+                    "admin_apis_only": self._config.admin_apis_only,
+                }
+            raise
+        return {
+            "admin_api": "granted",
+            "status": 200,
+            "admin_apis_only": self._config.admin_apis_only,
+        }
