@@ -258,11 +258,12 @@ class SapDatasphereConfig(
         ),
     )
     discover_unexposed_views: bool = Field(
-        default=False,
+        default=True,
         description=(
-            "If True, also discover Views / Analytic Models absent from the "
-            "consumption catalog via dwaas-core. No-op when "
-            "`expose_for_consumption_only` is True. Off by default."
+            "If True (default), also discover Views / Analytic Models absent "
+            "from the consumption catalog via dwaas-core. No-op when "
+            "`expose_for_consumption_only` is True. Set False to keep "
+            "catalog-only discovery."
         ),
     )
     convert_urns_to_lowercase: bool = Field(
