@@ -737,6 +737,16 @@ class TableauConfig(
     )
 
     @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: tableau_probe imports this module, so a top-level import
+        # would be circular.
+        from datahub.ingestion.source.tableau.tableau_probe import (
+            TableauMetadataProbe,
+        )
+
+        return TableauMetadataProbe
+
+    @classmethod
     def probe_unfiltered_kinds(cls) -> Set[str]:
         """Workbooks have no name filter: emit_workbooks takes every workbook
         whose project is selected, so the Project verdict decides."""
