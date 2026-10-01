@@ -9,11 +9,14 @@ from dataclasses import dataclass
 from typing import Callable, List, Optional, Protocol, Sequence
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.agent.verdicts import Verdict
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, pattern_verdict
 
 PROJECT_PATTERN = "project_pattern"
 PROJECT_PATH_PATTERN = "project_path_pattern"
 INGEST_MULTIPLE_SITES = "ingest_multiple_sites"
+# Not a recipe field: ingestion skips a site that is not Active outright.
+SITE_STATE = "site_state"
+ACTIVE_SITE_STATE = "Active"
 
 
 class ProjectFilterConfig(Protocol):
@@ -27,6 +30,7 @@ class ProjectFilterConfig(Protocol):
 class SiteFilterConfig(Protocol):
     ingest_multiple_sites: bool
     site: str
+    site_name_pattern: AllowDenyPattern
 
 
 @dataclass(frozen=True)
@@ -177,23 +181,37 @@ def probe_project_verdict(
 
 
 def probe_site_verdict(
-    config: SiteFilterConfig, name: str, warn: Callable[[str], None]
+    config: SiteFilterConfig, ctx: VerdictContext
 ) -> Optional[Verdict]:
-    """site_name_pattern applies only with ingest_multiple_sites; without it
-    ingestion reads the recipe's one site (TableauSource.get_workunits_internal)."""
+    """site_name_pattern applies only with ingest_multiple_sites, and then
+    only to Active sites; without it ingestion reads the recipe's one site,
+    chosen by content URL (TableauSource.get_workunits_internal). A saved
+    `probe run sites` supplies each site's content_url and state."""
     if config.ingest_multiple_sites:
-        warn(
-            "sites whose state is not Active are skipped whatever "
-            "site_name_pattern says; `probe run sites` reports each site's state"
+        if ctx.structural is not None:
+            return None
+        by_name = pattern_verdict(config, ctx.pattern_field, ctx.target)
+        if not by_name.included:
+            return by_name
+        state = ctx.attributes.get("state")
+        if state is None:
+            ctx.warn(
+                "sites whose state is not Active are skipped whatever "
+                "site_name_pattern says, and no state was given here; save "
+                "`probe run sites --report-to` and pass it with `probe filter "
+                "--from-run` to judge it"
+            )
+        elif state != ACTIVE_SITE_STATE:
+            return Verdict(False, SITE_STATE)
+        return by_name
+    content_url = ctx.attributes.get("content_url")
+    if content_url is None:
+        ctx.warn(
+            "ingest_multiple_sites is off, so site_name_pattern is not applied: "
+            f"ingestion reads only the site whose content URL is '{config.site}'. "
+            "Judge a site by its content_url here"
         )
-        # No opinion: site_name_pattern on the site name decides, as in
-        # get_workunits_internal.
-        return None
-    warn(
-        "ingest_multiple_sites is off, so site_name_pattern is not applied: "
-        f"ingestion reads only the site whose content URL is '{config.site}'. "
-        "Judge a site by its content_url here"
-    )
-    if name == config.site:
+        content_url = ctx.name
+    if content_url == config.site:
         return Verdict.include()
     return Verdict(False, INGEST_MULTIPLE_SITES)

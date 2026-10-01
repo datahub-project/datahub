@@ -44,7 +44,7 @@ DataHub will still create **table-level lineage** for these tables, even though 
 
 **Observability**: The ingestion report tracks these tables using the counter `num_upstream_table_processed_without_columns`.
 
-### Probing a Tableau recipe
+#### Probing a Tableau recipe
 
 `datahub recipe probe` checks a Tableau recipe against the live site before a run. It signs in with the recipe's own credentials, SSL and proxy settings, and returns metadata only.
 
@@ -69,6 +69,7 @@ datahub recipe probe run workbooks --recipe recipe.yml --project-path "Sales/EME
 - Projects are addressed and matched by their path, such as `Sales/EMEA`, not by their bare name. `project_path_pattern` is matched against that path.
 - With `extract_project_hierarchy` (the default), a child of a selected project is included unless a deny pattern names it, even if no allow pattern matches it. Exclusion does not pass down: with `allow: ["^Sales/EMEA$"]`, `Sales` is excluded and `Sales/EMEA` is included.
 - An excluded parent project can still appear in DataHub as an empty container, because an included project below it needs it for its browse path. Its workbooks are not ingested.
+- Sites are judged by content URL against the recipe's `site` when `ingest_multiple_sites` is off. With it on, `site_name_pattern` is matched on the site name, and a site whose state is not `Active` is excluded. Pass a saved `probe run sites` output with `probe filter --from-run` so the verdict sees each site's content URL and state.
 
 `database_servers` lists the ids and host names that `database_id_to_platform_instance_map` and `database_hostname_to_platform_instance_map` are keyed on. It needs the Metadata API to be enabled.
 

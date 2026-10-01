@@ -132,3 +132,57 @@ def test_only_a_recipe_using_project_pattern_is_warned_about_it() -> None:
 
     legacy = _judge("Project", ["Sales"], project_pattern={"allow": ["^Sales$"]})
     assert any("deprecated" in w for w in legacy.warnings)
+
+
+def _judge_listing(
+    rows: Sequence[Dict[str, str]], **config: object
+) -> FilterCheckResult:
+    # What `probe filter --from-run` passes for a saved `probe run sites`.
+    return check_filters(
+        source_type="tableau",
+        config_dict={**_BASE, **config},
+        kind="Site",
+        parent_path=[],
+        names=[row["name"] for row in rows],
+        attributes=rows,
+    )
+
+
+def test_a_single_site_listing_is_judged_by_its_content_url() -> None:
+    # The display name differs from the content URL the recipe's `site` holds.
+    result = _judge_listing(
+        [
+            {"name": "My Site", "content_url": "my-site", "state": "Active"},
+            {"name": "my-site", "content_url": "other-site", "state": "Active"},
+        ]
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (True, None),
+        (False, "ingest_multiple_sites"),
+    ]
+    assert result.warnings == []
+
+
+def test_a_site_that_is_not_active_is_excluded_with_multiple_sites() -> None:
+    result = _judge_listing(
+        [
+            {"name": "Finance", "content_url": "finance", "state": "Active"},
+            {"name": "Old", "content_url": "old", "state": "Suspended"},
+            {"name": "Sandbox", "content_url": "sandbox", "state": "Suspended"},
+        ],
+        ingest_multiple_sites=True,
+        site_name_pattern={"deny": ["^Sandbox$"]},
+    )
+    assert [(r.included, r.excluded_by) for r in result.results] == [
+        (True, None),
+        (False, "site_state"),
+        # The name pattern stays the reported reason when both apply.
+        (False, "site_name_pattern"),
+    ]
+    assert result.warnings == []
+
+
+def test_a_bare_site_name_warns_that_state_was_not_judged() -> None:
+    result = _judge("Site", ["Finance"], ingest_multiple_sites=True)
+    assert result.results[0].included
+    assert any("state" in w for w in result.warnings)
