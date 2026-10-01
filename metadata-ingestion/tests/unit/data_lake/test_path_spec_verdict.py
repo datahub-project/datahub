@@ -144,3 +144,21 @@ def test_a_bucket_is_not_a_folder() -> None:
         )
     with pytest.raises(ValueError, match="bucket"):
         judge_folder([TEMPLATED], "s3://my-bucket/", lambda _: None)
+
+
+@pytest.mark.parametrize(
+    "include",
+    ["s3://my-bucket/*/{table}/*.parquet", "s3://my-bucket/*/raw/*.csv"],
+    ids=["templated", "simple"],
+)
+def test_a_hidden_folder_above_datasets_is_not_a_container(include: str) -> None:
+    # Every dataset beneath a hidden folder is dropped, so ingestion never
+    # emits the folder as a container either.
+    v, _ = _judge(judge_folder, [PathSpec(include=include)], "s3://my-bucket/_tmp")
+    assert v.excluded_by == "path_specs[0].include_hidden_folders"
+    # With hidden folders on, `*` still does not glob a leading dot.
+    spec = PathSpec(include=include, include_hidden_folders=True)
+    v, _ = _judge(judge_folder, [spec], "s3://my-bucket/.tmp")
+    assert v.excluded_by == "path_specs[0].include"
+    v, _ = _judge(judge_folder, [spec], "s3://my-bucket/_tmp")
+    assert v.included

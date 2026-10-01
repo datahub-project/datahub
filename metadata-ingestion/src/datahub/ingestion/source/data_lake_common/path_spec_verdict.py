@@ -30,7 +30,9 @@ UNPARSED_TABLE_WARNING = (
     "these folders (a wildcard or placeholder before {table} matched nothing, "
     "as a bucket wildcard like `my-bucket*` does for the bucket `my-bucket`): "
     "ingestion still emits that "
-    "table, but names the dataset after a file inside it, not after the folder"
+    "table, but names the dataset after a file inside it, not after the folder, "
+    "and applies tables_filter_pattern to each file's name as well as to the "
+    "folder's, so a pattern rejecting every file name drops the table"
 )
 CONTAINER_WARNING = (
     "buckets and folders above a dataset (or above a folders-only path_spec's "
@@ -177,8 +179,15 @@ def judge_folder(
             _table_depth(spec) if TABLE_MARKER in spec.include else len(glob_parts) - 1
         )
         depth = folder.count("/")
-        if depth >= leaf or not _reaches(folder, "/".join(glob_parts[: depth + 1])):
+        glob_prefix = "/".join(glob_parts[: depth + 1])
+        if depth >= leaf or not _reaches(folder, glob_prefix):
             return ""
+        # Every dataset beneath it fails the same two checks _dataset_reason
+        # applies, so ingestion never emits it as their container.
+        if spec.is_path_hidden(folder) and not spec.include_hidden_folders:
+            return "include_hidden_folders"
+        if not _matches(folder, glob_prefix):
+            return "include"
         warn(CONTAINER_WARNING)
         return None
 

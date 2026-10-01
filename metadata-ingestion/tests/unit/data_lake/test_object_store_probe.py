@@ -273,3 +273,45 @@ def test_a_denied_single_table_prefix_is_the_whole_answer(bucket: None) -> None:
     ):
         assert probe.datasets(limit=10) == []
     assert probe.failures and not probe.warnings
+
+
+def _deny_listing_under(prefix: str) -> Any:
+    """Deny resolve_templated_folders' listings of `prefix`, pass the rest."""
+    from datahub.ingestion.source.s3 import source as s3_source
+
+    real = s3_source.list_folders_path
+
+    def listing(uri: str, *args: Any, **kwargs: Any) -> Any:
+        if uri.startswith(prefix):
+            raise _client_error("AccessDenied", 403)
+        return real(uri, *args, **kwargs)
+
+    return mock.patch.object(s3_source, "list_folders_path", side_effect=listing)
+
+
+@pytest.mark.parametrize(
+    "command", ["datasets", "path_spec_folders"], ids=["tables", "folders_only"]
+)
+def test_a_denied_listing_while_resolving_wildcards_is_a_warning(
+    bucket: None, command: str
+) -> None:
+    # The first listing (the bucket) succeeds, so the answer is partial.
+    spec = PathSpec(
+        include="s3://my-bucket/*/*/{table}/*.csv"
+        if command == "datasets"
+        else "s3://my-bucket/*/*/*/",
+        emit_folders_only=command == "path_spec_folders",
+    )
+    probe = S3CompatibleMetadataProbe(_aws(), [spec])
+    with _deny_listing_under("s3://my-bucket/data/"):
+        getattr(probe, command)(limit=10)
+    assert probe.warnings and not probe.failures
+
+
+def test_a_denied_first_listing_while_resolving_wildcards_is_a_failure(
+    bucket: None,
+) -> None:
+    probe = _probe("s3://my-bucket/*/*/{table}/*.csv")
+    with _deny_listing_under("s3://my-bucket/"):
+        assert probe.datasets(limit=10) == []
+    assert probe.failures and not probe.warnings

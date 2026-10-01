@@ -21,6 +21,7 @@ from typing import (
     Pattern,
     Sequence,
     TypeVar,
+    Union,
 )
 
 from botocore.exceptions import BotoCoreError, ClientError, ParamValidationError
@@ -90,6 +91,9 @@ _REGION_ERROR_CODES = frozenset(
 )
 
 T = TypeVar("T")
+# Whether a denied listing is the whole answer, or a callable deciding that
+# when the denial arrives.
+Whole = Union[bool, Callable[[], bool]]
 
 
 class S3CompatibleMetadataProbe:
@@ -134,7 +138,7 @@ class S3CompatibleMetadataProbe:
         return f"s3://{bucket}/{prefix.lstrip('/')}"
 
     @contextmanager
-    def _storage_errors(self, context: str, whole: bool) -> Iterator[None]:
+    def _storage_errors(self, context: str, whole: Whole) -> Iterator[None]:
         """Split storage errors the way the probe contract asks: a missing bucket
         or key is the caller's mistake, a denied listing is recorded (as a
         failure when it is the whole answer), a rejected credential or an
@@ -168,7 +172,8 @@ class S3CompatibleMetadataProbe:
                     else "the bucket is in another region than the client; set "
                     "aws_region"
                 )
-                (self.failures if whole else self.warnings).append(
+                is_whole = whole() if callable(whole) else whole
+                (self.failures if is_whole else self.warnings).append(
                     f"{context}: {why}, so this could not be listed"
                 )
                 return
@@ -212,6 +217,7 @@ class S3CompatibleMetadataProbe:
         MAX_RESOLVED_PREFIXES listings. `listed_after`: the caller lists each
         resolved prefix again, so each one is charged too."""
         spent = 0
+        walked = 0
 
         def charge(_: str) -> None:
             nonlocal spent
@@ -219,13 +225,25 @@ class S3CompatibleMetadataProbe:
             if spent > MAX_RESOLVED_PREFIXES:
                 raise _ListingBudgetSpent()
 
+        def on_listing(folder: str) -> None:
+            nonlocal walked
+            walked += 1
+            charge(folder)
+
         try:
-            for resolved in resolve_templated_folders(
-                prefix, self._aws_config, on_listing=charge
+            # Only the walk's first listing is the whole answer. Once it has
+            # returned, a denied deeper one leaves a partial answer -- the walk
+            # cannot resume past it -- like a denied prefix in _table_folders.
+            with self._storage_errors(
+                f"resolving the wildcards in {self._display(prefix)}",
+                whole=lambda: walked <= 1,
             ):
-                if listed_after:
-                    charge(resolved)
-                yield resolved
+                for resolved in resolve_templated_folders(
+                    prefix, self._aws_config, on_listing=on_listing
+                ):
+                    if listed_after:
+                        charge(resolved)
+                    yield resolved
         except _ListingBudgetSpent:
             self.warnings.append(
                 f"stopped after {MAX_RESOLVED_PREFIXES} listings while resolving "

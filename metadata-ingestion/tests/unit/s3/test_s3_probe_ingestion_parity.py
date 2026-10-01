@@ -72,6 +72,16 @@ CASES: Dict[str, Dict[str, object]] = {
     "bucket_wildcard": {
         "path_specs": [{"include": "s3://my-bucket*/data/{table}/*/*.csv"}]
     },
+    # A bucket the wildcard globs but cannot parse: ingestion applies
+    # tables_filter_pattern to each file's name too, which drops this table.
+    "bucket_wildcard_with_tables_filter": {
+        "path_specs": [
+            {
+                "include": "s3://my-bucket*/data/{table}/*/*.csv",
+                "tables_filter_pattern": {"deny": ["^part-"]},
+            }
+        ]
+    },
     "any_including_spec_wins": {
         "path_specs": [
             {
@@ -159,7 +169,9 @@ def _no_allowed_file_under(recipe: Dict[str, object], folder_uri: str) -> bool:
             "Contents", []
         )
     ]
-    return not any(
+    # No keys: the candidate is an object, not a table folder, and an extra
+    # object is never the declared gap.
+    return bool(keys) and not any(
         spec.allowed(f"s3://{bucket}/{key}", ignore_ext=config.use_s3_content_type)
         for spec in config.path_specs
         for key in keys

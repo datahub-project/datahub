@@ -15,6 +15,7 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.data_lake_common.object_store_probe import (
     S3CompatibleMetadataProbe,
+    Whole,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.gcs.gcs_source import (
@@ -24,6 +25,9 @@ from datahub.ingestion.source.gcs.gcs_source import (
     build_gcs_aws_connection_config,
     equivalent_s3_path_specs,
 )
+
+# Longer than any one bounded listing takes; WIF / ADC tokens live an hour.
+_TOKEN_REFRESH_MARGIN_SECONDS = 300.0
 
 
 class GCSMetadataProbe(S3CompatibleMetadataProbe):
@@ -42,7 +46,7 @@ class GCSMetadataProbe(S3CompatibleMetadataProbe):
         self._auth_type = auth_type
 
     @contextmanager
-    def _storage_errors(self, context: str, whole: bool) -> Iterator[None]:
+    def _storage_errors(self, context: str, whole: Whole) -> Iterator[None]:
         """The base's split, plus the OAuth token refresh (WIF / ADC), which
         fails outside botocore's error types. google-auth's text carries the
         subject-token path, the token endpoint's response body and the
@@ -51,8 +55,12 @@ class GCSMetadataProbe(S3CompatibleMetadataProbe):
             # Refreshed here, before botocore sends anything: a refresh that
             # fails inside the before-send hook is logged by botocore with
             # google-auth's text, which no message scrubbing here can reach.
+            # Ahead of expiry, so a listing does not cross it and leave the
+            # hook to refresh mid-way.
             if isinstance(self._aws_config, GCSOAuthAwsConnectionConfig):
-                self._aws_config.refresh_token_if_needed()
+                self._aws_config.refresh_token_if_needed(
+                    margin_seconds=_TOKEN_REFRESH_MARGIN_SECONDS
+                )
             with super()._storage_errors(context, whole):
                 yield
         except (
@@ -73,12 +81,13 @@ class GCSMetadataProbe(S3CompatibleMetadataProbe):
             aws_config = build_gcs_aws_connection_config(config)
         except Exception as exc:
             # The google-auth errors ingestion wraps carry file paths and
-            # parser text from the credential material; report the class only.
+            # parser text from the credential material; report the class only,
+            # and do not chain the original, which a traceback would print.
             raise ProbeConnectionError(
                 f"could not load GCS credentials for auth_type "
                 f"'{config.auth_type}' ({type(exc).__name__}); check the "
                 f"recipe's credential settings and the environment they read"
-            ) from exc
+            ) from None
         return cls(
             aws_config=aws_config,
             path_specs=equivalent_s3_path_specs(config.path_specs),

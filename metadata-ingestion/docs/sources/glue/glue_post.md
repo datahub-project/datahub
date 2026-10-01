@@ -150,9 +150,13 @@ source:
 #### Checking a recipe before ingesting
 
 `datahub recipe probe` lists what the catalog holds and says what your recipe would keep, using
-the same credentials, role assumption and retry settings as ingestion. It reads catalog listings
-only — never table data, job arguments or free-form parameters — and needs no IAM permission
-beyond what ingestion needs.
+the same credentials, role assumption and retry settings as ingestion. It never reads table
+data, never returns job arguments or free-form parameters, and needs no IAM permission beyond what
+ingestion needs. Every command but one reads catalog listings only. `job_nodes` reads what
+ingestion reads for the same job: it downloads the job script from S3 (`s3:GetObject`), has Glue
+resolve it into a DAG (`glue:GetDataflowGraph`) and looks up the connections its nodes use
+(`glue:GetConnection`). The script and the node arguments (connection options, S3 paths, SQL) are
+left out of its output.
 
 ```shell
 datahub recipe probe run databases --recipe recipe.yml --report-to dbs.json

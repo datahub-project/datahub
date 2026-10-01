@@ -1,5 +1,8 @@
+import datetime
 import logging
 import pathlib
+import time
+import traceback
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest import mock
 
@@ -385,16 +388,23 @@ def test_bad_signature_is_a_connection_error_without_the_error_text(
     assert "some-account-detail" not in str(raised.value)
 
 
-def test_an_error_echoing_the_hmac_secret_is_masked_by_the_cli(
-    seeded_bucket: None, tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # The masking registry is process-global; keep this test's secret out of
-    # later tests, as tests/unit/cli/test_recipe_probe_cli.py does.
+@pytest.fixture
+def isolated_secret_registry(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """The masking registry is process-global; keep a test's secret out of
+    later tests, as tests/unit/cli/test_recipe_probe_cli.py does -- cleared in
+    place, before and after, so a failing assertion cannot leak it."""
     import datahub.cli.recipe_cli as rc
     from datahub.masking.secret_registry import SecretRegistry
 
     SecretRegistry.get_instance().clear()
     monkeypatch.setattr(rc, "_stdin_secrets", {}, raising=False)
+    yield
+    SecretRegistry.get_instance().clear()
+
+
+def test_an_error_echoing_the_hmac_secret_is_masked_by_the_cli(
+    seeded_bucket: None, isolated_secret_registry: None, tmp_path: pathlib.Path
+) -> None:
     # An error the probe does not classify reaches the CLI's fallback, which
     # prints its text; the recipe's secret must be masked there.
     secret = "GOOG1EXAMPLEhmacSecretValue0123456789abcd"
@@ -419,7 +429,6 @@ def test_an_error_echoing_the_hmac_secret_is_masked_by_the_cli(
     assert result.exit_code != 0
     assert "was refused" in result.output
     assert secret not in result.output
-    SecretRegistry.get_instance().clear()
 
 
 class _RefreshFailingCredentials:
@@ -485,6 +494,70 @@ def test_a_failed_token_refresh_is_a_scrubbed_connection_error(
     for leaky in _LEAKY_TEXT:
         assert leaky not in message
         assert leaky not in caplog.text
+
+
+class _ExpiringCredentials:
+    """OAuth credentials holding a token that is still valid, but only for a
+    minute; refreshing it fails with google-auth's leaky text."""
+
+    token: Optional[str] = "still-valid"
+
+    def __init__(self, now: float) -> None:
+        self.expiry = datetime.datetime.fromtimestamp(now + 60)
+
+    def refresh(self, request: object) -> None:
+        raise google.auth.exceptions.RefreshError(
+            f"File '{_LEAKY_TEXT[0]}' was not found.",
+            f'{{"error_description":"principal {_LEAKY_TEXT[1]}"}}',
+        )
+
+
+def test_a_token_about_to_expire_is_refreshed_before_the_listing(
+    seeded_bucket: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Two minutes pass between the probe's refresh check and botocore's
+    # before-send hook. A token expiring in between would be refreshed inside
+    # the hook, where botocore logs the failure with google-auth's text; the
+    # probe refreshes ahead of expiry so that refresh happens outside it.
+    now = time.time()
+    reads = iter([now])
+    # gcs_source's own clock only: the first read is the probe's check, every
+    # later one is the hook's.
+    fake_time = mock.Mock(time=lambda: next(reads, now + 120))
+    recipe: Dict[str, object] = {
+        "auth_type": "workload_identity",
+        "path_specs": [{"include": "gs://my-bucket/raw/*.csv"}],
+    }
+    caplog.set_level(logging.DEBUG)
+    with (
+        mock.patch(
+            "google.auth.default",
+            return_value=(_ExpiringCredentials(now), "my-project"),
+        ),
+        mock.patch("datahub.ingestion.source.gcs.gcs_source.time", fake_time),
+        pytest.raises(ProbeConnectionError),
+    ):
+        _run(recipe, "buckets")
+    for leaky in _LEAKY_TEXT:
+        assert leaky not in caplog.text
+
+
+def test_a_credential_load_failure_does_not_chain_the_original_error() -> None:
+    from datahub.ingestion.source.gcs.gcs_probe import GCSMetadataProbe
+    from datahub.ingestion.source.gcs.gcs_source import GCSSourceConfig
+
+    config = GCSSourceConfig.model_validate(_recipe("gs://my-bucket/raw/*.csv"))
+    with (
+        mock.patch(
+            "datahub.ingestion.source.gcs.gcs_probe.build_gcs_aws_connection_config",
+            side_effect=ValueError(f"could not read {_LEAKY_TEXT[0]}"),
+        ),
+        pytest.raises(ProbeConnectionError) as raised,
+    ):
+        GCSMetadataProbe.for_config(config)
+    # A caller that prints the traceback sees the cause chain too.
+    rendered = "".join(traceback.format_exception(raised.value))
+    assert _LEAKY_TEXT[0] not in rendered
 
 
 def test_prefix_budget_stops_and_warns(

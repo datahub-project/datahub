@@ -151,7 +151,9 @@ def _no_allowed_file_under(recipe: Dict[str, object], folder_uri: str) -> bool:
             "Contents", []
         )
     ]
-    return not any(
+    # No keys: the candidate is an object, not a table folder, and an extra
+    # object is never the declared gap.
+    return bool(keys) and not any(
         spec.allowed(f"s3://{bucket}/{key}") for spec in specs for key in keys
     )
 

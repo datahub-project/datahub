@@ -443,7 +443,9 @@ def _no_allowed_file_under(config: Dict[str, Any], folder_uri: str) -> bool:
         .paginate(Bucket=bucket, Prefix=f"{prefix}/" if prefix else "")
     )
     keys = [o["Key"] for page in pages for o in page.get("Contents", [])]
-    return not any(
+    # No keys: the candidate is an object, not a table folder, and an extra
+    # object is never the declared gap.
+    return bool(keys) and not any(
         spec.allowed(f"s3://{bucket}/{key}", ignore_ext=parsed.use_s3_content_type)
         for spec in parsed.path_specs
         for key in keys
