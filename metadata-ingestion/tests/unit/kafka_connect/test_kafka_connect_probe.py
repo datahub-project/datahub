@@ -1,12 +1,16 @@
 """Kafka Connect's probe: ingestion's own per-connector steps without its pattern,
 and a disclosure allowlist whose absences are the point."""
 
+import base64
 from typing import Dict, Iterable, List, Tuple
 
 import pytest
+import requests
 import requests_mock
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.agent.filter_check import check_filters
+from datahub.ingestion.agent.probe_methods import _iter_specs
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
@@ -14,6 +18,10 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceConfig,
 )
 from datahub.ingestion.source.kafka_connect.kafka_connect import KafkaConnectSource
+from datahub.ingestion.source.kafka_connect.kafka_connect_probe import (
+    PROBE_REQUEST_TIMEOUT_SECONDS,
+    KafkaConnectMetadataProbe,
+)
 from datahub.metadata.schema_classes import DataJobInputOutputClass
 
 CONNECT = "http://connect.example:8083"
@@ -160,3 +168,90 @@ def test_confluent_cloud_without_credentials_is_refused_by_the_shared_factory() 
     )
     with pytest.raises(ValueError):
         KafkaConnectSource._create_connect_session(config)
+
+
+def test_building_the_provider_opens_no_connection() -> None:
+    with requests_mock.Mocker() as m:
+        KafkaConnectMetadataProbe.for_config(_recipe()).__exit__(None, None, None)
+        assert m.call_count == 0
+
+
+def test_connectors_lists_every_name_including_denied_ones() -> None:
+    config = _recipe(connector_patterns={"deny": ["^orders-sink$"]})
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(config) as probe:
+            assert probe.connectors() == ["legacy-source", "orders-sink"]
+
+
+def test_probe_requests_authenticate_as_ingestion_does_and_time_out() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            probe.connectors()
+        expected = "Basic " + base64.b64encode(b"connect-user:test_password").decode()
+        assert m.last_request.headers["Authorization"] == expected
+        assert all(
+            r.timeout == PROBE_REQUEST_TIMEOUT_SECONDS for r in m.request_history
+        )
+
+
+def test_an_auth_failure_raises_instead_of_listing_nothing() -> None:
+    with requests_mock.Mocker() as m:
+        m.get(
+            f"{CONNECT}/connectors",
+            status_code=401,
+            json={"error_code": 401, "message": "Unauthorized"},
+        )
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            with pytest.raises(requests.HTTPError):
+                probe.connectors()
+
+
+@pytest.mark.parametrize(
+    "name", ["orders-sink/config", "orders-sink?expand=info", "orders-sink#", "a%2Fb"]
+)
+def test_a_connector_name_carrying_url_syntax_never_reaches_the_source(
+    name: str,
+) -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            with pytest.raises(ValueError):
+                probe._require_listed(name)
+        assert m.call_count == 0
+
+
+def test_an_unlisted_connector_is_a_bad_argument() -> None:
+    with requests_mock.Mocker() as m:
+        _mock_cluster(m, CLUSTER, TOPICS)
+        with KafkaConnectMetadataProbe.for_config(_recipe()) as probe:
+            with pytest.raises(ValueError):
+                probe._require_listed("no-such-connector")
+        assert [r.path for r in m.request_history] == ["/connectors"]
+
+
+def test_there_is_no_raw_api_command() -> None:
+    # A raw passthrough over Connect reaches /connectors/{name}/config, i.e.
+    # credentials. See the module docstring before adding one.
+    commands = dict(_iter_specs(KafkaConnectMetadataProbe))
+    assert "api" not in commands
+    assert all(spec.scoped_path_param is None for spec in commands.values())
+
+
+def test_connector_verdicts_match_ingestions_own_predicate() -> None:
+    recipe: Dict[str, object] = {
+        "connect_uri": CONNECT,
+        "connector_patterns": {"deny": ["^orders-sink$"]},
+    }
+    names = ["orders-sink", "legacy-source"]
+    result = check_filters(
+        "kafka-connect", recipe, kind="Connector", parent_path=[], names=names
+    )
+    # kafka_connect.py get_connectors_manifest: connector_patterns.allowed(name)
+    ingestion = KafkaConnectSourceConfig.model_validate(recipe).connector_patterns
+    assert [(r.name, r.included) for r in result.results] == [
+        (n, ingestion.allowed(n)) for n in names
+    ]
+    assert result.pattern_field == "connector_patterns"
+    assert result.filtering == "by_pattern"
