@@ -8,20 +8,17 @@ listed closes that for every dialect, whatever its reflection does, and
 without a per-dialect quoting rule to get wrong.
 """
 
-from typing import Iterable, List
+from typing import Iterable
 
-from datahub.ingestion.agent.verdicts import ProbeArgumentError
+from datahub.ingestion.agent.provider_helpers import echoed, resolve_name
 
-# Enough to recognise the argument; a hostile one can be arbitrarily long.
-_MAX_ECHOED = 64
-_MAX_HINTS = 5
+# The old private name, kept because mssql_probe imports it on the stacked
+# SQL branch. New code imports agent.provider_helpers.echoed.
+_echoed = echoed
 
 
-def _echoed(name: str) -> str:
-    clipped = name if len(name) <= _MAX_ECHOED else name[:_MAX_ECHOED] + "..."
-    # repr escapes NUL and control characters, so a refusal cannot carry them
-    # into a terminal or a log line.
-    return repr(clipped)
+def _listed_string(name: str) -> str:
+    return name
 
 
 def resolve_listed_name(
@@ -46,22 +43,14 @@ def resolve_listed_name(
 
     `listed` is consumed lazily and only up to the first exact match, so a
     caller can chain several listings and pay for the later ones only on a
-    miss.
+    miss. The SQL-catalog face of agent.provider_helpers.resolve_name.
     """
-    seen: List[str] = []
-    for candidate in listed:
-        if candidate == name:
-            return candidate
-        seen.append(candidate)
-    folded = name.casefold()
-    near = sorted({c for c in seen if c.casefold() == folded})
-    message = f"no {what} named {_echoed(name)} {where}"
-    if near:
-        # The server listed these, but a listed name can still be long, so
-        # it is clipped the same way.
-        hints = ", ".join(_echoed(c) for c in near[:_MAX_HINTS])
-        message += (
-            f"; did you mean {hints}? Names are matched exactly, as the "
-            f"catalog lists them"
-        )
-    raise ProbeArgumentError(f"{message}. Run `{list_command}` for the exact names")
+    return resolve_name(
+        name,
+        listed,
+        key=_listed_string,
+        kind=what,
+        where=where,
+        list_command=list_command,
+        stop_at_first=True,
+    ).record
