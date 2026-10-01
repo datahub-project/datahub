@@ -14,7 +14,7 @@ from typing import Callable, Dict, FrozenSet, Iterator, List, Tuple
 import pytest
 from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import NoSuchTableError, OperationalError
 
 from datahub.ingestion.agent.probe_methods import (
     _iter_specs,
@@ -127,6 +127,11 @@ def test_the_hook_sees_a_payload_that_reaches_reflection(engine: Engine) -> None
         inspect(engine).get_table_names(schema=f"{_MARKER}'")
     assert any(_MARKER in s for s in seen)
 
+    seen_table, _ = _record(engine)
+    with pytest.raises(NoSuchTableError):
+        inspect(engine).get_columns(f"{_MARKER}'")
+    assert any(_MARKER in s for s in seen_table)
+
 
 @pytest.mark.parametrize("payload", _PAYLOADS)
 @pytest.mark.parametrize(("command", "param"), _CASES)
@@ -153,13 +158,15 @@ def test_every_sqlalchemy_provider_inherits_the_resolving_commands() -> None:
     _RESOLVES_ITS_OWN."""
     guarded = {c for c, _ in _CASES}
     found: List[str] = []
+    load_failures: List[Tuple[str, str]] = []
     unreviewed: Dict[str, List[str]] = {}
     for source_type in sorted(source_registry.mapping):
         try:
             provider = _provider_class(source_type)
-        except Exception:
-            # An optional extra that is not installed; the dialects this
-            # guards that matter here load on core deps, as `found` asserts.
+        except Exception as e:
+            # Usually an optional extra that is not installed. Recorded so a
+            # missing core provider is reported with its cause.
+            load_failures.append((source_type, type(e).__name__))
             continue
         if not (
             isinstance(provider, type) and issubclass(provider, SqlAlchemyMetadataProbe)
@@ -175,7 +182,11 @@ def test_every_sqlalchemy_provider_inherits_the_resolving_commands() -> None:
         if rest:
             unreviewed[source_type] = sorted(rest)
 
-    assert len(found) >= 20, f"only {found}; the registry scan broke"
+    core = {"sqlalchemy", "mysql", "postgres", "trino"}
+    assert core <= set(found), (
+        f"core providers missing from the scan: {sorted(core - set(found))}; "
+        f"found {found}; failed to load {load_failures}"
+    )
     assert not unreviewed, (
         f"{unreviewed}: these providers override identifier-taking commands. "
         "Resolve every schema/table/view through "
