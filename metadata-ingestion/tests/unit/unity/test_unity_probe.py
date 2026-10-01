@@ -3,11 +3,20 @@ from unittest.mock import MagicMock
 
 import pytest
 from databricks.sdk.errors import NotFound, PermissionDenied, Unauthenticated
-from databricks.sdk.service.catalog import CatalogInfo, SchemaInfo
+from databricks.sdk.service import catalog as sdk_catalog
+from databricks.sdk.service.catalog import (
+    CatalogInfo,
+    ColumnInfo,
+    SchemaInfo,
+    TableInfo,
+    TableType,
+)
 
+from datahub.ingestion.agent.filter_check import check_filters
 from datahub.ingestion.agent.probe_methods import list_probe_methods, run_probe_method
 from datahub.ingestion.agent.verdicts import ProbeConnectionError
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.proxy import TableInfoWithGeneration
 from datahub.ingestion.source.unity.unity_probe import UnityCatalogMetadataProbe
 
 BASE: Dict[str, Any] = {
@@ -177,3 +186,114 @@ def test_a_client_that_cannot_be_built_is_reported_without_the_sdk_text(
     with pytest.raises(ProbeConnectionError) as raised:
         UnityCatalogMetadataProbe.for_config(_config())
     assert "s3cr3t" not in str(raised.value)
+
+
+_HAS_METRIC_VIEW = getattr(TableType, "METRIC_VIEW", None) is not None
+
+
+def _tables_ws() -> MagicMock:
+    ws = _fake_ws()
+    ws.catalogs.get.return_value = CatalogInfo(name="main")
+    rows = [
+        TableInfoWithGeneration(name="orders", table_type=TableType.MANAGED),
+        TableInfoWithGeneration(name="v_orders", table_type=TableType.VIEW),
+        TableInfoWithGeneration(
+            name="mv_orders", table_type=TableType.MATERIALIZED_VIEW
+        ),
+        TableInfoWithGeneration(name="returns", table_type=TableType.EXTERNAL),
+    ]
+    if _HAS_METRIC_VIEW:
+        rows.append(
+            TableInfoWithGeneration(name="kpi", table_type=TableType.METRIC_VIEW)
+        )
+    ws.tables.list.return_value = rows
+    return ws
+
+
+def test_tables_views_and_metric_views_split_the_way_process_tables_does() -> None:
+    probe = _probe(_tables_ws())
+    assert probe.tables(catalog="main", schema="analytics") == ["orders", "returns"]
+    assert probe.views(catalog="main", schema="analytics") == ["v_orders", "mv_orders"]
+    if _HAS_METRIC_VIEW:
+        assert probe.metric_views(catalog="main", schema="analytics") == ["kpi"]
+
+
+def test_stopping_at_the_limit_restores_the_sdk_class_ingestion_patches() -> None:
+    # proxy.tables swaps TableInfo for TableInfoWithGeneration around its
+    # loop; abandoning the generator mid-loop must not leave the swap behind.
+    original = sdk_catalog.TableInfo
+    assert _probe(_tables_ws()).tables(catalog="main", schema="analytics", limit=1) == [
+        "orders"
+    ]
+    assert sdk_catalog.TableInfo is original
+
+
+def test_a_listed_table_round_trips_into_the_verdict_ingestion_makes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    ws = _tables_ws()
+    _serve(monkeypatch, ws)
+    config = {**BASE, "table_pattern": {"allow": [r"^main\.analytics\.orders$"]}}
+    listed = run_probe_method(
+        "unity-catalog", config, "tables", {"catalog": "main", "schema": "analytics"}
+    )
+    assert listed.kind is not None and isinstance(listed.result, list)
+    verdict = check_filters(
+        source_type="unity-catalog",
+        config_dict=config,
+        kind=listed.kind,
+        parent_path=listed.parent_path,
+        names=listed.result,
+    )
+    assert [(r.target, r.included) for r in verdict.results] == [
+        ("main.analytics.orders", True),
+        ("main.analytics.returns", False),
+    ]
+    assert verdict.warnings == []
+
+
+def test_hive_metastore_tables_are_not_probed_and_say_so() -> None:
+    ws = _fake_ws()
+    probe = _probe(ws)
+    assert probe.tables(catalog="hive_metastore", schema="default") == []
+    assert probe.columns(catalog="hive_metastore", schema="default", table="t") == []
+    ws.tables.list.assert_not_called()
+    ws.tables.get.assert_not_called()
+    assert any("hive_metastore" in w for w in probe.warnings)
+
+
+def test_tables_of_a_schema_the_credential_cannot_read_degrade_with_a_warning() -> None:
+    ws = _fake_ws()
+    ws.catalogs.get.return_value = CatalogInfo(name="main")
+    ws.tables.list.side_effect = PermissionDenied("no USE SCHEMA")
+    probe = _probe(ws)
+    assert probe.views(catalog="main", schema="analytics") == []
+    assert any("main.analytics" in w for w in probe.warnings)
+
+
+def test_columns_are_structural_metadata_only() -> None:
+    ws = _fake_ws()
+    ws.tables.get.return_value = TableInfo(
+        name="orders",
+        columns=[
+            ColumnInfo(name="id", type_text="bigint", nullable=False, comment="pk")
+        ],
+    )
+    cols = _probe(ws).columns(catalog="main", schema="analytics", table="orders")
+    assert cols == [
+        {
+            "name": "id",
+            "type": "bigint",
+            "nullable": False,
+            "comment": "pk",
+            "partition_index": None,
+        }
+    ]
+    assert ws.tables.get.call_args.kwargs["full_name"] == "main.analytics.orders"
+
+
+def test_columns_of_an_unknown_table_is_a_caller_error() -> None:
+    ws = _fake_ws()
+    ws.tables.get.side_effect = NotFound("no such table")
+    with pytest.raises(ValueError, match="main.analytics.typo"):
+        _probe(ws).columns(catalog="main", schema="analytics", table="typo")
