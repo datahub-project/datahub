@@ -5,6 +5,7 @@ from typing import Dict, Sequence
 
 from datahub.ingestion.agent.filter_check import FilterCheckResult, check_filters
 from datahub.ingestion.agent.introspect import describe_source
+from datahub.ingestion.agent.verdicts import VerdictContext
 from datahub.ingestion.source.common.gcp_project_filter import is_project_allowed
 from datahub.ingestion.source.dataplex.dataplex_config import (
     DATAPLEX_ASPECT_TYPE_KIND,
@@ -157,6 +158,27 @@ def test_project_ids_decide_the_project_verdict() -> None:
         is_project_allowed(parsed, n) for n in ["proj-a", "proj-b"]
     ]
     assert any("project_id_pattern" in w for w in result.warnings)
+
+
+def test_default_project_pattern_does_not_warn_after_it_has_been_used() -> None:
+    config = DataplexConfig.model_validate({"project_ids": ["proj-a"]})
+    # allowed() fills the pattern's compiled-regex caches, which a plain
+    # equality check against a fresh allow_all() would then see as a difference.
+    config.project_id_pattern.allowed("proj-a")
+    warnings: list = []
+    ctx = VerdictContext(
+        kind=DATAPLEX_PROJECT_KIND,
+        name="proj-a",
+        target="proj-a",
+        parent_path=(),
+        pattern_field="project_id_pattern",
+        structural=None,
+        attributes={},
+        warn=warnings.append,
+    )
+    verdict = config.probe_verdict_override(ctx)
+    assert verdict is not None and verdict.included
+    assert warnings == []
 
 
 def test_aspect_type_verdict_uses_the_default_sync_back_deny() -> None:

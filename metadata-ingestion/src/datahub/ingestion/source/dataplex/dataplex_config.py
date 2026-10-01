@@ -646,7 +646,7 @@ class DataplexConfig(
         self, project: str, ctx: VerdictContext, *, labels_checked: bool
     ) -> Optional[Verdict]:
         if self.project_ids:
-            if self.project_id_pattern != AllowDenyPattern.allow_all():
+            if not self.project_id_pattern.is_allow_all():
                 ctx.warn(
                     "project_ids is set, so ingestion reads exactly those "
                     "projects and project_id_pattern is not consulted"
