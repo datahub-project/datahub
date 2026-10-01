@@ -12,6 +12,8 @@ from typing import (
     Final,
     List,
     Optional,
+    Sequence,
+    Set,
 )
 
 from pydantic import model_validator
@@ -29,6 +31,8 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.ingestion.agent.verdicts import ancestors_in
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.confluent.config import ConfluentStreamCatalogConfig
 from datahub.ingestion.source.kafka_connect.config_constants import (
     ConnectorConfigKeys,
@@ -356,6 +360,22 @@ class KafkaConnectSourceConfig(
         )
 
         return KafkaConnectMetadataProbe
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Topics are reported whole: this source has no topic pattern, and a
+        topic appears in lineage whenever its connector is kept. Declared so
+        `probe filter --kind Topic` says 'unfiltered' rather than 'unresolved'."""
+        return {str(DatasetSubTypes.TOPIC)}
+
+    @classmethod
+    def probe_ancestor_kinds(cls, kind: str) -> Optional[Sequence[str]]:
+        """Per-connector topics and lineage exist only for connectors
+        connector_patterns keeps (get_connectors_manifest), so a topic's verdict
+        follows its connector's."""
+        return ancestors_in(
+            (KAFKA_CONNECT_CONNECTOR_KIND,), kind, (str(DatasetSubTypes.TOPIC),)
+        )
 
     @model_validator(mode="before")
     @classmethod

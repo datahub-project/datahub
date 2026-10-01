@@ -22,6 +22,7 @@ from datahub.ingestion.api.source import (
     StructuredLogLevel,
     StructuredLogs,
 )
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.kafka_connect.common import (
     CONNECTOR_CLASS,
     KAFKA_CONNECT_CONNECTOR_KIND,
@@ -378,3 +379,52 @@ class KafkaConnectMetadataProbe:
             "config_keys": sorted(resolved.raw_config),
             "lineage_config": disclosed_config(resolved.raw_config),
         }
+
+    @probe_method(
+        kind=DatasetSubTypes.TOPIC, row_limit_param="limit", parent_params=("connector",)
+    )
+    def connector_topics(self, connector: str, limit: int = 500) -> List[str]:
+        """Topics ingestion resolves for one connector from Connect's runtime
+        /topics API, with stale topics dropped for a sink whose config names its
+        topics. Empty, with a warning saying why, on Confluent Cloud (no such API;
+        see `cluster_topics`) or when use_connect_topics_api is false. Nothing
+        filters topics; judge the connector instead."""
+        config = self._source.config
+        if not config.use_connect_topics_api:
+            self._require_listed(connector)
+            self._warn(
+                "use_connect_topics_api is false, so ingestion reads no runtime "
+                "topics for any connector and infers lineage from config alone"
+            )
+            return []
+        if self._source._is_confluent_cloud:
+            self._require_listed(connector)
+            self._warn(
+                "Confluent Cloud has no per-connector topics API, so ingestion "
+                "leaves this empty and infers topics from the connector config "
+                "and the cluster topic list; see `connector_lineage` for the "
+                "topics lineage names and `cluster_topics` for that list"
+            )
+            return []
+        resolved = self._resolve(connector)
+        if resolved.manifest is None:
+            return []
+        return list(resolved.manifest.topic_names)[:limit]
+
+    @probe_method(kind=DatasetSubTypes.TOPIC, row_limit_param="limit")
+    def cluster_topics(self, limit: int = 500) -> List[str]:
+        """Confluent Cloud only: the non-internal topics on the Kafka cluster, from
+        the Kafka REST v3 API, which ingestion uses to infer sink and regex-routed
+        topics. Empty with a warning when the REST endpoint or its credentials
+        are missing -- in which case ingestion's lineage for those connectors is
+        config-inferred only. The listing is fully paged before the limit
+        applies, as ingestion pages it."""
+        if not self._source._is_confluent_cloud:
+            raise ValueError(
+                "cluster_topics applies to Confluent Cloud only; self-hosted "
+                "ingestion reads each connector's runtime topics instead -- use "
+                "connector_topics"
+            )
+        topics = self._source._get_all_topics_from_kafka_api()
+        # None means unavailable, and the reason is already on the report.
+        return sorted(topics)[:limit] if topics is not None else []
