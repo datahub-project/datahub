@@ -127,6 +127,13 @@ class DataLakeSourceConfig(
         )
 
     @classmethod
+    def probe_provider_class(cls) -> type:
+        # lazy: s3_probe imports this module and the S3 listing stack
+        from datahub.ingestion.source.s3.s3_probe import S3MetadataProbe
+
+        return S3MetadataProbe
+
+    @classmethod
     def probe_rule_filtered_kinds(cls) -> Dict[str, str]:
         """path_specs, not an AllowDenyPattern, decide every level this source emits."""
         return {
