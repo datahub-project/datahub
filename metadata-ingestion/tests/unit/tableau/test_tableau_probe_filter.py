@@ -95,7 +95,7 @@ def test_a_separator_inside_a_name_is_reported_when_the_readings_differ() -> Non
 
 def test_a_path_name_is_not_warned_about_when_both_readings_agree() -> None:
     for config in ({"project_path_pattern": {"allow": ["^Sales/EMEA$"]}}, {}):
-        project = _judge("Project", ["Sales/EMEA"], **config)
+        project = _judge("Project", ["Sales/EMEA"], (), **config)
         workbook = _judge("Workbook", ["Revenue"], ["Sales/EMEA"], **config)
         for result in (project, workbook):
             assert not any("separator" in w for w in result.warnings), config

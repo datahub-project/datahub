@@ -297,13 +297,13 @@ The `profiling_pattern` setting may be used to limit profiling actions to only a
 
 `datahub recipe probe` checks a PowerBI recipe against the live tenant before a run. It authenticates with the recipe's own service principal and `environment`, uses the same REST endpoints, paging and retries as ingestion, and returns metadata only. It never starts the admin workspace scan. Run it with the read-only service principal that ingestion uses.
 
-| Command            | Parameters  | Returns                                                                                                                   |
-| ------------------ | ----------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Command            | Parameters  | Returns                                                                                                                     |
+| ------------------ | ----------- | --------------------------------------------------------------------------------------------------------------------------- |
 | `workspaces`       | `limit`     | Each listed workspace's name, id, type, `type_allowed` (the `workspace_type_filter` verdict) and, with the admin API, state |
-| `reports`          | `workspace` | The reports in one workspace, by workspace name, with `type` `Report` or `PaginatedReport`                                |
-| `dashboards`       | `workspace` | The dashboards in one workspace, by workspace name                                                                        |
-| `admin_api_access` | none        | Whether the credential can call the read-only admin APIs                                                                  |
-| `api`              | `path`      | One raw response from `/groups`, `/groups/{id}/reports` or `/groups/{id}/dashboards`                                      |
+| `reports`          | `workspace` | The reports in one workspace, by workspace name, with `type` `Report` or `PaginatedReport`                                  |
+| `dashboards`       | `workspace` | The dashboards in one workspace, by workspace name                                                                          |
+| `admin_api_access` | none        | Whether the credential can call the read-only admin APIs                                                                    |
+| `api`              | `path`      | One raw response from `/groups`, `/groups/{id}/reports` or `/groups/{id}/dashboards`                                        |
 
 The workspace listing follows the recipe: the regular API's member workspaces by default, or the whole tenant with `admin_apis_only`. It is narrowed by `modified_since` the same way ingestion narrows it. If no workspace was modified since that date, ingestion applies no filter and lists every workspace, and the probe does the same and says so. If PowerBI rejects the date, for example because it is more than 30 days ago, the probe fails with an error that names `modified_since`. If the modified-workspaces list cannot be read at all, for example without admin API access, ingestion lists every workspace, and the probe does the same with a warning.
 

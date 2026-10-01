@@ -187,9 +187,7 @@ class TableauMetadataProbe:
         is reported at the root, as ingestion treats it, and the result says so
         in its warnings. Owners and descriptions are withheld."""
         return self._listing(
-            lambda: sorted(self._path(p) for p in self._all_projects().values())[
-                :limit
-            ]
+            lambda: sorted(self._path(p) for p in self._all_projects().values())[:limit]
         )
 
     # Tableau REST filter expressions are "field:op:value" joined by commas, so
