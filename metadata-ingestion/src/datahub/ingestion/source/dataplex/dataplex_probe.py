@@ -341,9 +341,7 @@ class DataplexMetadataProbe:
         row_limit_param="limit",
         parent_params=("project", "entry_group"),
     )
-    def entry_fqns(
-        self, project: str, entry_group: str, limit: int = 200
-    ) -> List[str]:
+    def entry_fqns(self, project: str, entry_group: str, limit: int = 200) -> List[str]:
         """Fully-qualified names of the entries in one entry group -- the
         strings filter_config.entries.fqn_pattern is matched against
         (e.g. bigquery:<project>.<dataset>.<table>). Entries without one are

@@ -178,9 +178,7 @@ def test_export_mode_does_not_judge_the_entry_group_above_an_entry() -> None:
     entry = _judge(
         config, DATAPLEX_ENTRY_KIND, [ENTRY_ORDERS], parents=["proj-a", GROUP_SALES]
     )
-    group = _judge(
-        config, DATAPLEX_ENTRY_GROUP_KIND, [GROUP_SALES], parents=["proj-a"]
-    )
+    group = _judge(config, DATAPLEX_ENTRY_GROUP_KIND, [GROUP_SALES], parents=["proj-a"])
     assert entry.results[0].included is True
     assert any("extraction_method" in w for w in group.warnings)
 
@@ -225,9 +223,7 @@ def test_export_mode_judges_a_discovered_project_by_its_pattern() -> None:
         **EXPORT_MODE,
         "project_id_pattern": {"allow": ["^proj-a$"]},
     }
-    result = _judge(
-        config, DATAPLEX_ENTRY_KIND, [ENTRY_B], parents=["proj-b", GROUP_B]
-    )
+    result = _judge(config, DATAPLEX_ENTRY_KIND, [ENTRY_B], parents=["proj-b", GROUP_B])
     assert [(r.included, r.excluded_by) for r in result.results] == [
         (False, "project_id_pattern")
     ]
@@ -235,9 +231,7 @@ def test_export_mode_judges_a_discovered_project_by_its_pattern() -> None:
 
 def test_read_export_mode_says_the_export_scope_decides_the_project() -> None:
     config: Dict[str, object] = {**READ_EXPORT_MODE, "project_ids": ["proj-a"]}
-    result = _judge(
-        config, DATAPLEX_ENTRY_KIND, [ENTRY_B], parents=["proj-b", GROUP_B]
-    )
+    result = _judge(config, DATAPLEX_ENTRY_KIND, [ENTRY_B], parents=["proj-b", GROUP_B])
     assert result.results[0].included is True
     assert any("read_export" in w for w in result.warnings)
 
@@ -254,9 +248,7 @@ def test_a_spanner_entry_warns_that_the_entry_group_pattern_is_bypassed() -> Non
     assert not any("search_entries" in w for w in plain.warnings)
 
 
-def test_project_labels_with_a_bare_name_warn_that_labels_were_not_checked() -> (
-    None
-):
+def test_project_labels_with_a_bare_name_warn_that_labels_were_not_checked() -> None:
     config: Dict[str, object] = {"project_labels": ["env:prod"]}
     bare = _judge(config, DATAPLEX_PROJECT_KIND, ["prod-a"])
     assert bare.results[0].included is True
