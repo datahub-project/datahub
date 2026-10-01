@@ -3828,6 +3828,43 @@ def test_include_non_consumption_views_off_by_default(requests_mock):
     assert config.include_non_consumption_views is False
 
 
+def test_non_consumption_views_managed_unresolvable_skips_space(requests_mock):
+    """When _managed is disabled, design-time Views cannot be emitted; warn once
+    and do not hit the per-object CSN endpoints."""
+    cfg = SapDatasphereConfig.model_validate(
+        {
+            "base_url": "https://myco.eu10.hcs.cloud.sap",
+            "token": "tok",
+            "include_non_consumption_views": True,
+            "connection_to_platform_map": {
+                "_managed": {"platform": "hana", "enabled": False},
+            },
+        }
+    )
+    base = "https://myco.eu10.hcs.cloud.sap"
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces",
+        json={"value": [{"name": "S1", "label": "S1"}]},
+    )
+    requests_mock.get(
+        f"{base}/api/v1/datasphere/consumption/catalog/spaces('S1')/assets",
+        json={"value": []},
+    )
+    requests_mock.get(f"{base}/api/v1/datasphere/spaces/S1/connections", json=[])
+    # List endpoints intentionally unmocked — resolve-fail must return before
+    # listing, or requests_mock would raise.
+
+    source = SapDatasphereSource(PipelineContext(run_id="ncv-managed"), cfg)
+    list(source.get_workunits())
+
+    titles = [w.title or "" for w in source.report.warnings]
+    assert (
+        "Cannot emit non-consumption Views / Analytic Models — _managed "
+        "connection unresolvable" in titles
+    )
+    assert source.report.non_consumption_views_emitted == 0
+
+
 _EDMX_FOR_TAGS = """<?xml version="1.0" encoding="UTF-8"?>
 <edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
             xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
