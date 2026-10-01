@@ -2,6 +2,7 @@ import logging
 import re
 import urllib.parse
 from typing import (
+    Annotated,
     Any,
     Callable,
     Dict,
@@ -34,7 +35,7 @@ from sqlalchemy.exc import (
 from sqlalchemy.sql import quoted_name
 
 import datahub.metadata.schema_classes as models
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, Filters, HiddenFromDocs
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import (
@@ -63,7 +64,10 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    SourceCapabilityModifier,
+)
 from datahub.ingestion.source.sql.mssql.alias_filter import MSSQLAliasFilter
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
@@ -212,6 +216,52 @@ def _is_permission_denied(exc: DBAPIError) -> bool:
     )
 
 
+def database_name_from_url(url: Any) -> str:
+    """What ingestion calls the database an engine is on (get_db_name).
+
+    The URL's database, or DATABASE= inside an ODBC connect string; "" when
+    neither names one, in which case the login's default database is used and
+    ingestion qualifies nothing with it.
+    """
+    if getattr(url, "database", None):
+        return str(url.database).strip('"')
+    query = getattr(url, "query", None) or {}
+    if "odbc_connect" in query:
+        # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
+        database = re.search(
+            r"DATABASE=([^;]*);",
+            urllib.parse.unquote_plus(str(query["odbc_connect"])),
+            flags=re.IGNORECASE,
+        )
+        if database and database.group(1):
+            return database.group(1)
+    return ""
+
+
+def _handle_sql_variant_as_string(value: bytes) -> str:
+    try:
+        return value.decode("utf-16le")
+    except UnicodeDecodeError:
+        return value.decode("Windows-1251")
+
+
+def add_sql_variant_converter(dbapi_connection: Any) -> None:
+    """Teach a pyodbc connection to read sql_variant (ODBC type -150).
+
+    sys.extended_properties.value is sql_variant, so without this every
+    description read over ODBC raises.
+    """
+    # see https://stackoverflow.com/questions/45677374/pandas-pyodbc-odbc-sql-type-150-is-not-yet-supported
+    # and https://stackoverflow.com/questions/11671170/adding-output-converter-to-pyodbc-connection-in-sqlalchemy
+    try:
+        dbapi_connection.add_output_converter(-150, _handle_sql_variant_as_string)
+    except AttributeError as e:
+        logger.debug(
+            "Failed to mount output converter for MSSQL data type -150 due to %s",
+            e,
+        )
+
+
 class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     host_port: str = Field(default="localhost:1433", description="MSSQL host URL.")
     scheme: HiddenFromDocs[str] = Field(default="mssql+pytds")
@@ -241,7 +291,9 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         default={},
         description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
     )
-    database_pattern: AllowDenyPattern = Field(
+    database_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABASE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for databases to filter in ingestion.",
     )
@@ -361,6 +413,35 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         # get_sql_alchemy_url() alone defaults is_odbc=False, so the probe
         # would dial mssql+pytds for an mssql-odbc recipe; ingestion passes it.
         return self.get_sql_alchemy_url(is_odbc=self.uses_odbc())
+
+    def is_single_database_recipe(self) -> bool:
+        # The condition get_inspectors branches on: one inspector, no
+        # enumeration, no database_pattern, no system-database exclusion.
+        return bool(self.database) or bool(self.sqlalchemy_uri)
+
+    def pinned_database_name(self) -> str:
+        """What get_db_name reports for a single-database recipe's inspector.
+
+        "" when the connection names no database, so the login's default one
+        is read and its name is not knowable without connecting.
+        """
+        # lazy: URL parsing is only needed once a probe asks
+        from sqlalchemy.engine import make_url
+
+        return database_name_from_url(make_url(self.probe_sql_alchemy_url()))
+
+    def probe_prepare_engine(self, engine: Any) -> None:
+        # _add_output_converters, applied per connection because the probe
+        # never runs SQLServerSource.__init__, where ingestion applies it.
+        if engine.dialect.driver != "pyodbc":
+            return
+        # lazy: sqlalchemy events are only needed once a probe actually runs
+        from sqlalchemy import event
+
+        def _on_connect(dbapi_connection: Any, _record: Any) -> None:
+            add_sql_variant_converter(dbapi_connection)
+
+        event.listen(engine, "connect", _on_connect)
 
     @field_validator("max_queries_to_extract")
     @classmethod
@@ -619,21 +700,7 @@ class SQLServerSource(SQLAlchemySource):
 
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:
-        def handle_sql_variant_as_string(value):
-            try:
-                return value.decode("utf-16le")
-            except UnicodeDecodeError:
-                return value.decode("Windows-1251")
-
-        # see https://stackoverflow.com/questions/45677374/pandas-pyodbc-odbc-sql-type-150-is-not-yet-supported
-        # and https://stackoverflow.com/questions/11671170/adding-output-converter-to-pyodbc-connection-in-sqlalchemy
-        try:
-            conn.connection.add_output_converter(-150, handle_sql_variant_as_string)
-        except AttributeError as e:
-            logger.debug(
-                "Failed to mount output converter for MSSQL data type -150 due to %s",
-                e,
-            )
+        add_sql_variant_converter(conn.connection)
 
     def _populate_table_descriptions(self, conn: Connection, db_name: str) -> None:
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
@@ -1610,11 +1677,7 @@ class SQLServerSource(SQLAlchemySource):
         logger.debug("sql_alchemy_url=%s", url)
         engine = create_engine(url, **self.config.options)
 
-        if (
-            self.config.database
-            and self.config.database != ""
-            or (self.config.sqlalchemy_uri and self.config.sqlalchemy_uri != "")
-        ):
+        if self.config.is_single_database_recipe():
             inspector = inspect(engine)
             yield inspector
         else:
@@ -1987,30 +2050,8 @@ class SQLServerSource(SQLAlchemySource):
         engine = inspector.engine
 
         try:
-            if (
-                engine
-                and hasattr(engine, "url")
-                and hasattr(engine.url, "database")
-                and engine.url.database
-            ):
-                return str(engine.url.database).strip('"')
-
-            if (
-                engine
-                and hasattr(engine, "url")
-                and hasattr(engine.url, "query")
-                and "odbc_connect" in engine.url.query
-            ):
-                # According to the ODBC connection keywords: https://learn.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver17#supported-dsnconnection-string-keywords-and-connection-attributes
-                database = re.search(
-                    r"DATABASE=([^;]*);",
-                    urllib.parse.unquote_plus(str(engine.url.query["odbc_connect"])),
-                    flags=re.IGNORECASE,
-                )
-
-                if database and database.group(1):
-                    return database.group(1)
-
+            if engine and hasattr(engine, "url"):
+                return database_name_from_url(engine.url)
             return ""
 
         except Exception as e:
