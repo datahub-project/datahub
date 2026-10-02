@@ -10,6 +10,7 @@ import pytest
 from datahub.ingestion.source.kafka_connect.common import (
     CLOUD_JDBC_SOURCE_CLASSES,
     POSTGRES_CDC_SOURCE_CLOUD,
+    S3_SINK_CLOUD,
     ConnectorManifest,
     KafkaConnectLineage,
     KafkaConnectSourceConfig,
@@ -17,7 +18,9 @@ from datahub.ingestion.source.kafka_connect.common import (
     get_dataset_name,
     has_three_level_hierarchy,
 )
+from datahub.ingestion.source.kafka_connect.connector_registry import ConnectorRegistry
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
+    S3_SINK_CONNECTOR_CLASS,
     BigQuerySinkConnector,
     ClickHouseSinkConnector,
     ConfluentS3SinkConnector,
@@ -334,6 +337,53 @@ class TestS3SinkConnector:
         assert lineage.source_dataset == "user-events"
         assert lineage.source_platform == "kafka"
         assert lineage.target_dataset == "my-data-lake/kafka-data/processed-events"
+        assert lineage.target_platform == "s3"
+
+    @pytest.mark.parametrize(
+        "connector_class", [S3_SINK_CONNECTOR_CLASS, S3_SINK_CLOUD]
+    )
+    def test_s3_sink_lineage_via_registry(self, connector_class: str) -> None:
+        """Both the self-managed and Cloud-managed S3 sink classes get lineage.
+
+        The config shape is the one a Confluent Cloud managed S3 sink reports,
+        which uses the same 's3.bucket.name' and 'topics.dir' keys as the
+        self-managed connector.
+        """
+        connector_config: Dict[str, str] = {
+            "connector.class": connector_class,
+            "topics": "user-events",
+            "s3.bucket.name": "my-data-lake",
+            "topics.dir": "kafka-data",
+            "input.data.format": "AVRO",
+            "output.data.format": "JSON",
+            "path.format": "'year'=YYYY/'month'=MM/'day'=dd/'hour'=HH",
+            "time.interval": "HOURLY",
+            "flush.size": "1000",
+            "tasks.max": "1",
+        }
+
+        manifest: ConnectorManifest = self.create_mock_manifest(connector_config)
+        config: Mock = create_mock_kafka_connect_config()
+        # The registry checks explicit generic_connectors overrides before
+        # dispatching on connector.class, so the mock has to expose the field.
+        config.generic_connectors = []
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert isinstance(connector, ConfluentS3SinkConnector)
+        assert connector.get_platform() == "s3"
+        assert connector.get_topics_from_config() == ["user-events"]
+
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        lineage = lineages[0]
+        assert lineage.source_dataset == "user-events"
+        assert lineage.source_platform == "kafka"
+        assert lineage.target_dataset == "my-data-lake/kafka-data/user-events"
         assert lineage.target_platform == "s3"
 
 

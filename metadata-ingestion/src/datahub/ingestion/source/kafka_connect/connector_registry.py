@@ -12,6 +12,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     MYSQL_SINK_CLOUD,
     POSTGRES_SINK_CLOUD,
+    S3_SINK_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
     SNOWFLAKE_SOURCE_CLOUD,
@@ -255,8 +256,8 @@ class ConnectorRegistry:
             == "io.confluent.connect.bigquery.BigQuerySinkConnector"
         ):
             return BigQuerySinkConnector(manifest, config, report)
-        # S3 sink connectors
-        elif connector_class_value == S3_SINK_CONNECTOR_CLASS:
+        # S3 sink connectors (self-managed and Confluent Cloud)
+        elif connector_class_value in (S3_SINK_CONNECTOR_CLASS, S3_SINK_CLOUD):
             return ConfluentS3SinkConnector(manifest, config, report)
         # Snowflake sink connectors (classic self-hosted, high-performance v4, and Cloud)
         elif connector_class_value in (
