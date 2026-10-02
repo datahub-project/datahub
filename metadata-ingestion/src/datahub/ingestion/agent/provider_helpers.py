@@ -283,7 +283,9 @@ class soft_listing:
     one is reported as a missing return.
 
     The recorded text has any foreign exception's text withheld (class name
-    instead) -- a backstop for a connector translator that quoted one.
+    instead) -- a backstop for a connector translator that quoted one. The
+    label carries generic codes only: this is not told the provider class,
+    so a provider's probe_error_code is not asked.
     Do not interpolate parts of a foreign exception (an attribute such as
     `e.doc`) into a ProbeSoftError's message: the backstop withholds only
     the foreign exception's whole text, so a quoted part reaches the warning.

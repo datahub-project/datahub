@@ -75,7 +75,7 @@ def test_an_untrusted_type_is_untrusted_wherever_it_was_raised(
 
 
 class _RebuildRefusing(ProbeConnectionError):
-    """A trusted type whose message is not its args: police_authored cannot
+    """A trusted type whose message is not its args: police_trusted cannot
     rebuild it in place, so it falls back to the framework type."""
 
     def __init__(self, code: int, detail: str) -> None:
@@ -105,7 +105,7 @@ _FOREIGN_CALLS: Dict[str, Callable[[], None]] = {
 class _Provider:
     def __init__(self, mode: str) -> None:
         self.mode = mode
-        self.failures: List[str] = []
+        self._failures: List[str] = []
 
     @classmethod
     def for_config(cls, config: object) -> "_Provider":
@@ -142,6 +142,11 @@ class _Provider:
             _foreign_errors.lookup()
         if self.mode == "dialect-exit":
             _foreign_errors.exit_process()
+        if self.mode == "dialect-wraps-foreign":
+            try:
+                _foreign_errors.fetch()
+            except RuntimeError as exc:
+                raise ProbeConnectionError(f"dialect lookup failed: {exc}") from exc
         return "postgres"
 
     @property
@@ -149,7 +154,29 @@ class _Provider:
         # Read back after the call returns.
         if self.mode == "warnings-foreign":
             _foreign_errors.fetch()
+        if self.mode == "warnings-wraps-foreign":
+            try:
+                _foreign_errors.connect()
+            except Exception as exc:
+                raise ProbeConnectionError(f"warnings unreadable: {exc}") from exc
         return []
+
+    @property
+    def failures(self) -> List[str]:
+        # Read back after the call, and while a call failure is reported.
+        if self.mode == "failures-foreign":
+            _foreign_errors.fetch()
+        return self._failures
+
+    @failures.setter
+    def failures(self, value: List[str]) -> None:
+        self._failures = value
+
+    @property
+    def probe_report(self) -> object:
+        if self.mode == "report-foreign":
+            _foreign_errors.fetch()
+        return None
 
     def __enter__(self) -> "_Provider":
         return self
@@ -277,6 +304,8 @@ class _Provider:
         if self.mode == "recorded-exit":
             self.failures = ["GET /things returned 401"]
             _foreign_errors.exit_process()
+        if self.mode == "failures-foreign":
+            raise ProbeArgumentError(f"no thing named '{name}'")
         return []
 
     @probe_method(name="sql", scoped_sql_param="query")
@@ -472,28 +501,124 @@ def test_a_trusted_failure_closing_the_source_keeps_its_message(run: RunFn) -> N
     assert str(info.value) == "closing the session timed out"
 
 
+def _unreadable(attribute: str, label: str) -> str:
+    return (
+        f"the probe provider is defective: reading _Provider.{attribute} "
+        f"failed ({label})"
+    )
+
+
 @pytest.mark.parametrize(
-    "mode, expected, message",
+    "mode, label",
     [
-        ("dialect-foreign", ProbeConnectionError, "'sql' failed (RuntimeError)"),
-        ("dialect-key", ProbeInternalError, "'sql' failed (KeyError)"),
-        ("dialect-exit", ProbeConnectionError, "'sql' failed (SystemExit)"),
+        ("dialect-foreign", "RuntimeError"),
+        ("dialect-key", "KeyError"),
+        ("dialect-exit", "SystemExit"),
     ],
 )
-def test_a_failure_reading_the_provider_before_the_call_is_policed(
-    run: RunFn, mode: str, expected: type, message: str
+def test_an_attribute_the_gate_reads_that_raises_is_the_providers_defect(
+    run: RunFn, mode: str, label: str
 ) -> None:
-    # The gate reads provider attributes between opening and calling; what
-    # they raise is the command's failure, named by class like any other.
-    with pytest.raises(expected) as info:
+    # Whatever it raised, an attribute the framework reads by name failing to
+    # be read is a defect in the provider (exit 1), named by class and
+    # attribute and never by the exception's text.
+    with pytest.raises(ProbeInternalError) as info:
         run_probe_method("fake", {"mode": mode}, "sql", {"query": "SELECT 1"})
+    assert str(info.value) == _unreadable("sql_dialect", label)
+
+
+@pytest.mark.parametrize(
+    "mode, attribute",
+    [
+        ("warnings-foreign", "warnings"),
+        ("report-foreign", "probe_report"),
+        # Read while the call's own refusal is reported.
+        ("failures-foreign", "failures"),
+    ],
+)
+def test_an_attribute_read_back_after_the_call_that_raises_is_the_providers_defect(
+    run: RunFn, mode: str, attribute: str
+) -> None:
+    with pytest.raises(ProbeInternalError) as info:
+        run(mode, name="widget")
+    assert str(info.value) == _unreadable(attribute, "RuntimeError")
+
+
+@pytest.mark.parametrize(
+    "mode, command, kwargs, message",
+    [
+        (
+            "dialect-wraps-foreign",
+            "sql",
+            {"query": "SELECT 1"},
+            "dialect lookup failed: (RuntimeError)",
+        ),
+        (
+            "warnings-wraps-foreign",
+            "things",
+            {},
+            "warnings unreadable: (TransportError)",
+        ),
+    ],
+)
+def test_a_trusted_error_raised_by_an_attribute_is_policed_and_keeps_its_type(
+    run: RunFn,
+    mode: str,
+    command: str,
+    kwargs: Dict[str, object],
+    message: str,
+) -> None:
+    with pytest.raises(ProbeConnectionError) as info:
+        run_probe_method("fake", {"mode": mode}, command, kwargs)
     assert str(info.value) == message
 
 
-def test_a_failure_reading_the_result_back_is_policed(run: RunFn) -> None:
+@pytest.mark.parametrize(
+    "mode, command, kwargs, label",
+    [
+        ("dialect-wraps-foreign", "sql", {"query": "SELECT 1"}, "(RuntimeError)"),
+        ("wraps-foreign-connection", "things", {}, "(TransportError)"),
+        ("open-wraps-foreign", "things", {}, "(TransportError)"),
+    ],
+)
+def test_a_policed_trusted_error_is_labelled_once_under_verbose(
+    run: RunFn,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    command: str,
+    kwargs: Dict[str, object],
+    label: str,
+) -> None:
+    # Policed where it is raised and nowhere else: a second pass would find
+    # the shown text again and put a second label in front of it.
+    monkeypatch.setenv("DATAHUB_PROBE_VERBOSE_LOGS", "1")
     with pytest.raises(ProbeConnectionError) as info:
-        run("warnings-foreign")
-    assert str(info.value) == "'things' failed (RuntimeError)"
+        run_probe_method("fake", {"mode": mode}, command, kwargs)
+    message = str(info.value)
+    assert message.count(label) == 1, message
+    assert f"{label}: " in message
+
+
+class _UnreadableLoggers(type):
+    @property
+    def silenced_loggers(cls) -> object:
+        raise RuntimeError(f"logger table {SENTINEL} is unreadable")
+
+
+class _LoudProvider(_Provider, metaclass=_UnreadableLoggers):
+    pass
+
+
+def test_silenced_loggers_that_cannot_be_read_are_the_providers_defect(
+    run: RunFn, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(probe_methods, "_provider_class", lambda _st: _LoudProvider)
+    with pytest.raises(ProbeInternalError) as info:
+        run("")
+    assert str(info.value) == (
+        "the probe provider is defective: reading _LoudProvider.silenced_loggers "
+        "failed (RuntimeError)"
+    )
 
 
 @pytest.mark.parametrize(
@@ -623,6 +748,49 @@ def test_a_missed_key_is_not_mistaken_for_foreign_text(
     assert str(info.value) == message
 
 
+def _quoting(raiser: Callable[[], object]) -> str:
+    """The backstop's rendering of a refusal that quotes str() of whatever
+    `raiser` raised."""
+    try:
+        try:
+            raiser()
+        except LookupError as exc:
+            raise ProbeArgumentError(f"lookup said {exc}") from exc
+    except ProbeArgumentError as wrapper:
+        return withhold_foreign_text(wrapper)
+    raise AssertionError("raiser raised nothing")
+
+
+def _missed_key() -> object:
+    return {"a": 1}["widget-name"]
+
+
+def _index_with_text() -> object:
+    raise IndexError(f"row 3 of 2 in {SENTINEL}")
+
+
+def _key_subclass_with_message() -> object:
+    from sqlalchemy.exc import NoSuchColumnError
+
+    raise NoSuchColumnError(f"Could not locate column in row for column '{SENTINEL}'")
+
+
+@pytest.mark.parametrize(
+    "raiser, expected",
+    [
+        # str(KeyError(k)) is repr(k): the caller's own argument, kept.
+        (_missed_key, "lookup said 'widget-name'"),
+        # A lookup error carrying a message of its own is foreign text.
+        (_index_with_text, "lookup said (IndexError)"),
+        (_key_subclass_with_message, "lookup said (NoSuchColumnError)"),
+    ],
+)
+def test_only_a_bare_missed_key_is_exempt_from_the_backstop(
+    raiser: Callable[[], object], expected: str
+) -> None:
+    assert _quoting(raiser) == expected
+
+
 def test_a_short_foreign_text_is_not_searched_for() -> None:
     try:
         try:
@@ -708,7 +876,13 @@ def test_the_verbose_text_follows_the_label_so_the_cli_scrub_keeps_it_closed(
 
 
 @pytest.mark.parametrize(
-    "mode, exit_code", [("dialect-foreign", 3), ("dialect-key", 1), ("dialect-exit", 3)]
+    "mode, exit_code",
+    [
+        ("dialect-foreign", 1),
+        ("dialect-key", 1),
+        ("dialect-exit", 1),
+        ("dialect-wraps-foreign", 3),
+    ],
 )
 def test_the_cli_polices_a_provider_attribute_the_gate_reads(
     run: RunFn,
@@ -729,6 +903,10 @@ def test_the_cli_polices_a_provider_attribute_the_gate_reads(
     assert res.exit_code == exit_code, res.output
     assert SENTINEL not in res.output
     assert "Traceback" not in res.output
+    if exit_code == 1:
+        assert json.loads(res.stderr)["error"].startswith(
+            "the probe provider is defective: reading _Provider.sql_dialect failed"
+        )
 
 
 @pytest.mark.parametrize(
@@ -767,7 +945,10 @@ def test_the_cli_polices_a_provider_attribute_the_gate_reads(
         ("wraps-foreign-unprintable", 3),
         ("lookup-from-none", 2),
         ("lookup-foreign-repr", 3),
-        ("warnings-foreign", 3),
+        ("warnings-foreign", 1),
+        ("warnings-wraps-foreign", 3),
+        ("report-foreign", 1),
+        ("failures-foreign", 1),
         ("open-exit", 3),
         ("open-abort", 3),
         ("call-exit", 3),

@@ -246,6 +246,22 @@ def _foreign_in_chain(exc: BaseException) -> List[BaseException]:
     return found
 
 
+def _is_missed_key(exc: BaseException) -> bool:
+    """A lookup error raised with just the key it missed: `KeyError(k)`,
+    whose str is repr(k). That is the caller's own argument quoted back to
+    them, not the failure's text. A lookup error with a message of its own --
+    an IndexError's, or a KeyError subclass's (SQLAlchemy's
+    NoSuchColumnError) -- is foreign text like any other. Never raises."""
+    try:
+        return (
+            isinstance(exc, LookupError)
+            and len(exc.args) == 1
+            and str(exc) == repr(exc.args[0])
+        )
+    except Exception:
+        return False
+
+
 def withhold_foreign_text(
     exc: BaseException, provider_cls: Optional[type] = None
 ) -> str:
@@ -257,16 +273,15 @@ def withhold_foreign_text(
     the driver's text out. Only text that appears verbatim can be caught (the
     str or repr of the foreign exception); a message built from parts of it
     cannot, which is why the guide says never to interpolate an exception you
-    did not raise. A lookup error is matched by its repr only, and a rendering
-    under _MIN_RENDERING characters not at all (see there).
+    did not raise. A missed key is matched by its repr only (see
+    _is_missed_key), and a rendering under _MIN_RENDERING characters not at
+    all (see there).
     """
     message = str(exc)
     labels: Dict[str, str] = {}
     for foreign in _foreign_in_chain(exc):
         label = name_foreign(foreign, provider_cls)
-        # A lookup error's str is the key it missed, which is the caller's own
-        # argument quoted back to them, not the failure's text.
-        renders = (repr,) if isinstance(foreign, LookupError) else (repr, str)
+        renders = (repr,) if _is_missed_key(foreign) else (repr, str)
         for render in renders:
             try:
                 rendering = render(foreign)

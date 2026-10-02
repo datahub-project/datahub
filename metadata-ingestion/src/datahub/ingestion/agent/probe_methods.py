@@ -2,10 +2,12 @@ import inspect
 from contextlib import ExitStack
 from dataclasses import dataclass, field, replace
 from typing import (
+    TYPE_CHECKING,
     Any,
     Callable,
     Dict,
     FrozenSet,
+    Iterable,
     List,
     NoReturn,
     Optional,
@@ -14,6 +16,7 @@ from typing import (
     Tuple,
     Type,
     Union,
+    cast,
     get_args,
     get_origin,
     runtime_checkable,
@@ -42,6 +45,11 @@ from datahub.ingestion.agent.verdicts import (
     ProbeInternalError,
     ProbeReadFailed,
 )
+
+if TYPE_CHECKING:
+    # Only for an annotation: the gates import sqlglot lazily (see
+    # _enforce_gates).
+    from datahub.ingestion.agent.sql_gate import CatalogScope
 
 _TYPE_NAMES: Dict[type, str] = {str: "str", int: "int", bool: "bool"}
 
@@ -423,7 +431,7 @@ def _silenced_loggers(provider_cls: type) -> Tuple[str, ...]:
     or an ancestor it inherits its level from (the root included), so a
     provider can never hide the probe's own diagnostics.
     """
-    declared = getattr(provider_cls, "silenced_loggers", ())
+    declared = _provider_attribute(provider_cls, "silenced_loggers", ())
     if not isinstance(declared, (tuple, list)) or not all(
         isinstance(name, str) and name for name in declared
     ):
@@ -714,7 +722,7 @@ def _enforce_gates(
         # queries should not pay for.
         from datahub.ingestion.agent.sql_gate import check_query_scope
 
-        dialect = getattr(provider, "sql_dialect", None)
+        dialect = _provider_attribute(provider, "sql_dialect")
         if not isinstance(dialect, str) or not dialect:
             # The provider's defect, not the caller's: no query could pass.
             raise ProbeInternalError(
@@ -724,14 +732,15 @@ def _enforce_gates(
             )
         # The scope is the connector's declaration of what its dialect's catalog
         # is; absent one, check_query_scope falls back to information_schema only.
+        scope = _provider_attribute(provider, "catalog_scope")
         check_query_scope(
             str(call_kwargs[spec.scoped_sql_param]),
             platform=dialect,
-            scope=getattr(provider, "catalog_scope", None),
+            scope=cast(Optional["CatalogScope"], scope),
         )
 
     if spec.scoped_path_param is not None:
-        allowlist = getattr(provider, "api_allowlist", None)
+        allowlist = _provider_attribute(provider, "api_allowlist")
         if allowlist is None:
             # Distinct from an unlisted path, which is the caller's to fix: an
             # absent allowlist means no path can ever work, and the connector
@@ -745,11 +754,12 @@ def _enforce_gates(
         # The base URL is passed so the gate can resolve the path the way the
         # client will and match on that, rather than on the caller's string --
         # see _effective_path for the two bypasses that distinction closes.
+        base_url = _provider_attribute(provider, "api_base_url")
         check_api_request(
             READ_METHOD,
             str(call_kwargs[spec.scoped_path_param]),
-            allowlist,
-            base_url=getattr(provider, "api_base_url", None),
+            cast(Iterable[str], allowlist),
+            base_url=cast(Optional[str], base_url),
         )
 
 
@@ -792,9 +802,7 @@ def _raise_call_failure(
     (see agent.error_policy); a trusted one keeps its type and message, minus
     any untrusted text it quotes.
     """
-    recorded = set(getattr(provider, "failures", None) or []) | _report_entries(
-        getattr(provider, "probe_report", None), "failures"
-    )
+    recorded = _read_back(provider, "failures")
     if recorded:
         # The recorded failure explains the miss, whatever was raised after it.
         detail = (
@@ -823,6 +831,41 @@ def _reraise_trusted(exc: BaseException, provider_cls: type) -> NoReturn:
 # the interpreter's, so both reach the caller unchanged. Every other exception
 # raised inside a provider, SystemExit included, is policed.
 _PASS_THROUGH: Tuple[Type[BaseException], ...] = (KeyboardInterrupt, GeneratorExit)
+
+
+def _provider_attribute(owner: object, name: str, default: object = None) -> object:
+    """`owner.name`, for a provider or its class: how the framework reads every
+    attribute in PROVIDER_ATTRIBUTES.
+
+    Absent (AttributeError) reads as `default`. An attribute that raises is
+    policed here, where it is raised: a trusted error keeps its type minus any
+    untrusted text it quotes, and anything else is the provider's defect
+    (exit 1), named by class and attribute but never by its text. A provider
+    whose attribute has to reach the source raises a framework type to say
+    what failed.
+    """
+    owner_cls = owner if isinstance(owner, type) else type(owner)
+    try:
+        return getattr(owner, name, default)
+    except _PASS_THROUGH:
+        raise
+    except BaseException as exc:
+        if is_trusted(exc):
+            _reraise_trusted(exc, owner_cls)
+        raise ProbeInternalError(
+            f"the probe provider is defective: reading "
+            f"{owner_cls.__name__}.{name} failed {name_foreign(exc, owner_cls)}"
+        ) from None
+
+
+def _read_back(provider: object, kind: str) -> Set[str]:
+    """The provider's `kind` entries ("warnings" or "failures"): its own list,
+    and those of the SourceReport it exposes as `probe_report`, which is what
+    a connector reusing its ingestion fetchers records them in."""
+    own = _provider_attribute(provider, kind)
+    return set(cast(Iterable[str], own or [])) | _report_entries(
+        _provider_attribute(provider, "probe_report"), kind
+    )
 
 
 @dataclass(frozen=True)
@@ -883,8 +926,9 @@ def _open_call_close(call: _ProviderCall) -> _CallOutcome:
         if body_error is None:
             _source_failure(exc, call, "closing")
         if not is_trusted(body_error) and not isinstance(body_error, _PASS_THROUGH):
-            # Raised outside the open and call handlers: a provider attribute
-            # the gates read, or one read back after the call.
+            # Raised outside the open and call handlers and the attribute
+            # reads, each of which polices its own: a gate or the read-back
+            # iterating a value the provider supplied.
             raise classify_foreign(
                 body_error, f"'{call.spec.command}'", call.provider_cls
             ) from None
@@ -938,33 +982,14 @@ def _open_and_call(stack: ExitStack, call: _ProviderCall) -> _CallOutcome:
         # shapes: a getter that recorded a failed fetch and then raised
         # "no such name" is reporting the fetch, not a bad argument.
         _raise_call_failure(exc, provider, call.provider_cls, command)
-    # Optional, source-agnostic: a provider that degrades a sub-fetch
-    # instead of failing outright (see agent.verdicts.ProbeSoftError) may
-    # expose its own `warnings` list to report that here. Duck-typed
-    # rather than part of the ProbeProvider Protocol, since most
-    # providers have nothing to report and shouldn't need to declare it.
-    provider_warnings = getattr(provider, "warnings", None)
-    # And the other half of the same report. A connector that reuses its
-    # ingestion fetchers records an unreadable endpoint with
-    # report.failure(), not report.warning() -- correct for ingestion, which
-    # emits what it can and surfaces the gap to an operator. Reading only
-    # `warnings` meant those reads came back as an empty result at exit 0,
-    # so the probe's central promise (never report empty for unread) held
-    # only for connectors that happened not to reuse an ingestion path.
-    #
-    # Both shapes are accepted: a plain `failures` list, or a SourceReport
-    # exposed as `probe_report` whose warnings and failures are folded in.
-    # The latter is what a connector reusing its own fetchers already has.
-    provider_report = getattr(provider, "probe_report", None)
-    provider_failures = set(
-        getattr(provider, "failures", None) or []
-    ) | _report_entries(provider_report, "failures")
-    report_warnings = _report_entries(provider_report, "warnings")
+    # Degraded sub-fetches (see agent.verdicts.ProbeSoftError) and reads that
+    # could not complete, so a result built around a failed read never reads
+    # as an empty answer. Reused ingestion code records an unreadable endpoint
+    # with report.failure(), which is why the report is read as well.
     return _CallOutcome(
         result=result,
-        warnings=set(list(provider_warnings) if provider_warnings else [])
-        | report_warnings,
-        failures=provider_failures,
+        warnings=_read_back(provider, "warnings"),
+        failures=_read_back(provider, "failures"),
     )
 
 

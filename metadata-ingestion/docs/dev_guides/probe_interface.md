@@ -116,7 +116,8 @@ implement exactly this one hook and nothing else in this guide. Everything below
 The framework reads these attributes by name, whether or not you inherit `ProbeProviderBase`, which
 declares them all with defaults that read as absent. `test_probe_contract.py` refuses a provider
 attribute named like one but not exactly one (`probe_reports`, `sql_dialects`): it would never be
-read.
+read. An attribute that raises when read is reported as the provider's defect (exit 1), by class and
+attribute only; a property that has to reach the source raises a framework type to say what failed.
 
 ### Errors, logs and secrets
 
