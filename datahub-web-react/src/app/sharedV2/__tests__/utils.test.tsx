@@ -11,35 +11,33 @@ import { ColumnTypeIcon, TypeTooltipTitle } from '@app/sharedV2/utils';
 
 import { SchemaFieldDataType } from '@types';
 
-function expectIconMatch(actual: JSX.Element | null, expected: JSX.Element) {
-    const { container: actualContainer } = render(actual as JSX.Element);
-    const { container: expectedContainer } = render(expected);
-    expect(actualContainer.innerHTML).toBe(expectedContainer.innerHTML);
+function renderIconHtml(node: JSX.Element | null) {
+    return render(node as JSX.Element).container.innerHTML;
 }
 
 describe('ColumnTypeIcon', () => {
     it('should return TextAUnderline for String type', () => {
-        expectIconMatch(ColumnTypeIcon(SchemaFieldDataType.String), <TextAUnderline />);
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.String))).toBe(renderIconHtml(<TextAUnderline />));
     });
 
     it('should return CalendarBlank for Date type', () => {
-        expectIconMatch(ColumnTypeIcon(SchemaFieldDataType.Date), <CalendarBlank />);
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.Date))).toBe(renderIconHtml(<CalendarBlank />));
     });
 
     it('should return Clock for Time type', () => {
-        expectIconMatch(ColumnTypeIcon(SchemaFieldDataType.Time), <Clock />);
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.Time))).toBe(renderIconHtml(<Clock />));
     });
 
     it('should return TextB for Boolean type', () => {
-        expectIconMatch(ColumnTypeIcon(SchemaFieldDataType.Boolean), <TextB />);
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.Boolean))).toBe(renderIconHtml(<TextB />));
     });
 
     it('should return Binary for Bytes type', () => {
-        expectIconMatch(ColumnTypeIcon(SchemaFieldDataType.Bytes), <Binary />);
+        expect(renderIconHtml(ColumnTypeIcon(SchemaFieldDataType.Bytes))).toBe(renderIconHtml(<Binary />));
     });
 
     it('should return Question for unknown type', () => {
-        expectIconMatch(ColumnTypeIcon(undefined), <Question />);
+        expect(renderIconHtml(ColumnTypeIcon(undefined))).toBe(renderIconHtml(<Question />));
     });
 });
 
