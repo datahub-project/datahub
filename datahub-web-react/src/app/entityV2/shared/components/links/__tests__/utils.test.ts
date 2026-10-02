@@ -3,7 +3,7 @@ import type { Mock } from 'vitest';
 
 import { isFileUrl } from '@components/components/Editor/extensions/fileDragDrop';
 
-import { LinkFormVariant } from '@app/entityV2/shared/components/links/types';
+import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
 import {
     getGeneralizedLinkFormDataFromFormData,
     getInitialLinkFormDataFromInstitutionMemory,
@@ -206,5 +206,26 @@ describe('utils', () => {
                 showInAssetPreview: false,
             });
         });
+    });
+
+    it('round-trips link type and description between institutional memory and form data', () => {
+        const formData = getInitialLinkFormDataFromInstitutionMemory(
+            {
+                url: 'https://example.com',
+                label: 'Example Label',
+                linkType: 'Runbook',
+                linkDescription: 'On-call steps',
+            },
+            false,
+        );
+
+        expect(formData).toMatchObject({ linkType: 'Runbook', linkDescription: 'On-call steps' });
+        expect(
+            getGeneralizedLinkFormDataFromFormData({
+                ...formData,
+                fileUrl: '',
+                showInAssetPreview: false,
+            } as LinkFormData),
+        ).toMatchObject({ linkType: 'Runbook', linkDescription: 'On-call steps' });
     });
 });

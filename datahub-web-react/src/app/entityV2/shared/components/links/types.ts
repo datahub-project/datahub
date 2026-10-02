@@ -9,6 +9,8 @@ export interface LinkFormData {
     fileUrl: string;
 
     label: string;
+    linkType?: string;
+    linkDescription?: string;
 
     showInAssetPreview: boolean;
 }
@@ -16,6 +18,8 @@ export interface LinkFormData {
 export interface GeneralizedLinkFormData {
     url: string;
     label: string;
+    linkType?: string;
+    linkDescription?: string;
 
     showInAssetPreview: boolean;
 }

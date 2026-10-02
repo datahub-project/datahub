@@ -63,6 +63,8 @@ public class UpdateLinkResolver implements DataFetcher<CompletableFuture<Boolean
                 targetUrn,
                 actor,
                 settingsInput,
+                input.getLinkType(),
+                input.getLinkDescription(),
                 _entityService);
             return true;
           } catch (Exception e) {
