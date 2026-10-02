@@ -1,7 +1,8 @@
 import logging
+import threading
 from contextlib import contextmanager
 from functools import partial
-from typing import Callable, Iterator, List, Sequence, Set, Tuple
+from typing import Callable, Iterator, List, Optional, Sequence, Set, Tuple
 
 from datahub.configuration.env_vars import get_probe_verbose_logs
 from datahub.ingestion.agent.redact import scrub_text
@@ -115,14 +116,64 @@ def _guarded_loggers() -> List[logging.Logger]:
 _CallHandlers = Callable[[logging.Logger, logging.LogRecord], None]
 
 
-def _guarded_call_handlers(
-    guard: logging.Filter, inner: _CallHandlers
-) -> _CallHandlers:
-    def call_handlers(logger: logging.Logger, record: logging.LogRecord) -> None:
-        if guard.filter(record):
-            inner(logger, record)
+class _ActiveGuards:
+    """The open guards, and the one callHandlers wrapper that applies them.
 
-    return call_handlers
+    One wrapper for the whole process rather than one per guard, so the
+    order guards close in does not matter: a guard closing removes only its
+    own filter, and the wrapper comes off the class when the last one
+    closes. It comes off only if the class still holds it -- an SDK that
+    patched callHandlers on top while a guard was open (error reporters
+    do) keeps its patch, and the wrapper, left underneath it, applies
+    nothing until a guard opens again.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        # Replaced, never mutated, so the wrapper reads it without the lock.
+        self.guards: Tuple[logging.Filter, ...] = ()
+        # What the wrapper calls through to. Set for as long as the wrapper
+        # is anywhere in the chain, which is also how a second install on
+        # top of a patch that sits over it -- a loop -- is avoided.
+        self.below: Optional[_CallHandlers] = None
+
+    def open(self, guard: logging.Filter) -> None:
+        with self._lock:
+            self.guards = (*self.guards, guard)
+            if self.below is None:
+                self.below = vars(logging.Logger)["callHandlers"]
+                setattr(logging.Logger, "callHandlers", _scrubbing_call_handlers)  # noqa: B010
+
+    def close(self, guard: logging.Filter) -> None:
+        with self._lock:
+            kept = list(self.guards)
+            # The last occurrence, by identity: the same filter is never
+            # opened twice, but equality is not identity for a Filter
+            # subclass that defines __eq__.
+            for i in range(len(kept) - 1, -1, -1):
+                if kept[i] is guard:
+                    del kept[i]
+                    break
+            self.guards = tuple(kept)
+            if (
+                not self.guards
+                and vars(logging.Logger)["callHandlers"] is _scrubbing_call_handlers
+            ):
+                setattr(logging.Logger, "callHandlers", self.below)  # noqa: B010
+                self.below = None
+
+
+_ACTIVE = _ActiveGuards()
+
+
+def _scrubbing_call_handlers(logger: logging.Logger, record: logging.LogRecord) -> None:
+    # Innermost guard first, as nested handler filters would have run.
+    for guard in reversed(_ACTIVE.guards):
+        if not guard.filter(record):
+            return
+    below = _ACTIVE.below
+    if below is not None:
+        below(logger, record)
 
 
 @contextmanager
@@ -153,11 +204,12 @@ def quiet_reused_logs(
     logged as `py.warnings` and scrubbed too, with or without the masking
     bootstrap.
 
-    Every change is undone in reverse order on exit, exception or not, so a
-    nested guard (or two probes in one process) leaves logging exactly as it
-    found it; a nested guard's scrub runs before the outer one's. Not safe
-    against two guards on different threads exiting out of order: each
-    restores what it saw on entry.
+    Every change is undone on exit, exception or not, so a nested guard (or
+    two probes in one process) leaves logging as it found it; a nested
+    guard's scrub runs before the outer one's. Guards on different threads
+    may close in any order as far as the scrub goes (see _ActiveGuards):
+    while any is open, every guard's scrub applies to every record. The
+    WARNING floors are still per guard, restored to what each saw on entry.
     """
     if get_probe_verbose_logs():
         yield
@@ -169,13 +221,8 @@ def quiet_reused_logs(
             if logger.getEffectiveLevel() < logging.WARNING:
                 undo.append(partial(logger.setLevel, logger.level))
                 logger.setLevel(logging.WARNING)
-        # vars(), not getattr: the exact attribute the class held, so the
-        # restore leaves it as it was, an outer guard's wrapper included.
-        saved: _CallHandlers = vars(logging.Logger)["callHandlers"]
-        setattr(  # noqa: B010
-            logging.Logger, "callHandlers", _guarded_call_handlers(guard, saved)
-        )
-        undo.append(partial(setattr, logging.Logger, "callHandlers", saved))
+        _ACTIVE.open(guard)
+        undo.append(partial(_ACTIVE.close, guard))
         if getattr(logging, "_warnings_showwarning", None) is None:
             logging.captureWarnings(True)
             undo.append(partial(logging.captureWarnings, False))

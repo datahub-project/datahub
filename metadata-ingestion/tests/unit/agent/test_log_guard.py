@@ -1,5 +1,6 @@
 import io
 import logging
+import threading
 import warnings
 from pathlib import Path
 from typing import Dict, Iterator, List, Tuple
@@ -585,3 +586,96 @@ def test_logging_is_unpatched_after_nested_guards_and_an_exception() -> None:
             pass
         raise RuntimeError("boom")
     assert vars(logging.Logger)["callHandlers"] is call_handlers
+
+
+def _scrubbed_by_the_guard(name: str, secret: str) -> bool:
+    """Whether a record logged now under `name` reaches a handler scrubbed."""
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    log = logging.getLogger(name)
+    log.addHandler(handler)
+    log.propagate = False
+    try:
+        log.warning("value %s", secret)
+    finally:
+        log.removeHandler(handler)
+        log.propagate = True
+    return secret not in stream.getvalue()
+
+
+def test_guards_exiting_out_of_order_keep_the_open_one_scrubbing() -> None:
+    original = vars(logging.Logger)["callHandlers"]
+    first = quiet_reused_logs({"PLANTED-first"})
+    second = quiet_reused_logs({"PLANTED-second"})
+    first.__enter__()
+    second.__enter__()
+    first.__exit__(None, None, None)
+    try:
+        assert _scrubbed_by_the_guard("some_lib.out_of_order", "PLANTED-second")
+    finally:
+        second.__exit__(None, None, None)
+    assert vars(logging.Logger)["callHandlers"] is original
+    assert not _scrubbed_by_the_guard("some_lib.out_of_order", "PLANTED-second")
+
+
+def test_a_patch_made_inside_the_guard_is_left_in_place() -> None:
+    """An SDK that wraps callHandlers itself (error reporters do) while the
+    guard is open keeps its patch; the guard stops scrubbing instead of
+    putting back what it saw on entry."""
+    original = vars(logging.Logger)["callHandlers"]
+    seen: List[str] = []
+
+    def reporter(logger: logging.Logger, record: logging.LogRecord) -> None:
+        seen.append(record.getMessage())
+        below(logger, record)
+
+    with quiet_reused_logs({"PLANTED-patched"}):
+        below = vars(logging.Logger)["callHandlers"]
+        setattr(logging.Logger, "callHandlers", reporter)  # noqa: B010
+    try:
+        assert vars(logging.Logger)["callHandlers"] is reporter
+        assert not _scrubbed_by_the_guard("some_lib.patched", "PLANTED-patched")
+        assert seen
+        # A guard opened under the patch scrubs, without stacking a second
+        # wrapper over the patch that calls into the first.
+        with quiet_reused_logs({"PLANTED-again"}):
+            assert _scrubbed_by_the_guard("some_lib.patched", "PLANTED-again")
+        assert vars(logging.Logger)["callHandlers"] is reporter
+        # The reporter unpatches, putting back what it found: the guard's
+        # wrapper, which the next guard to close removes.
+        setattr(logging.Logger, "callHandlers", below)  # noqa: B010
+        with quiet_reused_logs(set()):
+            pass
+        assert vars(logging.Logger)["callHandlers"] is original
+    finally:
+        if vars(logging.Logger)["callHandlers"] is reporter:
+            setattr(logging.Logger, "callHandlers", below)  # noqa: B010
+            with quiet_reused_logs(set()):
+                pass
+
+
+def test_guards_on_two_threads_both_scrub_and_restore() -> None:
+    original = vars(logging.Logger)["callHandlers"]
+    entered = [threading.Event(), threading.Event()]
+    release = [threading.Event(), threading.Event()]
+    results: Dict[int, bool] = {}
+
+    def probe(i: int) -> None:
+        secret = f"PLANTED-thread-{i}"
+        with quiet_reused_logs({secret}):
+            entered[i].set()
+            release[i].wait(5)
+            results[i] = _scrubbed_by_the_guard(f"some_lib.thread{i}", secret)
+
+    threads = [threading.Thread(target=probe, args=(i,)) for i in (0, 1)]
+    for t in threads:
+        t.start()
+    for e in entered:
+        assert e.wait(5)
+    # The first one in leaves first.
+    release[0].set()
+    threads[0].join(5)
+    release[1].set()
+    threads[1].join(5)
+    assert results == {0: True, 1: True}
+    assert vars(logging.Logger)["callHandlers"] is original
